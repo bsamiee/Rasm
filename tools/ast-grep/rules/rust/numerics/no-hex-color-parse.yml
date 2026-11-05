@@ -24,7 +24,7 @@ utils:
         all:
             - has: {field: function, regex: '::from_str_radix$'}
             - has: {field: arguments, has: {nthChild: 2, matches: sixteen}}
-            - has: {field: arguments, has: {nthChild: 1, has: {stopBy: end, kind: range_expression, regex: '^1\p{White_Space}*\.\.'}}}
+            - has: {field: arguments, has: {nthChild: 1, has: {stopBy: end, kind: range_expression, regex: '^1\p{Pattern_White_Space}*\.\.'}}}
     hash-argument:
         has: {field: arguments, has: {nthChild: 1, regex: '^(''#''|"#"|b''#'')$'}, not: {has: {nthChild: 2}}}
 rule:

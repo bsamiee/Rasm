@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-proximity"
-version.workspace    = true
-edition.workspace    = true
-description          = "Proximity over point clouds and placed parry shapes at nalgebra signatures: k-d tree batches and normals, incremental assemblies, clashes and nearest separations under a pair rule, signed point deviations, first-hit, any-hit and every-crossing ray batches, swept-shape casts, containment, weighted rigid fits and robust point-to-point or point-to-plane ICP"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["proximity", "collision", "raycast", "kd-tree", "registration"]
-categories           = ["graphics", "mathematics"]
+name              = "rasm-proximity"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

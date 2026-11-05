@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-pdf"
-version.workspace    = true
-edition.workspace    = true
-description          = "PDF documents every Rasm app opens, authors, edits, reads and proofs on krilla, lopdf, pdf_oxide and hayro: drawing sets written from rasm-linework pages with layers, measure viewports, outlines, tags and PDF/A, UA and X standards, page fields, assembly, forms, redaction, revision overlays and PAdES signing, page walks for text, tables, images and paths, OCR, validation and tiled soft proofs"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["pdf", "drawing", "pdfa", "accessibility", "print"]
-categories           = ["graphics", "rendering::data-formats"]
+name              = "rasm-pdf"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

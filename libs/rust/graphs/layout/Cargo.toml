@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-layout"
-version.workspace    = true
-edition.workspace    = true
-description          = "Drawn layouts of petgraph graphs on a canvas bounding every frame, route and label: layered dagre layouts with ranked and labeled edges, force-directed fCoSE layouts from a spectral or incremental start under alignment and relative placement constraints, nested clusters with title boxes, absent, self-nesting and constrained cluster nodes refused in one error, fanned parallel routes, one-bend segments and stepped loops at anchored ports clipped to box, ellipse and diamond outlines as polylines, basis or cardinal splines, and GraphML export keeping cluster nesting beside Graphviz DOT export scaled from the drawing unit"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["graph-drawing", "graph-layout", "dagre", "force-directed", "graphml"]
-categories           = ["algorithms", "visualization"]
+name              = "rasm-layout"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

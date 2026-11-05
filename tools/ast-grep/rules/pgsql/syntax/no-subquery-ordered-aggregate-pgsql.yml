@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+utils:
+    ordered-select:
+        kind: select_no_parens
+        has: {kind: sort_clause}
+    ordered-cte:
+        kind: with_clause
+        pattern: $WITH
+        has:
+            stopBy: {not: {kind: cte_list}}
+            kind: common_table_expr
+            all:
+                - has: {field: name, has: {pattern: $CTE}}
+                - has: {field: preparable_stmt, matches: ordered-select}
+    named-cte:
+        kind: with_clause
+        not: {pattern: $WITH}
+        has: {stopBy: {not: {kind: cte_list}}, kind: common_table_expr, has: {field: name, has: {pattern: $CTE}}}
+rule:
+    kind: func_expr
+    pattern: $AGGREGATE
+    all:
+        - has: {kind: func_application, all: [{has: {kind: func_name, regex: '(?i-u)^"?(string_agg|array_agg|json_agg|jsonb_agg|json_object_agg|jsonb_object_agg|xmlagg)"?$'}}, {not: {has: {kind: 'opt_sort_clause, sort_clause'}}}]}
+        - not: {has: {kind: over_clause}}
+        - inside: {kind: target_list, stopBy: {kind: 'simple_select, select_with_parens'}}
+        - inside:
+            kind: simple_select
+            stopBy: {kind: simple_select}
+            has:
+                kind: from_clause
+                has:
+                    stopBy: {kind: select_with_parens}
+                    kind: table_ref
+                    any:
+                        - has: {kind: select_with_parens, has: {matches: ordered-select}}
+                        - all:
+                            - has: {kind: qualified_name, not: {has: {kind: indirection}}, has: {kind: ColId, has: {pattern: $CTE}}}
+                            - inside: {kind: &scope 'select_no_parens, InsertStmt, UpdateStmt, DeleteStmt', stopBy: end, has: {stopBy: &with {not: {kind: opt_with_clause}}, matches: ordered-cte}}
+                            - not:
+                                inside:
+                                    kind: *scope
+                                    stopBy: end
+                                    all:
+                                        - has: {stopBy: *with, matches: named-cte}
+                                        - inside: {kind: *scope, stopBy: end, has: {stopBy: *with, kind: with_clause, pattern: $WITH}}
+message: '`$AGGREGATE` takes ordered rows without an aggregate `order by` clause'
+note: 'Order aggregate inputs inside the call and retain subquery ordering that selects limited rows'

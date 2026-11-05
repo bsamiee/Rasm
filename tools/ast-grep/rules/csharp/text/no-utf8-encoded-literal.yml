@@ -3,13 +3,13 @@ language: csharplang
 severity: error
 utils:
     encoding-owner:
-        regex: '^((global::)?System\.)?(Text\.)?Encoding$'
+        matches: {csharp-qualified-name: {name: {regex: '^Encoding$'}, qualifier: {regex: '^(?:System|Text)$'}}}
     utf8-encoding:
         any:
             - kind: member_access_expression
               all: [{has: {field: expression, matches: encoding-owner}}, {has: {field: name, regex: '^UTF8$'}}]
             - kind: object_creation_expression
-              has: {field: type, regex: '^((global::)?System\.)?(Text\.)?UTF8Encoding$'}
+              has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^UTF8Encoding$'}, qualifier: {regex: '^(?:System|Text)$'}}}}
             - kind: parenthesized_expression
               has: {matches: utf8-encoding}
     ascii-encoding:

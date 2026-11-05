@@ -4,13 +4,13 @@ severity: error
 utils:
     tagged:
         kind: call_expression
-        has: {field: function, regex: '^sql(<[[\p{White_Space}\x{200B}\x{2060}\x{FEFF}][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]]*>)?$'}
+        has: {field: function, regex: '^sql(<[[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]]*>)?$'}
     read:
         matches: tagged
-        has: {field: arguments, kind: template_string, has: {nthChild: 1, kind: string_fragment, regex: '(?i)^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(select|with)(?-u:\b)'}}
+        has: {field: arguments, kind: template_string, has: {nthChild: 1, kind: string_fragment, regex: '(?i)^[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(select|with)(?-u:\b)'}}
     write:
         matches: tagged
-        has: {field: arguments, kind: template_string, has: {nthChild: 1, kind: string_fragment, regex: '(?i)^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(insert|update|delete|merge)(?-u:\b)'}}
+        has: {field: arguments, kind: template_string, has: {nthChild: 1, kind: string_fragment, regex: '(?i)^[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(insert|update|delete|merge)(?-u:\b)'}}
     value-substitution:
         kind: template_substitution
         not: {follows: {stopBy: end, kind: string_fragment, regex: '(?i)(?-u:\b)where(?-u:\b)'}}

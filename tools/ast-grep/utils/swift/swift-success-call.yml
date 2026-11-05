@@ -11,7 +11,7 @@ rule:
               inside: {kind: call_expression, matches: swift-result-context}
             - kind: navigation_expression
               any:
-                - regex: '^Swift\.Result\.success$'
+                - regex: '^Swift(\.|::)Result\.success$'
                 - all:
                     - has: {field: suffix, regex: '^\.success$'}
                     - has: {field: target, matches: swift-result-type}

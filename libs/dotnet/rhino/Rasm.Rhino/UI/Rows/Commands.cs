@@ -154,7 +154,7 @@ public static class CommandRows {
 
     private static IO<Unit> Applied(CommandFace face, Command command, Keys shortcut) =>
         from faced in IO.lift(() => face.Applied(command, shortcut))
-        from themed in face.Icon.Traverse(icon => Icons.Themed(icon, IconSlot.Small, image => command.Image = image)).As()
+        from themed in face.Icon.Traverse(icon => Icons.Themed(icon, IconSlot.Small, None, image => command.Image = image)).As()
         select unit;
 
     private static IO<Seq<(RadioCommand Command, IO<Unit> Refresh)>> Radios(Command<Invoke>.Choice choice, RowScope scope) =>

@@ -54,12 +54,18 @@ class Outcome<A> {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-type Fault = { readonly kind: 'exited'; readonly program: string; readonly code: number; readonly output: string } | { readonly kind: 'thrown'; readonly program: string; readonly cause: unknown };
+type Fault = { readonly kind: 'exited'; readonly program: string; readonly code: number; readonly output: string } | { readonly kind: 'thrown'; readonly program: string; readonly cause: unknown } | { readonly kind: 'unparsed'; readonly text: string };
 type Faults = readonly [Fault, ...Fault[]];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const faultText = (faults: Faults): string => faults.map((fault) => (fault.kind === 'exited' ? [`${fault.program} exited ${fault.code}`, ...(fault.output === '' ? [] : [fault.output])].join('. ') : `${fault.program} failed. ${String(fault.cause)}`)).join('. ');
+const faultLine = (fault: Fault): string => {
+    if (fault.kind === 'unparsed') {
+        return `Bash grammar rejects \`${fault.text}\`, rewrite that span`;
+    }
+    return fault.kind === 'exited' ? [`${fault.program} exited ${fault.code}`, ...(fault.output === '' ? [] : [fault.output])].join('. ') : `${fault.program} failed. ${String(fault.cause)}`;
+};
+const faultText = (faults: Faults): string => faults.map(faultLine).join('. ');
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

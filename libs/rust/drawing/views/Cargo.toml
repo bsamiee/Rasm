@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-views"
-version.workspace    = true
-edition.workspace    = true
-description          = "Hidden-line views of Rasm solids and surfaces under parallel, oblique, perspective and shifted perspective projections: crease, silhouette, boundary and cut edges split where they pass behind a contour and classified visible or hidden by ray, cut regions at the near plane, visible face regions and sun shadows on them, lowered to linework strokes"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["drawing", "hidden-line", "projection", "section", "shadow"]
-categories           = ["graphics", "rendering"]
+name              = "rasm-views"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

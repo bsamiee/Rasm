@@ -19,7 +19,7 @@ rule:
                 - has: {field: left, matches: unset}
         - kind: invocation_expression
           all:
-            - has: {field: function, regex: '(^|\.)Equals$'}
+            - matches: {csharp-named-call: {name: {regex: '^Equals$'}}}
             - has: {field: arguments, has: {kind: argument, has: {matches: unset}}}
 message: '`$UNSET` comparison tests validity by sentinel equality'
 note: 'Test `RhinoMath.IsValidDouble`, `RhinoMath.IsValidSingle`, `<value>.IsValid`, or `<index>.IsUnset()`, `Some(<value>).Filter(<test>)` for an `Option`'

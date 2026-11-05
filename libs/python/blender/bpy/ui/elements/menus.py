@@ -19,7 +19,6 @@ from blender.bpy.data.rna.paths import definition, Struct, subclass
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import acquired, Acquisitions, Classes, Tier
-from blender.bpy.extension.reports import alerted
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import ConditionalRow, Layout, layout_method, LayoutOwner, Opens, OperatorButton, Property, realized, RowContent, RowDraw
 from blender.bpy.ui.layout.values import Captured, Listing, Store
@@ -152,7 +151,7 @@ class Header(msgspec.Struct, frozen=True, kw_only=True):
 
         def drawing(_name: str) -> Outcome[RowDraw]:
             menus = self.menus.map(lambda menu: identity.name(bpy.types.Menu, menu.key))
-            return realized(self.rows, identity).map(lambda draw: menus.map(lambda menu: partial(_collapsed, menu, draw)).default_value(draw))
+            return realized(self.rows, identity).map(lambda draw: menus.map(lambda menu: partial(_collapsed, identity, menu, draw)).default_value(draw))
 
         members = {"bl_space_type": self.space, "bl_region_type": self.region}
         return (*self.menus.to_list(), *acquired(self.rows), (Tier.INTERFACE, Classes(build=partial(_classed, identity, bpy.types.Header, self.key, members, self.condition, drawing))))
@@ -267,9 +266,9 @@ def _headed(heading: Option[RowDraw], draw: RowDraw, layout: bpy.types.UILayout,
     draw(layout, holder, context)
 
 
-def _collapsed(menu: str, draw: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-    """Draws the editor menus through the host's collapsible header form, alerting a menu `bpy.types` lacks, then the rows."""
-    alerted(layout, subclass(bpy.types.Menu, menu).map(lambda kind: kind.draw_collapsible(context, layout)))
+def _collapsed(identity: Identity, menu: str, draw: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    """Draws the editor menus through the host's collapsible header form, logging a menu `bpy.types` lacks, then the rows."""
+    identity.reports.faulted(subclass(bpy.types.Menu, menu).map(lambda kind: kind.draw_collapsible(context, layout)))
     draw(layout, holder, context)
 
 

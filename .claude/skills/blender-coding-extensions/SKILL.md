@@ -5,16 +5,15 @@ description: "Use when writing or reviewing a Blender extension's registration, 
 
 # [BLENDER_CODING_EXTENSIONS]
 
-Covers what an extension acquires and releases across its lifecycle, with its manifest and wheels:
-- Use `blender-coding` for callback bodies, properties, and operator classes
-- Use `blender-coding-interface` for panels, menus, lists, and interface text
-- Use `use-blender` for installing, validating, and running extensions
-- Use `manage-repo` for extension assembly and imports
+Covers what an extension acquires and releases across its lifecycle, and what its package holds:
+- Use `blender-coding` for what registered code does and stores
+- Use `blender-coding-interface` for what registered code draws
+- Use `use-blender` for operating an extension in Blender
 
 [REFERENCES]:
-- [01]-[KEYMAPS](references/keymaps.md): Addon keymap items, event order, and user edits a preferences page draws
-- [02]-[FILES](references/files.md): User folders, packaged files, network access, file handlers, and collection importers and exporters
-- [03]-[PACKAGING](references/packaging.md): Manifest rules validation leaves unchecked, shared wheels, and subpackages
+- [01]-[KEYMAPS](references/keymaps.md): How an extension's key bindings resolve against built-in items and user edits
+- [02]-[FILES](references/files.md): How an extension reaches data outside Blender, on disk or over a network
+- [03]-[PACKAGING](references/packaging.md): What an extension's package declares and how its code loads beside other extensions
 
 ## [01]-[REGISTRATION]
 
@@ -133,9 +132,13 @@ Acquisitions follow host identity rules:
 - Message bus subscriptions take one private `object()` owner per extension
 
 Presets resolve through host paths:
-- Preset menus reach an extension's presets through its registered path alone, user presets saving under `<user scripts>/presets/<subdir>`
+- Typed presets are JSON records decoded by record type, in place of the Python files `script.execute_preset` runs
+- Typed presets resolve under `presets/<extension id>/<key>` of each `utils.preset_paths` folder
+- User presets save under `utils.user_resource('SCRIPTS', path="presets/<extension id>/<key>")`, which uninstall leaves
+- Stock presets are records in code or JSON files of the package folder the extension registers as a preset path
 - Operators with `PRESET` in `bl_options` read presets from `presets/operator/<category>.<name>`, each holding every property without `SKIP_PRESET`
-- Preset adds under a name any preset path holds cancel with a warning
+- Typed saves replace a held user file and refuse a stock name with a `TAKEN` fault
+- `AddPresetBase` adds under a name any preset path holds cancel with a warning
 
 ## [04]-[COMMANDS]
 

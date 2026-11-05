@@ -3,7 +3,7 @@ language: rustlang
 severity: error
 utils:
     control-exit:
-        kind: 'return_expression, break_expression, continue_expression, try_expression, await_expression'
+        any: [{matches: rust-diverging}, {kind: 'try_expression, await_expression'}]
     closure-safe:
         not: {any: [{matches: control-exit}, {has: {stopBy: end, matches: control-exit}}]}
     skip-value:
@@ -22,9 +22,9 @@ utils:
             - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     exit:
         any:
-            - kind: 'return_expression, break_expression'
+            - {matches: rust-diverging, not: {kind: continue_expression}}
             - kind: expression_statement
-              has: {nthChild: 1, kind: 'return_expression, break_expression'}
+              has: {nthChild: 1, matches: rust-diverging, not: {kind: continue_expression}}
     plain-if:
         kind: if_expression
         all:

@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-annotation"
-version.workspace    = true
-edition.workspace    = true
-description          = "Annotation every Rasm drawing set composes on rasm-linework: rich text set from caller fonts into glyph runs and outlines, length, angle, area and slope notation over uom quantities and exact decimals, dimensions and feature control frames, leaders, marks, SVG symbols with text slots, legends and tables, each with its masks"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["drawing", "annotation", "dimension", "typesetting", "cad"]
-categories           = ["graphics", "text-processing"]
+name              = "rasm-annotation"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

@@ -26,19 +26,16 @@ utils:
                                         - kind: identifier
                                           pattern: $MEMBER
                                         - kind: member_access_expression
-                                          regex: '^this[\p{White_Space}\x{FEFF}]*\.'
-                                          has: {field: name, pattern: $MEMBER}
+                                          all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, pattern: $MEMBER}}]
     flag:
         any:
             - kind: identifier
               pattern: $FLAG
             - kind: member_access_expression
-              regex: '^this[\p{White_Space}\x{FEFF}]*\.'
-              has: {field: name, kind: identifier, pattern: $FLAG}
+              all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, kind: identifier, pattern: $FLAG}}]
     ref-flag:
         kind: argument
-        regex: '^(\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[\p{White_Space}\x{FEFF}]*)?ref[\p{White_Space}\x{FEFF}]'
-        has: {nthChild: {position: 1, reverse: true}, matches: flag}
+        all: [{has: {regex: '^ref$'}}, {has: {nthChild: {position: 1, reverse: true}, matches: flag}}]
         inside:
             stopBy: end
             kind: class_declaration, struct_declaration, record_declaration
@@ -83,7 +80,7 @@ utils:
             - kind: is_pattern_expression
               all:
                 - has: {field: expression, matches: flag-read}
-                - has: {field: pattern, regex: '^(not[\p{White_Space}\x{FEFF}]+)?(0|1|true|false)$'}
+                - has: {field: pattern, any: [{kind: constant_pattern, regex: '^(?:0|1|true|false)$'}, {kind: negated_pattern, has: {kind: constant_pattern, regex: '^(?:0|1|true|false)$'}}]}
     flag-write:
         kind: expression_statement
         has:

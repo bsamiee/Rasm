@@ -19,22 +19,20 @@ utils:
             - kind: 'generic_name, qualified_name'
               all:
                 - matches:
-                    csharp-type-name:
+                    csharp-generic-type:
                         name:
                             regex: |-
                                 (?x)^(List|Dictionary|SortedDictionary|SortedList|SortedSet|Queue|Stack|LinkedList|IList|ICollection|IDictionary|ISet
                                 |Collection|ObservableCollection|ConcurrentDictionary|ConcurrentBag|ConcurrentQueue|ConcurrentStack|BlockingCollection)$
-                - not: {has: {field: qualifier, not: {regex: '^(global::)?System\.Collections\.(Generic|ObjectModel|Concurrent)$'}}}
-                - has: {stopBy: end, kind: type_argument_list}
+                        list: {kind: type_argument_list}
+                - matches: {csharp-qualified-name: {name: {kind: identifier}, qualifier: {regex: '^(?:Generic|ObjectModel|Concurrent)$'}}}
             - kind: 'generic_name, qualified_name'
-              matches: {csharp-type-name: {name: {regex: '^ArraySegment$'}}}
-              not: {has: {field: qualifier, not: {regex: '^(global::)?System$'}}}
+              matches: {csharp-qualified-name: {name: {regex: '^ArraySegment$'}, qualifier: {regex: '^System$'}}}
             - kind: qualified_name
-              matches: {csharp-type-name: {name: {regex: '^HashSet$'}}}
-              has: {field: qualifier, regex: '^(global::)?System\.Collections\.Generic$'}
+              matches: {csharp-qualified-name: {name: {regex: '^HashSet$'}, qualifier: {regex: '^Generic$'}}}
+              has: {field: qualifier, pattern: $_}
             - kind: 'identifier, qualified_name'
-              matches: {csharp-type-name: {name: {regex: '^(ArrayList|Hashtable)$'}}}
-              not: {has: {field: qualifier, not: {regex: '^(global::)?System\.Collections$'}}}
+              matches: {csharp-qualified-name: {name: {regex: '^(?:ArrayList|Hashtable)$'}, qualifier: {regex: '^Collections$'}}}
 rule:
     any:
         - kind: accessor_declaration

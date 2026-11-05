@@ -30,7 +30,8 @@ utils:
     code:
         kind: prefix_unary_expression
         pattern: $CODE
-        regex: '^-[\p{White_Space}\x{FEFF}]*[12]$'
+        regex: ^-
+        has: {kind: integer_literal, regex: '^[12]$'}
 rule:
     any:
         - kind: binary_expression
@@ -42,6 +43,6 @@ rule:
         - kind: is_pattern_expression
           all:
             - has: {field: expression, matches: coded}
-            - has: {field: pattern, regex: '^(not[\p{White_Space}\x{FEFF}]+)?-[\p{White_Space}\x{FEFF}]*[12]$', has: {stopBy: end, matches: code}}
+            - has: {field: pattern, any: [{kind: constant_pattern, has: {matches: code}}, {kind: negated_pattern, has: {kind: constant_pattern, has: {matches: code}}}]}
 message: '`$MEMBER` result compared with `$CODE` reads the other negative failure code as success'
 note: 'Test `<result> >= 0` for success and `<result> < 0` for failure'

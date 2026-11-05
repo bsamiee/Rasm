@@ -10,25 +10,26 @@ UXP runs each plugin and script in one V8 context inside an Adobe host.
 Ranges, enumerations, and localized names come from the running host, extents from the measured item, unit ratios from their standard, names of created files from their target, and every other value from the caller.
 
 [REFERENCES]:
-- [01]-[INDESIGN](references/indesign.md): InDesign's synchronous DOM: object model, transactions, GREP, export, and plugin load
-- [02]-[PHOTOSHOP](references/photoshop.md): Photoshop's modal scopes, history, descriptors, DOM members, events, export, fonts, and plugin load
-- [03]-[PREMIERE](references/premiere.md): Premiere Pro's members, reads, transactions, events, projects, export, and Media Encoder
-- [04]-[EXTENDSCRIPT](references/extendscript.md): Illustrator and After Effects calls, CEP extensions, object models, undo steps, and export
+- [01]-[INDESIGN](references/indesign.md): InDesign behavior its dictionary and typings leave unstated, for code calling its synchronous DOM
+- [02]-[PHOTOSHOP](references/photoshop.md): Photoshop behavior its prototypes and typings leave unstated, for descriptor and DOM calls
+- [03]-[PREMIERE](references/premiere.md): Premiere Pro and Media Encoder behavior their manifests and typings leave unstated, for edits as actions
+- [04]-[EXTENDSCRIPT](references/extendscript.md): Illustrator and After Effects behavior `reflect` and typings leave unstated, for their ES3 source
 - [05]-[TRANSPORT](references/transport.md): Typed calls a plugin serves over a socket it dials
 
 ## [01]-[CONTEXTS]
 
 Host modules differ in DOM call form:
 
-| [INDEX] | [HOST]        | [MODULE]      | [DOM_CALLS]                            |
-| :-----: | :------------ | :------------ | :------------------------------------- |
-|  [01]   | InDesign      | `indesign`    | Synchronous, storage getters async     |
-|  [02]   | Photoshop     | `photoshop`   | Promises inside a modal scope          |
-|  [03]   | Premiere Pro  | `premierepro` | Async getters, action objects          |
-|  [04]   | Illustrator   | None          | ExtendScript in a CEP host script      |
-|  [05]   | After Effects | None          | ExtendScript in a CEP host script      |
-|  [06]   | Acrobat       | None          | Acrobat JavaScript through `do script` |
+| [INDEX] | [HOST]        | [MODULE]      | [DOM_CALLS]                                             |
+| :-----: | :------------ | :------------ | :------------------------------------------------------ |
+|  [01]   | InDesign      | `indesign`    | Synchronous, storage getters async                      |
+|  [02]   | Photoshop     | `photoshop`   | Promises inside a modal scope                           |
+|  [03]   | Premiere Pro  | `premierepro` | Async getters, action objects                           |
+|  [04]   | Illustrator   | None          | CEP ExtendScript until UXP public beta                  |
+|  [05]   | After Effects | None          | CEP ExtendScript until its release host installs `.ccx` |
+|  [06]   | Acrobat       | None          | Acrobat JavaScript through `do script`                  |
 
+- CEP turns off by default in December 2028 and leaves After Effects and Illustrator in December 2029
 - `require` resolves the running host's DOM module alone, `uxp.host.name` names that host, and cross-host code takes host calls as arguments
 - Unlinked Illustrator, After Effects, and Acrobat run source through Atelier `execute_script` over the host's dictionary script command
 - Acrobat source runs privileged with `this` naming the front document, and `global` members persist between calls
@@ -86,7 +87,7 @@ Typings declare a host module under its `require` name, under an `adobe:` scheme
 |  [06]   | ExtendScript              | `types-for-adobe`            | Global classes per host folder (`AfterEffects/26.0`), no module  |
 
 - Imports name host modules under `adobe:`, a prefix that separates `fs`, `os`, and `path` from Node's
-- `types-for-adobe` host folders load `shared/JavaScript.d.ts` beside the project `lib`, where ES5 built-ins ExtendScript lacks type-check and ast-grep `no-extendscript-absent-member` refuses each
+- `types-for-adobe` host folders load `shared/JavaScript.d.ts` beside the project `lib`, where ES5 built-ins ExtendScript lacks type-check
 - `types` lists `node` beside each `with-protocol` entry, and `node` types `require`, `process`, and `adobe:fs` members
 - `paths` entries resolve against the declaring config's folder, and a shared config writes `${configDir}/node_modules/...` to resolve in each extending project
 - Diagnostics on a call the object model states name a typings gap, and every other diagnostic names a defect in the call
@@ -172,7 +173,6 @@ const written = (target: object, values: Record.ReadonlyRecord<string, unknown>)
 - Lookups fail with their candidates, and independent writes accumulate every refusal in one cause
 - Writes layer caller options first and derived fields last, and no caller option contradicts a derived value
 - Evaluated source ends `//# sourceURL=<name>`, and an `Error.prepareStackTrace` restored in `finally` reads lines from frames naming `<name>` and leaves `.stack` text
-- Boundaries log a cause once, every plugin boundary through `Uxp.logged`, MCP servers through `Cause.prettyErrors` with `Formatter.format`
 - Host calls are typed source the compiler checks, with arguments passed as data
 - Hosts evaluating text receive a typed function as `String(fn)` swc lowers to their target, and a schema's `Encoded` types the reply
 - Caller bodies lower through swc with `sourceMaps: true`, `node:module` `SourceMap.findEntry` maps a `Thrown` line to its body line, and a transform diagnostic fails `Thrown` at its own line
@@ -254,14 +254,15 @@ const serve = <E, F>({
     readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
     readonly panels?: Record.ReadonlyRecord<string, (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp | Plugin>) => void) => Effect.Effect<void, F, Scope.Scope | Uxp | Plugin>>;
 }): void => {
-    const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Uxp.logged));
+    const hosted = Uxp.layer({ uxp, fs });
+    const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
     Effect.gen(function* () {
         const [decoded, { setup }] = yield* Effect.all([
             Effect.try({ try: () => fs.readFileSync(manifest, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: manifest, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json))),
             Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints),
         ]);
         const linked = link === undefined ? Layer.empty : Layer.launch(link(decoded.id)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
-        const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(Plugin)(decoded)), Layer.provideMerge(Uxp.layer({ uxp, fs }))));
+        const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(Plugin)(decoded)), Layer.provideMerge(hosted)));
         const run = <X>(effect: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(reported(effect)));
         const [handled, shown] = yield* Effect.all([
             Effect.all(
@@ -288,27 +289,27 @@ const serve = <E, F>({
             ),
         ]).pipe(Scope.provide(runtime.scope));
         yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void), destroy: () => runtime.dispose() }, commands: handled, panels: shown } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
-    }).pipe(Effect.tapCause(Uxp.logged), Effect.runFork);
+    }).pipe(Effect.tapCause(Effect.logError), Effect.provide(hosted), Effect.runFork);
 };
 ```
 
-`Uxp` is the service holding `uxp` and `fs`, `Uxp.layer` merges it with the host `Clock` layer and Effect's `Path.layer`, and `Uxp.logged` is `flow(Cause.pretty, Console.error)`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder, and a failed read fails `PlatformError` as Effect's `FileSystem.readFileString` does. `link` takes the manifest `id` as its extension, and its launch forks inside the runtime's layer, where a failed or dropped link logs while commands and panels run. `Layer.provideMerge` keeps the host `Clock` in runtime context, where `runPromise` otherwise reads Effect's default clock. One `Effect.all` under `runtime.scope` allocates each command's `FiberHandle` and each panel's `ScopedRef`. Reruns interrupt the running command, and `cancel` clears it. `@adobe-uxp-types/uxp` declares `cancel` for future use. Panels receive `fork`, a `FiberSet.makeRuntime` runner in the shown scope for synchronous host callbacks that logs each run's failure once and ignores it. `show` replaces the shown scope and `hide` closes it, interrupting every fork, and `dispose` closes every scope the layers opened, where `Effect.forkDetach` fibers outlive it. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, its throw logs as a defect, and `runFork` calls it before `main` returns.
+`Uxp` is the service holding `uxp` and `fs`, `Uxp.layer` merges it with the host `Clock` layer, `Logger.LogToStderr` set `true`, and Effect's `Path.layer`: hosts record `console.error` at error level in their log file where Effect's default logger writes `console.log`, and an entry's top-level `runFork` or `runSyncExit` logs under the same reference by providing the layer outside its `tapCause`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder, and a failed read fails `PlatformError` as Effect's `FileSystem.readFileString` does. `link` takes the manifest `id` as its extension, and its launch forks inside the runtime's layer, where a failed or dropped link logs while commands and panels run. `Layer.provideMerge` keeps the host `Clock` in runtime context, where `runPromise` otherwise reads Effect's default clock. One `Effect.all` under `runtime.scope` allocates each command's `FiberHandle` and each panel's `ScopedRef`. Reruns interrupt the running command, and `cancel` clears it. `@adobe-uxp-types/uxp` declares `cancel` for future use. Panels receive `fork`, a `FiberSet.makeRuntime` runner in the shown scope for synchronous host callbacks that logs each run's failure once and ignores it. `show` replaces the shown scope and `hide` closes it, interrupting every fork, and `dispose` closes every scope the layers opened, where `Effect.forkDetach` fibers outlive it. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, its throw logs as a defect, and `runFork` calls it before `main` returns.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
 - Hosts can run `main` at launch with no panel shown, and `main` builds every state a panel reads
 - `show` renders from state `main` built, and panel visibility reaches `document` as a `uxpcommand` event
 - Panels act through the served contract's handlers with payloads its request classes build, and each write names its undo step from the payload
-- Panel actions fold their outcome once at `fork` through `Effect.matchCauseEffect`, redrawing from returned state or showing `Cause.pretty`
+- Panels hold host controls alone, and actions redraw from returned state and disable controls when host state offers nothing to act on
 - Controls hold typed values as `[label, value]` tuples, reading `Array.get(options, element.selectedIndex)` and showing one by `selectedIndex`
 
 ## [09]-[MANIFESTS]
 
-One manifest serves one host. Host package contracts state `host` (`app` of `ID`, `PS`, `premierepro`, `ame`, or `XD`, with `minVersion`) and `requiredPermissions` once, and builds derive every other key: `id`, `name`, and `version` from product identity, `main` from the entry, `host.data.loadEvent` `startup` to dial at launch, and `network.domains` from the dial origin. Build config parameters omit derived keys. Hosts enforce each `requiredPermissions` key:
+One manifest serves one host, and `host` arrays with any `app` decode for development and Adobe's bundled plugins. Host package contracts state `host` (`app` of `ID`, `PS`, `premierepro`, `ame`, or `aftereffects`, with `minVersion`) and `requiredPermissions` once, and builds derive every other key: `id`, `name`, and `version` from product identity, `manifestVersion` 6 where `addon` appears else 5, `main` from the entry, `host.data.loadEvent` `startup` to dial at launch, `network.domains` from the dial origin, and `icons` from emitted files. Build config parameters omit derived keys. Hosts enforce each `requiredPermissions` key:
 
 | [INDEX] | [KEY]                                   | [GRANTS]                                                 | [WITHOUT]                        |
 | :-----: | :-------------------------------------- | :------------------------------------------------------- | :------------------------------- |
-|  [01]   | `network.domains`                       | Dial and fetch to each listed origin                     | Dial throws a manifest denial    |
+|  [01]   | `network.domains`                       | Dial and fetch to each listed origin or `"all"`          | Dial throws a manifest denial    |
 |  [02]   | `localFileSystem: "fullAccess"`         | Access outside plugin storage                            | Defaults to plugin storage       |
 |  [03]   | `allowCodeGenerationFromStrings`        | `eval`, `new Function`, inline handlers                  | InDesign v5 runs `new Function`  |
 |  [04]   | `featureFlags.unhandledRejection`       | `unhandledrejection` events                              | Rejection logged, no caller told |
@@ -317,9 +318,14 @@ One manifest serves one host. Host package contracts state `host` (`app` of `ID`
 |  [07]   | `ipc.enablePluginCommunication`         | Calls to other installed plugins through `pluginManager` | Defaults to `false`              |
 |  [08]   | `webview` `allow: "yes"` with `domains` | Modal dialog WebViews for listed domains or `"all"`      | No WebView                       |
 |  [09]   | `enableUserInfo`                        | `userInfo.userId()` returns the Creative Cloud user GUID | No user GUID                     |
+|  [10]   | `enableAddon`                           | Native `.uxpaddon` loads                                 | No addon load                    |
+|  [11]   | `featureFlags.enableAlerts`             | `alert`, `prompt`, and `confirm` dialogs                 | No dialogs                       |
 
-- `entrypoints` rows name a `panel` or `command` `id` with `label.default`, and hosts refuse a manifest naming neither `main` nor an entrypoint
+- `entrypoints` rows name a `panel` or `command` `id` with `label.default`, `description`, `icon`, and `hostUIContext`, and hosts refuse a manifest naming neither `main` nor an entrypoint
 - Entrypoint ids and labels sit in one `as const` table the build maps into `entrypoints`, and `main` checks handler records with `satisfies Record<keyof typeof <table>, unknown>`
+- Icon rows state a base `path` with `scale`, and hosts resolve `<base>@<scale>x.<extension>` for each factor
+- Panel icons are `toolbar` PNGs at 1x and 2x, plugin icons `pluginList` SVGs, each per theme group
+- InDesign paints an inherited `<svg>` fill black, and plugin icons hold `fill` on each element
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
 - Storage providers hold no `unlinkSync`, and a temporary file's native storage entry deletes it through `delete()`
 - Storage entries preserve native `url` schemes for file reads and expose `nativePath` for host-native writes
@@ -328,4 +334,4 @@ One manifest serves one host. Host package contracts state `host` (`app` of `ID`
 - `domains` entries name a host with a top-level domain or `localhost` (`ws://localhost:<port>`), and an IP literal entry is discarded
 - `shell.openPath` and `shell.openExternal` open a path or URL behind a consent dialog, with no arguments or process output
 - Plugin data sits under `UXP/PluginsStorage/<product>/<major>/External/<pluginId>/PluginData`
-- Native addons (`.uxpaddon`, manifest 6 `addon` with `enableAddon`) load in Photoshop and Premiere alone
+- Native addons load in Photoshop and Premiere alone

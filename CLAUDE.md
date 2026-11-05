@@ -10,6 +10,7 @@
 - Code smells are fixed as found, existing code has no authority, a pattern that bends new code or a refactor out of shape is rebuilt from its root
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Run applications and hosts live as work needs them
+- Apps and windows a test, probe, harness, or agent opens take no focus and stay behind the user's work, inside or outside the project
 - Host probes run through `tools/harnesses`, a probe that fails or falls short fixes its harness at the cause as general capability
 - Host questions run as case files through `harness <host> <target>` under a `watch-apps` Monitor, answers read through `harness <host> log`
 - Tools agents run outside Nx targets answer in one command with no path or flag beyond the question, and log, observe, and clean up automatically
@@ -63,6 +64,9 @@ Values derive from the declaration or host API that states them:
 - ALWAYS reach members through typed handles the compiler or a generator derives, a name string or hand-written handle per member is a defect
 - ALWAYS derive a values from the operation and its target, a caller-written description is a defect
 - ALWAYS derive behavior and presentation from count, kind, and nesting of supplied parts, callers state content alone
+- ALWAYS generate a derived file by its host generator, else a format serializer over each fact's owner, a hand-kept or string-built copy is a defect
+- ALWAYS write generated files into build output, a generated file a tool reads from source is written by a check-held generator
+- ALWAYS hold one master per asset, a third-party one as a pinned checksummed fetch, each host variant (size, theme, format) builds from it
 
 ## [03]-[DEPENDENCY_POLICY]
 

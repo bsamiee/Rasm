@@ -32,7 +32,7 @@ utils:
             field: function
             any:
                 - regex: '(Path(Buf)?::(new|from)|fs::\p{XID_Continue}+|File::(open|create|create_new))$'
-                - regex: 'OpenOptions[\p{White_Space}\P{White_Space}]*\.open$'
+                - regex: 'OpenOptions[\p{Pattern_White_Space}\P{Pattern_White_Space}]*\.open$'
                 - kind: field_expression
                   all: [{has: {field: field, regex: '^(join|push)$'}}, {has: {field: value, matches: path-name}}]
     pushed-slash:

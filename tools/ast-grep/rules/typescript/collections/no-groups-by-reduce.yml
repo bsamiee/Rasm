@@ -17,20 +17,20 @@ utils:
     empty:
         any:
             - kind: object
-              regex: '^\{[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\}$'
+              regex: '^\{[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\}$'
             - kind: call_expression
               pattern: Object.create(null)
               has: {field: function, matches: typescript-global-reference}
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^empty$'}}, {has: {field: object, matches: effect-record}}]}
-                - has: {field: arguments, regex: '^\([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\)$'}
+                - has: {field: arguments, regex: '^\([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\)$'}
             - kind: new_expression
               all:
                 - has: {field: constructor, regex: '^Map$', matches: typescript-global-reference}
-                - not: {has: {field: arguments, not: {regex: '^\([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\)$'}}}
-            - kind: parenthesized_expression, as_expression, satisfies_expression
-              has: {nthChild: 1, matches: empty}
+                - not: {has: {field: arguments, not: {regex: '^\([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\)$'}}}
+            - matches: typescript-expression-wrapper
+              has: {matches: empty}
     bucket:
         any:
             - kind: subscript_expression
@@ -57,8 +57,8 @@ utils:
     bucket-receiver:
         any:
             - matches: bucket
-            - kind: parenthesized_expression, non_null_expression
-              has: {nthChild: 1, matches: bucket-receiver}
+            - matches: typescript-expression-wrapper
+              has: {matches: bucket-receiver}
             - kind: assignment_expression, augmented_assignment_expression
               has: {field: left, matches: bucket}
             - kind: binary_expression
@@ -138,8 +138,8 @@ utils:
         any:
             - kind: identifier
               pattern: $ACC
-            - kind: parenthesized_expression, as_expression, satisfies_expression, non_null_expression
-              has: {nthChild: 1, matches: accumulator}
+            - matches: typescript-expression-wrapper
+              has: {matches: accumulator}
             - kind: sequence_expression
               has: {nthChild: {position: 1, reverse: true}, matches: accumulator}
             - kind: call_expression
@@ -188,7 +188,7 @@ rule:
         - has: {field: function, kind: member_expression, has: {field: property, regex: '^reduce$'}}
         - any:
             - all:
-                - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}}}}
+                - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: bucketing}}, {has: {nthChild: 2, matches: empty}}, {not: {has: {nthChild: 3}}}]}
             - all:
                 - has: {field: function, has: {field: object, matches: effect-iterable}}

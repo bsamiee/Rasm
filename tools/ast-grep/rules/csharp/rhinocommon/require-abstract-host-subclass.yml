@@ -3,16 +3,30 @@ language: csharplang
 severity: error
 files: ['libs/**/rhino/**']
 utils:
-    host-type:
-        kind: 'identifier, qualified_name'
-        pattern: $HOST
+    host-name:
+        kind: identifier
         regex: |-
-            (?x)^(global::)?(Rhino\.[\p{XID_Continue}.]*\.)?
-            (Custom(Brep|Curve|Mesh|Point)Object|CustomObjectGrips|UserData|UserDictionary|EtoCollapsibleSection3?
+            (?x)^(Custom(Brep|Curve|Mesh|Point)Object|CustomObjectGrips|UserData|UserDictionary|EtoCollapsibleSection3?
             |CollapsibleSection|ObjectPropertiesPage|PostEffect|VisualAnalysisMode|ObjectManagerExtension|UICommand|FactoryBase
             |RenderContent|RenderMaterial|RenderTexture|TwoColorRenderTexture|RenderEnvironment|RenderMeshProvider
             |CustomRenderMeshProvider2?|RealtimeDisplayMode|RealtimeDisplayModeClassInfo|LightManagerSupport|Skin|PlugIn
             |FileImportPlugIn|FileExportPlugIn|RenderPlugIn|DigitizerPlugIn|Command|SelCommand|TransformCommand)$
+    rhino-root:
+        any:
+            - kind: identifier
+              regex: '^Rhino$'
+            - kind: alias_qualified_name
+              has: {field: name, regex: '^Rhino$'}
+            - kind: qualified_name
+              has: {field: qualifier, matches: rhino-root}
+    host-type:
+        pattern: $HOST
+        any:
+            - matches: host-name
+            - kind: alias_qualified_name
+              has: {field: name, matches: host-name}
+            - kind: qualified_name
+              all: [{has: {field: qualifier, kind: qualified_name, matches: rhino-root}}, {has: {field: name, matches: host-name}}]
     first-base:
         nthChild: 1
         inside: {kind: base_list}

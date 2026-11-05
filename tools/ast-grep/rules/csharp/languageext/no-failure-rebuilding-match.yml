@@ -5,7 +5,7 @@ ignores: ['tools/roslyn/**']
 utils:
     typed-none:
         matches: languageext-none-value
-        not: {regex: '^[([\p{White_Space}\x{FEFF}]]*default[[\p{White_Space}\x{FEFF}])]*$'}
+        not: {any: [{regex: '^default$'}, {kind: parenthesized_expression, has: {regex: '^default$'}}]}
     none-arm:
         any:
             - matches: typed-none
@@ -21,8 +21,10 @@ utils:
                             kind: return_statement
                             nthChild: {position: 1, ofRule: {not: {kind: comment}}}
                             has: {matches: typed-none}
+    generic-callee:
+        matches: {csharp-generic-type: {name: {kind: identifier}, list: {kind: type_argument_list}}}
     failure-group:
-        has: {stopBy: end, kind: type_argument_list}
+        all: [{any: [{matches: generic-callee}, {has: {field: expression, matches: generic-callee}}]}]
         any:
             - matches: {csharp-owner-member: {type: {regex: '^Fin$'}, member: {regex: '^Fail$'}}}
             - matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}
@@ -104,7 +106,7 @@ utils:
     member-match:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match([\p{White_Space}\x{FEFF}]*<.+>)?$'}}, {has: {field: expression, pattern: $VALUE}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, matches: {csharp-simple-name: {name: {regex: '^Match$'}}}}}, {has: {field: expression, pattern: $VALUE}}]}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 3}}}]}
     prelude-match:
         kind: invocation_expression

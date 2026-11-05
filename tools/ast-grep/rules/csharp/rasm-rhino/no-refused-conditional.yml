@@ -41,10 +41,10 @@ utils:
         all:
             - has: {field: type, matches: owner}
             - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: {csharp-owner-member: {type: {regex: '^Refused$'}, member: {regex: '^(Declined|Absent|Invalid)$'}}}}}}
-            - not: {all: [{has: {field: arguments, has: {kind: argument, nthChild: 3}}}, {not: {has: {field: arguments, has: {kind: argument, nthChild: 2, regex: 'Declined$'}}}}]}
+            - not: {all: [{has: {field: arguments, has: {kind: argument, nthChild: 3}}}, {not: {has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: {csharp-type-name: {name: {regex: 'Declined$'}}}}}}}}]}
     absent-refusal:
         matches: refusal
-        has: {field: arguments, has: {kind: argument, nthChild: 2, regex: 'Absent$'}}
+        has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: {csharp-type-name: {name: {regex: 'Absent$'}}}}}}
     valued-refusal:
         matches: refusal
         not: {matches: absent-refusal}
@@ -55,14 +55,14 @@ utils:
         kind: invocation_expression
         has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
         any:
-            - all: [{has: {field: function, regex: '^Optional([\p{White_Space}\x{FEFF}]*<.+>)?$'}}, {has: {field: arguments, has: {kind: argument, pattern: $CHECKED}}}]
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Map([\p{White_Space}\x{FEFF}]*<.+>)?$'}}, {has: {field: expression, matches: optional-chain}}]}
+            - all: [{has: {field: function, matches: {csharp-simple-name: {name: {regex: '^Optional$'}}}}}, {has: {field: arguments, has: {kind: argument, pattern: $CHECKED}}}]
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, matches: {csharp-simple-name: {name: {regex: '^Map$'}}}}}, {has: {field: expression, matches: optional-chain}}]}
     null-present:
         any:
             - kind: is_pattern_expression
               all:
                 - has: {field: expression, pattern: $CHECKED}
-                - has: {field: pattern, any: [{regex: '^not[\p{White_Space}\x{FEFF}]+null$'}, {regex: '^\{[\p{White_Space}\x{FEFF}]*\}$'}]}
+                - has: {field: pattern, matches: csharp-presence-pattern}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^!=$'}
@@ -132,7 +132,7 @@ rule:
                         - all: [{has: {field: consequence, matches: valued-refusal}}, {has: {field: alternative, matches: plain}}]
                         - all: [{has: {field: alternative, matches: absent-refusal}}, {has: {field: consequence, matches: unit-value}}]
                         - all: [{has: {field: consequence, matches: absent-refusal}}, {has: {field: alternative, matches: unit-value}}]
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Refused$'}, member: {regex: '^Unless\p{XID_Continue}*$'}}}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Refused$'}, member: {regex: ^Unless}}}}
 labels:
     CHECKED: {style: primary, message: 'Condition the guard takes'}
     REFUSAL: {style: secondary, message: 'Refusal the guard builds'}

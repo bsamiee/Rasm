@@ -3,12 +3,13 @@
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
 from functools import partial
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Annotated, Final, Protocol, Self, TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid5
 
-from _bpy_internal.assets.remote_library.listing_asset_catalogs import parse_catalogs  # ruff: ignore[import-private-name]
+from _bpy_internal.assets.remote_library.blender_asset_library_openapi import AssetLibraryMeta, CatalogV1, Contact  # ruff: ignore[import-private-name]
+from _bpy_internal.assets.remote_library.listing_asset_catalogs import _parse_catalog, write  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]  # ruff: ignore[import-private-name]
 import bpy
 from expression import Option, Result, Some, try_downcast
 from expression.collections import Block
@@ -21,27 +22,27 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Tier
 from blender.bpy.files.libraries import blocks_loaded, library_written, listed
 from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
-from blender.records.stores import folder_made
+from blender.records.stores import committed, folder_made
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type CatalogPath = Annotated[str, msgspec.Meta(pattern=r"\A[^:/\\\r\n]+(?:/[^:/\\\r\n]+)*\Z")]
+type CatalogPath = Annotated[str, msgspec.Meta(pattern=r"\A(?!(?:.*/)?\.(?:/|\Z))[^:/\\\s]+(?:[ /][^:/\\\s]+)*\Z")]
 type ImportMethod = rna_enums.AssetImportMethodItems
 
 
 class _Catalog(Protocol):
-    """Catalog row `parse_catalogs` returns, whose stub lacks its fields."""
+    """Catalog row `_parse_catalog` returns, whose stub lacks its fields."""
 
-    path: str
-    uuids: list[str]
+    uuid: str
+    path: PurePosixPath
+    simple_name: str
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_PARSED: Final[Callable[[Path], Result[list[_Catalog], OSError | UnicodeError]]] = catch(exception=UnicodeError)(catch(parse_catalogs, exception=OSError))  # type: ignore[arg-type]  # ty: ignore[invalid-assignment]
 _ESSENTIALS: Final = frozenset({"ESSENTIALS", "ONLINE_ESSENTIALS"})
 _LOADS: Final[Mapping[str, Mapping[str, bool]]] = MappingProxyType({
     "LINK": MappingProxyType({"link": True}),
@@ -64,6 +65,10 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
     license: str = ""
     tags: frozenset[str] = frozenset()
     method: Option[ImportMethod] = Nothing
+
+    def __post_init__(self) -> None:
+        """Refuses a catalog path `CatalogPath` excludes, which direct construction otherwise leaves unchecked."""
+        msgspec.convert(self.catalog, CatalogPath)
 
     @staticmethod
     def key_of(identity: Identity, asset: bpy.types.AssetRepresentation) -> Option[Key]:
@@ -181,16 +186,31 @@ class _Publishing(msgspec.Struct, frozen=True, kw_only=True):
 # --- [PUBLICATION]
 
 
-@catch(exception=OSError)
-def _appended(target: Path, rows: Mapping[str, str]) -> Path:
-    """Appends catalog rows to the definition file, the version line opening a new one."""
-    with target.open("a", encoding="utf-8") as file:
-        file.write(("VERSION 1\n\n" if file.tell() == 0 else "") + "".join(f"{uid}:{path}:{path.replace('/', '-')}\n" for path, uid in rows.items()))
-    return target
+def _text_faulted[**P, T](operation: Callable[P, T], /) -> Callable[P, Result[T, OSError | UnicodeError]]:
+    """Returns the file operation with its file and text encoding failures as its error."""
+    return catch(exception=UnicodeError)(catch(operation, exception=OSError))  # ty: ignore[invalid-return-type]
+
+
+@_text_faulted
+def _read(catalogs: Path) -> tuple[tuple[_Catalog, ...], frozenset[tuple[str, ...]]]:
+    """Returns the rows the host parser keeps from one catalog file and the UUID and path fields of each line beyond comments, a version or unparsable line whole, an absent file holding neither."""
+    if not catalogs.exists():
+        return (), frozenset[tuple[str, ...]]()
+    rows: tuple[_Catalog, ...] = tuple(_parse_catalog(catalogs).values())  # ty: ignore[unsound-assignment]
+    lines = map(str.strip, catalogs.read_text(encoding="utf-8").splitlines())
+    return rows, frozenset(tuple(line.split(":", 2)[:2]) for line in lines if line and not line.startswith("#"))
+
+
+def _simple_name(path: str) -> str:
+    """Returns the simple name Blender derives for a catalog path, a name past the host field keeping its tail on a character boundary."""
+    field: bpy.types.StringProperty = bpy.types.AssetMetaData.bl_rna.properties["catalog_simple_name"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    name, elided = path.replace("/", "-"), "..."
+    encoded = name.encode()
+    return name if len(encoded) < field.length_max - 1 else elided + encoded[len(elided) + 1 - field.length_max :].decode(errors="ignore")
 
 
 def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[bpy.types.ID, AssetMark], ...], *, kept: bool = False) -> Outcome[Path]:
-    """Marks blocks, appends the catalogs they add, and writes them into the library once their previews render.
+    """Marks blocks, merges the catalogs they add through the host catalog writer, and writes them into the library once their previews render.
 
     Args:
         identity: Extension with manifest ID keying each mark and seeding catalog UUIDs, its reports queue holding the write.
@@ -205,10 +225,25 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
     target, catalogs = folder / f"{stem}.blend", folder / "blender_assets.cats.txt"
     fresh = () if kept else tuple(block for block, _ in entries if block.asset_data is None)
 
-    def catalogued(rows: list[_Catalog]) -> Outcome[Mapping[str, str]]:
-        held = {row.path: uid for row in rows for uid in Block.of_seq(row.uuids).try_head().to_list()}
+    def catalogued(read: tuple[tuple[_Catalog, ...], frozenset[tuple[str, ...]]]) -> Outcome[Mapping[str, str]]:
+        rows, declared = read
+        held = {row.path.as_posix(): row.uuid for row in reversed(rows)}
         added = {path: str(uuid5(NAMESPACE_URL, f"{identity.manifest.id}/{path}")) for path in sorted({mark.catalog for _, mark in entries} - held.keys())}
-        return (_appended(catalogs, added).map_error(partial(Fault.of, Reason.UNWRITABLE, str(catalogs))) if added else Ok(catalogs)).map(lambda _: held | added)
+        merged = [
+            *(CatalogV1(path=row.path.as_posix(), uuids=[row.uuid], simple_name=row.simple_name) for row in rows),  # type: ignore[call-arg]  # ty: ignore[unknown-argument]
+            *(CatalogV1(path=path, uuids=[uid], simple_name=_simple_name(path)) for path, uid in added.items()),  # type: ignore[call-arg]  # ty: ignore[unknown-argument]
+        ]
+        meta = AssetLibraryMeta(api_versions={}, name=folder.name, contact=Contact(name=identity.manifest.name))  # type: ignore[call-arg]  # ty: ignore[unknown-argument]
+
+        def staged(stage: Path) -> Outcome[object]:
+            return (
+                _text_faulted(write)(merged, stage, meta)
+                .bind(lambda _: _read(stage))
+                .map_error(partial(Fault.of, Reason.UNWRITABLE, str(catalogs)))
+                .filter_with(lambda written: declared <= written[1], lambda written: Fault.of(Reason.UNREADABLE, str(catalogs), sorted(map(":".join, declared - written[1]))))
+            )
+
+        return (committed(catalogs, staged) if added else Ok(catalogs)).map(lambda _: held | added)
 
     def marked(uids: Mapping[str, str]) -> Outcome[Path]:
         return (
@@ -217,7 +252,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
             .map(lambda _: target)
         )
 
-    return folder_made(folder).bind(lambda _: _PARSED(folder).map_error(partial(Fault.of, Reason.UNREADABLE, str(catalogs)))).bind(catalogued).bind(marked)
+    return folder_made(folder).bind(lambda _: _read(catalogs).map_error(partial(Fault.of, Reason.UNREADABLE, str(catalogs)))).bind(catalogued).bind(marked)
 
 
 # --- [IMPORTS]

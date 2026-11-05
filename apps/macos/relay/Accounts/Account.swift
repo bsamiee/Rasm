@@ -61,8 +61,6 @@ enum AccountOperation: Equatable, Sendable {
             case .selecting, .signingIn, .signingOut, .removing: .default
         }
     }
-
-    var refusalDescription: String { "\(name), retry after it finishes" }
 }
 
 nonisolated protocol ProviderFailure: LocalizedError {

@@ -37,7 +37,7 @@
     // --- [FILE_NESTING]----------------------------------------------------------------
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.patterns": {
-        ".gitignore": ".gitattributes",
+        ".gitignore": ".gitattributes, .gitmodules",
         "Cargo.toml": "Cargo.lock, clippy.toml, rust-toolchain.toml, rustfmt.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
@@ -103,5 +103,5 @@
 
     // --- [MISE] ------------------------------------------------------------------------
     "mise.enableConfigDiagnostics": false,
-    "cmake.sourceDirectory": "/Users/bardiasamiee/Developer/Rasm/tools/ast-grep/grammars"
+    "cmake.sourceDirectory": "${workspaceFolder}/tools/ast-grep/grammars"
 }

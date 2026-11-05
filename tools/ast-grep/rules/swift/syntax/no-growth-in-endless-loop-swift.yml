@@ -13,7 +13,7 @@ utils:
                 stopBy: {matches: swift-function-scope}
                 any:
                     - {kind: control_transfer_statement, regex: '^(return|throw)(?-u:\b)'}
-                    - {kind: control_transfer_statement, regex: '^break\p{White_Space}+\P{White_Space}'}
+                    - {kind: control_transfer_statement, regex: '^break[\t-\r ]+[^\t-\r ]'}
                     - kind: control_transfer_statement
                       regex: '^break$'
                       inside: {stopBy: {kind: &loop 'for_statement, while_statement, repeat_while_statement, switch_statement'}, kind: *loop, all: [{matches: endless-condition}]}
@@ -47,7 +47,7 @@ rule:
         - inside:
             stopBy: {matches: swift-function-scope}
             matches: endless
-            not: {has: {stopBy: end, kind: property_declaration, has: {field: name, has: {field: bound_identifier, pattern: $GROWN}}}}
+            not: {has: {stopBy: end, kind: property_declaration, has: {kind: pattern, has: {field: bound_identifier, pattern: $GROWN}}}}
         - inside:
             stopBy: {matches: swift-function-scope}
             matches: swift-function-scope
@@ -58,7 +58,7 @@ rule:
                     matches: sequence-type
                     all:
                         - has: {kind: value_binding_pattern, has: {field: mutability, regex: '^var$'}}
-                        - has: {field: name, has: {field: bound_identifier, pattern: $GROWN}}
+                        - has: {kind: pattern, has: {field: bound_identifier, pattern: $GROWN}}
                 - not:
                     has:
                         stopBy: end

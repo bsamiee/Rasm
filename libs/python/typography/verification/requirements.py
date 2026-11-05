@@ -1,12 +1,12 @@
-"""Requirements a build meets per genre and treatment, the findings that measure them, and approved shaping expectations."""
+"""Requirements a build meets per genre and treatment, the fontspector run and findings that measure them, and approved shaping expectations."""
 
 import sys
 from typing import Annotated
+lazy from collections.abc import Callable
 lazy from functools import partial
 lazy from pathlib import Path
 lazy import re
 lazy import subprocess
-lazy from tempfile import TemporaryDirectory
 
 from expression.extra.result import catch
 import msgspec
@@ -15,7 +15,7 @@ lazy import ots
 from typography.faces.declaration import Band, Em, Ratio
 lazy from typography.faces.coverage import Coverage as Covered
 lazy from typography.faces.declaration import Contour, Face, Faces, OrnamentFace, Ringed, Segmented, Shadow, Sheared
-lazy from typography.faces.faults import accumulated, Fault, Outcome, Reason
+lazy from typography.faces.faults import Fault, Outcome, Reason
 lazy from typography.faces.glyphs import Source
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.expectations import encoded, expected
@@ -35,14 +35,13 @@ class Sanitized(_Requirement, frozen=True, kw_only=True):
 
 
 class Profile(_Requirement, frozen=True, kw_only=True):
-    """Fontspector profiles report no FAIL, ERROR, or FATAL outside the excluded check ids."""
+    """The set's fontspector profile reports no FAIL, ERROR, or FATAL outside its shaping checks and the excluded check ids."""
 
-    profiles: tuple[str, ...] = ("universal",)
     excluded: tuple[str, ...] = ()
 
 
 class Expectations(_Requirement, frozen=True, kw_only=True):
-    """Corpus shaping equals the approved expectations under fontspector `shaping/regression`."""
+    """An approval exists and corpus shaping meets it under fontspector's shaping checks."""
 
 
 class Reachable(_Requirement, frozen=True, kw_only=True):
@@ -123,13 +122,15 @@ class _Result(msgspec.Struct, frozen=True, kw_only=True):
     message: str = ""
 
 
-class _Check(msgspec.Struct, frozen=True, kw_only=True):
+class Check(msgspec.Struct, frozen=True, kw_only=True):
+    """Fontspector check result on one font file or on the folder collection holding it."""
+
     check_id: str
     subresults: tuple[_Result, ...] = ()
 
 
 class _Report(msgspec.Struct, frozen=True, kw_only=True):
-    results: frozendict[str, frozendict[str, tuple[_Check, ...]]]
+    results: frozendict[str, frozendict[str, tuple[Check, ...]]]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -182,73 +183,63 @@ def _covered(source: Source, binary: Binary, /) -> tuple[Breach, ...]:
 # --- [PROCESSES]
 
 
-@catch(exception=OSError)
-def _staged(folder: Path, tests: Path, /) -> tuple[str, ...]:
-    """Isolates one approval through a symlink and writes the native configuration naming its directory."""
-    (directory := folder / "shaping").mkdir()
-    (directory / tests.name).symlink_to(tests.resolve(strict=True))
-    (configuration := folder / "configuration.json").write_bytes(msgspec.json.encode({"shaping": {"test_directory": str(directory)}}))
-    return ("--configuration", str(configuration))
+def inspected(paths: tuple[Path, ...], configuration: Path, /) -> Outcome[frozendict[Path, tuple[Check, ...]]]:
+    """Runs fontspector once over built faces under one file serving as its profile and configuration, from that file's folder its relative test directory resolves against.
 
+    Args:
+        paths: Built font files.
+        configuration: Fontspector TOML holding the profile sections and the `shaping` test directory.
 
-@catch(exception=OSError)
-def _launched(argv: tuple[str, ...], /) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(argv, capture_output=True, check=False)
+    Returns:
+        Ok(checks) per path holding the results on the file and on its folder's collection, `FAILED` for a failed launch, `INVALID` for an undecodable report.
+    """
 
+    @catch(exception=OSError)
+    def launched() -> subprocess.CompletedProcess[bytes]:
+        options = ("--profile", str(configuration.absolute()), "--configuration", str(configuration.absolute()), "--quiet", "--skip-network", "--json", "-")
+        return subprocess.run(("fontspector", *options, *(str(path.absolute()) for path in paths)), capture_output=True, check=False, cwd=configuration.parent)
 
-def _checked(path: Path, /, *options: str) -> Outcome[tuple[Breach, ...]]:
-    """Decodes fontspector's native stdout report, one breach per failed check and changed shaping input."""
-    failed = partial(Fault.of, Reason.FAILED, "fontspector")
     return (
-        _launched(("fontspector", *options, "--quiet", "--skip-network", "--json", "-", str(path)))
-        .map_error(failed)
+        launched()
+        .map_error(partial(Fault.of, Reason.FAILED, "fontspector"))
         .bind(
             lambda done: catch(lambda: msgspec.json.decode(done.stdout, type=_Report), exception=msgspec.DecodeError)().map_error(lambda error: Fault.of(Reason.INVALID, "fontspector", (done, error)))
         )
         .map(
-            lambda decoded: tuple(
-                (subject, result.severity, "WARN")
-                for sections in decoded.results.values()
-                for checks in sections.values()
-                for check in checks
-                for result in check.subresults
-                if result.severity in {"FAIL", "ERROR", "FATAL"}
-                for subject in tuple(match.group() for match in re.finditer(r"(?<=^Shaping did not match: ).+$", result.message, re.MULTILINE)) or (f"{check.check_id} {result.code}".strip(),)
-            )
+            lambda report: frozendict({
+                path: tuple(check for tested in (path.absolute(), path.absolute().parent) for checks in report.results.get(str(tested), frozendict()).values() for check in checks) for path in paths
+            })
         )
     )
 
 
-def _compared(path: Path, tests: Path, /) -> Outcome[tuple[Breach, ...]]:
-    """Runs shaping regression with one isolated approval file."""
-    with TemporaryDirectory() as scratch:
-        return (
-            _staged(Path(scratch), tests)
-            .map_error(partial(Fault.of, Reason.UNREADABLE, str(tests)))
-            .bind(lambda options: _checked(path, *options, "--profile", "googlefonts", "--checkid", "shaping/regression"))
+def _breached(checks: Outcome[tuple[Check, ...]], selected: Callable[[Check], bool], /) -> tuple[Breach, ...]:
+    """One breach per failed selected check and per shaping input that changed or produced a forbidden glyph, or one breach per fault where the run could not measure."""
+    shaping_input = r"(?<=^Shaping did not match: ).+$|^.+(?= produced forbidden )"
+    return checks.map(
+        lambda found: tuple(
+            (subject, result.severity, "WARN")
+            for check in found
+            if selected(check)
+            for result in check.subresults
+            if result.severity in {"FAIL", "ERROR", "FATAL"}
+            for subject in tuple(match.group() for match in re.finditer(shaping_input, result.message, re.MULTILINE)) or (f"{check.check_id} {result.code}".strip(),)
         )
-
-
-def _held(outcome: Outcome[tuple[Breach, ...]], /) -> tuple[Breach, ...]:
-    """Breaches of a run, or one breach per fault where the run could not measure."""
-    return outcome.default_with(lambda faults: tuple((fault.subject, fault.message, "measured") for fault in faults))
+    ).default_with(lambda faults: tuple((fault.subject, fault.message, "measured") for fault in faults))
 
 
 # --- [VERIFICATION]
 
 
-def _measured(requirement: Requirements, binary: Binary, /, *, source: Source, original: Binary, corpus: Corpus, path: Path, approved: Path) -> tuple[Breach, ...]:
+def _measured(requirement: Requirements, binary: Binary, /, *, source: Source, original: Binary, corpus: Corpus, path: Path, approved: Path, checks: Outcome[tuple[Check, ...]]) -> tuple[Breach, ...]:
+    shaping = "shaping/"
     match requirement:
         case Sanitized():
             return () if (done := ots.sanitize(str(path), capture_output=True)).returncode == 0 else ((path.name, done.stderr.decode().strip() or f"exit {done.returncode}", "accepted"),)  # type: ignore[no-untyped-call] # ty: ignore[unsound-return-statement]
-        case Profile(profiles=profiles, excluded=excluded):
-            return _held(
-                accumulated(_checked(path, "--profile", profile, *(f"--exclude-checkid={check}" for check in excluded)) for profile in profiles).map(
-                    lambda found: tuple(*breaches for breaches in found)
-                )
-            )
+        case Profile(excluded=excluded):
+            return _breached(checks, lambda check: not check.check_id.startswith(shaping) and not any(part in check.check_id for part in excluded))
         case Expectations():
-            return _held(_compared(path, approved))
+            return (*(() if approved.is_file() else ((str(approved), "absent", "approved"),)), *_breached(checks, lambda check: check.check_id.startswith(shaping)))
         case Reachable(shapers=shapers):
             return reachable(binary, corpus, shapers)
         case Coverage():
@@ -271,7 +262,9 @@ def _measured(requirement: Requirements, binary: Binary, /, *, source: Source, o
             return identity(binary, original, corpus)
 
 
-def verified(binary: Binary, requirements: tuple[Requirements, ...], /, *, source: Source, original: Binary, corpus: Corpus, path: Path, approved: Path) -> tuple[Finding, ...]:
+def verified(
+    binary: Binary, requirements: tuple[Requirements, ...], /, *, source: Source, original: Binary, corpus: Corpus, path: Path, approved: Path, checks: Outcome[tuple[Check, ...]]
+) -> tuple[Finding, ...]:
     """Measures every requirement of a build independently and accumulates their findings, an empty tuple passing.
 
     Args:
@@ -280,8 +273,9 @@ def verified(binary: Binary, requirements: tuple[Requirements, ...], /, *, sourc
         source: Source the build compiled from.
         original: Font the source was imported from.
         corpus: Runs every shaping measure reads.
-        path: Built file the process requirements run over.
+        path: Built file OTS sanitizes.
         approved: Approved shaping expectations of the face.
+        checks: Fontspector results on the built file, from `inspected`.
 
     Returns:
         Every finding in requirement order.
@@ -289,12 +283,18 @@ def verified(binary: Binary, requirements: tuple[Requirements, ...], /, *, sourc
     return tuple(
         Finding(requirement=str(type(requirement).__struct_config__.tag), subject=subject, measured=measured, bound=bound)
         for requirement in requirements
-        for subject, measured, bound in _measured(requirement, binary, source=source, original=original, corpus=corpus, path=path, approved=approved)
+        for subject, measured, bound in _measured(requirement, binary, source=source, original=original, corpus=corpus, path=path, approved=approved, checks=checks)
     )
 
 
-def approved(binary: Binary, corpus: Corpus, path: Path, /) -> Outcome[Path]:
+def approved(binary: Binary, corpus: Corpus, path: Path, file: str, /) -> Outcome[Path]:
     """Writes the shaping expectations of a build's corpus runs to a path, the one writer of approval files.
+
+    Args:
+        binary: Built font whose shaping the file approves.
+        corpus: Lines and languages to shape.
+        path: Approval file in the set's shaping test directory.
+        file: Built font file name the tests select.
 
     Returns:
         Ok(path), `UNWRITABLE` fault where the file cannot be written.
@@ -303,7 +303,7 @@ def approved(binary: Binary, corpus: Corpus, path: Path, /) -> Outcome[Path]:
     @catch(exception=OSError)
     def written() -> Path:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(encoded(expected(binary, corpus)))
+        path.write_bytes(encoded(expected(binary, corpus, file)))
         return path
 
     return written().map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
@@ -312,6 +312,7 @@ def approved(binary: Binary, corpus: Corpus, path: Path, /) -> Outcome[Path]:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "Check",
     "Coverage",
     "Distinct",
     "Expectations",
@@ -328,6 +329,7 @@ __all__ = [
     "Sanitized",
     "Seam",
     "approved",
+    "inspected",
     "requirements",
     "verified",
 ]

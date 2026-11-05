@@ -271,11 +271,11 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 - Publish copies each `ResolvedFileToPublish` item from its source, never from `$(OutDir)`, a target editing `$(OutDir)` files reruns after `Publish`
 
 ```xml
-<Target Name="AddNoticesToPublish" AfterTargets="ComputeFilesToPublish">
-    <WriteLinesToFile File="$(IntermediateOutputPath)THIRD-PARTY-NOTICES.txt" Lines="@(Notice)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+<Target Name="AddListToPublish" AfterTargets="ComputeFilesToPublish">
+    <WriteLinesToFile File="$(IntermediateOutputPath)published.txt" Lines="@(Listed)" Overwrite="true" WriteOnlyWhenDifferent="true" />
     <ItemGroup>
-        <ResolvedFileToPublish Include="$(IntermediateOutputPath)THIRD-PARTY-NOTICES.txt" RelativePath="legal/THIRD-PARTY-NOTICES.txt" CopyToPublishDirectory="PreserveNewest" />
-        <FileWrites Include="$(IntermediateOutputPath)THIRD-PARTY-NOTICES.txt" />
+        <ResolvedFileToPublish Include="$(IntermediateOutputPath)published.txt" RelativePath="published.txt" CopyToPublishDirectory="PreserveNewest" />
+        <FileWrites Include="$(IntermediateOutputPath)published.txt" />
     </ItemGroup>
 </Target>
 ```

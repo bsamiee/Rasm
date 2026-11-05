@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+utils:
+    counted:
+        matches: pgsql-wrapper
+        has:
+            stopBy: {not: {matches: pgsql-wrapper}}
+            kind: select_with_parens
+            has:
+                kind: select_no_parens
+                not: {has: {kind: 'sort_clause, select_limit, with_clause'}}
+                has:
+                    kind: simple_select
+                    not: {has: {kind: 'group_clause, having_clause'}}
+                    has:
+                        kind: target_list
+                        not: {has: {kind: target_list}}
+                        has:
+                            kind: target_el
+                            not: {has: {kind: 'ColLabel, BareColLabel'}}
+                            has:
+                                stopBy: {not: {matches: pgsql-wrapper}}
+                                kind: func_application
+                                all:
+                                    - has: {kind: func_name, regex: '(?i-u)^"?count"?$'}
+                                    - has: {regex: '^\*$', not: {pattern: $_}}
+    threshold:
+        matches: pgsql-wrapper
+        has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, regex: '^[01]$'}
+rule:
+    kind: a_expr, a_expr_prec
+    pattern: $TEST
+    all:
+        - has: {field: operator, regex: '^(=|<>|!=|<|<=|>|>=)$'}
+        - any:
+            - all: [{has: {field: left, matches: counted}}, {has: {field: right, matches: threshold}}]
+            - all: [{has: {field: right, matches: counted}}, {has: {field: left, matches: threshold}}]
+message: '`$TEST` counts every matching row to answer whether one exists'
+note: 'Use `exists (select from ...)` or `not exists`, which stop at the first row'

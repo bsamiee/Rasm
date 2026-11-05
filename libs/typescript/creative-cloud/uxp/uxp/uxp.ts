@@ -1,7 +1,7 @@
 import type fs from 'adobe:fs';
 import type uxp from 'adobe:uxp';
 import { HostError } from '@rasm/automation';
-import { Array, Cause, Clock, Console, Context, Deferred, Duration, Effect, Exit, flow, Layer, Option, Path, Predicate, pipe, Record, Result, Schema, SchemaGetter, Sink, Stdio, Stream, Struct } from 'effect';
+import { Array, Cause, Clock, Console, Context, Deferred, Duration, Effect, Exit, flow, Layer, Logger, Option, Path, Predicate, pipe, Record, Result, Schema, SchemaGetter, Sink, Stdio, Stream, Struct } from 'effect';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -19,7 +19,6 @@ const Script = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ 
 
 class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: typeof fs }>()('@rasm/uxp/uxp/uxp') {
     static readonly Entry = Schema.Struct({ isEntry: Schema.Literal(true), url: Schema.Union([Schema.String, Schema.URL]) });
-    static readonly logged = flow(Cause.pretty, Console.error);
     static readonly layer = (modules: Uxp['Service']) =>
         Layer.mergeAll(
             Layer.effect(Clock.Clock)(
@@ -38,6 +37,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
                 }),
             ),
             Layer.succeed(Uxp)(modules),
+            Layer.succeed(Logger.LogToStderr)(true),
             Path.layer,
         );
     static readonly thrown = (cause: unknown): HostError => {
@@ -96,7 +96,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
                 Effect.andThen(Deferred.succeed(done, undefined)),
             );
             const failed = Effect.fnUntraced(function* (cause: Cause.Cause<E>) {
-                yield* Uxp.logged(cause);
+                yield* Effect.logError(cause);
                 const defect = yield* Effect.orDie(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)));
                 const encoded = RpcSerialization.json.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect));
                 return yield* encoded === undefined ? Effect.void : answered(encoded);
@@ -106,7 +106,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             const pending = Option.filter(Result.getSuccess(Exit.findDefect(exit)), Cause.isAsyncFiberError);
             yield* Effect.sync(() => Option.getOrUndefined(pending)?.fiber.interruptUnsafe());
             return yield* Option.isSome(pending) && !(yield* Deferred.isDone(done)) ? failed(Cause.die(pending.value)) : Effect.void;
-        }).pipe(Effect.provide(Uxp.layer(modules)), Effect.tapCause(Uxp.logged), Effect.runSyncExit);
+        }).pipe(Effect.tapCause(Effect.logError), Effect.provide(Uxp.layer(modules)), Effect.runSyncExit);
     };
 }
 

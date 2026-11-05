@@ -63,14 +63,14 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
     protected sealed override System.Drawing.Bitmap? MainRhinoIcon =>
         HostUtils.RunningOnWindows
-            ? Session.Run(Icons.PlugInImage(typeof(TSelf).Assembly).Traverse(static art => Icons.Raster(art, new System.Drawing.Size(256, 256))).As().Map(static bitmap => bitmap.ValueUnsafe()), failed: null)
+            ? Session.Run(IconResource.PlugIn(typeof(TSelf).Assembly).Traverse(static art => IconSlot.Application.Square.Bind(pixels => Icons.Raster(art, pixels))).As().Map(static bitmap => bitmap.ValueUnsafe()), failed: null)
             : null;
 
     private static IO<Option<Control>> Mark =>
         TSelf.Definition.Splash.Match(
             Some: static content => content.Map(static control => Some(control)),
             None: static () =>
-                Icons.PlugInImage(typeof(TSelf).Assembly).TraverseM(static art => Icons.Frames(art, new Size(128, 128)).Bind(static icon => use(() => new ImageView { Image = icon })))
+                IconResource.PlugIn(typeof(TSelf).Assembly).TraverseM(static art => Icons.Frames(art, IconSlot.Splash).Bind(static icon => use(() => new ImageView { Image = icon })))
                     .As().Map(static view => view.Map(static image => (Control)image)));
 
     // --- [LOAD]

@@ -20,7 +20,7 @@ utils:
             - kind: identifier
               regex: '^signal$'
               inside: {kind: token_tree}
-              precedes: {kind: token_tree, regex: '^\([\p{White_Space}\P{White_Space}]*SignalKind'}
+              precedes: {kind: token_tree, regex: '^\([\p{Pattern_White_Space}\P{Pattern_White_Space}]*SignalKind'}
     repeating-call:
         kind: call_expression
         has: {field: function, regex: '(^|::)(repeat_with|unfold|try_unfold)$'}

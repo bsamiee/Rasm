@@ -70,10 +70,10 @@ utils:
         all:
             - has: {field: value, matches: literal-clamp}
             - any:
-                - all: [{has: {field: type, regex: '^((global::)?System\.)?(byte|Byte)$', pattern: $TYPE}}, {has: {stopBy: end, pattern: $LO, regex: '^0$'}}, {has: {stopBy: end, pattern: $HI, regex: '^255$'}}]
-                - all: [{has: {field: type, regex: '^((global::)?System\.)?(sbyte|SByte)$', pattern: $TYPE}}, {has: {stopBy: end, pattern: $LO, regex: '^-128$'}}, {has: {stopBy: end, pattern: $HI, regex: '^127$'}}]
-                - all: [{has: {field: type, regex: '^((global::)?System\.)?(short|Int16)$', pattern: $TYPE}}, {has: {stopBy: end, pattern: $LO, regex: '^-32768$'}}, {has: {stopBy: end, pattern: $HI, regex: '^32767$'}}]
-                - all: [{has: {field: type, regex: '^((global::)?System\.)?(ushort|UInt16)$', pattern: $TYPE}}, {has: {stopBy: end, pattern: $LO, regex: '^0$'}}, {has: {stopBy: end, pattern: $HI, regex: '^65535$'}}]
+                - all: [{has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^(?:byte|Byte)$'}, qualifier: {regex: '^System$'}}}, pattern: $TYPE}}, {has: {stopBy: end, pattern: $LO, regex: '^0$'}}, {has: {stopBy: end, pattern: $HI, regex: '^255$'}}]
+                - all: [{has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^(?:sbyte|SByte)$'}, qualifier: {regex: '^System$'}}}, pattern: $TYPE}}, {has: {stopBy: end, pattern: $LO, regex: '^-128$'}}, {has: {stopBy: end, pattern: $HI, regex: '^127$'}}]
+                - all: [{has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^(?:short|Int16)$'}, qualifier: {regex: '^System$'}}}, pattern: $TYPE}}, {has: {stopBy: end, pattern: $LO, regex: '^-32768$'}}, {has: {stopBy: end, pattern: $HI, regex: '^32767$'}}]
+                - all: [{has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^(?:ushort|UInt16)$'}, qualifier: {regex: '^System$'}}}, pattern: $TYPE}}, {has: {stopBy: end, pattern: $LO, regex: '^0$'}}, {has: {stopBy: end, pattern: $HI, regex: '^65535$'}}]
 rule:
     pattern: $CLAMP
     any:

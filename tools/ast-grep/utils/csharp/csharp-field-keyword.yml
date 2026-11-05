@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-field-keyword
+language: csharplang
+utils:
+    declaring:
+        any:
+            - kind: implicit_parameter
+              regex: '^field$'
+            - kind: parameter, variable_declarator, catch_declaration, declaration_pattern, declaration_expression, from_clause, foreach_statement
+              any:
+                - has: {field: name, regex: '^field$'}
+                - has: {field: left, regex: '^field$'}
+    enclosing:
+        kind: class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration
+rule:
+    kind: identifier
+    regex: '^field$'
+    any:
+        - inside: {stopBy: end, kind: accessor_declaration, inside: {kind: accessor_list, inside: {kind: property_declaration}}}
+        - inside: {stopBy: end, kind: arrow_expression_clause, inside: {kind: property_declaration, field: value}}
+    not:
+        any:
+            - inside: {kind: 'member_access_expression, member_binding_expression, argument, assignment_expression', field: name}
+            - inside: {kind: assignment_expression, field: left, inside: {kind: initializer_expression}}
+            - inside:
+                stopBy: {kind: property_declaration}
+                has: {stopBy: {kind: 'block, lambda_expression, anonymous_method_expression, local_function_statement'}, matches: declaring}
+            - inside:
+                stopBy: {matches: enclosing}
+                matches: enclosing
+                has: {field: body, has: {kind: field_declaration, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, regex: '^field$'}}}}}

@@ -91,7 +91,6 @@ class NodePreviews(bpy.types.PropertyGroup):
     use_enlarge: bpy.props.BoolProperty(name="Enlarge Active Node", description="Active node thumbnail larger on top")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     enlarge: bpy.props.FloatProperty(name="Enlarge", description="Active node scale while enlarged", min=1.25, max=6.0, default=2.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     checker: bpy.props.BoolProperty(name="Checkerboard", description="Theme checker behind thumbnails")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    status: bpy.props.BoolProperty(name="Status Marks", description="Queued and failed marks on thumbnails", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     values: bpy.props.BoolProperty(name="Show Values", description="Number on uniform swatches", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     limit: bpy.props.IntProperty(name="Cached Thumbnails", description="Thumbnails kept in GPU memory and on disk", min=16, max=4096, default=256)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 

@@ -23,6 +23,7 @@
         "@capsizecss/core": "catalog:",
         "@capsizecss/unpack": "catalog:",
         "@cloudflare/build-output-utils": "catalog:",
+        "@cloudflare/config": "catalog:",
         "@cloudflare/vite-plugin": "catalog:",
         "@cloudflare/vitest-plugin": "catalog:",
         "@cloudflare/workers-types": "catalog:",

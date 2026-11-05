@@ -6,13 +6,13 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^cancelled(_owned)?$', pattern: $CANCELLED}}
-            - has: {field: arguments, regex: '^\(\p{White_Space}*\)$'}
+            - has: {field: arguments, regex: '^\(\p{Pattern_White_Space}*\)$'}
     cancel-tokens:
         kind: identifier
         regex: '^cancelled(_owned)?$'
         pattern: $CANCELLED
         follows: {regex: '^\.$'}
-        precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$'}
+        precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$'}
     cancel-future:
         any:
             - matches: cancel-call
@@ -51,7 +51,7 @@ rule:
                 kind: token_tree
                 any:
                     - has: {matches: cancel-tokens, precedes: {precedes: &arm-end {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^=>$'}}}
-                    - has: {matches: cancel-tokens, precedes: {precedes: &fused {regex: '^\.$', precedes: {regex: '^fuse$', precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$', precedes: *arm-end}}}}}
+                    - has: {matches: cancel-tokens, precedes: {precedes: &fused {regex: '^\.$', precedes: {regex: '^fuse$', precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$', precedes: *arm-end}}}}}
                     - has: {matches: cancel-binding, precedes: *arm-end}
                     - has: {matches: cancel-binding, precedes: *fused}
         - kind: call_expression

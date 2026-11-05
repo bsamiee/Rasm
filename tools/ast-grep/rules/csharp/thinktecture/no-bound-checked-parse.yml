@@ -24,7 +24,7 @@ utils:
               has: {field: expression, kind: identifier, pattern: $VALUE}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '(^|\.)(IsFinite|IsNaN|IsInfinity|IsPositiveInfinity|IsNegativeInfinity|IsPositive|IsNegative|IsNormal|IsSubnormal|IsZero|IsInteger|IsEvenInteger|IsOddInteger|IsPow2)$'}
+                - matches: {csharp-named-call: {name: {regex: '^(IsFinite|IsNaN|IsInfinity|IsPositiveInfinity|IsNegativeInfinity|IsPositive|IsNegative|IsNormal|IsSubnormal|IsZero|IsInteger|IsEvenInteger|IsOddInteger|IsPow2)$'}}}
                 - has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $VALUE}}}
             - kind: prefix_unary_expression, parenthesized_expression
               has: {matches: bound-check}

@@ -13,11 +13,12 @@ utils:
         any:
             - kind: integer_literal, real_literal, boolean_literal, character_literal, string_literal, verbatim_string_literal, raw_string_literal, null_literal, default_expression
             - kind: prefix_unary_expression
-              regex: '^-[\p{White_Space}\x{FEFF}]*[0-9.]+[a-zA-Z]*$'
+              regex: ^-
+              has: {kind: 'integer_literal, real_literal'}
             - kind: identifier
               regex: '^unit$'
             - kind: member_access_expression
-              regex: '^(global::)?[A-Z]\p{XID_Continue}*([\p{White_Space}\x{FEFF}]*\.[\p{White_Space}\x{FEFF}]*[A-Z]\p{XID_Continue}*)+$'
+              matches: csharp-static-owner
             - kind: parenthesized_expression
               has: {matches: static-constant}
     constant:
@@ -43,7 +44,7 @@ utils:
     reported-error:
         kind: argument
         nthChild: 1
-        regex: '^\p{XID_Continue}+$'
+        not: {has: {field: name, kind: identifier}}
         has: {kind: identifier, pattern: $ERROR}
     reject-call:
         kind: invocation_expression
@@ -177,17 +178,17 @@ rule:
                         - not: {has: {kind: argument, nthChild: 3}}
                         - any:
                             - all:
-                                - has: {kind: argument, regex: '^Fail[\p{White_Space}\x{FEFF}]*:', has: {matches: fallback-handler}}
-                                - has: {kind: argument, regex: '^Succ[\p{White_Space}\x{FEFF}]*:', has: {matches: identity}}
+                                - has: {kind: argument, all: [{has: {field: name, regex: '^Fail$'}}, {has: {matches: fallback-handler}}]}
+                                - has: {kind: argument, all: [{has: {field: name, regex: '^Succ$'}}, {has: {matches: identity}}]}
                             - all:
-                                - has: {kind: argument, nthChild: 2, not: {regex: '^\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[^:]'}, has: {matches: fallback-handler}}
-                                - has: {kind: argument, nthChild: 1, not: {regex: '^\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[^:]'}, has: {matches: identity}}
+                                - has: {kind: argument, nthChild: 2, not: {has: {field: name, kind: identifier}}, has: {matches: fallback-handler}}
+                                - has: {kind: argument, nthChild: 1, not: {has: {field: name, kind: identifier}}, has: {matches: identity}}
                             - all:
-                                - has: {kind: argument, regex: '^Fail[\p{White_Space}\x{FEFF}]*:', has: {matches: fallback-handler}}
-                                - has: {kind: argument, regex: '^Succ[\p{White_Space}\x{FEFF}]*:', has: {matches: discard-value}}
+                                - has: {kind: argument, all: [{has: {field: name, regex: '^Fail$'}}, {has: {matches: fallback-handler}}]}
+                                - has: {kind: argument, all: [{has: {field: name, regex: '^Succ$'}}, {has: {matches: discard-value}}]}
                             - all:
-                                - has: {kind: argument, nthChild: 2, not: {regex: '^\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[^:]'}, has: {matches: fallback-handler}}
-                                - has: {kind: argument, nthChild: 1, not: {regex: '^\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[^:]'}, has: {matches: discard-value}}
+                                - has: {kind: argument, nthChild: 2, not: {has: {field: name, kind: identifier}}, has: {matches: fallback-handler}}
+                                - has: {kind: argument, nthChild: 1, not: {has: {field: name, kind: identifier}}, has: {matches: discard-value}}
             - all:
                 - matches: run-call
                 - has: {field: function, has: {field: name, regex: '^Run$'}}

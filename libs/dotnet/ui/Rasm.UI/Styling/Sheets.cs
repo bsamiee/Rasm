@@ -108,7 +108,6 @@ public sealed record StyleSheet(HashMap<Key, Look> Looks) : Monoid<StyleSheet> {
         (Roles.Section, Flat with { Metrics = HashMap((Metric.Inset, 8f), (Metric.Gap, 6f), (Metric.Radius, Corner + 2f)) }),
         (Roles.TabList, Flat with { Metrics = HashMap((Metric.Inset, 2f), (Metric.Gap, 2f), (Metric.Radius, Corner + 2f)) }),
         (Roles.Tab, Flat with { Motion = Eased, Metrics = HashMap((Metric.Extent, Control + 4f), (Metric.Inset, 10f), (Metric.Gap, 6f)) }),
-        (Roles.StatusBar, Flat with { Face = TextFace.Tabular, Metrics = HashMap((Metric.Extent, Control), (Metric.Inset, 8f), (Metric.Gap, 8f), (Metric.FontSize, 0.85f)) }),
         (Roles.Card, new Look {
             Metrics = HashMap((Metric.Inset, 12f), (Metric.Gap, 8f), (Metric.Radius, Corner + 2f)),
             When = HashMap((Condition.Glass, Frosted), (Condition.Neutral, Flat)) + Emphasized(Ringed),

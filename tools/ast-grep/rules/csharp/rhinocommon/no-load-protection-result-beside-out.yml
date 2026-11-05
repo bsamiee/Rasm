@@ -14,7 +14,7 @@ utils:
               has: {kind: member_binding_expression, has: {field: name, regex: '^(IsLoadProtected|GetLoadProtection)$', pattern: $MEMBER}}
     out-argument:
         kind: argument
-        regex: '^(@?\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*:[\p{White_Space}\x{FEFF}]*)?out[\p{White_Space}\x{FEFF}]'
+        has: {regex: '^out$'}
     presence-test:
         any:
             - inside:
@@ -25,7 +25,7 @@ utils:
             - inside:
                 kind: is_pattern_expression
                 field: expression
-                has: {field: pattern, regex: '^(not[\p{White_Space}\x{FEFF}]+)?(null(?-u:\b)|\{[\p{White_Space}\x{FEFF}]*\})'}
+                has: {field: pattern, any: [{kind: constant_pattern, has: {kind: null_literal}}, {kind: recursive_pattern, has: {kind: property_pattern_clause, not: {has: {kind: subpattern}}}}, {kind: negated_pattern, has: {any: [{kind: constant_pattern, has: {kind: null_literal}}, {kind: recursive_pattern, has: {kind: property_pattern_clause, not: {has: {kind: subpattern}}}}]}}]}
 rule:
     kind: invocation_expression
     all:

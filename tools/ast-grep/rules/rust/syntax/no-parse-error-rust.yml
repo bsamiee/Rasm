@@ -18,4 +18,4 @@ rule:
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: 'Grammar failed to parse the span'
-note: 'Fix invalid syntax or update tree-sitter-rust for valid syntax the grammar cannot parse'
+note: 'Fix invalid syntax, or extend the grammar in tools/ast-grep/grammars/rust for valid syntax it rejects'

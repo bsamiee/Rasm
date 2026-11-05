@@ -26,7 +26,6 @@ from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, Named, Seeded
 from blender.bpy.render.compositor.inputs import entered, GraphInputs, Holds
 from blender.bpy.render.compositor.viewers import READ
-from blender.bpy.ui.layout.rows import Label
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.files.images import ImageFile
@@ -217,7 +216,6 @@ formation: Final = CompositorEffect(
     pointwise=True,
     source=Seeded(seed=lambda scene: Formation(display_view=viewed(scene))),
     holds=Holds(scene=_unformed),
-    rows=(Label(text=lambda context: HdrWindow().refusal(context).to_list(), icon=Some("STATUS_INFO_FILLED")),),
     registers=(Operator(form=Named, run=encode_formation), DisplayFollowing()),
 )
 peak_mapping: Final = CompositorEffect(

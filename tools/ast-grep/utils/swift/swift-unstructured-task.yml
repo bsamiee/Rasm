@@ -4,7 +4,7 @@ language: swiftlang
 rule:
     any:
         - kind: call_expression
-          has: {nthChild: 1, kind: navigation_expression, regex: '^_Concurrency\.Task$'}
+          has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^_Concurrency(\.|::)Task$'}
         - matches: {swift-task-call: {member: {regex: '^(init|detached|immediate|immediateDetached)$'}}}
         - kind: constructor_expression
           has: {field: constructed_type, matches: swift-task-type}

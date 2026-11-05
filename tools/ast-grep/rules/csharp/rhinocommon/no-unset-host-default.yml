@@ -20,28 +20,28 @@ rule:
         - has: {field: function, matches: member}
         - any:
             - all:
-                - has: {field: function, regex: '(^|\.)SetRoadlikeUpDirection$'}
+                - matches: {csharp-named-call: {name: {regex: '^SetRoadlikeUpDirection$'}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 2}}}]}
             - all:
-                - has: {field: function, regex: '(^|\.)(IsIsoparametric|FindId)$'}
+                - matches: {csharp-named-call: {name: {regex: '^(IsIsoparametric|FindId)$'}}}
                 - has: {field: arguments, all: [{has: {nthChild: 2, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 3}}}]}
             - all:
-                - has: {field: function, regex: '(^|\.)SetTaper$'}
+                - matches: {csharp-named-call: {name: {regex: '^SetTaper$'}}}
                 - has: {field: arguments, all: [{has: {nthChild: 2, matches: unset-argument}}, {has: {kind: argument, nthChild: 3}}, {not: {has: {kind: argument, nthChild: 4}}}]}
             - all:
-                - has: {field: function, regex: '(^|\.)(Pushup|Pullback)$'}
+                - matches: {csharp-named-call: {name: {regex: '^(Pushup|Pullback)$'}}}
                 - has: {field: arguments, all: [{has: {nthChild: 3, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 4}}}]}
             - all:
-                - has: {field: function, regex: '(^|\.)CreateHSpline$'}
+                - matches: {csharp-named-call: {name: {regex: '^CreateHSpline$'}}}
                 - has: {field: arguments, all: [{has: {nthChild: 2, matches: unset-argument}}, {has: {nthChild: 3, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 4}}}]}
             - all:
-                - has: {field: function, regex: '(^|\.)SetupDisplayMaterial$'}
+                - matches: {csharp-named-call: {name: {regex: '^SetupDisplayMaterial$'}}}
                 - has: {field: arguments, all: [{has: {nthChild: 4, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 5}}}]}
             - all:
-                - has: {field: function, regex: '(^|\.)Add$'}
+                - matches: {csharp-named-call: {name: {regex: '^Add$'}}}
                 - has: {field: arguments, all: [{has: {nthChild: 4, matches: unset-argument}}, {has: {kind: argument, nthChild: 5}}, {not: {has: {kind: argument, nthChild: 6}}}]}
             - all:
-                - has: {field: function, regex: '(^|\.)CreateInterpolatedCurve$'}
+                - matches: {csharp-named-call: {name: {regex: '^CreateInterpolatedCurve$'}}}
                 - has: {field: arguments, all: [{has: {nthChild: 4, matches: unset-argument}}, {has: {nthChild: 5, matches: unset-argument}}, {not: {has: {kind: argument, nthChild: 6}}}]}
 message: '`$UNSET` restates the host default of `$MEMBER`'
 note: 'Call `<member>` without `Unset` arguments in `<option>.Match` arm `None`, `SetRoadlikeUpDirection` in arm `Some` alone'

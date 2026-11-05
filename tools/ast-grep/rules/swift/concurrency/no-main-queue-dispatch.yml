@@ -9,7 +9,7 @@ rule:
             - has:
                 nthChild: 1
                 kind: navigation_expression
-                regex: '^((Dispatch\.)?DispatchQueue\.main\.(async|sync|asyncAndWait)|(Foundation\.)?(RunLoop\.main\.perform|OperationQueue\.main\.addOperation))$'
+                regex: '^((Dispatch(\.|::))?DispatchQueue\.main\.(async|sync|asyncAndWait)|(Foundation(\.|::))?(RunLoop\.main\.perform|OperationQueue\.main\.addOperation))$'
             - all:
                 - has: {nthChild: 1, kind: simple_identifier, regex: '^CFRunLoopPerformBlock$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '^CFRunLoopGetMain\(\)$'}}}

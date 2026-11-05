@@ -1,8 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Central package versions kept at newest releases the target framework can consume</Description>
+        <Description>Central package versions kept at newest releases every consuming project can restore, exact host rows at the installed host</Description>
         <OutputType>Exe</OutputType>
     </PropertyGroup>
+
+    <ItemGroup Label="Processes">
+        <PackageReference Include="CliWrap" />
+    </ItemGroup>
 
     <ItemGroup Label="Package Management">
         <PackageReference Include="NuGet.Common" />

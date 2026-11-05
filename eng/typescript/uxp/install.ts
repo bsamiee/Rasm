@@ -48,13 +48,11 @@ const install = (agent: string) =>
         Effect.fn('install')(function* ({ built }) {
             const [fs, path, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME')]);
             const [manifest, listing] = yield* Effect.all([decodeFile(UxpManifest.json, built, UxpManifest.file), runCommand(agent, ['--list', 'all']).pipe(Effect.flatMap(Schema.decodeEffect(Listing)))], { concurrency: 'unbounded' });
+            const hosts = Array.map(Array.ensure(manifest.host), ({ app, minVersion }) => `${app} ${minVersion}`).join(', ');
             yield* listing.some((extension) => extension['Extension Name'] === manifest.name) ? runCommand(agent, ['--remove', manifest.name]) : Effect.void;
             yield* runCommand(agent, ['--install', `${built}.ccx`]).pipe(
                 Effect.catchTag('ExitError', ({ output }) => Effect.succeed(output)),
-                Effect.filterOrFail(
-                    String.includes('Installation Successful'),
-                    (answer) => new Cause.UnknownError(answer, NO_HOST_RELEASE.test(answer) ? `No installed ${manifest.host.app} release at ${manifest.host.minVersion} or later accepts ${manifest.name}` : `${path.basename(agent)} refused ${manifest.name}: ${answer.trim()}`),
-                ),
+                Effect.filterOrFail(String.includes('Installation Successful'), (answer) => new Cause.UnknownError(answer, NO_HOST_RELEASE.test(answer) ? `No installed release of ${hosts} or later accepts ${manifest.name}` : `${path.basename(agent)} refused ${manifest.name}: ${answer.trim()}`)),
             );
             yield* fs.remove(path.join(home, ADOBE, 'CEP', 'extensions', manifest.id), { recursive: true, force: true });
         }),

@@ -54,5 +54,32 @@ runs:
         - run: playwright install --with-deps --only-shell chromium
           if: runner.os == 'Linux'
           shell: bash
-        - run: uv sync --locked --no-default-groups --group dev
+        - run: pixi run --locked -e hdf5 pixi run --locked -e default uv sync --locked --no-default-groups --group dev
           shell: bash
+        - id: nx
+          if: runner.os == 'macOS'
+          run: project="$(nx show project rasm --json)" && printf 'task=%s\n' "$({ printf '%s\n' "$project"; jq -r '[.targets | to_entries[] | select(.key | startswith("grammar:")) | .value.inputs[]? | .runtime? // empty] | unique[]' <<<"$project" | bash; } | shasum -a 256 | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT" && printf 'database=%s\n' "$(basename "$NX_WORKSPACE_DATA_DIRECTORY"/*.db)" >> "$GITHUB_OUTPUT"
+          shell: bash
+        - id: grammars
+          if: runner.os == 'macOS'
+          uses: actions/cache/restore@v6
+          with:
+            path: |
+                .cache/nx/cache
+                ${{ env.NX_WORKSPACE_DATA_DIRECTORY }}/*.db
+            key: nx-grammar-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/ast-grep/grammars/**', 'sgconfig.yml', 'pnpm-lock.yaml', 'tsconfig.base.json', 'nx.json', '.gitignore', '.nxignore') }}-${{ steps.nx.outputs.task }}
+        - if: steps.grammars.outputs.cache-hit == 'true'
+          run: find "$NX_WORKSPACE_DATA_DIRECTORY" -maxdepth 1 -name '*.db' ! -name "$DATABASE" -exec mv {} "$NX_WORKSPACE_DATA_DIRECTORY/$DATABASE" \;
+          env:
+            DATABASE: ${{ steps.nx.outputs.database }}
+          shell: bash
+        - if: runner.os == 'macOS'
+          run: /usr/bin/time -l nx run rasm:grammar
+          shell: bash
+        - if: runner.os == 'macOS' && steps.grammars.outputs.cache-hit != 'true'
+          uses: actions/cache/save@v6
+          with:
+            path: |
+                .cache/nx/cache
+                ${{ env.NX_WORKSPACE_DATA_DIRECTORY }}/*.db
+            key: ${{ steps.grammars.outputs.cache-primary-key }}

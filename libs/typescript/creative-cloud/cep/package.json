@@ -1,7 +1,7 @@
 {
     "name": "@rasm/cep",
     "private": true,
-    "description": "Requests served from a CEP extension through its host's ExtendScript",
+    "description": "CEP extension manifest, the panel serving requests through its host ExtendScript, and the Vite builder of CEP extensions",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -9,13 +9,21 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./panel": "./panel.ts"
+        "./panel": "./panel.ts",
+        "./vite": "./vite.ts"
     },
     "dependencies": {
+        "@effect/platform-node": "catalog:",
         "@rasm/automation": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/uxp": "workspace:*",
+        "@swc/core": "catalog:",
+        "cheerio": "catalog:",
         "effect": "catalog:",
-        "fast-xml-builder": "catalog:"
+        "fast-xml-builder": "catalog:",
+        "vite": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
     }
 }

@@ -9,10 +9,10 @@ utils:
             field: function
             any:
                 - kind: member_access_expression
-                  has: {field: name, pattern: $REGISTER, regex: '^Register\p{XID_Continue}*$'}
+                  has: {field: name, pattern: $REGISTER, regex: ^Register}
                 - kind: identifier
                   pattern: $REGISTER
-                  regex: '^Register\p{XID_Continue}*$'
+                  regex: ^Register
     relayed:
         kind: invocation_expression
         all:
@@ -46,7 +46,7 @@ rule:
     any:
         - kind: invocation_expression
           all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Catch|CatchIO|IfFail|MapFail)([\p{White_Space}\x{FEFF}]*<.+>)?$'}}, {has: {field: expression, matches: registering}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, matches: {csharp-simple-name: {name: {regex: '^(Catch|CatchIO|IfFail|MapFail)$'}}}}}, {has: {field: expression, matches: registering}}]}
             - has: {field: arguments, matches: missing-id}
         - kind: binary_expression
           all:

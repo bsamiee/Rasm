@@ -15,7 +15,7 @@ utils:
             - pattern: $PTS
     distance-closure:
         kind: closure_expression
-        regex: '\.(x|y|z)(?-u:\b)|distance|dist\(|length_squared|hypot|\.sqrt\(\)|powi\(\p{White_Space}*2\p{White_Space}*\)'
+        regex: '\.(x|y|z)(?-u:\b)|distance|dist\(|length_squared|hypot|\.sqrt\(\)|powi\(\p{Pattern_White_Space}*2\p{Pattern_White_Space}*\)'
     mapped-distance:
         kind: call_expression
         all:

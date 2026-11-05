@@ -4,15 +4,15 @@
 
 Value lifetime picks the owner:
 
-| [INDEX] | [LIFETIME]                            | [OWNER]                                                                                   |
-| :-----: | :------------------------------------ | :---------------------------------------------------------------------------------------- |
-|  [01]   | One operator call                     | Operator properties, `options={'SKIP_SAVE'}` on values the next call must not reuse       |
-|  [02]   | Saved with an ID, node, or view layer | `PointerProperty(type=<group>)` attached to the holding type                              |
-|  [03]   | Saved record `bpy.props` cannot state | `msgspec.json` bytes on its ID under the record's class name                              |
-|  [04]   | Saved with a window's screen          | `bpy.props` on `Screen`, `Window` and `Space` attachments refusing writes                 |
-|  [05]   | User setting across files             | `AddonPreferences` on the extension package                                               |
-|  [06]   | Named preset files                    | `bpy.utils.register_preset_path` folder                                                   |
-|  [07]   | Session cache                         | Scope-owned dict keyed by `session_uid`, cleared on `load_post`, `undo_post`, `redo_post` |
+| [INDEX] | [LIFETIME]                            | [OWNER]                                                                                         |
+| :-----: | :------------------------------------ | :---------------------------------------------------------------------------------------------- |
+|  [01]   | One operator call                     | Operator properties, `options={'SKIP_SAVE'}` on values the next call must not reuse             |
+|  [02]   | Saved with an ID, node, or view layer | `PointerProperty(type=<group>)` attached to the holding type                                    |
+|  [03]   | Saved record `bpy.props` cannot state | `msgspec.json` bytes on its ID under the record's class name                                    |
+|  [04]   | Saved with a window's screen          | `bpy.props` on `Screen`, `Window` and `Space` attachments refusing writes                       |
+|  [05]   | User setting across files             | `AddonPreferences` on the extension package                                                     |
+|  [06]   | Named preset files                    | `presets/<id>/<key>`: stock under `register_preset_path`, user under `user_resource('SCRIPTS')` |
+|  [07]   | Session cache                         | Scope-owned dict keyed by `session_uid`, cleared on `load_post`, `undo_post`, `redo_post`       |
 
 Records with unions, 64-bit integers, or nested tuples store as NUL-free JSON that overwrites cannot cut, decoding against their class at each read:
 

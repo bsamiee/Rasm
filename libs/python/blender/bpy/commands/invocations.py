@@ -19,7 +19,7 @@ from blender.bpy.data.rna.paths import definition, preferred
 from blender.bpy.data.rna.properties import annotated
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.extension.reports import alerted, rendered
+from blender.bpy.extension.reports import rendered
 from blender.records.faults import Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
@@ -67,7 +67,7 @@ class Popup[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
 
 
 class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
-    """Properties dialog over a computed message, its faults drawn as alert rows, while the add-on preferences' `ask_<key>` flag holds, a declared flag drawing the checkbox that clears it after a run."""
+    """Properties dialog over a computed message, its faults logged, while the add-on preferences' `ask_<key>` flag holds, a declared flag drawing the checkbox that clears it after a run."""
 
     asks: ClassVar[bool] = True
     message: Callable[[bpy.types.Context, T], Outcome[str]]
@@ -103,9 +103,8 @@ class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_o
             layout: bpy.types.UILayout = operator.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             message = self.message(context, body.properties(operator))
             layout.use_property_split = True
-            for text in message.to_option().to_list():
+            for text in body.identity.reports.settled(message).to_list():
                 layout.label_multiline(text=text, icon=self.icon)
-            alerted(layout, message)
             body.command.draw.default_value(listed)(layout, context, body.properties(operator), body.identity)
             for _ in declared().to_list():
                 layout.prop(operator.properties, "suppress")

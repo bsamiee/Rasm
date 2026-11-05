@@ -4,16 +4,20 @@ role: item
 symbolType: function
 rule: {kind: function_definition, has: {field: name, pattern: $NAME}}
 name: $NAME
-isExported: {not: {inside: {any: [{kind: 'subshell, process_substitution, pipeline'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: end}}}
+isExported: {not: {inside: {any: [{kind: 'subshell, process_substitution, pipeline, coproc_command'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: end}}}
 ---
 id: bash-function-function
 language: bashlang
 role: member
 parentRuleIds: [bash-function]
 symbolType: function
-rule: {kind: function_definition, has: {field: name, pattern: $NAME}}
-name: $NAME
-isPublic: {not: {inside: {any: [{kind: 'subshell, process_substitution, pipeline'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: {kind: function_definition}}}}
+utils:
+    scope: {inside: {kind: function_definition, stopBy: {kind: function_definition}, any: [{all: [{inside: {kind: function_definition, stopBy: end}}, {has: {field: name, pattern: $OWNER}}]}, {pattern: $_}]}}
+rule: {kind: word, pattern: $NAME, inside: {kind: function_definition, field: name, matches: scope}}
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+name: $QUALIFIER$NAME
+isPublic: {not: {inside: {kind: function_definition, inside: {any: [{kind: 'subshell, process_substitution, pipeline, coproc_command'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: {kind: function_definition}}}}}
 ---
 id: bash-source
 language: bashlang
@@ -21,15 +25,19 @@ role: item
 symbolType: module
 utils:
     argument: {not: {kind: 'command_name, variable_assignment, file_redirect, herestring_redirect, heredoc_redirect, comment'}}
+    wrapped: {kind: word, regex: '^(source|\.)$', nthChild: 2, follows: {kind: command_name, regex: '^(builtin|command)$'}}
     option:
         any:
-            - follows: {kind: command_name}
-            - follows: {kind: 'word, string, raw_string', regex: '^["'']?-p[^"'']+(["''])?$', matches: option}
+            - follows: {kind: command_name, not: {regex: '^(builtin|command)$'}}
+            - follows: {matches: wrapped}
+            - follows: {kind: 'word, string, raw_string', regex: '^["'']?-p[^"'']+["'']?$', matches: option}
             - follows: {matches: argument, follows: {kind: 'word, string, raw_string', regex: '^["'']?-p["'']?$', matches: option}}
 rule:
     kind: command
     all:
-        - has: {field: name, regex: '^(source|\.)$'}
+        - any:
+            - has: {field: name, regex: '^(source|\.)$'}
+            - has: {matches: wrapped}
         - has:
             matches: argument
             pattern: $NAME
@@ -47,22 +55,30 @@ parentRuleIds: [bash-function]
 symbolType: module
 utils:
     argument: {not: {kind: 'command_name, variable_assignment, file_redirect, herestring_redirect, heredoc_redirect, comment'}}
+    scope: {inside: {kind: function_definition, stopBy: {kind: function_definition}, any: [{all: [{inside: {kind: function_definition, stopBy: end}}, {has: {field: name, pattern: $OWNER}}]}, {pattern: $_}]}}
+    wrapped: {kind: word, regex: '^(source|\.)$', nthChild: 2, follows: {kind: command_name, regex: '^(builtin|command)$'}}
     option:
         any:
-            - follows: {kind: command_name}
-            - follows: {kind: 'word, string, raw_string', regex: '^["'']?-p[^"'']+(["''])?$', matches: option}
+            - follows: {kind: command_name, not: {regex: '^(builtin|command)$'}}
+            - follows: {matches: wrapped}
+            - follows: {kind: 'word, string, raw_string', regex: '^["'']?-p[^"'']+["'']?$', matches: option}
             - follows: {matches: argument, follows: {kind: 'word, string, raw_string', regex: '^["'']?-p["'']?$', matches: option}}
 rule:
     kind: command
     all:
-        - has: {field: name, regex: '^(source|\.)$'}
+        - matches: scope
+        - any:
+            - has: {field: name, regex: '^(source|\.)$'}
+            - has: {matches: wrapped}
         - has:
             matches: argument
             pattern: $NAME
             any:
                 - {not: {regex: '^["'']?-'}, matches: option}
                 - follows: {kind: 'word, string, raw_string', regex: '^["'']?--["'']?$', matches: option}
-name: $NAME
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+name: $QUALIFIER$NAME
 isPublic: false
 ---
 id: bash-variable
@@ -79,16 +95,19 @@ utils:
 rule:
     any:
         - matches: assignment
-          not: {inside: {kind: 'variable_assignments, declaration_command, command, expansion, arithmetic_expansion, binary_expression'}}
+          not: {inside: {kind: 'variable_assignments, declaration_command, command, expansion, arithmetic_expansion, binary_expression, c_style_for_statement'}}
         - {kind: variable_assignments, has: {matches: assignment}}
         - kind: declaration_command
-          has: {kind: 'variable_assignment, variable_name'}
+          has: {any: [{kind: variable_name}, {kind: variable_assignment, not: {has: {regex: '^\+=$', pattern: $$_OP}}}]}
           not:
             any:
                 - has: {kind: 'word, string, raw_string', regex: '^["'']?[-+][a-zA-Z]*[fF]'}
                 - all:
                     - has: {regex: '^(declare|typeset|local)$'}
                     - has: {kind: 'word, string, raw_string', regex: '^["'']?[-+][a-zA-Z]*p'}
+                - all:
+                    - has: {regex: '^export$'}
+                    - has: {kind: 'word, string, raw_string', regex: '^["'']?-[a-zA-Z]*n'}
     pattern: $DECLARATION
 rewriters:
     - id: binding
@@ -96,6 +115,7 @@ rewriters:
         any:
             - kind: variable_assignment
               inside: {kind: declaration_command}
+              not: {has: {regex: '^\+=$', pattern: $$_OP}}
               has:
                 field: name
                 any:
@@ -109,13 +129,13 @@ rewriters:
 transform:
     NAMES: {rewrite: {source: $DECLARATION, rewriters: [binding], joinBy: ', '}}
     HEADER: rewrite($DECLARATION, rewriters=[binding])
-    SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\\?\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r ]*\\?\n[\t-\r ]*', by: ' '}}
 name: $NAMES
 signature: $SIGNATURE
 isExported:
     not:
         any:
-            - inside: {any: [{kind: 'subshell, process_substitution, pipeline'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: end}
+            - inside: {any: [{kind: 'subshell, process_substitution, pipeline, coproc_command'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: end}
             - kind: declaration_command
               all:
                 - has: {regex: '^(local|declare|typeset)$'}
@@ -136,19 +156,24 @@ parentRuleIds: [bash-function]
 symbolType: variable
 utils:
     assignment: {kind: variable_assignment, not: {any: [{has: {regex: '^\+=$', pattern: $$_OP}}, {has: {field: name, kind: subscript}}]}}
+    scope: {inside: {kind: function_definition, stopBy: {kind: function_definition}, any: [{all: [{inside: {kind: function_definition, stopBy: end}}, {has: {field: name, pattern: $OWNER}}]}, {pattern: $_}]}}
 rule:
+    matches: scope
     any:
         - matches: assignment
-          not: {inside: {kind: 'variable_assignments, declaration_command, command, expansion, arithmetic_expansion, binary_expression'}}
+          not: {inside: {kind: 'variable_assignments, declaration_command, command, expansion, arithmetic_expansion, binary_expression, c_style_for_statement'}}
         - {kind: variable_assignments, has: {matches: assignment}}
         - kind: declaration_command
-          has: {kind: 'variable_assignment, variable_name'}
+          has: {any: [{kind: variable_name}, {kind: variable_assignment, not: {has: {regex: '^\+=$', pattern: $$_OP}}}]}
           not:
             any:
                 - has: {kind: 'word, string, raw_string', regex: '^["'']?[-+][a-zA-Z]*[fF]'}
                 - all:
                     - has: {regex: '^(declare|typeset|local)$'}
                     - has: {kind: 'word, string, raw_string', regex: '^["'']?[-+][a-zA-Z]*p'}
+                - all:
+                    - has: {regex: '^export$'}
+                    - has: {kind: 'word, string, raw_string', regex: '^["'']?-[a-zA-Z]*n'}
     pattern: $DECLARATION
 rewriters:
     - id: binding
@@ -156,6 +181,7 @@ rewriters:
         any:
             - kind: variable_assignment
               inside: {kind: declaration_command}
+              not: {has: {regex: '^\+=$', pattern: $$_OP}}
               has:
                 field: name
                 any:
@@ -167,15 +193,37 @@ rewriters:
             - {kind: variable_name, inside: {kind: declaration_command}, pattern: $BINDING_NAME}
       fix: $BINDING_NAME
 transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
     NAMES: {rewrite: {source: $DECLARATION, rewriters: [binding], joinBy: ', '}}
     HEADER: rewrite($DECLARATION, rewriters=[binding])
-    SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\\?\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-name: $NAMES
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r ]*\\?\n[\t-\r ]*', by: ' '}}
+name: $QUALIFIER$NAMES
 signature: $SIGNATURE
 isPublic:
     not:
         any:
-            - inside: {any: [{kind: 'subshell, process_substitution, pipeline'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: {kind: function_definition}}
+            - inside: {any: [{kind: 'subshell, process_substitution, pipeline, coproc_command'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: {kind: function_definition}}
             - kind: declaration_command
               has: {regex: '^(local|declare|typeset)$'}
               not: {has: {kind: 'word, string, raw_string', regex: '^["'']?-[a-zA-Z]*g'}}
+---
+id: bash-coprocess
+language: bashlang
+role: item
+symbolType: variable
+rule: {kind: coproc_command, has: {field: name, pattern: $NAME}}
+name: $NAME
+isExported: {not: {inside: {any: [{kind: 'subshell, process_substitution, pipeline, coproc_command'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: end}}}
+---
+id: bash-function-coprocess
+language: bashlang
+role: member
+parentRuleIds: [bash-function]
+symbolType: variable
+utils:
+    scope: {inside: {kind: function_definition, stopBy: {kind: function_definition}, any: [{all: [{inside: {kind: function_definition, stopBy: end}}, {has: {field: name, pattern: $OWNER}}]}, {pattern: $_}]}}
+rule: {kind: word, pattern: $NAME, inside: {kind: coproc_command, field: name, matches: scope}}
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+name: $QUALIFIER$NAME
+isPublic: {not: {inside: {kind: coproc_command, inside: {any: [{kind: 'subshell, process_substitution, pipeline, coproc_command'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: {kind: function_definition}}}}}

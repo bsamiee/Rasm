@@ -8,7 +8,7 @@ utils:
             - kind: member_access_expression
               all:
                 - has: {field: name, regex: '^SandBox$'}
-                - has: {field: expression, regex: '^((global::)?Grasshopper2\.)?Settings$'}
+                - has: {field: expression, matches: {csharp-qualified-name: {name: {regex: '^Settings$'}, qualifier: {regex: '^Grasshopper2$'}}}}
             - kind: parenthesized_expression
               has: {matches: sandbox}
             - kind: binary_expression
@@ -25,7 +25,7 @@ utils:
                 - has: {field: operator, regex: '^==$'}
                 - has: {field: right, kind: boolean_literal, regex: '^true$'}
             - kind: is_pattern_expression
-              has: {field: pattern, regex: '^true(?-u:\b)'}
+              has: {field: pattern, kind: constant_pattern, has: {kind: boolean_literal, regex: '^true$'}}
     disjunct:
         kind: binary_expression
         all:

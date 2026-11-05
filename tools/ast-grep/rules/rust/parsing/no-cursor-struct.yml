@@ -9,7 +9,7 @@ utils:
                 - not: {has: {kind: mutable_specifier}}
                 - has: {field: type, any: [{kind: primitive_type, regex: '^str$'}, {kind: array_type, not: {has: {field: length, pattern: $_}}, has: {field: element, regex: '^(u8|char)$'}}]}
             - kind: generic_type
-              regex: '^(Vec\p{White_Space}*<\p{White_Space}*(char|u8)\p{White_Space}*>|Box\p{White_Space}*<\p{White_Space}*(str|\[\p{White_Space}*(u8|char)\p{White_Space}*\])\p{White_Space}*>|(Arc|Rc)\p{White_Space}*<\p{White_Space}*(str|\[\p{White_Space}*u8\p{White_Space}*\])\p{White_Space}*>)$'
+              regex: '^(Vec\p{Pattern_White_Space}*<\p{Pattern_White_Space}*(char|u8)\p{Pattern_White_Space}*>|Box\p{Pattern_White_Space}*<\p{Pattern_White_Space}*(str|\[\p{Pattern_White_Space}*(u8|char)\p{Pattern_White_Space}*\])\p{Pattern_White_Space}*>|(Arc|Rc)\p{Pattern_White_Space}*<\p{Pattern_White_Space}*(str|\[\p{Pattern_White_Space}*u8\p{Pattern_White_Space}*\])\p{Pattern_White_Space}*>)$'
             - kind: type_identifier
               regex: '^String$'
     self-field:

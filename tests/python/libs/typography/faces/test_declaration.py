@@ -16,7 +16,7 @@ from typography.faces.faults import Outcome, Reason
 DECLARATION = """
 name = "Test"
 corpus = "corpus.toml"
-output = "build"
+fontspector = "fontspector.toml"
 [[families]]
 name = "Satr"
 original = "Naskh/original"
@@ -46,11 +46,12 @@ first = 0xE4CF
 def _declared(folder: Path, text: str, /) -> Outcome[Declared]:
     path = folder / "set.toml"
     path.write_text(text, encoding="utf-8")
-    return declared(path)
+    (folder / "fontspector.toml").write_text('[shaping]\ntest_directory = "shaping"\n', encoding="utf-8")
+    return declared(path, folder / "build")
 
 
 def test_family_overrides_and_relative_paths_survive_relocation(tmp_path: Path) -> None:
-    """Family values fill every face while face-specific values and all relative output paths keep their meaning."""
+    """Family values fill every face while face-specific values, the output folder, and the approval folder keep their meaning."""
     found = _declared(tmp_path, DECLARATION).default_with(lambda faults: pytest.fail(str(faults)))
     regular, italic, ornament = found.set.faces
     assert isinstance(regular, Face)
@@ -58,11 +59,13 @@ def test_family_overrides_and_relative_paths_survive_relocation(tmp_path: Path) 
     assert isinstance(ornament, OrnamentFace)
     assert regular.genre == italic.genre == TextNaskh(word_ratio=3.0)
     assert (regular.values.counter, italic.treatments, italic.typographic, ornament.first) == (0.06, (Sheared(angle=20),), "Satr Outline", 0xE4CF)
-    assert (found.original(regular), found.binary(italic), found.source(ornament), found.corpus) == (
+    assert (found.original(regular), found.binary(italic), found.stamp(italic), found.source(ornament), found.corpus, found.approved(italic)) == (
         tmp_path / "Naskh/original/Naskh-Regular.ttf",
         tmp_path / "build/Satr/SatrOutline-ExtraBoldItalic.ttf",
+        tmp_path / "build/Satr/SatrOutline-ExtraBoldItalic.json",
         tmp_path / "build/source/Tazhib-Regular.ufo",
         tmp_path / "corpus.toml",
+        tmp_path / "shaping/SatrOutline-ExtraBoldItalic.json",
     )
     relocated = tmp_path / "relocated"
     relocated.mkdir()
@@ -108,7 +111,7 @@ def test_native_metric_classes_accept_the_external_endpoints(tmp_path: Path, wid
 def test_missing_declarations_keep_the_native_file_cause(tmp_path: Path) -> None:
     """Absent files preserve FileNotFoundError beneath the readable boundary reason."""
     path = tmp_path / "absent.toml"
-    match declared(path):
+    match declared(path, tmp_path / "build"):
         case Result(error=(fault,)):
             assert (fault.reason, fault.subject) == (Reason.UNREADABLE, str(path))
             assert isinstance(fault.cause, FileNotFoundError)

@@ -1,6 +1,6 @@
 import { atelierLink } from '@rasm/atelier';
+import { cep } from '@rasm/cep/vite';
 import { Illustrator } from '@rasm/illustrator';
-import { cep } from '../../../../../vite.shared.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -5,4 +5,4 @@ rule:
     kind: program
     any:
         - matches: {typescript-module-importer: {module: {regex: '^@rasm/extendscript/extendscript$'}}}
-        - has: {kind: import_statement, regex: '^import type ', has: {field: source, regex: '^.@rasm/cep.$'}}
+        - has: {kind: import_statement, all: [{has: {regex: '^type$'}}, {has: {field: source, regex: '^.@rasm/cep.$'}}]}

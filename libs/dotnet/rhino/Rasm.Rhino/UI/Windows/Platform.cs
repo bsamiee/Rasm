@@ -20,11 +20,6 @@ internal sealed class WpfPlatform : IHostPlatform {
                     static handler => SystemEvents.DisplaySettingsChanged += handler, static handler => SystemEvents.DisplaySettingsChanged -= handler, static handler => handler.Invoke)
                 .Choose(static _ => Some(unit)));
 
-    // --- [ICONS]
-    public int DropDownIconSize => 16;
-
-    public int RenderTabIconSize => 16;
-
     // --- [FONTS]
     public IO<Unit> Digits(Control control) =>
         IO.lift(() => Optional(control.ControlObject as System.Windows.DependencyObject)

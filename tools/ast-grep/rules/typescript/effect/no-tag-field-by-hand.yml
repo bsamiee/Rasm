@@ -10,7 +10,7 @@ utils:
                 field: value
                 any:
                     - {kind: string}
-                    - {kind: as_expression, has: {kind: string}}
+                    - {kind: 'as_expression, type_assertion', has: {kind: string}}
             - not: {has: {regex: '^static$'}}
     tagged-class:
         kind: class_declaration

@@ -1,7 +1,7 @@
 {
     "typescript": {
         "command": "mise",
-        "args": [ "exec", "--", "effect-tsgo", "tsc@next", "--lsp", "--stdio" ],
+        "args": [ "exec", "--", "effect-tsgo", "tsc", "--lsp", "--stdio" ],
         "extensionToLanguage": { ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript" },
         "diagnostics": false,
         "settings": { "js/ts": { "tsserver": { "automaticTypeAcquisition": { "enabled": false } } } }

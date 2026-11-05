@@ -125,6 +125,8 @@ const programRewrites = async (call: Call, invocation: Invocation, words: readon
             const text = 'python -m tools.refurb';
             return basename(head.text) === program ? [edit(head.span.start, head.span.end, text, Maybe.some(`refurb became ${text} to read the mypy cache`))] : [];
         }
+        case 'stubtest':
+            return stated(['--mypy-config-file']) ? [] : call.system.root.values.map((root) => edit(head.span.end, head.span.end, ` --mypy-config-file ${root}/.config/stubtest.ini`));
         case 'nx':
             return [...nxCacheFlags(invocation, rest), ...(await forwardedDuplicates(call, invocation, words))];
         default:

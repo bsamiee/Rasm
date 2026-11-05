@@ -32,7 +32,19 @@ utils:
     constant-pattern:
         kind: constant_pattern, or_pattern, parenthesized_pattern
     name-subject:
-        regex: '(\.ToString\([\p{White_Space}\x{FEFF}]*("[GgFf]")?[\p{White_Space}\x{FEFF}]*\)|^nameof[\p{White_Space}\x{FEFF}]*\(.*\)|Enum\.GetName(?-u:\b).*)$'
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^ToString$'}}
+                - has:
+                    field: arguments
+                    any:
+                        - not: {has: {kind: argument}}
+                        - has: {kind: argument, nthChild: 1, regex: '^"[GgFf]"$'}
+                          not: {has: {kind: argument, nthChild: 2}}
+            - matches: csharp-nameof-call
+            - kind: invocation_expression
+              matches: {csharp-owner-call: {type: {regex: '^Enum$'}, member: {regex: '^GetName$'}}}
     text-switch:
         any:
             - kind: switch_expression
@@ -51,8 +63,13 @@ utils:
                         - has: {kind: switch_section, not: {pattern: $FIRST}, has: {matches: constant-pattern}}
                 - not: {has: {field: value, matches: name-subject}}
     key-read:
-        kind: member_access_expression, invocation_expression
-        regex: '^@?\p{XID_Continue}+[\p{White_Space}\x{FEFF}]*\.[\p{White_Space}\x{FEFF}]*(Key|ToValue[\p{White_Space}\x{FEFF}]*\([\p{White_Space}\x{FEFF}]*\))$'
+        any:
+            - kind: member_access_expression
+              all: [{has: {field: expression, kind: identifier}}, {has: {field: name, regex: '^Key$'}}]
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, kind: identifier}}, {has: {field: name, regex: '^ToValue$'}}]}
+                - matches: csharp-argumentless-call
     text-operand:
         any:
             - matches: text-constant
@@ -67,7 +84,7 @@ utils:
                     - all: [{has: {field: right, matches: key-read}}, {has: {field: left, matches: text-operand}}]
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '(^|\.)Equals$'}
+                - matches: {csharp-named-call: {name: {regex: '^Equals$'}}}
                 - has: {stopBy: end, matches: key-read}
                 - has: {stopBy: end, matches: text-operand}
     key-scan:

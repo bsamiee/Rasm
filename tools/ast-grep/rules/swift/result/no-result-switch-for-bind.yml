@@ -9,11 +9,11 @@ rule:
     any:
         - matches: swift-result-bind-switch
         - kind: if_statement
-          regex: '^if\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.failure(?-u:\b)'
+          regex: '^if[\t-\r ]+case[\t-\r ]+(let[\t-\r ]+)?\.failure(?-u:\b)'
           all: [{has: {matches: swift-result-value, follows: {regex: '^=$'}}}]
           has: {matches: failure-return}
         - kind: if_statement
-          regex: '^if\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.success(?-u:\b)'
+          regex: '^if[\t-\r ]+case[\t-\r ]+(let[\t-\r ]+)?\.success(?-u:\b)'
           all:
             - has: {matches: swift-result-value, follows: {regex: '^=$'}}
             - not: {has: {regex: '^,$'}}
@@ -24,8 +24,8 @@ rule:
                     - not: {has: {regex: '^else$'}}
                     - precedes: {kind: control_transfer_statement, has: {field: result, matches: swift-failure-call}}
         - kind: guard_statement
-          regex: '^guard\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.success(?-u:\b)'
-          not: {regex: '(?s)^guard\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.success(?-u:\b)[^,]*,.*(?-u:\b)(case|let|var)(?-u:\b)'}
+          regex: '^guard[\t-\r ]+case[\t-\r ]+(let[\t-\r ]+)?\.success(?-u:\b)'
+          not: {regex: '(?s)^guard[\t-\r ]+case[\t-\r ]+(let[\t-\r ]+)?\.success(?-u:\b)[^,]*,.*(?-u:\b)(case|let|var)(?-u:\b)'}
           has: {matches: failure-return}
           all: [{has: {matches: swift-result-value, follows: {regex: '^=$'}}}]
 transform:

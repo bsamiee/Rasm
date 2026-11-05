@@ -2,8 +2,7 @@
 
 [project]
 name            = "darkroom"
-version         = "1.0.0"
-description     = "Post-production from raw render to finished image"
+version         = "0.0.0"
 requires-python = ">=3.13"
 
 dependencies = [
@@ -31,3 +30,11 @@ package = false
 
 [tool.ruff]
 extend = "../../../pyproject.toml"
+
+# --- [BLENDER] --------------------------------------------------------------------------
+
+[tool.blender.fetch]
+"effects/formation/fetched/OCIO/config.ocio"                     = { url = "https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9/OCIO/config.ocio", sha256 = "78e80ab792fefbfcb312973ff7991fff0d1a793f4fef6474b6087c252bc1b0c7" }
+"effects/formation/fetched/OCIO/LUTs/tony_log_to_rational.spi1d" = { url = "https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9/OCIO/LUTs/tony_log_to_rational.spi1d", sha256 = "4d92af631fd1815891f66addcbcb5a461b9091880a57eae680ba5a892d860914" }
+"effects/formation/fetched/OCIO/LUTs/sRGB_OETF.spi1d"            = { url = "https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9/OCIO/LUTs/sRGB_OETF.spi1d", sha256 = "3ea89cbb69cd8933a007073ac9c9fd60dd2546d768987ab5a8fefb623d8625a0" }
+"effects/formation/fetched/OCIO/LUTs/tony_mc_mapface.spi3d"      = { url = "https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9/OCIO/LUTs/tony_mc_mapface.spi3d", sha256 = "6c80e03844ec1d569995c140efbead5a0287c441f6dcb579c0edfa264797bc65" }

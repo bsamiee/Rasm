@@ -4,7 +4,7 @@ language: rustlang
 utils:
     tag-text:
         kind: 'string_literal, raw_string_literal'
-        regex: '^r?#*"</?[A-Za-z][\p{XID_Continue}.:-]*(\p{White_Space}[^"]*|/?>)?"#*$'
+        regex: '^r?#*"</?[A-Za-z][\p{XID_Continue}.:-]*(\p{Pattern_White_Space}[^"]*|/?>)?"#*$'
     tag-call:
         kind: call_expression
         all:
@@ -24,4 +24,4 @@ rule:
                     kind: 'string_literal, raw_string_literal'
                     all:
                         - regex: '<[^"]*(\[\^<?>\]|\.[*+]\?)[^"]*>'
-                        - regex: '(^|[^?P])<\\?/?[A-Za-z][\p{XID_Continue}.:-]*[\p{White_Space}>\\/(]'
+                        - regex: '(^|[^?P])<\\?/?[A-Za-z][\p{XID_Continue}.:-]*[\p{Pattern_White_Space}>\\/(]'

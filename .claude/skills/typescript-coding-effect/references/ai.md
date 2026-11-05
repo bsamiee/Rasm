@@ -64,7 +64,7 @@ const Server = McpServer.layerHttp({
 - Decorating layers install server-wide middleware through `yield* Layer.build(a.combine(b).layerGlobal)`
 - Effects that decorated tools share run once under `Effect.cached`
 - `McpServer.elicit({ message, schema })` decodes an answer and requires the `McpServerClient` a tuple of sessionful protocols supplies
-- `McpServer.layerStdio` needs `References.LogToStderr`, `layerHttp` checks `Origin` alone, and `layerHttpRequestScoped` serves sessionless hosts
+- `McpServer.layerStdio` holds stdout for the protocol and needs `Logger.LogToStderr` or `Logger.withConsoleError(Logger.formatJson)`, `layerHttp` checks `Origin` alone, and `layerHttpRequestScoped` serves sessionless hosts
 - `McpProtocol` exports one adapter per version and no list of them, and `protocols` names each version a server serves
 - `McpTest.makeClient(registrations, { protocols })` runs a client against the server in memory over real encoding
 

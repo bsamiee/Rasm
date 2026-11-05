@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-solar"
-version.workspace    = true
-edition.workspace    = true
-description          = "Sun positions, events and lit paths at a site, Tregenza and Reinhart sky patches, incidence, sun hours, sky view and solar envelopes"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["solar", "sun", "daylight", "sky", "envelope"]
-categories           = ["science::geo"]
+name              = "rasm-solar"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

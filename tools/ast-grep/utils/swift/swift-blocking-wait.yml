@@ -7,10 +7,10 @@ rule:
         - has:
             nthChild: 1
             kind: navigation_expression
-            regex: '^(Foundation\.Thread\.sleep|CoreFoundation\.CFRunLoopRunInMode|Darwin\.(sleep|usleep|nanosleep))$'
+            regex: '^(Foundation(\.|::)Thread\.sleep|CoreFoundation(\.|::)CFRunLoopRunInMode|Darwin(\.|::)(sleep|usleep|nanosleep))$'
         - all:
             - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.run$'}}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^(until|mode)$'}}}}
             - any:
-                - has: {nthChild: 1, kind: navigation_expression, has: {field: target, kind: navigation_expression, regex: '^Foundation\.RunLoop\.(current|main)$'}}
-                - matches: {swift-parameter-use: {type: {regex: '^Foundation\.RunLoop$'}}}
+                - has: {nthChild: 1, kind: navigation_expression, has: {field: target, kind: navigation_expression, regex: '^Foundation(\.|::)RunLoop\.(current|main)$'}}
+                - matches: {swift-parameter-use: {type: {regex: '^Foundation(\.|::)RunLoop$'}}}

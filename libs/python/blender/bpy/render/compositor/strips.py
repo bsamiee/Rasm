@@ -22,8 +22,7 @@ from blender.bpy.data.rna.paths import id_data, rna, RnaPath, rooted, Struct, st
 from blender.bpy.data.rna.properties import Callbacks, choices, EnumItem
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.extension.reports import alerted
-from blender.bpy.files.assets import AssetMark, CatalogPath, published
+from blender.bpy.files.assets import AssetMark, published
 from blender.bpy.nodes.changes import made
 from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Entry
 from blender.bpy.render.compositor.offered import Choice, OfferedEffects
@@ -98,7 +97,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return Operator(condition=Some(Strips.placeable), form=StripChoice, callbacks=Some(lambda identity: {"kind": Callbacks(items=partial(self.choices, identity))}), run=self.add_strip_effect)
 
     def choices(self, identity: Identity, _owner: StripChoice, context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
-        """Native choices from the actual sequencer scene, with seed failures held for reporting."""
+        """Native choices from the actual sequencer scene, logging seed failures."""
         return (
             Option
             .of_optional(context)
@@ -127,7 +126,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.workspace), member=rna(_ACTIVE[1:])))
             .bind(self.rows.standalone)
         )
-        alerted(layout, rows.bind(lambda found: accumulated(operator_button(layout, identity, Placement(self.placing, {"kind": row.kind}), {"text": row.title}) for row in found)))
+        identity.reports.faulted(rows.bind(lambda found: accumulated(operator_button(layout, identity, Placement(self.placing, {"kind": row.kind}), {"text": row.title}) for row in found)))
 
     def add_strip_effect(self, call: Call[StripChoice]) -> Outcome[Answer]:
         """Run chosen effect on active strip as a modifier or a strip over it."""
@@ -201,17 +200,17 @@ def save_effect(call: Call[Saving]) -> Outcome[Answer]:
         )
     )
 
-    def stored(catalog: CatalogPath, group: bpy.types.NodeTree, folder: Path) -> Outcome[Answer]:
+    def stored(mark: AssetMark, group: bpy.types.NodeTree, folder: Path) -> Outcome[Answer]:
         return (
             written(group, ("allow_usage_in_scene_compositor_effect",), value=True)
-            .bind(lambda _: published(call.identity, folder, bpy.path.clean_name(group.name), ((group, AssetMark(key=save_effect.key, catalog=catalog)),), kept=True))
+            .bind(lambda _: published(call.identity, folder, bpy.path.clean_name(group.name), ((group, mark),), kept=True))
             .map(lambda path: Done(notes=(("INFO", f"Saved {group.name} to {path}"),)))
         )
 
     return (
-        catch(lambda: msgspec.convert(chosen.catalog, CatalogPath), exception=msgspec.ValidationError)()
+        catch(lambda: AssetMark(key=save_effect.key, catalog=chosen.catalog), exception=msgspec.ValidationError)()
         .map_error(partial(Fault.of, Reason.INVALID, chosen.catalog))
-        .bind(lambda catalog: paired(group, folder).bind(lambda pair: stored(catalog, *pair)))
+        .bind(lambda mark: paired(group, folder).bind(lambda pair: stored(mark, *pair)))
     )
 
 

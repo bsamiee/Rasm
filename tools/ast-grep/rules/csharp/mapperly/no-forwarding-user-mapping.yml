@@ -25,7 +25,7 @@ utils:
     forward:
         any:
             - pattern: $OWNER.$MEMBER($SOURCE)
-              has: {field: function, pattern: $CALLEE}
+              has: {field: function, pattern: $CALLEE, has: {field: expression, matches: csharp-static-owner}}
               not: {has: {field: function, matches: csharp-throwing-factory}}
               any:
                 - inside: {stopBy: end, matches: selected}
@@ -55,7 +55,5 @@ rule:
                   not: {has: {nthChild: 2}}
         - not: {has: {kind: modifier, regex: '^partial$'}}
         - matches: mapperly-mapping-method
-constraints:
-    OWNER: {regex: '^(global::)?(@?[A-Z]\p{XID_Continue}*(<.+>)?\.)*@?[A-Z]\p{XID_Continue}*(<.+>)?$'}
 message: 'Mapping method `$NAME` passes `$SOURCE` to `$CALLEE` unchanged'
 note: 'Point each `Use` at `nameof(@<owner>.<member>)` and delete the forward, or add `[UseStaticMapper(typeof(<owner>))]` for another mapper''s mapping'

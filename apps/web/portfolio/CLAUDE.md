@@ -111,17 +111,16 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [07]-[HOSTING]
 
-[SITES]: OpenAI Sites runs the built Worker with D1 and R2 bindings `.openai/hosting.json` names:
+[SITES]: OpenAI Sites runs the built Worker with D1 and R2 bindings `.openai/hosting.json` names, sync generator `hosting-bindings` writes both names and the host assigns `project_id`:
 - `cloudflare.config.ts` declares the Worker, its asset routing, and its bindings through `cf/config` builders
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
-- `server/worker.ts` and `server/main.ts` pass `cloudflare.config.ts` and an `env` callback to a host providing `Template` from the assets binding
+- `server/worker.ts` passes `cloudflare:workers` `env`, `cloudflare.config.ts`, and its `Layer` to `serveWorker`, `server/main.ts` passes `cloudflare.config.ts` and an `env` callback to `serveNode`, each host providing `Template` from the assets binding
 - `server/app.ts` composes routes over passed services, D1 and `ObjectStorage.r2` from the Worker, SQLite and path-style `ObjectStorage.s3` from Node
 - `nx run @rasm/portfolio:hosting -- <cloudflare|docker> <operation>` deploys the same build to a Cloudflare account or a Docker host
 - Sites, `@rasm/hosting` `CloudflareAccess.middleware`, or Docker proxy send user id and email as `model/sites.ts` `sites` headers
 - Requests without a user id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks read and compare user ids alone
-- Hosted configuration supplies `OWNER_EMAIL` secret, every mode other than `production` binds it to `sites()` local sign-in email
-- `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
+- Modes `production` and `cloudflare` declare `OWNER_EMAIL` a secret, `cloudflare` also declares the `CloudflareAccess.binding` JSON secret, every other mode binds `OWNER_EMAIL` to `simulatedEmail`, the `sites()` local sign-in address
 
 [STORAGE]: `server/catalog.ts` declares document, asset, and owner tables as `Relation` values, with statements over them beside their handlers in `server/<aggregate>.ts`:
 - `@rasm/database` `Catalog.layer` builds each entry's client with snake-case identifiers and reconciles tables once per isolate or process start

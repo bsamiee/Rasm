@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+utils:
+    assignment:
+        kind: set_clause
+        inside: {kind: set_clause_list, stopBy: {not: {kind: set_clause_list}}}
+    incoming:
+        kind: set_clause
+        has:
+            kind: a_expr
+            matches: pgsql-wrapper
+            has:
+                stopBy: {not: {matches: pgsql-wrapper}}
+                kind: columnref
+                all:
+                    - has: {kind: ColId, regex: '(?i-u)^"?excluded"?$'}
+                    - has: {kind: indirection, not: {has: {kind: indirection}}}
+rule:
+    kind: opt_on_conflict
+    pattern: $UPSERT
+    all:
+        - has: {kind: set_clause_list}
+        - not: {has: {kind: where_clause, follows: {kind: set_clause_list, stopBy: end}}}
+        - not: {has: {stopBy: {not: {kind: set_clause_list}}, matches: assignment, not: {matches: incoming}}}
+message: '`$UPSERT` rewrites rows that hold every incoming value'
+note: 'Skip unchanged updates only when triggers and returning readers require no update'

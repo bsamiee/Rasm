@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-screen"
-version.workspace    = true
-edition.workspace    = true
-description          = "Screen mode over rasm-command: terminal session with suspend, keymap rows, log pane and default view"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["cli", "tui", "terminal", "keymap", "logs"]
-categories           = ["command-line-interface"]
+name              = "rasm-screen"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

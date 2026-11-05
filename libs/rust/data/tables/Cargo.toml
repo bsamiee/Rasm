@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-tables"
-version.workspace    = true
-edition.workspace    = true
-description          = "Typed rows as Arrow columns: fields derived from uuid key, UTC instant and unit-labeled quantity types, time-ordered keys and their byte codec, decode of any Arrow encoding conformed to the record at every nesting depth with absent nullable columns and children as nulls, Parquet writes of typed rows with uuid bloom filters, projected reads and keyed lookups narrowed to row groups and pages over any async sink or source"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["arrow", "parquet", "tables", "records", "units"]
-categories           = ["encoding", "database"]
+name              = "rasm-tables"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

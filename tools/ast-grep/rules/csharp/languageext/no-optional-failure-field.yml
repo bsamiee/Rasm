@@ -3,6 +3,8 @@ language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
 utils:
+    unit-type:
+        matches: {csharp-type-name: {name: {regex: '^Unit$'}}}
     error-type-name:
         any:
             - matches: {csharp-type-name: {name: {regex: '^(Error|Expected|Exceptional|ManyErrors|Exception)$'}}}
@@ -14,17 +16,16 @@ utils:
     failure-type:
         any:
             - kind: 'generic_name, qualified_name'
-              matches: {csharp-type-name: {name: {regex: '^Option$'}}}
-              has: {stopBy: end, kind: type_argument_list, has: {nthChild: 1, matches: error-type-name}}
+              matches: {csharp-generic-type: {name: {regex: '^Option$'}, list: {has: {nthChild: 1, matches: error-type-name}}}}
             - kind: nullable_type
               has: {field: type, matches: error-type-name}
-            - regex: |-
-                (?x)^(
-                  (global::)?(LanguageExt\.)?Fin[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*(global::)?(LanguageExt\.)?Unit[\p{White_Space}\x{FEFF}]*>
-                  |(global::)?(LanguageExt\.)?(Either|Validation)[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*(global::)?(LanguageExt\.Common\.)?Error[\p{White_Space}\x{FEFF}]*,[\p{White_Space}\x{FEFF}]*(global::)?(LanguageExt\.)?Unit[\p{White_Space}\x{FEFF}]*>
-                )$
+            - matches: {csharp-generic-type: {name: {regex: '^Fin$'}, list: {has: {nthChild: 1, matches: unit-type}, not: {has: {nthChild: 2}}}}}
+            - matches: {csharp-generic-type: {name: {regex: '^(?:Either|Validation)$'}, list: {all: [{has: {nthChild: 1, matches: {csharp-type-name: {name: {regex: '^Error$'}}}}}, {has: {nthChild: 2, matches: unit-type}}], not: {has: {nthChild: 3}}}}}
     optional-text:
-        regex: '^((global::)?(LanguageExt\.)?Option[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*string[\p{White_Space}\x{FEFF}]*>|string[\p{White_Space}\x{FEFF}]*\?)$'
+        any:
+            - matches: {csharp-generic-type: {name: {regex: '^Option$'}, list: {has: {kind: predefined_type, regex: '^string$'}, not: {has: {nthChild: 2}}}}}
+            - kind: nullable_type
+              has: {field: type, kind: predefined_type, regex: '^string$'}
     optional-failure:
         any:
             - has: {field: type, matches: failure-type}

@@ -1,7 +1,7 @@
 export const meta = {
   name: 'extension-research',
   description: 'Research one TypeScript extension domain note and its packages at university depth, or write one domain\'s focused build plan from its distilled products, rebuilt code and research',
-  whenToUse: 'args.key a note (color, typography, composition, grids, perso-arabic, print, indesign, data, mcp); args.mode plan with args.key a plan domain (typography, grids, color, indesign, data, mcp); one run at a time, notes sharing packages.md and plans ARCHITECTURE.md and TYPESCRIPT.md',
+  whenToUse: 'args.key a note (color, typography, composition, grids, perso-arabic, print, indesign, data, mcp); args.mode plan with args.key a plan domain (typography, grids, color, indesign, data, mcp); one run at a time, notes sharing packages.md and plans ARCHITECTURE.md and TYPESCRIPT.md; args.finished a workflow script path returning {label: result} for agents a fixed script must not run again',
   phases: [
     { title: 'Research', detail: 'note: principles researcher, then packages researcher reading the new note, packages.md and the catalog' },
     { title: 'Read', detail: 'plan: evidence grouped by product into what one reader holds, then one reader per group writing the capability it holds or implies' },
@@ -68,7 +68,18 @@ const DEPTH = [
   'Each fact sits once, in the note owning its scope, and notes omit code paths and provenance.',
 ].join(' ')
 const diff = (files) => files.map((file) => `\`git diff --no-index ${BASE}/${file.split('/').pop()} ${file}\``).join(' and ')
-const adversary = (basis, files, read, lean, label) => agent(`${basis}
+const FINISHED = typeof args.finished === 'string' ? await workflow({ scriptPath: args.finished }) : {}
+const lost = []
+const note = (label, why) => {
+  lost.push(`${label}: ${why}`)
+  log(`LOST ${label}: ${why}`)
+  return null
+}
+const broke = (label) => (error) => note(label, String(error?.message ?? error))
+const once = (prompt, opts) => (Object.hasOwn(FINISHED, opts.label)
+  ? Promise.resolve(FINISHED[opts.label])
+  : agent(prompt, opts).then((result) => result ?? note(opts.label, 'agent ended with no result'), broke(opts.label)))
+const adversary = (basis, files, read, lean, label) => once(`${basis}
 Adversary over ${files.join(', ')}. Read ${read} and the files whole, against the evidence they rest on${lean}. Rewrite in place: what is shallow, naive, wrong against its source, restated or unsupported goes or rises to its source, and what a specialist names as missing joins its owner.
 Return (structured) the files you edited, other files included, and at most 8 lines: what went, what rose, what joined.`, { label, phase: 'Challenge', model: 'opus', schema: EDITED })
 const COLLAPSE = ', leaning to collapse: values become the relation or parameter they derive from, lines restating one fact fold into it, and a fact another file owns moves to that file'
@@ -81,11 +92,11 @@ const research = async () => {
   const packages = `${DIR}/packages.md`
   const basis = `${BASIS} ${DEPTH}\nNote: ${note}. Scope: ${scope}.${evidence.length > 0 ? ` Evidence: ${evidence.join(', ')}.` : ''} Fetched files go under ${SCRATCH}/sources.`
   phase('Research')
-  const principles = await agent(`${basis}
+  const principles = await once(`${basis}
 Researcher, principles. Copy ${note} and ${packages} into ${BASE} before any edit. Read ${note} whole, the evidence, and the notes owning neighboring scopes (${NOTE_PATHS.filter((path) => path !== note).join(', ')}).
 Rewrite ${note} in place: the domain's principles and mathematics, the higher-order capability they imply beyond any single product, and the level of each, raising each line to its source. Return at most 8 lines.`, { label: `research:${KEY}`, phase: 'Research', model: 'opus' })
   if (!principles) throw new Error(`principles researcher returned nothing for ${KEY}`)
-  const chosen = await agent(`${basis}
+  const chosen = await once(`${basis}
 Researcher, packages. Read ${note} as rewritten, ${packages} whole with every domain's chosen and rejected rows, the catalog in ${REPO}/pnpm-workspace.yaml and what ${REPO}/libs/typescript imports.
 Find the newest TypeScript and JavaScript packages owning a fact the note states: list each candidate's releases with \`pnpm view <name> dist-tags time --json\` (prereleases count), and judge it by what its source and types compute at its newest release.
 Edit ${packages} in place, rereading it before editing: each chosen package with the facts it owns, the members used and what it lacks that code states by hand, extending a row another domain holds; each rejected candidate with the reason it loses; versions left to catalogs. Return at most 8 lines.`, { label: `packages:${KEY}`, phase: 'Research', model: 'opus' })
@@ -106,22 +117,22 @@ const plan = async () => {
   const folders = rows.map((row) => `${REPO}/libs/typescript/${row}`)
   const basis = `${BASIS} Read ${BAR}, the code bar a build run on the plan meets.\nPlan domain: ${KEY}, rows ${rows.join(', ')}.`
   phase('Read')
-  const mapped = await agent(`${evidence.length === 0 ? '' : `List every file under ${evidence.join(', ')} with its size in bytes, and every ${HOST}/products/<family>/<product>/rebuilt folder of the same families with no distilled folder for its product.
+  const mapped = await once(`${evidence.length === 0 ? '' : `List every file under ${evidence.join(', ')} with its size in bytes, and every ${HOST}/products/<family>/<product>/rebuilt folder of the same families with no distilled folder for its product.
 Group the files by the product or concern they hold, each group what one reader reads whole at full depth: one product's files together, a product more than one reader holds split by its top-level folders.
 `}Edit nothing. Return (structured) the groups as absolute paths, and as code the folders of ${folders.join(', ')} that exist.`, { label: 'map', phase: 'Read', schema: { type: 'object', properties: { groups: { type: 'array', items: PATHS }, code: PATHS }, required: ['groups', 'code'] } })
   if (!mapped || (evidence.length > 0 && mapped.groups.length === 0)) throw new Error(`map agent grouped no evidence for ${KEY}`)
   const code = mapped.code
   const groups = [...mapped.groups, [...sources, ...code]]
   log(`reader groups for ${KEY}: ${groups.length}`)
-  const read = await parallel(groups.map((paths, index) => () => agent(`${basis}
+  const read = await parallel(groups.map((paths, index) => () => once(`${basis}
 Reader over ${paths.join(', ')}: read them whole${code.length > 0 ? `, and ${code.join(', ')} where the capability may already exist` : ''}.
 Write ${found}/${index + 1}.md: one line per capability the files hold or their principles imply beyond any one product, stating the capability, the one relation or parameterized operation behind it and the functions that become its uses, its level, the host mechanism it runs on, the product values a caller passes, its evidence paths, the member of a ${DIR}/packages.md package that states it, read from the package source at its catalog release, or the hand code it needs, what the rows' code holds of it, and the host proof it waits on. Edit nothing else. Return the line count.`, { label: `read:${KEY}:${index + 1}`, phase: 'Read', model: 'opus' })))
   const capability = groups.map((_, index) => `${found}/${index + 1}.md`).filter((_, index) => read[index])
-  if (capability.length < groups.length) log(`${groups.length - capability.length} readers returned nothing`)
+  const unread = groups.filter((_, index) => !read[index]).flat()
   if (capability.length === 0) throw new Error(`no reader wrote capability for ${KEY}`)
   phase('Plan')
-  const planned = await agent(`${basis}
-Plan writer. Copy ${matrix} and ${COMPANION} into ${BASE} before any edit. Read ${[...capability, ...sources, matrix, COMPANION, ...code].join(', ')} as they stand.
+  const planned = await once(`${basis}
+Plan writer. Copy ${matrix} and ${COMPANION} into ${BASE} before any edit. Read ${[...capability, ...unread, ...sources, matrix, COMPANION, ...code].join(', ')} as they stand.
 Write ${written}, the input a \`deepen\` build run per row reads, opening with one pointer each to ${COMPANION} (method) and ${BAR} (code bar): per row, each capability as one relation or parameterized operation at the lowest level holding it whole, the capabilities readers name apart merged into it, with the functions that become its uses, the host mechanism, each packages.md package at its full capability with the hand code its members delete and the hand code they leave, the consumers that move, and the gates, omitting what the code holds whole and what no build agent acts on.
 Then write the domain's capability rows in ${matrix} and its rows (${rows.join(', ')}) in ${COMPANION} [03] (OWNS its capabilities, CONSUMERS its importers, AFTER its workspace dependencies and gates), a nested row outside its parent's scope.
 Return (structured) the files you edited and at most 8 lines.`, { label: `plan:${KEY}`, phase: 'Plan', model: 'opus', schema: EDITED })
@@ -136,5 +147,5 @@ log(PLANNING ? `plan typescript-extension domain ${KEY} over ${PLANS[KEY][2].joi
 const results = (PLANNING ? await plan() : await research()).filter(Boolean)
 const files = [...new Set(results.flatMap((result) => result.files ?? []))]
 phase('Prose')
-const prose = files.length === 0 ? null : await agent(`Load Skill(clean-prose). Run \`python ${REPO}/.claude/skills/clean-prose/scripts/prose.py check ${files.join(' ')}\` once and fix each finding in place, keeping every fact. Return at most 5 lines.`, { label: 'prose', phase: 'Prose' })
-return [...results.map((result) => result.report), prose ?? 'prose pass returned nothing'].join('\n')
+const prose = files.length === 0 ? null : await once(`Load Skill(clean-prose). Run \`python ${REPO}/.claude/skills/clean-prose/scripts/prose.py check ${files.join(' ')}\` once and fix each finding in place, keeping every fact. Return at most 5 lines.`, { label: 'prose', phase: 'Prose' })
+return { report: [...results.map((result) => result.report), prose ?? 'prose pass returned nothing'].join('\n'), lost }

@@ -12,12 +12,14 @@ public static class HostTheme {
             IHostPlatform.Current.Changed);
 
     // --- [APPLICATION]
-    public static IO<Unit> Applied(IO<Unit> apply) => apply >> Changed.Attach(_ => apply);
-
-    public static IO<Unit> Applied(Control control, IO<Unit> apply) =>
-        ViewOps.WhileLoaded(control,
-            from themed in Applied(apply)
-            from window in IO.lift(() => Optional(control.ParentWindow))
-            from scaled in window.Traverse(parent => Subscriptions.On<EventArgs>(h => parent.LogicalPixelSizeChanged += h, h => parent.LogicalPixelSizeChanged -= h).Attach(_ => apply)).As()
-            select unit);
+    public static IO<Unit> Applied(Option<Control> owner, IO<Unit> apply) =>
+        (apply >> Changed.Attach(_ => apply)) switch {
+            var themed => owner.Match(
+                Some: control => ViewOps.WhileLoaded(control,
+                    from held in themed
+                    from window in IO.lift(() => Optional(control.ParentWindow))
+                    from scaled in window.Traverse(parent => Subscriptions.On<EventArgs>(h => parent.LogicalPixelSizeChanged += h, h => parent.LogicalPixelSizeChanged -= h).Attach(_ => apply)).As()
+                    select unit),
+                None: () => themed),
+        };
 }

@@ -9,7 +9,7 @@ import pytest
 import ufoLib2
 
 from tests.python.libs.typography.fonts import encoded
-from typography.builds.pipeline import Builds, Built, constructed
+from typography.builds.pipeline import Builds, Built, closure, constructed
 from typography.faces.declaration import Declared, declared as read_declared
 from typography.faces.glyphs import Source
 from typography.faces.importing import imported
@@ -21,7 +21,7 @@ from typography.shaping.runs import Binary
 
 
 @pytest.fixture
-def declared(tmp_path: Path) -> Declared:
+def declared(tmp_path: Path, configuration: Path) -> Declared:
     """Declaration of one Kufi face over a FontBuilder original in a temporary folder."""
     drawings = {
         ".notdef": (500, 450),
@@ -65,10 +65,10 @@ table GDEF { GlyphClassDef [beh beh.i beh.m beh.f lam lam.i alef alef.f], [lamal
     )
     declaration = tmp_path / "set.toml"
     declaration.write_text(
-        'name="Set"\ncorpus="corpus.toml"\noutput="build"\n[[families]]\nname="Test"\noriginal="original"\ngenre={kind="kufi"}\n[[families.faces]]\nstyle="Regular"\noriginal="Test-Regular.ttf"\nwidth=3\n',
+        f'name="Set"\ncorpus="corpus.toml"\nfontspector="{configuration.name}"\n[[families]]\nname="Test"\noriginal="original"\ngenre={{kind="kufi"}}\n[[families.faces]]\nstyle="Regular"\noriginal="Test-Regular.ttf"\nwidth=3\n',
         encoding="utf-8",
     )
-    return read_declared(declaration).default_with(lambda faults: pytest.fail(str(faults)))
+    return read_declared(declaration, tmp_path / "build").default_with(lambda faults: pytest.fail(str(faults)))
 
 
 @pytest.fixture
@@ -96,7 +96,7 @@ def texts() -> Corpus:
 @pytest.fixture
 def builds(declared: Declared, texts: Corpus) -> Builds:
     """Owns the input identities and original snapshots for one invocation."""
-    return Builds(declaration=declared, texts=texts)
+    return Builds(declaration=declared, texts=texts, closure=closure().default_with(lambda faults: pytest.fail(str(faults))))
 
 
 @pytest.fixture

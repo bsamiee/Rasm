@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: yaml-resolved-pair
+language: yaml
+arguments: [key, value]
+rule:
+    kind: block_mapping_pair, flow_pair
+    all:
+        - has: {field: key, pattern: $KEY}
+        - has: {field: value, pattern: $VALUE}
+constraints:
+    KEY: {matches: {yaml-resolved-value: {value: {has: {matches: key}}}}}
+    VALUE: {matches: {yaml-resolved-value: {value: {matches: value}}}}

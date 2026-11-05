@@ -2,6 +2,8 @@
 id: mapperly-mapping-method
 language: csharplang
 utils:
+    use-attribute:
+        matches: {csharp-qualified-name: {name: {regex: '^Map(?:Property(?:FromSource)?|Value)(?:Attribute)?$'}, qualifier: {regex: '^Abstractions$'}}}
     user-mapping:
         matches: {csharp-attributed: {name: {regex: '^(User|Named)Mapping(Attribute)?$'}}}
     generated-mapping:
@@ -16,7 +18,7 @@ utils:
             kind: attribute_argument_list
             inside:
                 kind: attribute
-                has: {field: name, regex: '^((global::)?Riok\.Mapperly\.Abstractions\.)?Map(Property(FromSource)?|Value)(Attribute)?$'}
+                has: {field: name, matches: use-attribute}
     use-helper:
         all:
             - has: {field: name, pattern: $HELPER}
@@ -34,13 +36,13 @@ utils:
                                 any:
                                     - matches: csharp-nameof-call
                                       has:
-                                          field: arguments
-                                          has:
-                                              kind: argument
-                                              has:
-                                                  any:
-                                                      - {kind: identifier, pattern: $HELPER}
-                                                      - {kind: member_access_expression, not: {regex: '^@'}, has: {field: name, pattern: $HELPER}}
+                                        field: arguments
+                                        has:
+                                            kind: argument
+                                            has:
+                                                any:
+                                                    - {kind: identifier, pattern: $HELPER}
+                                                    - {kind: member_access_expression, not: {regex: '^@'}, has: {field: name, pattern: $HELPER}}
                                     - kind: string_literal
                                       has: {kind: string_literal_content, pattern: $HELPER}
                                       not: {has: {kind: escape_sequence}}

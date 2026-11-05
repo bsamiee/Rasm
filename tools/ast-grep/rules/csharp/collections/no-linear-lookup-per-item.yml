@@ -3,7 +3,9 @@ language: csharplang
 severity: error
 utils:
     sequence-type:
-        regex: '^(IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List|ImmutableArray|ImmutableList|Seq|Lst|Arr|Iterable)(?-u:\b)|\[\]$'
+        any:
+            - matches: {csharp-type-name: {name: {regex: '^(?:IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List|ImmutableArray|ImmutableList|Seq|Lst|Arr|Iterable)$'}}}
+            - kind: array_type
     item:
         any:
             - inside: {stopBy: {kind: &owner 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration, property_declaration, field_declaration'}, kind: foreach_statement, has: {field: left, pattern: $ITEM}}

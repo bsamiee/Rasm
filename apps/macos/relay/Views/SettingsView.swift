@@ -75,19 +75,6 @@ struct SettingsView: View {
             }
         }
         .frame(minWidth: 600, minHeight: 380)
-        .safeAreaInset(edge: .bottom) {
-            TimelineView(.everyMinute) { context in
-                if let issue: String = store.issue(at: context.date) {
-                    Text(issue)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(.bar)
-                }
-            }
-        }
         .sheet(item: Binding(get: { store.authentication }, set: { _ in })) { pending in
             SignInSheet(store: store, provider: pending.provider)
         }
@@ -152,10 +139,6 @@ private struct AccountSettings: View {
                         }
                     }
                 }
-            } footer: {
-                if model.account.provider == .openAI, let precondition: CodexFailure = store.codexPrecondition {
-                    Text(precondition.localizedDescription)
-                }
             }
 
             Section {
@@ -165,19 +148,9 @@ private struct AccountSettings: View {
                         case .signInRequired: Button("Sign In") { store.signIn(model.account.id) }
                     }
                     Spacer()
-                    if let operation: AccountOperation = model.running?.kind {
-                        ProgressView().controlSize(.small)
-                        Text(operation.name.description)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    if model.isBusy { ProgressView().controlSize(.small) }
                 }
                 .disabled(model.isBusy)
-            } footer: {
-                if let issue: ProviderError = model.issue {
-                    TimelineView(.everyMinute) { context in Text(issue.description(at: context.date)) }
-                }
-                if let blocking: AccountOperation = model.blockingOperation { Text(blocking.refusalDescription) }
             }
         }
         .formStyle(.grouped)
@@ -203,12 +176,6 @@ private struct GeneralSettings: View {
                 )
                 if store.loginItem[case: \.success] == .requiresApproval {
                     Button("Open Login Items") { SMAppService.openSystemSettingsLoginItems() }
-                }
-            } footer: {
-                switch store.loginItem {
-                    case .success(.requiresApproval): Text("Approval pending in Login Items")
-                    case .success: EmptyView()
-                    case .failure(let error): Text(error.localizedDescription)
                 }
             }
         }

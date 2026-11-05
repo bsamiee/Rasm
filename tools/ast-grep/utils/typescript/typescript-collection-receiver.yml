@@ -70,14 +70,14 @@ rule:
                     - kind: method_definition, public_field_definition
                       not: {matches: static-member}
                       inside:
-                          kind: class_body
-                          has: {matches: collection-field, not: {matches: static-member}}
+                        kind: class_body
+                        has: {matches: collection-field, not: {matches: static-member}}
                     - any:
                         - kind: class_static_block
                         - kind: method_definition, public_field_definition
                           matches: static-member
                       inside:
-                          kind: class_body
-                          has: {all: [{matches: collection-field}, {matches: static-member}]}
+                        kind: class_body
+                        has: {all: [{matches: collection-field}, {matches: static-member}]}
 constraints:
     OWNER: {matches: collection-scope}

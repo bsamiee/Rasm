@@ -23,25 +23,24 @@ Before editing, compare the forms a rule reports with the correction its `note` 
 |  [13]   | Function exposed through more modules than the rule covers      | Ownership predicate per exporting module and import form               |
 |  [14]   | Form that silences the rule and keeps its cause                 | Arm per spelling, relaying declaration, restated type, rename, wrapper |
 
-## [02]-[PATTERN]
+## [02]-[WIDENING]
 
 Rules widen to siblings that take the same correction for the same reason:
 1. State violating shape, required shape, and governing contract
-2. Enumerate package siblings with the same contract
+2. Enumerate package siblings with the same contract from the package's declarations
 3. Apply the correction to each sibling and compare behavior, traversals, and allocations, keeping equivalent replacement spellings together
 4. Report contract-equivalent violations, keeping diagnostic coverage independent of automatic-fix coverage
-5. Read the package source and the grammar for unresolved mechanisms
 
 Resolve package references through supported imports, aliases, and visible bindings. Semantic identity needs language tooling. Escaped module names require decoded values.
 
 ## [03]-[COLLAPSE]
 
 Combine rules with the same correction and reason. Split rules when scope, severity, or required action differs, sharing the common predicate alone:
-1. Name the survivor file `no-<pattern>.yml` for the pattern the `message` states, an existing file name stating it stays
+1. Name the survivor's file for the pattern the `message` states, an existing file name stating it stays
 2. Share repeated predicates where capture scopes permit, keeping fixed predicates used once inline
 3. Delete the superseded rule files and their ids in suppression comments and filters
 
-- Survivors report every site the originals' correction covers
+- Survivors report every site the originals' correction covers, matching and exported captures preserved independently
 - Replacement spellings share one rule when they implement the same correction and reason, the selecting condition stays in that rule
 
 ## [04]-[MECHANISMS]
@@ -63,22 +62,27 @@ Relations stay where they establish fields, captures, or traversal stops. Duplic
 |  [11]   | Fix that selects the member by the arm's shape             | Rewriter per shape emitting the name, one transform joins them         |
 |  [12]   | Fix text that differs by the matched node's style          | Exclusive arms with branch transforms and complete replacements        |
 
-Mechanisms changing no result go.
+Mechanisms changing no result go:
 
 | [INDEX] | [FAILURE]                                            | [REMEDY]                                                                        |
 | :-----: | :--------------------------------------------------- | :------------------------------------------------------------------------------ |
 |  [01]   | Caller repeats its util's established shape          | Keep caller-specific guards and omit kind guards the util infers                |
-|  [02]   | Fixed util with one call                             | Inline unless private capture scope changes behavior                            |
+|  [02]   | Fixed util with one call                             | Inline unless private capture scope or distinct arguments change behavior       |
 |  [03]   | Util with no inferable candidate kinds               | Read the load error, supply `kind`, `pattern`, or a util with an inferable kind |
-|  [04]   | Cycle through `matches`                              | Strict progress along descendants, ancestors, or one sibling direction          |
-|  [05]   | Argument bound to nothing                            | Every declared argument appears as `matches: <slot>` in the util body           |
-|  [06]   | Parameterized call under `has` or `inside` in a util | Shared operation owns subject selection, direct calls expose dependencies       |
-|  [07]   | Capture and transform share a name                   | Give transformed text a distinct output name                                    |
+|  [04]   | Argument bound to nothing                            | Every declared argument appears as `matches: <slot>` in the util body           |
+|  [05]   | Parameterized call under `has` or `inside` in a util | Shared operation owns subject selection, direct calls expose dependencies       |
+|  [06]   | Capture and transform share a name                   | Give transformed text a distinct output name                                    |
 
-## [05]-[FIXES]
+## [05]-[RECURSION]
 
-1. Enumerate matched tokens, comments, wrappers, and call shapes before writing templates
-2. Omit unsafe fixes when types, evaluation, binding, precedence, or comments decide the required replacement
+Every recursive utility cycle moves strictly along one finite tree order:
+- Descendant recursion consumes child syntax, ancestor recursion consumes enclosing syntax
+- Sibling recursion keeps one direction and moves past its previous declaration
+- Mixed `has` and `inside`, or `follows` and `precedes`, can revisit the same node
+- Alias lookup can return its own initializer, structural wrapper recursion alone does not make alias recursion terminate
+- Resolve a declaration once, then match its initializer with a separately terminating structural predicate
+- Load-time cycle checks skip relations, a clean load proves no recursive util terminates
+- Depth caps hide a nonterminating relation or reject accepted syntax, fix traversal direction or ownership
 
 ## [06]-[ARCHITECTURE]
 

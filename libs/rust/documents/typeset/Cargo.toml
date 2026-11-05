@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-typeset"
-version.workspace    = true
-edition.workspace    = true
-description          = "Typst documents compiled in process to PDF, SVG, PNG, HTML and bundles, with Universe packages and Mermaid diagrams"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["typst", "typesetting", "pdf", "svg", "mermaid"]
-categories           = ["text-processing", "rendering"]
+name              = "rasm-typeset"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

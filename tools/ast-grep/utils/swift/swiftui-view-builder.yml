@@ -3,4 +3,4 @@ id: swiftui-view-builder
 language: swiftlang
 rule:
     kind: 'property_declaration, function_declaration'
-    regex: '(?s)^[^{]*(@(View|Content|Scene|ToolbarContent|Commands|TabContent|TableColumn|TableRow|ChartContent|AccessibilityRotorContent|SliderTick|WidgetBundle|ControlWidgetConfiguration|ControlWidgetTemplate)Builder(?-u:\b)|(?-u:\b)some\p{White_Space}+(View|Scene|(Customizable)?ToolbarContent|Commands|TabContent|TableColumnContent|TableRowContent|ChartContent|AccessibilityRotorContent|SliderTickContent|WidgetBundle|WidgetConfiguration|ControlWidgetConfiguration|ControlWidgetTemplate)(?-u:\b)|(?-u:\b)AnyView(?-u:\b))'
+    regex: '(?s)^[^{]*(@(View|Content|Scene|ToolbarContent|Commands|TabContent|TableColumn|TableRow|ChartContent|AccessibilityRotorContent|SliderTick|WidgetBundle|ControlWidgetConfiguration|ControlWidgetTemplate)Builder(?-u:\b)|(?-u:\b)some[\t-\r ]+(View|Scene|(Customizable)?ToolbarContent|Commands|TabContent|TableColumnContent|TableRowContent|ChartContent|AccessibilityRotorContent|SliderTickContent|WidgetBundle|WidgetConfiguration|ControlWidgetConfiguration|ControlWidgetTemplate)(?-u:\b)|(?-u:\b)AnyView(?-u:\b))'

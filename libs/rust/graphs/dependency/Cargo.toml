@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-dependency"
-version.workspace    = true
-edition.workspace    = true
-description          = "Acyclic evaluation graphs with checked connections, topological order and layers, invalidation, cycle tearing, and critical path schedules"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["dependency-graph", "topological-sort", "invalidation", "critical-path", "scheduling"]
-categories           = ["algorithms", "data-structures"]
+name              = "rasm-dependency"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

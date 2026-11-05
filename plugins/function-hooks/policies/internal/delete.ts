@@ -8,7 +8,7 @@ import { type Call, EXPANSION, edit, editOrRefuse, expanded, refuse, UNRESOLVED_
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const GLOB = /[*?[{]/u;
+const GLOB = /[*?[{(]/u;
 const NAME_CHARACTER = /[\p{L}\p{N}]/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

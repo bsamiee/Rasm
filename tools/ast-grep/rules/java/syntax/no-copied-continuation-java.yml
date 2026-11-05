@@ -14,9 +14,9 @@ utils:
         kind: method_invocation
         any:
             - all:
-                - has: {field: name, regex: '^concat$'}
-                - has: {field: arguments, has: {all: [{pattern: $_, not: &comment {kind: 'line_comment, block_comment'}}, {not: {precedes: &argument {stopBy: end, pattern: $_, not: *comment}}}, {matches: holds-tail}]}}
-                - not: {has: {field: arguments, has: {all: [{pattern: $_, not: *comment}, {not: {follows: *argument}}, {matches: holds-tail}]}}}
+                - has: {field: name, pattern: concat}
+                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: &comment {kind: 'line_comment, block_comment'}}}, matches: holds-tail}}
+                - not: {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: *comment}}, matches: holds-tail}}}
             - all:
                 - has: {field: name, regex: '^(addAll|appendAll|plusAll)$'}
                 - has: {field: arguments, has: {matches: holds-tail}}
@@ -44,7 +44,7 @@ utils:
             - has: {field: name, pattern: $NAME}
             - any:
                 - not: {has: {field: object, pattern: $_OBJECT}}
-                - has: {field: object, regex: '^this$'}
+                - has: {field: object, kind: this}
             - has: {field: arguments, has: {matches: extended}}
             - inside: {stopBy: {kind: *method}, kind: *branch}
     consumed:
@@ -53,7 +53,7 @@ utils:
             - has: {field: object, kind: identifier, pattern: $NEXT}
             - any:
                 - has: {field: name, regex: '^(getFirst|peek|peekFirst|element|head|tail|subList|pop|poll|pollFirst|removeFirst)$'}
-                - all: [{has: {field: name, regex: '^get$'}}, {has: {field: arguments, has: {kind: decimal_integer_literal, regex: '^0$'}}}]
+                - all: [{has: {field: name, pattern: get}}, {has: {field: arguments, has: {pattern: '0'}}}]
 rule:
     kind: method_declaration
     all:

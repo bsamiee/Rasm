@@ -60,7 +60,7 @@ utils:
             - kind: member_access_expression
               matches: {csharp-owner-member: {type: {regex: '^Prelude$'}, member: {regex: '^identity$'}}}
             - kind: identifier, generic_name
-              regex: '^identity([\p{White_Space}\x{FEFF}]*<.+>)?$'
+              matches: {csharp-simple-name: {name: {regex: '^identity$'}}}
               not:
                 inside:
                     stopBy: end

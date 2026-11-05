@@ -4,18 +4,18 @@ severity: error
 utils:
     posix-code-annotation:
         kind: type_annotation
-        regex: '^:\p{White_Space}*(Foundation\.)?POSIXErrorCode\??$'
+        regex: '^:[\t-\r ]*(Foundation(\.|::))?POSIXErrorCode\??$'
 rule:
     kind: call_expression
     pattern: $SITE
     all:
         - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^rawValue$'}}}}
         - any:
-            - has: {nthChild: 1, regex: '^(Foundation\.)?POSIXErrorCode(\.init)?$'}
+            - has: {nthChild: 1, regex: '^(Foundation(\.|::))?POSIXErrorCode(\.init)?$'}
             - all:
                 - has: {nthChild: 1, regex: '^\.init$'}
                 - any:
-                    - inside: {kind: property_declaration, field: value, has: {matches: posix-code-annotation}}
+                    - {follows: {regex: '^=$'}, inside: {kind: property_declaration, has: {matches: posix-code-annotation}}}
                     - inside: {kind: 'if_statement, guard_statement', has: {matches: posix-code-annotation}}
 message: '`$SITE` maps a raw code through `POSIXErrorCode`, `nil` for an unnamed code'
 note: 'Build `Errno(rawValue: <code>)` from System and match it by case (`.noSuchFileOrDirectory`)'

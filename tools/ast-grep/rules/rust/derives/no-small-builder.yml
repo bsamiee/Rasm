@@ -6,7 +6,7 @@ rule:
     all:
         - has: {field: name, pattern: $NAME}
         - not: {has: {field: parameters, has: {kind: parameter, nthChild: {position: 3, ofRule: {kind: parameter}}}}}
-        - matches: {rust-attributed: {attribute: {kind: attribute_item, regex: '^#\[\p{White_Space}*((::)?bon\p{White_Space}*::\p{White_Space}*)?builder(?-u:\b)', pattern: $DERIVE}}}
+        - matches: {rust-attributed: {attribute: {kind: attribute_item, regex: '^#\[\p{Pattern_White_Space}*((::)?bon\p{Pattern_White_Space}*::\p{Pattern_White_Space}*)?builder(?-u:\b)', pattern: $DERIVE}}}
 labels:
     NAME: {style: primary, message: 'Takes at most two arguments'}
     DERIVE: {style: secondary, message: 'Generates a builder'}

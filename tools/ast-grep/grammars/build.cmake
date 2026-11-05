@@ -1,0 +1,27 @@
+cmake_minimum_required(VERSION 4.4)
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+set(configure "")
+set(binary "")
+math(EXPR last "${CMAKE_ARGC} - 1")
+foreach(index RANGE 4 ${last})
+    string(REPLACE ";" "\\;" argument "${CMAKE_ARGV${index}}")
+    list(APPEND configure "${argument}")
+    if(previous STREQUAL "-B")
+        set(binary "${argument}")
+    endif()
+    set(previous "${argument}")
+endforeach()
+
+file(LOCK "${binary}.lock" GUARD PROCESS)
+if(DEFINED ENV{NX_TASK_HASH} AND EXISTS "${binary}.hash")
+    file(READ "${binary}.hash" built)
+    if(built STREQUAL "$ENV{NX_TASK_HASH}")
+        return()
+    endif()
+endif()
+file(REMOVE "${binary}.hash")
+execute_process(COMMAND "${CMAKE_COMMAND}" ${configure} COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND "${CMAKE_COMMAND}" --build "${binary}" --config Release COMMAND_ERROR_IS_FATAL ANY)
+file(WRITE "${binary}.hash" "$ENV{NX_TASK_HASH}")

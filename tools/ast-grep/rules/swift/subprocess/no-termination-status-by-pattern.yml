@@ -3,7 +3,7 @@ language: swiftlang
 severity: error
 utils:
     exited-zero:
-        regex: '^(Subprocess\.)?TerminationStatus\.exited\(\p{White_Space}*0\p{White_Space}*\)$'
+        regex: '^(Subprocess(\.|::))?TerminationStatus\.exited\([\t-\r ]*0[\t-\r ]*\)$'
     plain-operand:
         kind: 'simple_identifier, navigation_expression, call_expression'
 rule:
@@ -19,7 +19,7 @@ rule:
             - has: {matches: exited-zero}
             - has: {matches: plain-operand, not: {matches: exited-zero}}
         - kind: 'if_statement, guard_statement'
-          regex: '^(if|guard)\p{White_Space}+case\p{White_Space}+(Subprocess\.)?TerminationStatus\.exited\(\p{White_Space}*0\p{White_Space}*\)\p{White_Space}*='
+          regex: '^(if|guard)[\t-\r ]+case[\t-\r ]+(Subprocess(\.|::))?TerminationStatus\.exited\([\t-\r ]*0[\t-\r ]*\)[\t-\r ]*='
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` tests a `TerminationStatus` for exit code 0 by pattern'

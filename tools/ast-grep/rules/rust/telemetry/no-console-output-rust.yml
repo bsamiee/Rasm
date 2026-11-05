@@ -21,7 +21,7 @@ utils:
     stream-token:
         kind: identifier
         regex: '^(stdout|stderr)$'
-        precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$'}
+        precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$'}
     stream-macro:
         kind: macro_invocation
         all:

@@ -52,7 +52,6 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
     public Option<Func<Seq<Key>, Key, Placement, Option<IO<Unit>>>> Moved { get; init; }
     public bool Numbered { get; init; }
     public bool KeepsEnd { get; init; }
-    public string Unexpected { get; init; } = "";
 
     private Option<AccessRole> CellRole => Children.IsSome ? None : Some(AccessRole.GridCell);
 
@@ -70,7 +69,7 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
             }]
             : [];
         return new View.Scroll(PhysicalAxis.Horizontal, new View.Flex(PhysicalAxis.Vertical,
-            Seq(Header(shown, count, culture), View.Divider(PhysicalAxis.Vertical), Rows.Drawn(_ => Body(rows, shown, count, culture), Unexpected)) + footer).Grown) {
+            Seq(Header(shown, count, culture), View.Divider(PhysicalAxis.Vertical), Rows.Drawn(_ => Body(rows, shown, count, culture))) + footer).Grown) {
             Conditions = [Condition.Borderless],
         }.Grown;
     }

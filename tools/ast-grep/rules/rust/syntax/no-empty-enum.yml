@@ -36,8 +36,8 @@ rule:
               matches: state-marker
             - pattern: $NEVER
 transform:
-    KIND_TEXT: {replace: {source: $KIND, replace: '(?s)^.*?(?-u:\b)enum\p{White_Space}+(\p{XID_Continue}+).*$', by: '`$1` declares an entity kind by hand, one `impl_typed_uuid_kinds!` row derives it with its tag and `Uuid` alias'}}
-    STATE_TEXT: {replace: {source: $STATE, replace: '(?s)^.*?(?-u:\b)enum\p{White_Space}+(\p{XID_Continue}+).*$', by: '`$1` marks a typestate state with no variant, a state record holding that state''s data marks it'}}
-    NEVER_TEXT: {replace: {source: $NEVER, replace: '(?s)^.*?(?-u:\b)enum\p{White_Space}+(\p{XID_Continue}+).*$', by: '`$1` declares no variant and stands in for the never type `!`'}}
+    KIND_TEXT: {replace: {source: $KIND, replace: '(?s)^.*?(?-u:\b)enum\p{Pattern_White_Space}+(\p{XID_Continue}+).*$', by: '`$1` declares an entity kind by hand, one `impl_typed_uuid_kinds!` row derives it with its tag and `Uuid` alias'}}
+    STATE_TEXT: {replace: {source: $STATE, replace: '(?s)^.*?(?-u:\b)enum\p{Pattern_White_Space}+(\p{XID_Continue}+).*$', by: '`$1` marks a typestate state with no variant, a state record holding that state''s data marks it'}}
+    NEVER_TEXT: {replace: {source: $NEVER, replace: '(?s)^.*?(?-u:\b)enum\p{Pattern_White_Space}+(\p{XID_Continue}+).*$', by: '`$1` declares no variant and stands in for the never type `!`'}}
 message: '$KIND_TEXT$STATE_TEXT$NEVER_TEXT'
 note: 'Write `!` for a value that cannot exist, a state record for a typestate state, and an `impl_typed_uuid_kinds!` row for an entity kind'

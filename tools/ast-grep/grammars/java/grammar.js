@@ -1,7 +1,15 @@
 import java from 'tree-sitter-java/grammar.js';
-import { after, before, choiceOf, extend, optionalOf, reaches, string, symbol, widen } from '../derive.js';
+import { after, before, choiceOf, drop, extend, located, optionalOf, reaches, rewrite, string, symbol, widen } from '../derive.js';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const BACKSLASH = /\\u+005[Cc]/u;
+const ESCAPE = /[btnfrs"'\\]|[0-3][0-7]{2}|[0-7]{1,2}|u+[0-9a-fA-F]{4}/u;
+const LINE_TERMINATOR = /\r\n?|\n/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+// --- [SYNTAX]
 
 const invocation = symbol('explicit_constructor_invocation');
 const unnamed = widen(choiceOf(symbol('_reserved_identifier')), ($) => $.underscore_pattern);
@@ -11,6 +19,17 @@ const moved = (moving, target, place) => ($, original) => {
     const member = original.members.find(moving);
     return seq(...original.members.filter((part) => part !== member).flatMap((part) => (target(part) ? place($, member, part) : [part])));
 };
+
+// --- [LEXEMES]
+
+const escaped = (rest) => seq(choice('\\', BACKSLASH), rest);
+const digits = located(java.grammar.rules.decimal_floating_point_literal, (rule) => rule.type === 'TOKEN' && rule.content.type === 'SEQ');
+const separated = (_, original) => rewrite(original, (part) => (string('_')(part) ? repeat1(part) : part));
+const fractional = ($, original) =>
+    separated(
+        $,
+        rewrite(original, (part) => (part.type === 'TOKEN' && choiceOf(string('0'))(part.content) ? digits : part)),
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
@@ -38,5 +57,19 @@ export default extend(java, {
             string('...'),
             (_, annotations, ellipsis) => [annotations, ellipsis],
         ),
+        catch_type: ($, original) => rewrite(original, (part) => (part.type === 'REPEAT' ? rewrite(part, (alternative) => (symbol('_unannotated_type')(alternative) ? $._type : alternative)) : part)),
+        decimal_integer_literal: separated,
+        hex_integer_literal: separated,
+        octal_integer_literal: ($, original) => separated($, after(string('0'), optional('_'))($, drop(string('0o'), string('0O'))($, original))),
+        binary_integer_literal: separated,
+        decimal_floating_point_literal: fractional,
+        hex_floating_point_literal: fractional,
+        character_literal: ($, original) =>
+            widen(
+                choiceOf(({ type }) => type === 'PATTERN'),
+                escaped(ESCAPE),
+            )($, drop(({ type, value }) => type === 'PATTERN' && value.startsWith('\\\\'))($, original)),
+        _escape_sequence: ($) => choice(token.immediate(escaped(LINE_TERMINATOR)), $.escape_sequence),
+        escape_sequence: () => token.immediate(escaped(ESCAPE)),
     },
 });

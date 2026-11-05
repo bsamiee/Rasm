@@ -25,22 +25,25 @@ def test_help_lists_actions_and_exits_successfully(capsys: pytest.CaptureFixture
 
 
 def test_optional_positionals_and_options_bind_the_same_typed_call(tmp_path: Path) -> None:
-    """Publication supports both CLI forms without a forwarding command layer."""
-    declaration, destination = tmp_path / "set.toml", tmp_path / "published"
-    _, positional, _ = app.parse_args(["publish", str(declaration), "Test", str(destination)])
-    _, options, _ = app.parse_args(["publish", str(declaration), "--name", "Test", "--destination", str(destination)])
+    """Publication supports both CLI forms without a forwarding command layer, the output folder an option alone."""
+    declaration, destination, output = tmp_path / "set.toml", tmp_path / "published", tmp_path / "build"
+    _, positional, _ = app.parse_args(["publish", str(declaration), "Test", str(destination), "--output", str(output)])
+    _, options, _ = app.parse_args(["publish", str(declaration), "--name", "Test", "--destination", str(destination), "--output", str(output)])
     assert positional.args == options.args == (Action.PUBLISH, declaration, "Test", destination)
+    assert positional.kwargs == options.kwargs == {"output": output}
     with pytest.raises(CycloptsError):
-        app(["unknown-action", str(declaration)], result_action="return_value", exit_on_error=False, print_error=False)
+        app(["build", str(declaration)], result_action="return_value", exit_on_error=False, print_error=False)
+    with pytest.raises(CycloptsError):
+        app(["unknown-action", str(declaration), "--output", str(output)], result_action="return_value", exit_on_error=False, print_error=False)
 
 
-@pytest.mark.parametrize("text,status", [('name=""\ncorpus="x"\noutput="build"\nfamilies=[]\n', sysexits.EX_DATAERR), (None, sysexits.EX_NOINPUT)])
+@pytest.mark.parametrize("text,status", [('name=""\ncorpus="x"\nfontspector="fontspector.toml"\nfamilies=[]\n', sysexits.EX_DATAERR), (None, sysexits.EX_NOINPUT)])
 def test_declared_input_failures_keep_their_cli_status(text: str | None, status: int, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Malformed declarations and missing files produce one path-specific error with the required exit code."""
     declaration = tmp_path / "set.toml"
     if text is not None:
         declaration.write_text(text, encoding="utf-8")
-    assert exited(app(["build", str(declaration)], result_action="return_value", exit_on_error=False)) == status
+    assert exited(app(["build", str(declaration), "--output", str(tmp_path / "build")], result_action="return_value", exit_on_error=False)) == status
     captured = capsys.readouterr()
     assert not captured.out
     assert captured.err.startswith(str(declaration))
@@ -51,10 +54,11 @@ def test_independent_corpus_and_selection_failures_accumulate(tmp_path: Path, ca
     """A missing corpus does not hide an unknown family selection."""
     declaration = tmp_path / "set.toml"
     declaration.write_text(
-        'name="Set"\ncorpus="missing.toml"\noutput="build"\n[[families]]\nname="Test"\noriginal="original"\ngenre={kind="kufi"}\n[[families.faces]]\nstyle="Regular"\noriginal="Test.ttf"\n',
+        'name="Set"\ncorpus="missing.toml"\nfontspector="fontspector.toml"\n[[families]]\nname="Test"\noriginal="original"\ngenre={kind="kufi"}\n[[families.faces]]\nstyle="Regular"\noriginal="Test.ttf"\n',
         encoding="utf-8",
     )
-    outcome = app(["build", str(declaration), "Missing"], result_action="return_value", exit_on_error=False)
+    (tmp_path / "fontspector.toml").write_text('[shaping]\ntest_directory = "shaping"\n', encoding="utf-8")
+    outcome = app(["build", str(declaration), "Missing", "--output", str(tmp_path / "build")], result_action="return_value", exit_on_error=False)
     match outcome:
         case Result(error=faults):
             assert tuple(fault.reason for fault in faults) == (Reason.UNREADABLE, Reason.ABSENT)

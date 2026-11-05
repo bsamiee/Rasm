@@ -22,8 +22,12 @@ extension ExitDetail: Encodable {
 }
 
 public struct ProcessExit: Equatable, Sendable {
+    private static let reportingSignals: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS, SIGXCPU, SIGXFSZ].map(TerminationStatus.signaled))
+
     public let status: TerminationStatus
     public let detail: ExitDetail
+
+    public var reports: Bool { detail.contains(.csError) || Self.reportingSignals.contains(status) }
 }
 
 extension TerminationStatus {

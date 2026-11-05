@@ -26,7 +26,7 @@ utils:
                 - has: {field: arguments, has: {kind: argument}}
                 - not: {has: {field: arguments, has: {kind: argument, not: {all: [{has: {field: name, kind: identifier}}, {has: {nthChild: {position: 1, reverse: true}, matches: case-text}}]}}}}
             - kind: switch_expression
-              regex: '^this[\p{White_Space}\x{FEFF}]+switch(?-u:\b)'
+              has: {regex: '^this$'}
               all:
                 - has: {kind: switch_expression_arm, has: {nthChild: {position: 1, reverse: true}, matches: case-text}}
                 - not: {has: {kind: switch_expression_arm, has: {nthChild: {position: 1, reverse: true}, not: {any: [{matches: case-text}, {kind: throw_expression}]}}}}

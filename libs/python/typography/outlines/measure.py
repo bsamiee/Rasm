@@ -11,7 +11,7 @@ lazy from fontTools.pens.perimeterPen import PerimeterPen
 lazy from fontTools.pens.statisticsPen import StatisticsPen
 lazy from pathops import Path, PathOp
 lazy from scipy.optimize import minimize_scalar
-lazy from shapely import build_area, maximum_inscribed_circle, MultiLineString
+lazy from shapely import build_area, maximum_inscribed_circle, MultiLineString, MultiPolygon, Polygon
 
 lazy from typography.faces.glyphs import Outline
 lazy from typography.outlines.paths import area, Axis, bounds, Box, combined, draw, offset, pieces, segments, transformed, union
@@ -91,9 +91,12 @@ def _flattened(outline: Outline, /) -> tuple[tuple[tuple[float, float], ...], tu
 
 
 def inradius(outline: Outline, /) -> float:
-    """Returns the largest inscribed circle's radius, 0 for empty ink, retaining holes and islands."""
-    _, edges = _flattened(outline)
-    return float(maximum_inscribed_circle(build_area(MultiLineString(edges)), tolerance=0.25).length) if edges else 0.0  # type: ignore[call-overload]  # ty: ignore[no-matching-overload]
+    """Returns the largest inscribed circle's radius, 0 for edges enclosing no area, retaining holes and islands."""
+    match build_area(MultiLineString(_flattened(outline)[1])):
+        case Polygon() | MultiPolygon() as ink:
+            return float(maximum_inscribed_circle(ink, tolerance=0.25).length)
+        case _:
+            return 0.0
 
 
 def _apart(point: tuple[float, float], start: tuple[float, float], end: tuple[float, float], /) -> float:

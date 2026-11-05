@@ -9,6 +9,19 @@ utils:
         kind: identifier
         pattern: $P
         inside: {kind: method_declaration, stopBy: {kind: method_declaration}, has: {field: parameters, has: {matches: parameter}}}
+    parameter-order:
+        inside:
+            kind: method_declaration
+            stopBy: {kind: method_declaration}
+            has:
+                field: parameters
+                has:
+                    kind: formal_parameter, spread_parameter
+                    any: [{has: {field: name, pattern: $EARLIER}}, {has: {kind: variable_declarator, has: {field: name, pattern: $EARLIER}}}]
+                    precedes:
+                        stopBy: end
+                        kind: formal_parameter, spread_parameter
+                        any: [{has: {field: name, pattern: $LATER}}, {has: {kind: variable_declarator, has: {field: name, pattern: $LATER}}}]
     named-callee:
         kind: identifier, field_access, this, super
         not:
@@ -33,25 +46,25 @@ utils:
                 field: arguments
                 all:
                     - not: {has: {pattern: $_, not: {any: [{matches: parameter-read}, {kind: 'line_comment, block_comment'}]}}}
-                    - not: {has: {kind: identifier, pattern: $REPEATED, follows: {stopBy: end, pattern: $REPEATED}}}
+                    - not: {has: {kind: identifier, pattern: $LATER, follows: {stopBy: end, kind: identifier, pattern: $EARLIER, not: {matches: parameter-order}}}}
             - not: {all: [{has: {field: object, pattern: $RECEIVER}}, {has: {field: arguments, has: {pattern: $RECEIVER}}}]}
 rule:
     kind: method_declaration
     all:
         - has: {field: name, pattern: $FN}
-        - has: {kind: modifiers, has: {regex: '^(private|static)$'}}
+        - has: {kind: modifiers, has: {any: [{pattern: private}, {pattern: static}]}}
         - not:
             any:
-                - has: {field: name, regex: '^main$'}
+                - has: {field: name, pattern: main}
                 - has:
                     kind: modifiers
                     any:
-                        - has: {regex: '^synchronized$'}
-                        - has: {kind: 'marker_annotation, annotation', not: {regex: '^@(java\.lang\.)?(Deprecated|SafeVarargs|SuppressWarnings)(?-u:\b)'}}
+                        - has: {pattern: synchronized}
+                        - has: {kind: 'marker_annotation, annotation', not: {has: {field: name, regex: '^(?:java\.lang\.)?(?:Deprecated|SafeVarargs|SuppressWarnings)$'}}}
         - has: {field: parameters, has: {kind: 'formal_parameter, spread_parameter'}}
         - has:
             field: body
-            not: {has: {pattern: $_, not: &comment {kind: 'line_comment, block_comment'}, follows: {stopBy: end, pattern: $_, not: *comment}}}
+            not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
             has: {kind: 'return_statement, expression_statement', has: {matches: forwarded}}
         - not:
             has:

@@ -89,15 +89,18 @@ utils:
                                 stopBy: end
                                 matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^Placeholder$'}}}
 rule:
-    any:
-        - matches: partial
-        - kind: keyword_argument
-          all:
-            - has: {field: name, regex: '^func$'}
-            - has: {field: value, matches: partial}
-            - inside: {kind: argument_list, not: {has: {kind: list_splat}}}
-    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-    inside: {kind: argument_list, inside: {matches: runner}}
+    kind: call, parenthesized_expression, keyword_argument
     pattern: $BOUND
+    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+    all:
+        - inside: {kind: argument_list}
+        - any:
+            - matches: partial
+            - kind: keyword_argument
+              all:
+                - has: {field: name, pattern: func}
+                - has: {field: value, matches: partial}
+                - inside: {kind: argument_list, not: {has: {kind: list_splat}}}
+        - inside: {kind: argument_list, inside: {matches: runner}}
 message: '`$BOUND` binds arguments the AnyIO runner takes directly'
 note: 'Pass `<callable>, <arguments>` to the runner in place of `partial`'

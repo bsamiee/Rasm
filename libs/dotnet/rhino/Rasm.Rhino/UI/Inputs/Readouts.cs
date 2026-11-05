@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
@@ -87,8 +86,7 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
         let shown =
             from row in latest
             from current in atomicIO(() => held.Value)
-            from control in Products.Replace(body, Placed(current.Map(static state => state.Content).IfNone(new Loading<TValue>.Pending(None)), row.Shown,
-                LocalText.Of("{0} unavailable", label.Local).Local)).Scoped(owned)
+            from control in Products.Replace(body, Placed(current.Map(static state => state.Content).IfNone(new Loading<TValue>.Pending(None)), row.Shown)).Scoped(owned)
             from placed in IO.lift(() => { frame.Content = control; })
             select unit
         from received in Mailboxes.Idle<Guid, Loading<TValue>>(arrived => run(
@@ -104,7 +102,7 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
                     .Finally(Products.Clear(working).Scoped(owned))
                 from started in Products.Replace(working, Products.Forked(
                     (Products.Acquired(row.Compute(row.Request), row.Release).Map(static value => (Loading<TValue>)new Loading<TValue>.Ready(value))
-                        | @catch(static error => !Session.Cancellation(error), static error => IO.pure<Loading<TValue>>(new Loading<TValue>.Failed(error))))
+                        | @catch(static error => !Session.Cancellation(error), static error => IO.lift(() => Session.Failed(error, nameof(ComputedRow<,>))).Map(_ => (Loading<TValue>)new Loading<TValue>.Failed(error))))
                     .Bind(content => received(id, content)))).Scoped(owned)
                 select unit).As()
             from redrawn in shown
@@ -112,14 +110,14 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
             (atomicIO(() => { held.Value = None; }) >> IO.lift(() => { frame.Content = null; }) >> Products.Clear(body))
                 .Finally(Products.Clear(working))));
 
-    private static IO<Control> Placed(Loading<TValue> content, Func<TValue, IO<Control>> shown, string unavailable) =>
+    private static IO<Control> Placed(Loading<TValue> content, Func<TValue, IO<Control>> shown) =>
         content.Switch(
-            (Shown: shown, Unavailable: unavailable),
+            shown,
             pending: static (_, pending) =>
                 from bar in use(() => new ProgressBar { Indeterminate = pending.Work.IsNone })
                 from ranged in IO.lift(() => pending.Work.Iter(progress => (bar.MaxValue, bar.Value) = progress.Positions))
                 select (Control)bar,
-            ready: static (at, ready) => at.Shown(ready.Value),
-            failed: static (at, _) => use(() => new Label { Text = at.Unavailable, TextColor = SystemColors.DisabledText }).Map(static label => (Control)label));
+            ready: static (held, ready) => held(ready.Value),
+            failed: static (_, _) => use(static () => new Panel()).Map(static panel => (Control)panel));
 
 }

@@ -23,7 +23,7 @@ utils:
             - inside: {kind: enhanced_for_statement, field: value, stopBy: *scope}
     nested-body:
         any:
-            - has: {field: body, kind: block, has: {pattern: $_, not: &comment {kind: 'line_comment, block_comment'}, follows: {stopBy: end, pattern: $_, not: *comment}}}
+            - has: {field: body, kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
             - has: {field: body, any: [{matches: control-flow}, {has: {matches: control-flow, stopBy: {matches: execution}}}]}
     level:
         any:
@@ -36,6 +36,7 @@ utils:
     boundary: {any: [{matches: level}, {matches: execution}]}
 rule:
     matches: level
+    pattern: $SCOPE
     inside:
         matches: level
         stopBy: {matches: boundary}
@@ -46,5 +47,9 @@ rule:
                 matches: level
                 stopBy: {matches: boundary}
                 not: {inside: {matches: level, stopBy: {matches: execution}}}
-message: Nesting exceeds three levels
+transform:
+    HEAD: {replace: {source: $SCOPE, replace: '(?s)[\t-\r ]*\{?[\t-\r ]*\n.*$', by: ''}}
+message: '`$HEAD` opens a fourth nesting level'
 note: 'Rebuild nested decisions, loops, or lambdas as a `switch` or a stream pipeline over their inputs'
+labels:
+    SCOPE: {style: primary, message: Fourth nesting level}

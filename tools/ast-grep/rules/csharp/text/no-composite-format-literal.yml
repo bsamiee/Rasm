@@ -29,7 +29,7 @@ utils:
             pattern: $CALLEE
             any:
                 - kind: member_access_expression
-                  all: [{has: {field: expression, regex: '^((global::)?System\.)?([sS]tring)$'}}, {has: {field: name, regex: '^Format$'}}]
+                  all: [{has: {field: expression, matches: {csharp-qualified-name: {name: {regex: '^(?:string|String)$'}, qualifier: {regex: '^System$'}}}}}, {has: {field: name, regex: '^Format$'}}]
                 - kind: member_access_expression
                   has: {field: name, regex: '^AppendFormat$'}
     writer-call:

@@ -6,10 +6,10 @@ utils:
         kind: 'string_literal, raw_string_literal'
         any:
             - regex: |-
-                (?x)^r?\#*"\p{White_Space}*(
-                    SELECT\p{White_Space}|INSERT\p{White_Space}+(OR\p{White_Space}+\p{XID_Continue}+\p{White_Space}+)?INTO\p{White_Space}|REPLACE\p{White_Space}+INTO\p{White_Space}|UPDATE\p{White_Space}+\P{White_Space}+\p{White_Space}+SET\p{White_Space}|DELETE\p{White_Space}+FROM\p{White_Space}|WITH\p{White_Space}+(RECURSIVE\p{White_Space}+)?\P{White_Space}+\p{White_Space}+AS\p{White_Space}
-                    |CREATE\p{White_Space}+(UNIQUE\p{White_Space}+)?(TABLE|INDEX|VIEW)\p{White_Space}|ALTER\p{White_Space}+TABLE\p{White_Space}|DROP\p{White_Space}+(TABLE|INDEX|VIEW)\p{White_Space}|PRAGMA\p{White_Space}
-                    |select\p{White_Space}[^"]*(?-u:\b)from\p{White_Space}|insert\p{White_Space}+(or\p{White_Space}+\p{XID_Continue}+\p{White_Space}+)?into\p{White_Space}|update\p{White_Space}+\P{White_Space}+\p{White_Space}+set\p{White_Space}|delete\p{White_Space}+from\p{White_Space}|with\p{White_Space}+(recursive\p{White_Space}+)?\P{White_Space}+\p{White_Space}+as\p{White_Space}*\(
+                (?x)^r?\#*"\p{Pattern_White_Space}*(
+                    SELECT\p{Pattern_White_Space}|INSERT\p{Pattern_White_Space}+(OR\p{Pattern_White_Space}+\p{XID_Continue}+\p{Pattern_White_Space}+)?INTO\p{Pattern_White_Space}|REPLACE\p{Pattern_White_Space}+INTO\p{Pattern_White_Space}|UPDATE\p{Pattern_White_Space}+\P{Pattern_White_Space}+\p{Pattern_White_Space}+SET\p{Pattern_White_Space}|DELETE\p{Pattern_White_Space}+FROM\p{Pattern_White_Space}|WITH\p{Pattern_White_Space}+(RECURSIVE\p{Pattern_White_Space}+)?\P{Pattern_White_Space}+\p{Pattern_White_Space}+AS\p{Pattern_White_Space}
+                    |CREATE\p{Pattern_White_Space}+(UNIQUE\p{Pattern_White_Space}+)?(TABLE|INDEX|VIEW)\p{Pattern_White_Space}|ALTER\p{Pattern_White_Space}+TABLE\p{Pattern_White_Space}|DROP\p{Pattern_White_Space}+(TABLE|INDEX|VIEW)\p{Pattern_White_Space}|PRAGMA\p{Pattern_White_Space}
+                    |select\p{Pattern_White_Space}[^"]*(?-u:\b)from\p{Pattern_White_Space}|insert\p{Pattern_White_Space}+(or\p{Pattern_White_Space}+\p{XID_Continue}+\p{Pattern_White_Space}+)?into\p{Pattern_White_Space}|update\p{Pattern_White_Space}+\P{Pattern_White_Space}+\p{Pattern_White_Space}+set\p{Pattern_White_Space}|delete\p{Pattern_White_Space}+from\p{Pattern_White_Space}|with\p{Pattern_White_Space}+(recursive\p{Pattern_White_Space}+)?\P{Pattern_White_Space}+\p{Pattern_White_Space}+as\p{Pattern_White_Space}*\(
                 )
             - regex: '(?-u:\b)(WHERE|AND|OR|SET|VALUES|IN|LIKE|HAVING)(?-u:\b)[^"]*''\{[^{}]*\}'''
     sql-head:
@@ -25,7 +25,7 @@ rule:
         - kind: macro_invocation
           all:
             - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln)$'}}}
-            - has: {kind: token_tree, has: {all: [{matches: sql-text}, {regex: '(^|[^{])\{[A-Za-z0-9_:}]'}]}}
+            - has: {kind: token_tree, has: {all: [{matches: sql-text}, {regex: '(^|[^{])\{[\p{XID_Continue}:}]'}]}}
         - kind: binary_expression
           all:
             - has: {field: operator, regex: '^\+$'}

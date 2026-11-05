@@ -16,17 +16,19 @@ type Workspace = Effect.Success<ReturnType<typeof openWorkspace>>;
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CARGO_MANIFEST = 'Cargo.toml';
+const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
 const SWIFT_MANIFEST = 'Package.swift';
 const PYPROJECT = 'pyproject.toml';
 const APPS = 'apps';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const JsonDocument = Schema.fromJsonString(Schema.Unknown);
 const PythonRuntime = Schema.Struct({ versions: Schema.NonEmptyArray(Schema.String) }).pipe(Schema.encodeKeys({ versions: 'active_versions' }));
+const JsonDocument = Schema.fromJsonString(Schema.Unknown);
 const JsonListRecord = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.String)));
 const Release = Schema.String.check(Schema.isPattern(/^\d+\.\d+$/u));
 const PythonRequirement = Schema.Struct({ minimum: Schema.TemplateLiteralParser(['>=', Schema.Trim.pipe(Schema.decodeTo(Release))]) }).pipe(Schema.encodeKeys({ minimum: 'requires-python' }));
+const HostPyproject = TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ project: PythonRequirement })));
 const WorkspacePyproject = TextFormat.Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
@@ -110,6 +112,21 @@ const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string, { pack
         ...tool.pytest,
     };
 });
+const readScopes = Effect.fnUntraced(function* (workspaceRoot: string, folders: readonly string[]) {
+    const path = yield* Path.Path;
+    const files = yield* glob(
+        workspaceRoot,
+        folders.map((host) => `**/${host}/**/${PYPROJECT}`),
+    );
+    return yield* Effect.validate(
+        files,
+        Effect.fnUntraced(function* (file: string) {
+            const { project } = yield* decodeFile(HostPyproject, workspaceRoot, file);
+            return { scope: path.dirname(file), version: project.minimum[1] };
+        }),
+        { concurrency: 'unbounded' },
+    );
+});
 
 // --- [WORKSPACE]
 const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfiguration }: Pick<CreateNodesContext, 'workspaceRoot' | 'nxJsonConfiguration'>) {
@@ -119,28 +136,30 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         Effect.sync(() => new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.cache'))),
         (held) => Effect.sync(held.writeToDisk.bind(held)),
     );
-    const cached = <A, I>(document: Schema.Codec<unknown, string>, schema: Schema.Codec<A, I>, inputs: string[], [command, ...args]: readonly [string, ...string[]]) => {
+    const cached = <A, I>(schema: Schema.Codec<A, I>, inputs: string[], [command, ...args]: readonly [string, ...string[]], document: Schema.Codec<unknown, string> = JsonDocument) => {
         const [key, held] = [[command, ...args].join(' '), Schema.fromJsonString(schema)];
-        return Effect.tryPromise(() => hashWithWorkspaceContext(workspaceRoot, inputs)).pipe(
-            Effect.bindTo('hash'),
-            Effect.bind('value', ({ hash }) =>
-                Option.fromUndefinedOr(cache.get(key)).pipe(
-                    Option.filter(Predicate.Struct({ hash: Equal.equals(hash) })),
-                    Option.match({ onSome: ({ output }) => Schema.decodeEffect(held)(output), onNone: () => Effect.flatMap(runCommand(command, args, { cwd: workspaceRoot }), Schema.decodeEffect(document.pipe(Schema.decodeTo(schema)))) }),
-                ),
-            ),
-            Effect.bind('output', ({ value }) => Schema.encodeEffect(held)(value)),
-            Effect.tap(({ hash, output }) => Effect.sync(cache.set.bind(cache, key, { hash, output }))),
-            Effect.map(Struct.get('value')),
+        const fresh = (hash: string) =>
+            runCommand(command, args, { cwd: workspaceRoot }).pipe(
+                Effect.flatMap(Schema.decodeEffect(document.pipe(Schema.decodeTo(schema)))),
+                Effect.bindTo('value'),
+                Effect.bind('output', ({ value }) => Schema.encodeEffect(held)(value)),
+                Effect.tap(({ output }) => Effect.sync(cache.set.bind(cache, key, { hash, output }))),
+                Effect.map(Struct.get('value')),
+            );
+        return Effect.flatMap(
+            Effect.tryPromise(() => hashWithWorkspaceContext(workspaceRoot, inputs)),
+            (hash) => Option.fromUndefinedOr(cache.get(key)).pipe(Option.filter(Predicate.Struct({ hash: Equal.equals(hash) })), Option.match({ onSome: ({ output }) => Schema.decodeEffect(held)(output), onNone: () => fresh(hash) })),
         );
     };
-    const lockedPackages = (project: string) => cached(TextFormat.Toml, PylockExport, ['uv.lock', `**/${PYPROJECT}`], ['uv', 'export', '--frozen', '--format', 'pylock.toml', '--no-hashes', '--no-emit-project', '--project', project]);
-    const crates = yield* Effect.cached(Effect.map(cached(JsonDocument, CargoMetadata, [`**/${CARGO_MANIFEST}`, '**/*.rs'], ['cargo', 'metadata', '--format-version', '1', '--no-deps']), Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) })))));
+    const lockedPackages = (project: string) => cached(PylockExport, ['uv.lock', `**/${PYPROJECT}`], ['uv', 'export', '--frozen', '--format', 'pylock.toml', '--no-hashes', '--no-emit-project', '--project', project], TextFormat.Toml);
+    const crates = yield* Effect.cached(Effect.map(cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, '**/*.rs'], ['cargo', 'metadata', '--format-version', '1', '--no-deps']), Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) })))));
     const patterns = ['pnpm-lock.yaml', 'tools/*/examples/**'];
+    const hosts = yield* Effect.cached(fs.readDirectory(path.join(workspaceRoot, APPS)));
     return {
         workspaceRoot,
         lockedPackages,
         crates,
+        hosts,
         scanExclusions: Effect.map(
             crates,
             Function.flow(
@@ -156,7 +175,7 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         ...(yield* Effect.all({
             pyproject: Effect.cached(Effect.flatMap(lockedPackages('.'), (packages) => readPyproject(workspaceRoot, packages))),
             mise: Effect.cached(Mise.read(workspaceRoot)),
-            hosts: Effect.cached(fs.readDirectory(path.join(workspaceRoot, APPS))),
+            pythonScopes: Effect.cached(Effect.flatMap(hosts, (folders) => readScopes(workspaceRoot, folders))),
             release: Effect.cached(Schema.decodeUnknownEffect(NxReleaseConfiguration)(nxJsonConfiguration.release)),
             configs: Effect.cached(
                 Effect.acquireRelease(
@@ -189,9 +208,9 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
                     }),
                 ),
             ),
-            python: Effect.cached(cached(JsonDocument, PythonRuntime, [Mise.file], ['mise', 'tool', 'python', '--json'])),
+            python: Effect.cached(cached(PythonRuntime, [Mise.file], ['mise', 'tool', 'python', '--json'])),
             swift: Effect.cached(
-                Effect.map(cached(JsonDocument, SwiftPackage, [SWIFT_MANIFEST], ['swift', 'package', 'describe', '--type', 'json']), (described) => ({
+                Effect.map(cached(SwiftPackage, [SWIFT_MANIFEST], ['swift', 'package', 'describe', '--type', 'json']), (described) => ({
                     ...described,
                     tests: Array.partition(described.targets, Filter.fromPredicate<(typeof described.targets)[number]>(Predicate.Struct({ type: Equal.equals('test') }))),
                 })),
@@ -202,4 +221,4 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPS, CARGO_MANIFEST, glob, JsonListRecord, openWorkspace, PYPROJECT, PythonRequirement, Release, SWIFT_MANIFEST, type Workspace };
+export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, PYPROJECT, Release, SWIFT_MANIFEST, type Workspace };

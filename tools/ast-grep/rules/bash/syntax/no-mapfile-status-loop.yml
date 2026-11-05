@@ -7,6 +7,9 @@ utils:
         has: {field: name, regex: '^(return|exit)$'}
     break:
         matches: {bash-loop-control: {command: {regex: '^break$'}}}
+    outer-break:
+        matches: break
+        has: {field: argument, regex: '^["'']?\+?([2-9]|[1-9][0-9]+)["'']?$'}
     reader:
         any:
             - kind: command
@@ -23,7 +26,8 @@ rule:
             has:
                 field: body
                 any:
-                    - has: {stopBy: &isolated {kind: 'function_definition, subshell, command_substitution, process_substitution'}, matches: leaving}
-                    - has: {stopBy: {any: [*isolated, {kind: 'while_statement, for_statement, c_style_for_statement'}]}, matches: break}
+                    - has: {stopBy: {matches: bash-isolated-scope}, matches: leaving}
+                    - has: {stopBy: {matches: bash-isolated-scope}, matches: outer-break}
+                    - has: {stopBy: {any: [{matches: bash-isolated-scope}, {kind: 'while_statement, for_statement, c_style_for_statement'}]}, matches: break}
 message: '`$READER` succeeds at end of input in a loop condition'
 note: Test fresh batch length or use a reader that reports end of input

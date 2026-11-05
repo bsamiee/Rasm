@@ -17,19 +17,19 @@ utils:
               follows: {regex: '^:$', follows: {kind: string_literal, regex: '^"type"$'}}
             - matches: geojson-type
               inside: {kind: arguments, all: [{has: {nthChild: 1, kind: string_literal, regex: '^"type"$'}}, {not: {has: {nthChild: 3}}}]}
-            - regex: '\\?"type\\?"\p{White_Space}*:\p{White_Space}*\\?"(Feature|FeatureCollection|GeometryCollection|Point|MultiPoint|LineString|MultiLineString|Polygon|MultiPolygon)\\?"'
+            - regex: '\\?"type\\?"\p{Pattern_White_Space}*:\p{Pattern_White_Space}*\\?"(Feature|FeatureCollection|GeometryCollection|Point|MultiPoint|LineString|MultiLineString|Polygon|MultiPolygon)\\?"'
     wkt:
         regex: '^r?#*"(SRID=[^;"]*;)?(POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION|TRIANGLE|TIN|POLYHEDRALSURFACE)( ?(Z|M|ZM))? ?(\(|EMPTY(?-u:\b))'
     svg-move:
         kind: string_literal
-        regex: '^"(\p{White_Space}*|.*(?-u:\b)d=\\")[Mm] ?\{[^{}]*\}[ ,]\p{White_Space}*\{[^{}]*\}'
+        regex: '^"(\p{Pattern_White_Space}*|.*(?-u:\b)d=\\")[Mm] ?\{[^{}]*\}[ ,]\p{Pattern_White_Space}*\{[^{}]*\}'
     svg:
         any:
             - matches: svg-move
-            - regex: '^"\p{White_Space}*[LlCcQqSsTt] ?\{[^{}]*\}[ ,]\p{White_Space}*\{[^{}]*\}'
+            - regex: '^"\p{Pattern_White_Space}*[LlCcQqSsTt] ?\{[^{}]*\}[ ,]\p{Pattern_White_Space}*\{[^{}]*\}'
               inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, matches: svg-move}}
     stl:
-        regex: '^b?"\p{White_Space}*(facet normal|outer loop|endfacet|endloop|endsolid)(?-u:\b)'
+        regex: '^b?"\p{Pattern_White_Space}*(facet normal|outer loop|endfacet|endloop|endsolid)(?-u:\b)'
     obj:
         any:
             - regex: '^"f "$'
@@ -37,7 +37,7 @@ utils:
             - regex: '^"f"$'
               inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: string_literal, regex: '^"v[nt]"$'}}
     ply:
-        regex: '^b?"\p{White_Space}*(ply(\\r)?\\n|end_header|element vertex(?-u:\b)|format (ascii|binary_little_endian|binary_big_endian) 1\.0)'
+        regex: '^b?"\p{Pattern_White_Space}*(ply(\\r)?\\n|end_header|element vertex(?-u:\b)|format (ascii|binary_little_endian|binary_big_endian) 1\.0)'
 rule:
     kind: 'string_literal, raw_string_literal'
     all:

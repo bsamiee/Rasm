@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: rustlang
+severity: error
+utils:
+    sqlx-name: {regex: '^(?:query(?:_as|_scalar)?(?:_with|_unchecked)?|raw_sql)$'}
+    sqlx-path: {kind: scoped_identifier, all: [{has: {field: path, regex: '^sqlx$'}}, {has: {field: name, matches: sqlx-name}}]}
+    sqlx-callee:
+        any:
+            - matches: sqlx-path
+            - matches: {rust-imported-name: {source: {has: {field: argument, regex: '^sqlx::'}}, name: {matches: sqlx-name}}}
+    sql-text: {kind: 'string_literal, raw_string_literal'}
+    sqlite-type: {kind: type_identifier, regex: '^Sqlite(?:Pool|Connection|Executor|Transaction)?$'}
+    pg-type: {kind: type_identifier, regex: '^(?:Pg(?:Pool|Connection|Executor|Transaction)|Postgres)$'}
+    mysql-type: {kind: type_identifier, regex: '^MySql(?:Pool|Connection|Executor|Transaction)?$'}
+    dialect-type: {any: [{matches: sqlite-type}, {matches: pg-type}, {matches: mysql-type}]}
+    executor-type: {any: [{matches: dialect-type}, {kind: type_identifier, regex: '^Any(?:Pool|Connection|Executor|Transaction)?$'}]}
+    turbofish: {kind: generic_function, has: {field: type_arguments, has: {nthChild: 1, any: [{matches: dialect-type}, {has: {field: name, matches: dialect-type}}]}}}
+    stated-function:
+        any:
+            - matches: {rust-single-dialect-function: {dialect: {matches: sqlite-type}, executor: {matches: executor-type}}}
+            - matches: {rust-single-dialect-function: {dialect: {matches: pg-type}, executor: {matches: executor-type}}}
+            - matches: {rust-single-dialect-function: {dialect: {matches: mysql-type}, executor: {matches: executor-type}}}
+rule:
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: function, pattern: $CALLEE, any: [{matches: sqlx-callee}, {kind: generic_function, has: {field: function, matches: sqlx-callee}, not: {matches: turbofish}}]}
+            - has: {field: arguments, has: {nthChild: 1, matches: sql-text}}
+        - kind: macro_invocation
+          all:
+            - has: {field: macro, pattern: $CALLEE, matches: sqlx-callee}
+            - has: {kind: token_tree, has: {matches: sql-text}}
+    not: {inside: {stopBy: {kind: function_item}, matches: stated-function}}
+message: '`$CALLEE` runs SQL text whose dialect neither a turbofish nor an executor parameter states'
+note: 'Name the database as `sqlx::query::<Sqlite>(…)` or `sqlx::query::<Postgres>(…)`, or take a `SqlitePool` or `PgPool` parameter, so the `sql` or `pgsql` injection parses the text'

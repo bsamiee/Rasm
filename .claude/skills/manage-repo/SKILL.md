@@ -5,20 +5,20 @@ description: "Use when changing how the repository is structured, built, or chec
 
 # [MANAGE_REPO]
 
-Rules for adding a project, tool, plugin, or harness row.
+Rules here hold for every language, each reference holds tool behavior deciding one toolchain's rows.
 
 [REFERENCES]:
-- [01]-[NX](references/nx.md): Plugin inference, target defaults, run-commands, dependencies, inputs, affected selection
-- [02]-[TOOLING](references/tooling.md): Mise tool rows, environment, daemons, maintenance, TOML files
-- [03]-[TYPESCRIPT](references/typescript.md): Catalog, compiler projects, execution, Vite and Workers, Storybook, Biome, UXP packaging
-- [04]-[PYTHON](references/python.md): Dependency groups, lock, workspace members, interpreter, checkers
-- [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, file-based apps, library groups, BuildCheck, Roslyn analyzers
-- [06]-[SWIFT](references/swift.md): SwiftPM and Xcode projects, build settings, compiler, locks, checkers, language server
-- [07]-[JAVA](references/java.md): Formatter form, PMD ruleset and release tags, language server
-- [08]-[RUST](references/rust.md): Workspace members, toolchain, catalog, lints, builds, checkers, upgrades, module layout
+- [01]-[NX](references/nx.md): Task graph, how Nx composes inferred targets and decides what a task hashes and runs
+- [02]-[TOOLING](references/tooling.md): Toolchain no language owns, from what installs a tool to what keeps a service running
+- [03]-[TYPESCRIPT](references/typescript.md): One catalog resolving packages, each host runtime deciding a program's types and build
+- [04]-[PYTHON](references/python.md): Project resolution under uv, each embedded interpreter bounding what resolves, builds, and bundles
+- [05]-[DOTNET](references/dotnet.md): Shared MSBuild declarations and central versions, installed Rhino deciding what a host project builds against
+- [06]-[SWIFT](references/swift.md): SwiftPM modules and Xcode apps linking them, each setting and lock at the system that reads it
+- [07]-[JAVA](references/java.md): Scripts a tool loads, each checker resolving them against that tool's jars
+- [08]-[RUST](references/rust.md): Cargo workspace, one pinned nightly and root rows holding policy every member inherits
 
 [SCRIPTS]:
-- [01]-[MAINTAIN](scripts/maintain.sh): Upgrade tools, packages, daemons, and editor environment
+- [01]-[MAINTAIN](scripts/maintain.sh): Updates every installed version to its newest release and restarts each process holding an old one
 
 ## [01]-[PLACEMENT]
 

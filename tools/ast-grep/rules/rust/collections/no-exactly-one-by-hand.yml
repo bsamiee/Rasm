@@ -6,6 +6,6 @@ rule:
     pattern: ($I.next(), $I.next())
     inside:
         kind: let_condition
-        has: {field: pattern, kind: tuple_pattern, regex: '^\(\p{White_Space}*Some\(\p{White_Space}*\p{XID_Continue}+\p{White_Space}*\)\p{White_Space}*,\p{White_Space}*None\p{White_Space}*\)$'}
+        has: {field: pattern, kind: tuple_pattern, regex: '^\(\p{Pattern_White_Space}*Some\(\p{Pattern_White_Space}*\p{XID_Continue}+\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*,\p{Pattern_White_Space}*None\p{Pattern_White_Space}*\)$'}
 message: '`$I` reads two items to test for exactly one'
 note: 'Match `<iterator>.exactly_one()` against `Ok(<item>)` (`use itertools::Itertools as _;`)'

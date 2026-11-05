@@ -1,11 +1,10 @@
 import python from 'tree-sitter-python/grammar.js';
-import { extend, named, rewrite, symbol, widen } from '../derive.js';
+import { extend, named, replace, symbol, widen } from '../derive.js';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const lazyImport = (_, original) => seq(optional(field('lazy', 'lazy')), original);
 const listBody = widen(named('body'), ($) => $.list_splat);
-const replace = (matches, replacement) => ($, original) => rewrite(original, (part) => (matches(part) ? replacement($) : part));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
@@ -15,6 +14,7 @@ export default extend(python, {
         import_statement: lazyImport,
         import_from_statement: lazyImport,
         keyword_identifier: ($, original) => choice(original, alias('lazy', $.identifier)),
+        class_definition: replace(named('name'), ($) => field('name', alias($.identifier, $.type_identifier))),
         type_alias_statement: replace(named('left'), ($) => field('left', alias($._type_alias_name, $.type))),
         _type_alias_name: ($) => choice($.identifier, alias($._type_alias_generic, $.generic_type)),
         _type_alias_generic: ($) => seq($.identifier, $.type_parameter),

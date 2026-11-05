@@ -12,6 +12,11 @@ license             = ["SPDX:MIT"]
 # --- [PERMISSIONS] ----------------------------------------------------------------------
 
 [permissions]
-files     = "Writes renders, exports, extension data, and user OCIO config"
+files     = "Writes renders, exports, presets, extension data, OCIO config"
 network   = "Submits jobs to Flamenco Manager and posts queue notices to ntfy"
 clipboard = "Copies and pastes setting values between scenes and files"
+
+# --- [BUILD] ----------------------------------------------------------------------------
+
+[build]
+paths_exclude_pattern = ["__pycache__/", ".*", "/*.zip", "*.blend[1-9]", "/pyproject.toml"]

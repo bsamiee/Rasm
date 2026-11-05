@@ -1,12 +1,12 @@
 export const meta = {
   name: 'tune',
   description: 'Tune one language\'s checks and skills from its committed diff: readers name each improvement and regression with its owner, a writer per checker and per ast-grep rule folder, per skill a writer, an adversary and clean-prose, one close',
-  whenToUse: 'args.language a languages.js key, args.base the commit before the work, args.exclude paths other runs edit; skill and check paths committed at launch',
+  whenToUse: 'args.language a languages.js key, args.base the commit before the work, args.exclude paths other runs edit, whose findings return unwritten; args.finished a workflow script path returning {label: result} for agents a fixed script must not run again; skill and check paths committed at launch',
   phases: [
     { title: 'Map', detail: 'the diff packed into the units one reader reads whole and judges well, per unit a reader naming each improvement and regression its hunks show with its owner and the owner files it changes', model: 'opus' },
     { title: 'Checks', detail: 'per checker, and per rule folder for ast-grep, one writer holding every finding for it, disjoint writers at once and overlapping ones in order, rerouted findings in one later round' },
     { title: 'Skills', detail: 'per skill with findings a writer, an adversary over its diff, a clean-prose pass' },
-    { title: 'Close', detail: 'renamed ids, owning targets once, changed ast-grep rules against the baseline, one fix pass at the cause, one rerun' },
+    { title: 'Close', detail: 'renamed ids, owning targets once, changed ast-grep rules\' instruction counts beside their parse-error rules, one fix pass at the cause, one rerun' },
   ],
 }
 
@@ -39,8 +39,9 @@ const FINDINGS = (owners) => ({
 const relative = (path) => path.replace(`${REPO}/`, '').replace(/^\.\//, '').replace(/#.*$/, '').replace(/\/+$/, '')
 const within = (path, roots) => roots.some((root) => path === root || path.startsWith(`${root}/`))
 const row = languages[args?.language]
-const valid = row && typeof args.base === 'string' && args.base !== '' && (args.exclude === undefined || (Array.isArray(args.exclude) && args.exclude.every((path) => typeof path === 'string')))
-if (!valid) throw new Error(`args take language (${Object.keys(languages).join(', ')}), base (the commit before the work it reads) and exclude (paths runs still edit); got ${JSON.stringify(args ?? null)}`)
+const valid = row && typeof args.base === 'string' && args.base !== '' && (args.exclude === undefined || (Array.isArray(args.exclude) && args.exclude.every((path) => typeof path === 'string'))) && (args.finished === undefined || typeof args.finished === 'string')
+if (!valid) throw new Error(`args take language (${Object.keys(languages).join(', ')}), base (the commit before the work it reads), exclude (paths runs still edit) and finished (a script path); got ${JSON.stringify(args ?? null)}`)
+const FINISHED = args.finished ? await workflow({ scriptPath: args.finished }) : {}
 const exclude = (args.exclude ?? []).map(relative)
 const RANGE = `${args.base}..HEAD`
 const OWNERS = row.owners
@@ -78,43 +79,31 @@ const grouped = (findings, round) => ordered([...Map.groupBy(findings.map((findi
   return { owner: OWNERS.find((held) => held.name === owner), files, findings: found, id: `${round}:${index + 1}`, label: owner === SYNTAX.name ? `${round}:${owner}:${scope.map((path) => path.replace(`${SYNTAX.paths[0]}/`, '').replace('tools/ast-grep/', '')).join('+')}` : `${round}:${owner}` }
 }))
 const pumped = (items, run) => {
-  const ids = new Set(items.map((item) => item.id))
-  const pending = [...items]
-  const running = []
+  const gates = new Map(items.map((item) => [item.id, Promise.withResolvers()]))
   const done = new Map()
-  const dead = new Set()
-  const prune = () => {
-    const blocked = pending.filter((item) => item.needs.some((need) => dead.has(need)))
-    blocked.forEach((item) => {
-      pending.splice(pending.indexOf(item), 1)
-      dead.add(item.id)
-      log(`${item.label} not run, ${item.needs.filter((need) => dead.has(need)).join(', ')} unfinished`)
-    })
-    return blocked.length > 0 && prune()
-  }
-  const pump = () => {
-    prune()
-    const ready = pending.reduce((picked, item) => item.needs.every((need) => done.has(need) || !ids.has(need))
-      && ![...running, ...picked].some((other) => overlaps(other.files, item.files)) ? [...picked, item] : picked, [])
-    ready.forEach((item) => {
-      pending.splice(pending.indexOf(item), 1)
-      running.push(item)
-    })
-    return parallel(ready.map((item) => () => run(item).then((result) => {
-      running.splice(running.indexOf(item), 1)
-      if (result) done.set(item.id, result)
-      else {
-        dead.add(item.id)
-        log(`${item.label} returned nothing`)
-      }
-      return pump()
-    })))
-  }
-  return pump().then(() => [...done.values()])
+  return parallel(items.map((item) => async () => {
+    const met = await Promise.all(item.needs.map((need) => gates.get(need).promise))
+    const unmet = item.needs.filter((_, index) => !met[index])
+    const result = unmet.length > 0 ? note(item.label, `not run, ${unmet.join(', ')} unfinished`) : await run(item).catch(broke(item.label))
+    if (result) done.set(item.id, result)
+    gates.get(item.id).resolve(Boolean(result))
+  })).then(() => items.filter((item) => done.has(item.id)).map((item) => done.get(item.id)))
 }
 
+// --- [LOSSES]
+const lost = []
+const note = (label, why) => {
+  lost.push(`${label}: ${why}`)
+  log(`LOST ${label}: ${why}`)
+  return null
+}
+const broke = (label) => (error) => note(label, String(error?.message ?? error))
+const once = (prompt, opts) => (Object.hasOwn(FINISHED, opts.label)
+  ? Promise.resolve(FINISHED[opts.label])
+  : agent(prompt, opts).then((result) => result ?? note(opts.label, 'agent ended with no result'), broke(opts.label)))
+
 // --- [STAGES]
-const read = (unit, skills = skillsOf(unit.paths)) => agent(`Load ${loads(row.skills)}. ${BAR}
+const read = (unit, skills = skillsOf(unit.paths)) => once(`Load ${loads(row.skills)}. ${BAR}
 Reader over \`git diff ${RANGE} -- ${unit.paths.join(' ')}\`: read every hunk with its file at HEAD, at ${RELEASE} with package sources under ${row.sources}, and name each improvement and each regression the hunks show by the bar's [HUNKS] lines, small and large alike, that its owner does not yet state or check soundly. A regression names the check or skill line that refuses it.
 Each finding goes to the first owner below stating it soundly for every instance; an owner reporting a subset of another's instances owns nothing, and a row turning a check off stays while its reason holds:
 ${ranked(skills)}
@@ -124,11 +113,11 @@ Search the owner's paths for the check, row or skill lines deciding the form and
   model: 'opus',
   schema: { type: 'object', properties: { findings: FINDINGS([...NAMES, ...skills]) }, required: ['findings'] },
 })
-const write = (group, reroutable, scope = `the files at or under ${group.files.join(', ')}`) => agent(`Load ${loads([...group.owner.skills, row.skills[0], 'clean-prose'])}. ${BAR}
+const write = (group, reroutable, scope = `the files at or under ${group.files.join(', ')}`) => once(`Load ${loads([...group.owner.skills, row.skills[0], 'clean-prose'])}. ${BAR}
 Writer for ${group.owner.name}, owning ${group.owner.decides}, over ${scope}, from the improvements and regressions committed between ${args.base} and HEAD:
 ${listed(group.findings.map(shown))}
-Read ${group.files.join(', ')} whole with the code at each site. At this owner, for every instance each fact covers: fix each contradiction, tighten or widen each weak, naive or narrow check, remove each check its owner cannot decide soundly or that judges comments or dividers, and add each missing check.${row.metadata.length > 0 ? ` A rule for a form one release introduces or retires sets \`metadata\` ${row.metadata.join(' or ')}.` : ''} A new check follows the checks beside it, its cases beside theirs. Ids, names and messages are short, agent-facing and clean-prose. ${group.owner === SYNTAX ? 'Record one before and one after hit state for each rule you edit or add, as use-ast-grep\'s rule-building states, under a directory from `mktemp -d`, running those scans alone in the foreground.' : `Run ${group.owner.name} over the finding sites alone in the foreground, before and after your edits.`}${reroutable ? ' A change a file outside yours needs (a util other rules call, a row or check of another owner, an earlier owner stating the fact) returns as a reroute with its owner and the files it edits, and that file stays as it is.' : ''}
-Edit only ${scope}. Return (structured) the files you edited, added or deleted; ids renamed and removed; ids of checks you changed or added, as they now stand;${reroutable ? ' the reroutes;' : ''} and at most 10 lines: each check removed, renamed, changed or added, with its hits before and after.`, {
+Read ${group.files.join(', ')} whole with the code at each site. At this owner, for every instance each fact covers: fix each contradiction, tighten or widen each weak, naive or narrow check, remove each check its owner cannot decide soundly or that judges comments or dividers, and add each missing check.${row.metadata.length > 0 ? ` A rule for a form one release introduces or retires sets \`metadata\` ${row.metadata.join(' or ')}.` : ''} A new check follows the checks beside it${group.owner === SYNTAX ? '' : ', its cases beside theirs'}. Ids, names and messages are short, agent-facing and clean-prose. ${group.owner === SYNTAX ? 'Prove each rule you edit or add once, as use-ast-grep\'s rule-building states: one scan of a scratch file of violating forms and near misses, then the project at zero findings, in the foreground.' : `Run ${group.owner.name} over the finding sites alone in the foreground, before and after your edits.`}${reroutable ? ' A change a file outside yours needs (a util other rules call, a row or check of another owner, an earlier owner stating the fact) returns as a reroute with its owner and the files it edits, and that file stays as it is.' : ''}
+Edit only ${scope}. Return (structured) the files you edited, added or deleted; ids renamed and removed; ids of checks you changed or added, as they now stand;${reroutable ? ' the reroutes;' : ''} and at most 10 lines: each check removed, renamed, changed or added, with its hits${group.owner === SYNTAX ? '' : ' before and after'}.`, {
   label: `write:${group.label}`,
   phase: 'Checks',
   schema: {
@@ -149,22 +138,23 @@ const close = (written, skills) => {
   const owners = OWNERS.filter((owner) => touched.some((done) => done.group.owner === owner))
   const renamed = [...new Set(touched.flatMap((done) => done.result.renamed).map((pair) => `\`${pair.from}\` to \`${pair.to}\``))]
   const removed = [...new Set(touched.flatMap((done) => done.result.removed).map((id) => `\`${id}\``))]
-  const costed = [...new Set(touched.filter((done) => done.group.owner === SYNTAX).flatMap((done) => done.result.changed))]
+  const costed = [...Map.groupBy(touched.filter((done) => done.group.owner === SYNTAX).flatMap((done) => done.result.files.map(relative).filter((path) => path.startsWith('tools/ast-grep/rules/') && done.result.changed.some((id) => path.endsWith(`/${id}.yml`)))), (path) => path.split('/').slice(0, 4).join('/'))]
+    .map(([rules, paths]) => `${rules}: ${[...new Set(paths)].map((path) => `\`${path.split('/').at(-1).replace('.yml', '')}\``).join(', ')}`)
   const commands = [...new Set(owners.flatMap((owner) => owner.targets))].map((command) => `\`${command}\``)
   const snippets = row.snippet && skills.length > 0 ? [`each snippet \`git diff HEAD -- ${skills.map((skill) => `.claude/skills/${skill}`).join(' ')}\` changes, piped through \`${row.snippet}\``] : []
-  return touched.length + snippets.length === 0 ? Promise.resolve('no check or snippet changed') : agent(`Load ${loads([...owners.flatMap((owner) => owner.skills), row.skills[0]])}${costed.length > 0 ? ', and read use-ast-grep\'s references/rule-building.md' : ''}. ${BAR}
+  return touched.length + snippets.length === 0 ? Promise.resolve('no check or snippet changed') : once(`Load ${loads([...owners.flatMap((owner) => owner.skills), row.skills[0]])}${costed.length > 0 ? ', and read use-ast-grep\'s references/performance.md' : ''}. ${BAR}
 Close over ${[...new Set(touched.flatMap((done) => done.result.files.map(relative)))].join(', ') || 'the skill snippets'}. Writer reports:
 ${touched.map((done) => `## ${done.group.label}\n${done.result.report}`).join('\n\n') || 'no check changed'}
 ${renamed.length + removed.length > 0 ? `Update every mention across the tree (skills, config reasons, per-line ignores, sgconfig.yml) of each id renamed (${renamed.join(', ') || 'none'}) or removed (${removed.join(', ') || 'none'}). ` : ''}Run each command once in the foreground, a command taking paths over the changed files it reads:
-${listed([...commands, ...snippets])}${costed.length > 0 ? `\nMeasure ${costed.map((id) => `\`${id}\``).join(', ')} beside \`${row.baseline}\` in one run of rule-building's cost command, \`<globs>\` \`${row.globs}\`, in the foreground, and rebuild each rule above twice the baseline.` : ''}
-Fix each finding once at its cause (the code it names, or the check when it misfires)${exclude.length > 0 ? `, except findings under ${exclude.join(', ')}` : ''}, then rerun once each command that failed${costed.length > 0 ? ' and the cost of each rebuilt rule' : ''}. Return at most 10 lines: findings fixed, any left${costed.length > 0 ? `, and each changed rule's cost against \`${row.baseline}\`` : ''}.`, { label: 'close', phase: 'Close' })
+${listed([...commands, ...snippets])}${costed.length > 0 ? `\nMeasure the rules below with performance.md's rule cost command in the foreground, one run per folder, each beside the id of that folder's \`syntax/no-parse-error-*.yml\`, with \`<globs>\` read from sgconfig.yml through \`yq\` for the rule's language:\n${listed(costed)}` : ''}
+Fix each finding once at its cause (the code it names, or the check when it misfires)${exclude.length > 0 ? `, except findings under ${exclude.join(', ')}` : ''}, then rerun once each command that failed. Return at most 10 lines: findings fixed, any left${costed.length > 0 ? ", and each changed rule's instruction count beside its parse-error rule" : ''}.`, { label: 'close', phase: 'Close' })
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 log(`tune ${args.language} over ${RANGE}${exclude.length > 0 ? `, except ${exclude.join(', ')}` : ''}`)
 phase('Map')
-const listing = await agent(`${BAR} Partition every file \`git diff --name-only ${RANGE} -- ${[...row.pathspec, ...exclude.map((path) => `':(exclude)${path}'`)].join(' ')}\` lists into units by \`git diff --numstat\` volume: related files join (the files under the ${row.unit} with the test files under ${row.tests} mirroring them, consumers beside what they consume), and units pack as much diff as one reader reads whole with its files and judges well, so small folders share a unit and a folder splits only where its diff alone exceeds one reader. Every file falls in one unit. Edit nothing. Return (structured) the units.`, {
+const listing = await once(`${BAR} Partition every file \`git diff --name-only ${RANGE} -- ${[...row.pathspec, ...exclude.map((path) => `':(exclude)${path}'`)].join(' ')}\` lists into units by \`git diff --numstat\` volume: related files join (the files under the ${row.unit} with the test files under ${row.tests} mirroring them, consumers beside what they consume), and units pack as much diff as one reader reads whole with its files and judges well, so small folders share a unit and a folder splits only where its diff alone exceeds one reader. Every file falls in one unit. Edit nothing. Return (structured) the units.`, {
   label: 'map:units',
   phase: 'Map',
   schema: { type: 'object', properties: { units: { type: 'array', items: { type: 'object', properties: { name: TEXT, paths: LIST }, required: ['name', 'paths'] } } }, required: ['units'] },
@@ -178,35 +168,39 @@ const units = listing.units.reduce((kept, unit) => {
 const skillSet = skillsOf(units.flatMap((unit) => unit.paths))
 log(`${counted(units.length, NOUNS.unit)}, skills ${skillSet.join(', ')}`)
 const reads = await parallel(units.map((unit) => () => read(unit)))
-const silent = units.filter((_, index) => !reads[index]).map((unit) => unit.name)
-if (silent.length > 0) log(`units with no reader result: ${silent.join(', ')}`)
-const findings = reads.filter(Boolean).flatMap((result) => result.findings).map(normal)
+const barred = (finding) => overlaps(exclude, [...finding.paths, ...(NAMES.includes(finding.owner) ? scoped(finding, OWNERS.find((owner) => owner.name === finding.owner)) : [`.claude/skills/${finding.owner}`])])
+const found = reads.filter(Boolean).flatMap((result) => result.findings).map(normal)
+const findings = found.filter((finding) => !barred(finding))
 const checked = findings.filter((finding) => NAMES.includes(finding.owner))
 const groups = grouped(checked, 'check')
 const held = skillSet.filter((skill) => findings.some((finding) => finding.owner === skill))
 log(`${counted(findings.length, NOUNS.finding)}: ${checked.length} in ${counted(groups.length, NOUNS.group)}, ${findings.length - checked.length} across ${counted(held.length, NOUNS.skill)}${held.length > 0 ? ` (${held.join(', ')})` : ''}`)
 
 const skilling = pipeline(held,
-  (skill) => agent(`Load Skill(${skill}) and Skill(clean-prose). ${BAR}
+  (skill) => once(`Load Skill(${skill}) and Skill(clean-prose). ${BAR}
 Writer for .claude/skills/${skill}, from the improvements and regressions committed between ${args.base} and HEAD:
 ${listed(findings.filter((finding) => finding.owner === skill).map(shown))}
 Read the files these findings name and the lines they touch. Replace, add or remove the snippet, section or rule the committed code justifies; a new case rewrites the line that owns its rule. Each fact sits once within the skill and once across ${skillSet.join(', ')}, \`rg\` over their folders showing where another states it. Snippets show packages under ${row.sources} at ${RELEASE} with placeholder names, coupled to no repository library. Edit only .claude/skills/${skill}. Return at most 10 lines: each section, snippet and line changed.`, { label: `skill:${skill}`, phase: 'Skills' }),
-  (_, skill) => agent(`Load Skill(${skill}). ${BAR}
+  (_, skill) => once(`Load Skill(${skill}). ${BAR}
 Adversary for .claude/skills/${skill}. Read \`git diff HEAD -- .claude/skills/${skill}\` and ${untracked(`.claude/skills/${skill}`)} hunk by hunk, removals included, with the passage around each. Rebuild in place each passage, snippet and rule weaker than the code in the tree, wrong against the package sources under ${row.sources} at ${RELEASE}, or stating a fact another of ${skillSet.join(', ')} states. Edit only .claude/skills/${skill}. Return at most 6 lines: what you rebuilt.`, { label: `adversary:${skill}`, phase: 'Skills', model: 'opus' }),
-  (_, skill) => agent(`Load Skill(clean-prose) and read every file under its references whole. ${BAR}
+  (_, skill) => once(`Load Skill(clean-prose) and read every file under its references whole. ${BAR}
 Apply it to each line \`git diff HEAD -- .claude/skills/${skill}\` and ${untracked(`.claude/skills/${skill}`)} change, with its passage, then run \`${PROSE} .claude/skills/${skill}\` once in the foreground and fix what it reports. Return at most 5 lines.`, { label: `prose:${skill}`, phase: 'Skills' }),
 )
 const checking = pumped(groups, (group) => write(group, true)).then((first) => {
-  const rerouted = grouped(first.flatMap((done) => done.result.reroutes).map(normal), 'reroute')
+  const rerouting = first.flatMap((done) => done.result.reroutes).map(normal)
+  rerouting.filter(barred).forEach((finding) => found.push(finding))
+  const rerouted = grouped(rerouting.filter((finding) => !barred(finding)), 'reroute')
   if (rerouted.length > 0) log(`${counted(rerouted.length, NOUNS.group)} from rerouted findings`)
   return pumped(rerouted, (group) => write(group, false)).then((second) => [...first, ...second])
 })
-const [shaped, written] = await parallel([() => skilling, () => checking])
+const [shaped, written] = await parallel([() => skilling.catch(broke('skills')), () => checking.catch(broke('checks'))])
 
 phase('Close')
 const closed = await close(written ?? [], held)
 return {
   checks: (written ?? []).map((done) => `${done.group.label}: ${done.result.report}`),
-  skills: shaped ?? [],
+  skills: (shaped ?? []).filter(Boolean),
   close: closed ?? 'close agent returned nothing',
+  left: found.filter(barred).map(shown),
+  lost,
 }

@@ -3,6 +3,7 @@
         <Description>Post-production from raw render to finished image</Description>
         <TargetExt>.rhp</TargetExt>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <_PlugInIconSource>../../blender/darkroom/icons/mark.svg</_PlugInIconSource>
     </PropertyGroup>
 
     <ItemGroup Label="Plug-In Identity">
@@ -49,7 +50,45 @@
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Embedded Resources">
-        <EmbeddedResource Include="EmbeddedResources/Tables/*;EmbeddedResources/darkroom_render.js" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+    <PropertyGroup Label="Tables">
+        <_Tables>$(BaseIntermediateOutputPath)Tables/</_Tables>
+        <_BlenderColorManagement>https://raw.githubusercontent.com/blender/blender/6bff2767edae535dba25246e8176b774af499870/release/datafiles/colormanagement</_BlenderColorManagement>
+        <_TonyMcMapface>https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9</_TonyMcMapface>
+    </PropertyGroup>
+
+    <ItemGroup Label="Tables">
+        <_Table Include="AgX_Base_P3.cube" Url="$(_BlenderColorManagement)/luts/%(Identity)" Sha256="6075ac4726cc41ca2d36de65782959d060d20cc9306202c02395796d3b3f7328" />
+        <_Table Include="AgX_Base_Rec2020.cube" Url="$(_BlenderColorManagement)/luts/%(Identity)" Sha256="e0ea8fcba273798517baa5ee877197b36cb471fefab188756815af82e8424a3a" />
+        <_Table Include="AgX_Base_sRGB.cube" Url="$(_BlenderColorManagement)/luts/%(Identity)" Sha256="e707a36f3e90ee79bc342332febf91334c02ce3974cac700ece00ca9d4507491" />
+        <_Table Include="AgX_False_Color.spi1d" Url="$(_BlenderColorManagement)/luts/%(Identity)" Sha256="77fb04f881f17a64f0cc1905d82372380ee6bcfeb29e09679fe501665463eea1" />
+        <_Table Include="AgX_Rec2100-HLG_p3_lim.cube" Url="$(_BlenderColorManagement)/luts/%(Identity)" Sha256="4422eb9a8d3ecc16836d241287b171758e2f2db202934d9ff51865543dd360c0" />
+        <_Table Include="luminance_compensation_bt2020.cube" Url="$(_BlenderColorManagement)/luts/%(Identity)" Sha256="e3f5adcd8c08f77a96be141e8d504d58125cc80216a7a641abc970c85840cfd2" />
+        <_Table Include="filmic_desat_33.cube" Url="$(_BlenderColorManagement)/filmic/%(Identity)" Sha256="77776b30ffc12d3d2a377039aa6a4faec083a5391cb77881244a5fb7f7d31908" />
+        <_Table Include="filmic_to_0-35_1-30.spi1d" Url="$(_BlenderColorManagement)/filmic/%(Identity)" Sha256="0ea26b926904d395085968e400c187afc3ca6bd20365f086520201b024504565" />
+        <_Table Include="filmic_to_0-48_1-09.spi1d" Url="$(_BlenderColorManagement)/filmic/%(Identity)" Sha256="c165ededf8613a4bbaeb4b86923e6c0750e85c2d0e503d5813440d2d05490ae9" />
+        <_Table Include="filmic_to_0-60_1-04.spi1d" Url="$(_BlenderColorManagement)/filmic/%(Identity)" Sha256="d6eb719914486271fd74a81188b17e8fe2308f163d311311eae30bd8328cb7e9" />
+        <_Table Include="filmic_to_0-70_1-03.spi1d" Url="$(_BlenderColorManagement)/filmic/%(Identity)" Sha256="ff0e4cd3745c3d6857c163ee33caa2c796d6c5bddd91859e4646518110bf5b13" />
+        <_Table Include="filmic_to_0-85_1-011.spi1d" Url="$(_BlenderColorManagement)/filmic/%(Identity)" Sha256="49611d68ea8d7fb454266ad239ab91213f05d41affc32ab552d1097d4b3028cd" />
+        <_Table Include="filmic_to_0.99_1-0075.spi1d" Url="$(_BlenderColorManagement)/filmic/%(Identity)" Sha256="b75f1de373e704c757217170c5245801e241014ced7d664b213e02b791674c27" />
+        <_Table Include="filmic_to_1.20_1-00.spi1d" Url="$(_BlenderColorManagement)/filmic/%(Identity)" Sha256="9bdef6f44239b090482cc3570895167432a59e28fb49a8b4288d75f29f912a9e" />
+        <_Table Include="tony_mc_mapface.dds" Url="$(_TonyMcMapface)/shader/%(Identity)" Sha256="a492a9f4dd981e05ff5f1edbf6775ac26b8c8bbeaaecc8b48207873bf46dbdf0" />
     </ItemGroup>
+
+    <ItemGroup Label="Embedded Resources">
+        <_IconMaster Include="$(_PlugInIconSource)" IconStem="icon" />
+        <EmbeddedResource Include="EmbeddedResources/darkroom_render.js" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+    </ItemGroup>
+
+    <Target Name="FetchTables" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' == ''" Inputs="$(MSBuildProjectFullPath)" Outputs="@(_Table->'$(_Tables)%(Identity)')">
+        <DownloadFile SourceUrl="%(_Table.Url)" DestinationFolder="$(_Tables)" />
+        <VerifyFileHash File="$(_Tables)%(_Table.Identity)" Hash="%(_Table.Sha256)" />
+        <ItemGroup>
+            <EmbeddedResource Include="@(_Table->'$(_Tables)%(Identity)')" LogicalName="%(_Table.Identity)" WithCulture="false" />
+        </ItemGroup>
+        <OnError ExecuteTargets="DeleteTables" />
+    </Target>
+
+    <Target Name="DeleteTables">
+        <Delete Files="@(_Table->'$(_Tables)%(Identity)')" />
+    </Target>
 </Project>

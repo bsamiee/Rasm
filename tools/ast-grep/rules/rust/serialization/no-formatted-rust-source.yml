@@ -5,21 +5,21 @@ utils:
     item-text:
         kind: 'string_literal, raw_string_literal'
         regex: |-
-            (?x)^r?\#*"(\\n|\p{White_Space})*((\#\[[^\]"]*\]|\{[\p{XID_Continue}:]*\})(\\n|\p{White_Space})*)*(pub(\([\p{XID_Continue}\p{White_Space}]+\))?\p{White_Space}+)?((async|const|unsafe)\p{White_Space}+)*(
-                fn\p{White_Space}+[\p{XID_Continue}{}:]+\p{White_Space}*[(<]
-                |(struct|enum|trait|union)\p{White_Space}+[\p{XID_Continue}{}:]+\p{White_Space}*(\{([{}\p{White_Space}"]|\\n)|<|\(|;)
-                |mod\p{White_Space}+[\p{XID_Continue}{}:]+\p{White_Space}*(\{([{}\p{White_Space}"]|\\n)|;)
+            (?x)^r?\#*"(\\n|\p{Pattern_White_Space})*((\#\[[^\]"]*\]|\{[\p{XID_Continue}:]*\})(\\n|\p{Pattern_White_Space})*)*(pub(\([\p{XID_Continue}\p{Pattern_White_Space}]+\))?\p{Pattern_White_Space}+)?((async|const|unsafe)\p{Pattern_White_Space}+)*(
+                fn\p{Pattern_White_Space}+[\p{XID_Continue}{}:]+\p{Pattern_White_Space}*[(<]
+                |(struct|enum|trait|union)\p{Pattern_White_Space}+[\p{XID_Continue}{}:]+\p{Pattern_White_Space}*(\{([{}\p{Pattern_White_Space}"]|\\n)|<|\(|;)
+                |mod\p{Pattern_White_Space}+[\p{XID_Continue}{}:]+\p{Pattern_White_Space}*(\{([{}\p{Pattern_White_Space}"]|\\n)|;)
                 |impl(?-u:\b)[^"]*\{
-                |impl(<[^>"]*>)?\p{White_Space}+[\p{XID_Continue}{}:<>]+\p{White_Space}+for\p{White_Space}+[\p{XID_Continue}{}:]+
-                |(const|static)\p{White_Space}+[\p{XID_Continue}{}:]+\p{White_Space}*:
-                |type\p{White_Space}+[\p{XID_Continue}{}:]+\p{White_Space}*(<[^>"]*>)?\p{White_Space}*=
-                |use\p{White_Space}+[\p{XID_Continue}{}:]+::
+                |impl(<[^>"]*>)?\p{Pattern_White_Space}+[\p{XID_Continue}{}:<>]+\p{Pattern_White_Space}+for\p{Pattern_White_Space}+[\p{XID_Continue}{}:]+
+                |(const|static)\p{Pattern_White_Space}+[\p{XID_Continue}{}:]+\p{Pattern_White_Space}*:
+                |type\p{Pattern_White_Space}+[\p{XID_Continue}{}:]+\p{Pattern_White_Space}*(<[^>"]*>)?\p{Pattern_White_Space}*=
+                |use\p{Pattern_White_Space}+[\p{XID_Continue}{}:]+::
             )
     item-head:
         any:
             - matches: item-text
             - kind: 'string_literal, raw_string_literal'
-              regex: '^r?#*"(\\n|\p{White_Space})*(#\[[^\]"]*\](\\n|\p{White_Space})*)*(pub(\([\p{XID_Continue}\p{White_Space}]+\))?\p{White_Space}+)?((async|unsafe)\p{White_Space}+)*((fn|struct|enum|trait|union|mod|impl|const|static|type)|impl(?-u:\b)[^"]*\p{White_Space}for)\p{White_Space}+"#*$'
+              regex: '^r?#*"(\\n|\p{Pattern_White_Space})*(#\[[^\]"]*\](\\n|\p{Pattern_White_Space})*)*(pub(\([\p{XID_Continue}\p{Pattern_White_Space}]+\))?\p{Pattern_White_Space}+)?((async|unsafe)\p{Pattern_White_Space}+)*((fn|struct|enum|trait|union|mod|impl|const|static|type)|impl(?-u:\b)[^"]*\p{Pattern_White_Space}for)\p{Pattern_White_Space}+"#*$'
     owned-head:
         any:
             - matches: item-head
@@ -33,7 +33,7 @@ rule:
         - kind: macro_invocation
           all:
             - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println)$'}}}
-            - has: {kind: token_tree, has: {all: [{matches: item-text}, {regex: '(^|[^{])\{[A-Za-z0-9_:}]'}]}}
+            - has: {kind: token_tree, has: {all: [{matches: item-text}, {regex: '(^|[^{])\{[\p{XID_Continue}:}]'}]}}
         - kind: binary_expression
           all:
             - has: {field: operator, regex: '^\+$'}

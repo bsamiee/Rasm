@@ -39,7 +39,7 @@ utils:
         inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $HELD}}, {has: {field: type, matches: option}}]}}}
     unwrap-callee:
         kind: member_access_expression
-        has: {field: name, regex: '^(Throw\p{XID_Continue}*|ValueUnsafe|Run(Unsafe)?(Async)?)$'}
+        has: {field: name, regex: '^(?:Throw|(?:ValueUnsafe|Run(?:Unsafe)?(?:Async)?)$)'}
         not:
             all:
                 - has: {field: name, regex: '^ValueUnsafe$'}
@@ -83,7 +83,7 @@ utils:
                 any:
                     - matches: option-parameter
                     - kind: invocation_expression
-                      has: {field: function, regex: '(^|\.)From(<.+>)?$'}
+                      has: {field: function, matches: {csharp-type-name: {name: {regex: '^From$'}}}}
 rule:
     any:
         - matches: wrapper-type

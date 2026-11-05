@@ -34,7 +34,7 @@ struct RelayApp: App {
         Window("Settings", id: Self.settingsWindow) {
             switch delegate.store {
                 case .success(let store): SettingsView(store: store)
-                case .failure(let error): Text(error.localizedDescription).padding(24)
+                case .failure: EmptyView()
                 case .none: ProgressView().controlSize(.small)
             }
         }

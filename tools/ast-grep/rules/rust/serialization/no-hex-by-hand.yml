@@ -14,7 +14,7 @@ utils:
                     - kind: closure_expression
                       inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(map|fold|for_each|try_fold|try_for_each|flat_map|filter_map|scan)$'}}}}
     pair-step:
-        regex: '\.(step_by|chunks|chunks_exact)\(\p{White_Space}*2\p{White_Space}*\)'
+        regex: '\.(step_by|chunks|chunks_exact)\(\p{Pattern_White_Space}*2\p{Pattern_White_Space}*\)'
     iteration:
         any:
             - kind: for_expression
@@ -27,7 +27,7 @@ utils:
             - has: {field: arguments, all: [{has: {nthChild: 2, regex: '^16$'}}, {not: {has: {nthChild: 3}}}]}
             - any:
                 - all:
-                    - has: {field: arguments, has: {nthChild: 1, has: {stopBy: end, kind: range_expression, regex: '\+\p{White_Space}*2$'}}}
+                    - has: {field: arguments, has: {nthChild: 1, has: {stopBy: end, kind: range_expression, regex: '\+\p{Pattern_White_Space}*2$'}}}
                     - inside: {stopBy: {kind: 'function_item, closure_expression, for_expression'}, matches: iteration}
                 - inside:
                     stopBy: {kind: 'function_item, closure_expression, for_expression'}
@@ -37,7 +37,7 @@ utils:
                         - kind: closure_expression
                           inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: pair-step}}}}
     nibble:
-        regex: '>>\p{White_Space}*4(?-u:\b)|&\p{White_Space}*(0x0?[fF]|15)(?-u:\b)'
+        regex: '>>\p{Pattern_White_Space}*4(?-u:\b)|&\p{Pattern_White_Space}*(0x0?[fF]|15)(?-u:\b)'
     nibble-lookup:
         kind: index_expression
         all:
@@ -56,7 +56,7 @@ utils:
             - inside:
                 stopBy: {kind: 'function_item, closure_expression, for_expression'}
                 matches: iteration
-                has: {stopBy: end, regex: '<<\p{White_Space}*4(?-u:\b)|\*\p{White_Space}*16(?-u:\b)', kind: binary_expression}
+                has: {stopBy: end, regex: '<<\p{Pattern_White_Space}*4(?-u:\b)|\*\p{Pattern_White_Space}*16(?-u:\b)', kind: binary_expression}
 rule:
     kind: 'macro_invocation, call_expression, index_expression'
     pattern: $SITE

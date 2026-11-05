@@ -2,7 +2,7 @@
 
 [project]
 name            = "typography"
-version         = "1.0.0"
+version         = "0.0.0"
 description     = "Font capability over fontTools, ufo2ft, HarfBuzz and skia-pathops, with the pipeline that reconciles a declared font set from its originals"
 requires-python = ">=3.15"
 

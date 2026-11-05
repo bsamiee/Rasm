@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+utils:
+    conditional:
+        kind: func_arg_expr
+        has:
+            kind: a_expr
+            any:
+                - pattern: {context: 'SELECT CASE WHEN $_ THEN $_ END', selector: a_expr}
+                - pattern: {context: 'SELECT CASE $_ WHEN $_ THEN $_ END', selector: a_expr}
+                - pattern: {context: 'SELECT CASE WHEN $_ THEN $_ ELSE NULL END', selector: a_expr}
+                - pattern: {context: 'SELECT CASE $_ WHEN $_ THEN $_ ELSE NULL END', selector: a_expr}
+    counted:
+        kind: func_arg_expr
+        has:
+            kind: a_expr
+            any:
+                - pattern: {context: 'SELECT CASE WHEN $_ THEN 1 ELSE 0 END', selector: a_expr}
+                - pattern: {context: 'SELECT CASE $_ WHEN $_ THEN 1 ELSE 0 END', selector: a_expr}
+    single:
+        kind: func_arg_list
+        not: {has: {kind: func_arg_list}}
+rule:
+    kind: func_expr
+    pattern: $NODE
+    all:
+        - not: {has: {kind: filter_clause}}
+        - has:
+            kind: func_application
+            any:
+                - all:
+                    - has: {kind: func_name, regex: '(?i-u)^"?(min|max|sum|avg|count)"?$'}
+                    - has: {matches: single, has: {matches: conditional}}
+                - all:
+                    - has: {kind: func_name, regex: '(?i-u)^"?string_agg"?$'}
+                    - has: {kind: func_arg_list, has: {matches: single, has: {matches: conditional}}}
+                - all:
+                    - has: {kind: func_name, regex: '(?i-u)^"?sum"?$'}
+                    - not: {has: {regex: '(?i-u)^distinct$', not: {pattern: $_}}}
+                    - has: {matches: single, has: {matches: counted}}
+message: '`$NODE` filters rows inside an aggregate argument'
+note: 'Use an aggregate filter while preserving collation, distinctness, window evaluation, and empty input results'

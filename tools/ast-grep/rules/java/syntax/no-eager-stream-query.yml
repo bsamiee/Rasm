@@ -13,15 +13,15 @@ utils:
         kind: method_invocation
         all:
             - any:
-                - has: {field: name, regex: '^toList$'}
+                - has: {field: name, pattern: toList}
                 - all:
-                    - has: {field: name, regex: '^collect$'}
+                    - has: {field: name, pattern: collect}
                     - has: {field: arguments, has: {kind: method_invocation, has: {field: name, regex: '^(toList|toSet|toUnmodifiableList|toUnmodifiableSet|toCollection)$'}}}
             - has: {field: object, matches: stage}
     counted:
         kind: method_invocation
         all:
-            - has: {field: name, regex: '^count$'}
+            - has: {field: name, pattern: count}
             - has: {field: object, matches: stage}
     zero:
         regex: '^0[lL]?$'
@@ -29,7 +29,7 @@ utils:
         regex: '^1[lL]?$'
     sorted:
         kind: method_invocation
-        has: {field: name, regex: '^sorted$'}
+        has: {field: name, pattern: sorted}
 rule:
     any:
         - kind: binary_expression
@@ -48,8 +48,8 @@ rule:
           all:
             - any:
                 - all: [{has: {field: name, regex: '^(isEmpty|getFirst|contains)$'}}, {has: {field: object, matches: collected, pattern: $TERM}}]
-                - all: [{has: {field: name, regex: '^get$'}}, {has: {field: arguments, has: {matches: zero}}}, {has: {field: object, matches: collected, pattern: $TERM}}]
+                - all: [{has: {field: name, pattern: get}}, {has: {field: arguments, has: {matches: zero}}}, {has: {field: object, matches: collected, pattern: $TERM}}]
                 - all: [{has: {field: name, regex: '^(findFirst|findAny)$'}}, {has: {field: object, matches: sorted, pattern: $TERM}}]
-                - all: [{has: {field: name, regex: '^limit$'}}, {has: {field: arguments, has: {matches: one}}}, {has: {field: object, matches: sorted, pattern: $TERM}}]
+                - all: [{has: {field: name, pattern: limit}}, {has: {field: arguments, has: {matches: one}}}, {has: {field: object, matches: sorted, pattern: $TERM}}]
 message: '`$TERM` evaluates or sorts a stream before an element query'
 note: 'Use `anyMatch` with `Objects.equals` for membership, existence predicates, or terminal `findFirst`, `min`, or `max` selection'

@@ -3,6 +3,8 @@ id: languageext-bind-callback
 language: csharplang
 arguments: [value, body]
 utils:
+    binder:
+        matches: {csharp-simple-name: {name: {regex: '^(Bind|SelectMany)$'}}}
     unary-parameters:
         any:
             - kind: implicit_parameter
@@ -26,7 +28,7 @@ utils:
 rule:
     kind: invocation_expression
     all:
-        - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|SelectMany)([\p{White_Space}\x{FEFF}]*<.+>)?$'}}
+        - has: {field: function, kind: member_access_expression, has: {field: name, matches: binder}}
         - has:
             field: arguments
             all:

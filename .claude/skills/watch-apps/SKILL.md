@@ -82,7 +82,7 @@ watch-apps log [--pid <run pid>]
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
 - Watchers read hidden instances and actions reach them, `launch`, `perform`, `set`, and `quit` hiding again an instance that unhid itself
 - `log` prints one line per run of the session with its `pid`, `at`, `argv`, `exit`, and `last` line per key outlined to its `status` case without `usage`, `--pid` every record of one run
-- Runs append `{at, pid, session, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to `$WATCH_APPS_LOG` (`.artifacts/logs/watch-apps.log`)
+- Runs append `{at, pid, session, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to `$WATCH_APPS_LOGS/<session>.jsonl` (`.artifacts/logs/watch-apps/`), and each run removes files older than seven days
 - Run `exit` holds `status`, or `signal` for a run a signal ended
 
 ## [03]-[STATES]

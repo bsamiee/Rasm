@@ -13,7 +13,8 @@ utils:
     scope: {any: [{matches: control}, {matches: closure}, {matches: swift-declaration-scope}]}
     conditioned:
         any:
-            - inside: {kind: 'if_statement, guard_statement, while_statement, repeat_while_statement, ternary_expression', field: condition, stopBy: &scope {matches: scope}}
+            - inside: {kind: ternary_expression, field: condition, stopBy: &scope {matches: scope}}
+            - all: [{inside: {kind: 'if_statement, guard_statement, while_statement, repeat_while_statement', stopBy: *scope}}, {not: {inside: {kind: statements, stopBy: *scope}}}]
             - inside: {kind: switch_statement, field: expr, stopBy: *scope}
             - inside: {kind: for_statement, field: collection, stopBy: *scope}
             - inside: {kind: where_clause, stopBy: *scope}

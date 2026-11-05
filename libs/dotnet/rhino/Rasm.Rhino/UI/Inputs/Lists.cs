@@ -56,7 +56,6 @@ public sealed record ListRow<TItem, TKey>(IterableNE<ListColumn<TItem>> Columns,
     public Option<ListSearch<TItem>> Search { get; init; }
     public Option<Func<TItem, bool>> Available { get; init; }
     public Option<Func<TItem, IO<Unit>>> Activate { get; init; }
-    public Option<string> Empty { get; init; }
     public Option<(Command<Invoke>.Run Add, Command<Invoke>.Run Remove)> Pair { get; init; }
     public Func<IO<Seq<TItem>>, Seq<Command<Invoke>>> Commands { get; init; } = static _ => [];
     public bool AllowMultipleSelection { get; init; }
@@ -102,8 +101,7 @@ public sealed record ListRow<TItem, TKey>(IterableNE<ListColumn<TItem>> Columns,
                 Sorted = Some((Column: grid.Columns.IndexOf(args.Column), Descending: state.Sorted.Exists(held => held.Column == grid.Columns.IndexOf(args.Column) && !held.Descending))),
             }).Bind(_ => shown))
         from gestures in Lists.Gestures(grid, latest, emphasis, commands.Keyed, list, shown)
-        from emptied in first.Empty.Traverse(empty => Lists.Emptied(grid, list, LocalText.Of(empty).Local)).As()
-        from paired in Lists.Paired(emptied.IfNone(grid), commands.Pair)
+        from paired in Lists.Paired(grid, commands.Pair)
         from content in Lists.Searched(paired, first.Search, kept => writeIO(keep, kept).Bind(_ => shown))
         select new RowCells(content.Control, shown.Bind(_ => latest).Bind(current => content.Shown(current.Search) >> selection(Some(current.Selected))).Bind(_ => commands.Refresh)) {
             Menu = commands.Menu,
@@ -329,18 +327,6 @@ internal static class Lists {
         select (paired.Map(static held => held.Control), menu, keyed, paired.Map(static held => held.Refresh).IfNone(IO.pure(unit)));
 
     // --- [PLACEMENT]
-    internal static IO<Control> Emptied<TItem>(TreeGridView grid, Atom<ListState<TItem>> list, string text) where TItem : notnull =>
-        from label in use(() => new Label { Text = text, TextColor = SystemColors.DisabledText, TextAlignment = TextAlignment.Center })
-        from stack in Containers.Frame(static () => new StackLayout { HorizontalContentAlignment = HorizontalAlignment.Stretch })
-        let shown = fun((ListState<TItem> state) => IO.lift(() => (grid.Visible, label.Visible) = (!state.Nodes.IsEmpty, state.Nodes.IsEmpty)).Map(unit))
-        from placed in IO.lift(() => {
-            stack.Items.Add(new StackLayoutItem(grid, expand: true));
-            stack.Items.Add(label);
-        })
-        from heard in Subscriptions.Changed(list).Attach(shown)
-        from current in list.ValueIO.Bind(shown)
-        select (Control)stack;
-
     internal static IO<Control> Paired(Control content, Option<Control> pair) =>
         pair.Match(Some: buttons => Stacked(new StackLayoutItem(content, expand: true), new StackLayoutItem(buttons, HorizontalAlignment.Left)), None: () => IO.pure(content));
 

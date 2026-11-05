@@ -16,7 +16,7 @@ utils:
               has: {field: expression, matches: unique-table}
     other-lookup:
         kind: member_access_expression
-        has: {field: name, regex: '^Find\p{XID_Continue}+$', not: {regex: '^Find(Id|Index|Name)$'}}
+        has: {field: name, regex: ^Find., not: {regex: '^Find(Id|Index|Name)$'}}
     find-call:
         kind: invocation_expression
         all:

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+utils:
+    variable:
+        kind: a_expr, select_fetch_first_value
+        pattern: $SKIP
+        not: {regex: '^[0-9]+$'}
+rule:
+    pattern: $LIMIT
+    any:
+        - {kind: offset_clause, has: {matches: variable}}
+        - {kind: limit_clause, all: [{has: {regex: '^,$'}}, {has: {matches: variable, follows: {regex: '^,$'}}}]}
+message: '`$LIMIT` pages through offset `$SKIP`'
+note: 'Page by key with `where <key> > <last key> order by <key> limit <count>` on a unique `<key>`'

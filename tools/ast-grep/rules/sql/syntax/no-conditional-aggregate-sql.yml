@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: sql
+severity: error
+utils:
+    conditional-call:
+        matches: sql-iif-call
+        has:
+            field: arguments
+            kind: normal_function_arguments
+            all:
+                - not: {has: {nthChild: {position: 4, ofRule: &named {not: {kind: 'line_comment, block_comment'}}}}}
+                - has: {nthChild: &second {position: 2, ofRule: *named}}
+rule:
+    kind: function_call
+    pattern: $NODE
+    all:
+        - any: [{has: {field: name, regex: '(?i-u)^["`\[]?(min|max|sum|total|avg|count)["`\]]?$'}}, {matches: sql-string-aggregate}]
+        - not: {has: {field: filter, kind: filter_clause}}
+        - any:
+            - not: {has: {field: arguments, has: {nthChild: *second, not: {kind: order_by_clause}}}}
+            - all: [{matches: sql-string-aggregate}, {not: {has: {field: arguments, has: {nthChild: &third {position: 3, ofRule: *named}, not: {kind: order_by_clause}}}}}]
+        - any:
+            - has:
+                field: arguments
+                has:
+                    nthChild: &first {position: 1, ofRule: *named}
+                    any:
+                        - pattern: {context: 'select case when $_ then $_ end', selector: case_expression}
+                        - pattern: {context: 'select case $_ when $_ then $_ end', selector: case_expression}
+                        - pattern: {context: 'select case when $_ then $_ else null end', selector: case_expression}
+                        - pattern: {context: 'select case $_ when $_ then $_ else null end', selector: case_expression}
+                        - all:
+                            - matches: conditional-call
+                            - has:
+                                field: arguments
+                                any:
+                                    - not: {has: {nthChild: *third}}
+                                    - has: {nthChild: *third, kind: null_literal}
+            - all:
+                - has: {field: name, regex: '(?i-u)^["`\[]?(sum|total)["`\]]?$'}
+                - has:
+                    field: arguments
+                    not: {has: {field: modifier, regex: '(?i-u)^distinct$'}}
+                    has:
+                        nthChild: *first
+                        any:
+                            - pattern: {context: 'select case when $_ then 1 else 0 end', selector: case_expression}
+                            - pattern: {context: 'select case $_ when $_ then 1 else 0 end', selector: case_expression}
+                            - all:
+                                - matches: conditional-call
+                                - has: {field: arguments, has: {nthChild: *second, kind: numeric_literal, regex: '^1$'}}
+                                - has: {field: arguments, has: {nthChild: *third, kind: numeric_literal, regex: '^0$'}}
+                            - kind: binary_expression
+                              has: {field: operator, regex: '(?i-u)^(=|==|<>|!=|<|>|<=|>=|and|or)$'}
+                            - kind: is_expression, is_null_expression, like_expression, between_expression, in_list_expression, in_subquery_expression, in_table_expression, exists_expression
+                            - kind: unary_expression
+                              has: {field: operator, regex: '(?i-u)^not$'}
+message: '`$NODE` filters rows inside an aggregate argument'
+note: 'Use an aggregate filter while preserving collation, distinctness, window evaluation, and empty input results'

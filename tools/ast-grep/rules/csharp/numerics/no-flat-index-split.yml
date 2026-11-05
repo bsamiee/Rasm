@@ -11,11 +11,11 @@ utils:
               inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, matches: index-source}}}}
     index-source:
         any:
-            - regex: '(^|\.)For$'
+            - matches: {csharp-type-name: {name: {regex: '^For$'}}}
             - kind: member_access_expression
               all:
                 - has: {field: name, regex: '^(Select|Map|Iter)$'}
-                - has: {field: expression, kind: invocation_expression, regex: '^(\p{XID_Continue}+\.)?Range[\p{White_Space}\x{FEFF}]*\('}
+                - has: {field: expression, kind: invocation_expression, matches: {csharp-named-call: {name: {regex: '^Range$'}}}}
     quotient:
         kind: binary_expression
         all:

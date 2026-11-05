@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+rule:
+    kind: opt_on_conflict
+    pattern: $UPSERT
+    all:
+        - has: {kind: set_clause_list}
+        - not: {has: {kind: 'index_params, ColId, substitution'}}
+message: '`$UPSERT` names no conflict target, PostgreSQL rejects it at analysis'
+note: 'State `on conflict (<key>)` or `on conflict on constraint <name>`'

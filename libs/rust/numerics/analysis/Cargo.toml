@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-analysis"
-version.workspace    = true
-edition.workspace    = true
-description          = "Analysis of measured and simulated data: regularized and robust polynomial, nonlinear and separable least squares with influence and covariance estimators, smoothing, monotone and periodic splines over grids, natural-neighbor, constrained and universal kriging interpolation of scattered data, scalar, polynomial and Newton-system roots with sensitivities, adaptive cubature and weighted Gauss rules"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["regression", "interpolation", "splines", "roots", "quadrature"]
-categories           = ["mathematics", "science"]
+name              = "rasm-analysis"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -28,34 +23,34 @@ path = "../../../../tests/rust/numerics/analysis/operations.rs"
 
 # --- [RUNTIME]
 [dependencies]
-rayon                              = { workspace = true }
-nonempty-collections               = { workspace = true }
-thiserror                          = { workspace = true }
-validated                          = { workspace = true }
-derive_more                        = { workspace = true }
-itertools                          = { workspace = true }
-serde                              = { workspace = true }
-nutype                             = { workspace = true }
-ordered-float                      = { workspace = true }
-almost                             = { workspace = true }
-basin                              = { workspace = true }
-bilby                              = { workspace = true }
-csaps                              = { workspace = true }
-dashu                              = { workspace = true }
-faer                               = { workspace = true }
-gauss-quad                         = { workspace = true }
-libm                               = { workspace = true }
-nalgebra                           = { workspace = true }
-ndarray                            = { workspace = true }
-num-complex                        = { workspace = true }
-num-dual                           = { workspace = true }
-num-traits                         = { workspace = true }
-statrs                             = { workspace = true }
-argmin                             = { workspace = true }
-nlopt                              = { workspace = true }
-spade                              = { workspace = true }
-rasm-stats                         = { workspace = true }
-rasm-optimize                      = { workspace = true }
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+serde                = { workspace = true }
+nutype               = { workspace = true }
+ordered-float        = { workspace = true }
+almost               = { workspace = true }
+basin                = { workspace = true }
+bilby                = { workspace = true }
+csaps                = { workspace = true }
+dashu                = { workspace = true }
+faer                 = { workspace = true }
+gauss-quad           = { workspace = true }
+libm                 = { workspace = true }
+nalgebra             = { workspace = true }
+ndarray              = { workspace = true }
+num-complex          = { workspace = true }
+num-dual             = { workspace = true }
+num-traits           = { workspace = true }
+statrs               = { workspace = true }
+argmin               = { workspace = true }
+nlopt                = { workspace = true }
+spade                = { workspace = true }
+rasm-stats           = { workspace = true }
+rasm-optimize        = { workspace = true }
 
 # --- [TEST]
 [dev-dependencies]

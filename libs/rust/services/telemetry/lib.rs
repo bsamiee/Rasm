@@ -257,10 +257,7 @@ impl Options {
         let level = iter::chain(default_directives.clone(), log.clone()).filter_map(|directive| directive.parse::<LevelFilter>().ok()).next_back().unwrap_or(LevelFilter::OFF);
         let (accepted, refused): (Vec<Directive>, Vec<_>) = log.map(|directive| directive.parse().map_err(|source: ParseError| (directive, source))).partition_result();
         let resource = Resource::builder_empty()
-            .with_schema_url(
-                iter::once(KeyValue::new(SERVICE_NAME, command.get_name().to_owned())).chain(command.get_version().map(|version| KeyValue::new(SERVICE_VERSION, version.to_owned()))),
-                SCHEMA_URL,
-            )
+            .with_schema_url(iter::chain([KeyValue::new(SERVICE_NAME, command.get_name().to_owned())], command.get_version().map(|version| KeyValue::new(SERVICE_VERSION, version.to_owned()))), SCHEMA_URL)
             .with_detector(Box::new(ServiceInstanceIdResourceDetector));
         let resource = if exported {
             resource
@@ -291,7 +288,7 @@ impl Options {
                         },
                     )
                     .ok()?;
-                let scope = InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_version(env!("CARGO_PKG_VERSION")).with_schema_url(SCHEMA_URL).build();
+                let scope = InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_schema_url(SCHEMA_URL).build();
                 let (filter, handle) = reload::Layer::new(filter);
                 let dispatched = tracing_subscriber::registry().with(filter).with(layer).with(json(&resource, writer)).with(
                     tracing_opentelemetry::layer()

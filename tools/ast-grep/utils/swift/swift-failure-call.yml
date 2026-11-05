@@ -11,7 +11,7 @@ rule:
               inside: {kind: call_expression, matches: swift-result-context}
             - kind: navigation_expression
               any:
-                - regex: '^Swift\.Result\.failure$'
+                - regex: '^Swift(\.|::)Result\.failure$'
                 - all:
                     - has: {field: suffix, regex: '^\.failure$'}
                     - has: {field: target, matches: swift-result-type}

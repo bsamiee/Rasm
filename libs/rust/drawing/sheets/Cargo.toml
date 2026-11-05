@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-sheets"
-version.workspace    = true
-edition.workspace    = true
-description          = "Drawing sets every Rasm document export composes on rasm-linework and rasm-annotation: sheets in set order with scaled and cropped viewports, one layer table stating print and view states and draw order, model and paper annotation trimming its container's linework under its text, cross-references resolved into callout slots and page links, rasters fitted from their header size"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["drawing", "sheet", "viewport", "layer", "cad"]
-categories           = ["graphics"]
+name              = "rasm-sheets"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

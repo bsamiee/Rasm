@@ -37,17 +37,17 @@ utils:
         pattern: $OUT
         any:
             - kind: navigation_expression
-              regex: '^((Foundation\.)?FileHandle|((SystemPackage|System)\.)?FileDescriptor)\.standard(Output|Error)$'
+              regex: '^((Foundation(\.|::))?FileHandle|((SystemPackage|System)(\.|::))?FileDescriptor)\.standard(Output|Error)$'
             - kind: value_argument
-              regex: '^((Darwin|Glibc)\.)?std(out|err)$'
+              regex: '^((Darwin|Glibc)(\.|::))?std(out|err)$'
               inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, matches: callee, regex: '(^|\.)(fputs|fprintf|vfprintf|fwrite|fputc|putc)$'}}}}
             - kind: value_argument
               nthChild: 1
-              regex: '^(((Darwin|Glibc)\.)?STD(OUT|ERR)_FILENO|1|2)$'
+              regex: '^(((Darwin|Glibc)(\.|::))?STD(OUT|ERR)_FILENO|1|2)$'
               inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, matches: callee, regex: '(^|\.)(write|dprintf|vdprintf)$'}}}}
             - kind: value_argument
               nthChild: 1
-              regex: '^(fileDescriptor|rawValue):\p{White_Space}*(((Darwin|Glibc)\.)?STD(OUT|ERR)_FILENO|1|2)$'
+              regex: '^(fileDescriptor|rawValue):[\t-\r ]*(((Darwin|Glibc)(\.|::))?STD(OUT|ERR)_FILENO|1|2)$'
               inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, matches: callee, regex: '(^|\.)(FileHandle|FileDescriptor)$'}}}}
     diagnostic:
         any:

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: plpgsql
+severity: error
+utils:
+    row-write:
+        kind: stmt_execsql
+        has: {kind: sql_expression, regex: '(?si)^(?:with(?-u:\b)(?:[^'']|''[^'']*'')*?[()][\t\n\x0B\f\r ]*)?(?:insert[\t\n\x0B\f\r ]+into|update(?:[\t\n\x0B\f\r ]+only)?[\t\n\x0B\f\r ]+[^\t\n\x0B\f\r ]+[\t\n\x0B\f\r ]+(?:(?:as[\t\n\x0B\f\r ]+)?[^\t\n\x0B\f\r ]+[\t\n\x0B\f\r ]+)?set|delete[\t\n\x0B\f\r ]+from|merge[\t\n\x0B\f\r ]+into)(?-u:\b)'}
+        not:
+            inside:
+                kind: pl_block
+                stopBy: {kind: 'stmt_for, stmt_foreach_a'}
+                has: {kind: exception_sect}
+rule:
+    kind: stmt_for, stmt_foreach_a
+    pattern: $LOOP
+    has: {kind: loop_body, has: {stopBy: {kind: 'stmt_for, stmt_foreach_a'}, matches: row-write}}
+    not:
+        any:
+            - has: {field: in, kind: for_dynamic}
+            - has: {kind: loop_body, has: {stopBy: end, kind: 'stmt_commit, stmt_rollback'}}
+transform:
+    HEAD: {replace: {source: $LOOP, replace: '(?si)[\t\n\x0B\f\r ]+loop(?-u:\b).*$', by: ''}}
+message: '`$HEAD` writes one row per statement'
+note: 'Write the set in one `INSERT … SELECT`, `UPDATE … FROM`, `DELETE … USING` or `MERGE`, over `unnest` or `generate_series` for an array or range'

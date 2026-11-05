@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-diverging
+language: rustlang
+rule:
+    kind: 'return_expression, become_expression, yeet_expression, break_expression, continue_expression'

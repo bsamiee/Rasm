@@ -6,6 +6,8 @@ rule:
         stopBy: {kind: 'function_item, closure_expression, const_item, static_item, const_block'}
         any:
             - kind: 'const_item, static_item, const_block'
+            - kind: closure_expression
+              has: {field: constness, regex: '^const$'}
             - kind: function_item
               has: {kind: function_modifiers, regex: '(?-u:\b)const(?-u:\b)'}
             - kind: function_item

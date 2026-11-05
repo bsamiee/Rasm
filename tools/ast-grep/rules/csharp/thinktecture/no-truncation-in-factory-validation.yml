@@ -5,11 +5,9 @@ ignores: ['tools/roslyn/**']
 utils:
     extension-class:
         matches: {csharp-type-name: {name: {regex: '^StringExtensions$'}}}
-    callee:
-        kind: member_access_expression, conditional_access_expression
     bounded-range:
         kind: range_expression
-        regex: '\.\.[\p{White_Space}\x{FEFF}]*[^[\p{White_Space}\x{FEFF}]^]'
+        has: {regex: '^[^^]', follows: {regex: '^\.\.$'}}
     length-argument:
         kind: argument
         any:
@@ -21,21 +19,19 @@ utils:
             - all:
                 - has:
                     field: function
-                    matches: callee
-                    regex: '\.[\p{White_Space}\x{FEFF}]*TrimOrNullify$'
+                    matches: {csharp-accessed-name: {name: {regex: '^TrimOrNullify$'}}}
                     not: {has: {field: expression, matches: extension-class}}
                 - has: {field: arguments, has: {kind: argument}}
             - all:
                 - has:
                     field: function
-                    matches: callee
-                    regex: '\.[\p{White_Space}\x{FEFF}]*TrimOrNullify$'
+                    matches: {csharp-accessed-name: {name: {regex: '^TrimOrNullify$'}}}
                     has: {field: expression, matches: extension-class}
                 - has: {field: arguments, has: {kind: argument, nthChild: 2}}
     slice-cut:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: callee, regex: '\.[\p{White_Space}\x{FEFF}]*(Substring|AsSpan|AsMemory)$'}
+            - has: {field: function, matches: {csharp-accessed-name: {name: {regex: '^(?:Substring|AsSpan|AsMemory)$'}}}}
             - has:
                 field: arguments
                 any:
@@ -44,12 +40,12 @@ utils:
     remove-cut:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: callee, regex: '\.[\p{White_Space}\x{FEFF}]*Remove$'}
+            - has: {field: function, matches: {csharp-accessed-name: {name: {regex: '^Remove$'}}}}
             - has: {field: arguments, all: [{has: {kind: argument}}, {not: {has: {kind: argument, nthChild: 2}}}]}
     take-cut:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: callee, regex: '\.[\p{White_Space}\x{FEFF}]*(Take|TakeLast)([\p{White_Space}\x{FEFF}]*<.+>)?$'}
+            - has: {field: function, matches: {csharp-accessed-name: {name: {regex: '^(?:Take|TakeLast)$'}}}}
             - has: {field: arguments, has: {kind: argument}}
     range-cut:
         kind: element_access_expression

@@ -1,0 +1,153 @@
+id: plpgsql-option
+language: plpgsql
+role: item
+symbolType: operator
+isExported: false
+rule:
+    kind: comp_option
+    has: {kind: 'kw_option, kw_print_strict_params, kw_variable_conflict', pattern: $NAME}
+name: $NAME
+---
+id: plpgsql-scope
+language: plpgsql
+role: item
+symbolType: namespace
+isExported: false
+rule:
+    any:
+        - kind: pl_block
+          has: {kind: block_label, pattern: $LABEL, has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $NAME}}
+        - kind: pl_block
+          has: {kind: decl_sect, has: {kind: kw_declare, pattern: $KEYWORD}}
+        - kind: pl_block
+          has: {kind: kw_begin, pattern: $KEYWORD}
+        - kind: loop_label
+          has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $NAME}
+          inside: {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', pattern: $LOOP}
+rewriters:
+    - id: body
+      rule: {kind: 'loop_body, comment'}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $LOOP, rewriters: [body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' $', by: ''}}
+name: $NAME$KEYWORD
+signature: $LABEL$KEYWORD$SIGNATURE
+---
+id: plpgsql-scope-label
+language: plpgsql
+role: member
+symbolType: namespace
+parentRuleIds: [plpgsql-scope]
+rule:
+    has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $NAME}
+    any:
+        - kind: block_label
+          pattern: $LABEL
+          inside: {kind: pl_block, inside: {stopBy: end, kind: pl_block}}
+        - kind: loop_label
+          inside: {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', pattern: $LOOP}
+rewriters:
+    - id: body
+      rule: {kind: 'loop_body, comment'}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $LOOP, rewriters: [body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' $', by: ''}}
+name: $NAME
+signature: $LABEL$SIGNATURE
+---
+id: plpgsql-scope-variable
+language: plpgsql
+role: member
+symbolType: variable
+parentRuleIds: [plpgsql-scope]
+rule:
+    kind: decl_statement
+    pattern: $DECLARATION
+    has: {kind: decl_varname, pattern: $NAME}
+    not: {has: {kind: 'kw_constant, kw_cursor'}}
+    any:
+        - inside: {kind: decl_stmt, inside: {kind: decl_sect, inside: {kind: pl_block, has: {kind: block_label, has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $OWNER}}, inside: {stopBy: end, kind: pl_block}}}}
+        - pattern: $DECLARATION
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
+    FOLDED: {replace: {source: $DECLARATION, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;$', by: ''}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+---
+id: plpgsql-scope-constant
+language: plpgsql
+role: member
+symbolType: constant
+parentRuleIds: [plpgsql-scope]
+rule:
+    kind: decl_statement
+    pattern: $DECLARATION
+    all:
+        - has: {kind: kw_constant}
+        - has: {kind: decl_varname, pattern: $NAME}
+    any:
+        - inside: {kind: decl_stmt, inside: {kind: decl_sect, inside: {kind: pl_block, has: {kind: block_label, has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $OWNER}}, inside: {stopBy: end, kind: pl_block}}}}
+        - pattern: $DECLARATION
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
+    FOLDED: {replace: {source: $DECLARATION, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;$', by: ''}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+---
+id: plpgsql-scope-cursor
+language: plpgsql
+role: member
+symbolType: function
+parentRuleIds: [plpgsql-scope]
+rule:
+    kind: decl_varname
+    pattern: $NAME
+    inside:
+        kind: decl_statement
+        pattern: $DECLARATION
+        has: {kind: kw_cursor}
+        any:
+            - inside: {kind: decl_stmt, inside: {kind: decl_sect, inside: {kind: pl_block, has: {kind: block_label, has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $OWNER}}, inside: {stopBy: end, kind: pl_block}}}}
+            - pattern: $DECLARATION
+rewriters:
+    - id: query
+      rule: {kind: 'sql_expression, kw_for, kw_is, comment'}
+      fix: ''
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [query]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;$', by: ''}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+---
+id: plpgsql-scope-cursor-argument
+language: plpgsql
+role: member
+symbolType: field
+parentRuleIds: [plpgsql-scope]
+rule:
+    kind: decl_cursor_arg
+    has: {kind: decl_varname, pattern: $NAME}
+    inside: {kind: decl_cursor_args, inside: {kind: decl_statement, has: {kind: decl_varname, pattern: $OWNER}}}
+name: $OWNER.$NAME
+---
+id: plpgsql-scope-handler
+language: plpgsql
+role: member
+symbolType: event
+parentRuleIds: [plpgsql-scope]
+rule:
+    kind: proc_conditions
+    pattern: $CONDITIONS
+    inside: {kind: proc_exception}
+transform:
+    NAME: {replace: {source: $CONDITIONS, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
+name: $NAME
+signature: WHEN $NAME

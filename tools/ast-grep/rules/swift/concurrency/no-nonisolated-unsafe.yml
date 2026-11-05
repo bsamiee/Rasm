@@ -3,7 +3,7 @@ language: swiftlang
 severity: error
 rule:
     kind: member_modifier
-    regex: '^nonisolated\p{White_Space}*\(\p{White_Space}*unsafe\p{White_Space}*\)$'
-    inside: {kind: modifiers, inside: {kind: property_declaration, has: {field: name, pattern: $NAME}}}
+    regex: '^nonisolated[\t-\r ]*\([\t-\r ]*unsafe[\t-\r ]*\)$'
+    inside: {kind: property_declaration, stopBy: {kind: 'property_declaration, class_declaration, function_declaration, init_declaration, subscript_declaration'}, has: {kind: pattern, pattern: $NAME}}
 message: '`nonisolated(unsafe)` exempts `$NAME` from data-race checking'
 note: 'Hold the state in `Mutex`, `Atomic`, or actor-isolated storage, or hand a non-Sendable value across isolation as a `sending` parameter or result'

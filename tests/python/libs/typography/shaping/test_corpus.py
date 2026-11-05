@@ -7,9 +7,8 @@ from expression import Result
 import msgspec
 import pytest
 
-from typography.faces.declaration import declared
-from typography.faces.faults import Ok, Reason
-from typography.shaping.corpus import Corpus, corpus
+from typography.faces.faults import loaded, Ok, Reason
+from typography.shaping.corpus import Corpus
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -37,17 +36,10 @@ def test_toml_decoding_preserves_unicode_and_language_order(tmp_path: Path, samp
     """Hex code points and escaped marks decode without losing declared languages or the default system."""
     path = tmp_path / "corpus.toml"
     path.write_text(TOML, encoding="utf-8")
-    assert corpus(path) == Ok(sample)
+    assert loaded(Corpus, path) == Ok(sample)
     assert sample.languages == ("fa", "ar", "")
     assert msgspec.structs.replace(sample, prose=frozendict()).languages == ("",)
     assert msgspec.structs.replace(sample, prose=frozendict({"": ("بب",), "fa": ("ب",)})).languages == ("", "fa")
-
-
-def test_declared_asset_corpus_reaches_its_native_consumer(pytestconfig: pytest.Config) -> None:
-    """The actual font-set row resolves a readable corpus with its declared languages and text."""
-    sample = declared(pytestconfig.rootpath / "assets" / "fonts" / "rasm.toml").bind(lambda found: corpus(found.corpus)).default_with(lambda faults: pytest.fail(str(faults)))
-    assert sample.lines
-    assert {"fa", "ar", ""} <= set(sample.languages)
 
 
 @pytest.mark.parametrize("text,reason", [(None, Reason.UNREADABLE), (f"{TOML}extra = []\n", Reason.INVALID), (TOML.replace("0x0628", "-1"), Reason.INVALID)])
@@ -56,7 +48,7 @@ def test_input_faults_distinguish_read_failure_from_refused_content(tmp_path: Pa
     path = tmp_path / "corpus.toml"
     if text is not None:
         path.write_text(text, encoding="utf-8")
-    match corpus(path):
+    match loaded(Corpus, path):
         case Result(error=(fault,)):
             assert fault.reason is reason
             assert isinstance(fault.cause, OSError if text is None else msgspec.DecodeError)

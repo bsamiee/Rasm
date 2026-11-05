@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+utils:
+    core:
+        any:
+            - {not: {matches: pgsql-wrapper}, pattern: $VALUE}
+            - {matches: pgsql-wrapper, has: {stopBy: {not: {matches: pgsql-wrapper}}, not: {matches: pgsql-wrapper}, pattern: $VALUE}}
+    equality:
+        kind: a_expr
+        all:
+            - has: {field: operator, regex: '^=$'}
+            - any: [{has: {field: left, matches: core}}, {has: {field: right, matches: core}}]
+    searched:
+        kind: case_expr
+        not: {has: {field: case_arg, pattern: $_}}
+rule:
+    kind: case_expr
+    any:
+        - pattern: {context: 'SELECT CASE WHEN $VALUE IS NULL THEN $_ ELSE $VALUE END', selector: case_expr}
+        - pattern: {context: 'SELECT CASE WHEN $VALUE ISNULL THEN $_ ELSE $VALUE END', selector: case_expr}
+        - pattern: {context: 'SELECT CASE WHEN $VALUE IS NOT DISTINCT FROM NULL THEN $_ ELSE $VALUE END', selector: case_expr}
+        - pattern: {context: 'SELECT CASE WHEN $VALUE IS NOT NULL THEN $VALUE ELSE $_ END', selector: case_expr}
+        - pattern: {context: 'SELECT CASE WHEN $VALUE NOTNULL THEN $VALUE ELSE $_ END', selector: case_expr}
+        - pattern: {context: 'SELECT CASE WHEN $VALUE IS DISTINCT FROM NULL THEN $VALUE ELSE $_ END', selector: case_expr}
+        - pattern: {context: 'SELECT CASE $VALUE WHEN $_ THEN NULL ELSE $VALUE END', selector: case_expr}
+        - all:
+            - pattern: {context: 'SELECT CASE WHEN $_ THEN NULL ELSE $_ END', selector: case_expr}
+            - has: {kind: case_default, has: {kind: a_expr, matches: core}}
+            - has: {kind: when_clause_list, has: {kind: when_clause, has: {kind: a_expr, any: [{matches: equality}, {has: {stopBy: {not: {matches: pgsql-wrapper}}, matches: equality}}]}}}
+        - all:
+            - matches: searched
+            - has: {kind: case_default, has: {stopBy: {not: {matches: pgsql-wrapper}}, matches: searched}}
+message: 'Conditional branches repeat expression text or nest another choice'
+note: 'Use `coalesce`, `nullif`, or one searched `case` while preserving evaluation and collation'

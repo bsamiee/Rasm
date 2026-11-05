@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-network"
-version.workspace    = true
-edition.workspace    = true
-description          = "Network analysis over petgraph graphs: inbound and outbound catchment trees within a radius on a second edge measure, heuristic edge routes, angular segment graphs with turn costs, radius-bounded reach, closeness, gravity and betweenness from an origin set, eigenvector and Katz centrality, weak and strong components, biconnected blocks and minimum cuts with their edges, multi-terminal maximum flow with its cut, weighted matchings, spanning and Steiner trees, node-weighted hierarchical and seeded Leiden communities"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["network-analysis", "centrality", "shortest-path", "maximum-flow", "community-detection"]
-categories           = ["algorithms", "mathematics"]
+name              = "rasm-network"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

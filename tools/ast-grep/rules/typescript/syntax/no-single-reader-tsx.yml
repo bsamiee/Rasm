@@ -11,8 +11,8 @@ utils:
               not: {has: {kind: template_substitution}}
             - kind: unary_expression, binary_expression
               not: {has: {pattern: $_, not: {matches: literal}}}
-            - kind: as_expression, satisfies_expression, parenthesized_expression
-              has: {nthChild: 1, matches: literal}
+            - matches: typescript-expression-wrapper
+              has: {matches: literal}
     reference:
         kind: identifier, shorthand_property_identifier
         pattern: $NAME

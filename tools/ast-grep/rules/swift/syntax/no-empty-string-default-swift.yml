@@ -27,12 +27,12 @@ rule:
             - has: {matches: empty-block}
         - kind: guard_statement
           all:
-            - has: {field: condition, kind: value_binding_pattern}
+            - has: {kind: value_binding_pattern}
             - has: {field: bound_identifier, pattern: $SHAPE}
             - has: {matches: empty-block}
         - kind: if_statement
           all:
-            - has: {field: condition, kind: value_binding_pattern}
+            - has: {kind: value_binding_pattern}
             - has: {field: bound_identifier, pattern: $SHAPE}
             - has: {matches: empty-block, follows: {regex: '^else$', stopBy: end}}
         - kind: catch_block
@@ -57,10 +57,13 @@ rule:
           all:
             - inside: {kind: 'class_body, enum_class_body'}
             - has: {kind: value_binding_pattern, regex: '^let$'}
-            - has: {field: name, kind: pattern, pattern: $SHAPE}
-            - any:
-                - has: {kind: type_annotation, regex: '^:\p{White_Space}*String$'}
-                - not: {has: {kind: type_annotation}}
-            - has: {field: value, matches: empty-string}
+            - has:
+                kind: pattern
+                pattern: $SHAPE
+                all:
+                    - precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, matches: empty-string}
+                    - any:
+                        - precedes: {stopBy: {kind: pattern}, kind: type_annotation, regex: '^:[\t-\r ]*String$'}
+                        - not: {precedes: {stopBy: {kind: pattern}, kind: type_annotation}}
 message: '`$SHAPE` yields an empty string standing for absence'
 note: 'Declare or return `String?` with `nil` for absence'

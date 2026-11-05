@@ -13,7 +13,6 @@ import bpy
 from expression import Option, Result, try_downcast
 from expression.extra.result import catch
 import msgspec
-import structlog
 
 from blender.bpy.data.rna.paths import addon_preferences, Struct
 from blender.bpy.extension.reports import Reports
@@ -108,15 +107,15 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     @classmethod
     def read(cls, package: str, /) -> Outcome[Self]:
-        """Reads an extension package's manifest and user folder, unreadable fault for its manifest, unregistered fault for a package outside extensions."""
+        """Reads an extension package's manifest and created user folder, unreadable fault for its manifest, unregistered fault for a package outside extensions, unwritable fault for the empty answer of a folder the host failed to create."""
         path = importlib.resources.files(package) / "blender_manifest.toml"
         manifest = (
             Result[bytes, OSError | msgspec.DecodeError]
             .bind(catch(path.read_bytes, exception=OSError)(), lambda data: catch(lambda: msgspec.toml.decode(data, type=Manifest), exception=msgspec.DecodeError)())
             .map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
         )
-        folder = catch(bpy.utils.extension_path_user, exception=ValueError)(package).map_error(partial(Fault.of, Reason.UNREGISTERED, package))
-        return paired(manifest, folder).map(lambda pair: cls(package=package, manifest=pair[0], folder=Path(pair[1]), reports=Reports(structlog.get_logger(package, extension=pair[0].id))))
+        folder = catch(bpy.utils.extension_path_user, exception=ValueError)(package, create=True).map_error(partial(Fault.of, Reason.UNREGISTERED, package)).filter(bool, Fault.of(Reason.UNWRITABLE, package, "host created no user folder")).map(Path)
+        return paired(manifest, folder).map(lambda pair: cls(package=package, manifest=pair[0], folder=pair[1], reports=Reports(package, pair[1], extension=pair[0].id)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

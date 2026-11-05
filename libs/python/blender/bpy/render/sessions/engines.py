@@ -120,12 +120,12 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
                 engine.report({"ERROR"}, text)
 
         def view_update(engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
-            """Runs viewport update, holding faults in extension reports."""
+            """Runs viewport update, logging faults."""
             for body in self.view_update.to_list():
                 identity.reports.reported(body)(engine, context, depsgraph).to_optional()
 
         def view_draw(engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
-            """Draws under scene display space shader, unbinding it after, holding faults in extension reports."""
+            """Draws under scene display space shader, unbinding it after, logging faults."""
             with ExitStack() as scope:
                 engine.bind_display_space_shader(depsgraph.scene)
                 scope.callback(engine.unbind_display_space_shader)

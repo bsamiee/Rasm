@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsxlang
+severity: error
+rule:
+    kind: preprocessor_directive
+    has: {field: name, pattern: $DIRECTIVE}
+message: '`$DIRECTIVE` is an ExtendScript directive TypeScript refuses'
+note: Hold the directive in a `.jsxinc` file

@@ -9,18 +9,16 @@ public import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct ApplicationFailure: CustomNSError, LocalizedError {
+public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
-    public enum Reason: Sendable {
+    public enum Reason: Equatable, Sendable {
         case untrusted
-        case malformed(String)
+        case noCaptureAccess
         case unanswered(ElementAction?)
         case noProcess
-        case visibility(hidden: Bool, limit: Duration)
         case unreadable(FailedRead)
         case unresolved
         case foreign(pid_t)
-        case activating
         case disabled
         case notSettable(String)
         case refused(AXError?)
@@ -28,15 +26,14 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
         case noPath
         case noHandler
         case noWindow
-        case noDisplay
         case noImage
         case noExtension
         case noEncoder
         case noReport(Duration)
         case event(AppleEventFailure)
         case system(Errno)
-        case host(any Error)
-        case cancelled(CancellationError)
+        case host(NSError)
+        case cancelled
         case unmatched(Unmatched)
         case unwatched(FileFailure)
     }
@@ -54,16 +51,14 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
     public var errorDescription: String? {
         switch reason {
             case .untrusted: "\(subject) lacks Accessibility access, grant it in System Settings > Privacy & Security > Accessibility"
-            case .malformed(let usage): usage
+            case .noCaptureAccess: "\(subject) lacks Screen Recording access, grant it in System Settings > Privacy & Security > Screen & System Audio Recording"
             case .unanswered(.none): "\(subject) did not answer within messaging timeout"
             case .unanswered(.some): "\(subject) got no answer within messaging timeout, action can have run"
             case .noProcess: "Process \(subject) exited"
-            case .visibility(let hidden, let limit): "Process \(subject) stays \(hidden ? "hidden" : "shown") \(limit.formatted(.units(width: .wide))) after \(hidden ? "unhide" : "hide")"
             case .unreadable(let read):
                 "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \"\(label)\"" } ?? "") failed with AXError \(read.error.rawValue)"
             case .unresolved: "\(subject) no longer exists in its app, read the app again for a current id"
             case .foreign(let process): "\(subject) belongs to a process other than \(process)"
-            case .activating: "Skipped \(kAXRaiseAction) on \(subject), raising a window takes focus from the frontmost app"
             case .disabled: "Element \(subject) is disabled"
             case .notSettable(let attribute): "\(subject) has no settable \(attribute)"
             case .refused(.some(let error)): "\(subject) refused with AXError \(error.rawValue)"
@@ -71,8 +66,7 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .noIdentifier: "\(subject) has no \(kCFBundleIdentifierKey as String)"
             case .noPath: "\(subject) has no \(NSMetadataItemPathKey)"
             case .noHandler: "No application opens \(subject)"
-            case .noWindow: "\(subject) has no on-screen window"
-            case .noDisplay: "No display shows \(subject)"
+            case .noWindow: "\(subject) has no window"
             case .noImage: "\(subject) holds no SDR image"
             case .noExtension: "\(subject) has no filename extension"
             case .noEncoder: "ImageIO has no \(subject) encoder"
@@ -94,47 +88,10 @@ public struct ApplicationFailure: CustomNSError, LocalizedError {
             case .host(let error): [NSUnderlyingErrorKey: error]
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .untrusted, .malformed, .unanswered, .visibility, .unreadable, .unresolved, .foreign, .activating, .disabled, .notSettable, .refused, .noIdentifier, .noPath,
-                .noHandler, .noWindow, .noDisplay, .noImage, .noExtension, .noEncoder, .noReport, .cancelled:
+            case .untrusted, .noCaptureAccess, .unanswered, .unreadable, .unresolved, .foreign, .disabled, .notSettable, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noImage,
+                .noExtension, .noEncoder, .noReport, .cancelled:
                 [:]
         }
-    }
-}
-
-extension ApplicationFailure: Equatable {
-    public static func == (left: Self, right: Self) -> Bool {
-        let same: Bool =
-            switch left.reason {
-                case .untrusted: right.reason.is(\.untrusted)
-                case .malformed(let usage): right.reason[case: \.malformed] == Optional(usage)
-                case .unanswered(let action): right.reason[case: \.unanswered] == action
-                case .noProcess: right.reason.is(\.noProcess)
-                case .visibility(let hidden, let limit): right.reason[case: \.visibility].map { other in other == (hidden, limit) } == true
-                case .unreadable(let read): right.reason[case: \.unreadable] == Optional(read)
-                case .unresolved: right.reason.is(\.unresolved)
-                case .foreign(let process): right.reason[case: \.foreign] == Optional(process)
-                case .activating: right.reason.is(\.activating)
-                case .disabled: right.reason.is(\.disabled)
-                case .notSettable(let attribute): right.reason[case: \.notSettable] == Optional(attribute)
-                case .refused(let error): right.reason[case: \.refused] == error
-                case .noIdentifier: right.reason.is(\.noIdentifier)
-                case .noPath: right.reason.is(\.noPath)
-                case .noHandler: right.reason.is(\.noHandler)
-                case .noWindow: right.reason.is(\.noWindow)
-                case .noDisplay: right.reason.is(\.noDisplay)
-                case .noImage: right.reason.is(\.noImage)
-                case .noExtension: right.reason.is(\.noExtension)
-                case .noEncoder: right.reason.is(\.noEncoder)
-                case .noReport(let limit): right.reason[case: \.noReport] == Optional(limit)
-                case .event(let failure): right.reason[case: \.event] == Optional(failure)
-                case .system(let error): right.reason[case: \.system] == Optional(error)
-                case .host(let error):
-                    right.reason[case: \.host].map { other in ((other as NSError).domain, (other as NSError).code) == ((error as NSError).domain, (error as NSError).code) } == true
-                case .cancelled: right.reason.is(\.cancelled)
-                case .unmatched(let miss): right.reason[case: \.unmatched] == Optional(miss)
-                case .unwatched(let failure): right.reason[case: \.unwatched] == Optional(failure)
-            }
-        return left.subject == right.subject && same
     }
 }
 
@@ -158,11 +115,11 @@ extension ApplicationFailure: Encodable {
                 try fields.encodeIfPresent(read.label, forKey: .label)
                 try fields.encode(read.error.rawValue, forKey: .error)
             case .unmatched(let miss): try fields.encode(miss.candidates, forKey: .candidates)
-            case .visibility(_, let limit), .noReport(let limit): try fields.encode(limit / .seconds(1), forKey: .limit)
+            case .noReport(let limit): try fields.encode(limit / .seconds(1), forKey: .limit)
             case .event(let failure): try fields.encodeIfPresent(failure.status, forKey: .status)
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
-            case .untrusted, .malformed, .unanswered, .noProcess, .unresolved, .activating, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow,
-                .noDisplay, .noImage, .noExtension, .noEncoder, .host, .cancelled, .unwatched:
+            case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow, .noImage, .noExtension, .noEncoder, .host,
+                .cancelled, .unwatched:
                 break
         }
     }

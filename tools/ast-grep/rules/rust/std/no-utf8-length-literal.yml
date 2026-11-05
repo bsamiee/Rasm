@@ -53,8 +53,8 @@ rule:
             - inside: {kind: array_expression, any: [{matches: inline-utf16}, {matches: bound-utf16}]}
             - pattern: $UTF16
 transform:
-    UTF8_OUT: {replace: {source: $UTF8, replace: '^[\p{White_Space}\P{White_Space}]+$', by: 'char::MAX_LEN_UTF8'}}
-    UTF16_OUT: {replace: {source: $UTF16, replace: '^[\p{White_Space}\P{White_Space}]+$', by: 'char::MAX_LEN_UTF16'}}
+    UTF8_OUT: {replace: {source: $UTF8, replace: '^[\p{Pattern_White_Space}\P{Pattern_White_Space}]+$', by: 'char::MAX_LEN_UTF8'}}
+    UTF16_OUT: {replace: {source: $UTF16, replace: '^[\p{Pattern_White_Space}\P{Pattern_White_Space}]+$', by: 'char::MAX_LEN_UTF16'}}
 fix: $UTF8_OUT$UTF16_OUT
 message: '`$LEN` restates the longest encoding of one `char`'
 note: 'Size an `encode_utf8` buffer by `char::MAX_LEN_UTF8` and an `encode_utf16` buffer by `char::MAX_LEN_UTF16`'

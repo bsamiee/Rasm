@@ -295,7 +295,7 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
             .flat_map(|line| &line.metrics)
             .filter(|resource| served(resource.resource.as_ref(), &resource.schema_url))
             .flat_map(|resource| &resource.scope_metrics)
-            .filter(|scope| scope.scope.as_ref().is_some_and(|instrumented| instrumented.version == env!("CARGO_PKG_VERSION")))
+            .filter(|scope| scope.scope.as_ref().is_some_and(|instrumented| instrumented.name == "rasm-mcp"))
             .flat_map(|scope| &scope.metrics)
             .filter(|recorded| recorded.name == "mcp.server.operation.duration")
             .flat_map(|recorded| match &recorded.data {

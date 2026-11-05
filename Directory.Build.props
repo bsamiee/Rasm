@@ -35,7 +35,6 @@
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <NuGetAudit>false</NuGetAudit>
         <SuppressImplicitGitSourceLink>true</SuppressImplicitGitSourceLink>
-        <DiscoverGlobalAnalyzerConfigFiles>false</DiscoverGlobalAnalyzerConfigFiles>
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
@@ -69,6 +68,10 @@
     <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     </PropertyGroup>
+
+    <ItemGroup Label="Analyzer Configuration">
+        <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory).config/analyzers.globalconfig" />
+    </ItemGroup>
 
     <ItemGroup Label="Workspace Packages" Condition="'$(ProjectRole)' != 'analyzers'">
         <PackageReference Include="LanguageExt.Core" />

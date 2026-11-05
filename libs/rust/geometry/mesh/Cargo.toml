@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-mesh"
-version.workspace    = true
-edition.workspace    = true
-description          = "Solids over manifold-rust at nalgebra signatures: mesh import at a tolerance with winding repair, face, instance and original provenance, extrusion, revolution, hulls of points and solids, affine placement, warps, cancellable CSG trees over placed instances and Minkowski sums, plane trims with their cap, holed section and silhouette polygons, meshopt and kernel reduction of meshes and colored point clouds, refinement, parallel body decomposition and measures"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["mesh", "csg", "boolean", "solid", "geometry"]
-categories           = ["graphics", "mathematics"]
+name              = "rasm-mesh"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

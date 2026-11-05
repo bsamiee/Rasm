@@ -80,9 +80,18 @@ utils:
         all:
             - has: {field: name, pattern: $X}
             - has: {kind: invocation_expression, matches: relift}
+    fin-type:
+        any:
+            - matches: {csharp-generic-type: {name: {regex: '^Fin$'}, list: {kind: type_argument_list}}}
+            - matches: {csharp-generic-type: {name: {regex: '^Either$'}, list: {has: {nthChild: 1, matches: {csharp-type-name: {name: {regex: '^Error$'}}}}}}}
     lifted-fin:
         kind: invocation_expression
-        has: {field: function, regex: '(?s)^(global::)?(LanguageExt\.)?IO[\p{White_Space}\x{FEFF}]*\.[\p{White_Space}\x{FEFF}]*lift[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*((global::)?LanguageExt\.)?(Fin[\p{White_Space}\x{FEFF}]*<.+>|Either[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*((global::)?LanguageExt\.(Common\.)?)?Error[\p{White_Space}\x{FEFF}]*,.+>)[\p{White_Space}\x{FEFF}]*>$'}
+        has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^IO$'}}}}
+                - has: {field: name, kind: generic_name, all: [{has: {kind: identifier, regex: '^lift$'}}, {has: {kind: type_argument_list, has: {nthChild: 1, matches: fin-type}}}]}
     lifted-local:
         kind: identifier
         pattern: $LIFTED
@@ -143,7 +152,7 @@ rule:
                     - inside: {kind: query_expression, not: {has: {nthChild: 4}}, has: {kind: select_clause, nthChild: 3, has: {pattern: $X}}}
 constraints:
     IO: {matches: {csharp-type-name: {name: {regex: '^IO$'}}}}
-    FIN: {regex: '(?s)^((global::)?LanguageExt\.)?(Fin[\p{White_Space}\x{FEFF}]*<.+>|Either[\p{White_Space}\x{FEFF}]*<[\p{White_Space}\x{FEFF}]*((global::)?LanguageExt\.(Common\.)?)?Error[\p{White_Space}\x{FEFF}]*,.+>)$'}
+    FIN: {matches: fin-type}
     BIND:
         any:
             - kind: argument

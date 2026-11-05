@@ -13,7 +13,7 @@ utils:
         has: {field: function, kind: field_expression, has: {field: field, regex: '^to_(ascii_)?(upper|lower)case$'}}
     prefix-range:
         kind: range_expression
-        regex: '^\.\.=?\p{White_Space}*\p{XID_Continue}+$'
+        regex: '^\.\.=?\p{Pattern_White_Space}*\p{XID_Continue}+$'
     leading-text:
         any:
             - kind: call_expression

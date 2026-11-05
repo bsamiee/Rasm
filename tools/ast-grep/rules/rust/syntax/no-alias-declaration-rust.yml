@@ -32,10 +32,10 @@ rule:
               matches: public
               has: {field: type, kind: primitive_type}
 transform:
-    TUPLE_TEXT: {replace: {source: $TUPLE, replace: '(?s)^.*?(?-u:\b)type\p{White_Space}+(\p{XID_Continue}+)\p{White_Space}*=\p{White_Space}*(.+?)\p{White_Space}*;$', by: 'Type alias `$1` renames tuple `$2`'}}
-    RENAMED_TEXT: {replace: {source: $RENAMED, replace: '(?s)^.*?(?-u:\b)type\p{White_Space}+(\p{XID_Continue}+)\p{White_Space}*=\p{White_Space}*(.+?)\p{White_Space}*;$', by: 'Type alias `$1` renames `$2`'}}
-    SAME_TEXT: {replace: {source: $SAME, replace: '(?s)^.*?(?-u:\b)type\p{White_Space}+(\p{XID_Continue}+)\p{White_Space}*=\p{White_Space}*(.+?)\p{White_Space}*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use $2;`'}}
-    OTHER_TEXT: {replace: {source: $OTHER, replace: '(?s)^.*?(?-u:\b)type\p{White_Space}+(\p{XID_Continue}+)\p{White_Space}*=\p{White_Space}*(.+?)\p{White_Space}*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use $2 as $1;`'}}
-    PRIMITIVE_TEXT: {replace: {source: $PRIMITIVE, replace: '(?s)^.*?(?-u:\b)type\p{White_Space}+(\p{XID_Continue}+)\p{White_Space}*=\p{White_Space}*(\p{XID_Continue}+)\p{White_Space}*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use core::primitive::$2 as $1;`'}}
+    TUPLE_TEXT: {replace: {source: $TUPLE, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: 'Type alias `$1` renames tuple `$2`'}}
+    RENAMED_TEXT: {replace: {source: $RENAMED, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: 'Type alias `$1` renames `$2`'}}
+    SAME_TEXT: {replace: {source: $SAME, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use $2;`'}}
+    OTHER_TEXT: {replace: {source: $OTHER, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use $2 as $1;`'}}
+    PRIMITIVE_TEXT: {replace: {source: $PRIMITIVE, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(\p{XID_Continue}+)\p{Pattern_White_Space}*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use core::primitive::$2 as $1;`'}}
 message: '$TUPLE_TEXT$RENAMED_TEXT$SAME_TEXT$OTHER_TEXT$PRIMITIVE_TEXT'
 note: 'Write tuple and private alias targets directly; re-export named public targets with `pub use`'

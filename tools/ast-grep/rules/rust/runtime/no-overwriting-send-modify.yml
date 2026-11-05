@@ -14,7 +14,7 @@ utils:
                         - matches: escape
                         - has: {stopBy: end, any: [{kind: identifier, pattern: $VALUE}, {matches: escape}]}
     escape:
-        kind: 'return_expression, try_expression, break_expression, continue_expression, line_comment, block_comment'
+        any: [{matches: rust-diverging}, {kind: 'try_expression, line_comment, block_comment'}]
     statement:
         kind: expression_statement
         has: {matches: overwrite}

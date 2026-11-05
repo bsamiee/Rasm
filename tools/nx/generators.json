@@ -9,6 +9,16 @@
             "factory": "./barrels.ts#barrels",
             "schema": "./schema.json",
             "description": "Writes each library's index.ts barrels from its package.json exports and modules"
+        },
+        "hosting-bindings": {
+            "factory": "./hosting-bindings.ts#hostingBindings",
+            "schema": "./schema.json",
+            "description": "Writes each .openai/hosting.json d1 and r2 members from its cloudflare.config.ts bindings"
+        },
+        "menu-bar-glyph": {
+            "factory": "./menu-bar-glyph.ts#menuBarGlyph",
+            "schema": "./schema.json",
+            "description": "Writes each app's menu bar imageset SVG from its AppIcon.icon layer master at the menu bar point size"
         }
     }
 }

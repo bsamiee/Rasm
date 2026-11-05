@@ -67,7 +67,7 @@ def prepared(dispatcher: Dispatcher, arguments: PrepareArguments, trailing: tupl
                         case Result(tag="ok", ok=issued):
                             dispatcher.identity.reports.logger.info("Queue sent", issued=issued)
                         case Result(error=refused):
-                            dispatcher.identity.reports.hold(refused)
+                            dispatcher.identity.reports.logged(refused)
                 return RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.SENT), form=Sent).written(record).map(lambda _: record)
 
     def planned(plan: Plan) -> Outcome[tuple[Job, ...]]:
@@ -118,11 +118,7 @@ def job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem:
 
         def placed(saved_file: Path) -> Outcome[tuple[PackedFile, tuple[PackedFile, ...]]]:
             def held(blend: PackedFile, files: tuple[PackedFile, ...], skipped: tuple[Fault, ...]) -> tuple[PackedFile, tuple[PackedFile, ...]]:
-                match skipped:
-                    case (head, *rest):
-                        dispatcher.identity.reports.hold((head, *rest))
-                    case _:
-                        pass
+                dispatcher.identity.reports.logged(skipped)
                 return blend, files
 
             if transferred:

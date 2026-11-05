@@ -2,14 +2,10 @@
 
 # --- [IDENTITY]
 [package]
-name                 = "rasm-mcp-bridge"
-version.workspace    = true
-edition.workspace    = true
-description          = "Stdio MCP servers exposed over Streamable HTTP"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["mcp", "modelcontextprotocol", "stdio", "streamable-http", "proxy"]
-categories           = ["command-line-utilities", "network-programming"]
+name              = "rasm-mcp-bridge"
+edition.workspace = true
+description       = "Stdio MCP servers exposed over Streamable HTTP"
+publish           = false
 
 # --- [NX]
 [package.metadata.nx.targets."test:integration"]

@@ -56,6 +56,6 @@ rule:
                 - has: {field: type, matches: impl-target}
                 - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: float-struct}}
 transform:
-    HEAD: {replace: {source: $SITE, replace: '(?s)\p{White_Space}*\{?\p{White_Space}*\n.*$', by: ''}}
+    HEAD: {replace: {source: $SITE, replace: '(?s)\p{Pattern_White_Space}*\{?\p{Pattern_White_Space}*\n.*$', by: ''}}
 message: '`$HEAD` treats a float as a total order or a hash key by hand'
 note: 'Type the field `ordered_float::OrderedFloat<f64>` or `NotNan<f64>` and derive `PartialEq`, `Eq`, `PartialOrd`, `Ord`, and `Hash`'

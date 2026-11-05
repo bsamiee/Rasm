@@ -11,7 +11,7 @@ utils:
                 - all:
                     - has: {field: type, kind: generic_type, has: {field: type, regex: '^((std::)?vec::)?Vec$'}}
                     - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^collect$'}}}
-                - has: {field: value, kind: call_expression, has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^collect$'}}}, {has: {field: type_arguments, regex: '^<\p{White_Space}*((std::)?vec::)?Vec(?-u:\b)'}}]}}
+                - has: {field: value, kind: call_expression, has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^collect$'}}}, {has: {field: type_arguments, regex: '^<\p{Pattern_White_Space}*((std::)?vec::)?Vec(?-u:\b)'}}]}}
     join-receiver:
         inside: {kind: field_expression, field: value, has: {field: field, regex: '^join$'}}
 rule:

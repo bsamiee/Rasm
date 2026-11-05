@@ -1,7 +1,7 @@
-import { readCachedProjectGraph } from '@nx/devkit';
+import { readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
 import { findMatchingProjects, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { ActionsRepositoryPermissions, IssueLabel, type IssueLabelArgs, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
-import { Effect, Path, Record } from 'effect';
+import { Effect, FileSystem, Path, Record } from 'effect';
 import { runCommand } from '#/eng/typescript/run-command';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -11,15 +11,16 @@ const repositoryStack = {
     select: 'selectStack' as const,
     stackName: 'rasm',
     program: Effect.gen(function* () {
-        const [path, url, graph, nx] = yield* Effect.all([Path.Path, runCommand('git', ['remote', 'get-url', 'origin'], { cwd: import.meta.dirname }), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)]);
-        const pattern = yield* Effect.fromNullishOr(nx.release?.releaseTag?.pattern);
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const [url, readme, graph, nx] = yield* Effect.all([runCommand('git', ['remote', 'get-url', 'origin'], { cwd: workspaceRoot }), fs.readFileString(path.join(workspaceRoot, 'README.md')), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)], { concurrency: 'unbounded' });
+        const [pattern, paragraph] = yield* Effect.all([Effect.fromNullishOr(nx.release?.releaseTag?.pattern), Effect.fromNullishOr(readme.split('\n\n').find((block) => !block.startsWith('#')))]);
         const feeds = findMatchingProjects(['tag:output:appcast', 'tag:output:extension'], graph.nodes);
         const name = path.basename(url.trim(), '.git');
         const { name: repository, fullName } = new Repository(
             name,
             {
                 name,
-                description: 'macOS-first polyglot monorepo portable to Linux and Windows',
+                description: paragraph.replaceAll('\n', ' ').trim(),
                 visibility: 'public',
                 topics: [],
                 hasIssues: true,
@@ -35,6 +36,7 @@ const repositoryStack = {
         );
         return {
             repository: fullName,
+            assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', topics: [], hasIssues: false, allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
             securityUpdates: new RepositoryDependabotSecurityUpdates(`${name}-security-updates`, { repository: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository }).repository, enabled: false }).enabled,
             allowedActions: new ActionsRepositoryPermissions(`${name}-actions-permissions`, { repository, allowedActions: 'all' }).allowedActions,
             workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'read', canApprovePullRequestReviews: false }).defaultWorkflowPermissions,

@@ -12,6 +12,12 @@
         <PackageReference Include="SuperLinq" />
     </ItemGroup>
 
+    <ItemGroup Label="Host Internals">
+        <PackageReference Include="Krafs.Publicizer" />
+        <Publicize Include="Rhino.UI:Rhino.Resources.Internal" />
+        <Publicize Include="Rhino.UI:Rhino.Resources.ResourceFile" />
+    </ItemGroup>
+
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>

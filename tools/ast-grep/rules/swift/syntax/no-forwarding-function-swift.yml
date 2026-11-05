@@ -149,7 +149,7 @@ rule:
             - not: {has: {matches: unforwarded-parameter}}
             - not: {has: {stopBy: end, matches: copy-with}}
             - any:
-                - not: {has: {field: name, kind: simple_identifier, pattern: $FN}}
+                - not: {has: {field: name, kind: function_name, pattern: $FN}}
                 - has: {stopBy: end, matches: fixed-argument}
                 - has: {field: body, has: {stopBy: end, kind: navigation_expression, has: {field: target, not: {kind: 'self_expression, super_expression'}}}}
         - kind: init_declaration

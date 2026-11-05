@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-form"
-version.workspace    = true
-edition.workspace    = true
-description          = "Force-density equilibrium, dynamic relaxation, and inverse form-finding of supported networks"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["form-finding", "force-density", "dynamic-relaxation", "cable-net", "gridshell"]
-categories           = ["science", "mathematics", "simulation"]
+name              = "rasm-form"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

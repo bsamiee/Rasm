@@ -84,8 +84,8 @@ public sealed record ImageRow(ReadoutSource<Loading<Bitmap>> Image) : IRow<Image
                 from made in use(static () => new ImageView())
                 from seeded in held.SwapIO(state => state with { Image = loaded })
                 select made,
-            (made, content) => held.SwapIO(state => state with { Image = content }).Bind(_ => Shown(made, scroll, readout, held, label)), scope)
-        let shown = Shown(view, scroll, readout, held, label)
+            (made, content) => held.SwapIO(state => state with { Image = content }).Bind(_ => Shown(made, scroll, readout, held)), scope)
+        let shown = Shown(view, scroll, readout, held)
         let groups = Seq(toSeq(ImageZoom.Items).Map(zoom => Zoomed(held, shown, zoom)))
         from strip in CommandRows.Strip(groups, IconSlot.PanelButton, scope)
         from keyed in CommandRows.Keyed(groups, scope)
@@ -99,14 +99,14 @@ public sealed record ImageRow(ReadoutSource<Loading<Bitmap>> Image) : IRow<Image
         })
         select new RowCells(body, shown.Bind(_ => strip.Refresh)) { Menu = groups };
 
-    private static IO<Unit> Shown(ImageView view, Scrollable scroll, Label readout, Atom<(Loading<Bitmap> Image, ImageZoom Zoom)> held, LocalizeStringPair label) =>
+    private static IO<Unit> Shown(ImageView view, Scrollable scroll, Label readout, Atom<(Loading<Bitmap> Image, ImageZoom Zoom)> held) =>
         from state in held.ValueIO
         from drawn in IO.lift(() => state.Image.Held.Match(
             Some: image => {
-                (view.Image, view.Size, view.ToolTip) = (image, state.Zoom.Sized(image.Size, scroll.ClientSize), null);
+                (view.Image, view.Size) = (image, state.Zoom.Sized(image.Size, scroll.ClientSize));
                 readout.Text = LocalText.Of("{0}%", (int)double.Round(100d * view.Width / image.Width, MidpointRounding.AwayFromZero)).Local;
             },
-            None: () => (view.Image, view.ToolTip, readout.Text) = (null, LocalText.Of("{0} unavailable", label.Local).Local, "")))
+            None: () => (view.Image, readout.Text) = (null, "")))
         select unit;
 
     private static Command<Invoke> Zoomed(Atom<(Loading<Bitmap> Image, ImageZoom Zoom)> held, IO<Unit> shown, ImageZoom zoom) =>
@@ -125,11 +125,7 @@ public sealed record TileRow(ReadoutSource<Loading<Bitmap>> Image, Func<RowScope
         from first in latest
         from view in first.Image.Live(
             static _ => use(static () => new ImageView()),
-            (made, content) => IO.lift(() => {
-                (made.Image, made.ToolTip) = content.Held.Match(
-                    Some: static image => ((Image?)image, (string?)null),
-                    None: () => (null, LocalText.Of("{0} unavailable", label.Local).Local));
-            }), scope)
+            static (made, content) => IO.lift(() => { made.Image = content.Held.ValueUnsafe(); }), scope)
         from dragged in Subscriptions.On<MouseEventArgs>(h => view.MouseMove += h, h => view.MouseMove -= h).Attach(args =>
             when(args.Buttons is MouseButtons.Primary && Optional(view.Image).IsSome,
                 latest.Bind(current => current.File(scope)).Bind(path => path.Traverse(held => DataTransfer.Drag(view, [held], Optional(view.Image))).As()).Map(unit)).As())

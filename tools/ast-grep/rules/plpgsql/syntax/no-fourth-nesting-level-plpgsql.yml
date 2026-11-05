@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: plpgsql
+severity: error
+utils:
+    control:
+        any:
+            - kind: stmt_if, stmt_case, stmt_loop, stmt_while, stmt_for, stmt_foreach_a
+            - {kind: pl_block, inside: {kind: proc_stmt}}
+rule:
+    pattern: $CONTROL
+    matches: control
+    inside:
+        matches: control
+        stopBy: &boundary {matches: control}
+        inside:
+            matches: control
+            stopBy: *boundary
+            inside:
+                matches: control
+                stopBy: *boundary
+                not: {inside: {matches: control, stopBy: end}}
+transform:
+    HEAD: {replace: {source: $CONTROL, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` opens a fourth nesting level'
+note: 'Rebuild nested decisions and loops as one set-based statement or one searched `CASE` over their inputs'

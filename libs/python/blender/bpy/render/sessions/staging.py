@@ -160,14 +160,16 @@ class _Job:
                 f"{node.layer}.{Engine.combined.name if socket.identifier == 'Image' else socket.identifier}": socket
                 for node in tree.nodes
                 if isinstance(node, bpy.types.CompositorNodeRLayers) and node.scene == source
-                for socket in node.outputs
+                for socket in node.outputs  # type: ignore[union-attr]  # ty: ignore[not-iterable]
                 if socket.enabled and not socket.is_unavailable and socket.identifier != "Alpha"
             }
 
             def item(key: Key, socket: bpy.types.NodeSocket) -> Outcome[tuple[Key, FileItem]]:
                 declared = FileItem(name=key, socket_type=DATA_TYPES[base_socket(type(socket))])
                 return (
-                    Descriptor.resolve(socket, ("default_value",), bpy.types.FloatProperty).map(lambda descriptor: (key, msgspec.structs.replace(declared, vector_socket_dimensions=descriptor.prop.array_length)))
+                    Descriptor.resolve(socket, ("default_value",), bpy.types.FloatProperty).map(
+                        lambda descriptor: (key, msgspec.structs.replace(declared, vector_socket_dimensions=descriptor.prop.array_length))
+                    )
                     if socket.type == "VECTOR"
                     else Ok((key, declared))
                 )
@@ -550,7 +552,9 @@ class _Job:
                             source.render.filepath = str(self.pass_path(source))
                             if (
                                 result := capture
-                                .enter_context(msgspec.structs.replace(self.format, media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", use_exr_interleave=False).held(source.render.image_settings))
+                                .enter_context(
+                                    msgspec.structs.replace(self.format, media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", use_exr_interleave=False).held(source.render.image_settings)
+                                )
                                 .bind(lambda _: native(self.identity, source, RenderCall(write_still=True)))
                                 .bind(lambda _: self.captured(source, frame))
                             ).is_error():

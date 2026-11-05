@@ -1,4 +1,4 @@
-import { PID } from '../policies/internal/apps.ts';
+import { PID, WATCHER } from '../policies/internal/apps.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -10,10 +10,6 @@ interface AppInstance {
 interface Change {
     readonly created: readonly AppInstance[];
     readonly exited: ReadonlySet<number>;
-}
-interface LogState {
-    readonly runs: ReadonlyMap<number, boolean>;
-    readonly instances: readonly AppInstance[];
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -42,46 +38,32 @@ const createdPids = (result: unknown): readonly number[] => {
         .flatMap(records)
         .flatMap(({ type, text }) => (type === 'text' && typeof text === 'string' ? parseJson(text) : []))
         .flatMap(records)
+        .flatMap((answer) => [answer, ...records(answer.launched)])
         .flatMap(({ pid, created }) => (typeof pid === 'number' && created === true ? [pid] : []));
 };
 
 // --- [CHANGES]
 
-const lineChange = (lines: readonly unknown[]): Change => {
-    const states = lines
+const outputChange = (output: unknown): Change => {
+    const states = [output, ...records(output).map(({ stdout }) => stdout)]
+        .flatMap(jsonLines)
         .flatMap(records)
         .flatMap((line) => Object.entries(line))
         .flatMap(([bundle, instances]) => records(instances).map((found) => ({ bundle, found })))
         .flatMap(({ bundle, found }) => Object.entries(found).flatMap(([pid, state]) => (PID.test(pid) ? [{ pid: Number(pid), bundle, state }] : [])))
         .flatMap(({ pid, bundle, state }) => records(state).map((fields) => ({ pid, bundle, state: fields })));
     return {
-        created: states.flatMap(({ pid, bundle, state }) => (records(state.running).some(({ created }) => created === true) ? [{ pid, bundle }] : [])),
+        created: states.flatMap(({ pid, bundle, state }) => (records(state.launched).some(({ created }) => created === true) ? [{ pid, bundle }] : [])),
         exited: new Set(states.flatMap(({ pid, state }) => ('exited' in state ? [pid] : []))),
     };
 };
 
-const outputChange = (output: unknown): Change => lineChange([output, ...records(output).map(({ stdout }) => stdout)].flatMap(jsonLines));
-
 const applyChange = (instances: readonly AppInstance[], { created, exited }: Change): readonly AppInstance[] => [...new Map([...instances, ...created].map((instance) => [instance.pid, instance])).values()].filter(({ pid }) => !exited.has(pid));
 
-// --- [LOG]
+// --- [QUIT]
 
-const applyLogLine =
-    (session: string) =>
-    ({ runs, instances }: LogState, { pid: run, session: owner, argv, line }: Readonly<Record<string, unknown>>): LogState => {
-        const launching = typeof run === 'number' ? runs.get(run) : undefined;
-        const others = new Map([...runs].filter(([key]) => key !== run));
-        if (typeof run === 'number' && Array.isArray(argv)) {
-            return { runs: owner === session ? new Map([...others, [run, argv[1] === 'launch']]) : others, instances };
-        }
-        if (launching === undefined) {
-            return { runs, instances };
-        }
-        return line === undefined ? { runs: others, instances } : { runs, instances: applyChange(instances, { ...lineChange([line]), ...(!launching && { created: [] }) }) };
-    };
-
-const logInstances = (text: string, session: string): readonly AppInstance[] => jsonLines(text).flatMap(records).reduce<LogState>(applyLogLine(session), { runs: new Map(), instances: [] }).instances;
+const detachedQuit = (pids: readonly number[]): string => pids.map((pid) => `(${WATCHER} quit --pid ${pid} || ${WATCHER} quit --pid ${pid} --force) </dev/null >/dev/null 2>&1 &`).join('\n');
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type AppInstance, applyChange, type Change, createdPids, logInstances, outputChange, storedInstances };
+export { type AppInstance, applyChange, type Change, createdPids, detachedQuit, outputChange, storedInstances };

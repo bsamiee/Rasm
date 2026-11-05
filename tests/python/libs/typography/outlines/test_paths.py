@@ -84,6 +84,38 @@ def test_miter_offsets_have_analytic_square_extents(distance: int) -> None:
         assert tuple(map(len, pieces(combined(SQUARE, grown, PathOp.DIFFERENCE)))) == (2,)
 
 
+def test_offset_resolves_edges_meeting_at_half_a_stem() -> None:
+    """Erosion by half a slanted stem leaves rim edges within the native tolerance of each other and still answers."""
+    corners = ((567, 962), (699, 600), (320, 600), (538, 0), (357, 0), (-145, 1380), (415, 1380), (481, 1199), (102, 1199), (188, 962))
+    assert area(offset((tuple(Point(x=x, y=y) for x, y in corners),), -90.49928373070757)) > 0
+
+
+def test_union_resolves_slivers_the_native_builder_refuses() -> None:
+    """Two thin slivers sharing one abscissa union into both of their inks."""
+    spike = tuple(
+        Point(x=x, y=y, on=on)
+        for x, y, on in (
+            (1470.2557373046875, 309.4224548339844, True),
+            (1470.2557373046875, 111.79133605957031, True),
+            (1480.237060546875, 131.7540740966797, False),
+            (1480.237060546875, 151.71681213378906, True),
+            (1470.2557373046875, 157.7056427001953, False),
+        )
+    )
+    sill = tuple(
+        Point(x=x, y=y, on=on)
+        for x, y, on in ((1277.615234375, 0.0, True), (1470.2557373046875, 0.0, True), (1304.56494140625, 1.9962738752365112, True), (1291.5892333984375, 1.9962738752365112, False))
+    )
+    assert area(union((spike,), (sill,))) == pytest.approx(area((spike,)) + area((sill,)), rel=1e-6, abs=0)
+
+
+def test_union_resolves_edges_within_the_native_tolerance() -> None:
+    """A curve starting a thousandth of a unit below a shared edge unions with the bar over that edge."""
+    curved = (Point(x=2048, y=-0.0007300344877876341), Point(x=2048.998779296875, y=0, on=False), Point(x=2050, y=0), Point(x=2096, y=0), Point(x=2096, y=265), Point(x=2048, y=265))
+    bar = (Point(x=2048, y=0), Point(x=2218.666748046875, y=0), Point(x=2218.666748046875, y=265), Point(x=2048, y=265))
+    assert area(union((curved,), (bar,))) == pytest.approx(area((bar,)), rel=1e-4, abs=0)
+
+
 def test_curved_offsets_and_segments_retain_quadratic_geometry() -> None:
     """Implied points become explicit quadratic segments while open runs retain their endpoints."""
     grown, arcs = offset(ROUND, 5), segments(ROUND)

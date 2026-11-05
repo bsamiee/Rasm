@@ -63,8 +63,8 @@ type Context = Pick<Command, 'cwd' | 'hasInput' | 'inLoop' | 'origin'> & { reado
 type Hit = Capture &
     (
         | { readonly ruleId: 'command'; readonly metaVariables: { readonly single: { readonly CMD: Capture }; readonly multi: { readonly ARGS?: readonly Capture[] } } }
-        | { readonly ruleId: 'operand' | 'heredoc' | 'herestring' | 'heredoc-file' | 'statement'; readonly metaVariables: { readonly single: { readonly BODY: Capture } } }
-        | { readonly ruleId: 'assignment' | 'dynamic-assignment' | 'expansion' | 'control' | 'chain' }
+        | { readonly ruleId: 'operand' | 'heredoc-start' | 'heredoc-feed' | 'herestring' | 'heredoc-file' | 'statement'; readonly metaVariables: { readonly single: { readonly BODY: Capture } } }
+        | { readonly ruleId: 'assignment' | 'dynamic-assignment' | 'expansion' | 'control' | 'chain' | 'unparsed' | 'heredoc' }
         | { readonly ruleId: 'scope' }
         | { readonly ruleId: 'local-scope'; readonly metaVariables: { readonly single: { readonly OPERATOR: Capture } } }
         | { readonly ruleId: 'function'; readonly metaVariables: { readonly single: { readonly NAME: Capture } } }
@@ -81,13 +81,13 @@ const NAME = /^[A-Za-z_]\w*/u;
 const LITERAL = /^(?:[\w./~@%+:,=-]+|'[\w./~@%+:,=-]+'|"[\w./~@%+:,=-]+"|"?\$!"?)$/u;
 const REFERENCE = /^\$\{?(?<name>\w+)\}?$/u;
 const REFERENCES = /\$(?:(?<bare>[A-Za-z_]\w*)|\{(?<braced>[A-Za-z_]\w*)\})/gu;
-const VALUE = { kind: 'word, string, raw_string, concatenation, simple_expansion, expansion, command_substitution, number' };
+const VALUE = { kind: 'word, string, raw_string, concatenation, simple_expansion, expansion, command_substitution, number, extglob_pattern' };
 const SCOPE = { kind: 'program, subshell, command_substitution, process_substitution, pipeline, coproc_command', not: { has: { field: 'operator', regex: String.raw`^\$\{` } } };
 const CONTROL = { kind: 'if_statement, case_statement, while_statement, for_statement, c_style_for_statement, negated_command' };
 const WRAPPER = { kind: 'list, pipeline, negated_command, time_command, coproc_command' };
 const FLOW = { any: [SCOPE, CONTROL, { kind: 'function_definition, variable_assignment' }] };
 const UTILS = {
-    owner: { any: [{ inside: { kind: 'command', pattern: '$BODY' } }, { inside: { kind: 'heredoc_redirect', inside: { kind: 'redirected_statement', matches: 'statement' } } }, { inside: { kind: 'redirected_statement', matches: 'statement' } }] },
+    owner: { any: [{ inside: { kind: 'command', pattern: '$BODY' } }, { inside: { kind: 'redirected_statement', matches: 'statement' } }] },
     statement: { has: { field: 'body', matches: 'last' } },
     last: {
         any: [
@@ -98,10 +98,22 @@ const UTILS = {
     list: { kind: 'list', not: { inside: { kind: 'list', stopBy: FLOW } } },
     input: { any: [{ kind: 'heredoc_redirect' }, { kind: 'herestring_redirect' }, { kind: 'file_redirect', regex: '^0?<' }] },
     tail: { any: [{ inside: { kind: 'redirected_statement', field: 'body', has: { matches: 'input' } } }, { nthChild: { position: 1, reverse: true }, inside: { ...WRAPPER, matches: 'tail' } }] },
-    piped: { any: [{ inside: { kind: 'pipeline' }, not: { nthChild: 1 } }, { nthChild: 1, inside: { ...WRAPPER, matches: 'piped' } }, { inside: { kind: 'pipeline', inside: { kind: 'heredoc_redirect' } } }] },
+    piped: {
+        any: [
+            { inside: { kind: 'pipeline' }, not: { nthChild: 1 } },
+            { nthChild: 1, inside: { ...WRAPPER, matches: 'piped' } },
+        ],
+    },
     stage: { any: [{ matches: 'tail' }, { matches: 'piped' }] },
+    receiver: {
+        any: [
+            { kind: 'command', pattern: '$BODY' },
+            { kind: 'redirected_statement', has: { field: 'body', kind: 'command', pattern: '$BODY' } },
+        ],
+    },
 };
 const RULES = [
+    { id: 'unparsed', rule: { matches: 'bash-unparsed' } },
     { id: 'command', rule: { kind: 'command', any: [{ pattern: '$CMD $$$ARGS' }, { pattern: '$CMD' }] } },
     { id: 'scope', rule: { all: [SCOPE, { not: { kind: 'program' } }] } },
     { id: 'local-scope', rule: { kind: 'command_substitution', has: { field: 'operator', regex: String.raw`^\$\{`, pattern: '$$OPERATOR' } } },
@@ -112,9 +124,11 @@ const RULES = [
         id: 'declaration',
         rule: { kind: 'declaration_command, command', any: ['local', 'declare', 'typeset', 'export', 'readonly'].flatMap((keyword) => ['', 'builtin ', 'builtin -- '].map((prefix) => ({ pattern: `${prefix}${keyword} $$$ARGS` }))), has: { regex: '^(?:local|declare|typeset|export|readonly)$', pattern: '$$KEYWORD' } },
     },
-    { id: 'operand', rule: { ...VALUE, follows: VALUE, inside: { kind: 'file_redirect', matches: 'owner' } } },
-    { id: 'heredoc', rule: { kind: 'heredoc_body', inside: { kind: 'heredoc_redirect', matches: 'owner' } } },
-    { id: 'herestring', rule: { ...VALUE, inside: { kind: 'herestring_redirect', matches: 'owner' } } },
+    { id: 'operand', rule: { ...VALUE, follows: { any: [VALUE, { kind: 'heredoc_start' }] }, inside: { kind: 'file_redirect, heredoc_redirect, herestring_redirect', matches: 'owner' } } },
+    { id: 'heredoc', rule: { kind: 'heredoc_body' } },
+    { id: 'heredoc-start', rule: { kind: 'heredoc_redirect', matches: 'owner' } },
+    { id: 'heredoc-feed', rule: { kind: 'heredoc_redirect', inside: { kind: 'redirected_statement', has: { field: 'body', kind: 'command', has: { field: 'name', regex: '^cat$' } }, precedes: { matches: 'receiver', stopBy: { not: { regex: String.raw`^\|&?$` } } } } } },
+    { id: 'herestring', rule: { ...VALUE, not: { follows: VALUE }, inside: { kind: 'herestring_redirect', matches: 'owner' } } },
     { id: 'heredoc-file', rule: { ...VALUE, inside: { kind: 'file_redirect', field: 'destination', regex: '^(?:1?>|&>)', matches: 'owner', inside: { stopBy: { kind: 'redirected_statement' }, kind: 'redirected_statement', has: { kind: 'heredoc_redirect' } } } } },
     { id: 'statement', rule: { kind: 'redirected_statement', has: { field: 'body', kind: 'command', pattern: '$BODY' } } },
     { id: 'assignment', rule: { kind: 'variable_assignment', not: { inside: { kind: 'command, c_style_for_statement, declaration_command' } } } },
@@ -123,28 +137,33 @@ const RULES = [
         rule: {
             any: [
                 { kind: 'variable_name', inside: { kind: 'for_statement, unset_command' } },
-                { kind: 'word', regex: String.raw`^[A-Za-z_]\w*$`, inside: { kind: 'command', has: { kind: 'command_name', regex: '^(?:read|readarray|mapfile|getopts|printf)$' } } },
+                { kind: 'word', regex: '^[A-Za-z_][0-9A-Za-z_]*$', inside: { kind: 'command', has: { kind: 'command_name', regex: '^(?:read|readarray|mapfile|getopts|printf)$' } } },
             ],
         },
     },
-    { id: 'expansion', rule: { kind: 'simple_expansion, expansion', regex: String.raw`^\$(?:[A-Za-z_]\w*|\{[A-Za-z_]\w*\})$` } },
+    { id: 'expansion', rule: { kind: 'simple_expansion, expansion', regex: String.raw`^\$(?:[A-Za-z_][0-9A-Za-z_]*|\{[A-Za-z_][0-9A-Za-z_]*\})$` } },
     ...[
         { id: 'in-loop', rule: { inside: { stopBy: 'end', kind: 'while_statement, for_statement, c_style_for_statement' } } },
         { id: 'in-busy-loop', rule: { inside: { stopBy: 'end', kind: 'while_statement', has: { field: 'body', kind: 'do_group', not: { has: { stopBy: 'end', kind: 'command', not: { regex: '^(?::|true)$' } } } } } } },
         { id: 'in-substitution', rule: { inside: { stopBy: 'end', kind: 'process_substitution' } } },
-        { id: 'pipes-output', rule: { any: [{ inside: { kind: 'pipeline' }, not: { nthChild: { position: 1, reverse: true } } }, { inside: { kind: 'redirected_statement', not: { nthChild: { position: 1, reverse: true } }, inside: { kind: 'pipeline' } } }] } },
+        {
+            id: 'pipes-output',
+            rule: {
+                any: [{ inside: { kind: 'pipeline' }, not: { nthChild: { position: 1, reverse: true } } }, { inside: { kind: 'redirected_statement', not: { nthChild: { position: 1, reverse: true } }, inside: { kind: 'pipeline' } } }],
+            },
+        },
         { id: 'has-input', rule: { any: [{ has: { matches: 'input' } }, { matches: 'stage' }, { inside: { stopBy: 'end', not: WRAPPER, matches: 'stage' } }] } },
     ].map(({ id, rule }) => ({ id, rule: { kind: 'command', not: { not: rule } } })),
     { id: 'background', rule: { pattern: '&' } },
     {
         id: 'expands',
         rule: {
-            kind: 'simple_expansion, expansion, command_substitution, process_substitution, arithmetic_expansion, string, concatenation, word, raw_string',
+            kind: 'simple_expansion, expansion, command_substitution, process_substitution, arithmetic_expansion, extglob_pattern, string, concatenation, word, raw_string',
             not: {
                 not: {
                     inside: { kind: 'command, command_name' },
                     any: [
-                        { kind: 'simple_expansion, expansion, command_substitution, process_substitution, arithmetic_expansion' },
+                        { kind: 'simple_expansion, expansion, command_substitution, process_substitution, arithmetic_expansion, extglob_pattern' },
                         { kind: 'string, concatenation', has: { stopBy: 'end', kind: 'simple_expansion, expansion, command_substitution, arithmetic_expansion' } },
                         { kind: 'word', regex: String.raw`[*?\[{]` },
                         { kind: 'concatenation', has: { kind: 'word', regex: String.raw`[*?\[{]` } },
@@ -272,7 +291,11 @@ const resolver = (expansions: readonly Hit[], declarations: readonly Omit<Bindin
 
 // --- [PARSE]
 
-const parseSource = async (system: System, source: string, context: Context): Promise<Outcome<Script>> => (await context.scans.getOrInsertComputed(source, async (text) => runJson<readonly Hit[]>(system, await context.scanner, system.plugin, text))).bind((hits) => hitScript(system, source, context, hits));
+const parseSource = async (system: System, source: string, context: Context): Promise<Outcome<Script>> =>
+    (await context.scans.getOrInsertComputed(source, async (text) => runJson<readonly Hit[]>(system, await context.scanner, system.plugin, text))).bind((hits) => {
+        const unparsed = hits.find(({ ruleId }) => ruleId === 'unparsed');
+        return unparsed === undefined ? hitScript(system, source, context, hits) : Outcome.fault({ kind: 'unparsed', text: unparsed.text.split('\n', 1).join('') });
+    });
 
 const hitScript = async (system: System, source: string, context: Context, hits: readonly Hit[]): Promise<Outcome<Script>> => {
     const priority = (hit: Hit): number => Number(hit.ruleId !== 'control') + Number(hit.ruleId !== 'control' && hit.ruleId !== 'chain');
@@ -323,8 +346,10 @@ const hitScript = async (system: System, source: string, context: Context, hits:
         return (functions.has(head) || ['eval', 'source', '.', 'builtin', 'command'].includes(head)) && invocations([head, ...(hit.metaVariables.multi.ARGS ?? []).map(({ text }) => unquote(text))]).some(([program]) => functions.has(program) || program === 'eval' || program === 'source' || program === '.');
     });
     const effects = new Set(calls);
+    const bodies = sorted.filter(({ ruleId }) => ruleId === 'heredoc');
+    const starts = new Map(sorted.filter(({ ruleId }) => ruleId === 'heredoc-start').flatMap(({ range }, index) => Maybe.fromNullable(bodies[index]).values.map(({ text }) => [range.byteOffset.start, text] as const)));
     const literal = resolver(expansions, declarations, calls, new TextEncoder().encode(source), environment, owners);
-    const entries = Map.groupBy(sorted, (hit) => (hit.ruleId === 'operand' || hit.ruleId === 'heredoc' || hit.ruleId === 'herestring' || hit.ruleId === 'heredoc-file' || hit.ruleId === 'statement' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start)
+    const entries = Map.groupBy(sorted, (hit) => (hit.ruleId === 'operand' || hit.ruleId === 'heredoc-start' || hit.ruleId === 'heredoc-feed' || hit.ruleId === 'herestring' || hit.ruleId === 'heredoc-file' || hit.ruleId === 'statement' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start)
         .values()
         .flatMap((own) => {
             const hit = own.find((other) => other.ruleId === 'command');
@@ -343,9 +368,9 @@ const hitScript = async (system: System, source: string, context: Context, hits:
                 {
                     hit,
                     stdin: own
-                        .filter((other) => other.ruleId === 'heredoc' || other.ruleId === 'herestring')
+                        .filter((other) => other.ruleId === 'heredoc-start' || other.ruleId === 'heredoc-feed' || other.ruleId === 'herestring')
                         .slice(-1)
-                        .map((redirect) => (redirect.ruleId === 'herestring' ? unquote(literal(redirect)) : redirect.text)),
+                        .flatMap((redirect) => (redirect.ruleId === 'herestring' ? [unquote(literal(redirect))] : Maybe.fromNullable(starts.get(redirect.range.byteOffset.start)).values)),
                     cdTargets: [chain.find(([program]) => programRow(program).chdir !== undefined)].flatMap((cd) => (cd === undefined ? [] : [operands(cd).inputs[0] ?? programRow(cd[0]).chdir?.[0]])),
                     command: {
                         words,

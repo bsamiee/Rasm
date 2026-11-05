@@ -4,22 +4,22 @@ severity: error
 utils:
     screen-type:
         kind: type_annotation
-        regex: '^:\p{White_Space}*(AppKit\.)?NSScreen[?!]?$'
+        regex: '^:[\t-\r ]*(AppKit(\.|::))?NSScreen[?!]?$'
 rule:
     pattern: $SCREEN
     any:
         - all:
             - any: [{kind: navigation_expression}, {kind: call_expression}, {kind: prefix_expression}]
-            - regex: '^((AppKit\.)?NSScreen)?\.(main|deepest|screens(\.(first|last)|\[[^\]]+\]))$'
+            - regex: '^((AppKit(\.|::))?NSScreen)?\.(main|deepest|screens(\.(first|last)|\[[^\]]+\]))$'
             - not: {precedes: {kind: call_suffix}}
             - any:
-                - regex: '^(AppKit\.)?NSScreen\.'
+                - regex: '^(AppKit(\.|::))?NSScreen\.'
                 - follows: {stopBy: {kind: type_annotation}, matches: screen-type}
                 - inside: {kind: statements, inside: {kind: computed_property, inside: {kind: property_declaration, has: {matches: screen-type}}}}
                 - inside: {field: if_nil, kind: nil_coalescing_expression, has: {field: value, regex: '(^|[.?!])screen$'}}
         - kind: navigation_expression
-          regex: '^(AppKit\.)?(NSApp|NSApplication\.shared)\.(keyWindow|mainWindow|(windows|orderedWindows)(\.(first|last)|\[[^\]]+\]))[?!]?\.screen$'
+          regex: '^(AppKit(\.|::))?(NSApp|NSApplication\.shared)\.(keyWindow|mainWindow|(windows|orderedWindows)(\.(first|last)|\[[^\]]+\]))[?!]?\.screen$'
         - kind: call_expression
-          regex: '^(CoreGraphics\.)?CGMainDisplayID\(\)$'
+          regex: '^(CoreGraphics(\.|::))?CGMainDisplayID\(\)$'
 message: '`$SCREEN` lays out a window by a screen other than its own'
 note: 'Read `<window>.screen`, or size window content and let AppKit constrain the frame'

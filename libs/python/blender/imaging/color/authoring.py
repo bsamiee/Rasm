@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 import copy
-from functools import partial
+from functools import partial, reduce
 import pathlib
 from typing import Final, Self
 
@@ -33,7 +33,7 @@ _ACTIVE_VIEW: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO
 
 
 class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
-    """View transform, display, look, and file-rule rows merged into base config, base roles and colorspaces preferred by default."""
+    """View transform, display, look, and file-rule rows and source config files merged into base config, base roles and colorspaces preferred by default."""
 
     @staticmethod
     def merging() -> object:
@@ -49,7 +49,20 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
     inactive: frozenset[str] = frozenset()
     file_rules: PyOpenColorIO.FileRules = msgspec.field(default_factory=PyOpenColorIO.FileRules)
     luts: tuple[pathlib.Path, ...] = ()
+    sources: tuple[pathlib.Path, ...] = ()
     merge: object = msgspec.field(default_factory=merging)
+
+    def absorbed(self, base: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.Config]:
+        """Merges every source config file into `base`, its search paths absolute for reads in place.
+
+        Returns:
+            Merged config, or `FAILED` fault.
+        """
+
+        def merged() -> PyOpenColorIO.Config:
+            return reduce(partial(_absorbed, self.merge, None), self.sources, base)
+
+        return called(merged, str(self.sources))
 
     def keeping(self, base: PyOpenColorIO.Config, prior: PyOpenColorIO.Config) -> Outcome[Self]:
         """Adds the view transforms an earlier merged config holds that neither `base` nor the build names, in their earlier order, each resolved into the operations its processor runs so no file it read stays referenced.
@@ -170,11 +183,17 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             request.setWorkingDir(str(stage))
             return request
 
-        return called(authored, str(stage)).bind(
-            lambda texts: paired(
-                called(_MERGE, str(stage), self.merge, base, rows).bind(lambda merged: called(viewed, str(stage), merged)),
-                files_copied(copies),
-                accumulated(committed(stage / name, text.encode()) for name, text in dict(texts).items()),
+        def sourced() -> tuple[tuple[pathlib.Path, pathlib.Path], ...]:
+            return tuple((path.parent / held, stage / held) for path in self.sources for held in PyOpenColorIO.Config.CreateFromFile(str(path)).getSearchPaths())
+
+        def merged() -> PyOpenColorIO.Config:
+            return _MERGE(self.merge, reduce(partial(_absorbed, self.merge, pathlib.Path()), self.sources, base), rows)
+
+        return paired(called(authored, str(stage)), called(sourced, str(stage))).bind(
+            lambda held: paired(
+                called(merged, str(stage)).bind(lambda request: called(viewed, str(stage), request)),
+                files_copied((*copies, *held[1])),
+                accumulated(committed(stage / name, text.encode()) for name, text in dict(held[0]).items()),
             ).map(lambda pair: pair[0])
         )
 
@@ -195,6 +214,21 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         return committed(folder, lambda stage: self.staged(base, stage).bind(lambda config: committed(stage / "config.ocio", config.serialize().encode()))).map(
             lambda installed: installed / "config.ocio"
         )
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _absorbed(merge: object, folder: pathlib.Path | None, base: PyOpenColorIO.Config, path: pathlib.Path, /) -> PyOpenColorIO.Config:
+    """Merges one config file into `base` after stating the interchange role it lacks, its reference space named in `base`, and appends its search paths under `folder`, absolute beside the file when none."""
+    source = PyOpenColorIO.Config.CreateFromFile(str(path))
+    interchange = base.getCanonicalName(PyOpenColorIO.ROLE_INTERCHANGE_SCENE)
+    source.addColorSpace(PyOpenColorIO.ColorSpace(name=interchange, toReference=base.getProcessor(interchange, source.getCanonicalName(PyOpenColorIO.ROLE_REFERENCE)).createGroupTransform()))
+    source.setRole(PyOpenColorIO.ROLE_INTERCHANGE_SCENE, interchange)
+    merged = _MERGE(merge, base, source)
+    for held in source.getSearchPaths():
+        merged.addSearchPath(str((folder if folder is not None else path.parent) / held))
+    return merged
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

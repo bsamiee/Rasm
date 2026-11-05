@@ -3,7 +3,6 @@
 from collections import defaultdict
 from collections.abc import Hashable
 from contextlib import nullcontext
-from enum import auto, Enum
 import math
 from typing import ClassVar, Final
 
@@ -23,17 +22,6 @@ from blender.bpy.ui.resources.theme import color, Metrics, Spacing
 from blender.imaging.color.processors import DisplayView
 from blender.records.faults import Nothing, Ok, Outcome
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class Status(Enum):
-    """Cell thumbnail state."""
-
-    READY = auto()
-    QUEUED = auto()
-    FAILED = auto()
-
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -43,7 +31,6 @@ class Cell(msgspec.Struct, frozen=True, kw_only=True):
     node: str
     key: Hashable
     label: str
-    status: Status
     value: Option[float] = Nothing
 
 
@@ -102,21 +89,17 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
         (settings, shown), metrics = state, canvas.metrics
         theme, style = metrics.preferences.themes[0], metrics.preferences.ui_styles[0].widget
         cache, points, pad, gap, checker = NODE_TEXTURES[self.identity], metrics.font(style), metrics.spaced(Spacing.BUTTON_Y), metrics.spaced(Spacing.TEMPLATE), metrics.checker()
-        marks = {Status.QUEUED: ("…", color(theme.info.info_warning_text)), Status.FAILED: ("!", color(theme.info.info_error_text))} if settings.status else {}
         position = Position[settings.position]
 
         def cell(item: Cell, rect: Rect, *, labeled: bool, view: bpy.types.View2D) -> None:
-            mark = Option.of_optional(marks.get(item.status))
             inner = Rect(x=rect.x + pad, y=rect.y + pad, width=rect.width - 2 * pad, height=rect.height - 2 * pad)
             center = (rect.x + rect.width / 2, rect.y + rect.height / 2)
-            canvas.frame(rect, fill=color(theme.node_editor.node_backdrop), edge=next((edge for _, edge in mark.to_list()), color(theme.node_editor.wire)), radius=0.0)
+            canvas.frame(rect, fill=color(theme.node_editor.node_backdrop), edge=color(theme.node_editor.wire), radius=0.0)
             if settings.checker:
                 canvas.checkered(inner, checker)
             for texture, _value in cache.shown(item.key).to_list():
                 canvas.picture(texture, inner, blend="ALPHA_PREMULT")
-            for text, _ in mark.to_list():
-                canvas.label(text, at=center, color=canvas.theme.text_hi, style=FontStyle(size=points, align=Align.CENTER))
-            for number in (f"{held:.4g}" for held in item.value.to_list() if settings.values and mark.is_none()):
+            for number in (f"{held:.4g}" for held in item.value.to_list() if settings.values):
                 if canvas.measured(number, FontStyle(size=points))[0] <= inner.width:
                     canvas.label(number, at=center, color=canvas.theme.text_hi, style=FontStyle(size=points, align=Align.CENTER, shadow=Some(Shadow.of(style))))
             if labeled:
@@ -155,4 +138,4 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["NODE_STATES", "NODE_TEXTURES", "Cell", "NodeState", "NodeThumbnails", "Status", "ThumbnailSettings"]
+__all__ = ["NODE_STATES", "NODE_TEXTURES", "Cell", "NodeState", "NodeThumbnails", "ThumbnailSettings"]

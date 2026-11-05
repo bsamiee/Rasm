@@ -66,8 +66,8 @@ rule:
             - precedes:
                 kind: string_fragment
                 pattern: $TEXT
-                regex: '^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]-]*[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?[a-z]*[^s[\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]]s(?-u:\b)'
-                not: {regex: '^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]-]*[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?(?:is|was|has|does|this|its|as|us|yes|plus|less|thus|always|across|equals|exceeds|means|remains|contains|needs)(?-u:\b)'}
+                regex: '^[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]*[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+)?[a-z]*[^s[\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]]s(?-u:\b)'
+                not: {regex: '^[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]*[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+)?(?:is|was|has|does|this|its|as|us|yes|plus|less|thus|always|across|equals|exceeds|means|remains|contains|needs)(?-u:\b)'}
             - any:
                 - has: {matches: count}
                 - has:
@@ -81,6 +81,6 @@ rule:
                             all: [{has: {field: name, pattern: $COUNT}}, {has: {field: value, matches: count}}]
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
-    NOUN: {replace: {source: $TEXT, replace: '(?s)^([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]-]*[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?[a-z]*s)(?-u:\b).*$', by: '$1'}}
+    NOUN: {replace: {source: $TEXT, replace: '(?s)^([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]*[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+)?[a-z]*s)(?-u:\b).*$', by: '$1'}}
 message: '`$FORM$NOUN` hard-codes the plural form of a count'
 note: 'Index `Intl.LDMLPluralRule` phrases by `new Intl.PluralRules(<locale>).select(<count>)`'

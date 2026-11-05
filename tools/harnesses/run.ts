@@ -1,4 +1,4 @@
-import { Array, Cause, Config, Console, Context, DateTime, Duration, Effect, FileSystem, Filter, Formatter, Layer, type Logger, Match, MutableRef, Option, Path, type PlatformError, Record, References, Schema, Stdio, String, Struct } from 'effect';
+import { Array, Cause, Config, Console, Context, DateTime, Duration, Effect, FileSystem, Filter, Formatter, Layer, Logger, Match, MutableRef, Option, Path, Record, References, Schema, Stdio, String, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { printed, sampled } from '#/instance';
 import { declared, Field, type Kind, messageOf, partition, RECORDS, record, Signed, type STATES, tagOf } from '#/log';
@@ -7,7 +7,6 @@ import type { Live } from '#/session';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Sink = (written: (options: Logger.Options<unknown>) => string, file: string) => Layer.Layer<never, PlatformError.PlatformError, FileSystem.FileSystem>;
 type Phase = 'run' | 'prove' | 'compare' | 'plan' | 'launch' | 'ready' | 'open' | 'survey' | 'batch' | 'quit' | 'log';
 interface Tally {
     readonly cases: { readonly ran: number; readonly failed: number; readonly notRun: number };
@@ -31,7 +30,7 @@ const session = Config.option(Config.String('CLAUDE_CODE_SESSION_ID'));
 
 class Run extends Context.Service<Run, { readonly folder: string; readonly phase: MutableRef.MutableRef<Phase> }>()('@rasm/harnesses/run') {
     static readonly Instance = Context.Reference<Option.Option<Pick<Live, 'pid' | 'started'>>>('@rasm/harnesses/run/Run/Instance', { defaultValue: Option.none });
-    static readonly layer = Effect.fnUntraced(function* (host: string, root: Config.Config<string>, sink: Sink) {
+    static readonly layer = Effect.fnUntraced(function* (host: string, root: Config.Config<string>) {
         const { run, folder, file } = yield* begun(host, root);
         const held = { folder, phase: MutableRef.make<Phase>('run') };
         const tally = MutableRef.make(EMPTY);
@@ -41,7 +40,7 @@ class Run extends Context.Service<Run, { readonly folder: string; readonly phase
             yield* Console.log(Formatter.formatJson({ run, log: file, cases, ...Record.getSomes({ signatures }), instances }));
         });
         yield* Effect.addFinalizer(() => Effect.orDie(summary));
-        return Layer.mergeAll(Layer.succeed(Run, held), sink(written(held.phase, tally), file));
+        return Layer.mergeAll(Layer.succeed(Run, held), Logger.layer([Logger.toFile(Logger.make(written(held.phase, tally)), file)]));
     }, Layer.unwrap);
 }
 class Signing extends Context.Service<Signing, true>()('@rasm/harnesses/run/Signing') {}
@@ -134,4 +133,4 @@ const ran = <A, E, R>(self: Effect.Effect<A, E, R>) => starting.pipe(Effect.andT
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { phase, Run, ran, type Sink, sample, signing };
+export { phase, Run, ran, sample, signing };

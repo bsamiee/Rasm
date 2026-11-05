@@ -2,7 +2,7 @@
 
 [project]
 name            = "rasm"
-version         = "1.0.0"
+version         = "0.0.0"
 description     = "Repository Python environment and checker policy"
 requires-python = ">=3.13"
 
@@ -336,6 +336,10 @@ test      = [
     "sysexits",                                                                   # Portable process exit codes in CLI tests
     "trio",                                                                       # AnyIO Trio backend and virtual-time clocks
 ]
+icons     = [
+    "coloraide",                                                                  # Color parsing, conversion, and sRGB gamut fitting
+    "picosvg",                                                                    # SVG geometry normalization and path operations
+]
 dev       = [
     { include-group = "test" },
 
@@ -350,7 +354,6 @@ dev       = [
 
     # --- [SCRIPTS]
     "asttokens",                                                                  # Source token ranges over `ast` nodes for in-place rewrites
-    "coloraide",                                                                  # Color parsing, conversion, and sRGB gamut fitting
     "cyclopts",                                                                   # CLI parser from typed signatures
     "editorconfig",                                                               # EditorConfig property resolution per file path
     "expression",                                                                 # Result and Option types, collections, and catch over raising calls
@@ -359,12 +362,9 @@ dev       = [
     "markdown-it-py",                                                             # CommonMark tokens with source line ranges and GFM tables
     "mcp",                                                                        # MCP client over Streamable HTTP
     "mdit-py-plugins",                                                            # Front-matter and extension rules for markdown-it-py
-    "more-itertools",                                                             # Iterator partitioning for host wheel assembly
     "numpy",                                                                      # N-dimensional arrays and vectorized math
-    "packaging",                                                                  # Python requirement, version, and wheel filename parsing
+    "packaging",                                                                  # Python requirement, marker, and `pylock.toml` parsing
     "pathvalidate",                                                               # Native filename validation before resetting a Blender run folder
-    "picosvg",                                                                    # SVG geometry normalization and path operations
-    "pip",                                                                        # Wheel builds under Blender's interpreter through `pip --python`
     "psutil",                                                                     # Process and host resource readings
     "pydantic",                                                                   # Validated models at protocol boundaries
     "pygments",                                                                   # Lexer aliases and filename patterns
@@ -379,7 +379,6 @@ dev       = [
     "fake-bpy-module-latest",                                                     # Stubs for bpy, bmesh, mathutils, and gpu
     "pandas-stubs",
     "scipy-stubs",
-    "types-atomicwrites",
     "types-geopandas",
     "types-lxml",
     "types-networkx",
@@ -407,19 +406,18 @@ environments             = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 prerelease               = "allow"
-constraint-dependencies  = ["attrs==25.3.0; python_full_version < '3.15'", "cattrs==25.1.1; python_full_version < '3.15'", "numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'", "packaging==25.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles in the interpreter running host code
-no-build-package         = ["epdx", "numpy"]                                                                                                                                                                                                                                                                                         # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
-extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                                                                                                                                                                              # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
+constraint-dependencies  = ["attrs==25.3.0; python_full_version < '3.15'", "autopep8==2.3.1; python_full_version < '3.15'", "cattrs==25.1.1; python_full_version < '3.15'", "certifi==2025.4.26; python_full_version < '3.15'", "charset-normalizer==3.4.1; python_full_version < '3.15'", "Cython==3.0.11; python_full_version < '3.15'", "docutils==0.22.4; python_full_version < '3.15'", "idna==3.10; python_full_version < '3.15'", "numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'", "packaging==25.0; python_full_version < '3.15'", "pip==26.0.1; python_full_version < '3.15'", "pycodestyle==2.13.0; python_full_version < '3.15'", "pyproject-metadata==0.9.1; python_full_version < '3.15'", "requests==2.32.3; python_full_version < '3.15'", "setuptools==80.9.0; python_full_version < '3.15'", "tomli_w==1.2.0; python_full_version < '3.15'", "typing_extensions==4.14.1; python_full_version < '3.15'", "urllib3==2.4.0; python_full_version < '3.15'", "zstandard==0.25.0; python_full_version < '3.15'"] # Versions the installed Blender bundles, `python -m eng.python.blender upgrade` their one writer
+no-build-package         = ["epdx", "numpy"]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
+extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
 [tool.uv.workspace]
-members = ["libs/python/blender", "tools/harnesses/blender", "apps/blender/darkroom", "tests/python/libs/blender/bpy", "tests/python/apps/blender/darkroom"]
+members = ["libs/python/blender", "tools/harnesses/blender", "apps/blender/darkroom"]
 
 [tool.uv.sources]
-blender           = { workspace = true }
-blender-bpy-tests = { workspace = true }
-darkroom          = { workspace = true }
-typography        = { path = "libs/python/typography", editable = true }
-foundry           = { path = "tools/foundry", editable = true }
+blender    = { workspace = true }
+darkroom   = { workspace = true }
+typography = { path = "libs/python/typography", editable = true }
+foundry    = { path = "tools/foundry", editable = true }
 
 [tool.uv.dependency-groups]
 workspace = { requires-python = ">=3.15" }
@@ -467,6 +465,15 @@ OpenMP_ROOT       = "$CONDA_PREFIX"
 CPATH             = "$CONDA_PREFIX/include"
 LIBRARY_PATH      = "$CONDA_PREFIX/lib"
 LDFLAGS           = "-Wl,-rpath,$CONDA_PREFIX/lib"
+
+[tool.pixi.environments.default.target.osx.activation.env]
+DYLD_FALLBACK_LIBRARY_PATH = "$CONDA_PREFIX/lib"
+
+[tool.pixi.environments.default.target.osx.tasks]
+python = { cmd = "python", env = { DYLD_FALLBACK_LIBRARY_PATH = "$CONDA_PREFIX/lib" } } # `pixi run` loses activation `DYLD_*` rows through the SIP-protected `/usr/bin/env` that captures them
+
+[tool.pixi.environments.default.target.linux.activation.env]
+LD_LIBRARY_PATH = "$CONDA_PREFIX/lib"
 
 [tool.pixi.environments.default.target.win.activation.env]
 ICU_VERSION = "78"
@@ -605,26 +612,26 @@ require-lazy = [
 "logging.Logger".msg                     = "Use structlog.typing.FilteringBoundLogger"
 "logging.LoggerAdapter".msg              = "Use structlog.get_logger(__name__).bind"
 "logging.RootLogger".msg                 = "Use structlog.typing.FilteringBoundLogger"
-"logging.addLevelName".msg               = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.basicConfig".msg                = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.captureWarnings".msg            = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.config".msg                     = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.addLevelName".msg               = "Call structlog.configure once at composition root"
+"logging.basicConfig".msg                = "Call structlog.configure once at composition root"
+"logging.captureWarnings".msg            = "Call structlog.configure once at composition root"
+"logging.config".msg                     = "Call structlog.configure once at composition root"
 "logging.critical".msg                   = "Use structlog.get_logger(__name__)"
 "logging.debug".msg                      = "Use structlog.get_logger(__name__)"
-"logging.disable".msg                    = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.disable".msg                    = "Call structlog.configure once at composition root"
 "logging.error".msg                      = "Use structlog.get_logger(__name__)"
 "logging.exception".msg                  = "Use structlog.get_logger(__name__)"
 "logging.fatal".msg                      = "Use structlog.get_logger(__name__)"
-"logging.getLogRecordFactory".msg        = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.getLogRecordFactory".msg        = "Call structlog.configure once at composition root"
 "logging.getLogger".msg                  = "Use structlog.get_logger(__name__)"
-"logging.getLoggerClass".msg             = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.getLoggerClass".msg             = "Call structlog.configure once at composition root"
 "logging.info".msg                       = "Use structlog.get_logger(__name__)"
-"logging.lastResort".msg                 = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.lastResort".msg                 = "Call structlog.configure once at composition root"
 "logging.log".msg                        = "Use structlog.get_logger(__name__)"
-"logging.raiseExceptions".msg            = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.raiseExceptions".msg            = "Call structlog.configure once at composition root"
 "logging.root".msg                       = "Use structlog.get_logger(__name__)"
-"logging.setLogRecordFactory".msg        = "Call structlog.stdlib.recreate_defaults once at composition root"
-"logging.setLoggerClass".msg             = "Call structlog.stdlib.recreate_defaults once at composition root"
+"logging.setLogRecordFactory".msg        = "Call structlog.configure once at composition root"
+"logging.setLoggerClass".msg             = "Call structlog.configure once at composition root"
 "logging.shutdown".msg                   = "Delete call, atexit runs it"
 "logging.warn".msg                       = "Use structlog.get_logger(__name__)"
 "logging.warning".msg                    = "Use structlog.get_logger(__name__)"

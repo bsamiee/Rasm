@@ -76,7 +76,7 @@ rule:
               inside: {kind: arguments}
               precedes: {matches: fold-step, stopBy: {not: {regex: '^,$'}}}
 transform:
-    COPY_SPREAD: {replace: {source: $COPY, replace: '(?s)^\[[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\.\.\..*$', by: '[...]'}}
+    COPY_SPREAD: {replace: {source: $COPY, replace: '(?s)^\[[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\.\.\..*$', by: '[...]'}}
     COPY_HEAD: {replace: {source: $COPY_SPREAD, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
     FOLD_HEAD: {replace: {source: $FOLD, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: '`$COPY_HEAD$FOLD_HEAD` recomputes by hand what a `Stream` destructor returns'

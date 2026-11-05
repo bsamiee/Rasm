@@ -3,7 +3,7 @@ language: swiftlang
 severity: error
 utils:
     error-type:
-        regex: '^(Foundation\.)?\p{XID_Continue}*Error$'
+        regex: '^(Foundation(\.|::))?[^.:]*Error$'
     error-cast:
         kind: as_expression
         has: {field: name, matches: error-type}
@@ -11,8 +11,7 @@ utils:
         any:
             - kind: property_declaration
               all:
-                - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
-                - has: {field: value, matches: error-cast}
+                - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}, precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, matches: error-cast}}
             - kind: 'if_statement, guard_statement, while_statement'
               all:
                 - has: {kind: simple_identifier, pattern: $NAME}

@@ -1,4 +1,4 @@
-"""Packs and installs Blender extensions, syncs locked Python requirements, and runs Blender in isolated profiles."""
+"""Encodes icons, packs, installs, and publishes Blender extensions, syncs locked Python requirements and host constraints, and runs Blender in isolated profiles."""
 
 lazy from pathlib import Path
 lazy import subprocess
@@ -37,9 +37,12 @@ def _reported(result: Outcome[int | Path] | None) -> int:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 app = App(help=__doc__, result_action=(_reported, "sys_exit"))
+app.command("eng.python.blender.icons:icons")
 app.command("eng.python.blender.assembly:pack")
 app.command("eng.python.blender.install:install")
+app.command("eng.python.blender.assembly:publish")
 app.command("eng.python.blender.assembly:site")
+app.command("eng.python.blender.assembly:upgrade")
 app.command("eng.python.blender.evaluate:run")
 
 

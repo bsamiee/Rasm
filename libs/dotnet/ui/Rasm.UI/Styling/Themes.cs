@@ -114,7 +114,7 @@ public sealed partial class Theme {
     private static readonly HashMap<Token, Tone> Painted = toHashMap(Seq<(Tone Tone, Seq<Token> Tokens)>(
         (Tone.Ground, [Token.Canvas]),
         (Tone.Raised, Token.Field.Cons(Rows(Channel.Fill, [Roles.Card, Roles.Dialog, Roles.Sheet, Roles.Popover, Roles.Menu, Roles.Tooltip, Roles.Hud, Roles.Toggle]))),
-        (Tone.Subtle, Rows(Channel.Fill, [Roles.Panel, Roles.Toolbar, Roles.Header, Roles.StatusBar, Roles.Gutter, Roles.TabList])),
+        (Tone.Subtle, Rows(Channel.Fill, [Roles.Panel, Roles.Toolbar, Roles.Header, Roles.Gutter, Roles.TabList])),
         (Tone.Element, Token.ButtonFace.Cons(Rows(Channel.Fill, [Roles.Section, Roles.Segment, Roles.Group, Roles.Keycap, Roles.Chip]))
             + Rows(Channel.Fill, [Roles.Tab, Roles.ListRow, Roles.Cell, Roles.Lane], interactions: [Interaction.Hover])
             + Rows(Channel.Fill, [Roles.Button], [Condition.Borderless], [Interaction.Hover]) + Rows(Channel.Fill, [Roles.Line], [Condition.Selected])),
@@ -124,7 +124,7 @@ public sealed partial class Theme {
         (Tone.Chosen, Rows(Channel.Fill, [Roles.Tab, Roles.Button], [Condition.Selected])),
         (Tone.Separator, Token.ButtonBorder.Cons(Rows(Channel.Stroke, [Roles.Group, Roles.Card, Roles.Field, Roles.Grid, Roles.Panel, Roles.Toolbar])) + Rows(Channel.Fill, [Roles.Divider])),
         (Tone.Border, Rows(Channel.Fill, [Roles.Switch, Roles.Scrollbar]) + Rows(Channel.Stroke, [Roles.Toggle, Roles.Track])),
-        (Tone.Secondary, Rows(Channel.Text, [Roles.StatusBar, Roles.Gutter, Roles.Tab]) + Rows(Channel.Fill, [Roles.Scrollbar], interactions: [Interaction.Hover])),
+        (Tone.Secondary, Rows(Channel.Text, [Roles.Gutter, Roles.Tab]) + Rows(Channel.Fill, [Roles.Scrollbar], interactions: [Interaction.Hover])),
         (Tone.Text, [Token.CanvasText, Token.FieldText, Token.ButtonText, Token.HighlightText, .. Rows(Channel.Text, [Roles.Panel]), .. Rows(Channel.Text, [Roles.Tab], [Condition.Selected])]),
         (Tone.Solid, Token.AccentColor.Cons(Rows(Channel.Fill, [Roles.Indicator]) + Rows(Channel.Stroke, [Roles.FocusRing]) + Rows(Channel.Fill, [Roles.Button], [Condition.Default])
             + Rows(Channel.Fill, [Roles.Toggle, Roles.Switch], [Condition.Selected]) + Rows(Channel.Fill, [Roles.Toggle], [Condition.Mixed]))),

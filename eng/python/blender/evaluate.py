@@ -14,7 +14,8 @@ lazy from expression.extra.result import catch
 lazy import pathvalidate
 
 lazy from blender.records.faults import Fault, Outcome, Reason
-lazy from eng.python.blender.assembly import BACKGROUND, Blender, reset, site
+lazy from blender.records.stores import committed, folder_made
+lazy from eng.python.blender.assembly import BACKGROUND, Blender, site
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -60,7 +61,7 @@ def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path
     return (
         catch(pathvalidate.validate_filename, exception=pathvalidate.ValidationError)(name, platform="auto", additional_reserved_names=(os.curdir, os.pardir), max_len=0)
         .map_error(partial(Fault.of, Reason.INVALID, name))
-        .bind(lambda _: reset(folder, Path.mkdir))
+        .bind(lambda _: committed(folder, folder_made))
         .bind(lambda _: site(blender=blender, package=package, groups=groups))
         .bind(lambda userbase: launched(userbase).map_error(partial(Fault.of, Reason.FAILED, str(blender))))
     )

@@ -9,7 +9,7 @@ One store owns every trigger and account state change, views call it and provide
 - Credential reads and writes reserve each live and private store they touch for the whole operation
 - Selection follows each provider's live store, actions re-read selection in place of setting it
 - Account identity is account id with organization id, every identity check compares both
-- Failures needing a new sign-in mark the account for sign-in, every other failure leaves an issue on its connected card
+- Failures needing a new sign-in mark the account for sign-in, every other failure logs and leaves its card connected
 - Accounts marked for sign-in read no usage until their own store holds a matching credential that refreshes or has not expired
 - Logs mark account ids public and emails private, failures hold no token
 - Pending and failed `accounts.json` loads start no trigger, a failed load leaves the file unwritten

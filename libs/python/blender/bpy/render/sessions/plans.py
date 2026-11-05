@@ -176,7 +176,7 @@ class Observed(msgspec.Struct, frozen=True, kw_only=True):
     plan: str
     sent: Option[Sent]
     progress: Option[tuple[Progress, datetime.datetime]]
-    refused: tuple[str | Fault, ...] = ()
+    refused: tuple[str, ...] = ()
 
     def unrecorded(self, exited: Option[int], /) -> Option[Faults]:
         """Fault of a `prepare` that exited before writing its sent or refused record, its exit read before this observation."""
@@ -331,7 +331,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 return Error(Fault.of(Reason.ABSENT, repr(self.queued), member=RunFile.PROGRESS))
 
     def ticked(self) -> Outcome[bool]:
-        """Refreshes progress, clears successful run files, and reports recordless preparation exits, answering whether a run remains pending."""
+        """Refreshes progress, clears successful run files, logs recorded preparation refusals, and reports recordless preparation exits, answering whether a run remains pending."""
         state = self.state
         exited = state.exited()
 
@@ -342,10 +342,12 @@ class Dispatcher(msgspec.Struct, frozen=True):
                 lambda now: msgspec.structs.replace(
                     now,
                     progress=now.progress.or_else_with(lambda: prior.bind(lambda last: last.progress).filter(lambda pair: now.sent.filter(lambda sent: sent.queue.key == pair[0].queue).is_some())),
-                    refused=crashed.default_value(now.refused),
+                    refused=crashed.map(lambda faults: tuple(fault.message for fault in faults)).default_value(now.refused),
                 )
             )
             state.observed = current
+            for messages in fresh.map(lambda now: now.refused).filter(bool).to_list():
+                self.identity.reports.logged(Fault.of(Reason.REFUSED, RunCommand.PREPARE, " ".join(messages)))
             ended = current.bind(lambda held: held.progress).bind(lambda pair: Option.of_optional(pair[0].ending))
             pending = current.map(lambda held: not held.refused and held.sent.map(lambda sent: isinstance(sent.target, LocalMachine) and ended.is_none()).default_value(value=True)).default_value(
                 value=False

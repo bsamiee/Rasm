@@ -4,6 +4,6 @@ severity: error
 rule:
     kind: inheritance_specifier
     pattern: $KEY
-    regex: '^(SwiftUI\.)?(EnvironmentKey|FocusedValueKey|TransactionKey|ContainerValueKey)$'
+    regex: '^(SwiftUI(\.|::))?(EnvironmentKey|FocusedValueKey|TransactionKey|ContainerValueKey)$'
 message: '`$KEY` conformance declares a key type and accessor by hand'
 note: 'Declare `@Entry var <name>: <Value> = <default>` in the `<Values>` extension, `@Entry var <name>: <Value>?` in `FocusedValues`'

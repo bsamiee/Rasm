@@ -16,7 +16,7 @@ utils:
     stored:
         kind: property_declaration
         all:
-            - has: {field: name, has: {field: bound_identifier, pattern: $X}}
+            - has: {kind: pattern, has: {field: bound_identifier, pattern: $X}}
             - not: {has: {kind: computed_property}}
             - not: {has: {kind: modifiers, has: {regex: '^(static|class|lazy)$'}}}
 rule:

@@ -65,42 +65,48 @@ utils:
                     kind: import_from_statement, import_statement
                     has: {stopBy: end, kind: dotted_name, regex: '^cyclopts(\.|$)', matches: python-imported-module}
 rule:
-    pattern: $READ
     not: {matches: boundary}
     any:
         - kind: identifier, attribute
+          pattern: $READ
           all:
             - any:
-                - regex: 'environb?$'
-                - all:
-                    - kind: identifier
-                    - not: {inside: {kind: 'call, keyword_argument, parameters, typed_parameter, default_parameter, typed_default_parameter, import_from_statement, aliased_import, function_definition, class_definition'}}
-                    - not: {not: {inside: {kind: module, stopBy: end, regex: '(?-u:\b)environb?[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+as[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]'}}}
+                - any: [{pattern: environ}, {pattern: environb}]
+                - {kind: attribute, has: {field: attribute, any: [{pattern: environ}, {pattern: environb}]}}
             - matches: mapping
             - not: {any: [{matches: written}, {matches: forwarded}]}
+        - kind: aliased_import
+          pattern: $READ
+          all:
+            - has: {field: name, regex: '^environb?$'}
+            - inside: {kind: import_from_statement, has: {field: module_name, regex: '^os$'}}
         - kind: subscript
+          pattern: $READ
           all:
             - matches: environment-file
             - has: {field: value, matches: relayed}
             - not: {matches: target}
         - kind: call
+          pattern: $READ
           all:
             - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(get|setdefault|pop|popitem|items|keys|values|__getitem__|__contains__|__iter__)$'}}
             - matches: environment-file
             - has: {field: function, has: {field: object, matches: relayed}}
-        - all:
-            - inside: {kind: 'for_statement, for_in_clause', field: right}
+        - kind: 'for_statement, for_in_clause'
+          all:
             - matches: environment-file
-            - matches: relayed
+            - has: {field: right, pattern: $READ, matches: relayed}
         - kind: call
+          pattern: $READ
           all:
             - has: {field: function, regex: '(^|\.)(iter|aiter|list|tuple|set|frozenset|sorted|reversed|enumerate|len|any|all|min|max|sum|map|filter|zip)$'}
             - matches: environment-file
             - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(iter|aiter|list|tuple|set|frozenset|sorted|reversed|enumerate|len|any|all|min|max|sum|map|filter|zip)$'}}}}
             - has: {field: arguments, has: {any: [{matches: copy-source}, {matches: relayed}]}}
         - kind: comparison_operator
+          pattern: $READ
           all:
-            - has: {field: operators, regex: '^(not[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?in$'}
+            - has: {field: operators, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$'}
             - matches: environment-file
             - has: {nthChild: 2, matches: relayed}
 message: '`$READ` reads process environment outside the entry module or CLI command'

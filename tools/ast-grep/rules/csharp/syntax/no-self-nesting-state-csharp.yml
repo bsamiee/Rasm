@@ -12,7 +12,7 @@ utils:
                 - has: {pattern: $STATE}
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: 'identifier, member_access_expression', regex: '(^|\.)Equals$'}
+                - matches: {csharp-named-call: {name: {regex: '^Equals$'}}}
                 - any:
                     - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $STATE}}
                     - has: {field: arguments, has: {kind: argument, has: {pattern: $STATE}}}

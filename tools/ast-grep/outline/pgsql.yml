@@ -1,0 +1,458 @@
+id: pgsql-import
+language: pgsql
+role: item
+symbolType: module
+isImport: true
+isExported: false
+rule:
+    any:
+        - kind: CreateExtensionStmt, ImportForeignSchemaStmt
+          has: {kind: 'ColId, substitution', pattern: $SOURCE}
+        - kind: LoadStmt
+          has: {field: file_name, pattern: $SOURCE}
+transform:
+    NAME: {replace: {source: $SOURCE, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $NAME
+---
+id: pgsql-schema
+language: pgsql
+role: item
+symbolType: namespace
+isExported: false
+rule:
+    kind: ColId, RoleSpec
+    pattern: $NAME
+    inside: {kind: CreateSchemaStmt, pattern: $DECLARATION}
+    not: {follows: {kind: ColId, stopBy: end}}
+rewriters:
+    - id: body
+      rule: {kind: 'OptSchemaEltList, comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
+name: $TITLE
+signature: $SIGNATURE
+---
+id: pgsql-enum
+language: pgsql
+role: item
+symbolType: enum
+isExported: false
+rule:
+    kind: DefineStmt
+    pattern: $DECLARATION
+    all:
+        - has: {regex: '(?i-u)^enum$'}
+        - has: {kind: any_name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: enum_val_list}
+      fix: …
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE
+signature: $SIGNATURE
+---
+id: pgsql-enum-value
+language: pgsql
+role: member
+symbolType: enumMember
+parentRuleIds: [pgsql-enum]
+rule:
+    kind: string_literal, escape_string_literal, dollar_quoted_string, substitution
+    pattern: $NAME
+    inside: {kind: enum_val_list}
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE
+signature: $TITLE
+---
+id: pgsql-table
+language: pgsql
+role: item
+symbolType: struct
+isExported: false
+rule:
+    pattern: $DECLARATION
+    any:
+        - kind: CreateStmt, CreateForeignTableStmt
+          any:
+            - has: {kind: qualified_name, pattern: $NAME}
+            - has: {kind: substitution, has: {kind: tsx_template_substitution, pattern: $NAME}}
+        - kind: CreateAsStmt
+          has: {kind: create_as_target, has: {kind: qualified_name, pattern: $NAME}}
+        - kind: CreateDomainStmt
+          has: {kind: any_name, pattern: $NAME}
+        - kind: DefineStmt
+          all:
+            - has: {regex: '(?i-u)^type$'}
+            - has: {kind: any_name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: 'TableElementList, OptTypedTableElementList, TableFuncElementList, select_no_parens, select_with_parens, ExecuteStmt, columnList'}
+      fix: …
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE
+signature: $SIGNATURE
+---
+id: pgsql-member-column
+language: pgsql
+role: member
+symbolType: field
+parentRuleIds: [pgsql-table, pgsql-view, pgsql-index, pgsql-statement]
+rule:
+    any:
+        - kind: columnDef, columnOptions, TableFuncElement
+          pattern: $DECLARATION
+          any:
+            - has: {kind: ColId, pattern: $NAME}
+            - has: {kind: substitution, has: {kind: tsx_template_substitution, pattern: $NAME}}
+        - kind: TableLikeClause
+          pattern: $DECLARATION
+          has: {kind: qualified_name, pattern: $NAME}
+        - kind: ColId
+          pattern: $NAME
+          inside: {kind: columnList, stopBy: {not: {kind: columnList}}, inside: {kind: 'create_as_target, ViewStmt, create_mv_target'}}
+        - kind: target_el
+          pattern: $DECLARATION
+          all:
+            - inside:
+                kind: target_list
+                stopBy: {not: {kind: target_list}}
+                inside:
+                    kind: simple_select
+                    inside:
+                        kind: select_no_parens
+                        inside:
+                            any:
+                                - {kind: CreateAsStmt, not: {has: {kind: create_as_target, has: {field: column_list, kind: columnList}}}}
+                                - {kind: ViewStmt, not: {has: {kind: columnList}}}
+                                - {kind: CreateMatViewStmt, not: {has: {kind: create_mv_target, has: {field: column_list, kind: columnList}}}}
+            - any:
+                - has: {kind: 'ColLabel, BareColLabel', pattern: $NAME}
+                - has: {kind: a_expr, has: {kind: a_expr, has: {kind: c_expr, has: {kind: columnref, pattern: $NAME}}}}
+        - kind: index_elem
+          pattern: $DECLARATION
+          inside: {kind: index_params, stopBy: {not: {kind: index_params}}, inside: {kind: IndexStmt}}
+          any:
+            - has: {kind: ColId, pattern: $NAME}
+            - has: {kind: 'func_application, func_expr_common_subexpr, json_aggregate_func, a_expr', pattern: $NAME}
+rewriters:
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE
+signature: $SIGNATURE
+---
+id: pgsql-member-constraint
+language: pgsql
+role: member
+symbolType: key
+parentRuleIds: [pgsql-table, pgsql-statement]
+rule:
+    kind: TableConstraint
+    pattern: $DECLARATION
+    any:
+        - has: {kind: ColId, pattern: $NAME}
+        - has: {kind: substitution, has: {kind: tsx_template_substitution, pattern: $NAME}}
+        - has: {kind: ConstraintElem, pattern: $UNNAMED}
+rewriters:
+    - id: target
+      rule:
+        any:
+            - kind: comment, host_comment
+            - {regex: '.', inside: {kind: ConstraintElem}, follows: {regex: '^\)$', stopBy: end}}
+      fix: ' '
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    LABEL: {rewrite: {source: $UNNAMED, rewriters: [target]}}
+    FOLDED: {replace: {source: $LABEL, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    KIND: {replace: {source: $FOLDED, replace: ' (\()| $', by: '$1'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE$KIND
+signature: $SIGNATURE
+---
+id: pgsql-view
+language: pgsql
+role: item
+symbolType: interface
+isExported: false
+rule:
+    pattern: $DECLARATION
+    any:
+        - kind: ViewStmt
+          has: {kind: qualified_name, pattern: $NAME}
+        - kind: CreateMatViewStmt
+          has: {kind: create_mv_target, has: {kind: qualified_name, pattern: $NAME}}
+rewriters:
+    - id: body
+      rule: {kind: 'select_no_parens, select_with_parens, columnList'}
+      fix: …
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE
+signature: $SIGNATURE
+---
+id: pgsql-function
+language: pgsql
+role: item
+symbolType: function
+isExported: false
+rule:
+    pattern: $DECLARATION
+    any:
+        - kind: CreateFunctionStmt
+          has: {kind: func_name, pattern: $NAME}
+        - kind: DefineStmt
+          all:
+            - has: {regex: '(?i-u)^aggregate$'}
+            - has: {kind: func_name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: 'createfunc_opt_list, routine_body_stmt_list, ReturnStmt, definition, old_aggr_definition'}
+      fix: …
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE
+signature: $SIGNATURE
+---
+id: pgsql-function-parameter
+language: pgsql
+role: member
+symbolType: variable
+parentRuleIds: [pgsql-function]
+rule:
+    kind: func_arg, table_func_column
+    pattern: $DECLARATION
+    has: {kind: type_function_name, pattern: $NAME}
+rewriters:
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: pgsql-sequence
+language: pgsql
+role: item
+symbolType: variable
+isExported: false
+rule:
+    kind: CreateSeqStmt
+    pattern: $DECLARATION
+    has: {kind: qualified_name, pattern: $NAME}
+rewriters:
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE
+signature: $SIGNATURE
+---
+id: pgsql-index
+language: pgsql
+role: item
+symbolType: key
+isExported: false
+rule:
+    kind: IndexStmt
+    pattern: $DECLARATION
+    any:
+        - has: {kind: ColId, pattern: $NAME}
+        - has: {kind: qualified_name, pattern: $NAME}
+rewriters:
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE
+signature: $SIGNATURE
+---
+id: pgsql-trigger
+language: pgsql
+role: item
+symbolType: event
+isExported: false
+rule:
+    kind: CreateTrigStmt, CreateEventTrigStmt, CreatePolicyStmt, RuleStmt
+    pattern: $DECLARATION
+    has: {kind: ColId, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: 'RowSecurityOptionalExpr, RowSecurityOptionalWithCheck, RuleActionList'}
+      fix: …
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE
+signature: $SIGNATURE
+---
+id: pgsql-statement
+language: pgsql
+role: item
+symbolType: operator
+isExported: false
+rule:
+    pattern: $DECLARATION
+    all:
+        - any:
+            - kind: AlterCollationStmt, AlterCompositeTypeStmt, AlterDatabaseSetStmt, AlterDatabaseStmt, AlterDefaultPrivilegesStmt, AlterDomainStmt, AlterEnumStmt, AlterEventTrigStmt, AlterExtensionContentsStmt, AlterExtensionStmt, AlterFdwStmt, AlterForeignServerStmt, AlterFunctionStmt, AlterGroupStmt, AlterObjectDependsStmt, AlterObjectSchemaStmt, AlterOpFamilyStmt, AlterOperatorStmt, AlterOwnerStmt, AlterPolicyStmt, AlterPublicationStmt, AlterRoleSetStmt, AlterRoleStmt, AlterSeqStmt, AlterStatsStmt, AlterSubscriptionStmt, AlterSystemStmt, AlterTSConfigurationStmt, AlterTSDictionaryStmt, AlterTableStmt, AlterTblSpcStmt, AlterTypeStmt, AlterUserMappingStmt, AnalyzeStmt, CallStmt, CheckPointStmt, ClosePortalStmt, CommentStmt, ConstraintsSetStmt, CopyStmt, CreateAmStmt, CreateAssertionStmt, CreateCastStmt, CreateConversionStmt, CreateFdwStmt, CreateForeignServerStmt, CreateGroupStmt, CreateOpClassStmt, CreateOpFamilyStmt, CreatePLangStmt, CreatePublicationStmt, CreateRoleStmt, CreateStatsStmt, CreateSubscriptionStmt, CreateTableSpaceStmt, CreateTransformStmt, CreateUserMappingStmt, CreateUserStmt, CreatedbStmt, DeallocateStmt, DeclareCursorStmt, DefineStmt, DeleteStmt, DiscardStmt, DoStmt, DropCastStmt, DropOpClassStmt, DropOpFamilyStmt, DropOwnedStmt, DropRoleStmt, DropStmt, DropSubscriptionStmt, DropTableSpaceStmt, DropTransformStmt, DropUserMappingStmt, DropdbStmt, ExecuteStmt, ExplainStmt, FetchStmt, GrantRoleStmt, GrantStmt, InsertStmt, ListenStmt, LockStmt, MergeStmt, NotifyStmt, PrepareStmt, ReassignOwnedStmt, RefreshMatViewStmt, ReindexStmt, RemoveAggrStmt, RemoveFuncStmt, RemoveOperStmt, RenameStmt, RepackStmt, RevokeRoleStmt, RevokeStmt, SecLabelStmt, TransactionStmt, TransactionStmtLegacy, TruncateStmt, UnlistenStmt, UpdateStmt, VacuumStmt, VariableResetStmt, VariableSetStmt, VariableShowStmt, WaitStmt
+            - {kind: 'select_no_parens, select_with_parens', inside: {kind: source_file}}
+        - any:
+            - has: {kind: 'qualified_name, any_name, any_name_list, any_operator, func_name, ColId, RoleSpec, comment_target, privilege_target, insert_target, relation_expr_opt_alias, extended_relation_expr, relation_expr_list, function_with_argtypes, function_with_argtypes_list, aggregate_with_argtypes, aggregate_with_argtypes_list, operator_with_argtypes, operator_with_argtypes_list, role_list, type_name_list, name_list, Typename, func_application, vacuum_relation_list', pattern: $SUBJECT}
+            - has: {kind: substitution, has: {kind: tsx_template_substitution, pattern: $SUBJECT}}
+            - has:
+                kind: simple_select
+                any:
+                    - has: {kind: qualified_name, pattern: $SUBJECT}
+                    - has: {kind: from_clause, has: {kind: 'qualified_name, substitution, func_table', pattern: $SUBJECT, stopBy: {kind: 'select_no_parens, select_with_parens'}}}
+                    - has: {kind: from_clause, has: {kind: table_ref, has: {kind: alias_clause, has: {kind: ColId, pattern: $SUBJECT}}, stopBy: {kind: 'select_no_parens, select_with_parens'}}}
+                    - has: {kind: simple_select, stopBy: {not: {kind: simple_select}}, has: {kind: from_clause, has: {kind: 'qualified_name, substitution, func_table', pattern: $SUBJECT, stopBy: {kind: 'select_no_parens, select_with_parens'}}}}
+                    - has: {stopBy: end, pattern: $$SUBJECT, regex: '(?-u)^[A-Za-z]+$', not: {pattern: $_}}
+            - has: {stopBy: end, pattern: $$SUBJECT, regex: '(?-u)^[A-Za-z]+$', not: {pattern: $_}}
+rewriters:
+    - id: clause
+      rule: {kind: 'where_clause, where_or_current_clause, sort_clause, select_limit, for_locking_clause, returning_clause, opt_on_conflict, with_clause, group_clause, having_clause, window_clause, comment, host_comment'}
+      fix: ''
+    - id: assigned
+      rule: {kind: 'set_clause_list, target_list, func_arg_list, expr_list, insert_column_list, columnList, dostmt_opt_list, alter_table_cmds, alter_type_cmds, partition_cmd, index_partition_cmd'}
+      fix: …
+    - id: filled
+      rule: {kind: 'select_no_parens, select_with_parens, values_clause, substitution', inside: {kind: insert_rest}}
+      fix: …
+transform:
+    NAME: {replace: {source: $SUBJECT, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [clause, assigned, filled]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: pgsql-member-command
+language: pgsql
+role: member
+symbolType: operator
+parentRuleIds: [pgsql-statement]
+rule:
+    kind: alter_table_cmd, alter_type_cmd, partition_cmd, index_partition_cmd
+    pattern: $COMMAND
+    not: {has: {kind: 'columnDef, TableConstraint'}}
+rewriters:
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $COMMAND, rewriters: [trivia]}}
+    NAME: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $NAME
+signature: $NAME
+---
+id: pgsql-member-statement
+language: pgsql
+role: member
+symbolType: operator
+isPublic: false
+parentRuleIds: [pgsql-trigger, pgsql-function]
+rule:
+    kind: select_no_parens, InsertStmt, UpdateStmt, DeleteStmt, NotifyStmt
+    pattern: $DECLARATION
+    inside: {kind: 'routine_body_stmt_list, RuleActionMulti, RuleActionList'}
+    any:
+        - has: {kind: 'qualified_name, ColId, insert_target, relation_expr_opt_alias', pattern: $SUBJECT}
+        - has: {kind: simple_select, has: {kind: from_clause, has: {kind: table_ref, pattern: $SUBJECT, stopBy: {kind: 'select_no_parens, select_with_parens'}}}}
+        - has: {regex: '(?i-u)^(select|values)$', pattern: $$SUBJECT, stopBy: end}
+rewriters:
+    - id: clause
+      rule: {kind: 'where_clause, where_or_current_clause, sort_clause, select_limit, for_locking_clause, returning_clause, opt_on_conflict, with_clause, group_clause, having_clause, window_clause, comment, host_comment'}
+      fix: ''
+    - id: assigned
+      rule: {kind: 'set_clause_list, target_list, insert_column_list, columnList'}
+      fix: …
+    - id: filled
+      rule: {kind: 'select_no_parens, select_with_parens, values_clause, substitution', inside: {kind: insert_rest}}
+      fix: …
+transform:
+    NAME: {replace: {source: $SUBJECT, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [clause, assigned, filled]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: pgsql-member-query
+language: pgsql
+role: member
+symbolType: variable
+isPublic: false
+parentRuleIds: [pgsql-table, pgsql-view, pgsql-statement]
+rule:
+    any:
+        - kind: common_table_expr
+          pattern: $DECLARATION
+          has: {field: name, pattern: $NAME}
+        - kind: window_definition
+          pattern: $DECLARATION
+          has: {kind: ColId, pattern: $NAME}
+        - kind: table_ref
+          pattern: $DECLARATION
+          all:
+            - has: {kind: select_with_parens}
+            - has: {kind: alias_clause, has: {kind: ColId, pattern: $NAME}}
+rewriters:
+    - id: body
+      rule: {kind: 'select_no_parens, select_with_parens, window_specification, InsertStmt, UpdateStmt, DeleteStmt, MergeStmt'}
+      fix: …
+    - id: trivia
+      rule: {kind: 'comment, host_comment'}
+      fix: ''
+transform:
+    TITLE: {replace: {source: $NAME, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+name: $TITLE
+signature: $SIGNATURE

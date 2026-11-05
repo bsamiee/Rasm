@@ -13,7 +13,7 @@ utils:
             - matches: derivable-mutation
     empty-value:
         kind: call_expression
-        regex: '^(\[[^\]]*\]|(Array|ContiguousArray|Set|Dictionary|String|Data)(<[^()]*>)?)\(\p{White_Space}*\)$'
+        regex: '^(\[[^\]]*\]|(Array|ContiguousArray|Set|Dictionary|String|Data)(<[^()]*>)?)\([\t-\r ]*\)$'
     derivable-mutation:
         kind: call_expression
         has:
@@ -52,10 +52,10 @@ rule:
                 any:
                     - has: {field: computed_value, kind: computed_property}
                     - all:
-                        - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
+                        - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
                         - any:
                             - all:
-                                - has: {field: value, any: [{kind: call_expression, not: {matches: empty-value}}, {kind: 'simple_identifier, navigation_expression'}]}
+                                - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}, precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, any: [{kind: call_expression, not: {matches: empty-value}}, {kind: 'simple_identifier, navigation_expression, identifier'}]}}
                                 - not:
                                     precedes:
                                         stopBy: end

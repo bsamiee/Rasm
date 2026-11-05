@@ -8,6 +8,7 @@ interface Control extends Schema.Struct.Type<typeof controlFields> {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Version = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,3}$/u)).annotate({ description: 'major[.minor[.patch[.build]]]' });
 const Pid = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Running process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID' });
 const Seconds = Schema.Finite.pipe(Schema.decodeTo(Schema.Duration, SchemaTransformation.transform({ decode: Duration.seconds, encode: Duration.toSeconds })));
@@ -199,4 +200,4 @@ class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbo
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CoreGraphicsWindow, Installation, Launched, LongestSide, Perform, Pid, RunningInstance, Screenshot, State };
+export { CoreGraphicsWindow, Installation, Launched, LongestSide, Perform, Pid, RunningInstance, Screenshot, State, Version };

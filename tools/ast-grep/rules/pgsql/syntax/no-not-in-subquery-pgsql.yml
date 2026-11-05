@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+utils:
+    negated-in:
+        all:
+            - has: {regex: '(?i-u)^in$', not: {pattern: $_}}
+            - any:
+                - has: {regex: '(?i-u)^not$', not: {pattern: $_}}
+                - inside: {kind: a_expr, field: operand, has: {field: operator, regex: '(?i-u)^not$'}}
+    unequal-all:
+        all:
+            - has: {kind: subquery_Op, regex: '^(<>|!=)$'}
+            - has: {kind: sub_type, regex: '(?i-u)^all$'}
+rule:
+    kind: a_expr, a_expr_prec
+    has: {kind: select_with_parens}
+    any:
+        - matches: negated-in
+        - matches: unequal-all
+message: 'Negated `in` comparison can become NULL when a compared value is NULL'
+note: 'Preserve nullable operand behavior when replacing the comparison with `not exists`'

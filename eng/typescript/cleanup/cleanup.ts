@@ -2,7 +2,7 @@ import process from 'node:process';
 import { cacheDir, getOutputsForTargetAndConfiguration, readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
 import { Array, Cause, Config, Console, Effect, Equal, Fiber, FileSystem, Function, flow, identity, Match, Option, Path, type PlatformError, Predicate, Record, Result, Schedule, Schema, String, Struct, Trie, Tuple } from 'effect';
 import { accumulate } from '#/eng/typescript/accumulate';
-import { decodeFile, Package } from '#/eng/typescript/manifest';
+import { decodeFile, Package, Sgconfig } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
 import { TextFormat } from '#/eng/typescript/text-format';
 import manifest from '#/package.json' with { type: 'json' };
@@ -27,7 +27,6 @@ const LaunchdAgents = Schema.fromJsonString(Schema.Struct({ launchd: Schema.Stru
 const MiseInstalls = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.Struct({ install_path: Schema.String }))));
 const MiseDaemons = Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, pid: Schema.OptionFromNullOr(Schema.Int) })));
 const CargoMetadata = Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Schema.Struct({ name: Schema.String })), build_directory: Schema.String }));
-const SgConfig = TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ customLanguages: Schema.Record(Schema.String, Schema.Struct({ libraryPath: Schema.String })) })));
 const Editor = Schema.fromJsonString(Schema.Struct({ sdk: Schema.String }).pipe(Schema.encodeKeys({ sdk: 'js/ts.tsdk.path' })));
 const PulumiPlugins = Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.String, version: Schema.String })));
 const PulumiProvider = Schema.fromJsonString(Schema.Struct({ pulumi: Schema.Struct({ resource: Schema.Literal(true), name: Schema.String, version: Schema.String }) }));
@@ -96,7 +95,7 @@ const cleanup = Effect.gen(function* () {
     const { graph, languages, sdk, worktrees, installed, developer, agents, launched, daemons, toolchains, products, own } = yield* Effect.all(
         {
             graph: Effect.try(readCachedProjectGraph),
-            languages: decodeFile(SgConfig, root, 'sgconfig.yml').pipe(Effect.map(flow(Struct.get('customLanguages'), Record.values)), Effect.map(Array.map(({ libraryPath }) => path.resolve(root, libraryPath)))),
+            languages: Sgconfig.read(root).pipe(Effect.map(flow(Struct.get('customLanguages'), Record.values)), Effect.map(Array.map(({ libraryPath }) => path.resolve(root, libraryPath)))),
             sdk: Effect.map(decodeFile(Editor, root, '.vscode/settings.json'), ({ sdk: directory }) => path.resolve(root, directory)),
             worktrees: runCommand
                 .records('\0\0', 'git', ['worktree', 'list', '--porcelain', '-z'])

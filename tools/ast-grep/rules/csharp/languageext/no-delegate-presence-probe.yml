@@ -8,7 +8,7 @@ utils:
         has:
             any:
                 - {kind: identifier, regex: '^None$'}
-                - {kind: collection_expression, regex: '^\[[\p{White_Space}\x{FEFF}]*\]$'}
+                - {kind: collection_expression, not: {has: {nthChild: 1}}}
                 - pattern: Edit.Cancel<$VALUE>()
 rule:
     kind: member_access_expression

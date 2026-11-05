@@ -5,71 +5,57 @@ public import UniformTypeIdentifiers
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension NSRunningApplication {
-    public func screenshot(
-        of window: CGWindowID? = nil,
-        longestSide: Int? = nil,
-        configuration: SCScreenshotConfiguration = SCScreenshotConfiguration(),
-    ) async throws(ApplicationFailure) -> (output: SCScreenshotOutput, windows: [CGWindowID]) {
-        let hidden: Bool = isHidden
-        try await setHidden(false)
-        let shot: Result<(output: SCScreenshotOutput, windows: [CGWindowID]), ApplicationFailure> = await Result { () async throws(ApplicationFailure) in
-            let content: SCShareableContent
-            do { content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true) } catch {
-                throw ApplicationFailure(subject: String(processIdentifier), reason: .host(error))
-            }
-            let owned: [SCWindow] = content.windows.filter { candidate in
-                candidate.owningApplication?.processID == processIdentifier && window.map { id in id == candidate.windowID } ?? true
-            }
-            guard !owned.isEmpty else { throw ApplicationFailure(subject: window.map(String.init) ?? String(processIdentifier), reason: .noWindow) }
-            let displayed: [SCWindow] = owned.filter { candidate in !candidate.frame.isEmpty && content.displays.contains { display in display.frame.intersects(candidate.frame) } }
-            let covered: (SCDisplay) -> CGFloat = { display in
-                displayed.map(\.frame).map(display.frame.intersection).reduce(0) { (area: CGFloat, overlap: CGRect) in area + overlap.width * overlap.height }
-            }
-            guard let display: SCDisplay = content.displays.max(by: { left, right in covered(left) < covered(right) }), !displayed.isEmpty else {
-                throw ApplicationFailure(subject: owned.map { candidate in "\(candidate.windowID) at \(candidate.frame)" }.joined(separator: ", "), reason: .noDisplay)
-            }
-            let captured: [SCWindow] = displayed.filter { candidate in display.frame.intersects(candidate.frame) }
-            let filter: SCContentFilter = SCContentFilter(display: display, including: captured)
-            configuration.sourceRect = captured.map(\.frame).reduce(CGRect.null) { union, frame in union.union(frame) }.intersection(filter.contentRect).offsetBy(
-                dx: -filter.contentRect.minX,
-                dy: -filter.contentRect.minY,
-            )
-            return try await (filter.screenshot(configuration: configuration, longestSide: longestSide), captured.map(\.windowID))
-        }
-        try await setHidden(hidden)
-        return try shot.get()
+public func requestCaptureAccess() -> Bool { CGRequestScreenCaptureAccess() }
+
+extension SCScreenshotConfiguration {
+    public static var background: SCScreenshotConfiguration {
+        let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
+        configuration.showsCursor = false
+        configuration.includeChildWindows = false
+        return configuration
     }
 }
 
-extension SCContentFilter {
-    public func screenshot(configuration: SCScreenshotConfiguration, longestSide: Int? = nil) async throws(ApplicationFailure) -> SCScreenshotOutput {
-        let native: CGSize = configuration.sourceRect == .null ? contentRect.size : configuration.sourceRect.size
-        let scale: CGFloat = CGFloat(pointPixelScale) * (longestSide.map { limit in min(1, CGFloat(limit) / (max(native.width, native.height) * CGFloat(pointPixelScale))) } ?? 1)
-        configuration.width = Int((native.width * scale).rounded())
-        configuration.height = Int((native.height * scale).rounded())
-        do { return try await SCScreenshotManager.captureScreenshot(contentFilter: self, configuration: configuration) } catch {
-            throw ApplicationFailure(subject: "\(contentRect)", reason: .host(error))
+extension NSRunningApplication {
+    public func screenshots(
+        of windows: [CGWindowID],
+        longestSide: Int? = nil,
+        configuration: SCScreenshotConfiguration = .background,
+    ) async throws(ApplicationFailure) -> [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] {
+        guard CGPreflightScreenCaptureAccess() else { throw ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: .noCaptureAccess) }
+        let content: SCShareableContent
+        do { content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false) } catch {
+            throw ApplicationFailure(subject: String(processIdentifier), reason: .host(error as NSError))
         }
+        let listed: [CGWindowID: SCWindow] = Dictionary(content.windows.map { window in (window.windowID, window) }) { first, _ in first }
+        var shots: [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] = [:]
+        for number: CGWindowID in windows {
+            shots[number] = await Result { () async throws(ApplicationFailure) in
+                guard let window: SCWindow = listed[number], !window.frame.isEmpty else { throw ApplicationFailure(subject: String(number), reason: .noWindow) }
+                let filter: SCContentFilter = SCContentFilter(desktopIndependentWindow: window)
+                let scale: CGFloat = CGFloat(filter.pointPixelScale)
+                let fitted: CGFloat = longestSide.map { limit in min(1, CGFloat(limit) / (max(filter.contentRect.width, filter.contentRect.height) * scale)) } ?? 1
+                configuration.width = Int((filter.contentRect.width * scale * fitted).rounded())
+                configuration.height = Int((filter.contentRect.height * scale * fitted).rounded())
+                do { return try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration) } catch {
+                    throw ApplicationFailure(subject: String(number), reason: .host(error as NSError))
+                }
+            }
+        }
+        return shots
     }
 }
 
 extension SCScreenshotOutput {
     public func write(to file: URL) throws(ApplicationFailure) {
-        guard let image: CGImage = sdrImage else { throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .noImage) }
-        guard let type: UTType = UTType(filenameExtension: file.pathExtension) else { throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .noExtension) }
-        let data: Data = try image.data(as: type)
-        do { try data.write(to: file) } catch { throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error)) }
-    }
-}
-
-extension CGImage {
-    public func data(as type: UTType) throws(ApplicationFailure) -> Data {
+        let path: String = file.path(percentEncoded: false)
+        guard let image: CGImage = sdrImage else { throw ApplicationFailure(subject: path, reason: .noImage) }
+        guard let type: UTType = UTType(filenameExtension: file.pathExtension) else { throw ApplicationFailure(subject: path, reason: .noExtension) }
         let data: CFMutableData = CFDataCreateMutable(nil, 0)
         let unencodable: ApplicationFailure = ApplicationFailure(subject: type.identifier, reason: .noEncoder)
         guard let destination: CGImageDestination = CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil) else { throw unencodable }
-        CGImageDestinationAddImage(destination, self, nil)
+        CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw unencodable }
-        return data as Data
+        do { try (data as Data).write(to: file) } catch { throw ApplicationFailure(subject: path, reason: .host(error as NSError)) }
     }
 }

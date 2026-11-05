@@ -13,7 +13,7 @@ utils:
         not:
             any:
                 - kind: 'statements, if_statement, else, comment, multiline_comment'
-                - regex: '^(!?(_Concurrency\.)?Task\.isCancelled|true)$'
+                - regex: '^(!?(_Concurrency(\.|::))?Task\.isCancelled|true)$'
     tested-branch:
         kind: 'if_statement, guard_statement'
         has: {matches: tested-state}
@@ -39,7 +39,7 @@ rule:
                 - has: {matches: loop-exit}
         - kind: for_statement
           all:
-            - not: {regex: '^for\p{White_Space}+(try\p{White_Space}+)?await(?-u:\b)'}
+            - not: {regex: '^for[\t-\r ]+(try[\t-\r ]+)?await(?-u:\b)'}
             - has: {stopBy: *function, matches: timed-wait}
             - has: {matches: loop-exit}
         - kind: function_declaration

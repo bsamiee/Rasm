@@ -22,8 +22,7 @@ rule:
                             - has: {kind: modifier, regex: '^(ref|out|in|params|scoped|this)$'}
                             - has: {kind: attribute_list}
                             - has: {field: type, kind: 'pointer_type, function_pointer_type'}
-                            - regex: '='
-                - has: {field: parameters, has: {regex: '^params$'}}
+                            - has: {field: value, pattern: $_}
                 - has: {field: parameters, has: {kind: parameter, nthChild: 17}}
                 - all:
                     - has: {field: type, regex: '^void$'}

@@ -122,7 +122,7 @@ utils:
             - matches: swift-error-text
             - kind: call_expression
               all:
-                - has: {nthChild: 1, kind: navigation_expression, regex: '^Swift\.String(\.init)?$'}
+                - has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^Swift(\.|::)String(\.init)?$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^(describing|reflecting)$'}}}}
 rule:
     matches: os-log-interpolation

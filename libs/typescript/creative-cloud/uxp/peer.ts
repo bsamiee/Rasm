@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Console, Deferred, Duration, Effect, flow, Latch, Layer, Option, Predicate, Schedule, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Deferred, Duration, Effect, flow, Latch, Layer, Option, Predicate, Schedule, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse, Url } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { type Rpc, RpcClient, type RpcClientError, type RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
@@ -46,7 +46,7 @@ class Peer extends Schema.Class<Peer, { readonly brand: unique symbol }>('Peer')
                                     reader.pipe(
                                         Effect.flatMap((opened) => handler(Socket.make({ reader: Effect.succeed(opened), writer }))),
                                         Effect.scoped,
-                                        Effect.tapCauseIf(Cause.hasDies, flow(Cause.pretty, Console.error)),
+                                        Effect.tapCauseIf(Cause.hasDies, Effect.logError),
                                         Effect.exit,
                                         Effect.andThen(Effect.sleep(import.meta.env.LINK.redial)),
                                         Effect.forever,

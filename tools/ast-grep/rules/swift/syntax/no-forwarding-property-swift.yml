@@ -62,8 +62,8 @@ utils:
 rule:
     kind: property_declaration
     all:
-        - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
-        - not: {has: {field: name, regex: '^body$'}}
+        - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
+        - not: {has: {kind: pattern, regex: '^body$'}}
         - not: {matches: host-member}
         - not: {has: {field: computed_value, has: {kind: computed_init}}}
         - has:

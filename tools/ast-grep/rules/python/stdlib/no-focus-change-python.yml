@@ -20,6 +20,6 @@ rule:
                         not: {follows: {stopBy: end, regex: '^["'']--args["'']$'}}
             - all:
                 - has: {nthChild: 1, kind: string, regex: '^["''](/usr/bin/)?osascript["'']$'}
-                - has: {kind: string, regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+frontmost(?-u:\b)|AXRaise'}
+                - has: {kind: string, regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\t-\r \x{200B}\x{2060}\x{FEFF}]+frontmost(?-u:\b)|AXRaise'}
 message: '`$SITE` takes focus from the frontmost application'
 note: 'Open apps unfocused with `subprocess.run(["watch-apps", "launch", <app>])`, delete `activate`, `AXRaise`, and `frontmost` writes'

@@ -162,11 +162,12 @@ const kashida = Schema.Struct({
     }),
 );
 const marks = Schema.Struct(Struct.Record(['x', 'y'], thousandths)).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' }));
+const featureValues = Schema.Array(Schema.Tuple([Schema.String, Schema.Finite]));
 const features = Schema.Struct({
     otfStylisticSets: Schema.Int,
     ...Record.map(FEATURE_FLAGS, () => Schema.Boolean),
     capitalization: Schema.Literals(Struct.keys(CAPITALIZATIONS)),
-    opentypeFeatures: Schema.optionalKey(Schema.Array(Schema.Tuple([Schema.String, Schema.Finite]))),
+    opentypeFeatures: Schema.optionalKey(featureValues),
 }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.features), {
         decode: SchemaGetter.transform(({ otfStylisticSets, capitalization, opentypeFeatures = [], ...flags }) =>
@@ -251,12 +252,15 @@ const retained = (target: Text | TextDefault, members: Record.ReadonlyRecord<str
     });
 const featureMembers = (target: Text | TextDefault, { capitalization, opentypeFeatures = [], ...flags }: typeof features.Encoded) =>
     Effect.map(
-        InDesignModel.read(Schema.String, `capitalization of ${target.toSpecifier()}`, () => target.capitalization),
-        (current) => ({
-            ...flags,
-            ...(capitalization === 'NORMAL' && Option.exists(Record.get<string, readonly string[]>(CAPITALIZATIONS, current), Array.isReadonlyArrayEmpty) ? {} : { capitalization }),
-            ...(Array.isReadonlyArrayEmpty(opentypeFeatures) && !('opentypeFeatures' in target) ? {} : { opentypeFeatures }),
-        }),
+        InDesignModel.read(Schema.Struct({ capitalization: Schema.String, existing: featureValues }), `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] })),
+        ({ capitalization: current, existing }) => {
+            const replaced = Record.toEntries({ ...Record.map(Record.fromEntries(existing), () => 0), ...Record.fromEntries(opentypeFeatures) });
+            return {
+                ...flags,
+                ...(capitalization === 'NORMAL' && Option.exists(Record.get<string, readonly string[]>(CAPITALIZATIONS, current), Array.isReadonlyArrayEmpty) ? {} : { capitalization }),
+                ...(Array.isReadonlyArrayEmpty(replaced) ? {} : { opentypeFeatures: replaced }),
+            };
+        },
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

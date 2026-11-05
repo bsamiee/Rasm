@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-qualified-name
+language: csharplang
+arguments: [name, qualifier]
+utils:
+    segment:
+        any:
+            - kind: identifier
+              matches: qualifier
+            - kind: qualified_name, alias_qualified_name, member_access_expression
+              has: {field: name, kind: identifier, matches: qualifier}
+rule:
+    matches: {csharp-type-name: {name: {matches: name}}}
+    not:
+        any:
+            - has: {field: qualifier, not: {matches: segment}}
+            - has: {field: expression, not: {matches: segment}}

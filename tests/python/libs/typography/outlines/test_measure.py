@@ -34,7 +34,7 @@ def test_counter_and_inradius_distinguish_holes_from_filled_ink() -> None:
     assert counter(slotted) == pytest.approx(20, rel=1e-2, abs=0)
     assert counter(SQUARE) == 0
     assert inradius(SQUARE) == pytest.approx(50, rel=1e-9, abs=0)
-    assert stroke(()) == counter(()) == inradius(()) == 0
+    assert stroke(()) == counter(()) == inradius(()) == inradius(SEGMENT) == 0
 
 
 def test_counter_measures_the_bounded_channel_around_an_ink_island() -> None:

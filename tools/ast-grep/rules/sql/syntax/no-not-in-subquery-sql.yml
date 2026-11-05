@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: sql
+severity: error
+rule:
+    any:
+        - kind: in_subquery_expression, in_table_expression
+          any:
+            - has: {regex: '(?i-u)^not$'}
+            - has: {field: operand, kind: unary_expression, has: {field: operator, regex: '(?i-u)^not$'}}
+        - kind: unary_expression
+          all:
+            - has: {field: operator, regex: '(?i-u)^not$'}
+            - has: {field: operand, kind: parenthesized_expression, has: {kind: 'in_subquery_expression, in_table_expression'}}
+message: 'Negated `in` comparison can become NULL when a compared value is NULL'
+note: 'Preserve nullable operand behavior when replacing the comparison with `not exists`'

@@ -32,11 +32,6 @@ internal sealed class AppKitPlatform : IHostPlatform {
     private static HostEvent<Unit> Observed(Func<EventHandler<NSNotificationEventArgs>, NSObject> observe, [CallerArgumentExpression(nameof(observe))] string label = "") =>
         new(label, deliver => use(() => observe((_, _) => Session.Start(deliver(unit), label))).Map(unit));
 
-    // --- [ICONS]
-    public int DropDownIconSize => 14;
-
-    public int RenderTabIconSize => 20;
-
     // --- [FONTS]
     private readonly AtomHashMap<(float Size, bool Bold), Font> faces = AtomHashMap<(float Size, bool Bold), Font>();
 

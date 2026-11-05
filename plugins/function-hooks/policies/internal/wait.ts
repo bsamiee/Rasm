@@ -2,7 +2,7 @@ import { Maybe } from '../../monads.ts';
 import type { CommandRequest, System } from '../command-decision.ts';
 import { namedPids, PID, WATCHER, watchAction, watchedApps } from './apps.ts';
 import type { Command } from './command.ts';
-import { argumentGroups, enabled, informational, operands, programRow } from './invocation.ts';
+import { argumentGroups, enabled, type Invocation, informational, operands, programRow } from './invocation.ts';
 import { background, type Call, edit, editOrRefuse, invocationSites, invocationsOf, nestedIn, pipelineNeighbors, quote, refuse, type Verdict } from './verdict.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -11,6 +11,7 @@ const LETTER = /^\w/u;
 const TASK_OUTPUT = /\/tasks\/(?<id>[^/]+)\.output$/u;
 const TASK_OUTPUTS = /\/tasks\/(?<id>[^/\s'"]+)\.output/gu;
 const SPACES = /\s+/u;
+const PIPE_GAP = /^\s*\|&?\s*$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -60,11 +61,24 @@ const pollingLoops = ({ request, apps, source, script: { commands } }: Call): re
     return [...[...new Set(waited)].map(taskNotice), ...names.map((name) => `Loop polls ${name.join(' ') || WATCHER}, ${watchAction(request, name)}`)];
 };
 
+const streams = (commands: readonly Command[]): readonly Invocation[] => invocationsOf(commands, WATCHER).filter((invocation) => operands(invocation).inputs[0] === 'watch' && !informational(WATCHER, operands(invocation).options));
+
+const watchFilters = ({ request, source, script: { commands } }: Call): readonly Verdict[] =>
+    commands.flatMap((command, index) => {
+        const filters = pipelineNeighbors(commands, index, 1);
+        const [watched] = streams([command]);
+        const last = filters.at(-1);
+        if (watched === undefined || last === undefined) {
+            return [];
+        }
+        const reason = `Filter drops ${WATCHER} lines, ${watchAction(request, watchedApps(watched))}`;
+        const piped = [command, ...filters].slice(0, -1).every(({ extent: { end } }, at) => PIPE_GAP.test(new TextDecoder().decode(source.subarray(end, filters[at]?.extent.start))));
+        return [piped ? editOrRefuse(command, edit(command.extent.end, last.extent.end, '', Maybe.some(`Filter removed, every ${WATCHER} line reaches Monitor`)), reason) : refuse(reason)];
+    });
+
 const appPolls = (call: Call): readonly Verdict[] => {
     const { request, script } = call;
-    const { commands } = script;
-    const streaming = invocationsOf(commands, WATCHER).filter((invocation) => operands(invocation).inputs[0] === 'watch' && !informational(WATCHER, operands(invocation).options));
-    return [...pollingLoops(call).map(refuse), ...(request.kind === 'monitor' ? [] : streaming.map((invocation) => refuse(`${WATCHER} watch never exits, ${watchAction(request, watchedApps(invocation))}`)))];
+    return [...pollingLoops(call).map(refuse), ...(request.kind === 'monitor' ? watchFilters(call) : streams(script.commands).map((invocation) => refuse(`${WATCHER} watch never exits, ${watchAction(request, watchedApps(invocation))}`)))];
 };
 
 // --- [TASKS]

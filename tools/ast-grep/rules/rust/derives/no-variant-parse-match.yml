@@ -17,13 +17,13 @@ utils:
     literal-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, regex: '^"[^"\\]*"(\p{White_Space}*\|\p{White_Space}*"[^"\\]*")*$'}
+            - has: {field: pattern, kind: match_pattern, regex: '^"[^"\\]*"(\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*"[^"\\]*")*$'}
             - has: {field: value, matches: variant-value}
     fallback-arm:
         kind: match_arm
         all:
             - has: {field: pattern, kind: match_pattern, regex: '^(_|[a-z_]\p{XID_Continue}*)$'}
-            - has: {field: value, any: [{regex: '^\{?\p{White_Space}*(return\p{White_Space}+)?(None(?-u:\b)|Err\p{White_Space}*\(|((::)?anyhow\p{White_Space}*::\p{White_Space}*)?bail\p{White_Space}*!)'}, {matches: variant-value}]}
+            - has: {field: value, any: [{regex: '^\{?\p{Pattern_White_Space}*(return\p{Pattern_White_Space}+)?(None(?-u:\b)|Err\p{Pattern_White_Space}*\(|((::)?anyhow\p{Pattern_White_Space}*::\p{Pattern_White_Space}*)?bail\p{Pattern_White_Space}*!)'}, {matches: variant-value}]}
 rule:
     kind: match_expression
     all:

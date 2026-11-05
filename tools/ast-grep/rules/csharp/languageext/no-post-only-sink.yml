@@ -6,7 +6,7 @@ utils:
         kind: invocation_expression
         all:
             - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}
-            - has: {field: arguments, has: {kind: argument, regex: '^(unit|Unit\.Default|default)$'}}
+            - has: {field: arguments, has: {matches: csharp-positional-argument, has: {any: [{kind: identifier, regex: '^unit$'}, {kind: default_expression, regex: '^default$'}, {matches: {csharp-owner-member: {type: {regex: '^Unit$'}, member: {regex: '^Default$'}}}}]}}}
     stub:
         kind: method_declaration
         all:

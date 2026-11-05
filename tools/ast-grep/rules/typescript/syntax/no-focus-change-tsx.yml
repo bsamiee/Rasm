@@ -8,7 +8,7 @@ utils:
         nthChild: 1
         inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(spawn|spawnSync|execFile|execFileSync)$|^(ChildProcess\.)?make$'}}}
     activating-script:
-        regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+frontmost(?-u:\b)|AXRaise'
+        regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+frontmost(?-u:\b)|AXRaise'
     activating-line:
         all:
             - any:
@@ -18,9 +18,9 @@ utils:
                   nthChild: 1
                   inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(exec|execSync)$'}}}
             - any:
-                - regex: '^[`''"][\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(/usr/bin/)?open([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]|[`''"])'
-                  not: {regex: '^[`''"][\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(/usr/bin/)?open([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+([^-[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|-[^-[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|--([^a[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|a[^r[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|ar[^g[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|arg[^s[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]][^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|args[^\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+|ar|arg|a)?))*?[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+(-[eftFWRnjh]*g[A-Za-z]*|--background)([\p{White_Space}\x{200B}\x{2060}\x{FEFF}]|[`''"])'}
-                - regex: '^[`''"][\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(/usr/bin/)?osascript[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]'
+                - regex: '^[`''"][\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(/usr/bin/)?open([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]|[`''"])'
+                  not: {regex: '^[`''"][\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(/usr/bin/)?open([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+([^-[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|-[^-[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|--([^a[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|a[^r[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|ar[^g[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|arg[^s[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|args[^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+|ar|arg|a)?))*?[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+(-[eftFWRnjh]*g[A-Za-z]*|--background)([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]|[`''"])'}
+                - regex: '^[`''"][\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(/usr/bin/)?osascript[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]'
                   matches: activating-script
 rule:
     kind: call_expression

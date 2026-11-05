@@ -12,11 +12,11 @@ utils:
                 - pattern: self.deref().$M($$$ARGS)
                 - pattern: $T::$M($$$ARGS)
                 - pattern: <$T as $_>::$M($$$ARGS)
-            - has: {field: arguments, not: {has: {pattern: $_, not: {any: [{kind: 'identifier, self'}, {regex: '^(&\p{White_Space}*(mut\p{White_Space}+)?)?\**\p{White_Space}*self$'}]}}}}
+            - has: {field: arguments, not: {has: {pattern: $_, not: {any: [{kind: 'identifier, self'}, {regex: '^(&\p{Pattern_White_Space}*(mut\p{Pattern_White_Space}+)?)?\**\p{Pattern_White_Space}*self$'}]}}}}
     forwarding-statement:
         any:
             - matches: forwarded-call
-            - kind: 'await_expression, expression_statement, return_expression'
+            - kind: 'await_expression, expression_statement, return_expression, become_expression'
               has: {nthChild: 1, matches: forwarding-statement}
     forwarder:
         kind: function_item

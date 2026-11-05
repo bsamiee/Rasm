@@ -18,7 +18,7 @@ from blender.bpy.data.rna.paths import id_data, Struct
 from blender.bpy.data.rna.properties import Callbacks, choices, IconedItem, offered
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Tier
-from blender.bpy.extension.reports import alerted, redrawn
+from blender.bpy.extension.reports import redrawn
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.ui.drawing.canvas import Canvas, Offscreen, PROGRAMS
 from blender.bpy.ui.drawing.handlers import Part, Refresh, refreshing
@@ -42,11 +42,11 @@ class Preview(Property, frozen=True, kw_only=True):
     plain: Keywords = MappingProxyType({})
 
     @override
-    def shown(self, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located data-block's shaded preview or icon."""
         match getattr(*held[0][1]):
             case bpy.types.Material() | bpy.types.Texture() | bpy.types.World() | bpy.types.Light() | bpy.types.FreestyleLineStyle():
-                super().shown(function, keywords, held, layout, _holder, context)
+                super().shown(identity, function, keywords, held, layout, _holder, context)
             case bpy.types.ID() as data:
                 for preview in Option.of_optional(data.preview_ensure()).to_list():
                     getattr(layout, FUNCTIONS["template_icon"].identifier)(preview.icon_id, **self.plain)
@@ -60,9 +60,9 @@ class ImageFormat(Property, frozen=True, kw_only=True):
     function: bpy.types.Function = FUNCTIONS["template_image_settings"]
 
     @override
-    def shown(self, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located settings and their views under a multiview owner scene."""
-        super().shown(function, keywords, held, layout, _holder, context)
+        super().shown(identity, function, keywords, held, layout, _holder, context)
         settings: bpy.types.ImageFormatSettings = getattr(*held[0][1])  # ty: ignore[unsound-assignment]
         if id_data(bpy.types.Scene, settings).filter(lambda scene: scene.render.use_multiview).is_some():
             layout.template_image_views(settings)
@@ -75,9 +75,9 @@ class Gallery(Property, frozen=True, kw_only=True):
     keywords: Keywords = MappingProxyType({"show_labels": True})
 
     @override
-    def shown(self, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located enum's icons in the value cell under its name in the label cell."""
-        super().shown(function, keywords, held, gridded(held[0][0].prop.name, layout), _holder, context)
+        super().shown(identity, function, keywords, held, gridded(held[0][0].prop.name, layout), _holder, context)
 
 
 class _Pick(bpy.types.PropertyGroup):
@@ -187,8 +187,7 @@ class Picture[S](ConditionalRow, frozen=True, kw_only=True):
                 .map(lambda native: Ok(native.map(lambda preview: preview.icon_id)))
                 .default_with(lambda: self.rendered(canvas).bind(partial(previews.written, self.slot, key)))
             )
-            alerted(layout, pictured)
-            for value in pictured.to_option().bind(lambda icon: icon).to_list():
+            for value in identity.reports.settled(pictured).bind(lambda icon: icon).to_list():
                 layout.template_icon(icon_value=value, scale=self.scale)
 
 

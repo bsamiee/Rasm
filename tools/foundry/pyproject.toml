@@ -2,7 +2,7 @@
 
 [project]
 name            = "foundry"
-version         = "1.0.0"
+version         = "0.0.0"
 description     = "Command line over the typography pipeline: source, build, check, approve, run and publish a declared font set"
 requires-python = ">=3.15"
 

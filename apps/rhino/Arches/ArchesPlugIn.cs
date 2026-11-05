@@ -25,7 +25,7 @@ public sealed class ArchesPlugIn : DefinedPlugIn<ArchesPlugIn>, IDefined<PlugInD
         typeof(ArchesPlugIn).Assembly switch {
             var assembly => new RuiFile(
                 [new ToolbarRow(
-                    new CommandFace(nameof(Arches), nameof(Arches)) { Icon = Icons.PlugInImage(assembly) },
+                    new CommandFace(nameof(Arches), nameof(Arches)) { Icon = IconResource.PlugIn(assembly) },
                     from family in toSeq(ArchFamily.Items)
                     select (from choice in toSeq(family.Choices)
                             let option = choice.Option

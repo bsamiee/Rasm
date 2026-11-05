@@ -18,7 +18,7 @@ utils:
                 - not: {has: {kind: collection_element, nthChild: 2}}
             - kind: invocation_expression
               all:
-                - has: {field: function, regex: '^((LanguageExt\.)?Prelude\.)?(Seq1?|toSeq)([\p{White_Space}\x{FEFF}]*<.+>)?$|^(LanguageExt\.)?Seq\.(singleton|create|createRange)([\p{White_Space}\x{FEFF}]*<.+>)?$'}
+                - has: {field: function, any: [{matches: {csharp-type-name: {name: {regex: '^(?:Seq1?|toSeq)$'}}}}, {matches: {csharp-owner-member: {type: {regex: '^Seq$'}, member: {regex: '^(?:singleton|create|createRange)$'}}}}]}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {any: [{matches: menu-name}, {matches: single-path}]}}}
                 - not: {has: {field: arguments, has: {kind: argument, nthChild: 2}}}
             - kind: array_creation_expression, implicit_array_creation_expression

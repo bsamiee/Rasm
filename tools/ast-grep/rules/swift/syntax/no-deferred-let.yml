@@ -24,10 +24,13 @@ rule:
     kind: property_declaration
     all:
         - has: {kind: value_binding_pattern, regex: '^let$'}
-        - has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $NAME}, not: {has: {nthChild: 2}}}
-        - has: {kind: type_annotation}
-        - not: {has: {field: value, pattern: $_}}
-        - not: {has: {field: computed_value, pattern: $_}}
+        - has:
+            kind: pattern
+            has: {field: bound_identifier, pattern: $NAME}
+            all:
+                - not: {has: {nthChild: 2}}
+                - precedes: {stopBy: {kind: pattern}, kind: type_annotation}
+                - not: {precedes: {stopBy: {kind: pattern}, any: [{follows: {regex: '^=$'}}, {kind: computed_property}]}}
         - inside: {kind: statements}
         - precedes:
             any:

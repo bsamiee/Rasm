@@ -346,14 +346,7 @@ class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
         return (
             camera_border,
             selection_border,
-            Append(
-                target=RENDER_PT_format,
-                rows=(
-                    Label(
-                        text=lambda context: self.bound(identity).map(lambda framed: framed.caption(context)).default_with(lambda faults: Some(". ".join(fault.message for fault in faults))).to_list()
-                    ),
-                ),
-            ),
+            Append(target=RENDER_PT_format, rows=(Label(text=lambda context: identity.reports.settled(self.bound(identity)).bind(lambda framed: framed.caption(context)).to_list()),)),
             Append(target=RENDER_PT_frame_range, rows=(Label(text=lambda context: duration(context).to_list()),)),
             Handler(
                 handlers=bpy.app.handlers.load_post,

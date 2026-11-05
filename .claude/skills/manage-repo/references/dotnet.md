@@ -56,3 +56,17 @@ Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/rosl
 - Global config `none` skips running an analyzer, an `.editorconfig` `none` still runs it
 - Rules a package disables by default and source generator diagnostics (Mapperly `RMG`) escape the floor and take their own rows
 - Rule options (`MA0053.public_class_should_be_sealed`) widen what a rule reports
+
+## [06]-[RHINO_HOSTS]
+
+Installed Rhino owns the host assembly set, its target framework, and how each UI reads an icon:
+- `ReadRhinoHost` reads JSON through `JsonReaderWriterFactory`, `RoslynCodeTaskFactory` compiles against `netstandard` with no `System.Text.Json`
+- Packages with an assembly in the host folder leave copy-local whole, an assembly version above the one `dotnetstart.*.deps.json` declares, or the host file's where it declares none, fails the build
+- `[<version>]` rows under `Label="Rhino Host"` hold packages the catalog sets above a host assembly version, and every package requiring them
+- SVG masters paint with `currentColor`, `var(--accent)`, and `var(--edge)`, `BuildThemedIcons` writes each mode's values into an embedded `<IconStem>.svg` and `<IconStem>_darkmode.svg`
+- `EtoAssets` selects a `_darkmode` resource by name and renders inline `fill-dark` and `stroke-dark` as their light colors
+- `ToolbarFile.GetSvg` returns `<light>` for both modes, a `<dark>` element changes no toolbar icon
+- `Rasm.Rui` merges each dark color into `<light>` as `fill-dark` or `stroke-dark`
+- Rhino opens `<plug-in>.rui` in place beside the registered `.rhp`, an installed package's from its version folder
+- `yak build` adds a `guid:` keyword for Grasshopper 2 plug-ins alone, `BuildYakPackage` sets it on every `yak spec` manifest
+- Installed packages stall a hidden launch at `Preparing Plug-ins for First Use`, a harness case loads the `.rhp` through `plugin`

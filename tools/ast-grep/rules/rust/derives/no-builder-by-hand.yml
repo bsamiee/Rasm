@@ -7,7 +7,7 @@ utils:
     setter:
         kind: function_item
         all:
-            - has: {field: parameters, all: [{has: {kind: self_parameter, regex: '^(mut\p{White_Space}+self|&\p{White_Space}*mut\p{White_Space}+self|self)$'}}, {has: {kind: parameter, has: {field: pattern, kind: identifier, pattern: $V}}}]}
+            - has: {field: parameters, all: [{has: {kind: self_parameter, regex: '^(mut\p{Pattern_White_Space}+self|&\p{Pattern_White_Space}*mut\p{Pattern_White_Space}+self|self)$'}}, {has: {kind: parameter, has: {field: pattern, kind: identifier, pattern: $V}}}]}
             - has:
                 field: body
                 any:
@@ -21,7 +21,7 @@ utils:
                             kind: struct_expression
                             all:
                                 - has: {field: name, regex: '^Self$'}
-                                - has: {field: body, all: [{has: {any: [{kind: field_initializer, has: {field: value, matches: stored-value}}, {kind: shorthand_field_initializer, pattern: $V}]}}, {has: {kind: base_field_initializer, regex: '^\.\.\p{White_Space}*self$'}}, {not: {has: {nthChild: 3}}}]}
+                                - has: {field: body, all: [{has: {any: [{kind: field_initializer, has: {field: value, matches: stored-value}}, {kind: shorthand_field_initializer, pattern: $V}]}}, {has: {kind: base_field_initializer, regex: '^\.\.\p{Pattern_White_Space}*self$'}}, {not: {has: {nthChild: 3}}}]}
                         - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
 rule:
     kind: impl_item

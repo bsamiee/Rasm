@@ -4,7 +4,7 @@ import { CASES } from '#/cases';
 import { HarnessError } from '#/harness-error';
 import { traced } from '#/query';
 import { RESULTS } from '#/results';
-import { Run, ran, type Sink } from '#/run';
+import { Run, ran } from '#/run';
 import { type Cased, type Harness, installations, type Surveyed } from '#/session';
 import { judged, proved, recompared } from '#/verdict';
 
@@ -21,8 +21,8 @@ const targets = (paths: readonly string[]) => Effect.map(Effect.forEach(paths, c
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const cases = Argument.Path('target', { mustExist: true }).pipe(Argument.atLeast(1), Argument.withDescription(`Product folder whose **/*${CASES} files run, or one case file, results written beside each as <name>.<version>${RESULTS}`));
-const cli = <A, E, R>(root: Config.Config<string>, automation: Layer.Layer<A, E, R>, sink: Sink) => {
-    const provided = (name: string) => Layer.mergeAll(automation, Run.layer(name, root, sink));
+const cli = <A, E, R>(root: Config.Config<string>, automation: Layer.Layer<A, E, R>) => {
+    const provided = (name: string) => Layer.mergeAll(automation, Run.layer(name, root));
     const compare = <S extends Surveyed, C extends Cased, X, P>(name: string, hosted: Effect.Effect<Harness<S, C, X, P>, HarnessError>) =>
         Command.make(
             'compare',

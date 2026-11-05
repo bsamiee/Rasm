@@ -1,6 +1,6 @@
 import { HostError, Requests } from '@rasm/automation';
 import { Peer } from '@rasm/uxp/peer';
-import { Cause, Console, Effect, Function, flow, Layer, Predicate, Schema, Struct } from 'effect';
+import { Effect, Function, flow, Layer, Logger, Predicate, Schema, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
 import { Completion, Envelope } from '#/contract';
 import { ExtensionManifest } from '#/extension-manifest';
@@ -41,4 +41,4 @@ Effect.gen(function* () {
     const { __adobe_cep__: cep } = yield* Schema.decodeUnknownEffect(Panel)(globalThis);
     const layer = Requests.toLayer(Struct.Record(Array.from(Requests.requests.values(), Struct.get('_tag')), served(cep)));
     return yield* Peer.dial(Requests, layer, Schema.decodeEffect(Schema.URLFromString)(cep.getSystemPath('hostApplication')))(cep.getExtensionId()).pipe(Layer.launch);
-}).pipe(Effect.tapCause(flow(Cause.pretty, Console.error)), Effect.runFork);
+}).pipe(Effect.tapCause(Effect.logError), Effect.provideService(Logger.LogToStderr, true), Effect.runFork);

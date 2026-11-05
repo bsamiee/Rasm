@@ -7,12 +7,7 @@ rule:
     has: {kind: identifier, pattern: $NAME}
 name: $NAME
 isImport: true
-isExported:
-    has:
-        kind: modifiers
-        any:
-            - has: {kind: visibility_modifier, regex: '^(public|package)$'}
-            - has: {kind: attribute, has: {kind: user_type, regex: '^_exported$'}}
+isExported: {has: {kind: modifiers, has: {any: [{kind: visibility_modifier, regex: '^(?:public|package)$'}, {kind: attribute, regex: '^@_exported$'}]}}}
 ---
 id: swift-class
 language: swiftlang
@@ -23,19 +18,25 @@ rule:
     pattern: $DECLARATION
     inside: {kind: source_file}
     all:
-        - has: {field: declaration_kind, regex: '^class$'}
+        - has: {field: declaration_kind, regex: class}
         - has: {field: name, pattern: $NAME}
 rewriters:
-    - id: type-body
-      rule: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', field: body}}
-      fix: ''
+    - id: body
+      rule: {kind: class_body, inside: {kind: class_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [type-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
 ---
 id: swift-struct
 language: swiftlang
@@ -44,24 +45,27 @@ symbolType: struct
 rule:
     pattern: $DECLARATION
     inside: {kind: source_file}
+    has: {field: name, pattern: $NAME}
     any:
-        - kind: class_declaration
-          all:
-              - has: {field: declaration_kind, regex: '^struct$'}
-              - has: {field: name, pattern: $NAME}
+        - {kind: class_declaration, has: {field: declaration_kind, regex: struct}}
         - kind: typealias_declaration
-          has: {field: name, pattern: $NAME}
 rewriters:
-    - id: type-body
-      rule: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', field: body}}
-      fix: ''
+    - id: body
+      rule: {kind: class_body, inside: {kind: class_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [type-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
 ---
 id: swift-enum
 language: swiftlang
@@ -72,47 +76,56 @@ rule:
     pattern: $DECLARATION
     inside: {kind: source_file}
     all:
-        - has: {field: declaration_kind, regex: '^enum$'}
+        - has: {field: body, kind: enum_class_body}
         - has: {field: name, pattern: $NAME}
 rewriters:
-    - id: type-body
-      rule: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', field: body}}
-      fix: ''
+    - id: body
+      rule: {kind: enum_class_body, inside: {kind: class_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [type-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
 ---
 id: swift-object
 language: swiftlang
 role: item
 symbolType: object
+utils:
+    exported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
 rule:
     kind: class_declaration
     pattern: $DECLARATION
     inside: {kind: source_file}
     all:
-        - has: {field: declaration_kind, regex: '^(actor|extension)$'}
+        - has: {field: declaration_kind, regex: '^(?:actor|extension)$'}
         - has: {field: name, pattern: $NAME}
 rewriters:
-    - id: type-body
-      rule: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', field: body}}
-      fix: ''
+    - id: body
+      rule: {kind: class_body, inside: {kind: class_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [type-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
-isExported:
-    any:
-        - &exported {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
-        - all:
-              - has: {field: declaration_kind, regex: '^extension$'}
-              - has: {field: body, has: *exported}
+isExported: {any: [{matches: exported}, {has: {field: body, has: {matches: exported}}}]}
 ---
 id: swift-protocol
 language: swiftlang
@@ -124,16 +137,22 @@ rule:
     inside: {kind: source_file}
     has: {field: name, pattern: $NAME}
 rewriters:
-    - id: type-body
-      rule: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', field: body}}
-      fix: ''
+    - id: body
+      rule: {kind: protocol_body, inside: {kind: protocol_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [type-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
 ---
 id: swift-function
 language: swiftlang
@@ -143,706 +162,820 @@ rule:
     kind: 'function_declaration, macro_declaration'
     pattern: $DECLARATION
     inside: {kind: source_file}
-    any:
-        - has: {field: name, pattern: $$NAME}
-        - has: {kind: simple_identifier, pattern: $NAME}
+    has: {kind: 'function_name, referenceable_operator', pattern: $NAME}
 rewriters:
-    - id: function-body
-      rule: {kind: 'function_body, macro_definition', inside: {kind: 'function_declaration, macro_declaration, init_declaration, deinit_declaration'}}
-      fix: ''
+    - id: body
+      rule: {kind: function_body, inside: {kind: function_declaration, field: body}}
+      fix: "\n"
+    - id: definition
+      rule: {kind: macro_definition, inside: {kind: macro_declaration, field: definition}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '([(\[<])[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*|,?[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*([)\]>])|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: '$1$2'}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, definition, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
 ---
-id: swift-global-variable
+id: swift-constant
 language: swiftlang
 role: item
-symbolType: property
+symbolType: constant
 rule:
-    kind: property_declaration
-    inside: {kind: source_file}
-    has: {kind: value_binding_pattern, pattern: $BINDING}
-    all:
-        - any:
-              - has: {kind: modifiers, pattern: $MODIFIERS}
-              - not: {has: {kind: modifiers}}
-        - any:
-              - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
-                not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
-                any:
-                    - has: {kind: type_annotation, pattern: $TYPE}
-                    - not: {has: {kind: type_annotation}}
-              - pattern: $GROUP
-        - any:
-              - has: {kind: computed_property, pattern: $ACCESSOR_BODY, has: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}
-              - has: {kind: computed_property, pattern: $IMPLICIT_BODY}
-              - not: {has: {kind: computed_property}}
+    kind: pattern
+    has: {kind: 'simple_identifier, wildcard_pattern', pattern: $NAME}
+    any: [{precedes: {kind: type_annotation, stopBy: {kind: pattern}, pattern: $ANNOTATION}}, {kind: pattern}]
+    inside:
+        kind: property_declaration
+        stopBy: {kind: 'property_declaration, statements'}
+        inside: {kind: source_file}
+        has: {kind: value_binding_pattern, regex: let, pattern: $BINDING}
+        any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]
 rewriters:
-    - id: binding
-      rule: {kind: pattern, pattern: $BOUND, inside: {kind: property_declaration}}
-      fix:
-          template: $BOUND
-          expandStart: {regex: '', not: {follows: {regex: ''}}, stopBy: {regex: '^,$'}}
-          expandEnd: {any: [{precedes: {regex: '^,$'}}, {regex: '', not: {precedes: {regex: ''}}}], stopBy: {regex: '^,$'}}
-    - id: accessor-statements
-      rule: {kind: statements, inside: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}
-      fix: ''
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    PREFIX: {replace: {source: $MODIFIERS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*|\z', by: ' '}}
-    NAMES: {rewrite: {source: $GROUP, rewriters: [binding]}}
-    GROUP_NAME: {replace: {source: $NAMES, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    STRIPPED: {rewrite: {source: $ACCESSOR_BODY, rewriters: [accessor-statements]}}
-    ACCESSORS: {replace: {source: $STRIPPED, replace: '\A(\{)|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\{[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\}[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' $1'}}
-    IMPLICIT: {replace: {source: $IMPLICIT_BODY, replace: '(?s)^.*$', by: ' { get }'}}
-name: $NAME$GROUP_NAME
-signature: $PREFIX$BINDING $NAME$GROUP_NAME$TYPE$ACCESSORS$IMPLICIT
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
+    MODIFIED: {rewrite: {source: $MODIFIERS, rewriters: [closure, comment]}}
+    PREFIX: {replace: {source: $MODIFIED, replace: '(.)$|[\t-\r ]*\n[\t-\r ]*', by: '$1 '}}
+    ANNOTATED: {rewrite: {source: $ANNOTATION, rewriters: [comment]}}
+    OPENED: {replace: {source: $ANNOTATED, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    TYPE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+name: $NAME
+signature: $PREFIX$BINDING $NAME$TYPE
+isExported: {inside: {kind: property_declaration, stopBy: {kind: 'property_declaration, statements'}, has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}}
+---
+id: swift-variable
+language: swiftlang
+role: item
+symbolType: variable
+rule:
+    kind: pattern
+    has: {kind: 'simple_identifier, wildcard_pattern', pattern: $NAME}
+    all:
+        - any: [{precedes: {kind: type_annotation, stopBy: {kind: pattern}, pattern: $ANNOTATION}}, {kind: pattern}]
+        - any: [{precedes: {kind: computed_property, stopBy: {kind: pattern}, pattern: $COMPUTED}}, {kind: pattern}]
+    inside:
+        kind: property_declaration
+        stopBy: {kind: 'property_declaration, statements'}
+        inside: {kind: source_file}
+        has: {kind: value_binding_pattern, regex: var, pattern: $BINDING}
+        any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]
+rewriters:
+    - id: accessor
+      rule: {kind: 'computed_getter, computed_setter, computed_modify', has: {kind: 'getter_specifier, setter_specifier, modify_specifier', pattern: $SPEC}}
+      fix: $SPEC
+    - id: initializer
+      rule: {kind: computed_init}
+      fix: init
+    - id: implicit
+      rule: {kind: computed_property, has: {kind: statements}}
+      fix: '{ get }'
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
+transform:
+    MODIFIED: {rewrite: {source: $MODIFIERS, rewriters: [closure, comment]}}
+    PREFIX: {replace: {source: $MODIFIED, replace: '(.)$|[\t-\r ]*\n[\t-\r ]*', by: '$1 '}}
+    ANNOTATED: {rewrite: {source: $ANNOTATION, rewriters: [comment]}}
+    OPENED: {replace: {source: $ANNOTATED, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    TYPE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+    ACCESSORS: {rewrite: {source: $COMPUTED, rewriters: [accessor, initializer, implicit, comment]}}
+    REQUIREMENTS: {replace: {source: $ACCESSORS, replace: '^(.)|[\t-\r ]*\n[\t-\r ]*', by: ' $1'}}
+name: $NAME
+signature: $PREFIX$BINDING $NAME$TYPE$REQUIREMENTS
+isExported: {inside: {kind: property_declaration, stopBy: {kind: 'property_declaration, statements'}, has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}}
 ---
 id: swift-operator
 language: swiftlang
 role: item
 symbolType: operator
 rule:
+    kind: 'operator_declaration, precedence_group_declaration'
+    pattern: $DECLARATION
     inside: {kind: source_file}
-    any:
-        - kind: operator_declaration
-          has: {pattern: $$NAME, follows: {regex: '^operator$'}}
-        - kind: precedence_group_declaration
-          has: {kind: simple_identifier, pattern: $NAME}
+    has: {kind: 'referenceable_operator, simple_identifier', pattern: $NAME}
+rewriters:
+    - id: attributes
+      rule: {kind: precedence_group_attributes, inside: {kind: precedence_group_declaration}}
+      fix: {template: "\n", expandStart: {regex: '^\{$'}, expandEnd: {regex: '^\}$'}}
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [attributes, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $NAME
+signature: $SIGNATURE
 ---
 id: swift-macro-expansion
 language: swiftlang
 role: item
 symbolType: event
 rule:
+    kind: 'macro_invocation, diagnostic'
     pattern: $DECLARATION
     inside: {kind: source_file}
-    any:
-        - kind: macro_invocation
-          has: {kind: simple_identifier, pattern: $NAME}
-        - kind: call_expression
-          has: {kind: macro_invocation, has: {kind: simple_identifier, pattern: $NAME}}
-        - kind: diagnostic
-          pattern: $DIAGNOSTIC
+    any: [{has: {kind: simple_identifier, pattern: $NAME}}, {pattern: $NAME}]
 rewriters:
     - id: closure
-      rule: {kind: lambda_literal, inside: {kind: call_suffix, inside: {kind: 'macro_invocation, call_expression'}}}
+      rule: {kind: lambda_literal}
       fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    DIAGNOSTIC_NAME: {replace: {source: $DIAGNOSTIC, replace: '^#([A-Za-z]+)(?s:.*)$', by: '$1'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [closure]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-name: $NAME$DIAGNOSTIC_NAME
+    NAMED: {replace: {source: $NAME, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+name: $NAMED
 signature: $SIGNATURE
 isExported: false
 ---
 id: swift-member-struct
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: struct
 utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
-    private: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}
-    local:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
         any:
-            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
-            - not:
-                  any:
-                      - matches: private
-                      - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^extension$'}}, {matches: private}]}}
-    visible:
-        all:
-            - matches: local
-            - not: {inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, not: {matches: local}, stopBy: end}}
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
+    public:
+        matches: exposed
+        not:
+            inside:
+                stopBy: end
+                any:
+                    - kind: statements
+                    - kind: 'class_declaration, protocol_declaration'
+                      not:
+                        any:
+                            - matches: exposed
+                            - has: {field: declaration_kind, regex: extension}
+                              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
+    owned:
+        any:
+            - inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+            - inside: {kind: statements}
 rule:
     any:
-        - kind: type_identifier
+        - kind: type_name
           pattern: $NAME
-          inside:
-              kind: class_declaration
-              field: name
-              pattern: $DECLARATION
-              matches: owned
-              has: {field: declaration_kind, regex: '^struct$'}
+          inside: {kind: class_declaration, field: name, pattern: $DECLARATION, matches: owned, has: {field: declaration_kind, regex: struct}}
         - kind: typealias_declaration
           pattern: $DECLARATION
           matches: owned
           has: {field: name, pattern: $NAME}
 rewriters:
-    - id: qualified-name
-      rule: {kind: type_identifier, inside: {kind: 'class_declaration, protocol_declaration, typealias_declaration, associatedtype_declaration', field: name, inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}}}}}
-      fix: $OWNER.$NAME
-    - id: type-body
-      rule: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', field: body}}
-      fix: ''
+    - id: body
+      rule: {kind: class_body, inside: {kind: class_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [qualified-name, type-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: ''}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic:
-    any:
-        - kind: typealias_declaration
-          matches: visible
-        - inside: {kind: class_declaration, field: name, matches: visible}
+isPublic: {any: [{matches: public}, {inside: {kind: class_declaration, field: name, matches: public}}]}
 ---
 id: swift-member-enum
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: enum
 utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
-    private: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}
-    local:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
         any:
-            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
-            - not:
-                  any:
-                      - matches: private
-                      - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^extension$'}}, {matches: private}]}}
-    visible:
-        all:
-            - matches: local
-            - not: {inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, not: {matches: local}, stopBy: end}}
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
 rule:
-    kind: type_identifier
+    kind: type_name
     pattern: $NAME
     inside:
         kind: class_declaration
         field: name
         pattern: $DECLARATION
-        matches: owned
-        has: {field: declaration_kind, regex: '^enum$'}
+        has: {field: body, kind: enum_class_body}
+        any:
+            - inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+            - inside: {kind: statements}
 rewriters:
-    - id: qualified-name
-      rule: {kind: type_identifier, inside: {kind: 'class_declaration, protocol_declaration, typealias_declaration, associatedtype_declaration', field: name, inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}}}}}
-      fix: $OWNER.$NAME
-    - id: type-body
-      rule: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', field: body}}
-      fix: ''
+    - id: body
+      rule: {kind: enum_class_body, inside: {kind: class_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [qualified-name, type-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: ''}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {inside: {kind: class_declaration, field: name, matches: visible}}
+isPublic: {inside: {kind: class_declaration, field: name, matches: exposed, not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}}
 ---
 id: swift-member-class
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: class
 utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
-    private: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}
-    local:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
         any:
-            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
-            - not:
-                  any:
-                      - matches: private
-                      - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^extension$'}}, {matches: private}]}}
-    visible:
-        all:
-            - matches: local
-            - not: {inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, not: {matches: local}, stopBy: end}}
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
 rule:
-    kind: type_identifier
+    kind: type_name
     pattern: $NAME
     inside:
         kind: class_declaration
         field: name
         pattern: $DECLARATION
-        matches: owned
-        has: {field: declaration_kind, regex: '^class$'}
+        has: {field: declaration_kind, regex: class}
+        any:
+            - inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+            - inside: {kind: statements}
 rewriters:
-    - id: qualified-name
-      rule: {kind: type_identifier, inside: {kind: 'class_declaration, protocol_declaration, typealias_declaration, associatedtype_declaration', field: name, inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}}}}}
-      fix: $OWNER.$NAME
-    - id: type-body
-      rule: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', field: body}}
-      fix: ''
+    - id: body
+      rule: {kind: class_body, inside: {kind: class_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [qualified-name, type-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: ''}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {inside: {kind: class_declaration, field: name, matches: visible}}
+isPublic: {inside: {kind: class_declaration, field: name, matches: exposed, not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}}
 ---
 id: swift-member-object
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: object
 utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
-    private: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}
-    local:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
         any:
-            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
-            - not:
-                  any:
-                      - matches: private
-                      - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^extension$'}}, {matches: private}]}}
-    visible:
-        all:
-            - matches: local
-            - not: {inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, not: {matches: local}, stopBy: end}}
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
 rule:
-    kind: type_identifier
+    kind: 'type_name, user_type'
     pattern: $NAME
     inside:
         kind: class_declaration
         field: name
         pattern: $DECLARATION
-        matches: owned
-        has: {field: declaration_kind, regex: '^actor$'}
+        has: {field: declaration_kind, regex: '^(?:actor|extension)$'}
+        any:
+            - inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+            - inside: {kind: statements}
 rewriters:
-    - id: qualified-name
-      rule: {kind: type_identifier, inside: {kind: 'class_declaration, protocol_declaration, typealias_declaration, associatedtype_declaration', field: name, inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}}}}}
-      fix: $OWNER.$NAME
-    - id: type-body
-      rule: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', field: body}}
-      fix: ''
+    - id: body
+      rule: {kind: class_body, inside: {kind: class_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [qualified-name, type-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: ''}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {inside: {kind: class_declaration, field: name, matches: visible}}
+isPublic: {inside: {kind: class_declaration, field: name, matches: exposed, not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}}
 ---
 id: swift-member-protocol
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: interface
 utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
-    private: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}
-    local:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
         any:
-            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
-            - not:
-                  any:
-                      - matches: private
-                      - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^extension$'}}, {matches: private}]}}
-    visible:
-        all:
-            - matches: local
-            - not: {inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, not: {matches: local}, stopBy: end}}
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
 rule:
-    kind: type_identifier
+    kind: type_name
     pattern: $NAME
     inside:
         kind: protocol_declaration
         field: name
         pattern: $DECLARATION
-        matches: owned
+        any:
+            - inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+            - inside: {kind: statements}
 rewriters:
-    - id: qualified-name
-      rule: {kind: type_identifier, inside: {kind: 'class_declaration, protocol_declaration, typealias_declaration, associatedtype_declaration', field: name, inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}}}}}
-      fix: $OWNER.$NAME
-    - id: type-body
-      rule: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', field: body}}
-      fix: ''
+    - id: body
+      rule: {kind: protocol_body, inside: {kind: protocol_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [qualified-name, type-body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: ''}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {inside: {kind: protocol_declaration, field: name, matches: visible}}
+isPublic: {inside: {kind: protocol_declaration, field: name, matches: exposed, not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}}
+---
+id: swift-member-constant
+language: swiftlang
+role: member
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
+symbolType: constant
+utils:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
+        any:
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
+rule:
+    kind: pattern
+    has: {kind: 'simple_identifier, wildcard_pattern', pattern: $NAME}
+    any: [{precedes: {kind: type_annotation, stopBy: {kind: pattern}, pattern: $ANNOTATION}}, {kind: pattern}]
+    inside:
+        kind: property_declaration
+        stopBy: {kind: 'property_declaration, statements'}
+        inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+        all:
+            - has: {kind: value_binding_pattern, regex: let, pattern: $BINDING}
+            - has: {kind: modifiers, pattern: $MODIFIERS, has: {kind: property_modifier, regex: static}}
+rewriters:
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    MODIFIED: {rewrite: {source: $MODIFIERS, rewriters: [closure, comment]}}
+    PREFIX: {replace: {source: $MODIFIED, replace: '(.)$|[\t-\r ]*\n[\t-\r ]*', by: '$1 '}}
+    ANNOTATED: {rewrite: {source: $ANNOTATION, rewriters: [comment]}}
+    OPENED: {replace: {source: $ANNOTATED, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    TYPE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+name: $QUALIFIER$NAME
+signature: $PREFIX$BINDING $NAME$TYPE
+isPublic: {inside: {kind: property_declaration, stopBy: {kind: 'property_declaration, statements'}, matches: exposed, not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}}
 ---
 id: swift-member-property
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: property
 utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
-    private: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}
-    local:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
         any:
-            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
-            - not:
-                  any:
-                      - matches: private
-                      - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^extension$'}}, {matches: private}]}}
-    visible:
-        all:
-            - matches: local
-            - not: {inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, not: {matches: local}, stopBy: end}}
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
 rule:
-    kind: 'property_declaration, protocol_property_declaration'
-    matches: owned
+    kind: pattern
+    has: {kind: 'simple_identifier, wildcard_pattern', pattern: $NAME}
+    precedes: {kind: 'computed_property, protocol_property_requirements', stopBy: {kind: pattern}, pattern: $COMPUTED}
     all:
-        - any:
-              - has: {kind: value_binding_pattern, pattern: $BINDING}
-              - has: {field: name, has: {kind: value_binding_pattern, pattern: $BINDING}}
-        - any:
-              - has: {kind: modifiers, pattern: $MODIFIERS}
-              - not: {has: {kind: modifiers}}
-        - any:
-              - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
-                not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
-                any:
-                    - has: {kind: type_annotation, pattern: $TYPE}
-                    - not: {has: {kind: type_annotation}}
-              - pattern: $GROUP
-        - any:
-              - has: {kind: computed_property, pattern: $ACCESSOR_BODY, has: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}
-              - has: {kind: computed_property, pattern: $IMPLICIT_BODY}
-              - has: {kind: protocol_property_requirements, pattern: $ACCESSOR_BODY}
-              - not: {has: {kind: 'computed_property, protocol_property_requirements'}}
+        - any: [{precedes: {kind: type_annotation, stopBy: {kind: pattern}, pattern: $ANNOTATION}}, {kind: pattern}]
+        - any: [{has: {kind: value_binding_pattern, pattern: $BINDING}}, {kind: pattern}]
+    inside:
+        kind: 'property_declaration, protocol_property_declaration'
+        inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+        all:
+            - any: [{has: {kind: value_binding_pattern, pattern: $KEYWORD}}, {kind: protocol_property_declaration}]
+            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'property_declaration, protocol_property_declaration'}]
 rewriters:
-    - id: binding
-      rule: {kind: pattern, pattern: $BOUND, inside: {kind: property_declaration}}
-      fix:
-          template: $BOUND
-          expandStart: {regex: '', not: {follows: {regex: ''}}, stopBy: {regex: '^,$'}}
-          expandEnd: {any: [{precedes: {regex: '^,$'}}, {regex: '', not: {precedes: {regex: ''}}}], stopBy: {regex: '^,$'}}
-    - id: accessor-statements
-      rule: {kind: statements, inside: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}
-      fix: ''
+    - id: accessor
+      rule: {kind: 'computed_getter, computed_setter, computed_modify', has: {kind: 'getter_specifier, setter_specifier, modify_specifier', pattern: $SPEC}}
+      fix: $SPEC
+    - id: initializer
+      rule: {kind: computed_init}
+      fix: init
+    - id: implicit
+      rule: {kind: computed_property, has: {kind: statements}}
+      fix: '{ get }'
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    PREFIX: {replace: {source: $MODIFIERS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*|\z', by: ' '}}
-    NAMES: {rewrite: {source: $GROUP, rewriters: [binding]}}
-    GROUP_NAME: {replace: {source: $NAMES, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    STRIPPED: {rewrite: {source: $ACCESSOR_BODY, rewriters: [accessor-statements]}}
-    ACCESSORS: {replace: {source: $STRIPPED, replace: '\A(\{)|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\{[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\}[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' $1'}}
-    IMPLICIT: {replace: {source: $IMPLICIT_BODY, replace: '(?s)^.*$', by: ' { get }'}}
-name: $QUALIFIER$NAME$GROUP_NAME
-signature: $PREFIX$BINDING $QUALIFIER$NAME$GROUP_NAME$TYPE$ACCESSORS$IMPLICIT
-isPublic: {matches: visible}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    MODIFIED: {rewrite: {source: $MODIFIERS, rewriters: [closure, comment]}}
+    PREFIX: {replace: {source: $MODIFIED, replace: '(.)$|[\t-\r ]*\n[\t-\r ]*', by: '$1 '}}
+    ANNOTATED: {rewrite: {source: $ANNOTATION, rewriters: [comment]}}
+    OPENED: {replace: {source: $ANNOTATED, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    TYPE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+    ACCESSORS: {rewrite: {source: $COMPUTED, rewriters: [accessor, initializer, implicit, comment]}}
+    REQUIREMENTS: {replace: {source: $ACCESSORS, replace: '^(.)|[\t-\r ]*\n[\t-\r ]*', by: ' $1'}}
+name: $QUALIFIER$NAME
+signature: $PREFIX$BINDING$KEYWORD $NAME$TYPE$REQUIREMENTS
+isPublic: {inside: {kind: 'property_declaration, protocol_property_declaration', matches: exposed, not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}}
+---
+id: swift-member-field
+language: swiftlang
+role: member
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
+symbolType: field
+utils:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
+        any:
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
+rule:
+    kind: pattern
+    has: {kind: 'simple_identifier, wildcard_pattern', pattern: $NAME}
+    any: [{precedes: {kind: type_annotation, stopBy: {kind: pattern}, pattern: $ANNOTATION}}, {kind: pattern}]
+    inside:
+        kind: property_declaration
+        stopBy: {kind: 'property_declaration, statements'}
+        inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+        has: {kind: value_binding_pattern, pattern: $BINDING}
+        any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]
+rewriters:
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    MODIFIED: {rewrite: {source: $MODIFIERS, rewriters: [closure, comment]}}
+    PREFIX: {replace: {source: $MODIFIED, replace: '(.)$|[\t-\r ]*\n[\t-\r ]*', by: '$1 '}}
+    ANNOTATED: {rewrite: {source: $ANNOTATION, rewriters: [comment]}}
+    OPENED: {replace: {source: $ANNOTATED, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    TYPE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+name: $QUALIFIER$NAME
+signature: $PREFIX$BINDING $NAME$TYPE
+isPublic: {inside: {kind: property_declaration, stopBy: {kind: 'property_declaration, statements'}, matches: exposed, not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}}
 ---
 id: swift-member-method
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: method
 utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
-    private: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}
-    local:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
         any:
-            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
-            - not:
-                  any:
-                      - matches: private
-                      - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^extension$'}}, {matches: private}]}}
-    visible:
-        all:
-            - matches: local
-            - not: {inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, not: {matches: local}, stopBy: end}}
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
 rule:
-    pattern: $DECLARATION
-    matches: owned
-    any:
-        - kind: 'function_declaration, protocol_function_declaration'
-          has: {field: name, pattern: $$NAME}
-        - kind: subscript_declaration
-          has: {regex: '^subscript$', pattern: $$NAME}
-          all:
-              - any:
-                    - has: {kind: computed_property, pattern: $ACCESSOR_BODY, has: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}
-                    - has: {kind: computed_property, pattern: $IMPLICIT_BODY}
-              - any:
-                    - has: {kind: modifiers, pattern: $SUBSCRIPT_MODIFIERS}
-                    - not: {has: {kind: modifiers}}
-              - any:
-                    - inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $SUBSCRIPT_OWNER}}}
-                    - not: {inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}}}}
+    kind: 'function_name, subscript_keyword'
+    pattern: $NAME
+    inside:
+        kind: 'function_declaration, protocol_function_declaration, subscript_declaration'
+        pattern: $DECLARATION
+        inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
 rewriters:
-    - id: qualified-function
-      rule: {kind: simple_identifier, inside: {kind: 'function_declaration, protocol_function_declaration', field: name, inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}}}}}
-      fix: $OWNER.$NAME
-    - id: function-body
-      rule: {kind: 'function_body, macro_definition', inside: {kind: 'function_declaration, macro_declaration, init_declaration, deinit_declaration'}}
-      fix: ''
-    - id: keyword-modifiers
-      rule: {kind: modifiers, inside: {kind: 'subscript_declaration, init_declaration, deinit_declaration'}}
-      fix: ''
-    - id: accessor-block
-      rule: {kind: computed_property, inside: {kind: 'property_declaration, subscript_declaration'}}
-      fix: ''
-    - id: accessor-statements
-      rule: {kind: statements, inside: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}
-      fix: ''
+    - id: body
+      rule: {kind: function_body, inside: {kind: function_declaration, field: body}}
+      fix: "\n"
+    - id: accessor
+      rule: {kind: 'computed_getter, computed_setter, computed_modify', has: {kind: 'getter_specifier, setter_specifier, modify_specifier', pattern: $SPEC}}
+      fix: $SPEC
+    - id: implicit
+      rule: {kind: computed_property, has: {kind: statements}}
+      fix: '{ get }'
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    SUBSCRIPT_QUALIFIER: {replace: {source: $SUBSCRIPT_OWNER, replace: '^(.+)$', by: '$1.'}}
-    SUBSCRIPT_PREFIX: {replace: {source: $SUBSCRIPT_MODIFIERS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*|\z', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [qualified-function, function-body, keyword-modifiers, accessor-block]}}
-    FOLDED: {replace: {source: $HEADER, replace: '^[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+|([(\[<])[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*|,?[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*([)\]>])|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: '$1$2'}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    STRIPPED: {rewrite: {source: $ACCESSOR_BODY, rewriters: [accessor-statements]}}
-    ACCESSORS: {replace: {source: $STRIPPED, replace: '\A(\{)|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\{[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\}[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' $1'}}
-    IMPLICIT: {replace: {source: $IMPLICIT_BODY, replace: '(?s)^.*$', by: ' { get }'}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, accessor, implicit, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $QUALIFIER$NAME
-signature: $SUBSCRIPT_PREFIX$SUBSCRIPT_QUALIFIER$SIGNATURE$ACCESSORS$IMPLICIT
-isPublic: {matches: visible}
+signature: $SIGNATURE
+isPublic: {inside: {kind: 'function_declaration, protocol_function_declaration, subscript_declaration', matches: exposed, not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}}
+---
+id: swift-member-operator
+language: swiftlang
+role: member
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
+symbolType: operator
+utils:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
+        any:
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
+    owned: {inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}}
+rule:
+    any:
+        - kind: referenceable_operator
+          pattern: $NAME
+          inside: {kind: 'function_declaration, protocol_function_declaration', pattern: $DECLARATION, matches: owned}
+        - kind: 'operator_declaration, precedence_group_declaration'
+          pattern: $DECLARATION
+          matches: owned
+          has: {kind: 'referenceable_operator, simple_identifier', pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: function_body, inside: {kind: function_declaration, field: body}}
+      fix: "\n"
+    - id: attributes
+      rule: {kind: precedence_group_attributes, inside: {kind: precedence_group_declaration}}
+      fix: {template: "\n", expandStart: {regex: '^\{$'}, expandEnd: {regex: '^\}$'}}
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, attributes, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {inside: {kind: 'function_declaration, protocol_function_declaration', matches: exposed, not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}}
 ---
 id: swift-member-constructor
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: constructor
 utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
-    private: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}
-    local:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
         any:
-            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
-            - not:
-                  any:
-                      - matches: private
-                      - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^extension$'}}, {matches: private}]}}
-    visible:
-        all:
-            - matches: local
-            - not: {inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, not: {matches: local}, stopBy: end}}
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
 rule:
-    pattern: $DECLARATION
-    matches: owned
-    any:
-        - kind: init_declaration
-          has: {field: name, pattern: $$NAME}
-        - kind: deinit_declaration
-          has: {regex: '^deinit$', pattern: $$NAME}
-    all:
-        - any:
-              - has: {kind: modifiers, pattern: $MODIFIERS}
-              - not: {has: {kind: modifiers}}
+    kind: 'init_keyword, deinit_keyword'
+    pattern: $NAME
+    inside:
+        kind: 'init_declaration, deinit_declaration'
+        pattern: $DECLARATION
+        inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
 rewriters:
-    - id: function-body
-      rule: {kind: 'function_body, macro_definition', inside: {kind: 'function_declaration, macro_declaration, init_declaration, deinit_declaration'}}
-      fix: ''
-    - id: keyword-modifiers
-      rule: {kind: modifiers, inside: {kind: 'subscript_declaration, init_declaration, deinit_declaration'}}
-      fix: ''
+    - id: body
+      rule: {kind: function_body, inside: {kind: 'init_declaration, deinit_declaration', field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    PREFIX: {replace: {source: $MODIFIERS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*|\z', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body, keyword-modifiers]}}
-    FOLDED: {replace: {source: $HEADER, replace: '^[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+|([(\[<])[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*|,?[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*([)\]>])|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+$', by: '$1$2'}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $QUALIFIER$NAME
-signature: $PREFIX$QUALIFIER$SIGNATURE
-isPublic: {matches: visible}
+signature: $SIGNATURE
+isPublic: {inside: {kind: 'init_declaration, deinit_declaration', matches: exposed, not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}}
 ---
 id: swift-member-macro
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: event
-utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
 rule:
+    kind: 'macro_invocation, diagnostic'
     pattern: $DECLARATION
-    matches: owned
-    any:
-        - kind: macro_invocation
-          has: {kind: simple_identifier, pattern: $NAME}
-        - kind: diagnostic
-          pattern: $DIAGNOSTIC
+    inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+    any: [{has: {kind: simple_identifier, pattern: $NAME}}, {pattern: $NAME}]
 rewriters:
     - id: closure
-      rule: {kind: lambda_literal, inside: {kind: call_suffix, inside: {kind: 'macro_invocation, call_expression'}}}
+      rule: {kind: lambda_literal}
       fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    DIAGNOSTIC_NAME: {replace: {source: $DIAGNOSTIC, replace: '^#([A-Za-z]+)(?s:.*)$', by: '$1'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [closure]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-name: $QUALIFIER$NAME$DIAGNOSTIC_NAME
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    NAMED: {replace: {source: $NAME, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+name: $QUALIFIER$NAMED
+signature: $SIGNATURE
+isPublic: false
+---
+id: swift-member-import
+language: swiftlang
+role: member
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
+symbolType: module
+rule:
+    kind: import_declaration
+    pattern: $DECLARATION
+    inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+    has: {kind: identifier, pattern: $NAME}
+rewriters:
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: false
 ---
 id: swift-member-associated-type
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: typeParameter
 utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
-    private: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}
-    local:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
         any:
-            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
-            - not:
-                  any:
-                      - matches: private
-                      - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^extension$'}}, {matches: private}]}}
-    visible:
-        all:
-            - matches: local
-            - not: {inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, not: {matches: local}, stopBy: end}}
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
 rule:
     kind: associatedtype_declaration
     pattern: $DECLARATION
-    matches: owned
+    inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
     has: {field: name, pattern: $NAME}
 rewriters:
-    - id: qualified-name
-      rule: {kind: type_identifier, inside: {kind: 'class_declaration, protocol_declaration, typealias_declaration, associatedtype_declaration', field: name, inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}}}}}
-      fix: $OWNER.$NAME
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [qualified-name]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {matches: visible}
+isPublic:
+    matches: exposed
+    not:
+        inside:
+            stopBy: end
+            any:
+                - kind: statements
+                - kind: 'class_declaration, protocol_declaration'
+                  not:
+                    any:
+                        - matches: exposed
+                        - has: {field: declaration_kind, regex: extension}
+                          not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
 ---
 id: swift-member-enum-case
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: enumMember
 utils:
-    owned:
-        inside:
-            kind: 'class_body, enum_class_body, protocol_body'
-            inside:
-                kind: 'class_declaration, protocol_declaration'
-                any:
-                    - inside: {kind: source_file}
-                    - inside: {kind: 'class_body, enum_class_body'}
-                      has: {field: name, pattern: $OWNER}
-    private: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}
-    local:
+    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(?:public|open|package)$'}}}
+    exposed:
         any:
-            - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
-            - not:
-                  any:
-                      - matches: private
-                      - inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^extension$'}}, {matches: private}]}}
-    visible:
-        all:
-            - matches: local
-            - not: {inside: {kind: 'class_declaration, protocol_declaration', inside: {kind: 'class_body, enum_class_body'}, not: {matches: local}, stopBy: end}}
+            - matches: visible
+            - inside: {kind: protocol_body}
+            - inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}
+              not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
 rule:
-    kind: enum_entry
-    pattern: $DECLARATION
-    matches: owned
+    kind: case_name
+    pattern: $NAME
+    inside:
+        kind: enum_entry
+        inside: {kind: enum_class_body, inside: {kind: class_declaration, any: [{inside: {kind: source_file}}, {has: {field: name, pattern: $OWNER}}]}}
+        all:
+            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: enum_entry}]
+            - any: [{has: {regex: '^indirect$', pattern: $$INDIRECT}}, {kind: enum_entry}]
+    not: {follows: {regex: '^=$'}}
     any:
-        - has: {field: name, pattern: $NAME}
-          not: {has: {kind: simple_identifier, follows: {regex: '^,$', stopBy: end}}}
-        - pattern: $GROUP
+        - precedes: {kind: enum_type_parameters, pattern: $TAIL}
+        - precedes: {regex: '^=$', pattern: $$EQUAL, precedes: {pattern: $TAIL}}
+        - pattern: $NAME
 rewriters:
-    - id: case
-      rule: {kind: simple_identifier, pattern: $CASE, inside: {kind: enum_entry}}
-      fix:
-          template: $CASE
-          expandStart: {regex: '', not: {follows: {regex: ''}}, stopBy: {regex: '^,$'}}
-          expandEnd: {any: [{precedes: {regex: '^,$'}}, {regex: '', not: {precedes: {regex: ''}}}], stopBy: {regex: '^,$'}}
-    - id: qualified-case
-      rule: {kind: simple_identifier, pattern: $CASE, inside: {kind: enum_entry, inside: {kind: enum_class_body, inside: {kind: class_declaration, inside: {kind: 'class_body, enum_class_body'}}}}}
-      fix: $OWNER.$CASE
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    NAMES: {rewrite: {source: $GROUP, rewriters: [case]}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [qualified-case]}}
-    GROUP_NAME: {replace: {source: $NAMES, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-    TERMINATED: {replace: {source: $HEADER, replace: ';$', by: ''}}
-    SIGNATURE: {replace: {source: $TERMINATED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]*', by: ' '}}
-name: $QUALIFIER$NAME$GROUP_NAME
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    MODIFIED: {rewrite: {source: $MODIFIERS, rewriters: [closure, comment]}}
+    PREFIX: {replace: {source: $MODIFIED, replace: '(.)$|[\t-\r ]*\n[\t-\r ]*', by: '$1 '}}
+    MARKED: {replace: {source: $INDIRECT, replace: '$', by: ' '}}
+    ASSIGNS: {replace: {source: $EQUAL, replace: '=', by: ' = '}}
+    TAILED: {rewrite: {source: $TAIL, rewriters: [comment]}}
+    OPENED: {replace: {source: $TAILED, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    FOLDED: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+name: $QUALIFIER$NAME
+signature: $PREFIX$MARKEDcase $NAME$ASSIGNS$FOLDED
+isPublic:
+    not:
+        inside:
+            stopBy: end
+            any:
+                - kind: statements
+                - kind: 'class_declaration, protocol_declaration'
+                  not:
+                    any:
+                        - matches: exposed
+                        - has: {field: declaration_kind, regex: extension}
+                          not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}
+---
+id: swift-function-function
+language: swiftlang
+role: member
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
+symbolType: function
+rule:
+    kind: 'function_name, referenceable_operator'
+    pattern: $NAME
+    inside: {kind: function_declaration, pattern: $DECLARATION, inside: {kind: statements}}
+rewriters:
+    - id: body
+      rule: {kind: function_body, inside: {kind: function_declaration, field: body}}
+      fix: "\n"
+    - id: closure
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
+    - id: comment
+      rule: {kind: 'comment, multiline_comment'}
+      fix: "\n"
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
+    OPENED: {replace: {source: $HEADER, replace: '([(<\[])[\t-\r ]*\n[\t-\r ]*|,?[\t-\r ]*\n[\t-\r ]*([)>\],]|$)', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $OPENED, replace: '[\t-\r ]*\n[\t-\r ]*', by: ' '}}
+name: $NAME
 signature: $SIGNATURE
-isPublic: {matches: visible}
+isPublic: false

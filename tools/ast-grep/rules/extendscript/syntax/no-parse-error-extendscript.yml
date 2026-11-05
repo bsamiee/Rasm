@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: extendscript
+severity: error
+utils:
+    unreported: {inside: {kind: ERROR, stopBy: end}}
+rule:
+    any:
+        - kind: ERROR
+          not: {matches: unreported}
+        - kind: program
+          has: {stopBy: end, all: [{regex: '^$'}, {pattern: $$MISSING}, {not: {matches: unreported}}]}
+labels:
+    MISSING: {style: primary, message: Token the grammar inserted to recover}
+message: Grammar failed to parse the span
+note: 'Fix invalid syntax, write an E4X `.@` read as `.attribute()`, `..` as `.descendants()`, and `default xml namespace` as `setDefaultXMLNamespace()`, or fix the grammar in tools/ast-grep/grammars/typescript'

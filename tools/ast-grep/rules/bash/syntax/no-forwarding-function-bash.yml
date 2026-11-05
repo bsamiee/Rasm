@@ -24,7 +24,7 @@ rule:
             has:
                 kind: command
                 all:
-                    - has: {field: name, regex: '^[A-Za-z0-9_./-]+$'}
+                    - has: {field: name, regex: '^[^[\t-\r ]"$&''();<>\[\\\]`{|}]+$'}
                     - not: {matches: bash-program-lookup}
                     - has: {matches: positional-parameter}
                     - not: {has: {not: {matches: literal}}}

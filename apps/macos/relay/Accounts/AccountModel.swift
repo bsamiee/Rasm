@@ -17,10 +17,8 @@ final class AccountModel {
     var authentication: AuthenticationState
     var usage: UsageState
     var retryAfter: Date?
-    var issue: ProviderError?
     var isSelected: Bool = false
     private(set) var running: RunningOperation?
-    private(set) var blockingOperation: AccountOperation?
 
     init(account: Account, authentication: AuthenticationState, usage: UsageState, retryAfter: Date?) {
         self.account = account
@@ -39,10 +37,7 @@ final class AccountModel {
     }
 
     func run(_ operation: AccountOperation, _ work: @escaping @MainActor () async -> Void) {
-        guard acceptsOperation else {
-            blockingOperation = running?.kind
-            return
-        }
+        guard acceptsOperation else { return }
         let previous: Task<Void, Never>? = running?.task
         let token: UUID = UUID()
         running = RunningOperation(
@@ -57,7 +52,6 @@ final class AccountModel {
                 await work()
                 guard running?.token == token else { return }
                 running = nil
-                blockingOperation = nil
             },
         )
     }

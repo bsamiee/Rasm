@@ -19,7 +19,6 @@ from blender.bpy.data.rna.descriptors import written
 from blender.bpy.data.rna.paths import definition, rooted, Struct
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Resource
-from blender.bpy.extension.reports import alerted
 from blender.bpy.nodes.addressing import OwnedNodes
 from blender.bpy.nodes.changes import Removed
 from blender.bpy.nodes.desired import End, INPUTS, OUTPUTS
@@ -245,7 +244,7 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         for entry in Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list():
             line = layout.row(align=True)
             viewed = (operator_button(line, identity, Placement(self.viewing, {"name": entry.name, "node": end.node, "socket": end.socket}), {"text": text}) for text, end in self.ends)
-            alerted(line, accumulated((*viewed, operator_button(line, identity, Placement(self.clearing, {"name": entry.name}), {"text": "Clear"}))))
+            identity.reports.faulted(accumulated((*viewed, operator_button(line, identity, Placement(self.clearing, {"name": entry.name}), {"text": "Clear"}))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

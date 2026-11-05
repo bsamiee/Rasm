@@ -106,7 +106,7 @@ utils:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Bind$'}}
                 - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: option-value}}}}
             - kind: invocation_expression
-              has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, regex: '^(None|Option[\p{White_Space}\x{FEFF}]*<.+>[\p{White_Space}\x{FEFF}]*\.[\p{White_Space}\x{FEFF}]*None)$'}}}}
+              has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, any: [{kind: identifier, regex: '^None$'}, {kind: member_access_expression, matches: {csharp-owner-member: {type: {regex: '^Option$'}, member: {regex: '^None$'}}}}]}}}}
             - kind: invocation_expression
               has: {field: function, kind: identifier, pattern: $OPTION_METHOD}
               inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: option-method}}

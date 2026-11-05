@@ -51,6 +51,9 @@ catalogs:
     '@cloudflare/build-output-utils':
       specifier: 0.9.6
       version: 0.9.6
+    '@cloudflare/config':
+      specifier: 0.30.1
+      version: 0.30.1
     '@cloudflare/vite-plugin':
       specifier: 2.0.0-beta.v.8
       version: 2.0.0-beta.v.8
@@ -1080,6 +1083,9 @@ importers:
       '@cloudflare/build-output-utils':
         specifier: 'catalog:'
         version: 0.9.6
+      '@cloudflare/config':
+        specifier: 'catalog:'
+        version: 0.30.1
       '@cloudflare/vite-plugin':
         specifier: 'catalog:'
         version: 2.0.0-beta.v.8(@types/node@26.6.6)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2))(workerd@1.20261103.1)
@@ -2095,6 +2101,12 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
+      plist:
+        specifier: 'catalog:'
+        version: 5.0.0
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
 
   apps/creative-cloud/atelier/plugins/aftereffects:
     dependencies:
@@ -2343,6 +2355,9 @@ importers:
 
   libs/typescript/creative-cloud/cep:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.2(effect@4.1.2)(redis@6.2.1(@opentelemetry/api@1.10.0))
       '@rasm/automation':
         specifier: workspace:*
         version: link:../automation
@@ -2352,12 +2367,25 @@ importers:
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../uxp
+      '@swc/core':
+        specifier: 'catalog:'
+        version: 1.16.21(@swc/helpers@0.5.23)
+      cheerio:
+        specifier: 'catalog:'
+        version: 1.2.0
       effect:
         specifier: 'catalog:'
         version: 4.1.2
       fast-xml-builder:
         specifier: 'catalog:'
         version: 1.3.1
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
 
   libs/typescript/creative-cloud/extendscript:
     dependencies:
@@ -2446,6 +2474,12 @@ importers:
 
   libs/typescript/creative-cloud/uxp:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.2(effect@4.1.2)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      '@exodus/bytes':
+        specifier: 'catalog:'
+        version: 1.16.0(@noble/hashes@2.4.0)
       '@rasm/automation':
         specifier: workspace:*
         version: link:../automation
@@ -2455,6 +2489,15 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.2
+      fast-xml-builder:
+        specifier: 'catalog:'
+        version: 1.3.1
+      fast-xml-parser:
+        specifier: 'catalog:'
+        version: 5.11.2
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
     devDependencies:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
@@ -2462,9 +2505,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
 
   libs/typescript/data/database:
     dependencies:
@@ -2505,6 +2545,9 @@ importers:
       '@electric-sql/pglite':
         specifier: 'catalog:'
         version: 0.5.14
+      '@rasm/hosting':
+        specifier: workspace:*
+        version: link:../../web/hosting
       '@rasm/test-support':
         specifier: workspace:*
         version: link:../../../../tests/typescript/support
@@ -2822,6 +2865,9 @@ importers:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
         version: 0.1.4
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/creative-cloud/uxp
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -4055,6 +4101,9 @@ packages:
 
   '@cloudflare/config@0.29.0':
     resolution: {integrity: sha512-0sD73G6xRdz6/9DXNcAuLv6VbnNiWA09zo7VwhPyaa3ysIGvLMXJR5G19r3+iG5ZIB9ErGMwqgprVOVaYKsIpw==}
+
+  '@cloudflare/config@0.30.1':
+    resolution: {integrity: sha512-16yO439yuhX1cM1l2IoNDVxJM4cZ9oE+eLtxFAe32EamS/7e4t42CzzyTE+dHQfFcKNvkmiZRxx9JinO4l7ynQ==}
 
   '@cloudflare/kv-asset-handler@0.5.0':
     resolution: {integrity: sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg==}
@@ -17192,6 +17241,10 @@ snapshots:
       '@cloudflare/config': 0.29.0
 
   '@cloudflare/config@0.29.0':
+    dependencies:
+      zod: 4.6.6
+
+  '@cloudflare/config@0.30.1':
     dependencies:
       zod: 4.6.6
 

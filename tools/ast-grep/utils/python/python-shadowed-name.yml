@@ -16,29 +16,29 @@ utils:
     enclosing-lookup:
         any:
             - inside:
-                  kind: for_in_clause
-                  not: &preceding-iterable {follows: {kind: for_in_clause, stopBy: end}}
-                  field: right
-                  stopBy: *nested-scope
-                  inside: {all: [&lexical-scope {kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}, {matches: enclosing-lookup}]}
+                kind: for_in_clause
+                not: &preceding-iterable {follows: {kind: for_in_clause, stopBy: end}}
+                field: right
+                stopBy: *nested-scope
+                inside: {all: [&lexical-scope {kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}, {matches: enclosing-lookup}]}
             - not: {inside: {kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope}}
               inside:
-                  stopBy: *lexical-scope
-                  all: [*lexical-scope]
-                  any: [{matches: bound}, {matches: enclosing-lookup}]
+                stopBy: *lexical-scope
+                all: [*lexical-scope]
+                any: [{matches: bound}, {matches: enclosing-lookup}]
     lookup:
         any:
             - inside:
-                  kind: for_in_clause
-                  not: *preceding-iterable
-                  field: right
-                  stopBy: *nested-scope
-                  inside: {all: [*lexical-scope, {matches: lookup}]}
+                kind: for_in_clause
+                not: *preceding-iterable
+                field: right
+                stopBy: *nested-scope
+                inside: {all: [*lexical-scope, {matches: lookup}]}
             - not: {inside: {kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope}}
               inside:
-                  stopBy: *nested-scope
-                  all: [*nested-scope]
-                  any: [{matches: bound}, {matches: enclosing-lookup}]
+                stopBy: *nested-scope
+                all: [*nested-scope]
+                any: [{matches: bound}, {matches: enclosing-lookup}]
 rule:
     all:
         - any:

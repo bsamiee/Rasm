@@ -309,7 +309,7 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
             with ExitStack() as stack:
                 stack.callback(gpu.state.viewport_set, *gpu.state.viewport_get())
                 stack.callback(gpu.state.scissor_set, *gpu.state.scissor_get())
-                with buffer.bind():
+                with buffer.bind():  # type: ignore[attr-defined,func-returns-value]  # ty: ignore[invalid-context-manager]
                     buffer.viewport_set(0, 0, color.width, color.height)
                     gpu.state.scissor_set(0, 0, color.width, color.height)
                     return draw(buffer).bind(lambda _: captured(Rect(x=0.0, y=0.0, width=float(color.width), height=float(color.height))))

@@ -6,7 +6,7 @@ utils:
     coded-base:
         matches: {csharp-type-name: {name: {regex: '^(Expected|Exceptional)$'}}}
     library-code:
-        matches: {csharp-owner-member: {type: {regex: '^ErrorCodes$'}, member: {regex: '^\p{XID_Continue}+$'}}}
+        matches: {csharp-owner-member: {type: {regex: '^ErrorCodes$'}, member: {regex: ^}}}
     coded-arguments:
         kind: argument_list
         any:

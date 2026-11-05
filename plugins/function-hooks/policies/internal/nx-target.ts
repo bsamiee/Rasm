@@ -12,6 +12,7 @@ interface Target {
         readonly args?: string | readonly string[];
         readonly forwardAllArgs?: boolean;
     };
+    readonly configurations?: Readonly<Record<string, { readonly command?: string }>>;
     readonly dependsOn?: readonly (string | { readonly target: string })[];
 }
 
@@ -83,12 +84,12 @@ const coveredBy = (places: readonly string[], folders: readonly string[]): boole
 
 const checkerRuns = async ({ system, parses }: Call, graph: Readonly<Record<string, Target>>, program: string, subcommand: string | undefined) => {
     const { subcommandless } = programRow(program);
-    const listed = Object.entries(graph).flatMap(([target, { options }]) => {
+    const listed = Object.entries(graph).flatMap(([target, { options, configurations = {} }]) => {
         const kind = CHECK_TARGET.exec(target);
         const tool = kind?.groups?.tool;
-        const entries = options?.command === undefined ? (options?.commands ?? []) : [options.command];
+        const entries = [...(options?.command === undefined ? (options?.commands ?? []) : [options.command]), ...Object.values(configurations).flatMap(({ command }) => (command === undefined ? [] : [command]))];
         const args = [options?.args ?? []].flat();
-        return kind !== null && (tool === undefined || tool === programName(program) || tool === subcommand)
+        return kind !== null && (tool === undefined || tool === programName(program) || tool === subcommand || entries.some((entry) => (typeof entry === 'string' ? entry : entry.command).includes(program)))
             ? entries
                   .map((entry) => {
                       const configured = typeof entry === 'string' ? { command: entry } : entry;

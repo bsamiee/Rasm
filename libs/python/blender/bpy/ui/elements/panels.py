@@ -22,7 +22,7 @@ from blender.bpy.extension.registration import Acquisitions, Declaration, entere
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.drawing.handlers import Signal
 from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import layout_method, OperatorButton, Property, realized, RowContent, RowDraw, Status
+from blender.bpy.ui.layout.rows import layout_method, OperatorButton, Property, realized, RowContent, RowDraw
 from blender.bpy.ui.layout.sections import fields, Section, SectionDraws, sections_in
 from blender.bpy.ui.resources.icons import ICONS
 from blender.bpy.ui.screens.areas import Located
@@ -161,7 +161,7 @@ class Preference(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # 
 class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
     """Add-on preferences page over the preferences it and every other row declare, with its own sections, firing `changed` on each edit.
 
-    Page derives a Status section over held reports, one section per preference, then its own sections, Confirmations turning a dismissed confirmation back on,
+    Page derives one section per preference, then its own sections, Confirmations turning a dismissed confirmation back on,
     Shortcuts over each keymap, and Stored Settings clearing every attachment's stored values, each derived section present while what it draws is declared.
     Each suppressible command's `ask_<key>` flag sits on the preferences beside the preference groups.
     """
@@ -209,7 +209,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
         clear = operators.Operator.of(operators.Empty, icon=Some("TRASH"), options=frozenset({"INTERNAL", "UNDO"}), invoke=Some(confirmation))(clear_stored_settings)
 
         def changed(_owner: Struct, _context: bpy.types.Context) -> None:
-            self.changed.fired().default_with(identity.reports.hold)
+            identity.reports.faulted(self.changed.fired())
 
         flags = {invocations.Suppressible.flag(row.key): bpy.props.BoolProperty(name=row.title, description=row.description, default=True, update=changed) for row in asks}
         bodies: list[RowDraw] = []
@@ -223,7 +223,6 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
         pointers = {row.key: bpy.props.PointerProperty(type=row.form, name=bpy.path.display_name(row.key)) for row in preferred}
         kind = type(identity.package, (bpy.types.AddonPreferences,), {"bl_idname": identity.package, "__annotations__": {**pointers, **flags}, "draw": draw})
         sections = (
-            Section(key="preferences_status", title=Some("Status"), rows=(Status(),)),
             *(
                 Section(key=f"preferences_{row.key}", title=Some(bpy.path.display_name(row.key)), holder=Some(Member(root=kind, path=(row.key,))), rows=(*fields(row.form, row.key), *row.rows))
                 for row in preferred

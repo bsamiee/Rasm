@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+rule:
+    pattern: $STATEMENT
+    any:
+        - kind: alter_table_cmd
+          all:
+            - has: {regex: '(?i-u)^disable$', not: {pattern: $_}}
+            - has: {regex: '(?i-u)^(trigger|rule)$', not: {pattern: $_}}
+        - kind: generic_set
+          all:
+            - has: {kind: var_name, regex: '(?i-u)^"?session_replication_role"?$'}
+            - has: {kind: var_list, regex: '(?i-u)^[''"]?replica[''"]?$'}
+message: '`$STATEMENT` stops foreign key and trigger enforcement for the rows written under it'
+note: 'Declare the constraint `deferrable` and order the writes inside one transaction under `set constraints <name> deferred`'

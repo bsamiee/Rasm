@@ -10,4 +10,4 @@ rule:
         - not: {has: {field: argument, not: {kind: 'number, word, string, raw_string', regex: '^["'']?\+?[1-9][0-9]*["'']?$'}}}
         - inside:
             kind: for_statement, c_style_for_statement, while_statement
-            stopBy: {kind: 'function_definition, subshell, command_substitution, process_substitution'}
+            stopBy: {matches: bash-isolated-scope}

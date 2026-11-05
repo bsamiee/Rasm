@@ -19,7 +19,7 @@ utils:
         kind: 'while_statement, repeat_while_statement'
         has: {stopBy: end, matches: equality, has: {kind: simple_identifier, pattern: $STATE}}
     recursive-case:
-        kind: simple_identifier
+        kind: case_name
         pattern: $CASE
         all:
             - inside: {kind: enum_entry, inside: {kind: enum_class_body, inside: {kind: class_declaration, has: {field: name, pattern: $OWNER}}}}
@@ -43,11 +43,10 @@ rule:
             - inside: {stopBy: {matches: swift-function-scope}, matches: fixpoint}
         - kind: property_declaration
           all:
-            - has: {field: name, has: {field: bound_identifier, pattern: $NEXT}}
+            - has: {kind: pattern, has: {field: bound_identifier, pattern: $NEXT}, precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, matches: wrap}}
             - inside:
                 kind: statements
                 has: {kind: assignment, all: [{has: {field: operator, regex: '^=$'}}, {has: {field: target, has: {kind: simple_identifier, pattern: $STATE}}}, {has: {field: result, kind: simple_identifier, pattern: $NEXT}}]}
-            - has: {field: value, matches: wrap}
             - inside: {stopBy: {matches: swift-function-scope}, matches: fixpoint-next}
     inside:
         kind: source_file

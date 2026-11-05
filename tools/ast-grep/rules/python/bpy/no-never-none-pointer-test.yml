@@ -79,11 +79,11 @@ rule:
                 pattern: $TESTED
                 any:
                     - precedes:
-                        regex: '^(is|is[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+not|==|!=)$'
+                        regex: '^(is|is[\t-\r \x{200B}\x{2060}\x{FEFF}]+not|==|!=)$'
                         stopBy: {not: {kind: comment}}
                         precedes: {matches: none-value, stopBy: {not: {kind: comment}}}
                     - follows:
-                        regex: '^(is|is[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+not|==|!=)$'
+                        regex: '^(is|is[\t-\r \x{200B}\x{2060}\x{FEFF}]+not|==|!=)$'
                         stopBy: {not: {kind: comment}}
                         follows: {matches: none-value, stopBy: {not: {kind: comment}}}
         - all:

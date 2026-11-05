@@ -50,7 +50,7 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 
 Sessions open in order:
 1. `dotnet run ${CLAUDE_SKILL_DIR}/scripts/Instances.cs` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
-2. New work takes an open untitled, unmodified document, else `watch-apps launch RhinoBETA --new --environment RHINO_MCP_AUTOSTART_PORT=10500` opens one while no Rhino runs
+2. New work takes an open untitled, unmodified document, else `watch-apps launch Rhino --new --environment RHINO_MCP_AUTOSTART_PORT=10500` opens one while no Rhino runs
 3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
 
 - RhinoAI announces each document's listener while `RHINO_MCP_AUTOSTART_PORT` holds a value or its MCP auto-load option is on

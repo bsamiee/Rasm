@@ -2,7 +2,7 @@
 
 [project]
 name            = "blender"
-version         = "1.0.0"
+version         = "0.0.0"
 description     = "Shared extension code with bpy behind one boundary"
 requires-python = ">=3.13"
 
@@ -18,7 +18,6 @@ dependencies = [
     "tzdata",                                             # IANA time zones for zoneinfo on platforms without a database
 
     # --- [STORAGE]
-    "atomicwrites",                                       # Atomic preset moves that preserve occupied destinations
     "cbor2",                                              # Canonical binary content hashing with unbounded integers
 
     # --- [FILES]

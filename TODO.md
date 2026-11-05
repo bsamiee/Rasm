@@ -24,7 +24,7 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 - Defects are fixed at cause in the pass finding them, in every layer holding them (tool, hook, skill, library); nothing found is deferred or unacted
 - Distilled products evidence logic, never scripts to copy; findings in `.artifacts/workflows/` and `docs/research` are acted on, never rediscovered
 - Prose (skills, rules, messages, guidance) changes through clean-prose by replacing the line owning a fact, with no appended clause
-- Owner reports hold results and decisions in few words; runs stopped by a usage limit resume by id, workflows from cache with `resumeFromRunId`
+- Owner reports hold results and decisions in few words; runs stopped by a usage limit resume, workflows with `args.finished` built from their journal
 - Each change commits locally; pushes come before each InPage package run and the first extension run, and after each font library round
 
 ### [01.3]-[WORKFLOWS]
@@ -72,7 +72,7 @@ Numbers run in order; a number with a letter runs beside the number it shares.
   - Lead and check never ran, so no agent closed the run; spanning findings outside its paths were left as text
   - Fix: one cross-group pass over the union of spanning findings, deduplicated by file and change, chained once
   - Fix: a set with no change skips its adversaries; consumers outside the paths move in the editor that changes their API
-  - Fix: the lead and the check run before anything optional; agent count and time are logged against an estimate made at launch
+  - Fix: the lead and the check run before anything optional; each run is measured and reports its cost
   - Then read `tune.js`, `extension-research.js`, `harness-depth.js` and `guidance.js` for the same fan-out and closure faults
 - 1: InPage, one `deepen` run per package with `plan` `.artifacts/workflows/typescript-extension/inpage/PLAN.md`, its inputs and its oracle:
   - Typography landed uncommitted edits (15 files, +1002/-321), type-checking clean with indesign, automation and atelier

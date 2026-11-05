@@ -19,7 +19,7 @@ utils:
     await-loop:
         any:
             - kind: for_statement
-              regex: '^for\p{White_Space}+(try\p{White_Space}+)?await(?-u:\b)'
+              regex: '^for[\t-\r ]+(try[\t-\r ]+)?await(?-u:\b)'
               has: {field: item, has: {field: bound_identifier, pattern: $L}}
             - kind: while_statement
               all:

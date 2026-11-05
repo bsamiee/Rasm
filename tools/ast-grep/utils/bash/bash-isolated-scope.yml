@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: bash-isolated-scope
+language: bashlang
+rule:
+    kind: function_definition, subshell, command_substitution, process_substitution, coproc_command

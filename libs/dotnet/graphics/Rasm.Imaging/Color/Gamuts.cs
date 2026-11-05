@@ -95,7 +95,7 @@ public sealed partial record Gamut : IConvertible<string> {
     public Matrix4x4 Adapting(WhitePoint source, Option<WhitePoint> destination = default, Option<ChromaticAdaptation> transform = default) =>
         (destination.IfNone(Configuration.Xyz.WhitePoint), transform.IfNone(ChromaticAdaptation.Bradford)) switch {
             var (white, adaptation) => ToXyz
-                * Columns(new(xyzConfig: new(source, Observer.Degree2, adaptation)), ColourSpace.Xyz, new(xyzConfig: new(white, Observer.Degree2, adaptation)), ColourSpace.Xyz)
+                * Columns(new(xyzConfig: new(source, Configuration.Xyz.Observer, adaptation)), ColourSpace.Xyz, new(xyzConfig: new(white, Configuration.Xyz.Observer, adaptation)), ColourSpace.Xyz)
                 * Columns(Configuration, ColourSpace.Xyz, Configuration, ColourSpace.RgbLinear),
         };
 

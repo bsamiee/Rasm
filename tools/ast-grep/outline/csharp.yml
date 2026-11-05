@@ -3,15 +3,30 @@ language: csharplang
 role: item
 symbolType: module
 rule:
+    pattern: $DECLARATION
     any:
         - kind: using_directive
-          has: {pattern: $NAME, nthChild: {position: 1, reverse: true}}
+          has: {pattern: $NAME, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}}}}
         - kind: extern_alias_directive
           has: {field: name, pattern: $NAME}
         - kind: file_based_directive
-          has: {field: kind, regex: '^(sdk|package|project|ref)$'}
+          has: {field: kind, regex: '^(?:sdk|package|project|ref)$'}
           all: [{has: {field: name, pattern: $NAME}}]
-name: $NAME
+rewriters:
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
+    NAMED: rewrite($NAME, rewriters=[trivia])
+    NAME_LINES: {replace: {source: $NAMED, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    NAME_TRIMMED: {replace: {source: $NAME_LINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    CLEAN: {replace: {source: $NAME_TRIMMED, replace: '\n', by: ' '}}
+name: $CLEAN
+signature: $SIGNATURE
 isImport: true
 isExported: false
 ---
@@ -32,7 +47,7 @@ role: item
 symbolType: file
 rule:
     kind: file_based_directive
-    has: {field: kind, regex: '^(include|exclude)$'}
+    has: {field: kind, regex: '^(?:include|exclude)$'}
     all: [{has: {field: name, pattern: $NAME}}]
 name: $NAME
 isImport: {has: {field: kind, regex: '^include$'}}
@@ -46,8 +61,17 @@ rule:
     kind: alias_qualified_name, generic_name, identifier, qualified_name
     pattern: $NAME
     inside: {kind: 'namespace_declaration, file_scoped_namespace_declaration', field: name}
-name: $NAME
-signature: namespace $NAME
+rewriters:
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
+transform:
+    HEADER: rewrite($NAME, rewriters=[trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
+name: $SIGNATURE
+signature: namespace $SIGNATURE
 isExported: false
 ---
 id: csharp-interface
@@ -55,12 +79,13 @@ language: csharplang
 role: item
 symbolType: interface
 utils:
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: interface_declaration
     pattern: $DECLARATION
@@ -68,28 +93,37 @@ rule:
 rewriters:
     - id: body
       rule: {kind: declaration_list, inside: {kind: interface_declaration, field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: arguments
+      rule: {kind: argument_list, regex: "\n", inside: {kind: 'base_list, primary_constructor_base_type'}}
+      fix: '(…)'
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, arguments, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
 isExported:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration', not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, not: {matches: public}}}
 ---
 id: csharp-class
 language: csharplang
 role: item
 symbolType: class
 utils:
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: class_declaration, record_declaration
     pattern: $DECLARATION
@@ -98,29 +132,37 @@ rule:
 rewriters:
     - id: body
       rule: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration', field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: arguments
+      rule: {kind: argument_list, regex: "\n", inside: {kind: 'base_list, primary_constructor_base_type'}}
+      fix: '(…)'
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    TRIMMED: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*', by: ' '}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, arguments, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
 isExported:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration', not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, not: {matches: public}}}
 ---
 id: csharp-struct
 language: csharplang
 role: item
 symbolType: struct
 utils:
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     any:
         - kind: struct_declaration
@@ -130,101 +172,94 @@ rule:
 rewriters:
     - id: body
       rule: {kind: declaration_list, inside: {kind: 'struct_declaration, record_declaration', field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: arguments
+      rule: {kind: argument_list, regex: "\n", inside: {kind: 'base_list, primary_constructor_base_type'}}
+      fix: '(…)'
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    TRIMMED: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*', by: ' '}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, arguments, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
 isExported:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration', not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, not: {matches: public}}}
 ---
 id: csharp-enum
 language: csharplang
 role: item
 symbolType: enum
 utils:
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
-    kind: enum_declaration
+    kind: enum_declaration, union_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
 rewriters:
     - id: body
-      rule: {kind: enum_member_declaration_list, inside: {kind: enum_declaration, field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      rule: {kind: 'declaration_list, enum_member_declaration_list', inside: {kind: 'enum_declaration, union_declaration', field: body}}
+      fix: ''
+    - id: arguments
+      rule: {kind: argument_list, regex: "\n", inside: {kind: 'base_list, primary_constructor_base_type'}}
+      fix: '(…)'
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    TRIMMED: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*', by: ' '}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, arguments, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
 isExported:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration', not: {matches: public}}}
----
-id: csharp-union
-language: csharplang
-role: item
-symbolType: enum
-utils:
-    public:
-        any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
-              not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
-rule:
-    kind: union_declaration
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: declaration_list, inside: {kind: union_declaration, field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
-transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-name: $NAME
-signature: $SIGNATURE
-isExported:
-    all:
-        - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration', not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, not: {matches: public}}}
 ---
 id: csharp-delegate
 language: csharplang
 role: item
 symbolType: function
 utils:
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: delegate_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    TRIMMED: {replace: {source: $DECLARATION, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*', by: ' '}}
+    HEADER: rewrite($DECLARATION, rewriters=[trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
 isExported:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration', not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, not: {matches: public}}}
 ---
 id: csharp-function
 language: csharplang
@@ -232,16 +267,21 @@ role: item
 symbolType: function
 rule:
     kind: local_function_statement
-    inside: {kind: global_statement}
+    inside: {kind: 'global_statement, compilation_unit', stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}}
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
 rewriters:
     - id: body
       rule: {kind: 'block, arrow_expression_clause', inside: {kind: local_function_statement, field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
 isExported: false
@@ -252,450 +292,438 @@ role: item
 symbolType: variable
 rule:
     kind: local_declaration_statement
-    inside: {kind: global_statement}
+    inside: {kind: 'global_statement, compilation_unit', stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}}
     pattern: $DECLARATION
     has: {kind: variable_declaration, pattern: $VARIABLES}
 rewriters:
     - id: name
       rule:
         kind: variable_declarator
-        any:
-            - has: {field: name, pattern: $DECLARED}
-            - has: {kind: tuple_pattern, pattern: $DECLARED}
-      fix: $DECLARED
+        has: {kind: 'identifier, tuple_pattern', pattern: $DECLARED}
+      transform:
+        CLEAN: rewrite($DECLARED, rewriters=[trivia])
+      fix: $CLEAN
     - id: initializer
       rule:
         kind: variable_declarator
         inside: {kind: variable_declaration, inside: {kind: local_declaration_statement, not: {has: {kind: modifier, regex: '^const$'}}}}
-        any:
-            - has: {field: name, pattern: $DECLARED}
-            - has: {kind: tuple_pattern, pattern: $DECLARED}
-      fix: $DECLARED
+        has: {kind: 'identifier, tuple_pattern', pattern: $DECLARED}
+      transform:
+        CLEAN: rewrite($DECLARED, rewriters=[trivia])
+      fix: $CLEAN
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    NAMES: {rewrite: {source: $VARIABLES, rewriters: [name], joinBy: ', '}}
-    HEADER: rewrite($DECLARATION, rewriters=[initializer])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
+    JOINED: {rewrite: {source: $VARIABLES, rewriters: [name], joinBy: ', '}}
+    NAMES: {replace: {source: $JOINED, replace: '[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: ' '}}
+    HEADER: rewrite($DECLARATION, rewriters=[initializer, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $NAMES
 signature: $SIGNATURE
 isExported: false
----
-id: csharp-member-parameter
-language: csharplang
-role: member
-symbolType: property
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
-utils:
-    public:
-        any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
-              not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
-rule:
-    kind: parameter
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: parameter_list
-        inside:
-            kind: record_declaration
-            any:
-                - has: {field: name, pattern: $OWNER}
-                  inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-                - pattern: $_
-transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-name: $QUALIFIER$NAME
-signature: $DECLARATION
-isPublic: {not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}}
 ---
 id: csharp-member-constructor
 language: csharplang
 role: member
 symbolType: constructor
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
-    owner:
-        any:
-            - inside:
-                kind: declaration_list
-                inside:
-                    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                    has: {field: name, pattern: $OWNER}
-                    inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-            - pattern: $_
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
-    kind: constructor_declaration, destructor_declaration
+    any:
+        - kind: constructor_declaration
+        - {kind: destructor_declaration, has: {pattern: $$TILDE, regex: '^~$'}}
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
-    matches: owner
+    all:
+        - any:
+            - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+            - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: body
       rule: {kind: 'block, arrow_expression_clause', inside: {kind: 'constructor_declaration, destructor_declaration', field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    TRIMMED: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*', by: ' '}}
-name: $QUALIFIER$NAME
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
+name: $QUALIFIER$TILDE$NAME
 signature: $SIGNATURE
 isPublic:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}
 ---
 id: csharp-member-method
 language: csharplang
 role: member
 symbolType: method
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
-    owner:
-        any:
-            - inside: {kind: extension_body, inside: {kind: extension_declaration, has: {kind: receiver_parameter, pattern: $RECEIVER}}}
-            - inside:
-                kind: declaration_list
-                inside:
-                    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                    has: {field: name, pattern: $OWNER}
-                    inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-            - pattern: $_
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: method_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
-    matches: owner
+    any:
+        - inside: {stopBy: end, kind: extension_declaration, pattern: $EXTENDED}
+        - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: body
       rule: {kind: 'block, arrow_expression_clause', inside: {kind: method_declaration, field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: extended
+      rule: {kind: extension_body, inside: {kind: extension_declaration}}
+      fix: "\n"
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    EXTENSION: {replace: {source: $RECEIVER, replace: '^(.+)$', by: 'extension($1) '}}
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    TRIMMED: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*', by: ' '}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
+    EXTENDED_HEADER: rewrite($EXTENDED, rewriters=[extended, trivia])
+    EXTENDED_LINES: {replace: {source: $EXTENDED_HEADER, replace: '[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    EXTENDED_TRIMMED: {replace: {source: $EXTENDED_LINES, replace: '([(\[<.])\n|\n([)\]>.,;])', by: '$1$2'}}
+    EXTENSION: {replace: {source: $EXTENDED_TRIMMED, replace: '\n', by: ' '}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $EXTENSION$SIGNATURE
 isPublic:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}
 ---
 id: csharp-member-property
 language: csharplang
 role: member
 symbolType: property
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
-    owner:
-        any:
-            - inside: {kind: extension_body, inside: {kind: extension_declaration, has: {kind: receiver_parameter, pattern: $RECEIVER}}}
-            - inside:
-                kind: declaration_list
-                inside:
-                    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                    has: {field: name, pattern: $OWNER}
-                    inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-            - pattern: $_
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
-    kind: property_declaration, indexer_declaration
-    pattern: $DECLARATION
     any:
-        - has: {field: name, pattern: $NAME}
-        - has: {field: parameters, pattern: $PARAMETERS}
-    matches: owner
+        - kind: property_declaration
+          has: {field: name, pattern: $NAME}
+        - kind: indexer_declaration
+          has: {field: parameters, pattern: $PARAMETERS}
+        - kind: parameter
+          has: {field: name, pattern: $NAME}
+          inside: {kind: parameter_list, inside: {kind: record_declaration}}
+    pattern: $DECLARATION
+    all:
+        - any:
+            - inside: {stopBy: end, kind: extension_declaration, pattern: $EXTENDED}
+            - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+            - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: value
-      rule:
-        kind: anonymous_method_expression, anonymous_object_creation_expression, array_creation_expression, arrow_expression_clause, as_expression, assignment_expression, await_expression, binary_expression, boolean_literal, cast_expression, character_literal, checked_expression, collection_expression, conditional_access_expression, conditional_expression, default_expression, element_access_expression, element_binding_expression, generic_name, identifier, implicit_array_creation_expression, implicit_object_creation_expression, implicit_stackalloc_expression, initializer_expression, integer_literal, interpolated_string_expression, invocation_expression, is_expression, is_pattern_expression, lambda_expression, makeref_expression, member_access_expression, null_literal, object_creation_expression, parenthesized_expression, postfix_unary_expression, prefix_unary_expression, preproc_if, query_expression, range_expression, raw_string_literal, real_literal, ref_expression, reftype_expression, refvalue_expression, sizeof_expression, stackalloc_expression, string_literal, switch_expression, throw_expression, tuple_expression, typeof_expression, unsafe_expression, verbatim_string_literal, with_expression
-        inside: {kind: 'property_declaration, indexer_declaration', field: value}
+      rule: {pattern: $$VALUE, inside: {kind: 'property_declaration, indexer_declaration, parameter', field: value}}
       fix: {template: '', expandStart: {regex: '^=$'}}
-    - id: body
-      rule: {kind: 'block, arrow_expression_clause', inside: {kind: accessor_declaration, field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+    - id: accessor
+      rule: {kind: 'block, arrow_expression_clause', inside: {kind: accessor_declaration, field: body, has: {field: name, pattern: $$KEY}}}
+      fix: {template: '$KEY;', expandStart: {regex: ^}, expandEnd: {regex: '^;$'}}
+    - id: extended
+      rule: {kind: extension_body, inside: {kind: extension_declaration}}
+      fix: "\n"
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    EXTENSION: {replace: {source: $RECEIVER, replace: '^(.+)$', by: 'extension($1) '}}
-    INDEXER: {replace: {source: $PARAMETERS, replace: '^(.+)$', by: 'this$1'}}
-    HEADER: rewrite($DECLARATION, rewriters=[value, body])
-    TRIMMED: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*', by: ' '}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
+    EXTENDED_HEADER: rewrite($EXTENDED, rewriters=[extended, trivia])
+    EXTENDED_LINES: {replace: {source: $EXTENDED_HEADER, replace: '[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    EXTENDED_TRIMMED: {replace: {source: $EXTENDED_LINES, replace: '([(\[<.])\n|\n([)\]>.,;])', by: '$1$2'}}
+    EXTENSION: {replace: {source: $EXTENDED_TRIMMED, replace: '\n', by: ' '}}
+    PARAMETERS_CLEAN: rewrite($PARAMETERS, rewriters=[trivia])
+    PARAMETERS_LINES: {replace: {source: $PARAMETERS_CLEAN, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    PARAMETERS_TRIMMED: {replace: {source: $PARAMETERS_LINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    PARAMETERS_LINE: {replace: {source: $PARAMETERS_TRIMMED, replace: '\n', by: ' '}}
+    INDEXER: {replace: {source: $PARAMETERS_LINE, replace: '^(.+)$', by: 'this$1'}}
+    HEADER: rewrite($DECLARATION, rewriters=[value, accessor, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $QUALIFIER$NAME$INDEXER
 signature: $EXTENSION$SIGNATURE
 isPublic:
     all:
-        - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}
+        - any: [{kind: parameter}, {matches: public}]
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}
 ---
 id: csharp-member-constant
 language: csharplang
 role: member
 symbolType: constant
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
-    owner:
-        any:
-            - inside:
-                kind: declaration_list
-                inside:
-                    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                    has: {field: name, pattern: $OWNER}
-                    inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-            - pattern: $_
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: field_declaration
     pattern: $DECLARATION
     has: {kind: modifier, regex: '^const$'}
-    all: [{has: {kind: variable_declaration, pattern: $VARIABLES}}]
-    matches: owner
+    all:
+        - has: {kind: variable_declaration, pattern: $VARIABLES}
+        - any:
+            - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+            - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: name
       rule: {kind: variable_declarator, has: {field: name, pattern: $DECLARED}}
       fix: $DECLARED
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
     NAMES: {rewrite: {source: $VARIABLES, rewriters: [name], joinBy: ', '}}
-    TRIMMED: {replace: {source: $DECLARATION, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*', by: ' '}}
+    HEADER: rewrite($DECLARATION, rewriters=[trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $QUALIFIER$NAMES
 signature: $SIGNATURE
 isPublic:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}
 ---
 id: csharp-member-field
 language: csharplang
 role: member
 symbolType: field
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
-    owner:
-        any:
-            - inside:
-                kind: declaration_list
-                inside:
-                    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                    has: {field: name, pattern: $OWNER}
-                    inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-            - pattern: $_
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: field_declaration
     pattern: $DECLARATION
     has: {kind: variable_declaration, pattern: $VARIABLES}
     not: {has: {kind: modifier, regex: '^const$'}}
-    matches: owner
+    any:
+        - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: declarator
       rule: {kind: variable_declarator, has: {field: name, pattern: $DECLARED}}
       fix: $DECLARED
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
     NAMES: {rewrite: {source: $VARIABLES, rewriters: [declarator], joinBy: ', '}}
-    HEADER: rewrite($DECLARATION, rewriters=[declarator])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
+    HEADER: rewrite($DECLARATION, rewriters=[declarator, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $QUALIFIER$NAMES
 signature: $SIGNATURE
 isPublic:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}
 ---
 id: csharp-member-operator
 language: csharplang
 role: member
 symbolType: operator
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
-    owner:
-        any:
-            - inside: {kind: extension_body, inside: {kind: extension_declaration, has: {kind: receiver_parameter, pattern: $RECEIVER}}}
-            - inside:
-                kind: declaration_list
-                inside:
-                    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                    has: {field: name, pattern: $OWNER}
-                    inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-            - pattern: $_
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
-    kind: operator_declaration, conversion_operator_declaration
-    pattern: $DECLARATION
     any:
-        - has: {field: operator, pattern: $$NAME}
-        - has: {field: type, pattern: $NAME}
-    matches: owner
+        - kind: operator_declaration
+          has: {field: operator, pattern: $$NAME}
+        - kind: conversion_operator_declaration
+          has: {field: type, pattern: $NAME}
+    pattern: $DECLARATION
+    all:
+        - any:
+            - inside: {stopBy: end, kind: extension_declaration, pattern: $EXTENDED}
+            - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+            - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: body
       rule: {kind: 'block, arrow_expression_clause', inside: {kind: 'operator_declaration, conversion_operator_declaration', field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: extended
+      rule: {kind: extension_body, inside: {kind: extension_declaration}}
+      fix: "\n"
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    EXTENSION: {replace: {source: $RECEIVER, replace: '^(.+)$', by: 'extension($1) '}}
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-name: $QUALIFIERoperator $NAME
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
+    EXTENDED_HEADER: rewrite($EXTENDED, rewriters=[extended, trivia])
+    EXTENDED_LINES: {replace: {source: $EXTENDED_HEADER, replace: '[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    EXTENDED_TRIMMED: {replace: {source: $EXTENDED_LINES, replace: '([(\[<.])\n|\n([)\]>.,;])', by: '$1$2'}}
+    EXTENSION: {replace: {source: $EXTENDED_TRIMMED, replace: '\n', by: ' '}}
+    NAMED: rewrite($NAME, rewriters=[trivia])
+    NAME_LINES: {replace: {source: $NAMED, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    NAME_TRIMMED: {replace: {source: $NAME_LINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    CLEAN: {replace: {source: $NAME_TRIMMED, replace: '\n', by: ' '}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
+name: $QUALIFIERoperator $CLEAN
 signature: $EXTENSION$SIGNATURE
 isPublic:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}
 ---
 id: csharp-member-event
 language: csharplang
 role: member
 symbolType: event
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
-    owner:
-        any:
-            - inside:
-                kind: declaration_list
-                inside:
-                    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                    has: {field: name, pattern: $OWNER}
-                    inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-            - pattern: $_
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
-    kind: event_declaration, event_field_declaration
-    pattern: $DECLARATION
     any:
-        - has: {field: name, pattern: $NAME}
-        - has: {kind: variable_declaration, pattern: $VARIABLES}
-    matches: owner
+        - kind: event_declaration
+          has: {field: name, pattern: $NAME}
+        - kind: event_field_declaration
+          has: {kind: variable_declaration, pattern: $VARIABLES}
+    pattern: $DECLARATION
+    all:
+        - any:
+            - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+            - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: declarator
       rule: {kind: variable_declarator, has: {field: name, pattern: $DECLARED}}
       fix: $DECLARED
-    - id: body
-      rule: {kind: 'block, arrow_expression_clause', inside: {kind: accessor_declaration, field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+    - id: accessor
+      rule: {kind: 'block, arrow_expression_clause', inside: {kind: accessor_declaration, field: body, has: {field: name, pattern: $$KEY}}}
+      fix: {template: '$KEY;', expandStart: {regex: ^}, expandEnd: {regex: '^;$'}}
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
     NAMES: {rewrite: {source: $VARIABLES, rewriters: [declarator], joinBy: ', '}}
-    HEADER: rewrite($DECLARATION, rewriters=[declarator, body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
+    HEADER: rewrite($DECLARATION, rewriters=[declarator, accessor, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $QUALIFIER$NAME$NAMES
 signature: $SIGNATURE
 isPublic:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}
 ---
-id: csharp-enum-member
+id: csharp-member-enum-member
 language: csharplang
 role: member
 symbolType: enumMember
-parentRuleIds: [csharp-enum, csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
-    kind: enum_member_declaration
+    any:
+        - kind: enum_member_declaration
+          has: {field: name, pattern: $NAME}
+        - kind: alias_qualified_name, array_type, function_pointer_type, generic_name, identifier, implicit_type, nullable_type, pointer_type, predefined_type, qualified_name, ref_type, scoped_type, tuple_type
+          pattern: $NAME
+          inside: {kind: union_case_list}
     pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: enum_member_declaration_list
-        inside:
-            kind: enum_declaration
-            any:
-                - has: {field: name, pattern: $OWNER}
-                  inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-                - pattern: $_
+    all:
+        - any:
+            - inside: {stopBy: end, kind: 'enum_declaration, union_declaration', has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+            - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
+rewriters:
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-name: $QUALIFIER$NAME
-signature: $DECLARATION
-isPublic: {not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}}
----
-id: csharp-union-case
-language: csharplang
-role: member
-symbolType: enumMember
-parentRuleIds: [csharp-union, csharp-class, csharp-struct, csharp-interface]
-utils:
-    public:
-        any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
-              not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
-rule:
-    kind: alias_qualified_name, array_type, function_pointer_type, generic_name, identifier, implicit_type, nullable_type, pointer_type, predefined_type, qualified_name, ref_type, scoped_type, tuple_type
-    pattern: $NAME
-    inside:
-        kind: union_case_list
-        inside:
-            kind: union_declaration
-            any:
-                - has: {field: name, pattern: $OWNER}
-                  inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-                - pattern: $_
-transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-name: $QUALIFIER$NAME
-signature: $NAME
-isPublic: {not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
+    NAMED: rewrite($NAME, rewriters=[trivia])
+    NAME_LINES: {replace: {source: $NAMED, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    NAME_TRIMMED: {replace: {source: $NAME_LINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    CLEAN: {replace: {source: $NAME_TRIMMED, replace: '\n', by: ' '}}
+    HEADER: rewrite($DECLARATION, rewriters=[trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
+name: $QUALIFIER$CLEAN
+signature: $SIGNATURE
+isPublic: {not: {inside: {stopBy: end, kind: 'class_declaration, enum_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration', inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}}
 ---
 id: csharp-member-class
 language: csharplang
 role: member
 symbolType: class
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: identifier
     pattern: $NAME
@@ -704,39 +732,43 @@ rule:
         field: name
         pattern: $DECLARATION
         not: {has: {regex: '^struct$'}}
-        inside:
-            kind: declaration_list
-            inside:
-                kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                any:
-                    - has: {field: name, pattern: $OWNER}
-                      inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-                    - pattern: $_
+        inside: {stopBy: end, matches: enclosing}
+        any:
+            - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+            - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: body
       rule: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration', field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: arguments
+      rule: {kind: argument_list, regex: "\n", inside: {kind: 'base_list, primary_constructor_base_type'}}
+      fix: '(…)'
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    TRIMMED: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*', by: ' '}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, arguments, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}}
+isPublic: {not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}}
 ---
 id: csharp-member-struct
 language: csharplang
 role: member
 symbolType: struct
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: identifier
     pattern: $NAME
@@ -746,38 +778,44 @@ rule:
             - {kind: record_declaration, has: {regex: '^struct$'}}
         field: name
         pattern: $DECLARATION
-        inside:
-            kind: declaration_list
-            inside:
-                kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                any:
-                    - has: {field: name, pattern: $OWNER}
-                      inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-                    - pattern: $_
+        inside: {stopBy: end, matches: enclosing}
+        all:
+            - any:
+                - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+                - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: body
       rule: {kind: declaration_list, inside: {kind: 'struct_declaration, record_declaration', field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: arguments
+      rule: {kind: argument_list, regex: "\n", inside: {kind: 'base_list, primary_constructor_base_type'}}
+      fix: '(…)'
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, arguments, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}}
+isPublic: {not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}}
 ---
 id: csharp-member-interface
 language: csharplang
 role: member
 symbolType: interface
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: identifier
     pattern: $NAME
@@ -785,38 +823,43 @@ rule:
         kind: interface_declaration
         field: name
         pattern: $DECLARATION
-        inside:
-            kind: declaration_list
-            inside:
-                kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                any:
-                    - has: {field: name, pattern: $OWNER}
-                      inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-                    - pattern: $_
+        inside: {stopBy: end, matches: enclosing}
+        any:
+            - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+            - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: body
       rule: {kind: declaration_list, inside: {kind: interface_declaration, field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: arguments
+      rule: {kind: argument_list, regex: "\n", inside: {kind: 'base_list, primary_constructor_base_type'}}
+      fix: '(…)'
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, arguments, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}}
+isPublic: {not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}}
 ---
 id: csharp-member-enum
 language: csharplang
 role: member
 symbolType: enum
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: identifier
     pattern: $NAME
@@ -824,59 +867,63 @@ rule:
         kind: enum_declaration, union_declaration
         field: name
         pattern: $DECLARATION
-        inside:
-            kind: declaration_list
-            inside:
-                kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                any:
-                    - has: {field: name, pattern: $OWNER}
-                      inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-                    - pattern: $_
+        inside: {stopBy: end, matches: enclosing}
+        any:
+            - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+            - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
 rewriters:
     - id: body
       rule: {kind: 'declaration_list, enum_member_declaration_list', inside: {kind: 'enum_declaration, union_declaration', field: body}}
-      fix: {template: ';', expandEnd: {regex: '^;$'}}
+      fix: ''
+    - id: arguments
+      rule: {kind: argument_list, regex: "\n", inside: {kind: 'base_list, primary_constructor_base_type'}}
+      fix: '(…)'
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, arguments, trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}}
+isPublic: {not: {inside: {stopBy: end, kind: 'class_declaration, enum_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration', inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}}
 ---
 id: csharp-member-delegate
 language: csharplang
 role: member
 symbolType: function
-parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-union]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum]
 utils:
-    owner:
-        any:
-            - inside:
-                kind: declaration_list
-                inside:
-                    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration
-                    has: {field: name, pattern: $OWNER}
-                    inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}
-            - pattern: $_
+    enclosing: {kind: 'class_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
     public:
         any:
-            - has: {kind: modifier, regex: '^(public|protected)$'}
+            - has: {kind: modifier, regex: '^(?:public|protected)$'}
               not: {has: {kind: modifier, regex: '^private$'}}
-            - inside: {kind: declaration_list, inside: {kind: interface_declaration}}
-              not: {has: {kind: modifier, regex: '^(private|internal)$'}}
+            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
+              not: {has: {kind: modifier, regex: '^(?:private|internal)$'}}
 rule:
     kind: delegate_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
-    matches: owner
+    any:
+        - inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: $OWNER}, inside: {stopBy: end, matches: enclosing}}
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}}}
+rewriters:
+    - id: trivia
+      rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}
+      fix: "\n"
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    TRIMMED: {replace: {source: $DECLARATION, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}])+$|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+(;)', by: '$1'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*', by: ' '}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: .}}
+    HEADER: rewrite($DECLARATION, rewriters=[trivia])
+    NEWLINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{A0}\x{3000}\x{FEFF}])+$|[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{3000}\x{FEFF}]*', by: "\n"}}
+    TRIMMED: {replace: {source: $NEWLINES, replace: '([(\[<.])\n|\n([)\]>.,;])|\n$', by: '$1$2'}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic:
     all:
         - matches: public
-        - not: {inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration, enum_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration, union_declaration'}}, not: {matches: public}}}
+        - not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}

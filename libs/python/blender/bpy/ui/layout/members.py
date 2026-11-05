@@ -15,7 +15,6 @@ from blender.bpy.data.rna.paths import Native, RnaPath, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Declaration
-from blender.bpy.extension.reports import alerted
 from blender.bpy.settings.attachments import Attachment
 from blender.records.faults import accumulated, Nothing, Ok, Outcome
 
@@ -152,15 +151,13 @@ def resolved_at(member: Member[type[Struct]] | ResolvedMember, holder: Struct, c
 
 
 def bound(
-    members: tuple[Member[type[Struct]], ...], place: Callable[[LocatedMembers, bpy.types.UILayout, Struct, bpy.types.Context], None], /
+    identity: Identity, members: tuple[Member[type[Struct]], ...], place: Callable[[LocatedMembers, bpy.types.UILayout, Struct, bpy.types.Context], None], /
 ) -> Outcome[Callable[[bpy.types.UILayout, Struct, bpy.types.Context], None]]:
     """Resolves fixed members once and reached members each draw, drawing over the located owners while every one is found."""
 
     def drawn(held: tuple[ResolvedMember | Member[type[Struct]], ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-        """Draws over present owners, alerting every refusal."""
-        found = accumulated(resolved_at(each, holder, context) for each in held)
-        alerted(layout, found)
-        for current in found.to_option().to_list():
+        """Draws over present owners, logging every refusal."""
+        for current in identity.reports.settled(accumulated(resolved_at(each, holder, context) for each in held)).to_list():
             located = tuple(member for each in current for member in each.to_list())
             if len(located) == len(held):
                 place(located, layout, holder, context)

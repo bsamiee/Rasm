@@ -70,7 +70,7 @@ utils:
     result:
         any:
             - matches: wrapping
-            - kind: 'return_expression, expression_statement'
+            - kind: 'return_expression, become_expression, expression_statement'
               has: {nthChild: 1, matches: result}
     body-statement:
         nthChild: {position: 1, ofRule: {matches: rust-statement}}

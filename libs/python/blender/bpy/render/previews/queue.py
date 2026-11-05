@@ -273,7 +273,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         """Replaces each read feed's requests, cancels them on read failure, and runs pending jobs while reporting every fault.
 
         Args:
-            identity: Extension with reports holding budget, feed, and render faults.
+            identity: Extension whose reports log budget, feed, and render faults.
 
         Returns:
             `Ok` of next interval on every tick.
@@ -301,7 +301,8 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         match context.window_manager:
             case bpy.types.WindowManager(is_interface_locked=False) as manager:
                 shifted = backlog.slot.map(lambda slot: built("RENDER_RESULT").map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(value=False))
-                return Ok(shifted.bind(lambda held: Ok(None) if held else stepped(manager)).map_error(identity.reports.hold).map(lambda _: Some(self.interval)).default_value(Some(self.interval)))
+                identity.reports.faulted(shifted.bind(lambda held: Ok(None) if held else stepped(manager)))
+                return Ok(Some(self.interval))
             case _:
                 return Ok(Some(self.interval))
 

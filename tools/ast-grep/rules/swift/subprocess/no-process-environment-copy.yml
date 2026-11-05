@@ -4,7 +4,7 @@ severity: error
 utils:
     process-environment:
         kind: navigation_expression
-        regex: '^((Foundation\.)?ProcessInfo\.processInfo)\.environment$'
+        regex: '^((Foundation(\.|::))?ProcessInfo\.processInfo)\.environment$'
     reshaped:
         kind: call_expression
         has: {nthChild: 1, regex: '\.(hasPrefix|hasSuffix|starts|lowercased|uppercased|replacing|trimmingCharacters|mapValues|compactMapValues)$'}
@@ -12,7 +12,7 @@ rule:
     kind: call_expression
     pattern: $SITE
     all:
-        - has: {nthChild: 1, regex: '^((Subprocess\.)?Environment)?\.custom$'}
+        - has: {nthChild: 1, regex: '^((Subprocess(\.|::))?Environment)?\.custom$'}
         - any:
             - has: {stopBy: end, matches: process-environment}
             - has:
@@ -25,7 +25,7 @@ rule:
                     has:
                         kind: property_declaration
                         all:
-                            - has: {field: name, has: {field: bound_identifier, pattern: $COPY}}
+                            - has: {kind: pattern, has: {field: bound_identifier, pattern: $COPY}}
                             - has: {stopBy: end, matches: process-environment}
                             - not: {has: {stopBy: end, matches: reshaped}}
         - not: {has: {stopBy: end, matches: reshaped}}

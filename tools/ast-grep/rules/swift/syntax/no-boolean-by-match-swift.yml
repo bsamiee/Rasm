@@ -66,16 +66,16 @@ rule:
                 - any:
                     - kind: 'if_statement, guard_statement'
                     - has: {kind: switch_entry, has: {kind: statements, has: {kind: control_transfer_statement}}}
-                - inside: {stopBy: {matches: swift-function-scope}, kind: function_declaration, has: {field: return_type, regex: '^Swift\.Bool$'}}
+                - inside: {stopBy: {matches: swift-function-scope}, kind: function_declaration, has: {field: return_type, regex: '^Swift(\.|::)Bool$'}}
             - inside:
                 kind: statements
                 not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, multiline_comment'}}}}}
-                inside: {kind: function_body, inside: {kind: function_declaration, has: {field: return_type, regex: '^Swift\.Bool$'}}}
-            - inside: {kind: control_transfer_statement, field: result, inside: {stopBy: {matches: swift-function-scope}, kind: function_declaration, has: {field: return_type, regex: '^Swift\.Bool$'}}}
-            - inside: {kind: property_declaration, field: value, has: {kind: type_annotation, has: {field: name, regex: '^Swift\.Bool$'}}}
+                inside: {kind: function_body, inside: {kind: function_declaration, has: {field: return_type, regex: '^Swift(\.|::)Bool$'}}}
+            - inside: {kind: control_transfer_statement, field: result, inside: {stopBy: {matches: swift-function-scope}, kind: function_declaration, has: {field: return_type, regex: '^Swift(\.|::)Bool$'}}}
+            - {follows: {regex: '^=$'}, inside: {kind: property_declaration, has: {kind: type_annotation, has: {field: name, regex: '^Swift(\.|::)Bool$'}}}}
             - inside:
                 kind: computed_property
                 stopBy: {matches: swift-function-scope}
-                inside: {kind: property_declaration, has: {kind: type_annotation, has: {field: name, regex: '^Swift\.Bool$'}}}
+                inside: {kind: property_declaration, has: {kind: type_annotation, has: {field: name, regex: '^Swift(\.|::)Bool$'}}}
 message: 'Match yields `$IN` for one pattern and `$OUT` for every other'
 note: 'Write `if case <pattern> = <value> { <matched> } else { <other> }`, or `<value> == <case>` for an `Equatable` type'

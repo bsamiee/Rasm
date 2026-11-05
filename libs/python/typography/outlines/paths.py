@@ -3,7 +3,7 @@
 # mypy: disable-error-code="no-untyped-call"
 
 from typing import Literal, Self
-lazy from functools import partial
+lazy from functools import partial, reduce
 lazy from itertools import pairwise
 
 import msgspec
@@ -13,6 +13,7 @@ lazy from fontTools.pens.basePen import AbstractPen
 lazy from fontTools.pens.boundsPen import BoundsPen
 lazy from fontTools.pens.pointPen import PointToSegmentPen, ReverseContourPointPen
 lazy from fontTools.pens.recordingPen import RecordingPointPen
+lazy from fontTools.pens.roundingPen import RoundingPen
 lazy from fontTools.pens.transformPen import TransformPointPen
 lazy import pathops
 
@@ -134,13 +135,14 @@ def segments(outline: Outline, /, *, closed: bool = True) -> tuple[Segment, ...]
 
 
 def union(*outlines: Outline) -> Outline:
-    """Returns the nonzero union of outlines, every overlap and retraced spur removed."""
-    builder = pathops.OpBuilder(**_FILL)
-    for outline in outlines:
+    """Returns the nonzero union of outlines, every overlap and retraced spur removed, each outline simplified then folded in pairwise, the form resolving slivers and near-coincident edges the native builder and a raw pair refuse."""
+
+    def merged(held: pathops.Path, outline: Outline, /) -> pathops.Path:  # type: ignore[no-any-unimported]
         path = pathops.Path()
         trace(path.getPen(), outline)
-        builder.add(path, pathops.PathOp.UNION)
-    return traced(builder.resolve().draw)
+        return pathops.op(held, pathops.simplify(path, **_FILL), pathops.PathOp.UNION, **_FILL)
+
+    return traced(reduce(merged, outlines, pathops.Path()).draw)
 
 
 def combined(a: Outline, b: Outline, operation: pathops.PathOp, /) -> Outline:  # type: ignore[no-any-unimported]
@@ -208,14 +210,16 @@ def transformed(outline: Outline, matrix: Matrix, /) -> Outline:
 
 
 def offset(outline: Outline, distance: float, /) -> Outline:
-    """Grows the outline's ink by `distance` units, or shrinks it for a negative distance, at mitered corners with miter limit 4."""
+    """Grows the outline's ink by `distance` units, or shrinks it for a negative distance, at mitered corners with miter limit 4, the rim snapped so edges meeting at a half stem coincide exactly."""
     if not distance:
         return union(outline)
     body = pathops.Path()
     draw(body.getPen(), outline)
-    rim = pathops.Path(body)
-    rim.stroke(2 * abs(distance), pathops.LineCap.BUTT_CAP, pathops.LineJoin.MITER_JOIN, 4.0)
-    rim.convertConicsToQuads()
+    stroked, rim = pathops.Path(body), pathops.Path()
+    snap = 1024
+    stroked.stroke(2 * abs(distance), pathops.LineCap.BUTT_CAP, pathops.LineJoin.MITER_JOIN, 4.0)
+    stroked.convertConicsToQuads()
+    stroked.draw(RoundingPen(rim.getPen(), roundFunc=lambda value: round(value * snap) / snap))
     return traced(pathops.op(body, rim, pathops.PathOp.UNION if distance > 0 else pathops.PathOp.DIFFERENCE, **_FILL).draw)
 
 

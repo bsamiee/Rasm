@@ -44,7 +44,7 @@ rule:
                         any:
                             - has: {kind: modifiers, has: {kind: 'attribute, property_behavior_modifier'}}
                             - all:
-                                - has: {field: name, has: {field: bound_identifier, pattern: $P}}
+                                - has: {kind: pattern, has: {field: bound_identifier, pattern: $P}}
                                 - not:
                                     inside:
                                         kind: source_file

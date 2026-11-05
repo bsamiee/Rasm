@@ -28,8 +28,8 @@ utils:
     nullable-union:
         kind: union_type
         any:
-            - regex: '^[^|]+\|[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(undefined|null)$'
-            - regex: '^(undefined|null)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\|[^|]+$'
+            - regex: '^[^|]+\|[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(undefined|null)$'
+            - regex: '^(undefined|null)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\|[^|]+$'
     shape-test:
         any:
             - kind: binary_expression
@@ -76,6 +76,6 @@ rule:
                             - has: {field: type, has: {matches: declared-union}, not: {has: {matches: nullable-union}}}
                 - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
 transform:
-    OVERLOAD: {replace: {source: $SIGNATURE, replace: '(?s)^(?:function[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?([^(<]+).*$', by: '$1'}}
+    OVERLOAD: {replace: {source: $SIGNATURE, replace: '(?s)^(?:function[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+)?([^(<]+).*$', by: '$1'}}
 message: '`$PARAMETER$OVERLOAD` selects behavior by argument shape at runtime'
 note: 'Decode the argument to one shape (`Schema.ArrayEnsure`), or declare one function per shape'

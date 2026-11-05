@@ -10,8 +10,8 @@ rule:
         - kind: float_literal
           regex: '^0+\.0*(_?f(32|64))?$'
         - kind: macro_invocation
-          regex: '^vec!\p{White_Space}*(\(\p{White_Space}*\)|\[\p{White_Space}*\]|\{\p{White_Space}*\})$'
+          regex: '^vec!\p{Pattern_White_Space}*(\(\p{Pattern_White_Space}*\)|\[\p{Pattern_White_Space}*\]|\{\p{Pattern_White_Space}*\})$'
         - kind: closure_expression
           all:
-            - has: {field: parameters, regex: '^\|\p{White_Space}*(_\p{XID_Continue}*)?\p{White_Space}*\|$'}
+            - has: {field: parameters, regex: '^\|\p{Pattern_White_Space}*(_\p{XID_Continue}*)?\p{Pattern_White_Space}*\|$'}
             - has: {field: body, matches: rust-default-value}

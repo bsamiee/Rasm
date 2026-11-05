@@ -4,7 +4,7 @@ severity: error
 utils:
     unit-name:
         kind: string_literal
-        regex: '^"\p{White_Space}?([KMGTPE]i?B|kB)"$'
+        regex: '^"\p{Pattern_White_Space}?([KMGTPE]i?B|kB)"$'
     kibi:
         kind: 'integer_literal, float_literal'
         regex: '^1_*0_*2_*4(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?$'
@@ -25,7 +25,7 @@ rule:
     pattern: $FORMAT
     any:
         - kind: 'string_literal, raw_string_literal'
-          regex: '(^|[^{])\{[^{}]*\}\p{White_Space}?([KMGTPE]i?B|kB)(?-u:\b)'
+          regex: '(^|[^{])\{[^{}]*\}\p{Pattern_White_Space}?([KMGTPE]i?B|kB)(?-u:\b)'
           not: {matches: rust-macro-argument}
         - kind: string_literal
           matches: unit-name

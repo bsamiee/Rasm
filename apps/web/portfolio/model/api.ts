@@ -5,6 +5,7 @@ import { PortfolioData, StoredPortfolio } from '#/model/portfolio.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const apiPrefix = '/api';
 const uploadField = { asset: 'asset', renditions: 'renditions', file: 'file' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -85,10 +86,10 @@ const Api = HttpApi.make('portfolio')
                 }),
             ),
     )
-    .prefix('/api');
+    .prefix(apiPrefix);
 const urls = HttpApiClient.urlBuilder(Api);
 const assetUrl = (asset: typeof Asset.Type, width?: number) => urls.assets.read({ params: { id: asset.id, width: Option.fromUndefinedOr(width) } });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Api, assetUrl, Bootstrap, Owner, PlacementConflict, PreconditionFailed, Recovery, UploadRefused, uploadField };
+export { Api, apiPrefix, assetUrl, Bootstrap, Owner, PlacementConflict, PreconditionFailed, Recovery, UploadRefused, uploadField };

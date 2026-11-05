@@ -18,6 +18,9 @@ NODE_COMPILE_CACHE                    = "{{config_root}}/.cache/node"
 PYTHONPYCACHEPREFIX                   = "{{config_root}}/.cache/pycache"
 DYLD_FALLBACK_LIBRARY_PATH            = "{{config_root}}/.pixi/envs/default/lib:{{ env.HOME }}/lib:/usr/local/lib:/usr/lib"
 HYPOTHESIS_STORAGE_DIRECTORY          = "{{config_root}}/.cache/hypothesis"
+RUFF_CACHE_DIR                        = "{{config_root}}/.cache/ruff"
+MYPY_CACHE_DIR                        = "{{config_root}}/.cache/mypy"
+PYTEST_ADDOPTS                        = "-o 'cache_dir={{config_root}}/.cache/pytest'"
 CARGO_LLVM_COV_DENY_WARNINGS          = "1"
 RUSTUP_TOOLCHAIN                      = false
 RUSTUP_AUTO_INSTALL                   = "0"
@@ -164,7 +167,7 @@ namespace = "rasm"
 roslyn-codelens    = { run = "exec roslyn-codelens-mcp Workspace.slnx --http --port $PORT", env = { DOTNET_GCConserveMemory = "5" }, port = 7401, ready_port = 7401, boot_start = true }
 nuget              = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- nuget-mcp-server", env = { DOTNET_GCConserveMemory = "5" }, port = 7402, ready_port = 7402, boot_start = true }
 binlog             = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- binlog-mcp", env = { XDG_CACHE_HOME = "{{ dir }}/.cache", DOTNET_GCConserveMemory = "5" }, port = 7403, ready_port = 7403, boot_start = true }
-ast-grep           = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- ast-grep-server --config sgconfig.yml", port = 7404, ready_port = 7404, boot_start = true }
+ast-grep           = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- ast-grep-server --config sgconfig.yml", env = { AST_GREP_PATH = "sh -c 'c=$1; shift; exec ast-grep \"$c\" --custom-languages allow \"$@\"' ast-grep" }, port = 7404, ready_port = 7404, boot_start = true }
 rhino-mcp-platform = { run = 'exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"', env = { RHINO_MCP_DEFAULT_VERSION = "9" }, port = 7406, ready_port = 7406, boot_start = true }
 blender-lab        = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- blender-mcp", env = { BLENDER_MCP_PORT = "9877" }, port = 7407, ready_port = 7407, boot_start = true }
 mcp-for-blender    = { run = "exec doppler run --project agent-runtime --config dev --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 -- rasm-mcp-bridge --listen 127.0.0.1:$PORT -- mcp-for-blender", env = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, port = 7408, ready_port = 7408, boot_start = true }

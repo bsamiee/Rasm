@@ -16,7 +16,6 @@ rule:
                         stopBy: end
                         kind: array_literal
                         has:
-                            field: element
                             pattern: $ROOT
                             regex: '^(NSOpenStepRootDirectory\(\)|"/"|(URL\((filePath|fileURLWithPath): "/"\)|FilePath\("/"\))\.(path|string)(\(.*\))?)$'
 message: '`FSEventStreamCreate` over `$ROOT` streams every file event on the volume'

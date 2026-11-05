@@ -10,7 +10,7 @@ rule:
             kind: declaration_list
             inside:
                 kind: class_declaration
-                has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^Eto\p{XID_Continue}*Section[0-9]*$'}}}}}
+                has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^Eto.*Section[0-9]*$'}}}}}
         - has:
             field: body
             has:

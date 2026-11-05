@@ -14,9 +14,9 @@ rule:
         - matches: {python-builtin-identifier: {name: {matches: name}}}
         - kind: identifier
           all:
-              - not: {matches: name}
-              - inside: {kind: module, stopBy: end, regex: '(?-u:\b)builtins(?-u:\b)'}
-              - matches: {python-imported-name: {module: {regex: '^builtins$'}, name: {matches: name}}}
+            - not: {matches: name}
+            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)builtins(?-u:\b)'}
+            - matches: {python-imported-name: {module: {regex: '^builtins$'}, name: {matches: name}}}
         - kind: attribute
           all:
             - has: {field: attribute, matches: name}

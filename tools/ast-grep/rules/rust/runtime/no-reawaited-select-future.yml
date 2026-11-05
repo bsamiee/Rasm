@@ -9,7 +9,7 @@ utils:
             - follows: {kind: mutable_specifier, follows: {regex: '^&$', follows: {regex: '^=$', follows: {kind: identifier, pattern: $VALUE}}}}
               precedes: {regex: '^=>$', precedes: {matches: handler}}
             - follows: {regex: '^=$', follows: {kind: identifier, pattern: $VALUE}}
-              precedes: {regex: '^\.$', precedes: {kind: identifier, regex: '^as_mut$', precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$', precedes: {regex: '^=>$', precedes: {matches: handler}}}}}
+              precedes: {regex: '^\.$', precedes: {kind: identifier, regex: '^as_mut$', precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$', precedes: {regex: '^=>$', precedes: {matches: handler}}}}}
     output-write:
         kind: identifier
         pattern: $OUTPUT
@@ -18,7 +18,7 @@ utils:
         any:
             - matches: output-write
             - kind: token_tree
-              regex: '^\{\p{White_Space}*(r#)?\p{XID_Continue}+\p{White_Space}*=\p{White_Space}*Some\p{White_Space}*\(\p{White_Space}*(r#)?\p{XID_Continue}+\p{White_Space}*\)\p{White_Space}*;?\p{White_Space}*\}$'
+              regex: '^\{\p{Pattern_White_Space}*(r#)?\p{XID_Continue}+\p{Pattern_White_Space}*=\p{Pattern_White_Space}*Some\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*(r#)?\p{XID_Continue}+\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*;?\p{Pattern_White_Space}*\}$'
               has: {matches: output-write}
     awaited:
         kind: await_expression
@@ -68,9 +68,9 @@ rule:
     kind: await_expression
     all:
         - matches: awaited
-        - inside: {matches: absent, stopBy: {kind: 'match_arm, else_clause, closure_expression, async_block, function_item'}}
+        - inside: {matches: absent, stopBy: {any: [{matches: rust-return-boundary}, {kind: 'match_arm, else_clause'}]}}
         - any:
             - matches: tracked-output
-            - inside: {stopBy: {kind: 'function_item, closure_expression, async_block'}, matches: tracked-output}
+            - inside: {stopBy: {matches: rust-return-boundary}, matches: tracked-output}
 message: '`$OUTPUT` stores `$FUTURE` completion from `select!` before a `None` fallback awaits it'
 note: 'Pin `futures::future::maybe_done(<future>)`, poll it through `&mut` in each `select!`, and read its output once through `take_output()`'

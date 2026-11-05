@@ -12,17 +12,17 @@ utils:
               all:
                 - any:
                     - kind: interpolated_expression
-                    - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(SwiftUI\.)?(Text|ProgressView)$'}}}}
+                    - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(SwiftUI(\.|::))?(Text|ProgressView)$'}}}}
                 - any:
                     - has: {field: name, regex: '^timerInterval$'}
                     - all:
                         - has: {field: name, regex: '^style$'}
-                        - has: {field: value, regex: '^((SwiftUI\.)?Text\.DateStyle)?\.(relative|offset|timer)$'}
+                        - has: {field: value, regex: '^((SwiftUI(\.|::))?Text\.DateStyle)?\.(relative|offset|timer)$'}
                     - all:
                         - has: {field: name, regex: '^format$'}
-                        - has: {field: value, regex: '^((SwiftUI\.)?SystemFormatStyle(\.\p{XID_Continue}+)?)?\.(offset|reference|timer|stopwatch)\('}
+                        - has: {field: value, regex: '^((SwiftUI(\.|::))?SystemFormatStyle(\.[^.(]+)?)?\.(offset|reference|timer|stopwatch)\('}
             - kind: 'prefix_expression, navigation_expression'
-              regex: '^((SwiftUI\.)?TimeDataSource(<[^>]*>)?)?\.(currentDate|durationOffset|dateRange)$'
+              regex: '^((SwiftUI(\.|::))?TimeDataSource(<[^>]*>)?)?\.(currentDate|durationOffset|dateRange)$'
 rule:
     all:
         - matches: clock

@@ -65,7 +65,7 @@ rule:
                     kind: attribute
                     all:
                         - has: {field: name, matches: {csharp-type-name: {name: {regex: '^UserMapping(Attribute)?$'}}}}
-                        - not: {has: {kind: attribute_argument_list, has: {kind: attribute_argument, regex: '^Default[\p{White_Space}\x{FEFF}]*=[\p{White_Space}\x{FEFF}]*false$'}}}
+                        - not: {has: {kind: attribute_argument_list, has: {kind: attribute_argument, all: [{has: {field: name, regex: '^Default$'}}, {has: {kind: boolean_literal, regex: '^false$'}}]}}}
         - has:
             field: parameters
             all:

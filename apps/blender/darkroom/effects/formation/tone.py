@@ -6,12 +6,11 @@ from functools import partial
 from importlib.resources import as_file, files
 import inspect
 from math import log2
-from pathlib import Path
 from types import MappingProxyType
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Option, Result, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -25,19 +24,19 @@ from blender.bpy.nodes.desired import item_key, RESULT
 from blender.bpy.nodes.functions import Group, grouped
 from blender.bpy.nodes.graphs import composed, directed, Expr, inverted, math, matrix, mixed, vector, where, xyz
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, StockInput
-from blender.bpy.render.color.spaces import ColorSpace, EXPOSURE, shown
+from blender.bpy.render.color.spaces import ColorSpace, EXPOSURE
 from blender.bpy.render.compositor.colors import AXES, extreme, nonnegative, preserved, spanned
 from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, Prepared, Stage
-from blender.bpy.render.compositor.grades import tabled, TILES
+from blender.bpy.render.compositor.grades import latticed, TILES
 from blender.bpy.render.compositor.inputs import captured, entered, GraphInputs, path_key, value, valued
 from blender.bpy.render.compositor.viewers import READ
-from blender.bpy.ui.layout.rows import Label
 from blender.imaging.analysis.metering import Samples
-from blender.imaging.color.luts import cube_split, Rational
-from blender.imaging.color.processors import DisplayView, GRAY, REC709_SCENE, rendering_basis
+from blender.imaging.color.authoring import ConfigBuild
+from blender.imaging.color.luts import Lattice, Logarithmic
+from blender.imaging.color.processors import GRAY, processor, REC709_SCENE, rendering_basis
 from blender.imaging.files.buffers import pixels
 from blender.imaging.files.images import ImageFile
-from blender.records.faults import accumulated, Fault, Faults, Nothing, Ok, Outcome, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -48,6 +47,8 @@ _SCENE_WHITE: Final = InterfacePanel.of(
 )
 _WHITE_STOPS: Final = _SCENE_WHITE.inputs[0]
 _DRAGO_WHITE: Final = float(np.log2(100.0))
+TONY: Final = "TonyMcMapface Base"
+UPSTREAM: Final = files(__package__).joinpath("fetched/OCIO/config.ocio")
 _APPLICATION: Final = InterfacePanel.of(
     "application",
     Interface(
@@ -252,22 +253,17 @@ class Photoreceptor(CompositorRecord, frozen=True, kw_only=True):
 
 
 class Tony(CompositorRecord, frozen=True, kw_only=True):
-    """Tony McMapface's rationally shaped RGB table in linear Rec.709."""
+    """Tony McMapface's upstream colorspace in linear Rec.709."""
 
     @override
     def graph(self, shell: GraphInputs) -> Outcome[Expr]:
-        """Samples the packaged Tony McMapface table tetrahedrally over its rational input shaping."""
+        """Samples the upstream colorspace, merged into the scene config and decoded to display-linear, at a table of its grid size over its logarithmic allocation."""
         with ExitStack() as scope:
-            table = files(__package__).joinpath("tony_mc_mapface.spi3d")
             return (
-                Result[Path, Faults]
-                .bind(
-                    catch(scope.enter_context, exception=OSError)(as_file(table)).map_error(partial(Fault.of, Reason.UNREADABLE, str(table))),
-                    lambda path: cube_split(shell.config, PyOpenColorIO.FileTransform(src=str(path), interpolation=PyOpenColorIO.INTERP_TETRAHEDRAL)).bind(
-                        lambda parts: parts[1].to_result_with(partial(Fault.of, Reason.ABSENT, str(path), member=PyOpenColorIO.Lut3DTransform.__name__))
-                    ),
-                )
-                .bind(lambda found: tabled(item_key(Tony), "Tony McMapface", msgspec.structs.replace(found[0], spacing=Rational()), found[1], shell.color, shell.config))
+                catch(scope.enter_context, exception=OSError)(as_file(UPSTREAM))
+                .map_error(partial(Fault.of, Reason.UNREADABLE, str(UPSTREAM)))
+                .bind(lambda path: ConfigBuild(sources=(path,)).absorbed(shell.config))
+                .bind(lambda config: formed(config).bind(lambda held: latticed(item_key(Tony), "Tony McMapface", config, *held, shell.color)))
             )
 
     @property
@@ -363,6 +359,25 @@ def reinhard_extended(level: Expr, scene_white_stops: Expr | float = 0.0) -> Exp
     return level / (level + 1.0) * (level / math("POWER", 2.0, scene_white_stops * 2.0) + 1.0)
 
 
+# --- [TONY]
+
+
+def formed(config: PyOpenColorIO.Config) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Lattice]]:
+    """Returns the transform from linear Rec.709 through the merged colorspace to display-linear, and the table of its grid size over its logarithmic allocation."""
+    space: PyOpenColorIO.ColorSpace = config.getColorSpace(TONY)
+    stated: PyOpenColorIO.GroupTransform = space.getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    stages = tuple(inner for outer in stated for inner in (outer if isinstance(outer, PyOpenColorIO.GroupTransform) else (outer,)))
+    low, high = next(stage.getVars() for stage in stages if isinstance(stage, PyOpenColorIO.AllocationTransform))
+    encoding = next(stage.getDst() for stage in stages if isinstance(stage, PyOpenColorIO.ColorSpaceTransform))
+    transform = PyOpenColorIO.GroupTransform([PyOpenColorIO.ColorSpaceTransform(src=REC709_SCENE, dst=TONY), PyOpenColorIO.ColorSpaceTransform(src=encoding, dst=REC709_SCENE)])
+    return processor(config, transform).map(
+        lambda built: (
+            transform,
+            Lattice(size=next(stage.getGridSize() for stage in built.createGroupTransform() if isinstance(stage, PyOpenColorIO.Lut3DTransform)), spacing=Logarithmic(low=low, span=high - low)),
+        )
+    )
+
+
 # --- [PANELS]
 
 
@@ -443,17 +458,6 @@ def meter_white(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.Sce
     return captured(identity, entry).map(valued).bind(hable_white if entry in hable.entries(identity, scene) else curved)
 
 
-def _unencoded(context: bpy.types.Context) -> tuple[str, ...]:
-    """Notice while the frame forms through a view other than an encoding-only one."""
-    config = PyOpenColorIO.GetCurrentConfig()
-    return tuple(
-        "Needs encoding-only Display View"
-        for view in Option.of_optional(context.scene).bind(shown).to_list()
-        for found in DisplayView.for_encoding(config, view.display, Some(view.view)).to_option().to_list()
-        if found.is_none()
-    )
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _CASES: Final = tuple((group, _cased(group)) for group in (sigmoid, piecewise_power, logarithmic, reinhard_extended))
@@ -461,25 +465,19 @@ _WHITENED: Final = MappingProxyType({panel.item.name: panel for _, panel in _CAS
 _CURVE: Final = Socket(
     key="curve", kind=bpy.types.NodeSocketMenu, description="Curve each rendering channel takes", default_value=_CASES[0][1].item.name, items=tuple(panel.item for _, panel in _CASES)
 )
-_ENCODING_ONLY: Final = Label(text=_unencoded, icon=Some("STATUS_ERROR_FILLED"))
 _METER: Final = READ.measuring(meter_white)
 
 tone_curve: Final = CompositorEffect(
-    record=ToneCurve, interface=Interface(inputs=(_CURVE,), panels=(*(panel for _, panel in _CASES), _APPLICATION)), mix=Mix.STRAIGHT, pointwise=True, rows=(_ENCODING_ONLY,), registers=(_METER,)
+    record=ToneCurve, interface=Interface(inputs=(_CURVE,), panels=(*(panel for _, panel in _CASES), _APPLICATION)), mix=Mix.STRAIGHT, pointwise=True, registers=(_METER,)
 )
 hable: Final = CompositorEffect(
-    record=Hable,
-    interface=Interface(inputs=(_A, _B, _C, _D, _E, _F), panels=(_white(float(np.log2(11.2)), toggle=True),)),
-    mix=Mix.STRAIGHT,
-    pointwise=True,
-    rows=(_ENCODING_ONLY,),
-    registers=(_METER,),
+    record=Hable, interface=Interface(inputs=(_A, _B, _C, _D, _E, _F), panels=(_white(float(np.log2(11.2)), toggle=True),)), mix=Mix.STRAIGHT, pointwise=True, registers=(_METER,)
 )
-neutral: Final = CompositorEffect(record=Neutral, mix=Mix.STRAIGHT, pointwise=True, rows=(_ENCODING_ONLY,))
-photoreceptor: Final = CompositorEffect(record=Photoreceptor, interface=Interface(inputs=_ADAPTATION), mix=Mix.RESULT, rows=(_ENCODING_ONLY,))
-tony: Final = CompositorEffect(record=Tony, mix=Mix.STRAIGHT, pointwise=True, rows=(_ENCODING_ONLY,), registers=(TILES,))
+neutral: Final = CompositorEffect(record=Neutral, mix=Mix.STRAIGHT, pointwise=True)
+photoreceptor: Final = CompositorEffect(record=Photoreceptor, interface=Interface(inputs=_ADAPTATION), mix=Mix.RESULT)
+tony: Final = CompositorEffect(record=Tony, mix=Mix.STRAIGHT, pointwise=True, registers=(TILES,))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Hable", "Neutral", "Photoreceptor", "ToneCurve", "Tony", "hable", "neutral", "photoreceptor", "tone_curve", "tony"]
+__all__ = ["TONY", "UPSTREAM", "Hable", "Neutral", "Photoreceptor", "ToneCurve", "Tony", "formed", "hable", "neutral", "photoreceptor", "tone_curve", "tony"]

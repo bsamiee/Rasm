@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+utils:
+    measured:
+        kind: func_application
+        all:
+            - has: {kind: func_name, regex: '(?i-u)^"?(char_|character_)?length"?$'}
+            - has: {kind: func_arg_list, has: {kind: func_arg_expr, has: {stopBy: {not: {matches: pgsql-wrapper}}, not: {matches: pgsql-wrapper}, pattern: $PREFIX}}}
+    positional-slice:
+        kind: func_arg_list
+        all:
+            - has: {kind: func_arg_expr, has: {stopBy: {not: {matches: pgsql-wrapper}}, matches: measured}}
+            - has: {kind: func_arg_list, has: {kind: func_arg_expr, has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, regex: '^1$'}}}
+    slice-call:
+        any:
+            - kind: func_application
+              all:
+                - has: {kind: func_name, regex: '(?i-u)^"?left"?$'}
+                - has: {kind: func_arg_list, not: {has: {kind: func_arg_list, has: {kind: func_arg_list}}}, has: {kind: func_arg_expr, has: {stopBy: {not: {matches: pgsql-wrapper}}, matches: measured}}}
+            - kind: func_application
+              all:
+                - has: {kind: func_name, regex: '(?i-u)^"?(substr|substring)"?$'}
+                - has: {matches: positional-slice}
+            - kind: func_expr_common_subexpr
+              has: {matches: positional-slice}
+              regex: '(?i-u)^substring(?-u:\b)'
+            - kind: func_expr_common_subexpr
+              has:
+                kind: substr_list
+                all:
+                    - has: {kind: a_expr, has: {stopBy: {not: {matches: pgsql-wrapper}}, matches: measured}}
+                    - has: {kind: a_expr, has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, regex: '^1$'}}
+    slice:
+        matches: pgsql-wrapper
+        has: {stopBy: {not: {matches: pgsql-wrapper}}, matches: slice-call}
+    compared:
+        has: {stopBy: {not: {matches: pgsql-wrapper}}, not: {matches: pgsql-wrapper}, pattern: $PREFIX}
+rule:
+    kind: a_expr, a_expr_prec
+    pattern: $TEST
+    all:
+        - has: {field: operator, regex: '^=$'}
+        - any:
+            - all: [{has: {field: left, matches: slice}}, {has: {field: right, matches: compared}}]
+            - all: [{has: {field: right, matches: slice}}, {has: {field: left, matches: compared}}]
+message: '`$TEST` compares `$PREFIX` with a prefix-length slice'
+note: 'Use `starts_with(<subject>, <prefix>)`, or `<subject> ^@ <prefix>` where an SP-GiST index serves the prefix'

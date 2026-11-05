@@ -1,7 +1,7 @@
-import { atelierLink } from '@rasm/atelier';
+import { atelierLink, atelierMark } from '@rasm/atelier';
 import { Photoshop } from '@rasm/photoshop';
-import { uxp } from '../../../../../vite.shared.ts';
+import { uxp } from '@rasm/uxp/vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default uxp(import.meta.dirname, Photoshop.manifest, atelierLink);
+export default uxp(import.meta.dirname, Photoshop.manifest, atelierLink, atelierMark);

@@ -2,4 +2,4 @@
 id: typescript-expression-wrapper
 language: tsxlang
 rule:
-    kind: parenthesized_expression, as_expression, satisfies_expression, non_null_expression
+    kind: parenthesized_expression, as_expression, satisfies_expression, non_null_expression, type_assertion

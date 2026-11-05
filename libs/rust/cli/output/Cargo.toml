@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-output"
-version.workspace    = true
-edition.workspace    = true
-description          = "Line mode over rasm-command: typed rows as a grid, CSV or JSON, pager, progress bars and prompt colors"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["cli", "table", "pager", "progress", "prompt"]
-categories           = ["command-line-interface"]
+name              = "rasm-output"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

@@ -6,41 +6,41 @@ rule:
     pattern: $IMPLIED
     not: {follows: {kind: attribute, regex: '^@unchecked$'}}
     any:
-        - regex: '^(Swift\.)?Equatable$'
+        - regex: '^(Swift(\.|::))?Equatable$'
           inside:
             kind: &owner 'class_declaration, protocol_declaration'
-            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?(Hashable|Comparable|Strideable|SetAlgebra|OptionSet|Numeric|SignedNumeric|BinaryInteger|SignedInteger|UnsignedInteger|FixedWidthInteger|FloatingPoint|BinaryFloatingPoint|StringProtocol)$'}
-        - regex: '^(Swift\.)?Hashable$'
+            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift(\.|::))?(Hashable|Comparable|Strideable|SetAlgebra|OptionSet|Numeric|SignedNumeric|BinaryInteger|SignedInteger|UnsignedInteger|FixedWidthInteger|FloatingPoint|BinaryFloatingPoint|StringProtocol)$'}
+        - regex: '^(Swift(\.|::))?Hashable$'
           inside:
             kind: *owner
-            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?(BinaryInteger|SignedInteger|UnsignedInteger|FixedWidthInteger|FloatingPoint|BinaryFloatingPoint|StringProtocol)$'}
-        - regex: '^(Swift\.)?Comparable$'
+            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift(\.|::))?(BinaryInteger|SignedInteger|UnsignedInteger|FixedWidthInteger|FloatingPoint|BinaryFloatingPoint|StringProtocol)$'}
+        - regex: '^(Swift(\.|::))?Comparable$'
           inside:
             kind: *owner
-            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?(Strideable|BinaryInteger|SignedInteger|UnsignedInteger|FixedWidthInteger|FloatingPoint|BinaryFloatingPoint|StringProtocol)$'}
-        - regex: '^(Swift\.)?Sendable$'
+            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift(\.|::))?(Strideable|BinaryInteger|SignedInteger|UnsignedInteger|FixedWidthInteger|FloatingPoint|BinaryFloatingPoint|StringProtocol)$'}
+        - regex: '^(Swift(\.|::))?Sendable$'
           inside:
             kind: *owner
-            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?(Error|CodingKey)$'}
-        - regex: '^(Swift\.)?(Encodable|Decodable)$'
+            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift(\.|::))?(Error|CodingKey)$'}
+        - regex: '^(Swift(\.|::))?(Encodable|Decodable)$'
           inside:
             kind: protocol_declaration
-            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?Codable$'}
-        - regex: '^(Swift\.)?Sequence$'
+            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift(\.|::))?Codable$'}
+        - regex: '^(Swift(\.|::))?Sequence$'
           inside:
             kind: *owner
-            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?(Collection|BidirectionalCollection|RandomAccessCollection|MutableCollection|RangeReplaceableCollection|StringProtocol)$'}
-        - regex: '^(Swift\.)?Collection$'
+            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift(\.|::))?(Collection|BidirectionalCollection|RandomAccessCollection|MutableCollection|RangeReplaceableCollection|StringProtocol)$'}
+        - regex: '^(Swift(\.|::))?Collection$'
           inside:
             kind: *owner
-            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?(BidirectionalCollection|RandomAccessCollection|MutableCollection|RangeReplaceableCollection|StringProtocol)$'}
-        - regex: '^(Swift\.)?BidirectionalCollection$'
+            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift(\.|::))?(BidirectionalCollection|RandomAccessCollection|MutableCollection|RangeReplaceableCollection|StringProtocol)$'}
+        - regex: '^(Swift(\.|::))?BidirectionalCollection$'
           inside:
             kind: *owner
-            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?(RandomAccessCollection|StringProtocol)$'}
-        - regex: '^(Swift\.)?(SetAlgebra|RawRepresentable)$'
+            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift(\.|::))?(RandomAccessCollection|StringProtocol)$'}
+        - regex: '^(Swift(\.|::))?(SetAlgebra|RawRepresentable)$'
           inside:
             kind: *owner
-            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?OptionSet$'}
+            has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift(\.|::))?OptionSet$'}
 message: '`$IMPLIED` restates a conformance `$BY` implies'
 note: 'Delete the implied protocol from the inheritance list'

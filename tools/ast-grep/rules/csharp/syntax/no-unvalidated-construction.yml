@@ -5,6 +5,20 @@ utils:
     callee:
         kind: member_access_expression
         has: {field: name, pattern: $CALLEE}
+    unmanaged-value:
+        not: {kind: nullable_type}
+        any:
+            - matches: {csharp-qualified-name: {name: {regex: '^(?:Half|U?Int128)$'}, qualifier: {regex: '^System$'}}}
+            - matches: {csharp-qualified-name: {name: {regex: '^NFloat$'}, qualifier: {regex: '^InteropServices$'}}}
+            - matches: {csharp-qualified-name: {name: {regex: '^(?:Vector[234]|Plane|Quaternion|Matrix3x2|Matrix4x4|Complex)$'}, qualifier: {regex: '^Numerics$'}}}
+            - matches: {csharp-generic-type: {name: {regex: '^Vector$'}, list: {kind: type_argument_list}}}
+              all: [{matches: {csharp-qualified-name: {name: {regex: '^Vector$'}, qualifier: {regex: '^Numerics$'}}}}]
+            - matches: {csharp-generic-type: {name: {regex: '^Vector(?:64|128|256|512)$'}, list: {kind: type_argument_list}}}
+              all: [{matches: {csharp-qualified-name: {name: {regex: '^Vector(?:64|128|256|512)$'}, qualifier: {regex: '^Intrinsics$'}}}}]
+            - matches:
+                csharp-qualified-name:
+                    name: {regex: '^(?:(?:A|Abgr|Argb|Bgr|Bgra|L|La|Rg|Rgb|Rgba)[0-9]+P?|(?:Normalized)?(?:Byte|Short)[24]P?|Half(?:Single|Vector[24]P?)|RgbaHalfP?|RgbaVector)$'}
+                    qualifier: {regex: '^PixelFormats$'}
     flags-type:
         matches: {csharp-type-name: {name: {regex: '^BindingFlags$'}}}
     non-public-member:
@@ -71,21 +85,7 @@ rule:
                                 nthChild: {position: 1, reverse: true}
                                 any:
                                     - kind: predefined_type
-                                    - kind: identifier, qualified_name, generic_name
-                                      regex: |-
-                                        (?x)^(global::)?(
-                                            (System\.)?(Half|U?Int128)
-                                            |(System\.Runtime\.InteropServices\.)?NFloat
-                                            |(System\.Numerics\.)?(Vector[234]|Plane|Quaternion|Matrix3x2|Matrix4x4|Complex|Vector<.+>)
-                                            |(System\.Runtime\.Intrinsics\.)?Vector(64|128|256|512)<.+>
-                                            |(SixLabors\.ImageSharp\.PixelFormats\.)?(
-                                                (A|Abgr|Argb|Bgr|Bgra|L|La|Rg|Rgb|Rgba)[0-9]+P?
-                                                |(Normalized)?(Byte|Short)[24]P?
-                                                |Half(Single|Vector[24]P?)
-                                                |RgbaHalfP?
-                                                |RgbaVector
-                                            )
-                                        )$
+                                    - matches: unmanaged-value
                                     - kind: identifier
                                       pattern: $PARAMETER
                                       inside:
@@ -100,9 +100,9 @@ rule:
                 - any:
                     - all:
                         - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^Unsafe$'}}}}
-                        - has: {field: name, regex: '^(As|BitCast|Read|ReadUnaligned)<'}
+                        - has: {field: name, matches: {csharp-generic-type: {name: {regex: '^(?:As|BitCast|Read|ReadUnaligned)$'}, list: {kind: type_argument_list}}}}
                     - all:
                         - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^MemoryMarshal$'}}}}
-                        - has: {field: name, regex: '^(Cast|AsRef|Read|TryRead)<'}
+                        - has: {field: name, matches: {csharp-generic-type: {name: {regex: '^(?:Cast|AsRef|Read|TryRead)$'}, list: {kind: type_argument_list}}}}
 message: '`$CALLEE` bypasses public constructors and factories of the type it creates'
 note: 'Construct through a declared factory or public constructor, `[UnsafeAccessor]` with `[UnsafeAccessorType]` for a type the compiler cannot see'

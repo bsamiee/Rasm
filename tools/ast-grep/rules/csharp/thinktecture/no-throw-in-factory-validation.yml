@@ -5,7 +5,7 @@ ignores: ['tools/roslyn/**']
 utils:
     throw-callee:
         kind: member_access_expression
-        has: {field: name, regex: '^Throw(If[A-Za-z]*)?(<.+>)?$'}
+        has: {field: name, matches: {csharp-simple-name: {name: {regex: '^Throw(?:If[A-Za-z]*)?$'}}}}
     error-factory:
         kind: invocation_expression
         all:
@@ -73,6 +73,6 @@ rule:
               has:
                 field: value
                 kind: invocation_expression
-                has: {field: function, regex: '(^|\.)From(<.+>)?$'}
+                has: {field: function, matches: {csharp-type-name: {name: {regex: '^From$'}}}}
 message: "`$THROW` throws inside `ValidateFactoryArguments`"
 note: 'Validate nested values through their non-throwing `Validate`, then assign `validationError` and return'

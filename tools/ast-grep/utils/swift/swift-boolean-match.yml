@@ -34,20 +34,20 @@ utils:
 rule:
     any:
         - kind: if_statement
-          regex: '^if\p{White_Space}+case(?-u:\b)'
+          regex: '^if[\t-\r ]+case(?-u:\b)'
           all:
             - not: {has: {regex: '^else$'}}
             - has: {kind: statements, matches: matched-body}
             - precedes: {matches: other-return}
         - kind: if_statement
-          regex: '^if\p{White_Space}+case(?-u:\b)'
+          regex: '^if[\t-\r ]+case(?-u:\b)'
           all:
             - has: {regex: '^else$'}
             - has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, matches: matched-body}
             - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, matches: literal-body, has: {matches: other-return}}
             - not: {precedes: {kind: control_transfer_statement}}
         - kind: guard_statement
-          regex: '^guard\p{White_Space}+case(?-u:\b)'
+          regex: '^guard[\t-\r ]+case(?-u:\b)'
           all:
             - not: {has: {regex: '^,$'}}
             - has: {kind: statements, matches: other-body}

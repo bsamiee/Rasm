@@ -22,7 +22,7 @@ utils:
             - kind: 'function_signature_item, function_item, associated_type, const_item, type_item'
               inside: {kind: declaration_list, inside: {kind: trait_item, has: {matches: exported}}}
             - kind: macro_definition
-              matches: {rust-attributed: {attribute: {regex: '^#\[\p{White_Space}*macro_export(?-u:\b)'}}}
+              matches: {rust-attributed: {attribute: {regex: '^#\[\p{Pattern_White_Space}*macro_export(?-u:\b)'}}}
 rule:
     kind: attribute_item
     pattern: $ATTRIBUTE
@@ -30,7 +30,7 @@ rule:
         - has: {matches: hidden}
         - precedes:
             stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
-            kind: 'function_item, function_signature_item, struct_item, enum_item, union_item, trait_item, const_item, static_item, type_item, mod_item, use_declaration, field_declaration, enum_variant, associated_type, macro_definition'
+            kind: 'function_item, function_signature_item, struct_item, enum_item, union_item, trait_item, trait_alias, const_item, static_item, type_item, mod_item, use_declaration, field_declaration, enum_variant, associated_type, macro_definition'
             matches: public
             any:
                 - has: {field: name, pattern: $NAME}

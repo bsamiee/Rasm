@@ -6,7 +6,13 @@ utils:
         kind: 'property_declaration, parameter'
         has: {field: name, regex: '^(Left|Top|Right|Bottom)$'}
     edges:
-        regex: '(?s)^\([\p{White_Space}\x{FEFF}]*(\([^()]*\)[\p{White_Space}\x{FEFF}]*)?Left[\p{White_Space}\x{FEFF}]*,[\p{White_Space}\x{FEFF}]*(\([^()]*\)[\p{White_Space}\x{FEFF}]*)?Top[\p{White_Space}\x{FEFF}]*,[\p{White_Space}\x{FEFF}]*(\([^()]*\)[\p{White_Space}\x{FEFF}]*)?Right[\p{White_Space}\x{FEFF}]*,[\p{White_Space}\x{FEFF}]*(\([^()]*\)[\p{White_Space}\x{FEFF}]*)?Bottom[\p{White_Space}\x{FEFF}]*\)$'
+        kind: argument_list
+        all:
+            - has: {kind: argument, nthChild: 1, has: {any: [{kind: identifier, regex: '^Left$'}, {kind: cast_expression, has: {field: value, kind: identifier, regex: '^Left$'}}]}}
+            - has: {kind: argument, nthChild: 2, has: {any: [{kind: identifier, regex: '^Top$'}, {kind: cast_expression, has: {field: value, kind: identifier, regex: '^Top$'}}]}}
+            - has: {kind: argument, nthChild: 3, has: {any: [{kind: identifier, regex: '^Right$'}, {kind: cast_expression, has: {field: value, kind: identifier, regex: '^Right$'}}]}}
+            - has: {kind: argument, nthChild: 4, has: {any: [{kind: identifier, regex: '^Bottom$'}, {kind: cast_expression, has: {field: value, kind: identifier, regex: '^Bottom$'}}]}}
+            - not: {has: {kind: argument, nthChild: 5}}
     rebuilt:
         any:
             - kind: object_creation_expression

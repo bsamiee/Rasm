@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-workbooks"
-version.workspace    = true
-edition.workspace    = true
-description          = "Spreadsheets every Rasm schedule and cost consumer reads and writes: XLS, XLSX, XLSB and ODS opened with or without a password, typed records with jiff date fields from any range, value blocks into XLSX and ODS sheets, templates filled by defined name, and cached formula results recalculated through ironcalc"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["spreadsheet", "xlsx", "ods", "excel", "formula"]
-categories           = ["parser-implementations", "encoding"]
+name              = "rasm-workbooks"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

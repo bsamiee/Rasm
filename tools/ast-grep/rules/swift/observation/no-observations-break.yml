@@ -6,12 +6,12 @@ rule:
     pattern: $SITE
     all:
         - has: {kind: statements, has: {nthChild: 1, kind: control_transfer_statement, regex: '^break$'}, not: {has: {nthChild: 2}}}
-        - not: {has: {stopBy: {kind: statements}, kind: navigation_expression, regex: '^(_Concurrency\.)?Task\.isCancelled$'}}
+        - not: {has: {stopBy: {kind: statements}, kind: navigation_expression, regex: '^(_Concurrency(\.|::))?Task\.isCancelled$'}}
         - inside:
             kind: statements
             inside:
                 kind: for_statement
-                has: {field: collection, kind: call_expression, has: {nthChild: 1, regex: '^(Observation\.)?Observations$'}}
+                has: {field: collection, kind: call_expression, has: {nthChild: 1, regex: '^(Observation(\.|::))?Observations$'}}
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` ends iteration of `Observations` on a condition read outside the tracked closure'

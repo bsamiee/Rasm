@@ -10043,7 +10043,7 @@ checksum = "a611d15b50743feb4c76b7d03edcb0e64f399c26961e4efe6975bc398be6aa3d"
 
 [[package]]
 name = "rasm-analysis"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "almost",
  "approx 0.6.0-rc2",
@@ -10078,7 +10078,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-annotation"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "color",
  "colorgrad",
@@ -10105,7 +10105,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-cad"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "acadrust",
  "color",
@@ -10126,7 +10126,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-command"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "annotate-snippets",
  "camino",
@@ -10154,7 +10154,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-daemon"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "axum",
  "clap",
@@ -10178,7 +10178,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-dependency"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "derive-where",
  "derive_more",
@@ -10194,7 +10194,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-dynamics"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "approx 0.6.0-rc2",
  "derive_more",
@@ -10216,7 +10216,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-form"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "derive_more",
  "faer",
@@ -10234,7 +10234,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-ifc"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "aws-lc-rs",
  "bytes",
@@ -10276,7 +10276,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-implicit"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "derive-where",
  "fidget",
@@ -10290,7 +10290,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-layout"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "derive_more",
  "dugong",
@@ -10307,7 +10307,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-linework"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "claims",
  "color",
@@ -10331,7 +10331,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-mcp"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "arc-swap",
  "axum",
@@ -10374,7 +10374,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-mcp-bridge"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "clap",
  "derive_more",
@@ -10402,7 +10402,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-mesh"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "approx 0.6.0-rc2",
  "bounded-integer",
@@ -10419,7 +10419,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-network"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "derive_more",
  "hashbrown 0.17.1",
@@ -10440,7 +10440,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-optimize"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "approx 0.6.0-rc2",
  "bounded-integer",
@@ -10462,7 +10462,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-output"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "anstream",
  "anstyle",
@@ -10494,7 +10494,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-pdf"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "bytemuck",
  "color",
@@ -10537,7 +10537,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-planar"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "cavalier_contours",
  "derive_more",
@@ -10553,7 +10553,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-proximity"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "bytemuck",
  "derive-where",
@@ -10573,7 +10573,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-screen"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "anstream",
  "anstyle",
@@ -10603,7 +10603,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-sheets"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "derive_more",
  "enum-map",
@@ -10622,7 +10622,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-site"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "derive_more",
  "geo",
@@ -10646,7 +10646,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-solar"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "derive_more",
  "gauss-quad",
@@ -10667,7 +10667,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-spectra"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "apodize",
  "approx 0.6.0-rc2",
@@ -10691,7 +10691,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-stats"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "approx 0.6.0-rc2",
@@ -10718,7 +10718,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-tables"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "arrow",
  "arrow-schema",
@@ -10739,7 +10739,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-telemetry"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "clap",
  "derive_more",
@@ -10765,7 +10765,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-typeset"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "cap-std",
  "derive_more",
@@ -10798,7 +10798,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-views"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "derive_more",
  "enum-map",
@@ -10820,7 +10820,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-weather"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "approx 0.6.0-rc2",
  "bounded-integer",
@@ -10855,7 +10855,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-workbooks"
-version = "1.0.0"
+version = "0.0.0"
 dependencies = [
  "calamine",
  "derive_more",

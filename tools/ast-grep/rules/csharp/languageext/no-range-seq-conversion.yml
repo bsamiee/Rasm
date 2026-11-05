@@ -9,7 +9,7 @@ utils:
             field: function
             any:
                 - kind: identifier, generic_name
-                  regex: '^Range(?-u:\b)'
+                  matches: {csharp-simple-name: {name: {regex: '^Range$'}}}
                 - matches: {csharp-owner-member: {type: {regex: '^Prelude$'}, member: {regex: '^Range$'}}}
                 - matches: {csharp-owner-member: {type: {regex: '^Range$'}, member: {regex: '^(fromMinMax|fromCount|zero)$'}}}
 rule:
@@ -19,7 +19,7 @@ rule:
         field: expression
         has:
             field: name
-            regex: '^(Fold(Back)?(While|Until)?M?|Fold(Back)?Maybe|FoldMap(Back)?(While|Until)?|Exists|ForAll|Contains|Find(All)?(Back)?|Iter|ForM|Sum|Product|Min|Max|Average|At|Partition|IsEmpty|Count|Head|Last|ToLst|ToArr|ToIterable)([\p{White_Space}\x{FEFF}]*<.+>)?$'
+            matches: {csharp-simple-name: {name: {regex: '^(?:Fold(?:Back)?(?:While|Until)?M?|Fold(?:Back)?Maybe|FoldMap(?:Back)?(?:While|Until)?|Exists|ForAll|Contains|Find(?:All)?(?:Back)?|Iter|ForM|Sum|Product|Min|Max|Average|At|Partition|IsEmpty|Count|Head|Last|ToLst|ToArr|ToIterable)$'}}}
         inside: {kind: invocation_expression, field: function}
     any:
         - all:

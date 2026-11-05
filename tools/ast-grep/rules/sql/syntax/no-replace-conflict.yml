@@ -2,12 +2,7 @@
 language: sql
 severity: error
 rule:
-    kind: insert_statement, update_statement, column_constraint, table_constraint
-    any:
-        - has: {field: kind, regex: '(?i-u)^replace$'}
-        - has: {field: conflict_resolution, regex: '(?i-u)^replace$'}
-        - all:
-            - kind: column_constraint, table_constraint
-            - has: {regex: '(?i-u)^replace$'}
+    kind: insert_statement, update_statement, column_constraint, table_constraint, alter_table_statement
+    has: {regex: '(?i-u)^replace$', not: {pattern: $_}}
 message: '`REPLACE` can delete conflicting rows or substitute defaults for NULL'
 note: 'Handle conflicts explicitly while preserving trigger, default, and foreign key behavior'

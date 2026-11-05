@@ -5,7 +5,7 @@ utils:
     reader:
         kind: call_expression
         any:
-            - has: {nthChild: 1, regex: '^(SwiftUI\.)?GeometryReader$'}
+            - has: {nthChild: 1, regex: '^(SwiftUI(\.|::))?GeometryReader$'}
             - has: {nthChild: 1, has: {field: suffix, regex: '^\.(onGeometryChange|onPreferenceChange)$'}}
     proxy-length:
         kind: navigation_suffix
@@ -13,7 +13,7 @@ utils:
         inside: {stopBy: end, kind: navigation_expression, matches: {swift-chain-root: {root: {kind: simple_identifier, pattern: $G}}}}
     reader-closure:
         kind: lambda_literal
-        inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(SwiftUI\.)?GeometryReader$'}}}
+        inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(SwiftUI(\.|::))?GeometryReader$'}}}
         any:
             - has: {field: type, has: {kind: lambda_function_type_parameters, has: {kind: lambda_parameter, has: {field: name, pattern: $G}}}}
             - has: {stopBy: end, kind: simple_identifier, regex: '^\$0$', pattern: $G}
@@ -29,8 +29,7 @@ utils:
                     stopBy: end
                     kind: property_declaration
                     all:
-                        - has: {field: name, has: {field: bound_identifier, pattern: $LENGTH}}
-                        - has: {field: value, has: {stopBy: end, matches: proxy-length}}
+                        - has: {kind: pattern, has: {field: bound_identifier, pattern: $LENGTH}, precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, has: {stopBy: end, matches: proxy-length}}}
             - inside:
                 stopBy: end
                 kind: class_declaration

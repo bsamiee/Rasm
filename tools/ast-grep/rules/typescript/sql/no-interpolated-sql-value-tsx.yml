@@ -22,29 +22,29 @@ utils:
                 has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $QUOTER}}, {has: {field: value, has: {stopBy: end, matches: hand-quoted}}}]}
     value-string:
         kind: string
-        regex: '(?is)^.+(?:''|(?:[=<>]|(?-u:\b)values[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\(|(?-u:\b)in[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\(|(?-u:\b)limit|(?-u:\b)offset)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*)[''"]$'
+        regex: '(?is)^.+(?:''|(?:[=<>]|(?-u:\b)values[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\(|(?-u:\b)in[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\(|(?-u:\b)limit|(?-u:\b)offset)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*)[''"]$'
 rule:
     any:
         - kind: template_string
           all:
-            - has: {kind: string_fragment, regex: '(?im)^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(begin|commit|delete|end|explain|insert|release|replace|rollback|savepoint|select|update|values|with)(?-u:\b)'}
+            - has: {kind: string_fragment, regex: '(?im)^[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(begin|commit|delete|end|explain|insert|release|replace|rollback|savepoint|select|update|values|with)(?-u:\b)'}
             - not: {inside: {kind: call_expression, field: arguments}}
-            - not: {has: {kind: string_fragment, regex: '(?m)^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\.param(eter)?(?-u:\b)'}}
+            - not: {has: {kind: string_fragment, regex: '(?m)^[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\.param(eter)?(?-u:\b)'}}
             - has:
                 kind: template_substitution
                 pattern: $VALUE
                 any:
                     - follows: {kind: string_fragment, regex: "'$"}
                     - all:
-                        - follows: {kind: string_fragment, regex: '(?i)(?:[=<>]|(?-u:\b)values[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\(|(?-u:\b)in[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\(|(?-u:\b)limit|(?-u:\b)offset)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}
+                        - follows: {kind: string_fragment, regex: '(?i)(?:[=<>]|(?-u:\b)values[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\(|(?-u:\b)in[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\(|(?-u:\b)limit|(?-u:\b)offset)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}
                         - not: {precedes: {kind: string_fragment, regex: '^\.'}}
-                        - inside: {kind: template_string, regex: '(?i)^`[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(insert|update|delete|select|with|replace|values)(?-u:\b)'}
+                        - inside: {kind: template_string, regex: '(?i)^`[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(insert|update|delete|select|with|replace|values)(?-u:\b)'}
                     - has: {stopBy: end, matches: quoting}
         - kind: binary_expression
           all:
             - has: {field: operator, regex: '^\+$'}
             - has: {field: right, pattern: $VALUE, not: {kind: 'string, template_string, number'}}
             - has: {field: left, any: [{matches: value-string}, {kind: binary_expression, has: {field: right, matches: value-string}}]}
-            - has: {stopBy: end, kind: string, regex: '(?i)^[''"][\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*(insert|update|delete|select|with|replace|values)(?-u:\b)'}
+            - has: {stopBy: end, kind: string, regex: '(?i)^[''"][\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(insert|update|delete|select|with|replace|values)(?-u:\b)'}
 message: '`$VALUE` splices a value into SQL text'
 note: 'Write the statement as a `sql` tagged template to bind each value as a parameter, `sql(<name>)` for an identifier'

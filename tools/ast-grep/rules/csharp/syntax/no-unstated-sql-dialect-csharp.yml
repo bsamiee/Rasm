@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: csharplang
+severity: error
+utils:
+    sql-text: {kind: 'string_literal, raw_string_literal, verbatim_string_literal'}
+    sqlite-evidence: {kind: identifier, regex: '^(?:Sqlite(?:Connection|Command|Transaction|DataReader)|UseSqlite)$'}
+    npgsql-evidence: {kind: identifier, regex: '^(?:Npgsql(?:Connection|Command|BatchCommand|DataSource|Transaction|DataReader)|UseNpgsql)$'}
+    foreign-evidence: {kind: identifier, regex: '^(?:(?:Sql|DuckDB|MySql|ClickHouse|SnowflakeDb)(?:Connection|Command|DataSource)|UseClickHouse)$'}
+    stated-file:
+        kind: compilation_unit
+        any:
+            - {has: {stopBy: end, matches: sqlite-evidence}, not: {has: {stopBy: end, any: [{matches: npgsql-evidence}, {matches: foreign-evidence}]}}}
+            - {has: {stopBy: end, matches: npgsql-evidence}, not: {has: {stopBy: end, any: [{matches: sqlite-evidence}, {matches: foreign-evidence}]}}}
+            - {has: {stopBy: end, matches: foreign-evidence}, not: {has: {stopBy: end, any: [{matches: sqlite-evidence}, {matches: npgsql-evidence}]}}}
+    typed-command: {kind: object_creation_expression, has: {field: type, matches: {csharp-type-name: {name: {regex: '^(?:Sqlite|Npgsql(?:Batch)?)Command$'}}}}}
+rule:
+    pattern: $SITE
+    any:
+        - kind: assignment_expression
+          all:
+            - has: {field: left, any: [{matches: {csharp-type-name: {name: {regex: '^CommandText$'}}}}, {matches: {csharp-accessed-name: {name: {regex: '^CommandText$'}}}}]}
+            - has: {field: right, matches: sql-text}
+            - not: {inside: {kind: initializer_expression, inside: {matches: typed-command}}}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, matches: {csharp-simple-name: {name: {regex: '^(?:FromSql|SqlQuery|ExecuteSql)(?:Raw|Interpolated)?(?:Async)?$'}}}}}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {any: [{matches: sql-text}, {kind: interpolated_string_expression}]}}}
+    not: {inside: {stopBy: end, matches: stated-file}}
+message: '`$SITE` runs SQL text whose dialect no provider type in this file states'
+note: 'Construct the command as `new SqliteCommand(<sql>)` or `new NpgsqlCommand(<sql>)`, or keep one provider per file, so the `sql` or `pgsql` injection parses the text'

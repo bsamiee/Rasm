@@ -40,8 +40,13 @@ utils:
         all:
             - has:
                 kind: switch_pattern
-                regex: '^(\.success\(let\p{White_Space}+\p{XID_Continue}+\)|let\p{White_Space}+\.success\(\p{XID_Continue}+\))$'
-                has: {stopBy: end, kind: pattern, inside: {kind: pattern}, has: {kind: simple_identifier, pattern: $VALUE}}
+                regex: '^(let[\t-\r ]+)?\.success\('
+                has:
+                    kind: pattern
+                    all:
+                        - has: {stopBy: end, kind: value_binding_pattern}
+                        - has: {kind: pattern, has: {kind: simple_identifier, pattern: $VALUE}}
+                        - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
             - has: {matches: projected-body}
     partition:
         inside:
@@ -63,7 +68,7 @@ utils:
             - kind: prefix_expression
               has: {field: operation, regex: '^\.$'}
               not: {has: {field: target, regex: '^none$'}}
-            - {kind: prefix_expression, regex: '^-\p{White_Space}*[0-9]'}
+            - {kind: prefix_expression, regex: '^-[\t-\r ]*[0-9]'}
     swallowing-catch:
         kind: catch_block
         all:
@@ -106,7 +111,7 @@ rule:
             - has: {matches: failure-default}
             - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
         - kind: if_statement
-          regex: '^if\p{White_Space}+case\p{White_Space}+(\.success\(let\p{White_Space}+\p{XID_Continue}+\)|let\p{White_Space}+\.success\(\p{XID_Continue}+\))\p{White_Space}*='
+          regex: '^if[\t-\r ]+case[\t-\r ]+(\.success\(let[\t-\r ]+[^,()]+\)|let[\t-\r ]+\.success\([^,()]+\))[\t-\r ]*='
           all:
             - has: {matches: swift-result-value, follows: {regex: '^=$'}}
             - not: {has: {kind: if_statement}}
@@ -124,7 +129,7 @@ rule:
                             - not: {has: {regex: '^else$'}}
                             - precedes: {matches: value-return}
         - kind: guard_statement
-          regex: '^guard\p{White_Space}+case\p{White_Space}+(\.success\(let\p{White_Space}+\p{XID_Continue}+\)|let\p{White_Space}+\.success\(\p{XID_Continue}+\))\p{White_Space}*='
+          regex: '^guard[\t-\r ]+case[\t-\r ]+(\.success\(let[\t-\r ]+[^,()]+\)|let[\t-\r ]+\.success\([^,()]+\))[\t-\r ]*='
           all:
             - has: {matches: swift-result-value, follows: {regex: '^=$'}}
             - not: {has: {regex: '^,$'}}

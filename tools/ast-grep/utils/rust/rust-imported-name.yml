@@ -22,7 +22,7 @@ utils:
     shadowed:
         any:
             - inside:
-                stopBy: {not: {kind: &pattern 'tuple_pattern, tuple_struct_pattern, struct_pattern, field_pattern, ref_pattern, mut_pattern, captured_pattern, slice_pattern, or_pattern, reference_pattern, match_pattern'}}
+                stopBy: {not: {kind: &pattern 'tuple_pattern, tuple_struct_pattern, struct_pattern, field_pattern, ref_pattern, box_pattern, guard_pattern, mut_pattern, captured_pattern, slice_pattern, or_pattern, reference_pattern, match_pattern'}}
                 kind: 'let_declaration, parameter, for_expression, let_condition, match_arm'
                 field: pattern
             - inside:

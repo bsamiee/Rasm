@@ -5,22 +5,24 @@ ruleDirs: [tools/ast-grep/rules]
 utilDirs: [tools/ast-grep/utils]
 noIgnore: [hidden]
 languageGlobs:
+    bashlang: [".bashrc", ".bash_profile"]
     xml: ["NuGet.config"]
 
 # --- [LANGUAGES] ------------------------------------------------------------------------
 
 customLanguages:
-    bashlang: {libraryPath: .cache/ast-grep/bash.so, languageSymbol: tree_sitter_bash, extensions: [bash, bats, cgi, command, env, fcgi, ksh, sh, tmux, tool, zsh], outlineRules: tools/ast-grep/outline/bash.yml}
+    bashlang: {libraryPath: .cache/ast-grep/bash.so, languageSymbol: tree_sitter_bash, extensions: [bash, bats, cgi, command, ebuild, eclass, env, fcgi, ksh, sh, tmux, tool, zsh], outlineRules: tools/ast-grep/outline/bash.yml}
     csharplang: {libraryPath: .cache/ast-grep/csharp.so, languageSymbol: tree_sitter_c_sharp, extensions: [cs], expandoChar: µ, outlineRules: tools/ast-grep/outline/csharp.yml}
+    extendscript: {libraryPath: .cache/ast-grep/typescript.so, languageSymbol: tree_sitter_tsx, extensions: [jsxinc], outlineRules: tools/ast-grep/outline/extendscript.yml}
     javalang: {libraryPath: .cache/ast-grep/java.so, languageSymbol: tree_sitter_java, extensions: [java], outlineRules: tools/ast-grep/outline/java.yml}
-    pgsql: {libraryPath: .cache/ast-grep/pgsql.so, languageSymbol: tree_sitter_pgsql, extensions: [pgsql], expandoChar: µ}
-    plpgsql: {libraryPath: .cache/ast-grep/plpgsql.so, languageSymbol: tree_sitter_plpgsql, extensions: [plpgsql], expandoChar: µ}
+    pgsql: {libraryPath: .cache/ast-grep/pgsql.so, extensions: [pgsql], expandoChar: µ, outlineRules: tools/ast-grep/outline/pgsql.yml}
+    plpgsql: {libraryPath: .cache/ast-grep/plpgsql.so, extensions: [plpgsql], expandoChar: µ, outlineRules: tools/ast-grep/outline/plpgsql.yml}
     pythonlang: {libraryPath: .cache/ast-grep/python.so, languageSymbol: tree_sitter_python, extensions: [py, py3, pyi, bzl, bazel], expandoChar: µ, outlineRules: tools/ast-grep/outline/python.yml}
     rustlang: {libraryPath: .cache/ast-grep/rust.so, languageSymbol: tree_sitter_rust, extensions: [rs], expandoChar: µ, outlineRules: tools/ast-grep/outline/rust.yml}
-    sql: {libraryPath: .cache/ast-grep/sql.so, languageSymbol: tree_sitter_sql, extensions: [sql], expandoChar: µ, outlineRules: tools/ast-grep/outline/sql.yml}
+    sql: {libraryPath: .cache/ast-grep/sql.so, extensions: [sql], expandoChar: µ, outlineRules: tools/ast-grep/outline/sql.yml}
     swiftlang: {libraryPath: .cache/ast-grep/swift.so, languageSymbol: tree_sitter_swift, extensions: [swift], expandoChar: µ, outlineRules: tools/ast-grep/outline/swift.yml}
-    tsxlang: {libraryPath: .cache/ast-grep/typescript.so, languageSymbol: tree_sitter_tsx, extensions: [ts, tsx, mts, cts, js, jsx, mjs, cjs], outlineRules: tools/ast-grep/outline/typescript.yml}
-    xml: {libraryPath: .cache/ast-grep/xml.so, extensions: [xml, csproj, props, targets, slnx, svg, plist, entitlements, xcscheme, xsd, xslt, xsl, rng], expandoChar: x, outlineRules: tools/ast-grep/outline/msbuild.yml}
+    tsxlang: {libraryPath: .cache/ast-grep/typescript.so, languageSymbol: tree_sitter_tsx, extensions: [ts, tsx, mts, cts, js, jsx, mjs, cjs, jxa], outlineRules: tools/ast-grep/outline/typescript.yml}
+    xml: {libraryPath: .cache/ast-grep/xml.so, extensions: [xml, csproj, fsproj, vbproj, proj, props, targets, slnx, nuspec, resx, xaml, axaml, runsettings, ruleset, svg, plist, entitlements, xcscheme, xcworkspacedata, xcprivacy, xib, storyboard, sdef, xsd, xslt, xsl, rng], expandoChar: À, outlineRules: tools/ast-grep/outline/xml.yml}
 
 # --- [INJECTIONS] -----------------------------------------------------------------------
 
@@ -76,20 +78,44 @@ languageInjections:
     - hostLanguage: csharplang
       injected: sql
       rule:
-        kind: string_literal_content, raw_string_content
         pattern: $CONTENT
-        inside:
-            kind: string_literal, raw_string_literal
-            not: {has: {kind: escape_sequence}}
+        any:
+            - matches: text
+              inside:
+                any:
+                    - {matches: constructed-text, inside: {stopBy: {kind: object_creation_expression}, matches: sqlite-command}}
+                    - {any: [{matches: command-text}, {matches: ef-argument}], inside: {stopBy: end, matches: sqlite-file}}
+            - kind: interpolated_string_expression
+              matches: ef-argument
+              not: {has: {any: [{kind: escape_sequence}, {kind: string_content, regex: '\{\{|\}\}|""'}]}}
+              inside: {stopBy: end, matches: sqlite-file}
+      utils: &csharp-sql
+        literal: {kind: 'string_literal, raw_string_literal, verbatim_string_literal', not: {has: {any: [{kind: escape_sequence}, {kind: string_content, regex: '""'}]}}}
+        text: {kind: 'string_literal_content, raw_string_content, string_content', inside: {matches: literal}}
+        first-argument: {inside: {kind: argument, nthChild: 1, inside: {kind: argument_list}}}
+        member-call: {kind: invocation_expression, has: {field: function, kind: member_access_expression}}
+        sqlite-command: {kind: object_creation_expression, has: {field: type, regex: '(?:^|\.)SqliteCommand$'}}
+        npgsql-command: {kind: object_creation_expression, has: {field: type, regex: '(?:^|\.)Npgsql(?:Batch)?Command$'}}
+        assigned-text: {inside: {kind: assignment_expression, has: {field: left, regex: '(?:^|\.)CommandText$'}}}
+        constructed-text:
             any:
-                - inside: {kind: argument, nthChild: 1, inside: {kind: argument_list, inside: {kind: object_creation_expression, has: {field: type, regex: '(?:^|\.)SqliteCommand$'}}}}
-                - all:
-                    - inside: {kind: assignment_expression, has: {field: left, regex: '(?:^|\.)CommandText$'}}
-                    - inside:
-                        stopBy: end
-                        kind: compilation_unit
-                        has: {stopBy: end, kind: identifier, regex: '^Sqlite(?:Connection|Command|Transaction|DataReader)$'}
-                        not: {has: {stopBy: end, kind: identifier, regex: '^(?:Npgsql|Sql|DuckDB|MySql|ClickHouse|SnowflakeDb)(?:Connection|Command|DataSource)$'}}
+                - {matches: first-argument, inside: {stopBy: {kind: argument_list}, inside: {kind: object_creation_expression}}}
+                - {matches: assigned-text, inside: {kind: assignment_expression, inside: {kind: initializer_expression, inside: {kind: object_creation_expression}}}}
+        command-text:
+            matches: assigned-text
+            not: {inside: {kind: assignment_expression, inside: {kind: initializer_expression, inside: {any: [{matches: sqlite-command}, {matches: npgsql-command}]}}}}
+        ef-argument: {matches: first-argument, inside: {stopBy: {kind: argument_list}, inside: {matches: member-call, has: {field: function, has: {field: name, regex: '^(?:FromSql|SqlQuery|ExecuteSql)(?:Raw|Interpolated)?(?:Async)?(?:<|$)'}}}}}
+        sqlite-evidence: {kind: identifier, regex: '^(?:Sqlite(?:Connection|Command|Transaction|DataReader)|UseSqlite)$'}
+        npgsql-evidence: {kind: identifier, regex: '^(?:Npgsql(?:Connection|Command|BatchCommand|DataSource|Transaction|DataReader)|UseNpgsql)$'}
+        foreign-evidence: {kind: identifier, regex: '^(?:(?:Sql|DuckDB|MySql|ClickHouse|SnowflakeDb)(?:Connection|Command|DataSource)|UseClickHouse)$'}
+        sqlite-file: {kind: compilation_unit, has: {stopBy: end, matches: sqlite-evidence}, not: {has: {stopBy: end, any: [{matches: npgsql-evidence}, {matches: foreign-evidence}]}}}
+        npgsql-file: {kind: compilation_unit, has: {stopBy: end, matches: npgsql-evidence}, not: {has: {stopBy: end, any: [{matches: sqlite-evidence}, {matches: foreign-evidence}]}}}
+        npgsql-source-create: {kind: invocation_expression, has: {field: function, regex: '^(?:Npgsql\.)?NpgsqlDataSource\.Create$'}}
+        bound-name: {has: {field: name, pattern: $R}}
+        npgsql-source-binding:
+            any:
+                - {kind: 'parameter, variable_declaration, property_declaration', has: {field: type, regex: '^(?:Npgsql\.)?NpgsqlDataSource\??$'}, any: [{matches: bound-name}, {has: {kind: variable_declarator, matches: bound-name}}]}
+                - {kind: variable_declarator, matches: bound-name, has: {matches: npgsql-source-create}}
     - hostLanguage: pythonlang
       injected: sql
       rule:
@@ -97,10 +123,10 @@ languageInjections:
         pattern: $CONTENT
         inside:
             kind: string
-            not: {has: {kind: 'interpolation, escape_sequence', stopBy: end}}
+            not: {has: {kind: 'interpolation, escape_sequence, escape_interpolation', stopBy: end}}
             any:
                 - {nthChild: 1, inside: {kind: argument_list, matches: sqlite-call}}
-                - {inside: {kind: keyword_argument, has: {field: name, regex: '^sql$'}, inside: {kind: argument_list, matches: sqlite-call}}}
+                - {inside: {kind: keyword_argument, has: {field: name, regex: '^operation$'}, inside: {kind: argument_list, matches: sqlite-call}}}
       utils:
         sqlite-connect: {kind: call, any: [{pattern: sqlite3.connect($$$)}, {pattern: adbc_driver_sqlite.dbapi.connect($$$)}]}
         cursor-of:
@@ -134,27 +160,33 @@ languageInjections:
                             field: object
                             any:
                                 - matches: sqlite-source
-                                - kind: identifier
-                                  pattern: $R
-                                  any:
-                                    - inside: {stopBy: end, kind: function_definition, has: {stopBy: end, matches: bound-receiver}}
-                                    - inside: {stopBy: end, kind: module, has: {stopBy: end, matches: bound-receiver}}
+                                - {kind: identifier, pattern: $R, inside: {stopBy: end, kind: 'function_definition, module', has: {stopBy: end, matches: bound-receiver}}}
     - hostLanguage: rustlang
       injected: sql
       rule:
         kind: string_content
         pattern: $CONTENT
         inside:
-            kind: string_literal, raw_string_literal
-            not: {has: {kind: escape_sequence}}
+            matches: literal
             any:
+                - {nthChild: 1, inside: {kind: arguments, inside: {matches: sqlx-call, has: {field: function, kind: generic_function, has: {field: type_arguments, has: {nthChild: 1, regex: '(?:^|::)Sqlite$'}}}}}}
+                - {matches: untyped-text, inside: {stopBy: {kind: function_item}, kind: function_item, has: {field: parameters, has: {stopBy: end, matches: sqlite-type}}, not: {has: {field: parameters, has: {stopBy: end, any: [{matches: pg-type}, {matches: other-type}]}}}}}
                 - nthChild: 1
-                  inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: sqlx-callee}, matches: sqlite-site}}
-                - nthChild: {position: 1, ofRule: {kind: 'string_literal, raw_string_literal'}}
-                  inside: {kind: token_tree, inside: {kind: macro_invocation, has: {field: macro, matches: sqlx-callee}, matches: sqlite-site}}
-                - nthChild: 1
-                  inside: {kind: arguments, inside: {matches: turso-call}}
-      utils:
+                  inside:
+                    kind: arguments
+                    inside:
+                        kind: call_expression
+                        all:
+                            - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $R}}, {has: {field: field, regex: '^(?:execute|execute_batch|query|prepare|prepare_cached)$'}}]}
+                            - inside:
+                                stopBy: end
+                                kind: function_item
+                                inside: {stopBy: end, kind: source_file, has: {kind: use_declaration, has: {field: argument, regex: '^turso(?-u:\b)'}}}
+                                any:
+                                    - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $R}}, {has: {stopBy: end, kind: type_identifier, regex: '^(?:Connection|Transaction)$'}}]}}
+                                    - has: {field: body, has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $R}}, {has: {field: value, has: {stopBy: end, kind: field_identifier, regex: '^(?:connect|transaction|unchecked_transaction)$'}}}]}}
+      utils: &rust-sql
+        literal: {kind: 'string_literal, raw_string_literal', not: {has: {kind: escape_sequence}}}
         sqlx-name: {regex: '^(?:query(?:_as|_scalar)?(?:_with|_unchecked)?|raw_sql)$'}
         sqlx-path: {kind: scoped_identifier, all: [{has: {field: path, regex: '^sqlx$'}}, {has: {field: name, matches: sqlx-name}}]}
         sqlx-import:
@@ -167,29 +199,14 @@ languageInjections:
                 - matches: sqlx-path
                 - matches: sqlx-import
                 - {kind: generic_function, has: {field: function, any: [{matches: sqlx-path}, {matches: sqlx-import}]}}
-        sqlite-type: {kind: type_identifier, regex: '^Sqlite(?:Pool|Connection)?$'}
-        foreign-type: {kind: type_identifier, regex: '^(?:Pg(?:Pool|Connection)|Postgres|MySql(?:Pool|Connection)?|Any(?:Pool|Connection)?)$'}
-        sqlite-site:
+        sqlx-call: {kind: call_expression, has: {field: function, matches: sqlx-callee}}
+        sqlite-type: {kind: type_identifier, regex: '^Sqlite(?:Pool|Connection|Executor|Transaction)?$'}
+        pg-type: {kind: type_identifier, regex: '^(?:Pg(?:Pool|Connection|Executor|Transaction)|Postgres)$'}
+        other-type: {kind: type_identifier, regex: '^(?:MySql|Any)(?:Pool|Connection|Executor|Transaction)?$'}
+        untyped-text:
             any:
-                - has: {field: function, kind: generic_function, has: {field: type_arguments, has: {nthChild: 1, any: [{matches: sqlite-type}, {has: {field: name, matches: sqlite-type}}]}}}
-                - inside:
-                    stopBy: end
-                    kind: function_item
-                    has: {field: parameters, has: {stopBy: end, matches: sqlite-type}}
-                    not: {has: {field: parameters, has: {stopBy: end, matches: foreign-type}}}
-        turso-call:
-            kind: call_expression
-            any:
-                - pattern: $R.execute($SQL, $P)
-                - pattern: $R.query($SQL, $P)
-                - pattern: $R.prepare($SQL)
-            inside:
-                stopBy: end
-                kind: function_item
-                inside: {stopBy: end, kind: source_file, has: {kind: use_declaration, has: {field: argument, regex: '^turso(?:$|[^\p{XID_Continue}])'}}}
-                any:
-                    - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $R}}, {has: {field: type, regex: '(?:^|[^\p{XID_Continue}])Connection$'}}]}}
-                    - has: {field: body, has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $R}}, {has: {field: value, has: {stopBy: end, kind: field_identifier, regex: '^connect$'}}}]}}
+                - {nthChild: 1, inside: {kind: arguments, not: {inside: {has: {field: function, kind: generic_function, has: {field: type_arguments, has: {nthChild: 1, regex: '(?:^|::)(?:Sqlite|Postgres|MySql|Any)$'}}}}}, inside: {matches: sqlx-call}}}
+                - {nthChild: {position: 1, ofRule: {kind: 'string_literal, raw_string_literal'}}, inside: {kind: token_tree, inside: {kind: macro_invocation, has: {field: macro, matches: sqlx-callee}}}}
     - hostLanguage: swiftlang
       injected: sql
       rule:
@@ -197,28 +214,103 @@ languageInjections:
         pattern: $CONTENT
         inside:
             kind: line_string_literal, multi_line_string_literal
-            not: {has: {kind: 'str_escaped_char, interpolated_expression'}}
+            not: {has: {nthChild: 2}}
             inside: {kind: value_argument, nthChild: 2, inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, kind: simple_identifier, regex: '^sqlite3_(?:prepare(?:16)?(?:_v[23])?|exec)$'}}}}}
     - hostLanguage: tsxlang
       injected: sql
       rule:
         pattern: $CONTENT
-        not: {matches: postgres-scope}
-        any:
-            - kind: template_string
-              not: {has: {kind: escape_sequence}}
-              any:
-                - inside: {kind: call_expression, field: arguments, has: {field: function, any: [{pattern: sql}, {kind: instantiation_expression, has: {pattern: sql}}, {pattern: sql.withoutTransforms()}]}}
-                - inside: {matches: unsafe-arguments}
-            - kind: string_fragment
-              inside: {kind: string, not: {has: {kind: escape_sequence}}, inside: {matches: unsafe-arguments}}
-      utils:
-        unsafe-arguments: {kind: arguments, inside: {kind: call_expression, has: {field: function, pattern: sql.unsafe}}}
-        postgres-scope:
-            inside:
-                stopBy: end
+        all:
+            - matches: sql-site
+            - not:
                 any:
-                    - {kind: pair, has: {field: key, regex: '^pg$'}, inside: {kind: object, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^onDialect(?:OrElse)?$'}}}}}}
-                    - {kind: program, has: {matches: pg-import}, not: {has: {matches: sqlite-import}}}
-        pg-import: {kind: import_statement, has: {field: source, regex: '^["''](?:@effect/sql-pg(?:lite)?|@electric-sql/pglite(?:-tools)?|@pgsql/[^/"'']+|pgsql-parser)(?:/[^"'']*)?["'']$'}}
-        sqlite-import: {kind: import_statement, has: {field: source, regex: '^["''](?:@effect/sql-(?:sqlite-[a-z]+|libsql)|sqlite-vec|node:sqlite|bun:sqlite)(?:/[^"'']*)?["'']$'}}
+                    - inside: {stopBy: {matches: dialect-entry}, matches: dialect-entry, any: [{regex: '^pg(?-u:\b)'}, {regex: '^orElse(?-u:\b)', inside: {kind: object, has: {kind: 'pair, method_definition', regex: '^sqlite(?-u:\b)'}}}]}
+                    - {matches: unkeyed, inside: {stopBy: end, kind: 'class_declaration, abstract_class_declaration', has: {field: name, regex: '^Pg$'}}}
+                    - {matches: unstated, inside: {stopBy: end, kind: program, has: {matches: pg-import}, not: {has: {any: [{matches: sqlite-import}, {matches: foreign-import}]}}}}
+                    - matches: block-scope
+                    - matches: foreign-scope
+      utils: &tsx-sql
+        unsafe-arguments: &unsafe-arguments {kind: arguments, inside: {kind: call_expression, has: {field: function, pattern: sql.unsafe}}}
+        sql-site: &sql-site
+            any:
+                - kind: template_string
+                  not: {has: {kind: escape_sequence}}
+                  any:
+                    - inside: {kind: call_expression, field: arguments, has: {field: function, any: [{pattern: sql}, {kind: instantiation_expression, has: {pattern: sql}}, {pattern: sql.withoutTransforms()}]}}
+                    - inside: {matches: unsafe-arguments}
+                - kind: string_fragment
+                  inside: {kind: string, not: {has: {kind: escape_sequence}}, inside: {matches: unsafe-arguments}}
+        block-scope: &block-scope {inside: {stopBy: end, kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^#block$'}}}}}
+        plpgsql-site: &plpgsql-site {matches: block-scope, regex: '^`[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(?:<<|(?i:ASSERT|CASE|CONTINUE|EXIT|FOR|FOREACH|GET|IF|LOOP|NULL|OPEN|PERFORM|RAISE|RETURN|WHILE)(?-u:\b))'}
+        dialect-entry: {kind: 'pair, method_definition', inside: {kind: object, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^onDialect(?:OrElse)?$'}}}}}}
+        unkeyed: {not: {inside: {stopBy: end, matches: dialect-entry}}}
+        unstated: {matches: unkeyed, not: {inside: {stopBy: end, kind: 'class_declaration, abstract_class_declaration', has: {field: name, regex: '^(?:Sqlite|Pg)$'}}}}
+        pg-import: {kind: import_statement, has: {field: source, regex: '^["''](?:@effect/sql-pg(?:lite)?|@electric-sql/pglite(?:-tools)?|@pgsql/[a-z]+|pgsql-parser)["''/]'}}
+        sqlite-import: {kind: import_statement, has: {field: source, regex: '^["''](?:@effect/sql-(?:sqlite-[a-z]+|libsql)|sqlite-vec|node:sqlite|bun:sqlite)["''/]'}}
+        foreign-import: {kind: import_statement, has: {field: source, regex: '^["'']@effect/sql-(?:mysql2|mssql|clickhouse)["''/]'}}
+        foreign-scope:
+            any:
+                - inside: {stopBy: {matches: dialect-entry}, matches: dialect-entry, not: {regex: '^(?:sqlite|pg|orElse)(?-u:\b)'}}
+                - {matches: unstated, inside: {stopBy: end, kind: program, has: {matches: foreign-import}, not: {has: {any: [{matches: pg-import}, {matches: sqlite-import}]}}}}
+    - hostLanguage: csharplang
+      injected: pgsql
+      rule:
+        pattern: $CONTENT
+        matches: text
+        inside:
+            any:
+                - {matches: constructed-text, inside: {stopBy: {kind: object_creation_expression}, matches: npgsql-command}}
+                - {any: [{matches: command-text}, {matches: ef-argument}], inside: {stopBy: end, matches: npgsql-file}}
+                - matches: first-argument
+                  inside:
+                    stopBy: {kind: argument_list}
+                    inside:
+                        matches: member-call
+                        has:
+                            field: function
+                            any:
+                                - has: {field: name, regex: '^Begin(?:Binary(?:Import|Export)|Text(?:Import|Export)|RawBinaryCopy)(?:Async)?$'}
+                                - all:
+                                    - has: {field: name, regex: '^CreateCommand$'}
+                                    - has:
+                                        field: expression
+                                        any:
+                                            - matches: npgsql-source-create
+                                            - {kind: identifier, pattern: $R, inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: npgsql-source-binding}}}
+      utils: *csharp-sql
+    - hostLanguage: rustlang
+      injected: pgsql
+      rule:
+        kind: string_content
+        pattern: $CONTENT
+        inside:
+            matches: literal
+            any:
+                - {nthChild: 1, inside: {kind: arguments, inside: {matches: sqlx-call, has: {field: function, kind: generic_function, has: {field: type_arguments, has: {nthChild: 1, regex: '(?:^|::)Postgres$'}}}}}}
+                - {matches: untyped-text, inside: {stopBy: {kind: function_item}, kind: function_item, has: {field: parameters, has: {stopBy: end, matches: pg-type}}, not: {has: {field: parameters, has: {stopBy: end, any: [{matches: sqlite-type}, {matches: other-type}]}}}}}
+                - {nthChild: 1, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^copy_(?:in|out)_raw$'}}}}}
+      utils: *rust-sql
+    - hostLanguage: tsxlang
+      injected: pgsql
+      rule:
+        pattern: $CONTENT
+        all:
+            - matches: sql-site
+            - not:
+                any:
+                    - inside: {stopBy: {matches: dialect-entry}, matches: dialect-entry, any: [{regex: '^sqlite(?-u:\b)'}, {regex: '^orElse(?-u:\b)', inside: {kind: object, has: {kind: 'pair, method_definition', regex: '^pg(?-u:\b)'}}}]}
+                    - {matches: unkeyed, inside: {stopBy: end, kind: 'class_declaration, abstract_class_declaration', has: {field: name, regex: '^Sqlite$'}}}
+                    - {matches: unstated, inside: {stopBy: end, kind: program, has: {matches: sqlite-import}, not: {has: {any: [{matches: pg-import}, {matches: foreign-import}]}}}}
+                    - matches: foreign-scope
+                    - matches: plpgsql-site
+      utils: *tsx-sql
+    - hostLanguage: tsxlang
+      injected: plpgsql
+      rule:
+        pattern: $CONTENT
+        all: [{matches: sql-site}, {matches: plpgsql-site}]
+      utils:
+        unsafe-arguments: *unsafe-arguments
+        sql-site: *sql-site
+        block-scope: *block-scope
+        plpgsql-site: *plpgsql-site

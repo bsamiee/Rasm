@@ -12,7 +12,8 @@ const Returning = Schema.Struct({ target: Schema.String });
 
 class CloudflareAccess extends Schema.Class<CloudflareAccess, { readonly brand: unique symbol }>('CloudflareAccess')({ issuer: Schema.String, audience: Schema.String, jwks: Schema.String, logout: Schema.String }) {
     static readonly binding = 'ACCESS';
-    static readonly middleware = (sites: Parameters<typeof User.href>[0]) => Config.schema(CloudflareAccess, CloudflareAccess.binding).pipe(Config.option, Effect.map(Option.match({ onNone: () => Layer.empty, onSome: (access) => access.layer(sites) })), Layer.unwrap);
+    static readonly #config = Config.schema(Schema.fromJsonString(CloudflareAccess), CloudflareAccess.binding);
+    static readonly middleware = (sites: Parameters<typeof User.href>[0]) => CloudflareAccess.#config.pipe(Config.option, Effect.map(Option.match({ onNone: () => Layer.empty, onSome: (access) => access.layer(sites) })), Layer.unwrap);
     layer(sites: Parameters<typeof User.href>[0]) {
         const { issuer, audience, jwks, logout } = this;
         const returning = Returning.pipe(Schema.encodeKeys({ target: sites.returnTo }));

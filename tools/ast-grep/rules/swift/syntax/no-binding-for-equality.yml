@@ -77,7 +77,7 @@ rule:
             - not: {follows: {stopBy: end, kind: switch_pattern}}
             - not: {precedes: {stopBy: end, kind: statements, matches: name-read}}
         - kind: 'if_statement, guard_statement'
-          regex: '^(if|guard)\p{White_Space}+case(?-u:\b)'
+          regex: '^(if|guard)[\t-\r ]+case(?-u:\b)'
           all:
             - matches: sole-binding
             - has: {kind: equality_expression, matches: compared}

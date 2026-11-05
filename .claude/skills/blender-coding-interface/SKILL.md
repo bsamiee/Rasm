@@ -6,11 +6,11 @@ description: "Use when writing or reviewing Python that builds Blender's interfa
 # [BLENDER_CODING_INTERFACE]
 
 Covers `bpy` code that builds Blender's interface and draws in its editors:
-- Use `blender-coding` for callback bodies and operators
-- Use `blender-coding-extensions` for registering and releasing classes and callbacks
+- Use `blender-coding` for work an element triggers
+- Use `blender-coding-extensions` for what an extension acquires and releases
 
 [REFERENCES]:
-- [01]-[DRAWING](references/drawing.md): `gpu` and `blf` drawing in editor regions and offscreen buffers
+- [01]-[DRAWING](references/drawing.md): Pixels code draws itself, for what layout elements cannot show
 
 ## [01]-[REDRAW]
 
@@ -52,18 +52,7 @@ Callback bodies run at each redraw over state other code stored:
 - Values a `draw` shows derive from stored state at the read, `property_unset` calling no `update` callback
 - Failing operator `poll` grays its button without hiding it, and `draw` hides a button by skipping it
 
-Raises in `draw`, `draw_header`, `draw_prepare`, or a draw handler print a traceback on every redraw and leave the class or handler running. Draw bodies read a fallible value once, map it to its rows, and draw its faults as alert rows in their place:
-
-```python
-def alerted[T](layout: bpy.types.UILayout, outcome: Outcome[T], /) -> None:
-    for faults in outcome.swap().to_option().to_list():
-        column = layout.column(align=True)
-        column.alert = True
-        for fault in faults:
-            column.label(text=fault.message, icon="ERROR")
-```
-
-`alerted(self.layout, outcome.map(partial(drawn, self.layout)))` draws a settings outcome a panel reads.
+Raises in `draw`, `draw_header`, `draw_prepare`, or a draw handler print a traceback on every redraw and leave the class or handler running. Draw bodies read a fallible value once and draw rows from its success, and the read logs a fault once.
 
 ## [02]-[PANELS]
 

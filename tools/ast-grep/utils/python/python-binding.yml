@@ -43,10 +43,10 @@ rule:
           has: {field: name, matches: name}
         - kind: type_alias_statement
           has:
-              field: left
-              any:
-                  - has: {kind: identifier, matches: name}
-                  - has: {kind: generic_type, has: {kind: identifier, matches: name}}
+            field: left
+            any:
+                - has: {kind: identifier, matches: name}
+                - has: {kind: generic_type, has: {kind: identifier, matches: name}}
         - kind: delete_statement
           has: {stopBy: {kind: 'attribute, subscript'}, kind: identifier, matches: name}
         - kind: identifier

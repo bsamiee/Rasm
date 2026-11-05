@@ -50,10 +50,10 @@ utils:
     closure-safe:
         not:
             any:
-                - kind: 'await_expression, try_expression, return_expression, break_expression, continue_expression'
-                - has: {stopBy: {kind: 'closure_expression, async_block, function_item'}, kind: 'await_expression, break_expression, continue_expression'}
-                - has: {stopBy: {matches: rust-return-boundary}, kind: return_expression}
-                - has: {stopBy: {matches: rust-try-boundary}, kind: try_expression}
+                - matches: rust-diverging
+                - kind: 'await_expression, try_expression'
+                - has: {stopBy: {matches: rust-return-boundary}, kind: 'await_expression, break_expression, continue_expression, return_expression, become_expression'}
+                - has: {stopBy: {matches: rust-try-boundary}, kind: 'try_expression, yeet_expression'}
     returned-error:
         kind: return_expression
         has: {kind: call_expression, all: [{has: {field: function, regex: '^Err$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $RET, matches: mapped-error}}}]}

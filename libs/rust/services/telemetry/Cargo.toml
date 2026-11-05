@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-telemetry"
-version.workspace    = true
-edition.workspace    = true
-description          = "Process entry under OpenTelemetry conventions: JSON lines, OTLP signals, resource, propagators, exit status"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["tracing", "opentelemetry", "otlp", "logging"]
-categories           = ["development-tools::debugging"]
+name              = "rasm-telemetry"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

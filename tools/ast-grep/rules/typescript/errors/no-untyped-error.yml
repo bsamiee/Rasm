@@ -6,7 +6,7 @@ utils:
         any:
             - kind: new_expression
               has: {field: constructor, matches: typescript-global-reference, regex: '^(globalThis\.)?(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$'}
-            - kind: as_expression, satisfies_expression, parenthesized_expression
+            - matches: typescript-expression-wrapper
               has: {matches: native-error}
     effect-channel:
         kind: member_expression
@@ -18,7 +18,7 @@ utils:
               regex: '^[+-]'
               has: {field: argument, kind: number}
             - kind: template_string
-            - kind: as_expression, satisfies_expression, parenthesized_expression
+            - matches: typescript-expression-wrapper
               has: {matches: untagged-error}
             - matches: native-error
             - kind: new_expression

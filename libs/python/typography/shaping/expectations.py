@@ -41,7 +41,7 @@ class Configuration(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=Tru
 
 
 class Expectations(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
-    """Shaping file fontspector `shaping/regression` reads from its test directory."""
+    """Shaping file fontspector's shaping checks read from its test directory."""
 
     configuration: Configuration
     tests: tuple[Expectation, ...]
@@ -51,8 +51,8 @@ class Expectations(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True
 
 
 def encoded(expectations: Expectations, /) -> bytes:
-    """Encodes expectations as indented JSON with sorted mapping keys, equal records giving equal bytes."""
-    return msgspec.json.format(msgspec.json.encode(expectations, order="deterministic"))
+    """Encodes expectations as indented JSON with sorted mapping keys and a final newline, equal records giving equal bytes."""
+    return msgspec.json.format(msgspec.json.encode(expectations, order="deterministic")) + b"\n"
 
 
 def decoded(raw: bytes, /) -> Outcome[Expectations]:
@@ -64,19 +64,20 @@ def decoded(raw: bytes, /) -> Outcome[Expectations]:
     return catch(lambda: msgspec.json.decode(raw, type=Expectations), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, "shaping expectations"))
 
 
-def expected(binary: Binary, corpus: Corpus, /) -> Expectations:
+def expected(binary: Binary, corpus: Corpus, file: str, /) -> Expectations:
     """Records the serialization of every corpus line under each corpus language, script and direction guessed per line.
 
     Args:
         binary: Font whose shaping the expectations approve.
         corpus: Lines and languages to shape, an empty language shaping under the font's default system.
+        file: Font file name every test selects through fontspector's `only`, beside other faces' tests in one test directory.
 
     Returns:
         Expectations forbidding the font's glyph 0, one test per line and language.
     """
     return Expectations(
         configuration=Configuration(forbidden_glyphs=binary.order[:1]),
-        tests=tuple(Expectation(input=line, expectation=binary.shaped(line, language=language).serialized, language=language) for line in corpus.lines for language in corpus.languages),
+        tests=tuple(Expectation(input=line, expectation=binary.shaped(line, language=language).serialized, language=language, only=(file,)) for line in corpus.lines for language in corpus.languages),
     )
 
 

@@ -60,7 +60,7 @@ rule:
             - inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^bool$'}}}}}}
         - kind: comparison_operator
           all:
-            - has: {field: operators, regex: '^(not[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?in$'}
+            - has: {field: operators, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$'}
             - has: {nthChild: 2, matches: built-collection}
             - not: {matches: python-invariant-index-test}
 message: '`$TEST` builds every match to test whether one exists'

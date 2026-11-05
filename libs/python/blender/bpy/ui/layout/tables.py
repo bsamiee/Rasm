@@ -13,7 +13,6 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import definition, Native, RnaPath, Struct
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import acquired, Acquisitions
-from blender.bpy.extension.reports import alerted
 from blender.bpy.ui.layout.members import marked
 from blender.bpy.ui.layout.rows import ConditionalRow, realized, RowContent, RowDraw, split
 from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
@@ -49,22 +48,18 @@ class SettingsTable(ConditionalRow, frozen=True, kw_only=True):
 
         named = Option.of_optional(definition(owner_type).name_property).to_result_with(lambda: Fault.of(Reason.ABSENT, owner_type.__name__, member="name_property"))
         settings = accumulated(Descriptor.resolve(owner_type, path, bpy.types.Property) for path in self.settings).map(lambda found: tuple(leaf for each in found for leaf in each.leaves(kinds)))
-        return paired(named, settings.bind(lambda found: accumulated(map(celled, found)))).map(lambda parts: partial(self.shown, *parts))
+        return paired(named, settings.bind(lambda found: accumulated(map(celled, found)))).map(lambda parts: partial(self.shown, identity, *parts))
 
-    def shown(self, name: bpy.types.StringProperty, held: tuple[tuple[Descriptor, RowDraw], ...], layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, name: bpy.types.StringProperty, held: tuple[tuple[Descriptor, RowDraw], ...], layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws owner names over one row of cells per setting across the scope's owners, labelled with the setting name or its mark while owner values differ."""
-        found = self.scope.owners(context)
-        alerted(layout, found)
-        for owners in found.to_option().to_list():
+        for owners in identity.reports.settled(self.scope.owners(context)).to_list():
             heads = _grid(layout, len(owners))[1]
             for owner in owners:
                 heads.label(text=getattr(owner, name.identifier), translate=False)
             for setting, drawing in held:
                 names, cells = _grid(layout, len(owners))
                 names.alignment = "RIGHT"
-                label = marked(setting, owners)
-                alerted(names, label)
-                mixed = label.default_value(Nothing)
+                mixed = identity.reports.settled(marked(setting, owners)).default_value(Nothing)
                 names.label(text=mixed.default_value(setting.prop.name), text_ctxt=setting.prop.translation_context, translate=mixed.is_none())
                 for owner in owners:
                     drawing(cells.column(), owner, context)
@@ -75,15 +70,13 @@ class Tree(ConditionalRow, frozen=True, kw_only=True):
 
     paths: Callable[[bpy.types.Context], Outcome[tuple[PurePath, ...]]]
 
-    def drawn(self, _identity: Identity, /) -> Outcome[RowDraw]:
+    def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Returns the tree draw over the paths read each redraw."""
-        return Ok(self.shown)
+        return Ok(partial(self.shown, identity))
 
-    def shown(self, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws every path prefix once in order, indented by depth, a file icon on full paths and a folder icon on the rest."""
-        found = self.paths(context)
-        alerted(layout, found)
-        for paths in found.to_option().to_list():
+        for paths in identity.reports.settled(self.paths(context)).to_list():
             files = {path.parts for path in paths}
             for node in sorted({path.parts[:end] for path in paths for end in range(1, len(path.parts) + 1)}):
                 line = layout.row(align=True)
@@ -110,9 +103,9 @@ class TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True)
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the marks once into the tree draw."""
-        return realized(self.marks, identity).map(lambda marks: partial(self.shown, marks))
+        return realized(self.marks, identity).map(lambda marks: partial(self.shown, identity, marks))
 
-    def shown(self, marks: RowDraw, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, marks: RowDraw, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws column owner names, then each branch with its cells."""
         owners, branches = self.tree(context)
         heads = _grid(layout, len(owners))[1]
@@ -128,7 +121,7 @@ class TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True)
             for owner, found in zip(owners, cells):
                 line = row.row(align=True)
                 for each in found.to_list():
-                    alerted(line, self.cell(line, owner, each, label))
+                    identity.reports.faulted(self.cell(line, owner, each, label))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

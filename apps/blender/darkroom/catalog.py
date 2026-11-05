@@ -1,15 +1,12 @@
 """Darkroom effect catalog: every effect in processing order over the optics, grade, formation, and finish phases between the pinned temporal and pass entries, with the staged render, preview tiles, layer stacks and their looks, strip placement, node previews, and the active entry editor."""
 
-from functools import partial
 from types import MappingProxyType
 from typing import Final
 
 from bl_ui.properties_compositor import SCENE_PT_compositor_effects
 from bl_ui.space_node import NODE_PT_backdrop
-import bpy
-from expression import Option, Some
+from expression import Some
 
-from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes.interfaces import Socket
 from blender.bpy.render.compositor.editors import EntryEditor
 from blender.bpy.render.compositor.effects import CompositorRecord, Entry
@@ -27,8 +24,6 @@ from blender.bpy.render.sessions.setups import ENTRY_LOCKS, EntryLocks, WHOLE
 from blender.bpy.render.sessions.staging import StagedRender
 from blender.bpy.render.view_layers.routing import RoutingRow
 from blender.bpy.ui.elements.panels import Beside, Panel
-from blender.bpy.ui.layout.rows import Label, Layout
-from blender.records.faults import Ok
 
 from .effects.finish.damage import damage
 from .effects.finish.dither import dither
@@ -61,18 +56,6 @@ def _look(name: str, *settings: tuple[CompositorRecord, Socket, float]) -> Value
     """Look stack of one adjustment layer through each effect record at its socket's value."""
     layer = StackLayer(key="look", name=name, source=Adjustment(), effects=tuple(Entry(record=record) for record, _, _ in settings))
     return Valued(structure=LayerStack(layers=(layer,)), values=snapshot({path_key(place, socket): value for place, (_, socket, value) in zip(layer.places, settings)}))
-
-
-def _unformed(identity: Identity, context: bpy.types.Context) -> tuple[str, ...]:
-    """Notice while the active entry's effect ranks after formation and no formation entry precedes it."""
-    return tuple(
-        f"Needs earlier {formation.title} entry"
-        for scene in Option.of_optional(context.scene).to_list()
-        for entry in Option.of_optional(scene.compositor_effects.active).to_list()
-        for row in chain.row(identity, entry).to_list()
-        if chain.rank(row) > chain.rank(formation)
-        and not any(scene.compositor_effects.find(formed.name) < scene.compositor_effects.find(entry.name) for formed in formation.earliest(identity, scene).to_list())
-    )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -135,12 +118,7 @@ rows: Final = (
     stacks,
     Strips(rows=chain),
     nodes,
-    EntryEditor(
-        rows=chain,
-        header=(ENTRY_LOCKS.row(WHOLE),),
-        leading=(EntryTile(tiles=tiles), Layout(builder=Some(lambda identity: Ok((Label(text=partial(_unformed, identity), icon=Some("STATUS_ERROR_FILLED")),))))),
-        trailing=(EntryLocks(),),
-    ),
+    EntryEditor(rows=chain, header=(ENTRY_LOCKS.row(WHOLE),), leading=(EntryTile(tiles=tiles),), trailing=(EntryLocks(),)),
     Panel(section=stacks.section(), at=Beside(SCENE_PT_compositor_effects)),
     Panel(section=nodes.section(), at=Beside(NODE_PT_backdrop)),
 )

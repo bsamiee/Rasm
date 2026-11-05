@@ -41,7 +41,21 @@ const Installed = manifest(Package.file, Schema.fromJsonString(Schema.Struct({ d
 const ClaudeHooks = manifest('hooks/hooks.json', Schema.fromJsonString(Schema.Struct({ modules: Schema.NonEmptyArray(Schema.String) })));
 const Mise = manifest('mise.toml', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ daemons: Schema.Record(Schema.String, Schema.Union([Schema.String, Daemon])) }))));
 const Workspace = manifest('pnpm-workspace.yaml', TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.String) }))));
+const Sgconfig = manifest(
+    'sgconfig.yml',
+    TextFormat.Yaml.pipe(
+        Schema.decodeTo(
+            Schema.Struct({
+                ruleDirs: Schema.Array(Schema.String),
+                utilDirs: Schema.Array(Schema.String),
+                customLanguages: Schema.Record(Schema.String, Schema.Struct({ libraryPath: Schema.String, extensions: Schema.Array(Schema.String), outlineRules: Schema.OptionFromOptionalKey(Schema.String) })),
+                languageGlobs: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+                languageInjections: Schema.Array(Schema.Struct({ hostLanguage: Schema.String })),
+            }),
+        ),
+    ),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ClaudeHooks, decodeFile, extendScriptEntry, Installed, libraryRoot, Mise, members, Package, Workspace };
+export { ClaudeHooks, decodeFile, extendScriptEntry, Installed, libraryRoot, Mise, members, Package, Sgconfig, Workspace };

@@ -11,7 +11,7 @@ utils:
             - kind: unary_expression
               all: [{has: {field: operator, regex: '^[+-]$'}}, {has: {field: argument, kind: number}}]
             - matches: typescript-expression-wrapper
-              has: {nthChild: 1, matches: stable-key}
+              has: {matches: stable-key}
     suspension-or-eval:
         any:
             - kind: await_expression, yield_expression

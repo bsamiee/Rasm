@@ -10,7 +10,7 @@ enum { ADJACENT_TYPE_ARGUMENTS_OPEN = ERROR_RECOVERY + 1 };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-enum { DECIMAL_REFERENCE_DIGITS = 5, HEXADECIMAL_REFERENCE_DIGITS = 6, NAMED_REFERENCE_LETTERS = 30 };
+enum { DECIMAL_REFERENCE_DIGITS = 7, HEXADECIMAL_REFERENCE_DIGITS = 6, NAMED_REFERENCE_LETTERS = 30 };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -95,9 +95,7 @@ static bool skip_balanced(TSLexer *lexer, int32_t open, int32_t close) {
                 skip_quoted(lexer, lexer->lookahead);
                 break;
             case '/':
-                if (!skip_comment(lexer)) {
-                    return false;
-                }
+                skip_comment(lexer);
                 break;
             case '=':
                 advance(lexer);
@@ -157,7 +155,7 @@ unsigned SCANNER(serialize)(void *payload, char *buffer) { return 0; }
 void SCANNER(deserialize)(void *payload, const char *buffer, unsigned length) {}
 
 bool SCANNER(scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
-    if (valid_symbols[JSX_TEXT]) {
+    if (valid_symbols[JSX_TEXT] && !valid_symbols[ERROR_RECOVERY]) {
         bool saw_text = scan_jsx_text(lexer);
         if (lexer->lookahead == '&') {
             return scan_jsx_text_from_ampersand(lexer, saw_text);

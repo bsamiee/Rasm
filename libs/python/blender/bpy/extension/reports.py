@@ -1,16 +1,21 @@
-"""Callback fault reports, their alert rows, and the main-thread queue of requests the host applies while its interface is unlocked."""
+"""Callback fault logging, report entries of operator faults, and the main-thread queue of requests the host applies while its interface is unlocked."""
 
-from collections.abc import Callable, Generator, Iterable, Mapping
+from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 import functools
 from itertools import product
+import logging
+from pathlib import Path
 from threading import Event, RLock
 from types import MappingProxyType
-from typing import override, Protocol, Self, TYPE_CHECKING
+from typing import Final, override, Protocol, Self, TYPE_CHECKING
 
 import bpy
 from expression import Option, Some
 import msgspec
+import structlog
+from structlog.processors import add_log_level, ExceptionRenderer, TimeStamper
+from structlog.tracebacks import ExceptionDictTransformer
 from structlog.typing import FilteringBoundLogger
 
 from blender.records.faults import Fault, Nothing, Ok, Outcome, Reason
@@ -27,6 +32,11 @@ class Pending(Protocol):
     def advanced(self) -> Outcome[Option[Self]]:
         """Applies one step, returning the request left to apply, Nothing once done."""
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_LOG: Final = "extension.log"
+_RECORD: Final = msgspec.json.Encoder(enc_hook=repr)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -53,16 +63,19 @@ class _Write(msgspec.Struct, frozen=True, kw_only=True):  # type: ignore[explici
 
 
 class Reports(AbstractContextManager["Reports"]):
-    """Extension callback faults and queued requests, entered first in registration scope."""
+    """Extension callback fault log and queued requests, entered first in registration scope."""
 
-    __slots__ = ("_entries", "_loaded", "_lock", "_pending", "_redraw", "_scope", "logger", "ticked")
+    __slots__ = ("_extension", "_folder", "_idle", "_loaded", "_lock", "_logged", "_pending", "_scope", "logger", "ticked")
 
     # --- [LIFECYCLE]
 
-    def __init__(self, logger: FilteringBoundLogger) -> None:
-        """Initializes empty reports and queue, opening the deferred redraw, the logger receiving each new entry with its report type."""
-        self.logger = logger
-        self._entries: list[Fault] = []
+    def __init__(self, package: str, folder: Path, /, *, extension: str) -> None:
+        """Initializes the empty queue, with the logger writing to the extension's user folder while the scope is open."""
+        self._folder, self._extension = folder, extension
+        self._scope = ExitStack()
+        self._idle: FilteringBoundLogger = structlog.get_logger(package, extension=extension)
+        self.logger = self._idle
+        self._logged: set[str] = set()
         self._pending: list[Pending] = []
         self._lock = RLock()
 
@@ -73,72 +86,68 @@ class Reports(AbstractContextManager["Reports"]):
                 return 0.0
             with self._lock:
                 requests, self._pending[:] = tuple(self._pending), []
-                self._pending[:0] = [later for request in requests for later in request.advanced().map_error(self.hold).default_value(Nothing).to_list()]
+                self._pending[:0] = [later for request in requests for later in request.advanced().map_error(self.logged).default_value(Nothing).to_list()]
                 return 0.0 if self._pending else None
 
         @bpy.app.handlers.persistent  # type: ignore[untyped-decorator]  # ty: ignore[dynamic-function-decorator-return]
         def loaded(*_: object) -> None:
-            """Drops requests and faults of the file a load replaced, the host having removed the queue timer."""
+            """Drops requests and logged faults of the file a load replaced, the host having removed the queue timer."""
             with self._lock:
                 self._pending.clear()
-                self._entries.clear()
+                self._logged.clear()
 
-        self.ticked, self._loaded, self._scope = ticked, loaded, ExitStack()
-        self._redraw = self._scope.enter_context(self.deferred(redrawn))
+        self.ticked, self._loaded = ticked, loaded
 
     @override
     def __enter__(self) -> Self:
-        """Clears queued requests and held faults after every file load until scope exit."""
+        """Appends JSON lines to the extension's log through its own chain, sibling extensions sharing structlog's process configuration, and clears queued requests and logged faults after every file load until scope exit."""
+        self.logger = structlog.wrap_logger(
+            structlog.BytesLogger(self._scope.enter_context((self._folder / _LOG).open("ab"))),
+            processors=[add_log_level, TimeStamper(fmt="iso", utc=True), ExceptionRenderer(ExceptionDictTransformer(show_locals=False)), lambda _logger, _method, event_dict: _RECORD.encode(event_dict)],
+            wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+            extension=self._extension,
+        )
         loads: list[Callable[..., None]] = bpy.app.handlers.load_post  # type: ignore[explicit-any]
         loads.append(self._loaded)
+        self._scope.callback(loads.remove, self._loaded)
         return self
 
     @override
     def __exit__(self, *_: object) -> None:
-        """Closes deferred redraw, drops queued requests, and unregisters the queue timer and load handler."""
-        loads: list[Callable[..., None]] = bpy.app.handlers.load_post  # type: ignore[explicit-any]
-        loads.remove(self._loaded)
-        self._scope.close()
+        """Drops queued requests, unregisters the queue timer and load handler, and closes the log file."""
         with self._lock:
             self._pending.clear()
             if bpy.app.timers.is_registered(self.ticked):
                 bpy.app.timers.unregister(self.ticked)
+        self.logger = self._idle
+        self._scope.close()
 
-    # --- [REPORTING]
+    # --- [LOGGING]
 
-    @property
-    def entries(self) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
-        """Current report type and translated text per distinct held fault."""
+    def logged(self, faults: tuple[Fault, ...], /) -> None:
+        """Logs each distinct fault once per loaded file, a draw body reading the same fault at every redraw."""
         with self._lock:
-            return tuple(dict.fromkeys(rendered(tuple(self._entries))))
+            fresh = {fault.message: fault for fault in faults if fault.message not in self._logged}
+            self._logged.update(fresh)
+        for text, fault in fresh.items():
+            self.logger.error("callback_failed", report=level(fault), message=text)
 
-    def hold(self, faults: tuple[Fault, ...], /) -> None:
-        """Holds each distinct entry of a callback's faults once, logging and redrawing new ones."""
-        with self._lock:
-            existing = dict.fromkeys(self.entries)
-            fresh = {entry: fault for entry, fault in zip(rendered(faults), faults) if entry not in existing}
-            self._entries.extend(fresh.values())
-        for kind, text in fresh:  # ruff: ignore[dict-iter-missing-items]
-            self.logger.error("callback_failed", report=kind, message=text)
-        if fresh:
-            self._redraw()
+    def settled[T](self, result: Outcome[T], /) -> Option[T]:
+        """Returns Some(value) on success, or Nothing after logging the faults."""
+        return result.map_error(self.logged).to_option()
 
-    def cleared(self) -> bool:
-        """Drops every held fault entry, redrawing and returning True once any was held."""
-        with self._lock:
-            held = bool(self._entries)
-            self._entries.clear()
-        if held:
-            self._redraw()
-        return held
+    def faulted[T](self, result: Outcome[T], /) -> None:
+        """Logs the faults of a failed result whose value no later read takes."""
+        for faults in result.swap().to_option().to_list():
+            self.logged(faults)
 
     def reported[**P, T](self, callback: Callable[P, Outcome[T]], /) -> Callable[P, Option[T]]:
-        """Wraps callback to return Some(value) on success, or Nothing after holding its faults."""
+        """Wraps callback to return Some(value) on success, or Nothing after logging its faults."""
 
         @functools.wraps(callback)
         def translated(*args: P.args, **kwargs: P.kwargs) -> Option[T]:
-            """Holds faults, returning Option."""
-            return callback(*args, **kwargs).map_error(self.hold).to_option()
+            """Logs faults, returning Option."""
+            return self.settled(callback(*args, **kwargs))
 
         return translated
 
@@ -153,7 +162,7 @@ class Reports(AbstractContextManager["Reports"]):
         if bpy.app.background:
             pending: Option[Pending] = Some(request)
             while (current := pending.to_optional()) is not None:
-                pending = current.advanced().map_error(self.hold).default_value(Nothing)
+                pending = current.advanced().map_error(self.logged).default_value(Nothing)
         else:
             with self._lock:
                 if request not in self._pending:
@@ -197,23 +206,6 @@ def rendered(faults: tuple[Fault, ...], /) -> tuple[tuple["rna_enums.WmReportIte
     return tuple((level(fault), fault.filled(bpy.app.translations.pgettext_rpt(fault.reason))) for fault in faults)
 
 
-# --- [ROWS]
-
-
-def listed(layout: bpy.types.UILayout, entries: Iterable[tuple["rna_enums.WmReportItems", str]], /) -> None:
-    """Draws report entries untranslated on one alert column under the error icon, every entry being a rendered fault."""
-    column = layout.column(align=True)
-    column.alert = True
-    for _, text in entries:
-        column.label(text=text, icon="STATUS_ERROR_FILLED", translate=False)
-
-
-def alerted[T](layout: bpy.types.UILayout, result: Outcome[T], /) -> None:
-    """Draws the report entries of a failed result."""
-    for faults in result.swap().to_option().to_list():
-        listed(layout, rendered(faults))
-
-
 # --- [REDRAW]
 
 
@@ -227,4 +219,4 @@ def redrawn() -> Outcome[Option[str]]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Pending", "Reports", "alerted", "level", "listed", "redrawn", "rendered"]
+__all__ = ["Pending", "Reports", "level", "redrawn", "rendered"]

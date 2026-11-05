@@ -179,6 +179,7 @@ Manifest host data decides when Photoshop loads a plugin and which calls need a 
 |  [01]   | `host.data.apiVersion: 2` | Changes to documents, interface, or preferences need a modal scope, default at every `minVersion` |
 |  [02]   | `host.data.loadEvent`     | `main` runs at launch under `"startup"`, at first use under `"use"`                               |
 
+- `host.data.enableMenuRecording` records `command` entrypoints as Action steps
 - Load runs panel `create` and `show`, and quit runs panel `hide`, panel `destroy`, then plugin `destroy`, whether the panel shows or not
 - Showing or hiding a panel calls no handler, and its `uxpcommand` event holds `commandId` `uxpshowpanel` or `uxphidepanel`
 - `.psjs` scripts run once users confirm a JavaScript load warning, write absolute `fs` paths, and throw `EvalError` for `eval` and `new Function`

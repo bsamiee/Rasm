@@ -6,7 +6,7 @@ rule:
     all:
         - has: {field: value, kind: scoped_identifier, has: {field: name, regex: '^[A-Z][A-Z0-9_]*$'}, pattern: $PATH}
         - any:
-            - has: {field: pattern, kind: tuple_pattern, regex: '^\(\p{White_Space}*\)$'}
+            - has: {field: pattern, kind: tuple_pattern, regex: '^\(\p{Pattern_White_Space}*\)$'}
             - has: {field: pattern, pattern: $$_P, regex: '^_$'}
 message: '`let` reads `$PATH` to force its compile-time evaluation'
 note: 'Assert in place with `const { assert!(<condition>, "<invariant>") };` and delete the unit associated constant'

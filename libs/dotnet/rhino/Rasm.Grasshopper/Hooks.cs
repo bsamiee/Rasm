@@ -75,9 +75,13 @@ public static partial class Hooks {
     internal static T Run<T>(IO<T> effect, T failed, [CallerMemberName] string member = "") =>
         effect.RunSafe().IfFail(error => {
             if (error.Count is 1 && error.Is(Errors.Cancelled)) Canceled(Session.Logger, member);
-            else Failed(Session.Logger, member, error.Message, error.Exception.ValueUnsafe());
+            else Failed(Session.Logger, member, string.Join(Environment.NewLine, Causes(error).Map(static cause => cause.Message)), Causes(error).Choose(static cause => cause.Exception) switch { [] => null, [var single] => single, var many => new AggregateException(many) });
             return failed;
         });
+
+    private static Seq<Error> Causes(Error error) =>
+        toSeq(LanguageExt.List.unfold(error.AsIterable().ToSeq(), static pending => pending.Head.Map(cause =>
+            (cause, cause.Inner.ToSeq().Bind(static inner => inner.AsIterable().ToSeq()) + pending.Tail))));
 
     [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed: {Message}")]
     private static partial void Failed(ILogger logger, string member, string message, Exception? exception);

@@ -21,7 +21,7 @@ utils:
     forwarding-statement:
         any:
             - matches: forwarded-call
-            - kind: 'await_expression, expression_statement, return_expression'
+            - kind: 'await_expression, expression_statement, return_expression, become_expression'
               has: {nthChild: 1, matches: forwarding-statement}
     step:
         matches: rust-statement
@@ -52,7 +52,7 @@ utils:
                 - not: {inside: {kind: parameters, inside: {kind: function_item, has: {field: body, has: {stopBy: end, kind: field_expression, pattern: $F, has: {field: value, kind: identifier, pattern: $X}}}}}}
     plain-attribute:
         kind: attribute_item
-        regex: '^#\[\p{White_Space}*(inline|must_use|track_caller|doc|expect|cfg|cfg_attr|deprecated)(?-u:\b)'
+        regex: '^#\[\p{Pattern_White_Space}*(inline|must_use|track_caller|doc|expect|cfg|cfg_attr|deprecated)(?-u:\b)'
 rule:
     kind: function_item
     all:

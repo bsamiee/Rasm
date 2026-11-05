@@ -42,7 +42,7 @@ utils:
               regex: '^NaN$'
             - kind: member_expression
               regex: '^((globalThis|window|self)\.)?Number\.NaN$'
-            - kind: 'parenthesized_expression, as_expression, satisfies_expression'
+            - matches: typescript-expression-wrapper
               has: {matches: null-or-nan-result}
             - kind: ternary_expression
               any: [{has: {field: consequence, matches: null-or-nan-result}}, {has: {field: alternative, matches: null-or-nan-result}}]
@@ -55,7 +55,7 @@ utils:
             - kind: undefined
             - kind: unary_expression
               has: {field: operator, regex: '^void$'}
-            - kind: 'parenthesized_expression, as_expression, satisfies_expression'
+            - matches: typescript-expression-wrapper
               has: {matches: undefined-result}
             - kind: ternary_expression
               any: [{has: {field: consequence, matches: undefined-result}}, {has: {field: alternative, matches: undefined-result}}]

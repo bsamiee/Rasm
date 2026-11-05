@@ -37,7 +37,7 @@ utils:
 rule:
     kind: call_expression
     all:
-        - has: {nthChild: 1, kind: navigation_expression, regex: '^_Concurrency\.with(Throwing)?TaskGroup$', pattern: $RACE}
+        - has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^_Concurrency(\.|::)with(Throwing)?TaskGroup$', pattern: $RACE}
         - has:
             kind: call_suffix
             has:

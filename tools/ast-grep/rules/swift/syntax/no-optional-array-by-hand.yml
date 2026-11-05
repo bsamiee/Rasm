@@ -4,7 +4,7 @@ severity: error
 utils:
     value-position:
         any:
-            - inside: {kind: property_declaration, field: value}
+            - {follows: {regex: '^=$'}, inside: {kind: property_declaration}}
             - inside: {kind: 'assignment, control_transfer_statement', field: result}
     empty-array:
         any:

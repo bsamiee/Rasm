@@ -81,7 +81,7 @@ rule:
             - not: {matches: native-literal-call}
             - not: {all: [{has: {field: function, regex: '^bytes$'}}, {not: {has: {field: arguments, has: {nthChild: 1, kind: string, not: {matches: bytes-literal}}}}}]}
             - not: {all: [{has: {field: function, regex: '^chr$'}}, {not: {has: {field: arguments, all: [{has: {nthChild: 1, kind: integer, regex: '^(3[2-9]|[4-9][0-9]|1[01][0-9]|12[0-6]|0[xX](2[0-9a-fA-F]|[3-6][0-9a-fA-F]|7[0-9a-eA-E]))$'}}, {not: {has: {nthChild: 2}}}]}}}]}
-            - not: {all: [{has: {field: function, regex: '^float$'}}, {has: {field: arguments, has: {nthChild: 1, has: {kind: string_content, regex: '(?i)^[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*[+-]?(inf(inity)?|nan)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}}]}
+            - not: {all: [{has: {field: function, regex: '^float$'}}, {has: {field: arguments, has: {nthChild: 1, has: {kind: string_content, regex: '(?i)^[\t-\r \x{200B}\x{2060}\x{FEFF}]*[+-]?(inf(inity)?|nan)[\t-\r \x{200B}\x{2060}\x{FEFF}]*$'}}}}]}
         - kind: subscript
           all:
             - has: {field: value, kind: 'string, concatenated_string, parenthesized_expression, tuple, list, dictionary', matches: literal}

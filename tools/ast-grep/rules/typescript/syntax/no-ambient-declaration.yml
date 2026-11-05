@@ -44,6 +44,6 @@ rule:
             - has: {kind: variable_declarator, not: {has: {field: value, pattern: $_}}}
             - not: {inside: {kind: ambient_declaration, stopBy: end}}
 transform:
-    HEAD: {replace: {source: $DECLARATION, replace: '(?s)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\{?[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\n.*$', by: ''}}
+    HEAD: {replace: {source: $DECLARATION, replace: '(?s)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\{?[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n.*$', by: ''}}
 message: '`$HEAD` declares ambient types or values the compiler takes on trust'
 note: 'Import types from their owning package, `paths` mapping, or bundler client types, merge into `interface <Name>`, or decode with `Schema`'

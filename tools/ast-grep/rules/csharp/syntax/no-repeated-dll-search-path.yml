@@ -5,7 +5,7 @@ rule:
     kind: attribute
     pattern: $ATTRIBUTE
     all:
-        - has: {field: name, regex: '^((global::)?System\.Runtime\.InteropServices\.)?DefaultDllImportSearchPaths(Attribute)?$'}
+        - has: {field: name, matches: {csharp-qualified-name: {name: {regex: '^DefaultDllImportSearchPaths(?:Attribute)?$'}, qualifier: {regex: '^InteropServices$'}}}}
         - inside:
             kind: attribute_list
             inside:

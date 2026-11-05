@@ -4,6 +4,8 @@ language: csharplang
 arguments: [name]
 utils:
     callee:
-        matches: {csharp-type-name: {name: {matches: name}}}
+        any:
+            - matches: {csharp-type-name: {name: {matches: name}}}
+            - matches: {csharp-accessed-name: {name: {matches: name}}}
 rule:
     has: {field: function, matches: callee}

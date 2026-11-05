@@ -18,7 +18,7 @@ struct Upstream(Command);
 
 impl CommandFactory for Upstream {
     fn command() -> clap::Command {
-        clap::command!().arg(
+        clap::command!().version(option_env!("RASM_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))).arg(
             Arg::new(COMMAND)
                 .value_parser(value_parser!(OsString))
                 .num_args(1..)

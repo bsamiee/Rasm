@@ -33,7 +33,7 @@ utils:
         kind: class_declaration
         all:
             - has: {field: declaration_kind, regex: '^extension$'}
-            - has: {field: name, regex: '^((Swift|Foundation)\.)?(String|Substring|StringProtocol|Data)$'}
+            - has: {field: name, regex: '^((Swift|Foundation)(\.|::))?(String|Substring|StringProtocol|Data)$'}
     bridged-binding:
         kind: 'property_declaration, parameter'
         regex: '(?-u:\b)(NS(Mutable)?(Attributed)?String|Attributed(String|Substring))(?-u:\b)'

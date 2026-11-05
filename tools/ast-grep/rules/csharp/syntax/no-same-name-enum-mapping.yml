@@ -49,8 +49,7 @@ utils:
         any:
             - kind: implicit_type
             - matches: {csharp-type-name: {name: {regex: '^(string|String|StringBuilder)$'}}}
-            - matches: {csharp-type-name: {name: {regex: '^(ReadOnly)?Span$'}}}
-              has: {stopBy: end, kind: type_argument_list, has: {regex: '^char$'}}
+            - matches: {csharp-generic-type: {name: {regex: '^(?:ReadOnly)?Span$'}, list: {has: {regex: '^char$'}}}}
     declared-receiver:
         kind: identifier
         matches: {csharp-declared-type: {type: {not: {any: [{matches: text-type}, {kind: predefined_type}]}}}}

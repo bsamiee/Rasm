@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+utils:
+    coalesced:
+        kind: func_expr_common_subexpr
+        all:
+            - has: {regex: '(?i-u)^coalesce$', not: {pattern: $_}}
+            - has: {kind: expr_list, all: [{has: {kind: expr_list, not: {has: {kind: expr_list}}}}, {has: {kind: a_expr, pattern: $X}}]}
+    defaulted:
+        matches: pgsql-wrapper
+        has: {stopBy: {not: {matches: pgsql-wrapper}}, matches: coalesced}
+rule:
+    kind: a_expr, a_expr_prec
+    pattern: $COMPARISON
+    all:
+        - has: {field: operator, regex: '^(=|<>|!=)$'}
+        - has: {field: left, matches: defaulted}
+        - has: {field: right, matches: defaulted}
+message: '`$COMPARISON` replaces NULL with `$X` before comparison'
+note: 'Use a NULL-aware comparison when `<default>` differs from every non-NULL value'

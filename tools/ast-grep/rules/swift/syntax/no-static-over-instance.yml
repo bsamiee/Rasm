@@ -13,7 +13,7 @@ utils:
             - has: {regex: '^class$'}
     sole-receiver:
         all:
-            - has: {field: name, kind: simple_identifier, pattern: $NAME}
+            - has: {field: name, kind: function_name, pattern: $NAME}
             - has: {kind: parameter, pattern: $RECEIVER, has: {matches: own-type}}
             - not: {has: {kind: parameter, not: {pattern: $RECEIVER}, has: {matches: own-type}}}
 rule:

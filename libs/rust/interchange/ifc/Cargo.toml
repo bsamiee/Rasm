@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-ifc"
-version.workspace    = true
-edition.workspace    = true
-description          = "IFC5 models and BCF issues: IFCX layers read with field paths, import closures over caller loads, HTTP and files under SRI integrity with a lock, federation with opinion provenance and conflicts, strict and partial composition with schema validation and reverse indexes, attribute values typed and encoded by their schemas with quantities in uom, overlays, three-way merges and layer and model diffs, spatial, systems and flow graphs, classifications, georeference codes, alignment stations, linear references, projections and chord polylines, scoped instanced meshes, multi-run curves, and array, base64, and PCD point sets with colors and glTF materials, and BCF 2.1 and 3.0 archives keyed by node UUID with merges and components resolved to model nodes"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["ifc", "ifcx", "bim", "bcf", "interchange"]
-categories           = ["encoding", "science"]
+name              = "rasm-ifc"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

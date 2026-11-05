@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parse-error-sql
 language: sql
 severity: error
 utils:
@@ -8,7 +9,7 @@ rule:
     any:
         - kind: ERROR, malformed_blob_literal, malformed_number_id
           not: {matches: unreported}
-        - kind: host_comment, host_whitespace
+        - kind: host_whitespace
           not: {inside: {kind: 'ERROR, substitution', stopBy: end}}
         - kind: source_file
           has:
@@ -21,3 +22,11 @@ labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
 note: Fix invalid syntax or add missing grammar support for valid source
+---
+id: no-host-hole-sql
+language: sql
+severity: error
+files: ['**/*.sql']
+rule: {kind: substitution}
+message: '`.sql` file holds a host hole no host fills'
+note: Write the value in SQL or move the statement into its host template

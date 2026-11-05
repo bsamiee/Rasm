@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-daemon"
-version.workspace    = true
-edition.workspace    = true
-description          = "Served process over rasm-command: repeatable listen authority rows bound on every address their host resolves to, an IPv6 wildcard IPv6-only beside an IPv4 address on its port, a grace row, sockets listening before start, axum serve once started over HTTP/1 and h2c with TCP_NODELAY and peer ConnectInfo until the drain ends, and a two-stage drain ending at the second signal or the grace deadline"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["daemon", "server", "axum", "graceful-shutdown", "signals"]
-categories           = ["network-programming", "web-programming::http-server"]
+name              = "rasm-daemon"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

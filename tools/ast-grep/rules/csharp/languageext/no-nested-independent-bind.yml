@@ -14,7 +14,7 @@ rule:
                         - &step
                           kind: invocation_expression
                           all:
-                            - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $STEP, regex: '^(Bind|Map|Select|SelectMany|Filter|Where)([\p{White_Space}\x{FEFF}]*<.+>)?$'}}
+                            - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $STEP, matches: {csharp-simple-name: {name: {regex: '^(Bind|Map|Select|SelectMany|Filter|Where)$'}}}}}
                             - has: {field: function, has: {field: expression, has: {stopBy: end, kind: identifier, pattern: $VALUE}}}
                             - has:
                                 field: arguments

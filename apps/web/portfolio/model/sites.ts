@@ -1,5 +1,6 @@
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const simulatedEmail = 'seedy@sites.test';
 const sites = {
     headers: { id: 'oai-authenticated-user-id', email: 'oai-authenticated-user-email' },
     paths: { signin: '/signin-with-chatgpt', signout: '/signout-with-chatgpt' },
@@ -8,4 +9,4 @@ const sites = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { sites };
+export { simulatedEmail, sites };

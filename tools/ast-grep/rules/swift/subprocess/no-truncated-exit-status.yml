@@ -2,10 +2,10 @@
 language: swiftlang
 severity: error
 utils:
-    status-type: {kind: user_type, regex: '^(Security\.|Darwin\.)?OSStatus$'}
+    status-type: {kind: user_type, regex: '^((Security|Darwin)(\.|::))?OSStatus$'}
     status:
         any:
-            - {kind: simple_identifier, regex: '^errSec\p{XID_Continue}+$'}
+            - {kind: simple_identifier, regex: '^errSec.'}
             - kind: simple_identifier
               pattern: $S
               inside:
@@ -18,8 +18,7 @@ utils:
                         - {kind: lambda_parameter, all: [{has: {field: name, pattern: $S}}, {has: {matches: status-type}}]}
                         - kind: property_declaration
                           all:
-                            - has: {field: name, has: {field: bound_identifier, pattern: $S}}
-                            - has: {kind: type_annotation, has: {matches: status-type}}
+                            - has: {kind: pattern, has: {field: bound_identifier, pattern: $S}, precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {matches: status-type}}}
             - kind: call_expression
               all:
                 - has: {nthChild: 1, regex: '^U?Int(32|64)?$'}

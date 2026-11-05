@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+rule:
+    kind: RuleStmt
+    has: {kind: ColId, pattern: $NAME}
+message: 'Rule `$NAME` rewrites the query before planning, a volatile argument runs once per reference'
+note: 'Use a trigger, or an updatable view with `instead of` triggers'

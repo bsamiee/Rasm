@@ -5,7 +5,7 @@ rule:
     kind: while_statement
     pattern: $SITE
     all:
-        - has: {regex: '^\p{XID_Continue}+\p{White_Space}*<\p{White_Space}*[\p{XID_Continue}.]+\.count$', has: {nthChild: 1, kind: simple_identifier, pattern: $WRITTEN}}
+        - has: {kind: comparison_expression, all: [{has: {field: lhs, kind: simple_identifier, pattern: $WRITTEN}}, {has: {field: op, regex: '^<$'}}, {has: {field: rhs, regex: '\.count$'}}]}
         - has:
             kind: statements
             all:

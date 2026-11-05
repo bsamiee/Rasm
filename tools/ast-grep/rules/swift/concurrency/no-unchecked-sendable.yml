@@ -4,7 +4,7 @@ severity: error
 rule:
     kind: attribute
     regex: '^@unchecked$'
-    precedes: {kind: inheritance_specifier, regex: '^(Swift\.)?Sendable$'}
+    precedes: {kind: inheritance_specifier, regex: '^(Swift(\.|::))?Sendable$'}
     inside: {kind: class_declaration, has: {field: name, pattern: $TYPE}}
 message: '`@unchecked Sendable` exempts `$TYPE` from Sendable checking'
 note: 'Conform to `Sendable` with shared state in an actor, synchronous state in `Mutex` or `Atomic`, and generic storage conditional on `<Value>: Sendable`'

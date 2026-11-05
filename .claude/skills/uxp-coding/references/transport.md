@@ -24,7 +24,7 @@ const dialing = (query: Record.ReadonlyRecord<string, string>) =>
                     reader.pipe(
                         Effect.flatMap((opened) => handler(Socket.make({ reader: Effect.succeed(opened), writer }))),
                         Effect.scoped,
-                        Effect.tapCauseIf(Cause.hasDies, Uxp.logged),
+                        Effect.tapCauseIf(Cause.hasDies, Effect.logError),
                         Effect.exit,
                         Effect.andThen(Effect.sleep(import.meta.env.LINK.redial)),
                         Effect.forever,

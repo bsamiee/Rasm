@@ -8,7 +8,7 @@ rule:
             nthChild: 1
             kind: navigation_expression
             any:
-                - regex: '^Swift\.Result(\.(init|success|failure))?$'
+                - regex: '^Swift(\.|::)Result(\.(init|success|failure))?$'
                 - all:
                     - has: {field: suffix, regex: '^\.(init|success|failure)$'}
                     - has: {field: target, matches: swift-result-type}

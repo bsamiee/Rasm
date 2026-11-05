@@ -40,6 +40,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Projects hold one shared scheme in `xcshareddata/xcschemes`, its `BuildAction` and `LaunchAction` naming the target
 - Xcode autocreates a duplicate of a shared scheme with no `LaunchAction`
 - App icons are an `AppIcon.icon` document `actool` renders at build, no rendered image is checked in
+- `ictool` for `.icon` documents sits at `$(xcode-select -p)/../Applications/Icon Composer.app/Contents/Executables/ictool`, `xcrun --find ictool` and `/usr/bin/ictool` resolve to an `actool` front end
 - `packages` holds the root package as `{ "kind": "local", "path": "<parents to root>" }`, product rows name it `..`
 - `xcprojformatter` drops `name` and `id` keys from a `packages` row
 - `package-product-members` holds one row per module the app imports, Nx draws app module edges from those rows
@@ -59,6 +60,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 Project and target settings override root `Xcode.xcconfig`:
 - Project configurations' `file` names the root configuration's navigator reference, a `<PROJECT>/` path outside the synchronized folder
 - Nx sync generator `deployment-target` writes manifest `platforms` macOS version into `MACOSX_DEPLOYMENT_TARGET` and SwiftLint `deployment_target`
+- Nx sync generator `menu-bar-glyph` writes each `<Mark>Symbol.imageset` SVG from `AppIcon.icon/Assets/<Mark>.svg`, adding the 16-point size `Image` reads
 - Automatic signing under the root team gives an Apple Development designated requirement keeping TCC grants, ad hoc signing prompts again
 - Products needing a TCC grant are `application` bundles at `/Applications`, `LSBackgroundOnly` when they show no interface
 - Xcode `install` builds into `DSTROOT=/Applications` with `INSTALL_PATH=/`, a `/` root fails as a cycle through the build folders under it

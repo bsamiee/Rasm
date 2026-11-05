@@ -4,7 +4,7 @@ severity: error
 utils:
     observable-class:
         kind: class_declaration
-        has: {kind: modifiers, has: {kind: attribute, regex: '^@(Observation\.)?Observable$'}}
+        has: {kind: modifiers, has: {kind: attribute, regex: '^@(Observation(\.|::))?Observable$'}}
 rule:
     pattern: $SITE
     any:

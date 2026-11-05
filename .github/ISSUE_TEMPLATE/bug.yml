@@ -15,7 +15,7 @@ body:
       attributes:
         label: Host and system
         description: Host application and operating system with versions
-        placeholder: Rhino 9 WIP on macOS 27.0
+        placeholder: Rhino 9 on macOS 27
       validations:
         required: true
     - type: textarea

@@ -83,7 +83,7 @@ class Shape(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns the gizmo type class drawing the shape, dragging through `drag` while one is stated."""
         batch = cache(partial(bpy.types.Gizmo.new_custom_shape, self.primitive, self.vertices))
-        hold, targets, drags = identity.reports.hold, self.targets, self.drag
+        reports, targets, drags = identity.reports, self.targets, self.drag
 
         class Shaped(bpy.types.Gizmo):
             @override
@@ -107,7 +107,7 @@ class Shape(msgspec.Struct, frozen=True, kw_only=True):
             def modal(self, context: bpy.types.Context, event: bpy.types.Event, tweak: set[Literal["PRECISE", "SNAP"]] | None) -> set["rna_enums.OperatorReturnItems"]:
                 tweaks: set[Literal["PRECISE", "SNAP"]] = tweak  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
                 for drag in drags.to_list():
-                    drag(self, context, self.initial, self.press.travel(event, snapped="SNAP" in tweaks, precise="PRECISE" in tweaks)).default_with(hold)
+                    reports.faulted(drag(self, context, self.initial, self.press.travel(event, snapped="SNAP" in tweaks, precise="PRECISE" in tweaks)))
                 return {"RUNNING_MODAL"}
 
             @override
@@ -207,7 +207,7 @@ class GizmoGroup[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=Tru
 
 def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tuple[str, ...], bound: tuple[_Bound[S], ...], keymap: Option[Location]) -> Outcome[tuple[type[bpy.types.GizmoGroup]]]:
     """Builds the group class once every icon resolves, rebinding handlers at each draw since the host caches their values until a rebind."""
-    hold, parts = identity.reports.hold, group.gizmos
+    reports, parts = identity.reports, group.gizmos
     members = tuple(member for binding in bound if isinstance(binding, tuple) and isinstance(member := binding[1], Member | ResolvedMember))
 
     def rebound(gizmo: bpy.types.Gizmo, key: str, member: Member[type[Struct]] | ResolvedMember, context: bpy.types.Context) -> Outcome[None]:
@@ -223,18 +223,20 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
     def poll(_cls: type[bpy.types.GizmoGroup], context: bpy.types.Context) -> bool:
         if not satisfied(group.condition, context):
             return False
-        found = accumulated(resolved_at(member, context, context) for member in members).map_error(hold).to_option()
+        found = reports.settled(accumulated(resolved_at(member, context, context) for member in members))
         return found.map(lambda each: all(present.is_some() for present in each)).default_value(value=False)
 
     def refresh(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
-        accumulated(
-            rebound(gizmo, binding[0], member, context) for gizmo, binding in zip(owner.gizmos, bound) if isinstance(binding, tuple) and isinstance(member := binding[1], Member | ResolvedMember)
-        ).default_with(hold)
+        reports.faulted(
+            accumulated(
+                rebound(gizmo, binding[0], member, context) for gizmo, binding in zip(owner.gizmos, bound) if isinstance(binding, tuple) and isinstance(member := binding[1], Member | ResolvedMember)
+            )
+        )
 
     def draw_prepare(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
         preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         ui = preferences.themes[0].user_interface
-        if (state := group.read(context).map_error(hold).default_value(Nothing)).is_none():
+        if (state := reports.settled(group.read(context)).default_value(Nothing)).is_none():
             for gizmo in owner.gizmos:
                 gizmo.hide = True
         for snapshot in state.to_list():
@@ -242,7 +244,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
                 (red, green, blue, alpha), (lit_red, lit_green, lit_blue, lit_alpha) = map(color, part.role(ui))
                 gizmo.color, gizmo.alpha = (red, green, blue), alpha
                 gizmo.color_highlight, gizmo.alpha_highlight = (lit_red, lit_green, lit_blue), lit_alpha
-                placed = part.place(snapshot).map_error(hold).default_value(Nothing)
+                placed = reports.settled(part.place(snapshot)).default_value(Nothing)
                 gizmo.hide = placed.is_none()
                 if placed.is_some() and isinstance(binding, tuple) and not isinstance(handle := binding[1], Member | ResolvedMember):
                     handle(binding[0], snapshot, gizmo)
@@ -251,7 +253,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
 
     def invoke_prepare(owner: bpy.types.GizmoGroup, context: bpy.types.Context, gizmo: bpy.types.Gizmo) -> None:
         for prepare in (prepare for held, part in zip(owner.gizmos, parts) if held == gizmo for prepare in part.prepare.to_list()):
-            prepare(context, gizmo).default_with(hold)
+            reports.faulted(prepare(context, gizmo))
 
     def classed(icons: tuple[Option[int], ...]) -> tuple[type[bpy.types.GizmoGroup]]:
         def setup(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
@@ -262,7 +264,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
                 for member, value in (("use_undo", isinstance(part.bind, Member | TargetHandler)), *(("icon_value", value) for value in icon.to_list()), *part.properties.items())
             )
             attached = accumulated(binding(gizmo, context) for (gizmo, _, _), binding in zip(made, bound) if not isinstance(binding, tuple))
-            paired(written, attached).default_with(hold)
+            reports.faulted(paired(written, attached))
 
         native = {
             "bl_idname": name,

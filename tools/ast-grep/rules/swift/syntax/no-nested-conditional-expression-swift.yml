@@ -25,7 +25,7 @@ rule:
         - kind: 'if_statement, switch_statement'
           matches: nesting-branch
           any:
-            - inside: {kind: property_declaration, field: value}
+            - {follows: {regex: '^=$'}, inside: {kind: property_declaration}}
             - inside: {kind: 'assignment, control_transfer_statement', field: result}
 transform:
     HEAD: {replace: {source: $VALUE, replace: '(?s)\n.*$', by: ''}}

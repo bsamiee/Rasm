@@ -9,10 +9,6 @@ public interface IHostPlatform {
 
     public HostEvent<Unit> Changed { get; }
 
-    public int DropDownIconSize { get; }
-
-    public int RenderTabIconSize { get; }
-
     public IO<Unit> Digits(Control control);
 
     public IO<Func<bool, IO<Unit>>> FrameLink(Control view, Func<Duration, bool> tick);

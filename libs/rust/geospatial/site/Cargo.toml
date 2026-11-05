@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-site"
-version.workspace    = true
-edition.workspace    = true
-description          = "Validated coordinates, time zones, geodesic parcel surveys, PROJ reference systems and transforms, grid factors, and frames"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["geospatial", "crs", "georeference", "proj", "site"]
-categories           = ["science::geo"]
+name              = "rasm-site"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

@@ -403,7 +403,7 @@ const script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcSer
         const [{ script: host }, context, done] = yield* Effect.all([Schema.decodeUnknownEffect(Host)(modules.uxp), Effect.context<Uxp>(), Deferred.make<void>()]);
         const answered = (chunk: string | Uint8Array) => Effect.andThen(Effect.sync(() => host.setResult(Predicate.isString(chunk) ? chunk : decoder.decode(chunk))), Deferred.succeed(done, undefined));
         const failed = Effect.fnUntraced(function* (cause: Cause.Cause<E>) {
-            yield* Uxp.logged(cause);
+            yield* Effect.logError(cause);
             const defect = yield* Effect.orDie(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)));
             const encoded = RpcSerialization.json.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect));
             return yield* encoded === undefined ? Effect.void : answered(encoded);
@@ -413,11 +413,11 @@ const script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcSer
         const pending = Option.filter(Result.getSuccess(Exit.findDefect(exit)), Cause.isAsyncFiberError);
         yield* Effect.sync(() => Option.getOrUndefined(pending)?.fiber.interruptUnsafe());
         return yield* Option.isSome(pending) && !(yield* Deferred.isDone(done)) ? failed(Cause.die(pending.value)) : Effect.void;
-    }).pipe(Effect.provide(Uxp.layer(modules)), Effect.tapCause(Uxp.logged), Effect.runSyncExit);
+    }).pipe(Effect.tapCause(Effect.logError), Effect.provide(Uxp.layer(modules)), Effect.runSyncExit);
 };
 ```
 
-`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExitWith` runs the launch inside the script, a launch that suspends exits with an `AsyncFiberError` defect naming its fiber, and the script interrupts that fiber. Runs that set no result and servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Missing or misshapen `uxp.script` leaves no `setResult` to answer through, and its decode failure logs through `Uxp.logged`, where the interrupt ending each completed run logs nothing. Typings omit `script` from `uxp`. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
+`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExitWith` runs the launch inside the script, a launch that suspends exits with an `AsyncFiberError` defect naming its fiber, and the script interrupts that fiber. Runs that set no result and servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Missing or misshapen `uxp.script` leaves no `setResult` to answer through, and its decode failure logs through `Effect.logError`, where the interrupt ending each completed run logs nothing. Typings omit `script` from `uxp`. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
 
 - Script roots pass the `adobe:indesign` module to a one-call server layer (`script({ uxp, fs }, server(indesign))`), and their entry imports no Node module into the bundle
 - Clients find each install through Launch Services as an application that opens an `.idjs` URL, and send each request as a `do script` event in `uxpscript`
@@ -435,6 +435,7 @@ const script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcSer
 
 InDesign runs `main` of every enabled plugin at launch, panel shown or hidden, and timers fire while it is hidden:
 - `host.app` other than `ID` rejects the folder, and panels become Window menu actions where commands and shortcuts bind none
+- Floating panel tabs show `label` alone
 - `featureFlags.uncaughtException` delivers uncaught exceptions as events beside `unhandledRejection`
 - `~/Library/Logs/Adobe/Adobe InDesign/UXPLogs_*.log` records each load and each rejection neither flag delivers
 - `addEventListener(<type>, <handler>)` checks `<type>` against the target's `events`, and typings take `InDesignEventMap` keys or any string
@@ -445,6 +446,7 @@ InDesign runs `main` of every enabled plugin at launch, panel shown or hidden, a
 - Menu actions read `id`, `name`, and `area` in bulk
 - `enabled` or `checked` of Character panel actions 26996 to 27015 crashes InDesign, a bulk read included
 - Once a user `ID.json` registry exists InDesign loads its rows alone, and an absolute row `path` loads nothing
+- `UnifiedPluginInstallerAgent --remove` against a running InDesign can hang it in `PluginRuntime::destroy`, and removals run with InDesign quit
 
 Folders join a running InDesign for one session from a script:
 1. `pluginManager.createPlugin(folder, pluginManager.PLUGIN_TYPE_THIRD_PARTY_V2)` returns the plugin object

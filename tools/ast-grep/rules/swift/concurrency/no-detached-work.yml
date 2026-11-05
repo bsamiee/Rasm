@@ -12,9 +12,9 @@ rule:
             - has:
                 nthChild: 1
                 kind: navigation_expression
-                regex: '^(Dispatch\.DispatchQueue\.global\([^)]*\)\.async|Foundation\.(Thread\.detachNewThread|OperationQueue\(\)\.addOperation))$'
+                regex: '^(Dispatch(\.|::)DispatchQueue\.global\([^)]*\)\.async|Foundation(\.|::)(Thread\.detachNewThread|OperationQueue\(\)\.addOperation))$'
             - all:
-                - has: {nthChild: 1, kind: navigation_expression, regex: '^Foundation\.Thread$'}
+                - has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^Foundation(\.|::)Thread$'}
                 - has:
                     kind: call_suffix
                     any:

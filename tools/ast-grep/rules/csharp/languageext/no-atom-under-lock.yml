@@ -45,7 +45,7 @@ utils:
             - follows:
                 stopBy: end
                 kind: local_declaration_statement
-                regex: '^using(?-u:\b)'
+                all: [{has: {regex: '^using$'}}]
                 has: {stopBy: end, matches: scope-entry}
             - kind: 'block, catch_clause'
               inside: {matches: locked-try}

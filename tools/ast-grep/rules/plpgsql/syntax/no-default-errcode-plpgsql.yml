@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: plpgsql
+severity: error
+rule:
+    matches: plpgsql-error-raise
+    pattern: $RAISE
+    any:
+        - has: {kind: 'string_literal, escape_string_literal, dollar_quoted_string, unicode_string_literal, substitution'}
+        - has: {field: using, kind: raise_option}
+    not:
+        any:
+            - has: {kind: any_identifier}
+            - has: {kind: kw_sqlstate}
+            - has: {kind: raise_option, has: {field: left, kind: kw_errcode}}
+message: '`$RAISE` raises the default `P0001` condition'
+note: 'State the condition with `USING ERRCODE = <name or SQLSTATE>` or `RAISE <condition>`, a catching handler selects on SQLSTATE alone'

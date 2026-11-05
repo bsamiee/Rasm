@@ -41,7 +41,7 @@ utils:
                           has: {kind: block, not: {has: {stopBy: end, kind: return_statement, has: {pattern: $_}}}}
     member-lift:
         matches: direct-lift
-        has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, kind: invocation_expression, has: {field: function, kind: member_access_expression, regex: '^@?[a-z_]\p{XID_Continue}*(\.@?\p{XID_Continue}+)+$'}}}}}
+        has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, kind: invocation_expression, has: {field: function, kind: member_access_expression, regex: '^@?[a-z_][^(]*$'}}}}}
     void-arm:
         any:
             - matches: statement-lift
@@ -116,7 +116,7 @@ utils:
     lifted-call:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Switch|SwitchPartially|Match|Map|MapPartially)([\p{White_Space}\x{FEFF}]*<.+>)?$'}}
+            - has: {field: function, kind: member_access_expression, has: {field: name, matches: {csharp-simple-name: {name: {regex: '^(Switch|SwitchPartially|Match|Map|MapPartially)$'}}}}}
             - has: {field: arguments, has: {matches: lifted-arm, nthChild: {position: 2, ofRule: {matches: lifted-arm}}}}
             - not: {has: {field: arguments, has: {kind: argument, not: {any: [{matches: lifted-arm}, {matches: state-argument}]}}}}
     call-arm:

@@ -21,7 +21,6 @@ from blender.bpy.data.rna.paths import root_in, rooted, Struct
 from blender.bpy.data.rna.properties import Callbacks, choices, EnumItem, rebound
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration
-from blender.bpy.extension.reports import alerted
 from blender.bpy.nodes.addressing import owned
 from blender.bpy.nodes.desired import Content, item_key, MenuItem
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
@@ -275,17 +274,15 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         Flag draws as a checkbox under its name in the value cell, any other field under its name in the label cell, labelled by its current value: a choice's or case's label, a number, a file's name, or the text.
         """
         held = Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).filter(lambda _: bool(msgspec.structs.fields(row.record)))
-        records = tuple((entry, row.read(identity, entry)) for entry in held.to_list())
-        for _, record in records:
-            alerted(layout, record)
-        edits = tuple((entry, edit) for entry, record in records for found in record.to_option().to_list() for edit in self.edited(row.interface, found.record))
+        records = tuple((entry, identity.reports.settled(row.read(identity, entry))) for entry in held.to_list())
+        edits = tuple((entry, edit) for entry, record in records for found in record.to_list() for edit in self.edited(row.interface, found.record))
         for (entry, (key, names, command, keywords, seeded)), prior in zip(edits, ((), *(edit[1] for _, edit in edits)), strict=False):
             if names[:-1] and names[:-1] != prior[:-1]:
                 layout.label(text=" ".join(map(bpy.path.display_name, names[:-1])))
             values = gridded("" if command is self.toggling else bpy.path.display_name(names[-1]), layout)
             values.alignment = "LEFT" if command is self.toggling else "EXPAND"
             placement = Placement(command, {"name": entry.name, "kind": row.kind, "field": key, **seeded})
-            alerted(values, operator_button(values, identity, placement, {**keywords, "translate": False}))
+            identity.reports.faulted(operator_button(values, identity, placement, {**keywords, "translate": False}))
 
     @cached_property
     def headed(self) -> Mapping[Key, tuple[tuple[Command, Keywords], ...]]:
@@ -302,17 +299,17 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Draws the owned entry's header commands."""
         held = tuple((entry, row) for entry in Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list() for row in self.rows.row(identity, entry).to_list())
         for entry, row in held:
-            alerted(layout, accumulated(operator_button(layout, identity, Placement(command, {"name": entry.name}), keywords) for command, keywords in self.headed[row.kind]))
+            identity.reports.faulted(accumulated(operator_button(layout, identity, Placement(command, {"name": entry.name}), keywords) for command, keywords in self.headed[row.kind]))
 
     def shown(self, identity: Identity, parts: Mapping[Key, RowDraw], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-        """Draws the owned entry's body and its curve and ramp editors, or the conditions an unowned pinned entry misses."""
+        """Draws the owned entry's body and its curve and ramp editors, logging the conditions an unowned pinned entry misses."""
         match holder:
             case bpy.types.SceneCompositorEffect(node_group=bpy.types.NodeTree() as group) as entry:
                 row = self.rows.row(identity, entry)
                 for offered in row.to_list():
                     parts[offered.kind](layout, entry, context)
                     node_editors(layout, owned(group, identity).values())
-                alerted(layout, accumulated(pinned.checked(context, entry) for pinned in self.rows.pinned if row.is_none() and pinned.ownership.marked(identity, group).is_some()).map(lambda _: None))
+                identity.reports.faulted(accumulated(pinned.checked(context, entry) for pinned in self.rows.pinned if row.is_none() and pinned.ownership.marked(identity, group).is_some()))
             case _:
                 pass
 
@@ -444,14 +441,14 @@ def node_editors(layout: bpy.types.UILayout, nodes: Iterable[bpy.types.Node], /)
 
 
 def wheels(interface: Interface, reach: Callable[[Key, bpy.types.Context], Option[Struct]], /) -> Layout:
-    """Grading wheel of each interface panel holding exactly one color socket then one float socket, under the panel's title in even columns, over the inputs `reach` finds by socket key."""
+    """Grading wheel of each interface panel holding exactly one stated color socket then one stated float socket, under the panel's title in even columns, over the inputs `reach` finds by socket key, since a stock input declares its class only through a data-block registration cannot create."""
 
     def member(socket: Socket) -> Member:
         return Member(root=bpy.types.bpy_struct, path=("value",), reach=Some(partial(reach, socket.key)))
 
     def graded(panel: InterfacePanel) -> Option[Layout]:
         match panel.inputs:
-            case (hue, luma) if not panel.panels and hue.base is bpy.types.NodeSocketColor and luma.base is bpy.types.NodeSocketFloat:
+            case (hue, luma) if not panel.panels and hue.stock.is_none() and luma.stock.is_none() and hue.base is bpy.types.NodeSocketColor and luma.base is bpy.types.NodeSocketFloat:
                 return Some(Layout(rows=(Label(text=panel.title, function=FUNCTIONS["label"]), wheel(member(hue), Some(member(luma)), _PICKER)), container=Some(lambda layout: layout.column())))
             case _:
                 return Nothing

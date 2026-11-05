@@ -52,7 +52,7 @@ utils:
 rule:
     kind: comparison_operator
     all:
-        - has: {field: operators, regex: '^(not[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?in$'}
+        - has: {field: operators, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$'}
         - any: [{matches: per-item}, {inside: {stopBy: *scope, matches: per-item}}]
         - has: {nthChild: 2, matches: construct, pattern: $INDEX}
         - not: {has: {nthChild: 2, has: {stopBy: end, matches: variant}}}

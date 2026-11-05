@@ -1,15 +1,10 @@
 """Shaping corpus: the texts a font set is shaped over and the letter form, mark, word, and pair runs they derive."""
 
-from functools import partial
 from typing import Annotated
 lazy from itertools import product
-lazy from pathlib import Path
 lazy from unicodedata import category
 
-from expression.extra.result import catch
 import msgspec
-
-lazy from typography.faces.faults import Fault, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -102,19 +97,6 @@ def _runs(letters: tuple[int, ...], count: int, marks: tuple[str, ...], contexts
     return tuple(f"{before}{''.join(chosen)}{after}" for chosen in product(clusters, repeat=count) for before, after in contexts)
 
 
-def corpus(path: Path, /) -> Outcome[Corpus]:
-    """Reads a corpus TOML file whose keys are the `Corpus` field names.
-
-    Returns:
-        Ok(corpus), `UNREADABLE` fault for an unreadable file, `INVALID` fault for TOML outside the record.
-    """
-    return (
-        catch(Path.read_bytes, exception=OSError)(path)
-        .map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
-        .bind(lambda raw: catch(lambda: msgspec.toml.decode(raw, type=Corpus), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, str(path))))
-    )
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Corpus", "corpus"]
+__all__ = ["Corpus"]

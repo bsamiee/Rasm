@@ -162,7 +162,7 @@ const cloudflare = function* ({ rootConfig, workers }: BuildOutput, { name, host
         assets: assetsDir === undefined ? undefined : { directory: assetsDir, config: config.assets },
         bindings: [
             ...bindings.flatMap(({ made, ...binding }) => made.map((fields) => ({ ...binding, ...fields }))),
-            { name: CloudflareAccess.binding, type: 'json', json: jsonStringify({ issuer, audience: access.aud, jwks: interpolate`${issuer}/cdn-cgi/access/certs`, logout: '/cdn-cgi/access/logout' } satisfies Record<keyof typeof CloudflareAccess.Encoded, Input<string>>) },
+            { name: CloudflareAccess.binding, type: 'secret_text', text: jsonStringify({ issuer, audience: access.aud, jwks: interpolate`${issuer}/cdn-cgi/access/certs`, logout: '/cdn-cgi/access/logout' } satisfies Record<keyof typeof CloudflareAccess.Encoded, Input<string>>) },
         ],
         deploy: true,
     });

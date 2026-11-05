@@ -3,12 +3,22 @@ id: languageext-atom-cell
 language: csharplang
 utils:
     atom-type:
-        regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)[\p{White_Space}\x{FEFF}]*<.*>[\p{White_Space}\x{FEFF}]*\??$'
-    atom-creation:
+        matches: {csharp-type-name: {name: {regex: '^(?:Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)$'}}}
+    atom-call:
         kind: invocation_expression
-        regex: '^((global::)?(LanguageExt\.)?IO\.(lift|pure)[\p{White_Space}\x{FEFF}]*(<.+>)?[\p{White_Space}\x{FEFF}]*\([\p{White_Space}\x{FEFF}]*(static[\p{White_Space}\x{FEFF}]+)?(\([\p{White_Space}\x{FEFF}]*\)[\p{White_Space}\x{FEFF}]*=>[\p{White_Space}\x{FEFF}]*)?)?(global::)?(LanguageExt\.)?(Prelude\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap|atomIO)(?-u:\b)'
+        has: {field: function, matches: {csharp-type-name: {name: {regex: '^(?:Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap|atomIO)$'}}}}
+    atom-creation:
+        any:
+            - matches: atom-call
+            - kind: invocation_expression
+              all:
+                - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^(?:lift|pure)$'}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {any: [{matches: atom-call}, {kind: lambda_expression, has: {field: body, matches: atom-call}}]}}}
     atom-element-type:
-        regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)[\p{White_Space}\x{FEFF}]*<.*>[\p{White_Space}\x{FEFF}]*\[[\p{White_Space}\x{FEFF}]*\]$|[<,][\p{White_Space}\x{FEFF}]*(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)[\p{White_Space}\x{FEFF}]*<'
+        any:
+            - kind: array_type
+              has: {field: type, matches: atom-type}
+            - matches: {csharp-generic-type: {name: {kind: identifier}, list: {has: {matches: atom-type}}}}
     callback-parameter:
         kind: identifier
         inside:

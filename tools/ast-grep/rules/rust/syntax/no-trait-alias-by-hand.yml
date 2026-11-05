@@ -10,16 +10,16 @@ utils:
     blanket-impl:
         kind: impl_item
         all:
-            - has: {field: body, regex: '^\{\p{White_Space}*\}$'}
+            - has: {field: body, regex: '^\{\p{Pattern_White_Space}*\}$'}
             - has: {field: trait, matches: named-trait}
             - has: {field: type, kind: type_identifier, pattern: $T}
             - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $T}}}
 rule:
     kind: trait_item
     all:
-        - not: {regex: '^(pub(\p{White_Space}*\([^)]*\))?\p{White_Space}+)?unsafe(?-u:\b)'}
+        - not: {has: {regex: '^unsafe$'}}
         - has: {field: bounds, pattern: $_}
-        - has: {field: body, regex: '^\{\p{White_Space}*\}$'}
+        - has: {field: body, regex: '^\{\p{Pattern_White_Space}*\}$'}
         - has: {field: name, pattern: $NAME}
         - inside:
             kind: source_file

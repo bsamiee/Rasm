@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-command"
-version.workspace    = true
-edition.workspace    = true
-description          = "CLI entry point with completions, man pages, layered settings, telemetry, color, async runtime, and shutdown signals"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["cli", "clap", "completions", "settings", "signals"]
-categories           = ["command-line-interface"]
+name              = "rasm-command"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

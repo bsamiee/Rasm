@@ -9,11 +9,11 @@ utils:
             - all:
                 - regex: '^to_string$'
                 - follows: {regex: '^\.$'}
-                - precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$', precedes: {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^(,|\)|\})$'}}
+                - precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$', precedes: {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^(,|\)|\})$'}}
             - all:
                 - regex: '^to_string$'
                 - follows: {regex: '^::$'}
-                - precedes: {kind: token_tree, not: {regex: '^\(\p{White_Space}*\)$'}}
+                - precedes: {kind: token_tree, not: {regex: '^\(\p{Pattern_White_Space}*\)$'}}
 rule:
     kind: attribute_item
     has: {kind: attribute, has: {stopBy: end, matches: tracing-instrument-fields, has: {matches: rendering-call, pattern: $FORMAT}}}

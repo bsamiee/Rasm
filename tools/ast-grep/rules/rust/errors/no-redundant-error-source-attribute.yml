@@ -6,10 +6,10 @@ utils:
         kind: 'attribute_item, line_comment, block_comment'
     from-attribute:
         kind: attribute_item
-        regex: '^#\[\p{White_Space}*from\p{White_Space}*\]$'
+        regex: '^#\[\p{Pattern_White_Space}*from\p{Pattern_White_Space}*\]$'
     source-attribute:
         kind: attribute_item
-        regex: '^#\[\p{White_Space}*source\p{White_Space}*\]$'
+        regex: '^#\[\p{Pattern_White_Space}*source\p{Pattern_White_Space}*\]$'
     redundant-source:
         matches: source-attribute
         any:

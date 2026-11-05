@@ -7,7 +7,6 @@ using Rasm.UI.Media;
 using Rasm.UI.Plotting;
 using Rasm.UI.Styling;
 using SuperLinq;
-using Topten.RichTextKit;
 
 namespace Rasm.UI.Controls;
 
@@ -19,20 +18,13 @@ public sealed record Panel(string Title, Seq<View> Body) {
     public Option<GlyphSource> Glyph { get; init; }
     public Seq<View> Actions { get; init; }
     public Option<TextField> Search { get; init; }
-    public Seq<View> Status { get; init; }
-    public Option<string> Empty { get; init; }
 
     public View Drawn =>
         new View.Choice(PhysicalAxis.Horizontal, [
             new View.Flex(PhysicalAxis.Vertical,
                 Seq<View>(Header(Icon(Glyph), Title, Subtitle, Actions))
                 + Search.Map(static entry => (entry with { Glyph = entry.Glyph | Some(Roles.Magnifier) }).Drawn).ToSeq()
-                + Seq(Body.IsEmpty ? Empty.Map(Placeholder).IfNone(static () => new View.Box { Height = Sizing.Grow.Unit }) : Scrolled(Body))
-                + (Status.IsEmpty ? [] : Seq<View>(new View.Flex(PhysicalAxis.Horizontal, Status) {
-                    Role = Roles.StatusBar,
-                    Width = Sizing.Grow.Unit,
-                    Accessible = new Accessible { Role = AccessRole.Status, Interrupts = Some(value: false) },
-                }))).Grown,
+                + Seq(Body.IsEmpty ? new View.Box { Height = Sizing.Grow.Unit } : Scrolled(Body))).Grown,
             new View.Flex(PhysicalAxis.Vertical, [Icon(Glyph).Head.IfNone(() => new View.Text([Title]) { MaxLines = 1 })]) {
                 Height = Sizing.Grow.Unit,
             },
@@ -62,9 +54,6 @@ public sealed record Panel(string Title, Seq<View> Body) {
             ? Some(Progress.Ring(None) with { Align = UnitPoint.Center })
             : Signals.Find(conditions.Contains).Map(static signal => (View)new View.Box { Role = Roles.Status, Conditions = [signal], Align = UnitPoint.Center });
 
-    internal static View Placeholder(string message) =>
-        new View.Text([message]) { Role = Roles.Caption, Alignment = TextAlignment.Center, Width = Sizing.Grow.Unit, Align = UnitPoint.Center };
-
     internal static View Scrolled(Seq<View> content) =>
         content switch {
             [{ Height.Case: Sizing { Stretches: true } } only] => only,
@@ -76,14 +65,13 @@ public sealed record Section(string Title, Seq<View> Content) {
     public Option<GlyphSource> Glyph { get; init; }
     public Option<string> Summary { get; init; }
     public Seq<View> Actions { get; init; }
-    public Option<string> Empty { get; init; }
     public bool Expanded { get; init; } = true;
     public Option<Func<Edit<bool>, IO<Unit>>> Edited { get; init; }
 
     public View Drawn =>
         new Disclosure(
             Panel.Header(Panel.Icon(Glyph), Title, None, Summary.Filter(_ => !Expanded).Map(static summary => (View)new View.Text([summary]) { Role = Roles.Caption, MaxLines = 1, Align = UnitPoint.Center }).ToSeq() + Actions),
-            new View.Flex(PhysicalAxis.Vertical, Content.IsEmpty ? Empty.Map(Panel.Placeholder).ToSeq() : Content) { Width = Sizing.Grow.Unit },
+            new View.Flex(PhysicalAxis.Vertical, Content) { Width = Sizing.Grow.Unit },
             Expanded) {
             Edited = Edited,
         }.Drawn with {

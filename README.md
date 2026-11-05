@@ -18,12 +18,13 @@ Rasm/
 │   ├── rust/
 │   ├── swift/
 │   └── typescript/
+├── assets/                   # Reusable assets no one app or plugin owns, each app or plugin keeps its own assets in its folder
 ├── tests/
 ├── eng/
 ├── infra/                    # IaC programs for repository and app hosting resources
 ├── docs/                     # Research sheets, ignored under docs/research
 ├── tools/
-│   ├── ast-grep/             # Grammar extensions, outlines, rules, and utilities per language
+│   ├── ast-grep/             # Per-language support ast-grep lacks for reading repository code and enforcing syntax-level standards
 │   ├── bridge/               # rasm-mcp-bridge binary serving a stdio MCP server over Streamable HTTP
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
 │   ├── foundry/              # CLI over the typography library, a declared font set reconciled, built, shaped, verified, published
@@ -93,7 +94,7 @@ flowchart LR
 
 Targets run tools with their arguments on the command, a pipeline or command list joins tools for work no single tool does.
 
-Before starting Claude Code or Codex, run `mise install`, `pnpm install`, and `nx run rasm:grammar:bash` to prepare the shell hook's parser and configuration.
+Before starting Claude Code or Codex, run `mise install`, `pnpm install`, and `nx run rasm:grammar` to build every grammar library direct `ast-grep` commands load and the shell hook's configuration.
 
 - `nx run rasm:check` runs every root checker and type checker, `nx run rasm:lint:<tool>` runs one checker
 - `nx run <project>:check` runs project checks and tests `rasm:check` leaves to each project
@@ -105,6 +106,7 @@ Before starting Claude Code or Codex, run `mise install`, `pnpm install`, and `n
 - `nx run <project>:install` builds or packs a product and installs it into its host
 - `nx run rasm:release` on a clean tree tags and creates a GitHub release for each product Conventional Commits bump, then runs its `publish`
 - `nx run <project>:publish --tag=<tag>` pushes a released product to its host's channel
+- With `assets/` checked out, `nx run rasm:fonts:<build|check|publish>` runs `foundry` over `assets/fonts/rasm.toml` into `.artifacts/fonts/<set>`
 - `nx run rasm:infra:<preview|up|refresh>` runs a Pulumi operation on repository resources
 - `nx run <project>:hosting -- <cloudflare|docker> <preview|up|refresh|destroy> [--disposable]` runs a Pulumi operation on a web app's stack
 - `nx run rasm:upgrade` moves catalogs, locks, action tags, and installed service binaries to newest releases
@@ -115,7 +117,8 @@ Before starting Claude Code or Codex, run `mise install`, `pnpm install`, and `n
 - `nx run <project>:e2e` gives each Playwright worker its own app instance with empty stores
 - Xcode apps holding a UXP script build in a folder reference build that script first
 - Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
-- Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, daemon and supervisor output sit in pitchfork's log store
+- Libraries name no log location: processes stream to stderr or stdout for pitchfork, a container, or the shell (Rust binaries take `LOG_DIRECTORY`), plug-ins write where their host states, and Swift writes to the unified log
+- Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, a tool with one partition per run or session holds a folder there, daemon and supervisor output sit in pitchfork's log store
 - Harness runs write `.artifacts/logs/harnesses/host=<host>/run=<id>/records.jsonl` and hang samples, `harness <host> log` prints the current run with its linked reports inline
 
 ## [04]-[DELIVERY]
@@ -127,35 +130,37 @@ Products reach a person through separate levels:
 
 ## [05]-[OWNERS]
 
-| [INDEX] | [CONCERN]                      | [OWNER]                                                                                              |
-| :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | Tool binary                    | `mise.toml` `[tools]` at `latest`                                                                    |
-|  [02]   | Process variable               | `mise.toml` `[env]`                                                                                  |
-|  [03]   | SDK version                    | `global.json` for .NET, `xcode-select` for Swift, `rust-toolchain.toml` for Rust                     |
-|  [04]   | Package version                | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row |
-|  [05]   | .NET tool package              | `mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name                      |
-|  [06]   | Task graph                     | `nx.json`, inference in `tools/nx`                                                                   |
-|  [07]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
-|  [08]   | Secret                         | Doppler `agent-runtime/dev`, named in the consuming target's `doppler run` prefix                    |
-|  [09]   | Resource or repository setting | Typed row of an `infra/` program, `rasm:infra:up` for the repository, `<project>:hosting` per app    |
-|  [10]   | Tool with no consumer          | Machine setup                                                                                        |
-|  [11]   | Ghidra install                 | Official distribution through mise                                                                   |
-|  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
-|  [13]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports |
-|  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
-|  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
-|  [16]   | Persistent local process       | `mise.toml` `[daemons]` row                                                                          |
-|  [17]   | Python runtime                 | Mise Python row, uv's `.venv`, host `pyproject.toml` requirements                                    |
-|  [18]   | Native libraries for sdists    | Pixi environments in `pyproject.toml`, exact builds in `pixi.lock`                                   |
-|  [19]   | Container runtime              | Mise clients, `[daemons]` `docker` row for Colima on macOS, Docker Engine on Linux                   |
-|  [20]   | Shared Vite configuration      | `vite.shared.ts`                                                                                     |
-|  [21]   | Shared Vitest configuration    | `vitest.config.ts`, browser settings and the story project every package derives                     |
-|  [22]   | Shared Storybook settings      | `@rasm/test-support/main` and `@rasm/test-support/preview` entries                                   |
-|  [23]   | Playwright settings and suites | `tests/typescript/playwright.config.ts`                                                              |
-|  [24]   | App fixture and axe matcher    | `@rasm/test-support/playwright` entry                                                                |
-|  [25]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
-|  [26]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |
-|  [27]   | Product version                | Release tag `rasm:release` creates, MinVer reads it into builds and packages                         |
+| [INDEX] | [CONCERN]                        | [OWNER]                                                                                              |
+| :-----: | :------------------------------- | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | Tool binary                      | `mise.toml` `[tools]` at `latest`                                                                    |
+|  [02]   | Process variable                 | `mise.toml` `[env]`                                                                                  |
+|  [03]   | SDK version                      | `global.json` for .NET, `xcode-select` for Swift, `rust-toolchain.toml` for Rust                     |
+|  [04]   | Package version                  | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row |
+|  [05]   | .NET tool package                | `mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name                      |
+|  [06]   | Task graph                       | `nx.json`, inference in `tools/nx`                                                                   |
+|  [07]   | Checker configuration            | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
+|  [08]   | Secret                           | Doppler `agent-runtime/dev`, named in the consuming target's `doppler run` prefix                    |
+|  [09]   | Resource or repository setting   | Typed row of an `infra/` program, `rasm:infra:up` for the repository, `<project>:hosting` per app    |
+|  [10]   | Tool with no consumer            | Machine setup                                                                                        |
+|  [11]   | Ghidra install                   | Official distribution through mise                                                                   |
+|  [12]   | Xcode build setting              | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
+|  [13]   | Swift package version            | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports |
+|  [14]   | Rust package version             | `Cargo.toml` `[workspace.dependencies]` row                                                          |
+|  [15]   | Agent harness plugin             | `plugins/<name>`                                                                                     |
+|  [16]   | Persistent local process         | `mise.toml` `[daemons]` row                                                                          |
+|  [17]   | Python runtime                   | Mise Python row, uv's `.venv`, host `pyproject.toml` requirements                                    |
+|  [18]   | Native libraries for sdists      | Pixi environments in `pyproject.toml`, exact builds in `pixi.lock`                                   |
+|  [19]   | Container runtime                | Mise clients, `[daemons]` `docker` row for Colima on macOS, Docker Engine on Linux                   |
+|  [20]   | Shared Vite configuration        | `vite.shared.ts`                                                                                     |
+|  [21]   | Shared Vitest configuration      | `vitest.config.ts`, browser settings and the story project every package derives                     |
+|  [22]   | Shared Storybook settings        | `@rasm/test-support/main` and `@rasm/test-support/preview` entries                                   |
+|  [23]   | Playwright settings and suites   | `tests/typescript/playwright.config.ts`                                                              |
+|  [24]   | App fixture and axe matcher      | `@rasm/test-support/playwright` entry                                                                |
+|  [25]   | Agent browser options            | `.playwright/cli.config.json`                                                                        |
+|  [26]   | GitHub Action version            | Published tag on each `uses:` row under `.github/`                                                   |
+|  [27]   | Product version                  | Release tag `rasm:release` creates, MinVer reads it into builds and packages                         |
+|  [28]   | Reusable asset                   | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, `.gitattributes` row per source extension          |
+|  [29]   | Verify maintenance-fee exemption | `Directory.Build.props` `Verify_Sponsorship*` rows, the owner renews within Verify's 12-month term   |
 
 - Tool rows name a release where `latest` resolves a development build
 

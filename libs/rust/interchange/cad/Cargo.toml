@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-cad"
-version.workspace    = true
-edition.workspace    = true
-description          = "DWG and DXF drawings every Rasm drawing consumer reads and writes on acadrust and rasm-linework: format-detected reads with failsafe and decode budgets, audited writes refusing structural errors and dropped records, drawing units as uom lengths, model space and every layout lifted into linework layers and pages with plot style pens, draw order, wipeouts, blocks, hatches and text, and drawing sets authored back into model space, layouts, viewports and sheet sets"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["cad", "dwg", "dxf", "drawing", "interchange"]
-categories           = ["parser-implementations", "graphics"]
+name              = "rasm-cad"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

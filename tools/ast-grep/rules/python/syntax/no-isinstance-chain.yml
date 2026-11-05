@@ -55,7 +55,7 @@ rule:
     any:
         - all:
             - has: {field: condition, matches: class-test}
-            - has: {field: alternative, kind: elif_clause, has: {field: condition, matches: class-test}}
+            - has: {kind: elif_clause, has: {field: condition, matches: class-test}}
             - not: {matches: two-arm-pass}
         - all:
             - matches: tested-exit

@@ -56,7 +56,6 @@ jobs:
             - uses: mcneel/setup-rhino3d@v3.0.0
               with:
                 email-address: b.samiee93@gmail.com
-                release-version: wip
             - run: nx run rasm:check
             - run: nx affected -t check --exclude='!tag:host:macos,!tag:host:rhino' --configuration ci
             - uses: actions/upload-artifact@v7

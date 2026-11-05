@@ -22,7 +22,6 @@ from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.properties import annotated, enum_choices
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Declaration
-from blender.bpy.extension.reports import alerted
 from blender.bpy.nodes.content import Generated
 from blender.bpy.render.review.charts import ChartImage, Charting, Need, PlacedChart
 from blender.bpy.settings.attachments import Attached
@@ -132,22 +131,8 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return paired(images, self.charting.charts.bound(call.identity), displayed_aspect(call.context)).bind(lambda found: placed(*found)).map(lambda _: Done())
 
     def sample_chart(self, call: Call[Empty]) -> Outcome[Answer]:
-        """Measure each patch's mean color."""
+        """Measure each patch's mean color, reporting the chart's placement findings."""
         config = PyOpenColorIO.GetCurrentConfig()
-
-        def kept(image: bpy.types.Image, record: PlacedChart, chart: Attached[ChartImage], file: ImageFile) -> Outcome[Answer]:
-            return (
-                record.placement
-                .means(file.pixels)
-                .bind(lambda found: found.to_result_with(lambda: Fault.of(Need.PLACED, image.name)))
-                .bind(lambda samples: self.charting.placed.write(chart.struct(image), msgspec.structs.replace(record, samples=samples[1], colorspace=file.colorspace)))
-                .map(lambda _: Done(notes=(("INFO", f"Sampled {image.name}"),)))
-            )
-
-        return self.located(call.identity, call.context).bind(lambda found: self.charting.read(call.identity, found[0], config).bind(lambda file: kept(*found, file)))
-
-    def warned(self, layout: bpy.types.UILayout, context: bpy.types.Context, _properties: object, identity: Identity) -> None:
-        """Draws the shown chart's placement findings above the sample confirmation."""
 
         def described(finding: Finding, chart: PublishedChart) -> str:
             match finding:
@@ -161,17 +146,15 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     names = tuple(chart.checker.data)
                     return f"Patches {', '.join(names[index] for index in patches)} leave image"
 
-        def listed(image: bpy.types.Image, record: PlacedChart, ratio: float) -> Outcome[str]:
-            return record.placement.findings(ratio).map(
-                lambda found: found.map(lambda held: ", ".join(described(finding, record.placement.chart) for finding in held) or "No placement finding").default_value(
-                    Need.PLACED.format(subject=image.name)
+        def kept(image: bpy.types.Image, record: PlacedChart, chart: Attached[ChartImage], file: ImageFile) -> Outcome[Answer]:
+            means = record.placement.means(file.pixels).bind(lambda found: found.to_result_with(lambda: Fault.of(Need.PLACED, image.name)))
+            return paired(means, displayed_aspect(call.context).bind(record.placement.findings)).bind(
+                lambda found: self.charting.placed.write(chart.struct(image), msgspec.structs.replace(record, samples=found[0][1], colorspace=file.colorspace)).map(
+                    lambda _: Done(notes=(("INFO", f"Sampled {image.name}"), *(("WARNING", described(finding, record.placement.chart)) for held in found[1].to_list() for finding in held)))
                 )
             )
 
-        found = self.located(identity, context).bind(lambda held: displayed_aspect(context).bind(lambda ratio: listed(held[0], held[1], ratio)))
-        for text in found.to_option().to_list():
-            layout.label(text=text, icon="ERROR")
-        alerted(layout, found)
+        return self.located(call.identity, call.context).bind(lambda found: self.charting.read(call.identity, found[0], config).bind(lambda file: kept(*found, file)))
 
     @staticmethod
     def clear_samples(_call: Call[Empty], _image: bpy.types.Image, record: PlacedChart) -> Outcome[PlacedChart]:
@@ -265,10 +248,8 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     @cached_property
     def sampling(self) -> Operator[Empty]:
-        """Command sampling the shown chart's patches after a dialog listing its placement findings."""
-        return Operator.of(Empty, condition=Some(self.charting.imaged), invoke=Some(Popup[Empty](partial(bpy.types.WindowManager.invoke_props_dialog, confirm_text="Sample"))), draw=Some(self.warned))(
-            self.sample_chart
-        )
+        """Command sampling the shown chart's patches."""
+        return Operator.of(Empty, condition=Some(self.charting.imaged))(self.sample_chart)
 
     @cached_property
     def clearing(self) -> Operator[Empty]:

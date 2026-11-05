@@ -10,7 +10,7 @@ utils:
     statement:
         any:
             - matches: lookup
-            - {kind: redirected_statement, has: {field: body, matches: lookup}}
+            - {kind: 'redirected_statement, time_command', has: {field: body, matches: statement}}
     output:
         any:
             - kind: command_substitution

@@ -17,8 +17,8 @@ utils:
                 - has: {field: right, kind: &operand 'identifier, member_expression, call_expression, subscript_expression'}
                 - has: {field: left, kind: binary_expression, has: {stopBy: {not: {kind: binary_expression}}, kind: *operand}}
                 - has: {stopBy: {not: {kind: binary_expression}}, kind: 'string, template_string'}
-            - kind: parenthesized_expression, as_expression, satisfies_expression
-              has: {nthChild: 1, matches: rendered}
+            - matches: typescript-expression-wrapper
+              has: {matches: rendered}
     hashed-module:
         matches: {effect-module: {name: {regex: '(?-u:\b)(Mutable)?Hash(Map|Set)$'}}}
 rule:

@@ -10,10 +10,10 @@ from itertools import starmap
 import os
 from pathlib import Path
 import shutil
+import sys
 import tempfile
 from typing import Annotated, Final, overload, Protocol
 
-from atomicwrites import replace_atomic
 import cbor2
 from expression import Option, Some
 from expression.extra.result import catch
@@ -23,6 +23,9 @@ import numpy.typing as npt
 from typing_extensions import TypeForm
 
 from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, Reason
+
+if sys.platform == "darwin":
+    import fcntl
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -85,12 +88,12 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         return self.read().map(Some).or_else_with(absent)
 
-    def written(self, value: T, *, place: Callable[[str, str], None] = replace_atomic) -> Outcome[Path]:
+    def written(self, value: T, *, place: Callable[[Path, Path], None] = os.replace) -> Outcome[Path]:
         """Writes the record in sorted key order through one atomic commit.
 
         Args:
             value: Record to hold.
-            place: Atomic rename onto the path, `move_atomic` refusing a held file.
+            place: Atomic rename onto the path, `no_clobber_move` refusing a held file.
 
         Returns:
             Ok(path), `UNWRITABLE` fault for a refused write.
@@ -122,28 +125,54 @@ folder_made: Final = partial(_written, partial(Path.mkdir, parents=True, exist_o
 removed: Final = partial(_written, partial(Path.unlink, missing_ok=True))
 
 
+def _flushed(*paths: Path) -> None:
+    """Holds each file and POSIX folder through power loss, `F_FULLFSYNC` past the drive cache on macOS, Windows opening no folder descriptor and syncing only a writable one."""
+    for path in paths:
+        if path.is_file() or (os.name == "posix" and path.is_dir()):
+            descriptor = os.open(path, os.O_RDONLY if os.name == "posix" else os.O_RDWR)
+            try:
+                if sys.platform == "darwin":
+                    fcntl.fcntl(descriptor, fcntl.F_FULLFSYNC)  # ty: ignore[possibly-missing-attribute]
+                else:
+                    os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+
+
+def no_clobber_move(source: Path, target: Path, /) -> None:
+    """Moves source onto a free target by a hard link then an unlink, `FileExistsError` refusing a held target, a case change of source's own name renaming it in place."""
+    if target.exists() and source.samefile(target):
+        source.replace(target)
+    else:
+        target.hardlink_to(source)
+        source.unlink()
+    _flushed(*{source.parent, target.parent})
+
+
 @catch(exception=OSError)
-def _placed(place: Callable[[str, str], None], stage: Path, path: Path, prior: Path, /) -> Path:
+def _placed(place: Callable[[Path, Path], None], stage: Path, path: Path, prior: Path, /) -> Path:
+    _flushed(stage, *stage.rglob("*"))
     with ExitStack() as undo:
         if stage.is_dir() and path.is_dir():
             path.replace(prior)
             undo.callback(prior.replace, path)
-        place(str(stage), str(path))
+        place(stage, path)
         undo.pop_all()
+    _flushed(path.parent)
     return path
 
 
 @overload
-def committed(path: Path, write: bytes, /, *, place: Callable[[str, str], None] = replace_atomic) -> Outcome[Path]: ...
+def committed(path: Path, write: bytes, /, *, place: Callable[[Path, Path], None] = os.replace) -> Outcome[Path]: ...
 @overload
 def committed(path: Path, write: Callable[[Path], Outcome[object]], /) -> Outcome[Path]: ...
-def committed(path: Path, write: bytes | Callable[[Path], Outcome[object]], /, *, place: Callable[[str, str], None] = replace_atomic) -> Outcome[Path]:
+def committed(path: Path, write: bytes | Callable[[Path], Outcome[object]], /, *, place: Callable[[Path, Path], None] = os.replace) -> Outcome[Path]:
     """Writes `path` whole through a stage beside it, replacing it in one atomic step.
 
     Args:
         path: File or folder to replace, its parent folder created.
         write: Bytes the file holds, or writer of the stage, a path named as `path` in a temporary sibling folder removed on every path.
-        place: Atomic rename of the stage onto `path`, `move_atomic` refusing a held file with `FileExistsError` as fault cause.
+        place: Atomic rename of the stage onto `path`, `no_clobber_move` refusing a held file with `FileExistsError` as fault cause.
 
     Returns:
         Ok(path), writer faults, or `UNWRITABLE` fault for folder creation or replacement. A held folder leaves for the stage folder by two renames, renamed back when the second fails.
@@ -251,4 +280,4 @@ def existing(path: Path) -> Path:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ContentHash", "Provider", "RecordFile", "argued", "argument", "committed", "content_hash", "existing", "files_copied", "folder_made", "mirrored", "removed", "rng"]
+__all__ = ["ContentHash", "Provider", "RecordFile", "argued", "argument", "committed", "content_hash", "existing", "files_copied", "folder_made", "mirrored", "no_clobber_move", "removed", "rng"]

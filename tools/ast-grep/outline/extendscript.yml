@@ -1,0 +1,745 @@
+id: extendscript-import
+language: extendscript
+role: item
+symbolType: module
+rule:
+    any:
+        - kind: comment
+          regex: '^//@include[\t ]'
+          pattern: $DIRECTIVE
+        - kind: preprocessor_directive
+          all:
+            - has: {field: name, regex: '^#include$'}
+            - has: {field: value, pattern: $NAME}
+        - kind: call_expression
+          all:
+            - has: {field: function, regex: '^\$\.evalFile$'}
+            - has: {field: arguments, has: {nthChild: 1, pattern: $NAME}}
+transform:
+    PATH: {replace: {source: $DIRECTIVE, replace: '^//@include[\t ]+', by: ''}}
+name: $PATH$NAME
+isImport: true
+isExported: false
+---
+id: extendscript-module
+language: extendscript
+role: item
+symbolType: module
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    statement:
+        kind: expression_statement
+        matches: scope
+        inside: {any: [{kind: program}, {inside: {kind: function_expression}}]}
+    literal:
+        any:
+            - kind: function_expression
+            - {kind: parenthesized_expression, has: {matches: literal}}
+    instance:
+        any:
+            - {kind: parenthesized_expression, has: {matches: instance}}
+            - {kind: call_expression, has: {field: function, any: [{matches: literal}, {kind: member_expression, has: {field: object, matches: literal}}, {matches: instance}]}}
+            - {kind: new_expression, has: {field: constructor, matches: literal}}
+rule:
+    any:
+        - kind: variable_declarator
+          inside: {kind: 'variable_declaration, lexical_declaration', matches: scope, not: {inside: {kind: for_statement, field: initializer}}}
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: value, matches: instance}
+        - kind: assignment_expression
+          inside: {matches: statement}
+          all:
+            - has: {field: left, pattern: $NAME}
+            - has: {field: right, matches: instance}
+name: $NAME
+signature: $NAME
+isExported:
+    any:
+        - inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, kind: program}
+        - has: {field: left, regex: '^\$\.global[.\[]'}
+---
+id: extendscript-class
+language: extendscript
+role: item
+symbolType: class
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    statement:
+        kind: expression_statement
+        matches: scope
+        inside: {any: [{kind: program}, {inside: {kind: function_expression}}]}
+    literal:
+        any:
+            - {kind: function_expression, has: {field: parameters, pattern: $PARAMS}}
+            - {kind: parenthesized_expression, has: {matches: literal}}
+    fielded:
+        any:
+            - has: {field: body, has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: assignment_expression, has: {field: left, has: {field: object, kind: this}}}}
+            - {kind: parenthesized_expression, has: {matches: fielded}}
+    prototyped:
+        inside:
+            stopBy: {kind: 'program, statement_block'}
+            has: {kind: expression_statement, has: {kind: assignment_expression, has: {field: left, any: [{pattern: $NAME.prototype}, {has: {field: object, pattern: $NAME.prototype}}]}}}
+rule:
+    any:
+        - kind: function_declaration
+          matches: scope
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: parameters, pattern: $PARAMS}
+            - any: [{matches: fielded}, {matches: prototyped}]
+        - kind: variable_declarator
+          inside: {kind: 'variable_declaration, lexical_declaration', matches: scope, not: {inside: {kind: for_statement, field: initializer}}}
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: value, matches: literal}
+            - any: [{has: {field: value, matches: fielded}}, {matches: prototyped}]
+        - kind: assignment_expression
+          inside: {matches: statement}
+          all:
+            - has: {field: left, pattern: $NAME}
+            - has: {field: right, matches: literal}
+            - any: [{has: {field: right, matches: fielded}}, {matches: prototyped}]
+rewriters:
+    - {id: parameter, rule: {kind: 'required_parameter, optional_parameter', pattern: $PARAMETER}, fix: $PARAMETER}
+transform:
+    PARAMETERS: {rewrite: {source: $PARAMS, rewriters: [parameter], joinBy: ', '}}
+name: $NAME
+signature: function $NAME($PARAMETERS)
+isExported:
+    any:
+        - inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, kind: program}
+        - has: {field: left, regex: '^\$\.global[.\[]'}
+---
+id: extendscript-function
+language: extendscript
+role: item
+symbolType: function
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    statement:
+        kind: expression_statement
+        matches: scope
+        inside: {any: [{kind: program}, {inside: {kind: function_expression}}]}
+    literal:
+        any:
+            - {kind: function_expression, has: {field: parameters, pattern: $PARAMS}}
+            - {kind: parenthesized_expression, has: {matches: literal}}
+rule:
+    any:
+        - kind: function_declaration
+          matches: scope
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: parameters, pattern: $PARAMS}
+        - kind: variable_declarator
+          inside: {kind: 'variable_declaration, lexical_declaration', matches: scope, not: {inside: {kind: for_statement, field: initializer}}}
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: value, matches: literal}
+        - kind: assignment_expression
+          inside: {matches: statement}
+          all:
+            - has: {field: left, kind: identifier, pattern: $NAME}
+            - has: {field: right, matches: literal}
+rewriters:
+    - {id: parameter, rule: {kind: 'required_parameter, optional_parameter', pattern: $PARAMETER}, fix: $PARAMETER}
+transform:
+    PARAMETERS: {rewrite: {source: $PARAMS, rewriters: [parameter], joinBy: ', '}}
+name: $NAME
+signature: function $NAME($PARAMETERS)
+isExported: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, kind: program}}
+---
+id: extendscript-object
+language: extendscript
+role: item
+symbolType: object
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    statement:
+        kind: expression_statement
+        matches: scope
+        inside: {any: [{kind: program}, {inside: {kind: function_expression}}]}
+rule:
+    any:
+        - kind: variable_declarator
+          inside: {kind: 'variable_declaration, lexical_declaration', matches: scope, not: {inside: {kind: for_statement, field: initializer}}}
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: value, kind: object}
+        - kind: assignment_expression
+          inside: {matches: statement}
+          all:
+            - has: {field: left, pattern: $NAME}
+            - has: {field: right, kind: object}
+name: $NAME
+signature: $NAME
+isExported:
+    any:
+        - inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, kind: program}
+        - has: {field: left, regex: '^\$\.global[.\[]'}
+---
+id: extendscript-constant
+language: extendscript
+role: item
+symbolType: constant
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+rule:
+    kind: variable_declarator
+    has: {field: name, pattern: $NAME}
+    inside: {kind: lexical_declaration, has: {field: kind, regex: '^const$'}, matches: scope, not: {inside: {kind: for_statement, field: initializer}}}
+name: $NAME
+isExported: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, kind: program}}
+---
+id: extendscript-variable
+language: extendscript
+role: item
+symbolType: variable
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+rule:
+    any:
+        - kind: variable_declarator
+          has: {field: name, pattern: $NAME}
+          inside: {kind: variable_declaration, matches: scope, not: {inside: {kind: for_statement, field: initializer}}}
+        - kind: assignment_expression
+          has: {field: left, kind: identifier, pattern: $NAME}
+          inside: {kind: expression_statement, inside: {kind: program}}
+name: $NAME
+isExported: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, kind: program}}
+---
+id: extendscript-method
+language: extendscript
+role: item
+symbolType: method
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    statement:
+        kind: expression_statement
+        matches: scope
+        inside: {any: [{kind: program}, {inside: {kind: function_expression}}]}
+    literal:
+        any:
+            - {kind: function_expression, has: {field: parameters, pattern: $PARAMS}}
+            - {kind: parenthesized_expression, has: {matches: literal}}
+rule:
+    kind: assignment_expression
+    inside: {matches: statement}
+    all:
+        - has: {field: left, kind: 'member_expression, subscript_expression', pattern: $NAME}
+        - has: {field: right, matches: literal}
+rewriters:
+    - {id: parameter, rule: {kind: 'required_parameter, optional_parameter', pattern: $PARAMETER}, fix: $PARAMETER}
+transform:
+    PARAMETERS: {rewrite: {source: $PARAMS, rewriters: [parameter], joinBy: ', '}}
+name: $NAME
+signature: $NAME($PARAMETERS)
+isExported:
+    any:
+        - inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, kind: program}
+        - has: {field: left, regex: '^\$\.global[.\[]'}
+---
+id: extendscript-assignment
+language: extendscript
+role: item
+symbolType: property
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    statement:
+        kind: expression_statement
+        matches: scope
+        inside: {any: [{kind: program}, {inside: {kind: function_expression}}]}
+rule:
+    kind: assignment_expression
+    has: {field: left, kind: 'member_expression, subscript_expression', pattern: $NAME}
+    inside: {matches: statement}
+name: $NAME
+isExported:
+    any:
+        - inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, kind: program}
+        - has: {field: left, regex: '^\$\.global[.\[]'}
+---
+id: extendscript-member-import
+language: extendscript
+role: member
+parentRuleIds: [extendscript-module, extendscript-class, extendscript-function, extendscript-object, extendscript-method]
+symbolType: module
+rule:
+    any:
+        - kind: comment
+          regex: '^//@include[\t ]'
+          pattern: $DIRECTIVE
+        - kind: preprocessor_directive
+          all:
+            - has: {field: name, regex: '^#include$'}
+            - has: {field: value, pattern: $NAME}
+        - kind: call_expression
+          all:
+            - has: {field: function, regex: '^\$\.evalFile$'}
+            - has: {field: arguments, has: {nthChild: 1, pattern: $NAME}}
+transform:
+    PATH: {replace: {source: $DIRECTIVE, replace: '^//@include[\t ]+', by: ''}}
+name: $PATH$NAME
+isPublic: false
+---
+id: extendscript-module-class
+language: extendscript
+role: member
+parentRuleIds: [extendscript-module]
+symbolType: class
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    literal:
+        any:
+            - {kind: function_expression, has: {field: parameters, pattern: $PARAMS}}
+            - {kind: parenthesized_expression, has: {matches: literal}}
+    fielded:
+        any:
+            - has: {field: body, has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: assignment_expression, has: {field: left, has: {field: object, kind: this}}}}
+            - {kind: parenthesized_expression, has: {matches: fielded}}
+    prototyped:
+        inside:
+            stopBy: {kind: 'program, statement_block'}
+            has: {kind: expression_statement, has: {kind: assignment_expression, has: {field: left, any: [{pattern: $NAME.prototype}, {has: {field: object, pattern: $NAME.prototype}}]}}}
+    published:
+        any:
+            - has:
+                stopBy: {kind: 'function_declaration, function_expression'}
+                kind: return_statement
+                any:
+                    - has: {stopBy: {not: {kind: ternary_expression}}, pattern: $NAME, not: {inside: {kind: ternary_expression, field: condition}}}
+                    - has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $NAME}}
+            - has:
+                kind: expression_statement
+                has:
+                    kind: assignment_expression
+                    all:
+                        - has: {field: left, any: [{regex: '^\$\.global[.\[]'}, {has: {field: object, kind: this}}]}
+                        - has: {field: right, pattern: $NAME}
+            - all:
+                - has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: return_statement, has: {kind: identifier, pattern: $TABLE}}
+                - any:
+                    - has: {kind: expression_statement, has: {kind: assignment_expression, all: [{has: {field: left, has: {field: object, pattern: $TABLE}}}, {has: {field: right, pattern: $NAME}}]}}
+                    - has: {kind: 'variable_declaration, lexical_declaration', has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TABLE}}, {has: {field: value, has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $NAME}}}}]}}
+rule:
+    kind: identifier
+    pattern: $NAME
+    any:
+        - inside:
+            kind: function_declaration
+            field: name
+            matches: scope
+            all:
+                - has: {field: parameters, pattern: $PARAMS}
+                - any: [{matches: fielded}, {matches: prototyped}]
+        - inside:
+            kind: variable_declarator
+            field: name
+            inside: {kind: 'variable_declaration, lexical_declaration', matches: scope, not: {inside: {kind: for_statement, field: initializer}}}
+            all:
+                - has: {field: value, matches: literal}
+                - any: [{has: {field: value, matches: fielded}}, {matches: prototyped}]
+rewriters:
+    - {id: parameter, rule: {kind: 'required_parameter, optional_parameter', pattern: $PARAMETER}, fix: $PARAMETER}
+transform:
+    PARAMETERS: {rewrite: {source: $PARAMS, rewriters: [parameter], joinBy: ', '}}
+name: $NAME
+signature: function $NAME($PARAMETERS)
+isPublic: {inside: {stopBy: end, kind: statement_block, matches: published}}
+---
+id: extendscript-module-function
+language: extendscript
+role: member
+parentRuleIds: [extendscript-module]
+symbolType: function
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    literal:
+        any:
+            - {kind: function_expression, has: {field: parameters, pattern: $PARAMS}}
+            - {kind: parenthesized_expression, has: {matches: literal}}
+    published:
+        any:
+            - has:
+                stopBy: {kind: 'function_declaration, function_expression'}
+                kind: return_statement
+                any:
+                    - has: {stopBy: {not: {kind: ternary_expression}}, pattern: $NAME, not: {inside: {kind: ternary_expression, field: condition}}}
+                    - has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $NAME}}
+            - has:
+                kind: expression_statement
+                has:
+                    kind: assignment_expression
+                    all:
+                        - has: {field: left, any: [{regex: '^\$\.global[.\[]'}, {has: {field: object, kind: this}}]}
+                        - has: {field: right, pattern: $NAME}
+            - all:
+                - has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: return_statement, has: {kind: identifier, pattern: $TABLE}}
+                - any:
+                    - has: {kind: expression_statement, has: {kind: assignment_expression, all: [{has: {field: left, has: {field: object, pattern: $TABLE}}}, {has: {field: right, pattern: $NAME}}]}}
+                    - has: {kind: 'variable_declaration, lexical_declaration', has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TABLE}}, {has: {field: value, has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $NAME}}}}]}}
+rule:
+    kind: identifier
+    pattern: $NAME
+    any:
+        - inside: {kind: function_declaration, field: name, matches: scope, has: {field: parameters, pattern: $PARAMS}}
+        - inside: {kind: variable_declarator, field: name, inside: {kind: 'variable_declaration, lexical_declaration', matches: scope, not: {inside: {kind: for_statement, field: initializer}}}, has: {field: value, matches: literal}}
+rewriters:
+    - {id: parameter, rule: {kind: 'required_parameter, optional_parameter', pattern: $PARAMETER}, fix: $PARAMETER}
+transform:
+    PARAMETERS: {rewrite: {source: $PARAMS, rewriters: [parameter], joinBy: ', '}}
+name: $NAME
+signature: function $NAME($PARAMETERS)
+isPublic: {inside: {stopBy: end, kind: statement_block, matches: published}}
+---
+id: extendscript-module-object
+language: extendscript
+role: member
+parentRuleIds: [extendscript-module]
+symbolType: object
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    published:
+        any:
+            - has:
+                stopBy: {kind: 'function_declaration, function_expression'}
+                kind: return_statement
+                any:
+                    - has: {stopBy: {not: {kind: ternary_expression}}, pattern: $NAME, not: {inside: {kind: ternary_expression, field: condition}}}
+                    - has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $NAME}}
+            - has:
+                kind: expression_statement
+                has:
+                    kind: assignment_expression
+                    all:
+                        - has: {field: left, any: [{regex: '^\$\.global[.\[]'}, {has: {field: object, kind: this}}]}
+                        - has: {field: right, pattern: $NAME}
+            - all:
+                - has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: return_statement, has: {kind: identifier, pattern: $TABLE}}
+                - any:
+                    - has: {kind: expression_statement, has: {kind: assignment_expression, all: [{has: {field: left, has: {field: object, pattern: $TABLE}}}, {has: {field: right, pattern: $NAME}}]}}
+                    - has: {kind: 'variable_declaration, lexical_declaration', has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TABLE}}, {has: {field: value, has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $NAME}}}}]}}
+rule:
+    kind: identifier
+    pattern: $NAME
+    inside: {kind: variable_declarator, field: name, inside: {kind: 'variable_declaration, lexical_declaration', matches: scope, not: {inside: {kind: for_statement, field: initializer}}}, has: {field: value, kind: object}}
+name: $NAME
+signature: $NAME
+isPublic: {inside: {stopBy: end, kind: statement_block, matches: published}}
+---
+id: extendscript-module-constant
+language: extendscript
+role: member
+parentRuleIds: [extendscript-module]
+symbolType: constant
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    literal:
+        any:
+            - kind: function_expression
+            - {kind: parenthesized_expression, has: {matches: literal}}
+    published:
+        any:
+            - has:
+                stopBy: {kind: 'function_declaration, function_expression'}
+                kind: return_statement
+                any:
+                    - has: {stopBy: {not: {kind: ternary_expression}}, pattern: $NAME, not: {inside: {kind: ternary_expression, field: condition}}}
+                    - has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $NAME}}
+            - has:
+                kind: expression_statement
+                has:
+                    kind: assignment_expression
+                    all:
+                        - has: {field: left, any: [{regex: '^\$\.global[.\[]'}, {has: {field: object, kind: this}}]}
+                        - has: {field: right, pattern: $NAME}
+            - all:
+                - has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: return_statement, has: {kind: identifier, pattern: $TABLE}}
+                - any:
+                    - has: {kind: expression_statement, has: {kind: assignment_expression, all: [{has: {field: left, has: {field: object, pattern: $TABLE}}}, {has: {field: right, pattern: $NAME}}]}}
+                    - has: {kind: 'variable_declaration, lexical_declaration', has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TABLE}}, {has: {field: value, has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $NAME}}}}]}}
+rule:
+    kind: variable_declarator
+    has: {field: name, pattern: $NAME}
+    inside: {kind: lexical_declaration, has: {field: kind, regex: '^const$'}, matches: scope, not: {inside: {kind: for_statement, field: initializer}}}
+    not: {has: {field: value, any: [{kind: object}, {matches: literal}]}}
+name: $NAME
+isPublic: {inside: {stopBy: end, kind: statement_block, matches: published}}
+---
+id: extendscript-module-variable
+language: extendscript
+role: member
+parentRuleIds: [extendscript-module]
+symbolType: variable
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}]}}
+    literal:
+        any:
+            - kind: function_expression
+            - {kind: parenthesized_expression, has: {matches: literal}}
+    published:
+        any:
+            - has:
+                stopBy: {kind: 'function_declaration, function_expression'}
+                kind: return_statement
+                any:
+                    - has: {stopBy: {not: {kind: ternary_expression}}, pattern: $NAME, not: {inside: {kind: ternary_expression, field: condition}}}
+                    - has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $NAME}}
+            - has:
+                kind: expression_statement
+                has:
+                    kind: assignment_expression
+                    all:
+                        - has: {field: left, any: [{regex: '^\$\.global[.\[]'}, {has: {field: object, kind: this}}]}
+                        - has: {field: right, pattern: $NAME}
+            - all:
+                - has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: return_statement, has: {kind: identifier, pattern: $TABLE}}
+                - any:
+                    - has: {kind: expression_statement, has: {kind: assignment_expression, all: [{has: {field: left, has: {field: object, pattern: $TABLE}}}, {has: {field: right, pattern: $NAME}}]}}
+                    - has: {kind: 'variable_declaration, lexical_declaration', has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TABLE}}, {has: {field: value, has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $NAME}}}}]}}
+rule:
+    kind: variable_declarator
+    has: {field: name, pattern: $NAME}
+    inside: {kind: variable_declaration, matches: scope, not: {inside: {kind: for_statement, field: initializer}}}
+    not: {has: {field: value, any: [{kind: object}, {matches: literal}]}}
+name: $NAME
+isPublic: {inside: {stopBy: end, kind: statement_block, matches: published}}
+---
+id: extendscript-member-method
+language: extendscript
+role: member
+parentRuleIds: [extendscript-module, extendscript-class, extendscript-object]
+symbolType: method
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {matches: invoked}]}}
+    invoked: {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}
+    literal:
+        any:
+            - {kind: function_expression, has: {field: parameters, pattern: $PARAMS}}
+            - {kind: parenthesized_expression, has: {matches: literal}}
+    held:
+        kind: object
+        any:
+            - inside: {kind: variable_declarator, field: value, inside: {kind: 'variable_declaration, lexical_declaration', matches: scope}}
+            - inside: {kind: assignment_expression, field: right, inside: {kind: expression_statement, matches: scope}}
+            - inside: {stopBy: {not: {kind: ternary_expression}}, kind: return_statement, matches: scope}
+            - inside: {kind: pair, field: value, inside: {matches: held}}
+    owned:
+        matches: held
+        any:
+            - inside: {kind: pair, field: value, has: {field: key, pattern: $OWNER}}
+            - inside: {kind: 'variable_declarator, assignment_expression', matches: bound}
+            - kind: object
+    modular:
+        inside:
+            stopBy: {kind: 'function_declaration, function_expression'}
+            kind: function_expression
+            inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression, call_expression, new_expression'}}, kind: 'variable_declarator, assignment_expression'}
+    bound:
+        matches: scope
+        any:
+            - all: [{matches: modular}, {any: [{has: {field: name, pattern: $OWNER}}, {has: {field: left, pattern: $OWNER}}]}]
+            - pattern: $_
+    carried:
+        inside:
+            stopBy: {kind: 'function_declaration, function_expression'}
+            any:
+                - {kind: function_declaration, matches: bound}
+                - matches: invoked
+                - {kind: function_expression, inside: {stopBy: {not: {kind: parenthesized_expression}}, kind: 'variable_declarator, assignment_expression', matches: bound}}
+    stored:
+        kind: 'member_expression, subscript_expression'
+        not: {has: {field: object, kind: this}}
+        matches: modular
+        inside: {kind: assignment_expression, field: left, inside: {kind: expression_statement, inside: {kind: statement_block, inside: {matches: invoked}}}}
+        any:
+            - regex: '^\$\.global[.\[]'
+            - all:
+                - has: {stopBy: end, kind: identifier, pattern: $ROOT}
+                - inside:
+                    stopBy: {kind: function_expression}
+                    kind: function_expression
+                    any:
+                        - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, pattern: $ROOT}}}
+                        - has: {field: body, has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: 'variable_declarator, function_declaration', has: {field: name, pattern: $ROOT}}}
+    published:
+        any:
+            - has:
+                stopBy: {kind: 'function_declaration, function_expression'}
+                kind: return_statement
+                any:
+                    - has: {stopBy: {not: {kind: ternary_expression}}, pattern: $ROOT, not: {inside: {kind: ternary_expression, field: condition}}}
+                    - has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $ROOT}}
+            - has:
+                kind: expression_statement
+                has:
+                    kind: assignment_expression
+                    all:
+                        - has: {field: left, any: [{regex: '^\$\.global[.\[]'}, {has: {field: object, kind: this}}]}
+                        - has: {field: right, pattern: $ROOT}
+            - all:
+                - has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: return_statement, has: {kind: identifier, pattern: $TABLE}}
+                - any:
+                    - has: {kind: expression_statement, has: {kind: assignment_expression, all: [{has: {field: left, has: {field: object, pattern: $TABLE}}}, {has: {field: right, pattern: $ROOT}}]}}
+                    - has: {kind: 'variable_declaration, lexical_declaration', has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TABLE}}, {has: {field: value, has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $ROOT}}}}]}}
+    concealed:
+        any:
+            - kind: 'member_expression, subscript_expression'
+              not: {any: [{has: {field: object, kind: this}}, {inside: {stopBy: end, kind: statement_block, matches: published}}]}
+            - inside:
+                stopBy: {kind: 'function_declaration, variable_declarator'}
+                kind: 'function_declaration, variable_declarator'
+                all:
+                    - has: {field: name, pattern: $ROOT}
+                    - matches: modular
+                    - not: {inside: {stopBy: end, kind: statement_block, matches: published}}
+rule:
+    any:
+        - kind: 'property_identifier, string, number'
+          pattern: $NAME
+          inside:
+            kind: pair
+            field: key
+            has: {field: value, matches: literal}
+            inside: {matches: owned}
+        - kind: 'member_expression, subscript_expression'
+          all:
+            - has: {field: object, kind: this}
+            - any: [{has: {field: property, pattern: $NAME}}, {has: {field: index, pattern: $NAME}}]
+            - inside: {kind: assignment_expression, field: left, has: {field: right, matches: literal}}
+            - matches: carried
+        - matches: stored
+          pattern: $NAME
+          inside: {kind: assignment_expression, field: left, has: {field: right, matches: literal}}
+rewriters:
+    - {id: parameter, rule: {kind: 'required_parameter, optional_parameter', pattern: $PARAMETER}, fix: $PARAMETER}
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    PARAMETERS: {rewrite: {source: $PARAMS, rewriters: [parameter], joinBy: ', '}}
+name: $QUALIFIER$NAME
+signature: $QUALIFIER$NAME($PARAMETERS)
+isPublic:
+    any:
+        - regex: '^\$\.global[.\[]'
+        - not: {matches: concealed}
+---
+id: extendscript-member-field
+language: extendscript
+role: member
+parentRuleIds: [extendscript-module, extendscript-class, extendscript-object]
+symbolType: field
+utils:
+    scope: {inside: {stopBy: {kind: 'program, function_declaration, function_expression'}, any: [{kind: program}, {matches: invoked}]}}
+    invoked: {kind: function_expression, matches: scope, inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression'}}, kind: 'call_expression, new_expression'}}
+    literal:
+        any:
+            - kind: function_expression
+            - {kind: parenthesized_expression, has: {matches: literal}}
+    held:
+        kind: object
+        any:
+            - inside: {kind: variable_declarator, field: value, inside: {kind: 'variable_declaration, lexical_declaration', matches: scope}}
+            - inside: {kind: assignment_expression, field: right, inside: {kind: expression_statement, matches: scope}}
+            - inside: {stopBy: {not: {kind: ternary_expression}}, kind: return_statement, matches: scope}
+            - inside: {kind: pair, field: value, inside: {matches: held}}
+    owned:
+        matches: held
+        any:
+            - inside: {kind: pair, field: value, has: {field: key, pattern: $OWNER}}
+            - inside: {kind: 'variable_declarator, assignment_expression', matches: bound}
+            - kind: object
+    modular:
+        inside:
+            stopBy: {kind: 'function_declaration, function_expression'}
+            kind: function_expression
+            inside: {stopBy: {not: {kind: 'parenthesized_expression, member_expression, call_expression, new_expression'}}, kind: 'variable_declarator, assignment_expression'}
+    bound:
+        matches: scope
+        any:
+            - all: [{matches: modular}, {any: [{has: {field: name, pattern: $OWNER}}, {has: {field: left, pattern: $OWNER}}]}]
+            - pattern: $_
+    carried:
+        inside:
+            stopBy: {kind: 'function_declaration, function_expression'}
+            any:
+                - {kind: function_declaration, matches: bound}
+                - matches: invoked
+                - {kind: function_expression, inside: {stopBy: {not: {kind: parenthesized_expression}}, kind: 'variable_declarator, assignment_expression', matches: bound}}
+    stored:
+        kind: 'member_expression, subscript_expression'
+        not: {has: {field: object, kind: this}}
+        matches: modular
+        inside: {kind: assignment_expression, field: left, inside: {kind: expression_statement, inside: {kind: statement_block, inside: {matches: invoked}}}}
+        any:
+            - regex: '^\$\.global[.\[]'
+            - all:
+                - has: {stopBy: end, kind: identifier, pattern: $ROOT}
+                - inside:
+                    stopBy: {kind: function_expression}
+                    kind: function_expression
+                    any:
+                        - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, pattern: $ROOT}}}
+                        - has: {field: body, has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: 'variable_declarator, function_declaration', has: {field: name, pattern: $ROOT}}}
+    published:
+        any:
+            - has:
+                stopBy: {kind: 'function_declaration, function_expression'}
+                kind: return_statement
+                any:
+                    - has: {stopBy: {not: {kind: ternary_expression}}, pattern: $ROOT, not: {inside: {kind: ternary_expression, field: condition}}}
+                    - has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $ROOT}}
+            - has:
+                kind: expression_statement
+                has:
+                    kind: assignment_expression
+                    all:
+                        - has: {field: left, any: [{regex: '^\$\.global[.\[]'}, {has: {field: object, kind: this}}]}
+                        - has: {field: right, pattern: $ROOT}
+            - all:
+                - has: {stopBy: {kind: 'function_declaration, function_expression'}, kind: return_statement, has: {kind: identifier, pattern: $TABLE}}
+                - any:
+                    - has: {kind: expression_statement, has: {kind: assignment_expression, all: [{has: {field: left, has: {field: object, pattern: $TABLE}}}, {has: {field: right, pattern: $ROOT}}]}}
+                    - has: {kind: 'variable_declaration, lexical_declaration', has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TABLE}}, {has: {field: value, has: {stopBy: {kind: function_expression}, kind: pair, has: {field: value, pattern: $ROOT}}}}]}}
+    concealed:
+        any:
+            - kind: 'assignment_expression, member_expression, subscript_expression'
+              not: {any: [{has: {field: left, has: {field: object, kind: this}}}, {inside: {stopBy: end, kind: statement_block, matches: published}}]}
+            - inside:
+                stopBy: {kind: 'function_declaration, variable_declarator'}
+                kind: 'function_declaration, variable_declarator'
+                all:
+                    - has: {field: name, pattern: $ROOT}
+                    - matches: modular
+                    - not: {inside: {stopBy: end, kind: statement_block, matches: published}}
+rule:
+    any:
+        - kind: 'property_identifier, string, number'
+          pattern: $NAME
+          inside: {kind: pair, field: key, has: {field: value, kind: object}, inside: {matches: owned}}
+        - kind: pair
+          all:
+            - has: {field: key, pattern: $NAME}
+            - has: {field: value, not: {any: [{kind: object}, {matches: literal}]}}
+            - not: {all: [{has: {field: value, pattern: $NAME}}, {inside: {kind: object, inside: {stopBy: {not: {kind: ternary_expression}}, kind: return_statement}}}]}
+          inside: {matches: owned}
+        - kind: assignment_expression
+          all:
+            - has: {field: left, all: [{has: {field: object, kind: this}}, {any: [{has: {field: property, pattern: $NAME}}, {has: {field: index, pattern: $NAME}}]}]}
+            - has: {field: right, not: {matches: literal}}
+            - matches: carried
+        - kind: assignment_expression
+          all:
+            - has: {field: left, matches: stored, pattern: $NAME}
+            - has: {field: right, not: {any: [{kind: object}, {matches: literal}]}}
+        - matches: stored
+          pattern: $NAME
+          inside: {kind: assignment_expression, field: left, has: {field: right, kind: object}}
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+name: $QUALIFIER$NAME
+isPublic:
+    any:
+        - regex: '^\$\.global[.\[]'
+        - not: {matches: concealed}

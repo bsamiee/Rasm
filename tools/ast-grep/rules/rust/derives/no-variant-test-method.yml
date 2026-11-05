@@ -3,19 +3,19 @@ language: rustlang
 severity: error
 utils:
     self-value:
-        regex: '^(\*|&)?\p{White_Space}*self$'
+        regex: '^(\*|&)?\p{Pattern_White_Space}*self$'
     variant-test:
         any:
             - kind: macro_invocation
               all:
                 - matches: {rust-std-macro: {name: {regex: '^matches$'}}}
-                - has: {kind: token_tree, regex: '^\(\p{White_Space}*\*?\p{White_Space}*self\p{White_Space}*,\p{White_Space}*\p{XID_Continue}+::\p{XID_Continue}+\p{White_Space}*(\(\p{White_Space}*(\.\.|_)\p{White_Space}*\)|\{\p{White_Space}*\.\.\p{White_Space}*\})?\p{White_Space}*,?\p{White_Space}*\)$'}
+                - has: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\*?\p{Pattern_White_Space}*self\p{Pattern_White_Space}*,\p{Pattern_White_Space}*\p{XID_Continue}+::\p{XID_Continue}+\p{Pattern_White_Space}*(\(\p{Pattern_White_Space}*(\.\.|_)\p{Pattern_White_Space}*\)|\{\p{Pattern_White_Space}*\.\.\p{Pattern_White_Space}*\})?\p{Pattern_White_Space}*,?\p{Pattern_White_Space}*\)$'}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^==$'}
                 - any:
-                    - all: [{has: {field: left, matches: self-value}}, {has: {field: right, regex: '^&?\p{White_Space}*\p{XID_Continue}+::\p{XID_Continue}+$'}}]
-                    - all: [{has: {field: right, matches: self-value}}, {has: {field: left, regex: '^&?\p{White_Space}*\p{XID_Continue}+::\p{XID_Continue}+$'}}]
+                    - all: [{has: {field: left, matches: self-value}}, {has: {field: right, regex: '^&?\p{Pattern_White_Space}*\p{XID_Continue}+::\p{XID_Continue}+$'}}]
+                    - all: [{has: {field: right, matches: self-value}}, {has: {field: left, regex: '^&?\p{Pattern_White_Space}*\p{XID_Continue}+::\p{XID_Continue}+$'}}]
     variant-pattern:
         kind: match_pattern
         regex: '^(\p{XID_Continue}+::)+\p{XID_Continue}+$'
@@ -39,7 +39,7 @@ rule:
         - kind: function_item
           all:
             - has: {field: name, pattern: $NAME}
-            - has: {field: parameters, regex: '^\(\p{White_Space}*&?\p{White_Space}*self\p{White_Space}*\)$'}
+            - has: {field: parameters, regex: '^\(\p{Pattern_White_Space}*&?\p{Pattern_White_Space}*self\p{Pattern_White_Space}*\)$'}
             - has: {field: return_type, regex: '^bool$'}
             - has: {field: body, matches: test-body}
             - inside: {kind: declaration_list, inside: {kind: impl_item, all: [{not: {has: {field: trait, pattern: $_}}}, {has: {field: type, kind: type_identifier, pattern: $T}}]}}
@@ -47,7 +47,7 @@ rule:
         - kind: match_expression
           all:
             - matches: bool-selection
-            - not: {inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, all: [{has: {field: parameters, regex: '^\(\p{White_Space}*&?\p{White_Space}*self\p{White_Space}*\)$'}}, {has: {field: return_type, regex: '^bool$'}}, {has: {field: body, matches: test-body}}]}}
+            - not: {inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, all: [{has: {field: parameters, regex: '^\(\p{Pattern_White_Space}*&?\p{Pattern_White_Space}*self\p{Pattern_White_Space}*\)$'}}, {has: {field: return_type, regex: '^bool$'}}, {has: {field: body, matches: test-body}}]}}
             - has: {field: body, has: {kind: match_arm, has: {field: pattern, has: {kind: scoped_identifier, has: {field: path, pattern: $T}}}}}
             - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
 message: 'Method or `match` tests a `$T` variant by hand'

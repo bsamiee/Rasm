@@ -7,7 +7,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, string> Label, Func<RowScope, TItem, Size, IO<Image>> Tile, Seq<TItem> Items, Size TileSize, string Empty)
+public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, string> Label, Func<RowScope, TItem, Size, IO<Image>> Tile, Seq<TItem> Items, Size TileSize)
     : IRow<BrowserRow<TItem, TKey>>
     where TItem : notnull
     where TKey : notnull {
@@ -28,13 +28,7 @@ public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, 
         from loads in IO.lift(static () => Ref(Option<Owned<Unit>>.None))
         from grid in Containers.Frame(static () => new ControlGridLayout { Wrap = true, GridWrapMode = GridWrapMode.Horizontal, ItemPadding = RhinoLayout.Padding(RhinoLayout.PaddingType.ButtonRow) })
         from scroll in Containers.Frame(static () => new Scrollable { Border = BorderType.None, ExpandContentWidth = true, ExpandContentHeight = false })
-        from empty in use(() => new Label { Text = LocalText.Of(first.Empty).Local, TextColor = SystemColors.DisabledText, TextAlignment = TextAlignment.Center })
-        from stack in Containers.Frame(static () => new StackLayout { HorizontalContentAlignment = HorizontalAlignment.Stretch })
-        from placed in IO.lift(() => {
-            scroll.Content = grid;
-            stack.Items.Add(new StackLayoutItem(scroll, expand: true));
-            stack.Items.Add(empty);
-        })
+        from placed in IO.lift(() => { scroll.Content = grid; })
         from commands in Lists.Commanded(None, first.Commands(from current in latest from kept in keep.ValueIO select current.Items.Filter(kept)), scope)
         from post in Mailboxes.Idle<Unit, Unit>(_ => run(
             from current in latest
@@ -47,10 +41,10 @@ public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, 
             let listed = current.Items.Filter(kept)
             from loaded in Products.Clear(loads).Bind(_ => Products.Replace(loads, Loaded(current, tiles, listed, scope, owned, post(unit, unit)))).Scoped(owned)
             from arranged in Arranged(grid, current, latest, buttons, tiles, listed, commands.Menu, scope, owned)
-            from emptied in IO.lift(() => { (scroll.Visible, empty.Visible, grid.ItemSize) = (!listed.IsEmpty, listed.IsEmpty, current.TileSize); })
+            from sized in IO.lift(() => { grid.ItemSize = current.TileSize; })
             select unit
         from keys in Subscriptions.Inline<KeyEventArgs>(h => grid.KeyDown += h, h => grid.KeyDown -= h).Attach(args => run(CommandRows.Pressed(commands.Keyed, args)))
-        from content in Lists.Searched(stack, first.Search, kept => run(writeIO(keep, kept).Bind(_ => shown)))
+        from content in Lists.Searched(scroll, first.Search, kept => run(writeIO(keep, kept).Bind(_ => shown)))
         select (new RowCells(content.Control, run(latest.Bind(current => content.Shown(current.Search)).Bind(_ => shown).Bind(_ => commands.Refresh))) { Menu = commands.Menu },
             IO.lift(grid.Items.Clear).Finally(Products.Clear(loads))));
 

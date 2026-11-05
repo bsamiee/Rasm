@@ -3,7 +3,7 @@ language: swiftlang
 severity: error
 utils:
     stream-tuple-value:
-        has: {field: value, regex: '(?s)\.makeStream\(.*\)$', pattern: $PAIR}
+        has: {follows: {regex: '^=$'}, regex: '(?s)\.makeStream\(.*\)$', pattern: $PAIR}
     label-assignment:
         kind: assignment
         has:
@@ -40,7 +40,7 @@ rule:
     matches: stream-tuple-value
     any:
         - all:
-            - has: {field: name, has: {field: bound_identifier, pattern: $S}}
+            - has: {kind: pattern, has: {field: bound_identifier, pattern: $S}}
             - any:
                 - precedes: {matches: stream-label-assignment, precedes: {matches: continuation-label-assignment}}
                 - precedes: {matches: continuation-label-assignment, precedes: {matches: stream-label-assignment}}

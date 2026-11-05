@@ -12,5 +12,5 @@ rule:
             - has:
                 field: target
                 any:
-                    - {kind: navigation_expression, regex: '^_Concurrency\.Task$'}
+                    - {kind: 'navigation_expression, identifier', regex: '^_Concurrency(\.|::)Task$'}
                     - matches: swift-task-type

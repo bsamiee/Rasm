@@ -26,7 +26,8 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks 
 - Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
 - Root `tsconfig.json` checks project `*.config.ts` and `.storybook/main.ts` files, base `exclude` keeps `${configDir}/*.config.ts` out of projects
 - Library `exports` list `.` and one entry per runtime or dependency (`./node`, `./uxp`), sync generator `barrels` in `tools/nx` writing each `index.ts`
-- `lint:dependency-cruiser` rejects a host module, a package whose installed load chain ships wasm or a Node addon, a runtime package, a stylesheet, or another library entry in a library root entry's static load closure, and any npm package in an `./extendscript` entry's closure
+- `lint:dependency-cruiser` rejects a host module, runtime package, stylesheet, or other library entry in a library root entry's static load closure
+- Packages whose installed load chain ships wasm or a Node addon fail that closure, and any npm package fails an `./extendscript` entry's closure
 - Each importer's `typecheck:tsc` checks a root entry's types under its own `lib` and `types`, a hooks plugin's `typecheck:claude` under the engine's types alone and `lint:claude` its load closure through `claude plugin validate`
 - ExtendScript code sits in packages whose programs list `types-for-adobe` alone, a CEP panel program holds `dom` and no ExtendScript globals
 - Package self-imports are extensionless where `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
@@ -59,14 +60,17 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks 
 - Root `vite.shared.ts` `react` holds React Compiler options for apps, Vitest projects, and Storybook
 - App `vite.config.ts` is its one Vite config, Storybook finds it by default lookup and `vitestProject` from root `vitest.config.ts` merges it through `loadConfigFromFile`
 - Web builds keep project-local `dist`, where `sites()` copies `.openai/hosting.json` with no relocation setting
+- Sync generator `hosting-bindings` in `tools/nx` writes `.openai/hosting.json` `d1` and `r2` members from `cloudflare.config.ts`
 - Vite caches stay in each project's `node_modules/.vite`, `isInNodeModules(importer)` warns on dynamic imports of a dependency optimized elsewhere
 - `@nx/vite` stays out, it infers `serve-static`, a deprecated `serve`, and a `typecheck` beside `typecheck:tsc`
 
 [WORKERS]:
 - `cloudflare.config.ts` declares an app's Worker with `entrypoint` at its product module, or a library suite's test Worker with bindings alone
+- Worker declarations take `compatibilityDate` from `@rasm/hosting/cloudflare`
 - Cloudflare plugin hooks (`config`, `configResolved`, `configureServer`) take app type, output, and requests in every Vite server
 - `cloudflareWorker(<directory>, { plugins, hosting })` drops `hosting` and Cloudflare plugin when Storybook or Vitest CLIs set `STORYBOOK` or `VITEST`
-- Cloudflare plugin keeps state in `.cache/cloudflare/<project path>` and Build Output in `.cloudflare/output`, mode `test` keeps bindings in memory
+- Cloudflare plugin keeps state in `.cache/cloudflare/<project path>`, mode `test` keeps bindings in memory
+- Build Output stays in `.cloudflare/output` the specification fixes, `.cloudflare/types` stays where `cf workers types` takes no path setting
 - Target `types` writes `Cloudflare.Env` and runtime types for the compatibility date to ignored `.cloudflare/types`, `typecheck:tsc` depends on it
 - Project `tsconfig.json` `types` names `./.cloudflare/types` in place of `@cloudflare/workers-types`
 

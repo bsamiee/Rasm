@@ -12,11 +12,16 @@ rule:
           regex: '^\\(u001[bB]|U0000001[bB]|x0{0,2}1[bB])$'
         - kind: cast_expression
           all:
-            - has: {field: type, regex: '^(char|(global::)?(System\.)?Char)$'}
+            - has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^(?:char|Char)$'}, qualifier: {regex: '^System$'}}}}
             - has: {field: value, matches: escape-code}
         - kind: invocation_expression
           all:
-            - has: {field: function, regex: '^((global::)?(System\.)?(Char|char)\.ConvertFromUtf32|(global::)?(System\.)?Convert\.ToChar)$'}
+            - has:
+                field: function
+                kind: member_access_expression
+                any:
+                    - all: [{has: {field: expression, matches: {csharp-qualified-name: {name: {regex: '^(?:Char|char)$'}, qualifier: {regex: '^System$'}}}}}, {has: {field: name, regex: '^ConvertFromUtf32$'}}]
+                    - all: [{has: {field: expression, matches: {csharp-qualified-name: {name: {regex: '^Convert$'}, qualifier: {regex: '^System$'}}}}}, {has: {field: name, regex: '^ToChar$'}}]
             - has: {field: arguments, all: [{has: {kind: argument, has: {matches: escape-code}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
 transform:
     CAST: {replace: {source: $CODE, replace: '(?s)^(\(.*|.*Convert\.ToChar\(.*)$', by: '''\e'''}}

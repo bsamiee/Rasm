@@ -91,8 +91,8 @@ utils:
               not: {matches: partial}
             - pattern: $A.$P.hypot($A.$Q)
             - pattern: ($A.$P - $B.$P).hypot($A.$Q - $B.$Q)
-            - pattern: f64::hypot($A.$P, $A.$Q)
-            - pattern: f32::hypot($A.$P, $A.$Q)
+            - pattern: $WIDTH::hypot($A.$P, $A.$Q)
+              has: {field: function, has: {field: path, regex: '^(f16|f32|f64|f128)$'}}
 rule:
     kind: 'binary_expression, call_expression'
     pattern: $SITE

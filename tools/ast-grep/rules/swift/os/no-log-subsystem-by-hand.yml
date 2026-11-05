@@ -5,7 +5,7 @@ ignores: ['tests/swift/support/**', 'tests/swift/fixtures/**']
 rule:
     kind: call_expression
     all:
-        - has: {nthChild: 1, pattern: $TYPE, regex: '^(os\.)?(Logger|OSLog|OSSignposter)(\.init)?$'}
+        - has: {nthChild: 1, pattern: $TYPE, regex: '^(os(\.|::))?(Logger|OSLog|OSSignposter)(\.init)?$'}
         - has:
             kind: call_suffix
             has:

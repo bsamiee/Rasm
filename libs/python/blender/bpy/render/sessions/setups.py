@@ -15,7 +15,6 @@ from blender.bpy.data.rna.paths import parsed, rna, RnaPath, rooted, Struct
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.extension.reports import alerted
 from blender.bpy.render.compositor.colors import COLOR_INPUT
 from blender.bpy.render.compositor.effects import CompositorRecord, Entry
 from blender.bpy.render.compositor.entries import Enabled
@@ -160,11 +159,8 @@ class Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
             request = Placement(self.operator, {"key": self.text(key)})
 
             def shown(scene: bpy.types.Scene, held: str) -> None:
-                alerted(
-                    layout,
-                    _locked(store, scene=scene).bind(
-                        lambda locks: operator_button(layout, identity, request, {"text": "", "emboss": False, "icon": "LOCKED" if key in locks.of(held) else "UNLOCKED"})
-                    ),
+                identity.reports.faulted(
+                    _locked(store, scene=scene).bind(lambda locks: operator_button(layout, identity, request, {"text": "", "emboss": False, "icon": "LOCKED" if key in locks.of(held) else "UNLOCKED"}))
                 )
 
             layout.context_pointer_set(name, holder)
@@ -217,7 +213,7 @@ class EntryLocks(ConditionalRow, frozen=True, kw_only=True):
                 toggle(key, line, entry, context)
 
         if isinstance(entry := holder, bpy.types.SceneCompositorEffect):
-            alerted(layout, keyed(identity, entry).map(lambda pair: listed(entry, *pair)))
+            identity.reports.faulted(keyed(identity, entry).map(lambda pair: listed(entry, *pair)))
 
 
 class Categories(msgspec.Struct, frozen=True, kw_only=True):

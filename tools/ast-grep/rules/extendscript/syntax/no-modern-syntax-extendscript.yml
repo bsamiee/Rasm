@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: extendscript
+severity: error
+utils:
+    modern:
+        any:
+            - kind: >-
+                arrow_function, using_declaration, class, class_declaration, class_static_block, method_definition, generator_function, generator_function_declaration, yield_expression, await_expression, template_string, spread_element, rest_pattern, array_pattern, object_pattern, assignment_pattern, computed_property_name, shorthand_property_identifier, optional_chain, meta_property, private_property_identifier, super, import, import_statement, export_statement, decorator, hash_bang_line, html_comment
+            - kind: >-
+                abstract_class_declaration, abstract_method_signature, accessibility_modifier, adding_type_annotation, ambient_declaration, array_type, as_expression, asserts, asserts_annotation, call_signature, conditional_type, constraint, construct_signature, constructor_type, default_type, enum_assignment, enum_body, enum_declaration, existential_type, extends_clause, extends_type_clause, flow_maybe_type, function_signature, function_type, generic_type, implements_clause, import_alias, import_require_clause, index_signature, index_type_query, infer_type, instantiation_expression, interface_body, interface_declaration, internal_module, intersection_type, literal_type, lookup_type, mapped_type_clause, method_signature, module, nested_identifier, nested_type_identifier, non_null_expression, object_type, omitting_type_annotation, opting_type_annotation, optional_parameter, optional_type, override_modifier, parenthesized_type, predefined_type, property_signature, public_field_definition, readonly_type, rest_type, satisfies_expression, template_literal_type, template_type, this_type, tuple_type, type_alias_declaration, type_annotation, type_arguments, type_identifier, type_parameter, type_parameters, type_predicate, type_predicate_annotation, type_query, union_type
+            - {kind: lexical_declaration, any: [{has: {field: kind, regex: '^let$'}}, {inside: {kind: for_statement, field: initializer}}]}
+            - {kind: 'function_declaration, function_expression', has: {regex: '^async$', pattern: $$_ASYNC}}
+            - {kind: catch_clause, not: {has: {field: parameter, pattern: $_}}}
+            - {kind: binary_expression, has: {field: operator, regex: '^(?:\*\*|\?\?)$'}}
+            - {kind: augmented_assignment_expression, has: {field: operator, regex: '^(?:\*\*|\?\?|&&|\|\|)=$'}}
+            - {kind: for_in_statement, any: [{has: {field: operator, regex: '^of$'}}, {has: {field: kind, regex: '^(?:const|let)$'}}]}
+            - {kind: required_parameter, has: {field: value, pattern: $_}}
+            - {kind: number, regex: '^0[bBoO]|_|n$'}
+            - {kind: regex_flags, regex: '[^gim]'}
+            - {kind: regex_pattern, regex: '\(\?<'}
+            - {kind: 'arguments, formal_parameters, object', has: {regex: '^,$', pattern: $$_COMMA, precedes: {regex: '^[)}]$', pattern: $$_CLOSE, stopBy: {not: {kind: comment}}}}}
+            - {kind: escape_sequence, regex: '^\\u\{'}
+            - {kind: string_fragment, regex: '[\x{2028}\x{2029}]'}
+            - {kind: identifier, regex: &reserved '^(?:abstract|boolean|break|byte|case|catch|char|class|const|continue|debugger|default|delete|do|double|else|enum|export|extends|false|final|finally|float|for|function|goto|if|implements|import|in|instanceof|int|interface|long|native|new|null|package|private|protected|public|return|short|static|super|switch|synchronized|this|throw|throws|transient|true|try|typeof|var|void|volatile|while|with)$'}
+            - {kind: property_identifier, regex: *reserved, inside: {kind: pair, field: key}}
+rule:
+    matches: modern
+    not: {inside: {stopBy: end, any: [{kind: ERROR}, {matches: modern}]}}
+message: Syntax the ES3 ExtendScript runtime refuses or misreads
+note: 'Write the ES3 form: `var` or `const` outside loop headers, `function`, string concatenation, index loops, `Math.pow`, and quoted reserved-word keys'

@@ -135,30 +135,31 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
             finish = progress.forecast(sent.queue, now).bind(lambda forecast: forecast.finish).map(lambda moment: f"finishing {moment.astimezone():%H:%M}").to_list()
             return " · ".join((*(sent.queue.jobs[part].title for part, _ in remaining[:1]), bpy.path.display_name(phase.name.lower()), *finish)), float(progress.done(sent.queue))
 
-        def work(held: Observed, stale: datetime.timedelta) -> tuple[str, float]:
+        def work(held: Observed, stale: datetime.timedelta) -> tuple[tuple[str, float], ...]:
             return held.sent.map(
-                lambda sent: held.progress.map(lambda pair: local(sent, *pair, stale)).default_with(
-                    lambda: (" ".join((type(sent.target).__name__, *sent.issued)), 0.0 if isinstance(sent.target, LocalMachine) else 1.0)
+                lambda sent: (
+                    held.progress.map(lambda pair: local(sent, *pair, stale)).default_with(
+                        lambda: (" ".join((type(sent.target).__name__, *sent.issued)), 0.0 if isinstance(sent.target, LocalMachine) else 1.0)
+                    ),
                 )
-            ).default_with(lambda: (" ".join(fault.message if isinstance(fault, Fault) else fault for fault in held.refused) or bpy.app.translations.pgettext_iface("Preparing"), 0.0))
+            ).default_with(lambda: () if held.refused else ((bpy.app.translations.pgettext_iface("Preparing"), 0.0),))
 
         runs = (
-            self.preference
-            .read(identity)
-            .map(lambda preferences: tuple(work(held, preferences.stale) for held in QUEUES[identity].observed.to_list()))
-            .default_with(lambda faults: tuple((fault.message, 0.0) for fault in faults))
+            identity.reports
+            .settled(self.preference.read(identity))
+            .map(lambda preferences: tuple(row for held in QUEUES[identity].observed.to_list() for row in work(held, preferences.stale)))
+            .default_value(())
         )
         return tuple({"text": text, "factor": done} for text, done in runs)
 
     @property
     def section(self) -> Section:
-        """Queue section: dispatch, run progress read from session state at draw, status, and run controls, the queue registering what the progress reads."""
+        """Queue section: dispatch, run progress read from session state at draw, and run controls, the queue registering what the progress reads."""
         return Section(
             key=self.key,
             rows=(
                 rows.OperatorButton(target=self.dispatching),
                 rows.Layout(builder=Some(lambda identity: Ok((rows.Label(text=partial(self.progressed, identity), function=rows.FUNCTIONS["progress"]),))), prerequisites=(self,)),
-                rows.Status(),
                 rows.Layout(rows=tuple(rows.OperatorButton(target=command, keywords={"text": ""}) for command in self.controls), container=Some(rows.aligned)),
             ),
         )

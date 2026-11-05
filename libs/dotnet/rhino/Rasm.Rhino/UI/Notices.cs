@@ -131,7 +131,7 @@ public static class Notices {
     // --- [TRAY]
     public static IO<Unit> Tray(Command<Invoke>.Menu menu, RowScope scope) =>
         from tray in use(static () => new Eto.Forms.TrayIndicator())
-        from themed in menu.Face.Icon.Traverse(icon => Icons.Themed(icon, IconSlot.Small, frames => tray.Image = frames)).As()
+        from themed in menu.Face.Icon.Traverse(icon => Icons.Themed(icon, IconSlot.Small, None, frames => tray.Image = frames)).As()
         from popup in CommandRows.Menu(menu.Groups, scope)
         from assigned in IO.lift(() => tray.Menu = popup.Menu)
         from activated in menu.Primary.Traverse(primary => CommandRows.Press(primary, scope).Bind(press =>

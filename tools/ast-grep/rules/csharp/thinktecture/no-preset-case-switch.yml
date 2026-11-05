@@ -139,19 +139,19 @@ rule:
             - matches: preset-switch-arms
         - kind: invocation_expression
           all:
-            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Switch|Map)(<.+>)?$'}}
+            - has: {field: function, kind: member_access_expression, has: {field: name, matches: {csharp-simple-name: {name: {regex: '^(?:Switch|Map)$'}}}}}
             - has: {field: arguments, has: {matches: case-argument, has: {stopBy: end, matches: preset}}}
             - has:
                 field: function
                 kind: member_access_expression
                 all:
-                    - has: {field: name, regex: '^(Switch|Map)(<.+>)?$'}
+                    - has: {field: name, matches: {csharp-simple-name: {name: {regex: '^(?:Switch|Map)$'}}}}
                     - has: {field: expression, matches: typed-receiver}
             - matches: file-union
             - has: {field: arguments, matches: preset-arms}
         - kind: invocation_expression
           all:
-            - has: {field: function, kind: 'identifier, generic_name', regex: '^(Switch|Map)(<.+>)?$'}
+            - has: {field: function, matches: {csharp-simple-name: {name: {regex: '^(?:Switch|Map)$'}}}}
             - has: {field: arguments, has: {matches: case-argument, has: {stopBy: end, matches: preset}}}
             - inside: {stopBy: end, kind: 'record_declaration, class_declaration', matches: stateless-union}
             - has: {field: arguments, matches: preset-arms}

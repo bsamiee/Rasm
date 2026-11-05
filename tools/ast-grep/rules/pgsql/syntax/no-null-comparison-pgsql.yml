@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+utils:
+    absent:
+        matches: pgsql-wrapper
+        has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, regex: '(?i-u)^null$'}
+rule:
+    kind: a_expr, a_expr_prec
+    pattern: $COMPARISON
+    has: {field: operator, regex: '^(=|<>|!=)$'}
+    any:
+        - has: {field: left, matches: absent}
+        - has: {field: right, matches: absent}
+message: '`$COMPARISON` yields NULL for every row, a filter keeps none of them'
+note: 'Test absence with `is null` or `is not null`, and pair two nullable operands with `is not distinct from`'

@@ -56,7 +56,7 @@ utils:
                 - has: {field: operator, regex: '^instanceof$'}
             - kind: call_expression
               all:
-                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Cause$'}, member: {regex: '^(is|has)[A-Z][^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*$'}}}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Cause$'}, member: {regex: '^(is|has)[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}}}
                 - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $E}}
     tag-selection:
         any:

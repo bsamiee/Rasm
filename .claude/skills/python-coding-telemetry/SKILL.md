@@ -145,7 +145,8 @@ Roots call `limited` once per resource, and each collection reads borrowed token
 ## [04]-[LOGGERS]
 
 Events are constant names, and each varying value goes in a keyword field. Module loggers annotate `log: FilteringBoundLogger = structlog.get_logger(__name__)`, a lazy proxy typed `Any` built at first log call:
-- Components holding fixed context (an extension id, a connection) receive a bound logger as an argument
+- Components holding fixed context (a connection) receive a bound logger as an argument
+- Plug-ins sharing a host process with siblings build their sink through `structlog.wrap_logger(BytesLogger(<file>), processors=<chain>, wrapper_class=<filter>)` under a file the host's folder API states, `configure` reaching every sibling and `merge_contextvars` taking their bound fields
 - Call keywords win over bound keys, and bound keys win over context-local keys
 - `bind` at module scope before `configure` builds a logger from builtin defaults that keeps printing console lines to stdout
 - Methods below the wrapper's level return `None` without running the chain, `log.is_enabled_for(logging.DEBUG)` gates a field that costs work

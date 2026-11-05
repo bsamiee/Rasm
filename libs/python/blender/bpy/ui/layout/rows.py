@@ -11,13 +11,12 @@ import bpy
 from expression import Option, Some
 import msgspec
 
-from blender.bpy.commands.operators import Command, dismiss_reports, filled, idname, Operator, Pairs, Placement, PopupTarget
+from blender.bpy.commands.operators import Command, filled, idname, Operator, Pairs, Placement, PopupTarget
 from blender.bpy.data.rna.conditions import Condition, satisfied
 from blender.bpy.data.rna.descriptors import Scalar
 from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import acquired, Acquisitions, Declaration
-from blender.bpy.extension.reports import alerted, listed
 from blender.bpy.ui.layout.members import bound, LocatedMembers, Member
 from blender.bpy.ui.resources.icons import Icon, ICONS, Icons
 from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
@@ -141,16 +140,15 @@ class Property(Iconed, frozen=True, kw_only=True):
         """Locates and binds the target and search items, the icon and keywords resolved once for every redraw."""
         function = FUNCTIONS["prop_search"] if self.search.is_some() and self.function == FUNCTIONS["prop"] else self.function
         located = accumulated(member.located(identity) for member in (self.target, *self.search.to_list()))
-        return paired(_keyworded(identity, self.keywords, self.icon), located).bind(lambda parts: bound(parts[1], partial(self.shown, function, parts[0])))
+        return paired(_keyworded(identity, self.keywords, self.icon), located).bind(lambda parts: bound(identity, parts[1], partial(self.shown, identity, function, parts[0])))
 
-    def shown(self, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the function at the located owner and search items, or at the located struct, under the scope's label ahead of the stated keywords."""
         (member, _), names = held[0], function.parameters
         index = member.index.map(lambda at: {"index": at}).default_value({})
         options = self.target.labelled(member, context).map(lambda label: {**{key: value for key, value in label.items() if key in names}, **keywords, **index})
         arguments = tuple(part for _, at in held for part in at) if "property" in names else (getattr(*held[0][1]),)
-        alerted(layout, options)
-        for chosen in options.to_option().to_list():
+        for chosen in identity.reports.settled(options).to_list():
             getattr(layout, function.identifier)(*arguments, **chosen)
 
 
@@ -180,13 +178,13 @@ class OperatorButton(Iconed, frozen=True, kw_only=True):
         placement, function = self.placement, self.function
         operator = placement.operator
         icon = self.icon.or_else(operator.icon if isinstance(operator, Command) else Nothing)
-        return _keyworded(identity, self.keywords, icon).map(lambda keywords: partial(self.shown, function, placement.resolved(identity), keywords))
+        return _keyworded(identity, self.keywords, icon).map(lambda keywords: partial(self.shown, identity, function, placement.resolved(identity), keywords))
 
-    def shown(self, function: bpy.types.Function, operator: tuple[str, Pairs], keywords: Keywords, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, function: bpy.types.Function, operator: tuple[str, Pairs], keywords: Keywords, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws the button in a row holding the context members it publishes."""
         line = layout.row(align=True) if self.published else layout
         _published(self.published, line, holder, context)
-        alerted(line, _button(line, function, operator, keywords, invoked=_invoked(self.placement.operator)))
+        identity.reports.faulted(_button(line, function, operator, keywords, invoked=_invoked(self.placement.operator)))
 
 
 class Opens(Iconed, frozen=True, kw_only=True):
@@ -242,30 +240,6 @@ class Separator(ConditionalRow, frozen=True, kw_only=True):
     def shown(keywords: Keywords, layout: bpy.types.UILayout, _holder: Struct, _context: bpy.types.Context) -> None:
         """Draws the separator."""
         getattr(layout, FUNCTIONS["separator"].identifier)(**keywords)
-
-
-class Status(ConditionalRow, frozen=True, kw_only=True):
-    """Report banner over the extension's held report entries, with the button dismissing them while any is held."""
-
-    @staticmethod
-    def acquisitions(_identity: Identity, /) -> Acquisitions:
-        """Acquires the dismissal command."""
-        return (dismiss_reports,)
-
-    @staticmethod
-    def drawn(identity: Identity, /) -> Outcome[RowDraw]:
-        """Returns the draw reading held entries each redraw."""
-        return OperatorButton(target=dismiss_reports).drawn(identity).map(lambda dismiss: partial(Status.shown, identity, dismiss))
-
-    @staticmethod
-    def shown(identity: Identity, dismiss: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
-        """Draws the report banner with the dismissal button beside it while entries are held, then the extension's held entries."""
-        entries = identity.reports.entries
-        line = layout.row()
-        line.template_reports_banner()
-        if entries:
-            dismiss(line, holder, context)
-        listed(layout, entries)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -403,7 +377,6 @@ __all__ = [
     "RowContent",
     "RowDraw",
     "Separator",
-    "Status",
     "aligned",
     "even",
     "gridded",

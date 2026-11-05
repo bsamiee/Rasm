@@ -29,7 +29,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - `default-features = false` sits only where a default fails a build or run, harms all members, or duplicates a TLS, crypto, runtime, or clock crate
 - Restricted rows add back only defaults their role needs that no dependency turns on, their comment stating the fact that excludes others
 - Members inherit catalog rows whole through `workspace = true`, `feature-unification = "workspace"` builds each member under workspace features
-- Members reach a member through its catalog row pairing `path` with the workspace `version`, Cargo packages no unversioned path dependency
+- Members reach a member through its catalog row naming `path` alone, an unpublished package needs no `version` on a path dependency
 - Native libraries a `links` key names take one owner row, a second binding crate of the same library fails resolution
 - Rows pulling ring beside aws-lc-rs with no feature avoiding it stay until a member imports their crate
 
@@ -71,9 +71,10 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 ## [06]-[MEMBERS]
 
 - Members declare `name`, `edition.workspace = true`, their target, and `[lints] workspace = true`, Cargo assumes edition 2015 and no lints otherwise
-- `[workspace.package]` states shared package keys with `version` from `1.0.0`, a member inherits each through `<key>.workspace = true` alone
-- Publishable packages inherit every `[workspace.package]` key and state `description`, `keywords`, and `categories` for `cargo_common_metadata`
-- Unpublishable members state `publish = false` and inherit no `[workspace.package]` key beyond `edition`
+- `[workspace.package]` states `edition` alone, the one key every member shares
+- Members state `publish = false` and no other package metadata, Cargo reads `version` as `0.0.0` and `cargo_common_metadata` skips an unpublished package
+- `description` sits on a member whose code reads it, `clap::command!()` takes it as the command `about`
+- Executables state their version on their `clap` command, the tag describe string `install` compiles in as `RASM_VERSION`, else `0.0.0`, and libraries read `Command::get_version` for `service.version` and MCP identity
 - Untested members set `test` and `bench` false on `[lib]` and `[[bin]]`, `doctest` false on `[lib]`, and `clippy --tests` compiles no empty harness
 - Members name their crate root beside `Cargo.toml` through `[lib] path` or `[[bin]] path`, Cargo discovers targets under `src/` alone
 - Binary packages take their binary's name, the Nx project and installed command then share one name

@@ -5,12 +5,12 @@ description: "Use when drawing or hosting .NET UI, covering Skia surfaces, shape
 
 # [DOTNET_CODING_UI]
 
-Drawn and hosted .NET UI over SkiaSharp, HarfBuzzSharp, RichTextKit, Svg.Skia, Unicolour, and Eto.Forms, from pixel contracts to platform handlers. Resolve Eto members from the assembly loaded by the host.
+Drawn and hosted .NET UI from pixel contracts to platform handlers. Resolve Eto members from the assembly loaded by the host.
 
 [REFERENCES]:
-- [01]-[SKIA](references/skia.md): SkiaSharp ownership, color management, layers and filters, effects, pictures, GPU surfaces, text, and documents
-- [02]-[TEXT](references/text.md): HarfBuzz objects and buffer protocol, features and variations, RichTextKit blocks, fallback, carets, and editing
-- [03]-[ETO](references/eto.md): Eto handler seams, lifecycle, threading, scale, pixels, input, commands, layout, windows, and theme
+- [01]-[SKIA](references/skia.md): SkiaSharp API under a scene, with ownership, cost, or color behavior deciding each use
+- [02]-[TEXT](references/text.md): HarfBuzz and RichTextKit API from code points to glyphs, with lifetime, cost, or index behavior deciding each use
+- [03]-[ETO](references/eto.md): Eto API hosting a scene and native controls, with platform or timing behavior deciding each use
 
 ## [01]-[NATIVE_OVER_DRAWN]
 
@@ -41,7 +41,7 @@ Drawn surfaces sit where no native control can (viewport overlay, plot, tile gal
 One surface type per scene owns its pixels and its `SKImageInfo` contract (device size, `SKColorType`, `SKAlphaType.Premul`, `SKColorSpace`) fixed before the first draw. Host adapters forward input and blit a snapshot:
 - Raster serves panel UI repainted by damage region, GPU serves full-window animation, large images, and runtime shaders
 - One scene paints raster and GPU targets through `SKCanvas`
-- `SKSurface.Create` answers `null` for an info its backend refuses, an allocation returns a `Fault` under `Reason.Refused` naming the info and its host shows it
+- `SKSurface.Create` answers `null` for an info its backend refuses, an allocation returns a `Fault` under `Reason.Refused` naming the info
 - `SKSurface.Create(info, pixels, rowBytes, releaseProc, context)` draws into host memory and releases it with the surface, one object owns both
 - `SKPixmap(info, pointer, rowBytes)` views host bits without a copy, `SKSurface.Create(pixmap, props)` draws into them
 - `Flush(submit: true)` submits GPU work, a raster surface draws synchronously and a `Flush` on it does nothing
@@ -184,7 +184,7 @@ internal readonly record struct Vignette(SKSize Size, SKColorF Tint) {
 
 ## [04]-[VECTOR_ART]
 
-Vector art loads once into an `SKPicture` and draws at any scale, tint and theme enter at load, and the loader runs at realization off the paint path:
+Vector art loads once through Svg.Skia into an `SKPicture` and draws at any scale, tint and theme enter at load, and the loader runs at realization off the paint path:
 - `SvgService.Open(stream, parameters)` parses one document, `SKSvg.ToPicture(fragment, model, loader)` renders it through a shared `SkiaModel`
 - `SkiaModel(SKSvgSettings)` and `SkiaSvgAssetLoader(model)` build once per target, `SKSvgSettings.Srgb` and `SrgbLinear` hold its `SKColorSpace`
 - `SKSvg.CreateFromStream(stream, parameters)` parses and renders with its own model and loader into `Picture`, one instance per document

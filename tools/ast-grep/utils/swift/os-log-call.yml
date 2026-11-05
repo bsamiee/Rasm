@@ -7,13 +7,13 @@ utils:
         has:
             field: target
             kind: call_expression
-            has: {nthChild: 1, kind: navigation_expression, regex: '^os\.Logger(\.init)?$'}
+            has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^os(\.|::)Logger(\.init)?$'}
     signposter:
         kind: navigation_expression
         has:
             field: target
             kind: call_expression
-            has: {nthChild: 1, kind: navigation_expression, regex: '^os\.OSSignposter(\.init)?$'}
+            has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^os(\.|::)OSSignposter(\.init)?$'}
 rule:
     kind: call_expression
     any:
@@ -21,15 +21,15 @@ rule:
             - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.(trace|debug|info|notice|warning|error|critical|fault)$'}}
             - any:
                 - has: {nthChild: 1, matches: logger}
-                - matches: {swift-parameter-use: {type: {regex: '^os\.Logger$'}}}
+                - matches: {swift-parameter-use: {type: {regex: '^os(\.|::)Logger$'}}}
         - all:
             - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.(emitEvent|beginInterval|beginAnimationInterval|endInterval|withIntervalSignpost)$'}}
             - any:
                 - has: {nthChild: 1, matches: signposter}
-                - matches: {swift-parameter-use: {type: {regex: '^os\.OSSignposter$'}}}
+                - matches: {swift-parameter-use: {type: {regex: '^os(\.|::)OSSignposter$'}}}
         - all:
             - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.log$'}}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {nthChild: 1, kind: value_argument, any: [{not: {has: {field: name, regex: '.'}}}, {has: {field: name, regex: '^level$'}}]}}}
             - any:
                 - has: {nthChild: 1, matches: logger}
-                - matches: {swift-parameter-use: {type: {regex: '^os\.Logger$'}}}
+                - matches: {swift-parameter-use: {type: {regex: '^os(\.|::)Logger$'}}}

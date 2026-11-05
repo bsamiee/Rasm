@@ -4,7 +4,7 @@ severity: error
 ignores: ['tools/roslyn/**']
 utils:
     error-type:
-        matches: {csharp-type-name: {name: {regex: '^(Error|\p{XID_Continue}*Exception)$'}}}
+        matches: {csharp-type-name: {name: {regex: '^Error$|Exception$'}}}
     typed:
         any:
             - matches: error-type
@@ -60,7 +60,7 @@ utils:
                                 kind: invocation_expression
                                 has:
                                     field: function
-                                    regex: '(^|\.)(Catch|CatchIO|@catch|IfFail|MapFail|BindFail|Retry(While|Until)(IO)?|retry(While|Until))([\p{White_Space}\x{FEFF}]*<.+>)?$'
+                                    matches: {csharp-type-name: {name: {regex: '^(?:Catch|CatchIO|@catch|IfFail|MapFail|BindFail|Retry(?:While|Until)(?:IO)?|retry(?:While|Until))$'}}}
             - kind: lambda_expression, anonymous_method_expression
               all:
                 - matches: single-parameter

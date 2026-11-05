@@ -13,12 +13,9 @@ public sealed record DialogAction(CommandPresentation Presentation, IO<Unit> Run
     public HashSet<Condition> Conditions { get; init; }
 
     internal static Seq<View> Footer(Seq<DialogAction> actions, Fin<Unit> valid) =>
-        valid.Match(
-            Succ: static _ => Seq<View>(),
-            Fail: static error => error.IsExpected ? Seq<View>(new View.Text([error.Message]) { Role = Roles.Label, Conditions = [Condition.Faulted], Accessible = new Accessible { Interrupts = Some(value: false) } }) : [])
-        + (actions.IsEmpty ? [] : Seq<View>(new View.Flex(PhysicalAxis.Horizontal, Seq<View>(new View.Box { Width = Sizing.Grow.Unit }) + actions.Map(action => action.Drawn(valid.IsFail))) {
+        actions.IsEmpty ? [] : Seq<View>(new View.Flex(PhysicalAxis.Horizontal, Seq<View>(new View.Box { Width = Sizing.Grow.Unit }) + actions.Map(action => action.Drawn(valid.IsFail))) {
             Width = Sizing.Grow.Unit,
-        }));
+        });
 
     private View Drawn(bool gated) =>
         (gated && Conditions.Contains(Condition.Default) ? Conditions.TryAdd(Condition.Disabled) : Conditions) switch {
@@ -66,7 +63,6 @@ public sealed record Palette<TItem>(Seq<TItem> Items, Func<TItem, CommandPresent
     public Func<TItem, Option<string>> Group { get; init; } = static _ => None;
     public Func<TItem, Option<View>> Preview { get; init; } = static _ => None;
     public Seq<Key> Recent { get; init; }
-    public Option<string> Empty { get; init; }
     public Option<IO<Unit>> Dismissed { get; init; }
 
     public View.Layer Drawn(CultureInfo culture) {
@@ -81,7 +77,7 @@ public sealed record Palette<TItem>(Seq<TItem> Items, Func<TItem, CommandPresent
         Option<(TItem Item, CommandPresentation Shown)> current = found.Find(entry => Active == Some(entry.Shown.Key)) || found.Head;
         Option<Key> active = current.Map(static entry => entry.Shown.Key);
         View results = found.IsEmpty
-            ? Empty.Map(Panel.Placeholder).IfNone(static () => new View.Box())
+            ? new View.Box()
             : new View.Scroll(PhysicalAxis.Vertical, new Part.Choice(found.Map(static entry => entry.Shown.Key), active, Edited).Drawn(
                 found.Map(entry => entry.Shown.Item([], None, query.Marked(entry.Shown.Caption, culture))),
                 rows => new View.Flex(PhysicalAxis.Vertical,

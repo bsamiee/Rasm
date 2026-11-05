@@ -93,7 +93,7 @@ def test_repeated_runs_keep_all_nested_merge_findings(tmp_path: Path) -> None:
 def test_inline_source_keeps_findings_ignores_and_debug() -> None:
     """Valid inline source retains native filename ownership, source ignores, and its debug tree."""
     source = "def read(*, width: int = 80) -> int:\n    return width\nread(width=80)\nread(width=80)  # noqa: RASM102\n"
-    found = checked(load_settings(["--debug", "--", "--config-file", devnull, "-c", source]))
+    found = checked(load_settings(["--debug", "--", "--config-file", devnull, "--cache-dir", devnull, "-c", source]))
     assert [(type(error), error.filename, error.line) for error in found if isinstance(error, Error)] == [(ErrorRestatedDefaultError, "<string>", 3)]
     assert len(found) == 2
     assert any(isinstance(error, str) and MypyFile.__name__ in error for error in found)
@@ -105,7 +105,7 @@ def test_inline_source_keeps_findings_ignores_and_debug() -> None:
 )
 def test_native_compiler_diagnostics_are_returned(source: str, code: ErrorCode, lines: tuple[int, ...]) -> None:
     """Native syntax and ordinary type diagnostics retain compiler ordering through inline source arguments."""
-    found = checked(load_settings(["--", "--config-file", devnull, "-c", source]))
+    found = checked(load_settings(["--", "--config-file", devnull, "--cache-dir", devnull, "-c", source]))
     assert len(found) == len(lines)
     assert all(isinstance(error, str) and error.startswith(f"<string>:{line}:") and f"[{code.code}]" in error for error, line in zip(found, lines, strict=True))
 

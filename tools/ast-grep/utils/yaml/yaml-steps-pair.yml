@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: yaml-steps-pair
+language: yaml
+utils:
+    node: {kind: 'block_node, flow_node'}
+    map: {kind: 'block_mapping, flow_mapping'}
+    root-map: {kind: 'document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)'}
+    job-map:
+        matches: map
+        inside:
+            matches: node
+            inside:
+                kind: block_mapping_pair, flow_pair
+                inside:
+                    matches: map
+                    inside:
+                        matches: node
+                        inside: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?jobs["'']?$'}, value: {matches: node}}}, inside: {matches: root-map}}
+    composite-map:
+        matches: map
+        inside: {matches: node, inside: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?runs["'']?$'}, value: {matches: node}}}, inside: {matches: root-map}}}
+        has: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?using["'']?$'}, value: {has: {regex: '^["'']?(?i-u:composite)["'']?$'}}}}}
+rule:
+    matches: {yaml-resolved-pair: {key: {regex: '^["'']?steps["'']?$'}, value: {matches: node}}}
+    inside: {any: [{matches: job-map}, {matches: composite-map}]}

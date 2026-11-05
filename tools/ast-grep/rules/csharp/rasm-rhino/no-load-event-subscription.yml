@@ -18,6 +18,6 @@ rule:
           all:
             - has: {kind: modifier, regex: '^override$'}
             - has: {field: name, regex: '^On(Load|LoadComplete|UnLoad)$', pattern: $EVENT}
-            - has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1, has: {field: type, regex: 'EventArgs$'}}}, {not: {has: {kind: parameter, nthChild: 2}}}]}
+            - has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1, has: {field: type, matches: {csharp-type-name: {name: {regex: 'EventArgs$'}}}}}}, {not: {has: {kind: parameter, nthChild: 2}}}]}
 message: '`$EVENT` restates the control lifetime'
 note: 'Fold load-scoped work over the `Loaded(<control>)` host event'

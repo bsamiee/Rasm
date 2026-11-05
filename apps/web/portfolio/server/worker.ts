@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import { D1Client } from '@effect/sql-d1';
 import { Catalog } from '@rasm/database';
 import { CloudflareAccess } from '@rasm/hosting';
@@ -11,7 +12,9 @@ import { catalog } from '#/server/catalog.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default serveWorker(config.worker({ mode: 'production', isPreview: false }), (env) =>
+export default serveWorker(
+    env,
+    config.worker({ mode: 'production', isPreview: false }),
     app(
         env.OWNER_EMAIL,
         Layer.mergeAll(

@@ -10,7 +10,7 @@ rule:
             - all:
                 - has: {nthChild: 1, regex: '(^|\.)activate$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^(options|from|ignoringOtherApps)$'}}}}
-            - has: {nthChild: 1, regex: '^((AppKit\.)?NSApp|(AppKit\.)?NSApplication\.shared)\.(activate|unhide)$'}
+            - has: {nthChild: 1, regex: '^((AppKit(\.|::))?NSApp|(AppKit(\.|::))?NSApplication\.shared)\.(activate|unhide)$'}
             - has: {nthChild: 1, regex: '(^|\.)activateFileViewerSelecting$'}
             - all:
                 - has: {nthChild: 1, regex: '(^|\.)(selectFile|showSearchResults)$'}
@@ -19,8 +19,8 @@ rule:
                 - has:
                     nthChild: 1
                     any:
-                        - regex: '^(AppKit\.)?NSWorkspace\.shared\.open$'
-                        - {regex: '^(self\.)?open$', inside: {kind: class_declaration, stopBy: end, has: {field: name, regex: '^(AppKit\.)?NSWorkspace$'}}}
+                        - regex: '^(AppKit(\.|::))?NSWorkspace\.shared\.open$'
+                        - {regex: '^(self\.)?open$', inside: {kind: class_declaration, stopBy: end, has: {field: name, regex: '^(AppKit(\.|::))?NSWorkspace$'}}}
                 - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^configuration$'}}}}}
             - all:
                 - has: {nthChild: 1, regex: '(^|\.)(openApplication|open)$'}
@@ -41,7 +41,7 @@ rule:
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {stopBy: end, kind: simple_identifier, regex: '^kAEActivate$'}}}}
             - all:
                 - has: {nthChild: 1, regex: '^NSAppleScript(\.init)?$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^source$'}}, {has: {field: value, regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set\p{White_Space}+frontmost(?-u:\b)|AXRaise'}}]}}}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^source$'}}, {has: {field: value, regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\t-\r ]+frontmost(?-u:\b)|AXRaise'}}]}}}
         - kind: assignment
           pattern: $SITE
           all:

@@ -1,21 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: bashlang
 severity: error
-utils:
-    unreported:
-        inside: {kind: ERROR, stopBy: end}
-rule:
-    any:
-        - kind: ERROR
-          not: {matches: unreported}
-        - kind: program
-          has:
-            stopBy: end
-            all:
-                - regex: '^$'
-                - pattern: $$MISSING
-                - not: {matches: unreported}
-labels:
-    MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: Grammar failed to parse the span
+rule: {matches: bash-unparsed}
+message: Grammar failed to parse the span or inserted a missing token
 note: Correct invalid syntax or add its missing grammar production

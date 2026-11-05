@@ -9,6 +9,7 @@ from functools import partial, reduce
 import graphlib
 import inspect
 from itertools import chain
+import sys
 from threading import Event
 from types import MappingProxyType
 from typing import Final, NoReturn, Protocol, runtime_checkable
@@ -245,10 +246,14 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
     run: Callable[[A, tuple[str, ...]], Outcome[int]]
 
     def acquisitions(self, identity: Identity, /) -> Acquisitions:
-        """Builds the prefixed command acquisition, reports holding command faults."""
+        """Builds the prefixed command acquisition, stderr holding command faults."""
         command = identity.identifier(self.key)
-        executed = identity.reports.reported(partial(self.executed, command))
-        return ((Tier.REGISTRIES, scoped(command, partial(bpy.utils.register_cli_command, command, lambda arguments: executed(arguments).default_value(1)), bpy.utils.unregister_cli_command)),)
+        return (
+            (
+                Tier.REGISTRIES,
+                scoped(command, partial(bpy.utils.register_cli_command, command, lambda arguments: self.executed(command, arguments).default_with(_refused)), bpy.utils.unregister_cli_command),
+            ),
+        )
 
     def executed(self, command: str, arguments: list[str], /) -> Outcome[int]:
         """Runs over the decoded first argument and the rest unchanged, unreadable fault for an undecodable document, absent fault for no argument."""
@@ -337,7 +342,7 @@ class Registration:
             manager.keyconfigs.update(keep_properties=True)
 
         def registered(stack: ExitStack, identity: Identity) -> Outcome[None]:
-            """Enters keymap merge, reports, and band stacks with the manual map hook of a manifest website, builds rows, and enters every band."""
+            """Enters keymap merge and band stacks with the manual map hook of a manifest website, builds rows, and enters every band."""
 
             def manual(website: str) -> AbstractContextManager[Outcome[None]]:
                 hook = partial(_mapped, identity, website)
@@ -379,7 +384,6 @@ class Registration:
                 return _each(built, _prerequisites(row)).bind(lambda _: _each(opened, _EAGER)).bind(lambda _: declared(row, answer())).bind(partial(_each, built)).bind(lambda _: _each(opened, _EAGER))
 
             stack.callback(merged)
-            stack.enter_context(identity.reports)
             stacks = {band: stack.enter_context(ExitStack()) for band in Tier}
             declarations: list[Declaration | Gathering] = []
             pairs: dict[tuple[Tier, Acquisition], bool] = dict.fromkeys(((Tier.REGISTRIES, manual(website)) for website in Option.of_optional(identity.manifest.website).to_list()), False)
@@ -390,7 +394,12 @@ class Registration:
             owner = _bpy._bl_owner_id_get()  # ruff: ignore[private-member-access]
             _bpy._bl_owner_id_set(self.package)  # ruff: ignore[private-member-access]
             try:
-                outcome = Identity.read(self.package).bind(lambda identity: registered(stack, identity).map(lambda _: identity))
+                outcome = Identity.read(self.package).bind(
+                    lambda identity: catch(stack.enter_context, exception=OSError)(identity.reports)
+                    .map_error(partial(Fault.of, Reason.UNWRITABLE, str(identity.folder)))
+                    .bind(lambda _: registered(stack, identity))
+                    .map(lambda _: identity)
+                )
             finally:
                 _bpy._bl_owner_id_set(owner)  # ruff: ignore[private-member-access]
             yield outcome
@@ -407,6 +416,12 @@ class Registration:
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # --- [HANDLERS]
+
+
+def _refused(faults: tuple[Fault, ...], /) -> int:
+    """Writes command faults to stderr, returning the failing exit code."""
+    sys.stderr.write("".join(f"{fault.message}\n" for fault in faults))
+    return 1
 
 
 def _dispatching(calls: list[Callable[..., None]], /) -> Callable[..., None]:  # type: ignore[explicit-any]

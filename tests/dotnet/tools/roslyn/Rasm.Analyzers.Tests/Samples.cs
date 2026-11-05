@@ -31,8 +31,14 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 
     private static readonly string EditorConfig = File.ReadAllText(Path.Combine(AttributeReader.GetSolutionDirectory(typeof(Analysis).Assembly), ".editorconfig"));
 
+    private static readonly ReferenceAssemblies Framework =
+        typeof(Analysis).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().ToFrozenDictionary(static held => held.Key, static held => held.Value!, StringComparer.Ordinal) switch {
+            var build => new(build["TargetingPackFramework"], new PackageIdentity(build["TargetingPackId"], build["TargetingPackVersion"]), Path.Combine("ref", build["TargetingPackFramework"])),
+        };
+
     internal Analysis(DiagnosticDescriptor? rule = null) {
-        ReferenceAssemblies = ReferenceAssemblies.Net.Net100;
+        ReferenceAssemblies = Framework;
+        DisabledDiagnostics.AddRange(["CS1701", "CS1702"]);
         foreach (Assembly assembly in new[] { typeof(Fin<>).Assembly, typeof(UnionAttribute).Assembly, typeof(RhinoDoc).Assembly, typeof(Bitmap).Assembly, typeof(Application).Assembly, typeof(ILogger).Assembly })
             TestState.AdditionalReferences.Add(assembly);
         TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
@@ -44,10 +50,7 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
     }
 
     protected override CompilationOptions CreateCompilationOptions() =>
-        ((CSharpCompilationOptions)base.CreateCompilationOptions()).WithNullableContextOptions(NullableContextOptions.Enable)
-            .WithSpecificDiagnosticOptions(CSharpCommandLineParser.Default.Parse(
-                [$"@{Path.ChangeExtension(typeof(Analysis).Assembly.Location, "compiler.rsp")}"],
-                baseDirectory: AppContext.BaseDirectory, sdkDirectory: null).CompilationOptions.SpecificDiagnosticOptions);
+        ((CSharpCompilationOptions)base.CreateCompilationOptions()).WithNullableContextOptions(NullableContextOptions.Enable);
 
     protected override IEnumerable<DiagnosticAnalyzer> GetDiagnosticAnalyzers() => Analyzers;
 

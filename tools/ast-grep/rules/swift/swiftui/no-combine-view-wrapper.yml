@@ -5,9 +5,9 @@ rule:
     pattern: $SITE
     any:
         - kind: attribute
-          regex: '^@(SwiftUI\.)?(StateObject|ObservedObject|EnvironmentObject)$'
+          regex: '^@(SwiftUI(\.|::))?(StateObject|ObservedObject|EnvironmentObject)$'
         - kind: call_expression
-          has: {nthChild: 1, regex: '^(SwiftUI\.)?(StateObject|ObservedObject)(\.init)?$'}
+          has: {nthChild: 1, regex: '^(SwiftUI(\.|::))?(StateObject|ObservedObject)(\.init)?$'}
         - kind: call_expression
           has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.environmentObject$'}}
 message: '`$SITE` holds or injects a Combine `ObservableObject` through a SwiftUI wrapper'

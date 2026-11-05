@@ -3,7 +3,7 @@ import { Maybe } from '../monads.ts';
 import { type CommandRequest, commandDecision, policyFailure, type System } from '../policies/command-decision.ts';
 import { bundleId, WATCHER } from '../policies/internal/apps.ts';
 import { WORKTREE } from '../policies/internal/git.ts';
-import { type AppInstance, applyChange, type Change, createdPids, logInstances, outputChange, storedInstances } from './app-instance.ts';
+import { type AppInstance, applyChange, type Change, createdPids, detachedQuit, outputChange, storedInstances } from './app-instance.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -47,29 +47,12 @@ const recordChange = async ($: EngineInterface, agent: string | undefined, { cre
 
 // --- [QUIT]
 
-const quitInstances = async ($: EngineInterface, instances: readonly AppInstance[], budget: NextBudget): Promise<void> => {
+const liveInstances = async ($: EngineInterface, instances: readonly AppInstance[]): Promise<readonly AppInstance[]> => {
     const running = await runningInstances(
         $,
         instances.map(({ pid }) => pid),
     );
-    const stillRunning = instances.filter((instance) => running.some(({ pid, bundle }) => pid === instance.pid && bundle === instance.bundle));
-    const quit = async (targets: readonly AppInstance[], force: readonly string[]): Promise<ReadonlySet<number>> => {
-        const timeoutMs = Math.floor(budget.remainingMs / (force.length === 0 ? 2 : 1));
-        const results = await Promise.all(
-            targets.map(({ pid }) =>
-                $.process.run([WATCHER, 'quit', '--pid', String(pid), ...force], { timeoutMs }).then(
-                    ({ exitCode, stdout }) => (exitCode === 0 ? [...outputChange(stdout).exited] : []),
-                    () => [],
-                ),
-            ),
-        );
-        return new Set(results.flat());
-    };
-    const exited = await quit(stillRunning, []);
-    await quit(
-        stillRunning.filter(({ pid }) => !exited.has(pid)),
-        ['--force'],
-    );
+    return instances.filter((instance) => running.some(({ pid, bundle }) => pid === instance.pid && bundle === instance.bundle));
 };
 
 const quitAgentInstances = async ($: EngineInterface, agent: string, budget: NextBudget): Promise<void> => {
@@ -78,18 +61,26 @@ const quitAgentInstances = async ($: EngineInterface, agent: string, budget: Nex
     if (agentInstances.length === 0) {
         return;
     }
-    await quitInstances($, agentInstances, budget);
-    await $.store.set(
-        key,
-        storedInstances(await $.store.get(key)).filter((instance) => instance.agent !== agent),
+    const live = await liveInstances($, agentInstances);
+    const timeoutMs = Math.floor(budget.remainingMs);
+    const quit = await Promise.all(
+        live.map(({ pid }) =>
+            $.process.run([WATCHER, 'quit', '--pid', String(pid)], { timeoutMs }).then(
+                ({ stdout }) => [...outputChange(stdout).exited],
+                () => [],
+            ),
+        ),
     );
+    const gone = agentInstances.filter((instance) => !live.includes(instance)).map(({ pid }) => pid);
+    await $.store.set(key, applyChange(storedInstances(await $.store.get(key)), { created: [], exited: new Set([...gone, ...quit.flat()]) }));
 };
 
-const quitSessionInstances = async ($: EngineInterface, session: string, budget: NextBudget): Promise<void> => {
+const quitSessionInstances = async ($: EngineInterface, session: string): Promise<void> => {
     const key = storeKey(session);
-    const log = await $.env.get('WATCH_APPS_LOG');
-    const text = log !== undefined && (await $.fs.exists(log)) ? await $.fs.read(log) : '';
-    await quitInstances($, applyChange(logInstances(text, session), { created: storedInstances(await $.store.get(key)), exited: new Set() }), budget);
+    const live = await liveInstances($, storedInstances(await $.store.get(key)));
+    if (live.length > 0) {
+        await $.process.run(['sh', '-c', detachedQuit(live.map(({ pid }) => pid))], { stdin: '' });
+    }
     await $.store.delete(key);
 };
 
@@ -100,7 +91,7 @@ const register: Register = (on) => {
     on('tool.call', { tool: 'EnterWorktree' }, (_$, e) => ({ deny: `${e.tool} ${WORKTREE}` }));
     on('tool.call', { tool: 'Agent', isolation: 'worktree' }, (_$, e) => ({ deny: `${e.tool} with isolation ${e.isolation} ${WORKTREE}` }));
     on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (WORKTREE_ISOLATION.test(e.scriptPath === undefined ? (e.script ?? '') : await $.fs.read(e.scriptPath)) ? { deny: `${e.tool} agent with isolation worktree ${WORKTREE}` } : next(e)));
-    on('tool.call', { tool: 'mcp__computer-use__open_application' }, (_$, e) => ({ deny: `open_application brings ${String(e.app ?? '<app>')} to front, use ${WATCHER} launch` }));
+    on('tool.call', { tool: 'mcp__computer-use__request_access' }, (_$, e, next) => (e.agentId === undefined ? next(e) : { deny: 'request_access waits on a person, report pid, window number and capture path to the lead and stop' }));
     on('tool.call', { tool: ['mcp__atelier__launch', 'mcp__atelier__open'] }, async ($, e, next) => {
         const answer = await next(e);
         await recordChange($, e.agentId, { created: await runningInstances($, createdPids(answer.result)), exited: new Set() });
@@ -158,7 +149,7 @@ const register: Register = (on) => {
         return next(e);
     });
     on('session.end', async ($, e, next) => {
-        await quitSessionInstances($, e.sessionId, next.budget);
+        await quitSessionInstances($, e.sessionId);
         return next(e);
     });
 };

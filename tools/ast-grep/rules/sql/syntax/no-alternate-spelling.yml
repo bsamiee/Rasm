@@ -7,51 +7,51 @@ rule:
     any:
         - kind: limit_clause
           all:
-              - has: {regex: '^,$'}
-              - has: {nthChild: {position: 1, ofRule: &named {not: {kind: 'line_comment, block_comment'}}}, kind: numeric_literal}
+            - has: {regex: '^,$'}
+            - has: {nthChild: {position: 1, ofRule: &named {not: {kind: 'line_comment, block_comment'}}}, kind: numeric_literal}
         - {kind: join_step, has: {regex: '(?i-u)^(inner|outer)$'}}
         - kind: begin_statement, commit_statement, rollback_statement
           all:
-              - has: {regex: '(?i-u)^(transaction|end)$', not: {pattern: $_}}
-              - has: {stopBy: end, pattern: $_, not: {kind: identifier}}
+            - has: {regex: '(?i-u)^(transaction|end)$', not: {pattern: $_}}
+            - has: {stopBy: end, pattern: $_, not: {kind: identifier}}
         - {kind: 'select_statement, select_clause', has: {regex: '(?i-u)^all$', follows: {regex: '(?i-u)^select$', stopBy: *named}}}
         - {kind: 'create_table_statement, create_view_statement, create_trigger_statement', has: {field: temporary, regex: '(?i-u)^temporary$'}}
         - kind: function_call
           all:
-              - has: {field: name, regex: '(?i-u)^["`\[]?count["`\]]?$'}
-              - not: {has: {field: arguments, has: {not: {kind: 'line_comment, block_comment'}}}}
+            - has: {field: name, regex: '(?i-u)^["`\[]?count["`\]]?$'}
+            - not: {has: {field: arguments, has: {not: {kind: 'line_comment, block_comment'}}}}
         - kind: function_call
           all:
-              - has: {field: name, regex: '(?i-u)^["`\[]?count["`\]]?$'}
-              - has:
-                  field: arguments
-                  kind: normal_function_arguments
-                  all:
-                      - not: {has: {field: modifier, regex: '(?i-u)^distinct$'}}
-                      - not: {has: {nthChild: {position: 2, ofRule: *named}}}
-                      - has: {stopBy: end, pattern: $_, not: {kind: 'numeric_literal, blob_literal, current_time_literal, unary_expression'}}
-                      - has:
-                          nthChild: {position: 1, ofRule: *named}
-                          any:
-                              - kind: string_literal
-                              - {kind: unary_expression, has: {field: operand, kind: numeric_literal}}
-                              - kind: numeric_literal, blob_literal, current_time_literal
-                                inside: {has: {field: modifier, regex: '(?i-u)^all$'}}
+            - has: {field: name, regex: '(?i-u)^["`\[]?count["`\]]?$'}
+            - has:
+                field: arguments
+                kind: normal_function_arguments
+                all:
+                    - not: {has: {field: modifier, regex: '(?i-u)^distinct$'}}
+                    - not: {has: {nthChild: {position: 2, ofRule: *named}}}
+                    - has: {stopBy: end, pattern: $_, not: {kind: 'numeric_literal, blob_literal, current_time_literal, unary_expression'}}
+                    - has:
+                        nthChild: {position: 1, ofRule: *named}
+                        any:
+                            - kind: string_literal
+                            - {kind: unary_expression, has: {field: operand, kind: numeric_literal}}
+                            - kind: numeric_literal, blob_literal, current_time_literal
+                              inside: {has: {field: modifier, regex: '(?i-u)^all$'}}
         - kind: is_expression
           all:
-              - has: {regex: '(?i-u)^distinct$'}
-              - has: {field: right, kind: null_literal}
+            - has: {regex: '(?i-u)^distinct$'}
+            - has: {field: right, kind: null_literal}
         - {kind: binary_expression, has: {field: operator, regex: '^(==|!=)$'}}
         - kind: is_null_expression
         - kind: function_call
           all:
-              - has: {field: name, regex: '(?i-u)^["`\[]?group_concat["`\]]?$'}
-              - has:
-                  field: arguments
-                  kind: normal_function_arguments
-                  all:
-                      - not: {has: {field: modifier, regex: '(?i-u)^distinct$'}}
-                      - not: {has: {nthChild: {position: 2, ofRule: *named}, not: {kind: order_by_clause}}}
+            - has: {field: name, regex: '(?i-u)^["`\[]?group_concat["`\]]?$'}
+            - has:
+                field: arguments
+                kind: normal_function_arguments
+                all:
+                    - not: {has: {field: modifier, regex: '(?i-u)^distinct$'}}
+                    - not: {has: {nthChild: {position: 2, ofRule: *named}, not: {kind: order_by_clause}}}
 message: '`$NODE` uses an alternate SQL spelling'
 note: 'Use SQL operators and standard function names while preserving literal values, comments, collation, and evaluation'
 ---
@@ -61,7 +61,7 @@ severity: error
 rule:
     kind: identifier, quoted_identifier
     pattern: $NAME
-    regex: '(?i-u)^["`\[]?(ifnull|substring|ceiling|power|if|group_concat)["`\]]?$'
+    regex: '(?i-u)^["`\[]?(ifnull|substring|ceiling|power|if|printf|log10|group_concat)["`\]]?$'
     inside:
         kind: function_call
         field: name
@@ -80,7 +80,9 @@ transform:
     CEIL: {replace: {source: $SLICE, replace: '(?i-u)^["`\[]?ceiling["`\]]?$', by: ceil}}
     POW: {replace: {source: $CEIL, replace: '(?i-u)^["`\[]?power["`\]]?$', by: pow}}
     CHOICE: {replace: {source: $POW, replace: '(?i-u)^["`\[]?if["`\]]?$', by: iif}}
-    AGGREGATE: {replace: {source: $CHOICE, replace: '(?i-u)^["`\[]?group_concat["`\]]?$', by: string_agg}}
+    FORMAT: {replace: {source: $CHOICE, replace: '(?i-u)^["`\[]?printf["`\]]?$', by: format}}
+    LOG: {replace: {source: $FORMAT, replace: '(?i-u)^["`\[]?log10["`\]]?$', by: log}}
+    AGGREGATE: {replace: {source: $LOG, replace: '(?i-u)^["`\[]?group_concat["`\]]?$', by: string_agg}}
 fix: $AGGREGATE
 message: '`$NAME` aliases `$AGGREGATE`'
 note: 'Use the canonical function name'
@@ -100,14 +102,14 @@ rule:
     any:
         - kind: numeric_literal, blob_literal, current_time_literal
           inside:
-              matches: count-arguments
-              not: {has: {field: modifier, pattern: $$_}}
+            matches: count-arguments
+            not: {has: {field: modifier, pattern: $$_}}
         - matches: count-arguments
           all:
-              - not: {has: {stopBy: end, pattern: $_, not: {kind: 'numeric_literal, blob_literal, current_time_literal, unary_expression'}}}
-              - any:
-                    - has: {field: modifier, regex: '(?i-u)^all$'}
-                    - has: {kind: unary_expression, has: {field: operand, kind: numeric_literal}}
+            - not: {has: {stopBy: end, pattern: $_, not: {kind: 'numeric_literal, blob_literal, current_time_literal, unary_expression'}}}
+            - any:
+                - has: {field: modifier, regex: '(?i-u)^all$'}
+                - has: {kind: unary_expression, has: {field: operand, kind: numeric_literal}}
 fix: '*'
 message: '`$ARGUMENT` is a non-NULL count argument'
 note: 'Use `count(*)`'
@@ -123,11 +125,11 @@ rule:
         - not: {has: {stopBy: end, pattern: $_, not: {kind: identifier}}}
         - has: {regex: '(?i-u)^(begin|commit|end|rollback)$', pattern: $$KEYWORD}
         - any:
-              - has: {field: mode, pattern: $$MODE}
-              - not: {has: {field: mode, pattern: $$_}}
+            - has: {field: mode, pattern: $$MODE}
+            - not: {has: {field: mode, pattern: $$_}}
         - any:
-              - has: {field: savepoint, pattern: $SAVEPOINT, regex: '.'}
-              - not: {has: {field: savepoint, pattern: $$_}}
+            - has: {field: savepoint, pattern: $SAVEPOINT, regex: '.'}
+            - not: {has: {field: savepoint, pattern: $$_}}
 transform:
     VERB: {replace: {source: $$KEYWORD, replace: '(?i-u)^end$', by: commit}}
     MODE_CLAUSE: {replace: {source: $$MODE, replace: '^(.+)$', by: ' $1'}}

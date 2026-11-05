@@ -13,20 +13,20 @@ utils:
             - matches: {python-binding: {name: {pattern: $BASE}}}
             - kind: import_statement
               has:
-                  any:
-                      - kind: dotted_name
-                        has: {nthChild: 1, kind: identifier, pattern: $BASE}
-                      - kind: aliased_import
-                        has: {field: alias, pattern: $BASE}
+                any:
+                    - kind: dotted_name
+                      has: {nthChild: 1, kind: identifier, pattern: $BASE}
+                    - kind: aliased_import
+                      has: {field: alias, pattern: $BASE}
             - kind: import_from_statement
               has:
-                  any:
-                      - kind: wildcard_import
-                      - kind: dotted_name
-                        pattern: $BASE
-                        not: {inside: {kind: import_from_statement, field: module_name}}
-                      - kind: aliased_import
-                        has: {field: alias, pattern: $BASE}
+                any:
+                    - kind: wildcard_import
+                    - kind: dotted_name
+                      pattern: $BASE
+                      not: {inside: {kind: import_from_statement, field: module_name}}
+                    - kind: aliased_import
+                      has: {field: alias, pattern: $BASE}
     binding-statement:
         any:
             - matches: binding
@@ -56,40 +56,40 @@ utils:
     enclosing-lookup:
         any:
             - inside:
-                  kind: block
-                  stopBy: *scope
-                  inside: {kind: class_definition, field: body, matches: enclosing-lookup}
+                kind: block
+                stopBy: *scope
+                inside: {kind: class_definition, field: body, matches: enclosing-lookup}
             - not: {inside: {kind: block, stopBy: *scope, inside: {kind: class_definition, field: body}}}
               matches: lookup
     lookup:
         any:
             - inside:
-                  stopBy: *scope
-                  kind: for_in_clause
-                  not: &preceding-iterable {follows: {kind: for_in_clause, stopBy: end}}
-                  field: right
-                  inside:
-                      kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
-                      inside: {matches: lookup}
+                stopBy: *scope
+                kind: for_in_clause
+                not: &preceding-iterable {follows: {kind: for_in_clause, stopBy: end}}
+                field: right
+                inside:
+                    kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                    inside: {matches: lookup}
             - not: {inside: {stopBy: *scope, kind: for_in_clause, not: *preceding-iterable, field: right}}
               any:
-                  - all: [&statement {inside: {kind: 'module, block'}}, {matches: preceding}]
-                  - matches: global-frame
-                    inside: {stopBy: end, inside: {kind: module}, matches: preceding}
-                  - not:
-                        any:
-                            - matches: global-frame
-                            - all: [*statement, {follows: {stopBy: end, matches: binding-statement}}]
-                            - kind: block
-                              inside: {kind: function_definition, field: body, matches: bound}
-                            - inside: {kind: lambda, field: body, matches: bound}
-                            - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
-                              matches: bound
+                - all: [&statement {inside: {kind: 'module, block'}}, {matches: preceding}]
+                - matches: global-frame
+                  inside: {stopBy: end, inside: {kind: module}, matches: preceding}
+                - not:
                     any:
-                        - matches: frame
-                          inside: {matches: enclosing-lookup}
-                        - not: {matches: frame}
-                          inside: {matches: lookup}
+                        - matches: global-frame
+                        - all: [*statement, {follows: {stopBy: end, matches: binding-statement}}]
+                        - kind: block
+                          inside: {kind: function_definition, field: body, matches: bound}
+                        - inside: {kind: lambda, field: body, matches: bound}
+                        - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                          matches: bound
+                  any:
+                    - matches: frame
+                      inside: {matches: enclosing-lookup}
+                    - not: {matches: frame}
+                      inside: {matches: lookup}
 rule:
     kind: identifier
     pattern: $BASE

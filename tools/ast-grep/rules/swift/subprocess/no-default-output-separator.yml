@@ -14,7 +14,7 @@ rule:
                     all:
                         - has: {kind: value_argument, has: {field: name, regex: '^separatedBy$'}}
                         - has: {kind: value_argument, has: {field: name, regex: '^bufferingPolicy$'}}
-        - inside: {kind: source_file, stopBy: end, has: {kind: import_declaration, regex: '^import\p{White_Space}+Subprocess$'}}
+        - inside: {kind: source_file, stopBy: end, has: {kind: import_declaration, regex: '^import[\t-\r ]+Subprocess$'}}
         - not: {inside: {stopBy: {kind: for_statement}, matches: subprocess-output-discarding-loop}}
 message: '`$READ` splits child output by the default separator and buffering policy'
 note: 'Pass the output protocol''s `separatedBy:` and `bufferingPolicy:`, `.unicodeScalarSequence(["\n"])` and `.unbounded` for newline-delimited output'

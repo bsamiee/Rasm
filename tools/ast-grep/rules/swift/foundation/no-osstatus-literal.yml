@@ -14,8 +14,7 @@ utils:
         any:
             - kind: property_declaration
               all:
-                - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
-                - has: {kind: type_annotation, has: {field: name, matches: status-type}}
+                - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}, precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {field: name, matches: status-type}}}
             - kind: parameter
               all:
                 - has: {kind: simple_identifier, pattern: $NAME}
@@ -32,8 +31,7 @@ rule:
     any:
         - kind: property_declaration
           all:
-            - has: {kind: type_annotation, has: {field: name, matches: status-type}}
-            - has: {field: value, matches: status-literal}
+            - has: {kind: pattern, all: [{precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {field: name, matches: status-type}}}, {precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, matches: status-literal}}]}
         - kind: call_expression
           all:
             - has: {nthChild: 1, matches: status-type}

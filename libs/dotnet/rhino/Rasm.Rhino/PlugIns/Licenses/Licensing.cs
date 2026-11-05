@@ -17,7 +17,7 @@ public sealed record LicenseDefinition(
 public static class Licensing {
     // --- [REQUEST]
     public static IO<Unit> Request(LicenseDefinition license, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense) =>
-        from glyph in IO.lift(static () => Icons.PlugInImage(Session.Assembly))
+        from glyph in IO.lift(static () => IconResource.PlugIn(Session.Assembly))
         from icon in glyph.Traverse(static art => Icons.DrawingIcon(art, IconSlot.Banner)).As()
         from granted in IO.lift(() => guard(getLicense(license.Capabilities, license.TextMask.ValueUnsafe(), Validator(license.Validate), LeaseHandler(license.LeaseChanged, icon)), Errors.Cancelled).ToFin())
         select unit;

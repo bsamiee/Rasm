@@ -4,7 +4,7 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {nthChild: 1, kind: navigation_expression, regex: '^(_Concurrency\.)?Task(<[^{]*>)?\.sleep$', pattern: $SLEEP}
+        - has: {nthChild: 1, kind: navigation_expression, regex: '^(_Concurrency(\.|::))?Task(<[^{]*>)?\.sleep$', pattern: $SLEEP}
         - has:
             kind: call_suffix
             has:

@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: plpgsql-error-raise
+language: plpgsql
+rule:
+    any:
+        - {kind: stmt_raise, not: {has: {field: raise, kind: raise_level}}}
+        - {kind: stmt_raise, has: {field: raise, has: {kind: kw_exception}}}

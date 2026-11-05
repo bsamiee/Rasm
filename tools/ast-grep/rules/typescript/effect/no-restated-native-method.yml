@@ -78,7 +78,7 @@ utils:
                     - has: {field: property, regex: &array-method '^(map|filter|flatMap|flat|toSorted|toReversed|toSpliced|with)$'}
                     - has: {field: object, matches: array-construction}
             - matches: typescript-expression-wrapper
-              has: {nthChild: 1, matches: array-construction}
+              has: {matches: array-construction}
     array-value:
         any:
             - matches: array-base
@@ -90,7 +90,7 @@ utils:
                     - has: {field: property, regex: *array-method}
                     - has: {field: object, matches: array-receiver}
             - matches: typescript-expression-wrapper
-              has: {nthChild: 1, matches: array-value}
+              has: {matches: array-value}
     array-receiver:
         any:
             - matches: array-value

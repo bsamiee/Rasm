@@ -1,5 +1,5 @@
 import { ENGINES } from '@rasm/harnesses/indesign/contract';
-import { uxpScript } from '../../../../vite.shared.ts';
+import { uxpScript } from '@rasm/uxp/vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

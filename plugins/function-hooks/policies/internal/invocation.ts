@@ -597,6 +597,12 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             inert: ['--cache-dir', '--no-pretty', '--config-file=pyproject.toml'],
         },
         refurb: { valueOptions: ['--ignore', '--load', '--enable', '--disable', '--config-file', '--python-version', '--format', '--sort', '--timing-stats', '--explain'], informational: ['-h', '--explain'], selectors: [], subcommandless: true },
+        ty: {
+            valueOptions: ['--baseline', '--project', '--python', '--typeshed', '--extra-search-path', '--python-version', '--python-platform', '-c', '--config', '--config-file', '--output-format', '--error', '--warn', '--ignore', '--exclude', '--color'],
+            informational: ['-h', '-V'],
+            selectors: [],
+        },
+        stubtest: { valueOptions: ['--mypy-config-file', '--allowlist', '--custom-typeshed-dir', '--check-typeshed'], informational: ['-h'] },
         osascript: { valueOptions: ['-e', '-l', '-s'] },
         open: { valueOptions: ['-a', '-b', '-s', '-u', '-i', '-o', '--env', '--stdin', '--stdout', '--stderr', '--arch', '--url'] },
         xed: { valueOptions: ['-l', '--line'], informational: ['-h', '-v'] },

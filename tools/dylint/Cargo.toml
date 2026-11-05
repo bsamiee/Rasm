@@ -4,7 +4,6 @@
 [package]
 name              = "lints"
 edition.workspace = true
-description       = "Lints over types and resolved paths Clippy cannot see"
 publish           = false
 
 # --- [RUST_ANALYZER]

@@ -32,14 +32,14 @@ from blender.bpy.nodes.desired import Graph
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.motion import rate
 from blender.bpy.render.outputs.results import INTERMEDIATES
-from blender.bpy.render.previews.queue import BACKLOG, Job, PreviewFeed, PreviewQueue, Rank
+from blender.bpy.render.previews.queue import Job, PreviewFeed, PreviewQueue, Rank
 from blender.bpy.render.previews.scenes import PreviewLighting, PreviewScene, Readback
 from blender.bpy.render.previews.targets import CLAY, Editor, enclosing, NODE_PREVIEWS, NodePreviews, rendered, RenderKind, SETTING, SWATCH, Target, targets
-from blender.bpy.render.previews.thumbnails import Cell, NODE_STATES, NODE_TEXTURES, NodeThumbnails, Status, ThumbnailSettings
+from blender.bpy.render.previews.thumbnails import Cell, NODE_STATES, NODE_TEXTURES, NodeThumbnails, ThumbnailSettings
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Signal
 from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import even, FUNCTIONS, Label, Layout, OperatorButton, Property, Row
+from blender.bpy.ui.layout.rows import OperatorButton, Property, Row
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.resources.theme import Metrics
@@ -204,7 +204,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Writes editor cells and returns a job per target key neither cache nor folder holds."""
-        state, metrics, failed = NODE_STATES[identity], Metrics.read(), BACKLOG[identity].failed
+        state, metrics = NODE_STATES[identity], Metrics.read()
         inventory = cache(lambda: _thumbnails(identity).map(frozenset))
         manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         views: dict[Editor, tuple[bpy.types.Scene, bpy.types.SpaceNodeEditor, bpy.types.NodeTree, list[Located]]] = {}
@@ -333,13 +333,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     grouped: defaultdict[Editor, list[Cell]] = defaultdict(list)
                     for socket, target, _size, demand, _rank in plans:
                         grouped[target.editor].append(
-                            Cell(
-                                node=target.node,
-                                key=demand,
-                                label=socket.name,
-                                status=Status.READY if demand in ready else Status.FAILED if failed.get((Some(self.jobs), target)) == demand else Status.QUEUED,
-                                value=Option.of_optional(NODE_TEXTURES[identity].held.get(demand)).bind(lambda held: held[1]),
-                            )
+                            Cell(node=target.node, key=demand, label=socket.name, value=Option.of_optional(NODE_TEXTURES[identity].held.get(demand)).bind(lambda held: held[1]))
                         )
                     cells = {editor: tuple(items) for editor, items in grouped.items()}
                     changed, state.cells = cells != state.cells, cells
@@ -380,14 +374,13 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     # --- [REGISTRATION]
 
     def section(self, header: tuple[Row, ...] = ()) -> Section:
-        """Returns node previews section: the commands, queue and cache counts the host lays out in even columns, and the active node settings."""
+        """Returns node previews section: the commands and the active node settings."""
         active = ("edit_tree", "nodes", "active")
         return Section(
             key=self.key,
             header=header,
             rows=(
                 *(OperatorButton(target=row) for row in (self.toggle, self.refresh, self.clear, self.export)),
-                Layout(builder=Some(lambda identity: Ok((Label(text=partial(_counted, identity), function=FUNCTIONS["label"]),))), container=Some(even), prerequisites=(BACKLOG, NODE_TEXTURES)),
                 Section(
                     key=f"{self.key}_active",
                     title=Some("Active Node"),
@@ -476,12 +469,6 @@ def _thumbnails(identity: Identity) -> Outcome[tuple[Path, ...]]:
 def _thumbnail(identity: Identity, key: ContentHash) -> Path:
     """File storing the thumbnail of a content hash."""
     return _folder(identity) / f"{key.hex()}{_SUFFIX}"
-
-
-def _counted(identity: Identity, _context: bpy.types.Context) -> tuple[str, ...]:
-    """Queued and failed preview jobs, cached thumbnails, and their texture memory, one label each."""
-    backlog, cache = BACKLOG[identity], NODE_TEXTURES[identity]
-    return f"{len(backlog.jobs)} queued", f"{len(backlog.failed)} failed", f"{len(cache.held)} cached", f"{cache.memory / 2**20:.1f} MiB pixels"
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

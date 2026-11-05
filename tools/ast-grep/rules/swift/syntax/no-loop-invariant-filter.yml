@@ -41,7 +41,7 @@ utils:
                         kind: property_declaration
                         all:
                             - has: {kind: value_binding_pattern, has: {field: mutability, regex: '^var$'}}
-                            - has: {field: name, has: {field: bound_identifier, pattern: $STATE}}
+                            - has: {kind: pattern, has: {field: bound_identifier, pattern: $STATE}}
                             - inside: {kind: 'class_body, enum_class_body, source_file'}
 rule:
     kind: for_statement

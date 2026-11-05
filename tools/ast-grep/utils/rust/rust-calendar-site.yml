@@ -38,12 +38,12 @@ utils:
         any:
             - kind: array_expression
               any:
-                - regex: '^\[\p{White_Space}*(31\p{XID_Continue}*\p{White_Space}*,\p{White_Space}*2[89]\p{XID_Continue}*\p{White_Space}*,\p{White_Space}*31\p{XID_Continue}*\p{White_Space}*,\p{White_Space}*30|0\p{XID_Continue}*\p{White_Space}*,\p{White_Space}*31\p{XID_Continue}*\p{White_Space}*,\p{White_Space}*(59\p{XID_Continue}*\p{White_Space}*,\p{White_Space}*90|60\p{XID_Continue}*\p{White_Space}*,\p{White_Space}*91))(?-u:\b)'
-                - regex: '^\[\p{White_Space}*4\p{XID_Continue}*\p{White_Space}*,\p{White_Space}*6\p{XID_Continue}*\p{White_Space}*,\p{White_Space}*9\p{XID_Continue}*\p{White_Space}*,\p{White_Space}*11\p{XID_Continue}*\p{White_Space}*\]$'
+                - regex: '^\[\p{Pattern_White_Space}*(31\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*2[89]\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*31\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*30|0\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*31\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*(59\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*90|60\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*91))(?-u:\b)'
+                - regex: '^\[\p{Pattern_White_Space}*4\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*6\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*9\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*11\p{XID_Continue}*\p{Pattern_White_Space}*\]$'
             - kind: match_pattern
-              regex: '^(4\p{White_Space}*\|\p{White_Space}*6\p{White_Space}*\|\p{White_Space}*9\p{White_Space}*\|\p{White_Space}*11|1\p{White_Space}*\|\p{White_Space}*3\p{White_Space}*\|\p{White_Space}*5\p{White_Space}*\|\p{White_Space}*7\p{White_Space}*\|\p{White_Space}*8\p{White_Space}*\|\p{White_Space}*10\p{White_Space}*\|\p{White_Space}*12)$'
+              regex: '^(4\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*6\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*9\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*11|1\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*3\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*5\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*7\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*8\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*10\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*12)$'
             - kind: binary_expression
-              regex: '^(4\p{White_Space}*\|\p{White_Space}*6\p{White_Space}*\|\p{White_Space}*9\p{White_Space}*\|\p{White_Space}*11|1\p{White_Space}*\|\p{White_Space}*3\p{White_Space}*\|\p{White_Space}*5\p{White_Space}*\|\p{White_Space}*7\p{White_Space}*\|\p{White_Space}*8\p{White_Space}*\|\p{White_Space}*10\p{White_Space}*\|\p{White_Space}*12)$'
+              regex: '^(4\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*6\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*9\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*11|1\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*3\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*5\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*7\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*8\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*10\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*12)$'
     second-count:
         kind: 'integer_literal, float_literal'
         regex: '^(3_*6_*0_*0(_*0_*0_*0)?|8_*6_*4_*0_*0(_*0_*0_*0)?|6_*0_*4_*8_*0_*0(_*0_*0_*0)?|3_*1_*5_*3_*6_*0_*0_*0)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?$'
@@ -82,7 +82,7 @@ utils:
         kind: binary_expression
         all:
             - has: {field: operator, regex: '^[*/%]$'}
-            - regex: '(^|\*\p{White_Space}*)(24|60|7)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?\p{White_Space}*\*\p{White_Space}*(60|24)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?(?-u:\b)|/\p{White_Space}*60(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?\p{White_Space}*[/%]\p{White_Space}*(60|24)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?(?-u:\b)'
+            - regex: '(^|\*\p{Pattern_White_Space}*)(24|60|7)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?\p{Pattern_White_Space}*\*\p{Pattern_White_Space}*(60|24)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?(?-u:\b)|/\p{Pattern_White_Space}*60(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?\p{Pattern_White_Space}*[/%]\p{Pattern_White_Space}*(60|24)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?(?-u:\b)'
             - not: {inside: {kind: binary_expression, has: {field: operator, regex: '^[*/%]$'}}}
             - not: {matches: duration-argument}
     date-format:

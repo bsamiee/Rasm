@@ -23,7 +23,7 @@ from blender.bpy.data.rna.properties import annotated, Callbacks, nested, reboun
 from blender.bpy.data.rna.snapshots import Applied, assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import acquired, Acquisitions, Declaration, Tier
-from blender.bpy.extension.reports import alerted, rendered
+from blender.bpy.extension.reports import rendered
 from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
@@ -540,11 +540,9 @@ def confirmed[S, T: bpy.types.PropertyGroup](
     identity: Identity,
     /,
 ) -> None:
-    """Draws a confirmation dialog's message lines over what the identity binds, their faults as alert rows, then the form fields it names."""
-    lines = binding(identity).bind(lambda bound: message(bound, context, properties))
-    for line in lines.default_value(()):
+    """Draws a confirmation dialog's message lines over what the identity binds, logging their faults, then the form fields it names."""
+    for line in identity.reports.settled(binding(identity).bind(lambda bound: message(bound, context, properties))).default_value(()):
         layout.label(text=line, translate=False)
-    alerted(layout, lines)
     for name in fields:
         layout.prop(properties, name)
 
@@ -566,12 +564,6 @@ def _documented(run: Callable[..., object], /) -> tuple[str, str]:  # type: igno
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
-
-
-@Operator.of(Empty, icon=Some("X"), options=frozenset({"INTERNAL"}))
-def dismiss_reports(call: Call[Empty]) -> Outcome[Answer]:
-    """Clears the extension's held callback reports."""
-    return Ok(Done() if call.identity.reports.cleared() else Unchanged(reason="No reports are held"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -601,7 +593,6 @@ __all__ = [
     "answered",
     "called",
     "confirmed",
-    "dismiss_reports",
     "filled",
     "idname",
     "operation",

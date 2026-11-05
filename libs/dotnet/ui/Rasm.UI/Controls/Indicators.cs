@@ -102,13 +102,13 @@ public abstract partial record Content<T> where T : notnull {
 
     public static Content<T> Arrived(Fin<T> arrival) => arrival.Match<Content<T>>(Succ: static value => new Ready(value), Fail: static error => new Failed(error));
 
-    public View Drawn(Func<T, View> ready, string unexpected) =>
+    public View Drawn(Func<T, View> ready) =>
         Switch(
-            (Ready: ready, Said: new View.Text([Message.IfNone(unexpected)]) { Role = Roles.Label, Conditions = Conditions }),
-            pending: static (held, pending) => pending.Prior.Map(value => held.Ready(value).Conditioned(Condition.Busy)).IfNone(() => Progress.Meter(pending.Work)),
-            ready: static (held, ready) => held.Ready(ready.Value),
-            empty: static (held, _) => held.Said,
-            failed: static (held, _) => held.Said);
+            ready,
+            pending: static (held, pending) => pending.Prior.Map(value => held(value).Conditioned(Condition.Busy)).IfNone(() => Progress.Meter(pending.Work)),
+            ready: static (held, ready) => held(ready.Value),
+            empty: static (_, _) => new View.Box(),
+            failed: static (_, _) => new View.Box());
 
     public sealed record Pending : Content<T> {
         public Option<T> Prior { get; init; }

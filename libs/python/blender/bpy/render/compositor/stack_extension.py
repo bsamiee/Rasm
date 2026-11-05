@@ -19,7 +19,6 @@ from blender.bpy.data.rna.paths import id_data, root_in, rooted, Struct
 from blender.bpy.data.rna.properties import Callbacks, Changed, choices, EnumItem, IconedItem, rebound, titled
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration, Handler, Resource, Subscription
-from blender.bpy.extension.reports import alerted
 from blender.bpy.nodes.addressing import InterfaceKeys, owned
 from blender.bpy.nodes.desired import item_key
 from blender.bpy.nodes.editing import Arranger
@@ -118,7 +117,7 @@ _LAYER_SOURCES: Final = (
 def _presets_drawn(stacking: LayerStackService, creating: Command, listings: tuple[tuple[_Listed, RowDraw], ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
     """Draws the preset listing of each held stack, layer, or effect, the New Stack button while no stack exists."""
     if rooted(bpy.types.Scene, context).bind(stacking.head).is_error():
-        alerted(layout, operator_button(layout, stacking.identity, Placement(creating), {"text": creating.title}))
+        stacking.identity.reports.faulted(operator_button(layout, stacking.identity, Placement(creating), {"text": creating.title}))
     for listing, draw in listings:
         if listing.current(context).is_ok():
             draw(layout, holder, context)
@@ -410,7 +409,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Layer list top first with visibility, solo, and matte columns and edit side buttons, dragged to reorder."""
 
         def pressing(edit: Edit, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
-            alerted(layout, stacking.selected(context).bind(lambda held: self._edited(layout, stacking.identity, edit, LayerAt(layer=held.active))))
+            stacking.identity.reports.faulted(stacking.selected(context).bind(lambda held: self._edited(layout, stacking.identity, edit, LayerAt(layer=held.active))))
 
         def spaced(layout: bpy.types.UILayout, _holder: Struct, _context: bpy.types.Context) -> None:
             layout.separator(type="SPACE")
@@ -450,11 +449,11 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def edits_row(layout: bpy.types.UILayout, target: Target) -> None:
             line = layout.row(align=True)
             for edit in Edit:
-                alerted(line, self._edited(line, identity, edit, target))
+                identity.reports.faulted(self._edited(line, identity, edit, target))
 
         def mask(layout: bpy.types.UILayout, target: LayerAt | EffectAt) -> None:
             masking = operators[stack_commands.add_mask]
-            alerted(layout, operator_button(layout, identity, Placement(masking, msgspec.to_builtins(target)), {"text": masking.title, "icon": "MOD_MASK"}))
+            identity.reports.faulted(operator_button(layout, identity, Placement(masking, msgspec.to_builtins(target)), {"text": masking.title, "icon": "MOD_MASK"}))
 
         def detail(held: Selection, layer: StackLayer) -> None:
             nodes, sockets, places = owned(held.tree, identity), InterfaceKeys.of(held.tree, identity).sockets, layer.places
@@ -463,7 +462,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 keys = frozenset(key for key in (*nodes, *sockets) if key.startswith(f"{prefix}_") and not any(key.startswith(f"{nested}_") for nested in inner))
                 node_editors(layout, (node for key, node in nodes.items() if key in keys))
                 for identifier in (identifier for key, identifier in sockets.items() if key in keys):
-                    alerted(layout, interface_input(held.entry, identifier).map(lambda owner: layout.prop(owner, "value")))
+                    identity.reports.faulted(interface_input(held.entry, identifier).map(lambda owner: layout.prop(owner, "value")))
 
             def effected(layout: bpy.types.UILayout, at: EffectAt, place: Key, entry: Entry) -> None:
                 header, body = layout.panel(f"{place}_{held.tree.session_uid}", default_closed=False)
@@ -481,14 +480,13 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 layout.template_node_inputs(source)
                 outputs = layout.row(align=True)
                 for output in (output for output in source.outputs if output.enabled):
-                    alerted(
-                        outputs,
-                        operator_button(outputs, identity, Placement(operators[stack_commands.select_output], {"layer": at.layer, "output": output.name}), {"text": output.name, "translate": False}),
+                    identity.reports.faulted(
+                        operator_button(outputs, identity, Placement(operators[stack_commands.select_output], {"layer": at.layer, "output": output.name}), {"text": output.name, "translate": False})
                     )
             widgets(layout, layer.key, places)
             buttons = layout.row(align=True)
             mask(buttons, at)
-            alerted(buttons, self._edited(buttons, identity, Edit.RESET, at))
+            identity.reports.faulted(self._edited(buttons, identity, Edit.RESET, at))
             for index in range(layer.blend.masks):
                 edits_row(layout, LayerMaskAt(layer=at.layer, mask=index))
             for index, (place, entry) in enumerate(zip(places, layer.effects)):

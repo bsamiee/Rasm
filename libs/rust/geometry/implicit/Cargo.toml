@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-implicit"
-version.workspace    = true
-edition.workspace    = true
-description          = "Implicit fields at nalgebra signatures over fidget: trees at an f64 origin placed at a pose and compiled once with recentering and caps bound as variables, cancellable value and gradient sampling in caller batches across a thread pool refusing non-finite points, Newton projection onto the surface, interval classification and surface bounds over a world box, minimal surface lattices at a unit cell or a relative density field graded through sampled level quantiles, strut lattices at a world radius field with blended node fillets, first-order distance, shell walls between two level sets in either order, and JIT octree meshing over a world domain's cube at a caller cell size into a parry triangle mesh with vertex gradients, refusing a field singular in the domain"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["implicit", "sdf", "lattice", "meshing", "geometry"]
-categories           = ["graphics", "mathematics"]
+name              = "rasm-implicit"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

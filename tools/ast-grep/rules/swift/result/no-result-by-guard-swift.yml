@@ -47,7 +47,7 @@ utils:
             any:
                 - not: {has: {kind: *effect, stopBy: {kind: lambda_literal}}}
                 - all:
-                    - regex: '^(try\??|await)\p{White_Space}'
+                    - regex: '^(try\??|await)[\t-\r ]'
                     - not: {has: {kind: *effect, stopBy: {kind: lambda_literal}, not: {matches: leading}}}
     bool-guard:
         kind: guard_statement
@@ -113,7 +113,7 @@ utils:
         has: {nthChild: 1, matches: value-return}
     returned-value:
         kind: control_transfer_statement
-        regex: '^return\p{White_Space}'
+        regex: '^return[\t-\r ]'
     returning-branch:
         kind: statements
         matches: {swift-single-statement: {first: {matches: returned-value, not: {regex: '(?-u:\b)else(?-u:\b)'}}}}
@@ -198,9 +198,9 @@ rule:
         - not:
             any:
                 - matches: {swift-boolean-match: {matched: {kind: boolean_literal}, other: {kind: boolean_literal}}}
-                - regex: '^(if|guard)\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.success(?-u:\b)'
+                - regex: '^(if|guard)[\t-\r ]+case[\t-\r ]+(let[\t-\r ]+)?\.success(?-u:\b)'
                 - kind: if_statement
-                  regex: '^if\p{White_Space}+case\p{White_Space}+(let\p{White_Space}+)?\.failure(?-u:\b)'
+                  regex: '^if[\t-\r ]+case[\t-\r ]+(let[\t-\r ]+)?\.failure(?-u:\b)'
                   has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, has: {nthChild: 1, matches: failure-return}}
                 - matches: swift-result-bind-switch
                 - kind: guard_statement

@@ -10,7 +10,7 @@ utils:
                 - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, has: {kind: lambda_parameter, has: {field: name, pattern: $G}}}}
                 - inside:
                     kind: call_suffix
-                    inside: {kind: call_expression, has: {nthChild: 1, kind: navigation_expression, regex: '^_Concurrency\.withTaskGroup$'}}
+                    inside: {kind: call_expression, has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^_Concurrency(\.|::)withTaskGroup$'}}
     drain:
         any:
             - kind: await_expression
@@ -23,14 +23,14 @@ rule:
     pattern: $WAIT
     all:
         - matches: drain
-        - not: {precedes: {regex: '[\p{White_Space}\P{White_Space}]'}}
+        - not: {precedes: {regex: '[[\t-\r ][^\t-\r ]]'}}
         - inside: {matches: group-body}
         - not:
             follows:
                 stopBy: end
                 any:
                     - kind: property_declaration
-                      has: {field: name, has: {stopBy: end, kind: simple_identifier, pattern: $G}}
+                      has: {kind: pattern, has: {stopBy: end, kind: simple_identifier, pattern: $G}}
                     - kind: guard_statement
                       has: {stopBy: {kind: statements}, field: bound_identifier, kind: simple_identifier, pattern: $G}
 message: '`$WAIT` repeats the wait `withTaskGroup` runs on remaining child tasks after its body returns'

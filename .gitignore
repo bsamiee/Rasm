@@ -11,17 +11,22 @@ node_modules/
 dist/
 .cloudflare/
 .artifacts/
+fetched/
 .vs/
 buildServer.json
 *.received.*
 *.pending-snap
 *.snap.new
+*.results.json
+*.captures/
 .playwright-cli/
 
 # --- [HOST_WRITES] ----------------------------------------------------------------------
 
 *.rhl
 *.3dmbak
+*.blend[0-9]*
+*.blend@
 /Grasshopper.*
 xcuserdata/
 __pycache__/

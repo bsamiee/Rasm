@@ -6,7 +6,7 @@ import { type Call, invocationsOf, nestedIn, pipelineNeighbors, quote, type Rout
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Statement = { readonly kind: (typeof STATEMENTS)[number][0] | 'drive' } | { readonly kind: 'open'; readonly path: string } | { readonly kind: 'shell'; readonly inner: string };
+type Statement = { readonly kind: 'launch' | 'other' } | { readonly kind: 'open'; readonly path: string } | { readonly kind: 'shell'; readonly inner: string };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -14,24 +14,20 @@ const WATCHER = 'watch-apps';
 const ARGUMENT = '--arguments';
 const DOCUMENT = '--document';
 const BUNDLE_ID = /bundleID="(?<bundle>[^"]+)"/u;
-const BUNDLE_ID_OPTION = /^bundleid=(?<id>.+)$/iu;
 const PID = /^\d+$/u;
 const BUNDLE = /^(?<bundle>\/.+?\.app)\/Contents\/MacOS\/(?<executable>[^/]+)$/u;
-const EXECUTABLE = /\/Contents\/MacOS\/(?<executable>[^/]+)$/u;
 const TELL = /^tell (?:application|app) (?:id )?"(?<app>[^"]+)"(?: to (?<body>.+))?$/u;
 const APP_COMMAND = /^(?<body>\w+) (?:application|app) (?:id )?"(?<app>[^"]+)"$/u;
 const OPEN_FILE = /^open (?:POSIX file )?"(?<path>[^"]+)"$/u;
 const SHELL_SCRIPT = /^do shell script "(?<inner>(?:[^"\\]|\\.)*)"$/u;
-const STATEMENTS = [
-    ['launch', /^(?:activate|launch|run|reopen)$/u],
-    ['quit', /^quit(?: saving (?:no|yes|ask))?$/u],
-    ['hide', /^hide$/u],
-    ['script', /^do (?:javascript|script)\b/iu],
-] as const;
-const JXA_APP = /\b(?:Application|NSRunningApplication|NSWorkspace)\b/u;
+const LAUNCH_STATEMENT = /^(?:activate|launch|run|reopen)$/u;
+const FOCUS = /\bactivate\b|\bset\s+frontmost\b|AXRaise/u;
+const POSTING = /System Events|com\.apple\.systemevents/u;
 const WEB_URL = /^https?:/iu;
 const BACKGROUND_ONLY = /\btype="BackgroundOnly"/u;
 const SIGNAL_PREFIX = /^-?(?:SIG)?/u;
+const PLIST_TRUE = /^(?:1|YES|true)$/iu;
+const ENDING_SIGNALS: ReadonlySet<string> = new Set(['TERM', '15', 'KILL', '9']);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -55,13 +51,12 @@ const watchedApps = (invocation: Invocation): readonly string[] => {
 
 // --- [KILL]
 
-const killSignal = ([, ...args]: Invocation): { readonly force: Maybe<readonly string[]>; readonly pids: readonly string[] } => {
+const killSignal = ([, ...args]: Invocation): { readonly ending: boolean; readonly pids: readonly string[] } => {
     const [first] = args;
     const valued = first === '-s' || first === '-n';
     const cut = valued ? 2 : Number(first !== undefined && first !== '--' && first.startsWith('-'));
-    const quits: Readonly<Record<string, readonly string[]>> = { TERM: [], 15: [], KILL: ['--force'], 9: ['--force'] };
     const [signal = 'TERM'] = args.slice(Math.max(cut - 1, 0), cut).map((word) => word.toUpperCase().replace(SIGNAL_PREFIX, ''));
-    return { force: Maybe.fromNullable(quits[signal]), pids: args.slice(cut).filter((word) => word !== '--') };
+    return { ending: ENDING_SIGNALS.has(signal), pids: args.slice(cut).filter((word) => word !== '--') };
 };
 
 const namedPids = (invocation: Invocation): readonly string[] => {
@@ -81,41 +76,28 @@ const runningApps = async (system: System, commands: readonly Command[]): Promis
     return new Map(probed.flat());
 };
 
-const killRoute = (apps: ReadonlyMap<string, string>, head: Word, invocation: Invocation): Maybe<Route> => {
-    const { force, pids } = killSignal(invocation);
-    const [flags] = force.values;
-    if (flags === undefined || pids.length === 0 || !new Set(pids).isSubsetOf(apps)) {
-        return Maybe.none;
-    }
-    const quits = pids.map((pid) => watchApps('quit', '--pid', pid, ...flags));
-    return Maybe.some({ kind: 'rewrite', program: 'kill', start: head, text: quits.length === 1 ? quits.join('') : `{ ${quits.join('; ')}; }` });
-};
-
 const processKills = ({ script: { commands } }: Call): readonly Verdict[] => [
     ...[...new Set(invocationsOf(commands, 'killall', 'pkill').map(([program]) => program))].map((program) => refuse(`${program} ends every match, run kill <pid> on one pid pgrep lists`)),
     ...commands.flatMap((command, index) => {
-        const quitting = command.invocations.some((invocation) => invocation[0] === 'kill' && killSignal(invocation).force.values.length > 0);
+        const ending = command.invocations.some((invocation) => invocation[0] === 'kill' && killSignal(invocation).ending);
         const sources = [...(command.hasInput ? pipelineNeighbors(commands, index, -1) : []), ...nestedIn(commands, command)];
         const [finder] = invocationsOf(sources, 'ps', 'pgrep', 'pidof').map(([program]) => program);
-        const watched = invocationsOf(sources, WATCHER);
-        return quitting ? [...(finder === undefined ? [] : [refuse(`${finder} feeds kill every match, run kill <pid> on one pid ${finder} lists`)]), ...(watched.length === 0 ? [] : [refuse(`kill takes pids from ${WATCHER}, use ${watchApps('quit', ...watched.flatMap(watchedApps).map(quote))}`)])] : [];
+        return ending && finder !== undefined ? [refuse(`${finder} feeds kill every match, run kill <pid> on one pid ${finder} lists`)] : [];
     }),
 ];
 
 // --- [ROUTES]
 
-const bundleInfo = async (system: System, bundle: string): Promise<Maybe<{ readonly executable: string; readonly identifier: string }>> => {
-    const info = await runJson<{ readonly CFBundleExecutable?: string; readonly CFBundleIdentifier?: string }>(system, ['plutil', '-convert', 'json', '-o', '-', `${bundle}/Contents/Info.plist`], system.plugin);
-    const [{ CFBundleExecutable, CFBundleIdentifier } = {}] = info.values;
-    return CFBundleExecutable !== undefined && CFBundleIdentifier !== undefined ? Maybe.some({ executable: CFBundleExecutable, identifier: CFBundleIdentifier }) : Maybe.none;
+const bundleInfo = async (system: System, bundle: string): Promise<Maybe<{ readonly executable: string; readonly identifier: string; readonly background: boolean }>> => {
+    const info = await runJson<{ readonly CFBundleExecutable?: string; readonly CFBundleIdentifier?: string; readonly LSBackgroundOnly?: unknown; readonly LSUIElement?: unknown }>(system, ['plutil', '-convert', 'json', '-o', '-', `${bundle}/Contents/Info.plist`], system.plugin);
+    const [{ CFBundleExecutable, CFBundleIdentifier, LSBackgroundOnly, LSUIElement } = {}] = info.values;
+    return CFBundleExecutable !== undefined && CFBundleIdentifier !== undefined ? Maybe.some({ executable: CFBundleExecutable, identifier: CFBundleIdentifier, background: [LSBackgroundOnly, LSUIElement].some((declared) => PLIST_TRUE.test(String(declared))) }) : Maybe.none;
 };
 
-const headlessExecutable = async (system: System, cwd: Maybe<string>, app: Word, identifying: boolean, passed: readonly Word[]): Promise<Maybe<string>> => {
+const appBundles = async (system: System, cwd: Maybe<string>, app: Word, identifying: boolean): Promise<readonly string[]> => {
     const file = app.text.endsWith('.app') ? app.text : `${app.text}.app`;
     const query = identifying ? `kMDItemCFBundleIdentifier == "${app.text}"` : `kMDItemContentType == "com.apple.application-bundle" && kMDItemFSName == "${file}"c`;
-    const [bundle, ...more] = app.text.includes('/') ? resolvePath(app.text, cwd, system.home).values : (await system.run(['mdfind', query], { cwd: system.plugin, stdin: '' })).stdout.split('\n').filter((line) => line !== '');
-    const [run] = bundle === undefined || more.length > 0 ? [] : (await bundleInfo(system, bundle)).values;
-    return bundle !== undefined && run !== undefined && programRow(run.executable).headless?.some((flag) => passed.some(({ text }) => text === flag)) === true ? Maybe.some(quote(`${bundle}/Contents/MacOS/${run.executable}`)) : Maybe.none;
+    return app.text.includes('/') ? resolvePath(app.text, cwd, system.home).values : (await system.run(['mdfind', query], { cwd: system.plugin, stdin: '' })).stdout.split('\n').filter((line) => line !== '');
 };
 
 const openRoute = async (system: System, request: CommandRequest, { cwd }: Command, program: 'open' | 'xed', head: Word, args: readonly Word[]): Promise<Maybe<Route>> => {
@@ -149,12 +131,19 @@ const openRoute = async (system: System, request: CommandRequest, { cwd }: Comma
     if (foreign.length > 0) {
         return Maybe.some(refuse(`${program} ${foreign.join(' ')} launches ${target}, use ${watchApps('launch', target)}`));
     }
-    const direct = app !== undefined && passed.length > 0 ? await headlessExecutable(system, cwd, app, valued('-b').includes(app), passed) : Maybe.none;
+    const bundles = app === undefined ? [] : await appBundles(system, cwd, app, valued('-b').includes(app));
+    const infos = (await Promise.all(bundles.map((bundle) => bundleInfo(system, bundle)))).flatMap(({ values }) => values);
+    if (infos.length > 0 && infos.every(({ background }) => background)) {
+        return Maybe.none;
+    }
+    const [bundle] = bundles;
+    const [run] = infos;
+    const direct = bundles.length === 1 && run !== undefined && programRow(run.executable).headless?.some((flag) => passed.some(({ text }) => text === flag)) === true ? quote(`${bundle}/Contents/MacOS/${run.executable}`) : undefined;
     const environment = valued('--env');
-    const launch = direct.match(
-        (path) => [...environment.map(({ raw }) => raw), path, ...passed.map(({ raw }) => raw)].join(' '),
-        () => watchApps('launch', ...subjects, ...(switches.some((name) => name === '-n' || name === '--new') ? ['--new'] : []), ...documents.map(({ raw }) => `${DOCUMENT} ${raw}`), ...environment.map(({ raw }) => `--environment=${raw}`), ...passed.map(({ raw }) => `${ARGUMENT}=${raw}`)),
-    );
+    const launch =
+        direct === undefined
+            ? watchApps('launch', ...subjects, ...(switches.some((name) => name === '-n' || name === '--new') ? ['--new'] : []), ...documents.map(({ raw }) => `${DOCUMENT} ${raw}`), ...environment.map(({ raw }) => `--environment=${raw}`), ...passed.map(({ raw }) => `${ARGUMENT}=${raw}`))
+            : [...environment.map(({ raw }) => raw), direct, ...passed.map(({ raw }) => raw)].join(' ');
     return Maybe.some({ kind: 'rewrite', program, start: head, text: launch });
 };
 
@@ -167,12 +156,12 @@ const statement = (body: string): Statement => {
     if (inner !== undefined) {
         return { kind: 'shell', inner: inner.replaceAll(/\\(?<char>.)/gu, '$<char>') };
     }
-    return { kind: STATEMENTS.find(([, pattern]) => pattern.test(body))?.[0] ?? 'drive' };
+    return { kind: LAUNCH_STATEMENT.test(body) ? 'launch' : 'other' };
 };
 
-const appleScriptStatements = (values: readonly (readonly [string, string])[]): readonly { readonly app: Maybe<string>; readonly statement: Statement }[] =>
-    values
-        .flatMap(([name, value]) => (name === '-e' ? value.split('\n') : []))
+const appleScriptStatements = (lines: readonly string[]): readonly { readonly app: Maybe<string>; readonly statement: Statement }[] =>
+    lines
+        .flatMap((value) => value.split('\n'))
         .map((line) => line.trim())
         .filter((line) => line !== '')
         .reduce<{ readonly stack: readonly string[]; readonly said: readonly { readonly app: Maybe<string>; readonly statement: Statement }[] }>(
@@ -188,63 +177,38 @@ const appleScriptStatements = (values: readonly (readonly [string, string])[]): 
 
 const osascriptRoute = (head: Word, invocation: Invocation): Maybe<Route> => {
     const { values, inputs } = operands(invocation);
-    const events = 'System Events';
-    if (values.some(([name, value]) => name === '-l' && value === 'JavaScript')) {
-        return values.some(([name, value]) => name === '-e' && JXA_APP.test(value)) ? Maybe.some(refuse(`JavaScript osascript drives apps, run ${WATCHER} <subcommand> <app>`)) : Maybe.none;
-    }
-    const said = appleScriptStatements(values);
+    const lines = values.flatMap(([name, value]) => (name === '-e' ? [value] : []));
+    const said = values.some(([name, value]) => name === '-l' && value === 'JavaScript') ? [] : appleScriptStatements(lines);
     const aimed = said.flatMap(({ app, statement: spoke }) => app.values.map((name) => ({ app: name, statement: spoke })));
     const apps = [...new Set(aimed.map(({ app }) => app))].map(quote);
     const [shell] = said.flatMap(({ statement: spoke }) => (spoke.kind === 'shell' ? [spoke.inner] : []));
     const documents = aimed.flatMap(({ statement: spoke }) => (spoke.kind === 'open' ? [`${DOCUMENT} ${quote(spoke.path)}`] : []));
-    const verbs = new Set(aimed.map(({ statement: { kind } }) => (kind === 'open' ? 'launch' : kind)));
-    const [verb] = verbs.size === 1 ? [...verbs].filter((kind) => kind === 'launch' || kind === 'quit') : [];
+    const launching = said.length > 0 && aimed.length === said.length && aimed.every(({ statement: { kind } }) => kind === 'launch' || kind === 'open') && (documents.length === 0 || apps.length === 1);
     const [refused] = (
         [
-            [inputs.length > 0, `osascript ${inputs.join(' ')} hides its statements, pass them as -e lines`],
-            [aimed.some(({ app }) => app === events), `${events} posts to the frontmost app, use ${watchApps('perform')}`],
+            [inputs.length > 0 || lines.length === 0, `osascript ${inputs.join(' ') || 'stdin'} hides its statements, pass them as -e lines`],
+            [lines.some((line) => POSTING.test(line)), `System Events posts to the frontmost app, use ${watchApps('perform')}`],
             [shell !== undefined, `osascript runs a shell command, run ${shell ?? ''} directly`],
-            [aimed.some(({ statement: spoke }) => spoke.kind === 'script'), `osascript scripts ${apps.join(' ')}, use Atelier execute_script`],
-            [aimed.some(({ statement: spoke }) => spoke.kind === 'hide'), `${apps.join(' ')} instances launch hidden, run ${watchApps('launch', ...apps)}`],
-            [aimed.length > 0 && (verb === undefined || (documents.length > 0 && apps.length > 1)), `osascript drives ${apps.join(' ')}, use ${watchApps('perform')}`],
+            [!launching && lines.some((line) => FOCUS.test(line)), 'osascript takes focus, capture and perform work without it'],
         ] as const
     ).flatMap(([held, text]) => (held ? [text] : []));
     if (refused !== undefined) {
         return Maybe.some(refuse(refused));
     }
-    return aimed.length === 0 || verb === undefined ? Maybe.none : Maybe.some({ kind: 'rewrite', program: 'osascript', start: head, text: watchApps(verb, ...apps, ...documents) });
-};
-
-const lsappinfoRoute = (head: Word, invocation: Invocation): Maybe<Route> => {
-    const [subcommand, ...rest] = operands(invocation).inputs;
-    const [id] = rest.flatMap((word) => Maybe.fromNullable(BUNDLE_ID_OPTION.exec(word)?.groups?.id).values);
-    if (subcommand !== 'launch') {
-        return Maybe.none;
-    }
-    return Maybe.some(id === undefined ? refuse(`lsappinfo launch bypasses ${WATCHER}, use ${watchApps('launch', '<app>')}`) : { kind: 'rewrite', program: 'lsappinfo', start: head, text: watchApps('launch', quote(id)) });
-};
-
-const launchctlRoute = (invocation: Invocation): Maybe<Route> => {
-    const at = invocation.indexOf('--');
-    const [program, ...args] = at < 0 ? [] : invocation.slice(at + 1);
-    const executed = program === undefined ? undefined : EXECUTABLE.exec(program)?.groups?.executable;
-    return invocation[1] === 'submit' && executed !== undefined && programRow(executed).headless?.some((flag) => args.includes(flag)) !== true ? Maybe.some(refuse(`launchctl submit keeps ${executed} alive, use ${watchApps('launch', quote(executed))}`)) : Maybe.none;
+    return launching ? Maybe.some({ kind: 'rewrite', program: 'osascript', start: head, text: watchApps('launch', ...apps, ...documents) }) : Maybe.none;
 };
 
 const bundleRoute = async (system: System, invocation: Invocation, { assigned, words: [head, ...args] }: Command['parts'][number]): Promise<Maybe<Route>> => {
     const [program] = invocation;
     const groups = head === undefined ? undefined : BUNDLE.exec(head.text)?.groups;
-    if (head === undefined || informational(program, operands(invocation).options) || programRow(program).headless?.some((name) => invocation.includes(name)) === true) {
+    if (head === undefined || groups?.bundle === undefined || informational(program, operands(invocation).options) || programRow(program).headless?.some((name) => invocation.includes(name)) === true) {
         return Maybe.none;
     }
-    if (groups?.bundle === undefined) {
-        return head.expands && EXECUTABLE.test(head.text) ? Maybe.some(refuse(`${program} path expands at run time, use ${watchApps('launch', quote(program))}`)) : Maybe.none;
-    }
     const [info] = (await bundleInfo(system, groups.bundle)).values;
-    return info !== undefined && info.executable === groups.executable ? Maybe.some({ kind: 'rewrite', program, start: assigned[0] ?? head, text: watchApps('launch', info.identifier, ...args.map(({ raw }) => `${ARGUMENT}=${raw}`), ...assigned.map(({ raw }) => `--environment=${raw}`)) }) : Maybe.none;
+    return info !== undefined && info.executable === groups.executable && !info.background ? Maybe.some({ kind: 'rewrite', program, start: assigned[0] ?? head, text: watchApps('launch', info.identifier, ...args.map(({ raw }) => `${ARGUMENT}=${raw}`), ...assigned.map(({ raw }) => `--environment=${raw}`)) }) : Maybe.none;
 };
 
-const appRoute = async (system: System, request: CommandRequest, apps: ReadonlyMap<string, string>, command: Command): Promise<Maybe<Route>> => {
+const appRoute = async (system: System, request: CommandRequest, command: Command): Promise<Maybe<Route>> => {
     const last = command.invocations.at(-1);
     const part = command.parts.at(-1);
     const [head, ...args] = part?.words ?? [];
@@ -257,14 +221,6 @@ const appRoute = async (system: System, request: CommandRequest, apps: ReadonlyM
             return await openRoute(system, request, command, last[0], head, args);
         case 'osascript':
             return osascriptRoute(head, last);
-        case 'kill':
-            return killRoute(apps, head, last);
-        case 'lsappinfo':
-            return lsappinfoRoute(head, last);
-        case 'launchctl':
-            return launchctlRoute(last);
-        case 'screencapture':
-            return Maybe.some(refuse(`screencapture captures the whole display, use ${watchApps('capture', '<app>')}`));
         case 'qlmanage':
             return last.includes('-p') ? Maybe.some(refuse('qlmanage -p opens a preview window, use qlmanage -t')) : Maybe.none;
         default:

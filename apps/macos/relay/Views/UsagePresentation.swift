@@ -3,7 +3,6 @@ import Foundation
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private nonisolated let separator: String = " · "
-private nonisolated let awaitingUpdate: String = "Awaiting update"
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -40,14 +39,14 @@ extension UsageAmount {
 
 extension QuotaWindow {
     func reading(at now: Date) -> String {
-        [used.percentage, resetsAt.map { date in date <= now ? awaitingUpdate : date.resetText(at: now) }].compactMap(\.self).joined(separator: separator)
+        [used.percentage, resetsAt.flatMap { date in date <= now ? nil : date.resetText(at: now) }].compactMap(\.self).joined(separator: separator)
     }
 }
 
 extension UsageState {
     func note(at now: Date) -> String? {
         switch (usage, usage?.isBlocked, usage?.signInExpiresAt) {
-            case (.none, _, _): awaitingUpdate
+            case (.none, _, _): nil
             case (.some(let usage), true, _): ["Blocked", usage.weekly?.resetsAt?.resetText(at: now)].compactMap(\.self).joined(separator: separator)
             case (.some, _, .some(let expiry)) where expiry <= now: "Sign-in expired"
             case (.some, _, _): nil

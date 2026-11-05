@@ -9,7 +9,7 @@ utils:
         kind: class_declaration
         has:
             kind: inheritance_specifier
-            regex: '^(SwiftUI\.)?(View|ViewModifier|Scene|App|Commands|(Customizable)?ToolbarContent|TabContent|Table(Column|Row)Content|Shape|InsettableShape|Layout|\p{XID_Continue}*Style|(NS|UI)View(Controller)?Representable)$'
+            regex: '^(SwiftUI(\.|::))?(View|ViewModifier|Scene|App|Commands|(Customizable)?ToolbarContent|TabContent|Table(Column|Row)Content|Shape|InsettableShape|Layout|[^.]*Style|(NS|UI)View(Controller)?Representable)$'
     timeline-schedule:
         kind: value_argument
         nthChild: 1
@@ -18,13 +18,13 @@ rule:
     pattern: $READ
     any:
         - kind: call_expression
-          regex: '^((Foundation\.)?(Date|UUID)(\.init)?\((timeIntervalSinceNow:[^)]*)?\)|(Swift\.)?SystemRandomNumberGenerator\(\)|(CFAbsoluteTimeGetCurrent|CACurrentMediaTime|mach_(absolute|continuous)_time|clock_gettime_nsec_np|arc4random(_uniform|_buf)?|drand48)\([^)]*\)|(Dispatch(Wall)?Time)\.now\(\)|(\p{XID_Continue}[\p{XID_Continue}.]*)?\.random\(|[\p{XID_Continue}.]+\.(randomElement|shuffled)\(\)|[\p{XID_Continue}.]+\.isDateIn(Today|Yesterday|Tomorrow)\()'
+          regex: '^((Foundation(\.|::))?(Date|UUID)(\.init)?\((timeIntervalSinceNow:[^)]*)?\)|(Swift(\.|::))?SystemRandomNumberGenerator\(\)|(CFAbsoluteTimeGetCurrent|CACurrentMediaTime|mach_(absolute|continuous)_time|clock_gettime_nsec_np|arc4random(_uniform|_buf)?|drand48)\([^)]*\)|(Dispatch(Wall)?Time)\.now\(\)|[^(]*\.random\(|[^(]+\.(randomElement|shuffled)\(\)|[^(]+\.isDateIn(Today|Yesterday|Tomorrow)\()'
           not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^using$'}}}}}
         - kind: call_expression
           regex: '^\.init\((timeIntervalSinceNow:[^)]*)?\)$'
-          inside: {kind: property_declaration, has: {kind: type_annotation, regex: '^:\p{White_Space}*((Foundation\.)?(Date|UUID))$'}}
+          inside: {kind: property_declaration, has: {kind: type_annotation, regex: '^:[\t-\r ]*((Foundation(\.|::))?(Date|UUID))$'}}
         - kind: navigation_expression
-          regex: '^(((Foundation\.)?Date|(ContinuousClock|SuspendingClock)(\(\))?)(\.Instant)?\.now|[\p{XID_Continue}.]+\.timeIntervalSinceNow|(Foundation\.)?Date\.timeIntervalSinceReferenceDate|ProcessInfo\.processInfo\.systemUptime)$'
+          regex: '^(((Foundation(\.|::))?Date|(ContinuousClock|SuspendingClock)(\(\))?)(\.Instant)?\.now|[^(]+\.timeIntervalSinceNow|(Foundation(\.|::))?Date\.timeIntervalSinceReferenceDate|ProcessInfo\.processInfo\.systemUptime)$'
         - kind: prefix_expression
           regex: '^\.now$'
     inside:

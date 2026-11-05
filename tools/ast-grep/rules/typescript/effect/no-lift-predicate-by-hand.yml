@@ -105,7 +105,7 @@ utils:
         kind: variable_declarator
         all:
             - has: {field: name, kind: identifier, pattern: $V}
-            - has: {field: value, kind: yield_expression, regex: '^yield[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*\*'}
+            - has: {field: value, kind: yield_expression, regex: '^yield[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\*'}
     generator-constant:
         kind: identifier
         pattern: $V

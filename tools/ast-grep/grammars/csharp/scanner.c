@@ -1,25 +1,14 @@
-#pragma push_macro("tree_sitter_c_sharp_external_scanner_create")
-#pragma push_macro("tree_sitter_c_sharp_external_scanner_destroy")
-#pragma push_macro("tree_sitter_c_sharp_external_scanner_serialize")
-#pragma push_macro("tree_sitter_c_sharp_external_scanner_deserialize")
-#pragma push_macro("tree_sitter_c_sharp_external_scanner_scan")
-#define tree_sitter_c_sharp_external_scanner_create c_sharp_upstream_create
-#define tree_sitter_c_sharp_external_scanner_destroy c_sharp_upstream_destroy
-#define tree_sitter_c_sharp_external_scanner_serialize c_sharp_upstream_serialize
-#define tree_sitter_c_sharp_external_scanner_deserialize c_sharp_upstream_deserialize
-#define tree_sitter_c_sharp_external_scanner_scan c_sharp_upstream_scan
-
-#include "tree-sitter-c-sharp/src/scanner.c"
-
-#pragma pop_macro("tree_sitter_c_sharp_external_scanner_create")
-#pragma pop_macro("tree_sitter_c_sharp_external_scanner_destroy")
-#pragma pop_macro("tree_sitter_c_sharp_external_scanner_serialize")
-#pragma pop_macro("tree_sitter_c_sharp_external_scanner_deserialize")
-#pragma pop_macro("tree_sitter_c_sharp_external_scanner_scan")
-
 #ifndef SCANNER
 #define SCANNER(fn) tree_sitter_c_sharp_external_scanner_##fn
 #endif
+
+#define tree_sitter_c_sharp_external_scanner_create SCANNER(create)
+#define tree_sitter_c_sharp_external_scanner_destroy SCANNER(destroy)
+#define tree_sitter_c_sharp_external_scanner_serialize SCANNER(serialize)
+#define tree_sitter_c_sharp_external_scanner_deserialize SCANNER(deserialize)
+#define tree_sitter_c_sharp_external_scanner_scan(...) c_sharp_upstream_scan(__VA_ARGS__)
+
+#include "tree-sitter-c-sharp/src/scanner.c"
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -113,15 +102,7 @@ static bool scan_verbatim_quotes(Scanner *scanner, TSLexer *lexer) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-void *SCANNER(create)(void) { return c_sharp_upstream_create(); }
-
-void SCANNER(destroy)(void *payload) { c_sharp_upstream_destroy(payload); }
-
-unsigned SCANNER(serialize)(void *payload, char *buffer) { return c_sharp_upstream_serialize(payload, buffer); }
-
-void SCANNER(deserialize)(void *payload, const char *buffer, unsigned length) { c_sharp_upstream_deserialize(payload, buffer, length); }
-
-bool SCANNER(scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
+bool(SCANNER(scan))(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     bool recovery = recovering(valid_symbols);
     if (!recovery && closes_verbatim(payload, lexer, valid_symbols)) {
         return scan_verbatim_quotes(payload, lexer);

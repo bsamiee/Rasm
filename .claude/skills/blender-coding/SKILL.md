@@ -5,27 +5,21 @@ description: "Use when writing or reviewing Python that runs inside Blender, cov
 
 # [BLENDER_CODING]
 
-Covers `bpy` code from holding a data reference to translating a result at a host entry point. Use `python-coding` for result types, records, pattern matching, and comprehensions.
+Covers what Blender requires of `bpy` code. Use `python-coding` for Python design.
 
 Code runs on Blender's bundled Python 3.13 and takes no 3.14 or 3.15 form: imports stay eager, frozen mappings are `types.MappingProxyType`, `TypeForm` imports from `typing_extensions`, annotations read through `inspect.get_annotations(owner, eval_str=True)`, and text another program parses escapes each value at its format site (`shlex.join`) in place of a t-string.
 
 [PRINCIPLES]:
-- Facts are stated once where they belong, and everything else derives from that source
-- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Every type, export, and helper states a fact nothing else does, a helper with one reader or a forwarder merging into its owner
-- Values that vary are parameters, and kinds, keys, and states are Blender's own values (`rna_enums` literals, `<Class>.bl_idname`)
-- Decisions sit in one `match` over the discriminant or a table, outside combinator arms and extracted helpers
-- Faults keep the host exception as cause, and a guard, fallback, or default hiding a cause is a defect
-- Changes end smaller or more capable, and a move, split, rename, or extracted helper removing nothing is no change
-- Rewrites keep every used behavior, failure cause, public export, and named value, optional fields set together becoming one value
+- Kinds, keys, and states are Blender's own values (`rna_enums` literals, `<Class>.bl_idname`)
+- Rewrites keep every used behavior, failure cause, public export, and named value
 
 [REFERENCES]:
-- [01]-[DATA](references/data.md): Storage owner per value lifetime, created IDs, library loads, paths, custom property values
-- [02]-[OPERATORS](references/operators.md): `bpy.types.Operator` classes, from conditions and invoke popups to modal steps and call sites
-- [03]-[GEOMETRY](references/geometry.md): Evaluated reads, BMesh, attributes, buffers derived from RNA, animation channels, and armatures
-- [04]-[MATHUTILS](references/mathutils.md): `mathutils` values against numpy arrays, transforms over many objects, rotations, and spatial queries
-- [05]-[LIFECYCLE](references/lifecycle.md): Callback bodies across file loads, updates, deferred writes, frames, drivers, and worker processes
-- [06]-[TYPING](references/typing.md): Annotation forms under eager evaluation, stub declarations runtime contradicts, and the code form each takes
+- [01]-[DATA](references/data.md): Persistence, the store a value's lifetime selects and what keeps IDs and paths valid across saves and files
+- [02]-[OPERATORS](references/operators.md): Operator classes, every way of running one reaching `execute` through its properties
+- [03]-[GEOMETRY](references/geometry.md): Per-element data (vertices, keys, bones), reached through the store its mode and evaluation select
+- [04]-[MATHUTILS](references/mathutils.md): Math over scene values, `mathutils` semantics against RNA and numpy, host members over hand-written geometry
+- [05]-[LIFECYCLE](references/lifecycle.md): Code Blender runs on its own schedule, the state each body can read and where its writes and long work go
+- [06]-[TYPING](references/typing.md): Types checkers and Blender's runtime both accept, one form for each place stubs and runtime disagree
 
 ## [01]-[DATA]
 
@@ -344,7 +338,7 @@ Each entry point translates the result once into the host's form:
 |  [02]   | `execute` with nothing changed  | Reason as `INFO` with `{'CANCELLED'}`                                      |
 |  [03]   | `execute` with faults           | `ERROR` report per fault with `{'CANCELLED'}`, file as the body found it   |
 |  [04]   | `poll`                          | `False` with `poll_message_set` of unmet requirements                      |
-|  [05]   | Update callback, handler, timer | Faults stored for the extension to report, a raise printing its traceback  |
+|  [05]   | Update callback, handler, timer | Faults logged through a structlog logger, a raise printing its traceback   |
 |  [06]   | `RenderEngine.render`           | `report({'ERROR'}, ...)` cancelling render                                 |
 |  [07]   | `--python` script               | `sys.exit` of `None`, or of faults joined by newlines for exit 1           |
 

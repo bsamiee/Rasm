@@ -44,14 +44,36 @@ utils:
                             - matches: literal-map
                             - not: {has: {matches: defaults, not: {matches: shell-free-defaults}}}
                             - inside: {matches: root-map, stopBy: end, has: {matches: bash-defaults}}
+    foreign-shell:
+        matches: shell
+        not: {matches: bash-shell}
+        has: {field: value, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar'}}
+    foreign-defaults: {matches: defaults, has: {field: value, has: {matches: literal-map, has: {matches: run, has: {field: value, has: {matches: literal-map, has: {matches: foreign-shell}}}}}}}
+    foreign-step:
+        kind: block_mapping, flow_mapping
+        any:
+            - has: {matches: foreign-shell}
+            - matches: literal-map
+              not: {has: {matches: shell}}
+              inside:
+                matches: job-map
+                stopBy: end
+                any:
+                    - has: {matches: foreign-defaults}
+                    - matches: literal-map
+                      not: {has: {matches: defaults, not: {matches: shell-free-defaults}}}
+                      inside: {matches: root-map, stopBy: end, has: {matches: foreign-defaults}}
 rule:
     any:
-        - matches: run
-          inside: {matches: step-map}
-          not: {has: {field: value, any: [{has: {kind: plain_scalar, not: {regex: '[\r\n]'}}}, {has: {regex: '\$\{\{', stopBy: end}}]}}
-        - kind: block_mapping, flow_mapping
-          inside: {kind: 'block_node, flow_node', inside: {kind: 'block_sequence_item, flow_sequence', inside: {matches: steps, stopBy: {kind: 'block_mapping_pair, flow_pair'}, any: [{inside: {matches: job-map}}, {inside: {matches: composite-map}}]}}}
-          has: {matches: run}
-          not: {any: [{matches: literal-map}, {matches: step-map}]}
+        - all:
+            - matches: {yaml-resolved-pair: {key: {regex: '^["'']?run["'']?$'}, value: {kind: 'block_node, flow_node'}}}
+            - matches: yaml-step-pair
+            - not: {has: {field: value, has: {regex: '\$\{\{', stopBy: end}}}
+            - not: {inside: {matches: foreign-step}}
+            - not: {all: [{inside: {matches: step-map}}, {matches: run}, {has: {field: value, has: {kind: plain_scalar, not: {regex: '[\r\n]'}}}}]}
+        - all:
+            - matches: yaml-step-pair
+            - has: {field: key, has: {kind: double_quote_scalar, any: [{has: {kind: escape_sequence}}, {regex: '[\r\n]'}]}}
+            - not: {inside: {has: {matches: run}}}
 message: Run step escapes bash checks
-note: Write the script as a single-line plain `run:` or move it to a `.sh` file the step calls
+note: Write the script as a single-line plain `run:` under a stated bash shell or move it to a `.sh` file the step calls

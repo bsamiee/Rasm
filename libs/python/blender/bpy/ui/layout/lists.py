@@ -22,7 +22,6 @@ from blender.bpy.data.rna.paths import context_path, definition, rna, Struct, st
 from blender.bpy.data.rna.properties import annotated, Callbacks, declared, pointed
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import acquired, Acquisitions, Classes, Declaration, Tier
-from blender.bpy.extension.reports import alerted
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.members import At, Member, owner_key, ResolvedMember
 from blender.bpy.ui.layout.rows import ConditionalRow, FUNCTIONS, Keywords, Property, realized, RowContent, RowDraw
@@ -226,8 +225,7 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
                 _flt_flag: int = 0,
             ) -> None:
                 editable = self.enabled.map(lambda predicate: _held(predicate, context, ui, item)).default_value(Ok(value=True))
-                alerted(layout, editable)
-                for enabled in editable.to_option().to_list():
+                for enabled in identity.reports.settled(editable).to_list():
                     row = layout.row(align=True)
                     row.enabled = enabled
                     value = icons.bind(lambda bound: bound.at(item, context).starmap(getattr)).default_value(icon)

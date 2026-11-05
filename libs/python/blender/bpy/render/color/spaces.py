@@ -8,7 +8,6 @@ from typing import Annotated, Final, override
 
 import bpy
 from expression import Option, Some
-import gpu
 import msgspec
 from msgspec import UNSET, UnsetType
 import PyOpenColorIO
@@ -177,14 +176,6 @@ class HdrWindow(Condition, frozen=True, kw_only=True):
         """Whether the context scene's preview forms the frame into an HDR display space, absolute PQ under `absolute`."""
         config = PyOpenColorIO.GetCurrentConfig()
         return Option.of_optional(context.scene).bind(shown).bind(lambda view: view.colorspace(config)).filter(pq if self.absolute else hdr).is_some()
-
-    def refusal(self, context: bpy.types.Context) -> Option[str]:
-        """Returns why the window shows the HDR frame the preview forms in standard range, Nothing for a window showing HDR color or a frame formed for none."""
-        return (
-            Some(context)
-            .filter(lambda held: self.formed(held) and not any(window.support_hdr_color for window in Option.of_optional(held.window).to_list()))
-            .map(lambda _: "OpenGL backend cannot show HDR" if gpu.platform.backend_type_get() == "OPENGL" else "Window cannot show HDR")
-        )
 
     @override
     def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:

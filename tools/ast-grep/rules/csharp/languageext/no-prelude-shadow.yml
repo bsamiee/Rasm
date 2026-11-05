@@ -9,8 +9,10 @@ rule:
         - kind: implicit_parameter
         - kind: identifier
           any:
-            - inside: {kind: 'variable_declarator, property_declaration, parameter, from_clause, join_clause, join_into_clause, declaration_pattern, declaration_expression, local_function_statement', field: name}
-            - inside: {kind: let_clause}
+            - inside: {kind: 'variable_declarator, property_declaration, parameter, from_clause, declaration_pattern, declaration_expression, local_function_statement', field: name}
+            - inside: {kind: join_into_clause}
+            - {inside: {kind: let_clause}, precedes: {regex: '^=$'}}
+            - {inside: {kind: join_clause}, precedes: {regex: '^in$'}}
             - inside: {kind: foreach_statement, field: left}
 message: '`$NAME` hides `Prelude.$NAME`'
 note: 'Rename the declaration after what its value holds'

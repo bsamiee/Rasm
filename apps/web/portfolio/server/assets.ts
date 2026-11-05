@@ -31,7 +31,7 @@ const readAsset = Effect.fn('readAsset')(
                     (sql) => sql`SELECT COALESCE(r.value ->> '$.mime', a.body ->> '$.mime') AS mime, CASE WHEN r.value IS NULL THEN a.body ->> '$.name' END AS name, o.value ->> '$.key' AS ${sql('objectKey')},
                     EXISTS (SELECT 1 FROM (${references(sql)}) WHERE state = 'published' AND asset_id = a.id) AS published
                     FROM (SELECT ${id} AS id, ${width} AS width) q JOIN assets a ON a.id = q.id
-                    JOIN json_each(a.uploads) u ON u.value ->> '$.id' = a.${sql('objectKey')} JOIN json_each(u.value, '$.objects') o ON o.value ->> '$.width' IS q.width
+                    JOIN json_each(a.uploads) u ON u.value ->> '$.id' = a.${sql('objectKey')} JOIN json_each(u.value, '$.objects') o ON o.value ->> '$.width' IS NOT DISTINCT FROM q.width
                     LEFT JOIN json_each(a.body, '$.renditions') r ON r.value ->> '$.width' = q.width
                     WHERE a.available`,
                 ),
@@ -121,7 +121,7 @@ const releaseUploads = Effect.fn('releaseUploads')(
             Result: Released,
             execute: ({ assetId, action }) =>
                 SqlClient.SqlClient.use((sql) => {
-                    const pending = sql`(removing IS TRUE OR ${sql('objectKey')} IS NOT u.value ->> '$.id')`;
+                    const pending = sql`(removing IS TRUE OR ${sql('objectKey')} IS DISTINCT FROM u.value ->> '$.id')`;
                     const discard = (...discarded: readonly Statement.Fragment[]) => sql`UPDATE assets SET body = json_set(body, '$.uploads', json((
                         SELECT json_group_array(json(CASE WHEN ${sql.and(discarded)} THEN json_set(u.value, '$.discard', json('true')) ELSE u.value END)) FROM json_each(uploads) u
                     ))) WHERE id = ${assetId}`;

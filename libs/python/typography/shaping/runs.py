@@ -13,13 +13,12 @@ lazy from pathlib import Path
 lazy from time import perf_counter
 
 import msgspec
-lazy from expression.extra.result import catch
 lazy from fontTools.misc.transform import Offset
 lazy from fontTools.ttLib import getTableClass, TTFont
 lazy from fontTools.ttLib.ttFont import GlyphOrder
 lazy from uharfbuzz import Buffer, Face, Font, OTLayoutGlyphClass, shape  # type: ignore[import-untyped]  # ty: ignore[unresolved-import]
 
-lazy from typography.faces.faults import Fault, Ok, Outcome, Reason
+lazy from typography.faces.faults import Fault, Ok, Outcome, read, Reason
 lazy from typography.faces.glyphs import Outline, traced
 lazy from typography.outlines.paths import bounds, Box, transformed
 
@@ -135,7 +134,7 @@ class Binary[T: bytes | TTFont = bytes]:
         Returns:
             Ok(binary), `UNREADABLE` fault for a file that cannot be read or bytes HarfBuzz reads no glyph from.
         """
-        return catch(Path.read_bytes, exception=OSError)(path).map_error(partial(Fault.of, Reason.UNREADABLE, str(path))).bind(Binary.of)
+        return read(path).bind(Binary.of)
 
     @cached_property
     def order(self) -> tuple[str, ...]:

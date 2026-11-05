@@ -12,6 +12,6 @@ rule:
     pattern: '$DECODER.decode($TYPE, from: $ENCODED)'
     has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^from$'}}, {has: {field: value, matches: encoding}}]}}}
 constraints:
-    TYPE: {regex: '\.self$|^[a-z_]\p{XID_Continue}*$'}
+    TYPE: {any: [{regex: '\.self$'}, {kind: simple_identifier, regex: '^[a-z_]'}]}
 message: '`$ENCODED` re-encodes a value in memory to decode `$TYPE` from it'
 note: 'Decode the target type in the read that produced the value, as `JSONDocument<Known>` when a write must keep unknown fields'

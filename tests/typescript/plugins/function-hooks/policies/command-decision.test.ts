@@ -63,7 +63,7 @@ const hosted = Effect.fn('hosted')(function* (installed: boolean, overrides: Rea
     const scanner = (yield* Effect.promise(() => spawned(['mise', 'which', 'ast-grep'], { cwd: plugin, stdin: '' }))).stdout.trim();
     const folder = yield* fs.makeTempDirectoryScoped();
     return {
-        write: (name: string, text: string) => Effect.as(fs.writeFileString(path.join(folder, name), text), path.join(folder, name)),
+        write: (name: string, text: string) => Effect.as(Effect.andThen(fs.makeDirectory(path.dirname(path.join(folder, name)), { recursive: true }), fs.writeFileString(path.join(folder, name), text)), path.join(folder, name)),
         decide: (command: string, request: CommandRequest) =>
             Effect.promise(() =>
                 commandDecision(
@@ -105,6 +105,11 @@ const projected = Effect.fn('projected')(function* ([command, reason]: readonly 
     const folder = file.slice(0, file.lastIndexOf('/'));
     expect(yield* decide(command.replaceAll('{}', folder), foreground)).toMatchObject({ kind: 'deny', reason: expect.stringContaining(reason.replaceAll('{}', folder)) });
 });
+const bundled = Effect.fn('bundled')(function* ([name, declared, command, expected]: readonly [string, string, string, object]) {
+    const { decide, write } = yield* hosted(false);
+    const plist = yield* write(`${name}.app/Contents/Info.plist`, `<plist version="1.0"><dict><key>CFBundleExecutable</key><string>${name}</string><key>CFBundleIdentifier</key><string>app.rasm.${name}</string>${declared}</dict></plist>`);
+    expect(yield* decide(command.replaceAll('{}', plist.replace('/Contents/Info.plist', '')), foreground)).toMatchObject(expected);
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -144,14 +149,13 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
         ["sd -F '- text' 'new' notes.md", "sd -F -- '- text' 'new' notes.md"],
         ['open -n -g -a Blender scene.blend', 'watch-apps launch Blender --new --document scene.blend'],
         [`osascript -e 'tell application "Adobe Illustrator" to activate'`, "watch-apps launch 'Adobe Illustrator'"],
-        [`osascript -e 'tell application "Adobe InDesign 2026" to quit'`, "watch-apps quit 'Adobe InDesign 2026'"],
-        [`osascript -e 'quit app "TextEdit"'`, 'watch-apps quit TextEdit'],
         [`osascript -e 'activate application "TextEdit"'`, 'watch-apps launch TextEdit'],
+        [`osascript -e 'tell application "TextEdit" to open "/private/tmp/notes.txt"'`, 'watch-apps launch TextEdit --document /private/tmp/notes.txt'],
+        ['xed notes.md', 'watch-apps launch com.apple.dt.Xcode --document notes.md'],
         ['/System/Applications/TextEdit.app/Contents/MacOS/TextEdit', 'watch-apps launch com.apple.TextEdit'],
         ['watch-apps perform AAEC AXPress; sleep 2; watch-apps read TextEdit', 'watch-apps perform AAEC AXPress; watch-apps read TextEdit'],
         ['watch-apps perform AAEC AXPress && sleep 2', 'watch-apps perform AAEC AXPress'],
-        ["open -a 'Rhino 8'", "watch-apps launch 'Rhino 8'"],
-        [`osascript -e 'tell application "TextEdit" to quit saving no'`, 'watch-apps quit TextEdit'],
+        ["open -a 'Rhino'", "watch-apps launch 'Rhino'"],
         ['open -a Rhino --args -nosplash', 'watch-apps launch Rhino --arguments=-nosplash'],
         ['open -a Rhino model.3dm', 'watch-apps launch Rhino --document model.3dm'],
         ['tree -L 2 --dirsfirst --noreport plugins', 'tree -L 2 --group-directories-first plugins'],
@@ -165,6 +169,7 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
         ['nx run rasm:check 2>&1 | tail -20', 'set -o pipefail; nx run rasm:check 2>&1 | tail -20'],
         ['cargo test -p rasm-cli | rg FAILED', 'set -o pipefail; cargo test -p rasm-cli | rg --hidden FAILED'],
         ['caffeinate -i nx run rasm:check', 'nx run rasm:check'],
+        ["nx run rasm:check <<'EOF' 2>&1 | tail -5\nx\nEOF", "set -o pipefail; nx run rasm:check <<'EOF' 2>&1 | tail -5\nx\nEOF"],
     ] as const)('rewrites %s', ([command, text]) => decided(command, foreground, false, { kind: 'rewrite', command: text, background: false }));
     methods.effect.each([
         ['trailing & becomes run_in_background', 'nx run portfolio:serve &', foreground, false, { kind: 'rewrite', command: 'nx run portfolio:serve ', background: true, notice: Maybe.some('Call runs in the background for &, wait for its completion notice') }],
@@ -201,9 +206,6 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
             { kind: 'rewrite', command: `analyzeHeadless "$GHIDRA_PROJECT_DIR" name -process x -postScript Rtti.java -log ${ROOT}/.artifacts/logs/ghidra.log -scriptlog ${ROOT}/.artifacts/logs/ghidra-script.log`, background: false },
         ],
         ['tracked script files stay unparsed', 'bash .claude/skills/manage-repo/scripts/maintain.sh --help', foreground, false, { kind: 'allow' }],
-        ['named descriptor redirect opens no program', 'exec {fd}>f', foreground, false, { kind: 'allow' }],
-        ['timed command reads its redirect', 'time cat < f', foreground, false, { kind: 'allow' }],
-        ['coprocess reads its pipe', 'printf x | coproc cat', foreground, false, { kind: 'allow' }],
     ] as const)('rewrites: %s', ([, command, request, installed, expected]) => decided(command, request, installed, expected));
     methods.effect.each([
         ['biome check --error-on-warnings --no-errors-on-unmatched nx.json', { kind: 'rewrite', command: "nx run rasm:lint:biome --args='--no-errors-on-unmatched nx.json'" }],
@@ -298,6 +300,8 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
         ['dir=/safe; coproc { dir=/; }; rm -rf "$dir"', 'allow'],
         ['dir=/; coproc { dir=/safe; }; rm -rf "$dir"', 'deny'],
         ['dir=/safe; time dir=/; rm -rf "$dir"', 'deny'],
+        ['dir=/; dir=/safe 2>/dev/null; rm -rf "$dir"', 'allow'],
+        ['dir=/safe; dir=/ 2>/dev/null; rm -rf "$dir"', 'deny'],
     ] as const)('resolves Bash scope for %s', ([command, kind]) => decided(command, foreground, false, { kind }));
     methods.effect.each([
         ['sleep 1; echo hi', blind],
@@ -339,18 +343,24 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
         ['REPLY=.; value=${| REPLY=/private/tmp/x; }; rm -rf $REPLY', 'covers the repository root'],
         ['value=$(cd /tmp); rm -rf .', 'covers the repository root'],
         ["value=${| node -e 'process.exit(0)'; }", 'node runs inline code'],
-        ['"${ printf /Applications/Blender.app; }/Contents/MacOS/Blender"', 'path expands at run time'],
-        [`osascript -e 'tell application "Finder" to make new folder'`, 'osascript drives Finder, use watch-apps perform'],
         [`osascript -e 'tell application "System Events" to keystroke "a"'`, 'System Events posts to the frontmost app'],
-        [`osascript -e 'tell application "Adobe Illustrator" to do javascript "alert(1)"'`, "osascript scripts 'Adobe Illustrator', use Atelier execute_script"],
+        [`osascript -e 'tell application id "com.apple.systemevents" to keystroke "a"'`, 'System Events posts to the frontmost app'],
+        [`osascript -l JavaScript -e 'Application("System Events").keystroke("a")'`, 'System Events posts to the frontmost app'],
         ['osascript probe.applescript', 'osascript probe.applescript hides its statements'],
+        ['osascript <<\'EOF\'\ntell application "TextEdit" to activate\nEOF', 'osascript stdin hides its statements'],
+        [`osascript -e 'do shell script "ls"'`, 'osascript runs a shell command, run ls directly'],
+        [`osascript -l JavaScript -e 'Application("TextEdit").activate()'`, 'osascript takes focus'],
+        [`osascript -e 'tell application "TextEdit" to set frontmost to true'`, 'osascript takes focus'],
+        [`osascript -e 'tell application "TextEdit" to get name' -e 'tell application "TextEdit" to activate'`, 'osascript takes focus'],
+        [`osascript -e 'perform action "AXRaise" of window 1'`, 'osascript takes focus'],
+        [`osascript -e 'activate'`, 'osascript takes focus'],
+        ['qlmanage -p notes.md', 'qlmanage -p opens a preview window'],
         ['open -W -a Blender scene.blend', 'open -W waits on Blender'],
         ['pkill -f analyzeHeadless', 'pkill ends every match, run kill <pid> on one pid pgrep lists'],
         ['killall Rhino', 'killall ends every match'],
         ['kill $(pgrep -x TextEdit)', 'pgrep feeds kill every match'],
         ['pgrep -x TextEdit | xargs kill', 'pgrep feeds kill every match'],
         ['pgrep -f Rhinoceros | xargs kill', 'pgrep feeds kill every match'],
-        [`osascript -l JavaScript -e 'Application("TextEdit").activate()'`, 'JavaScript osascript drives apps, run watch-apps <subcommand> <app>'],
         ['until watch-apps read TextEdit | grep -q responding; do sleep 5; done', 'Loop polls TextEdit, run watch-apps watch TextEdit in Monitor'],
         ['watch-apps watch TextEdit', 'watch-apps watch never exits, run watch-apps watch TextEdit in Monitor'],
         ['timeout 600 nx run rasm:check & wait; bash -c "timeout 5 ls"', 'timeout is not installed, remove it'],
@@ -375,12 +385,53 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
         ['time -p git push -f | tee x', 'git push -f rewrites or deletes remote history'],
         ['coproc { rm -rf .; }', 'covers the repository root'],
         ['coproc NAME ( rm -rf . )', 'covers the repository root'],
+        ['echo ==; git push --force origin main', 'git push --force rewrites or deletes remote history'],
+        ['ls | head -3 | cat\nrm -rf . 2>/dev/null', 'covers the repository root'],
+        ['ls | grep x | cat\nrm -rf . && ls', 'covers the repository root'],
+        ["cat <<'EOF' 2>&1 | head\nx\nEOF\nrm -rf .", 'covers the repository root'],
+        ['! { rm -rf .; }', 'covers the repository root'],
+        ['! ! rm -rf .', 'covers the repository root'],
+        ['! coproc rm -rf .', 'covers the repository root'],
+        ['! coproc { rm -rf .; }', 'covers the repository root'],
+        ['! time git push -f', 'git push -f rewrites or deletes remote history'],
+        ['! ! git push -f', 'git push -f rewrites or deletes remote history'],
+        ['! coproc git push -f', 'git push -f rewrites or deletes remote history'],
+        ['coproc rm -rf . >f', 'covers the repository root'],
+        ['time -- git push -f', 'git push -f rewrites or deletes remote history'],
+        ['time -p -- git push -f', 'git push -f rewrites or deletes remote history'],
+        ['cat <<EOF; git push -f origin main\nx\nEOF;', 'git push -f rewrites or deletes remote history'],
+        ['cat <<EOF|sh\nrm -rf .\nEOF|sh', 'covers the repository root'],
+        ['x=`cat <<A`\nrm -rf .\nA', 'covers the repository root'],
+        ['bash <<EOF\nrm -rf .', 'covers the repository root'],
+        ['cat <<EOF\n$(rm -rf .)\nEOF', 'covers the repository root'],
+        ['rm -rf !(x)', 'covers the repository root'],
+        ['bash <<A <<B\nls\nA\nrm -rf .\nB', 'covers the repository root'],
+        ['rm <<A -rf .\nx\nA', 'covers the repository root'],
+        ['rm <<<x -rf .', 'covers the repository root'],
+        ['if true; then rm -rf .', 'Bash grammar rejects'],
     ] as const)('denies %s', ([command, reason]) => decided(command, foreground, false, { kind: 'deny', reason: expect.stringContaining(reason) }));
     methods.effect.each([
         ['wait.sh', 'until ! pgrep -f analyzeHeadless >/dev/null; do /bin/sleep 5; done\n', [], { kind: 'deny', reason: expect.stringContaining(blind) }],
         ['run.sh', 'project="$PWD/ghidra/project"\n"$GHIDRA_INSTALL_DIR/support/analyzeHeadless" "$project" color -process "$1"\n', [], { kind: 'deny', reason: expect.stringContaining('analyzeHeadless project "$project" is not $GHIDRA_PROJECT_DIR') }],
     ] as const)('denies script file %s', scripted);
-    methods.effect.each([['-n'], ['-o', 'noexec']] as const)('allows shell syntax check %s', (flags) => scripted(['syntax.sh', 'sleep 30 &\nrm -rf .\n', flags, { kind: 'allow' }]));
+    methods.effect.each([
+        ['Atelier', '<key>LSBackgroundOnly</key><true/>', "echo '' | {}/Contents/MacOS/Atelier", { kind: 'allow' }],
+        ['Atelier', '<key>LSBackgroundOnly</key><true/>', 'open {}', { kind: 'allow' }],
+        ['Atelier', '<key>LSBackgroundOnly</key><true/>', 'open -a {}', { kind: 'allow' }],
+        ['Atelier', '<key>LSBackgroundOnly</key><true/>', 'open -W -a {}', { kind: 'deny', reason: expect.stringContaining('open -W waits on') }],
+        ['UnifiedPluginInstallerAgent', '<key>LSUIElement</key><true/>', '{}/Contents/MacOS/UnifiedPluginInstallerAgent --list all', { kind: 'allow' }],
+        ['Helper', '<key>LSUIElement</key><string>1</string>', 'open {}', { kind: 'allow' }],
+        ['Editor', '<key>LSUIElement</key><false/>', '{}/Contents/MacOS/Editor', { kind: 'rewrite', command: 'watch-apps launch app.rasm.Editor' }],
+        ['Editor', '', 'open -a {}', { kind: 'rewrite', command: expect.stringContaining('watch-apps launch') }],
+    ] as const)('reads %s %s for %s', bundled);
+    methods.effect.each([
+        ["watch-apps watch TextEdit 2>&1 | grep --line-buffered -E 'requiresAnswer|exited'", { kind: 'rewrite', command: 'watch-apps watch TextEdit 2>&1', notice: Maybe.some('Filter removed, every watch-apps line reaches Monitor') }],
+        ["watch-apps watch TextEdit | jq -c '.[0:300]' | grep -v usage", { kind: 'rewrite', command: 'watch-apps watch TextEdit' }],
+        ['watch-apps watch TextEdit | rg responding', { kind: 'rewrite', command: 'watch-apps watch TextEdit' }],
+        ['watch-apps watch --help | head -3', { kind: 'allow' }],
+        ['watch-apps watch TextEdit | while read -r line; do echo "$line"; done', { kind: 'deny', reason: 'Filter drops watch-apps lines, run watch-apps watch TextEdit in Monitor' }],
+    ] as const)('holds Monitor lines whole for %s', ([command, expected]) => decided(command, monitor, false, expected));
+    methods.effect.each([['-n'], ['-o', 'noexec']] as const)('allows shell syntax check %s',(flags) => scripted(['syntax.sh', 'sleep 30 &\nrm -rf .\n', flags, { kind: 'allow' }]));
     methods.effect.each([
         ['rm -f {}/*.lock*', "rm *.lock* deletes a Ghidra lock that blocks only while held, run lsof -t '{}/p.lock~'"],
         ['S={}; cd /tmp && rm -f $S/p.lock~', 'rm p.lock~ deletes a Ghidra lock'],
@@ -446,5 +497,44 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
         ['watch-apps launch TextEdit', foreground],
         ['watch-apps launch Rhino --new', foreground],
         ['/Applications/Blender.app/Contents/MacOS/Blender --command extension list', foreground],
+        ['"${ printf /Applications/Blender.app; }/Contents/MacOS/Blender"', foreground],
+        [`osascript -e 'tell application "TextEdit" to get name'`, foreground],
+        [`osascript -e 'tell application "Finder" to make new folder'`, foreground],
+        [`osascript -e 'tell application "Adobe Illustrator" to do javascript "alert(1)"'`, foreground],
+        [`osascript -e 'tell application "Adobe InDesign 2026" to quit'`, foreground],
+        [`osascript -e 'quit app "TextEdit"'`, foreground],
+        [`osascript -e 'tell application "TextEdit" to quit saving no'`, foreground],
+        [`osascript -e 'tell application "TextEdit" to hide'`, foreground],
+        [`osascript -l JavaScript -e 'Application("TextEdit").name()'`, foreground],
+        ['kill 1234567', foreground],
+        ['kill -9 1234567', foreground],
+        ['kill $(watch-apps read TextEdit | jq -r .pid)', foreground],
+        ['lsappinfo launch bundleid=com.apple.TextEdit', foreground],
+        ['launchctl submit -l probe -- /System/Applications/TextEdit.app/Contents/MacOS/TextEdit', foreground],
+        ['screencapture -x -o -l 123 window.png', foreground],
+        ['qlmanage -t notes.md', foreground],
+        ["cat <<'EOF'\nEOFX rm -rf .\nEOF", foreground],
+        ['echo a$; ls', foreground],
+        ['exec {fd}>f', foreground],
+        ['time cat < f', foreground],
+        ['printf x | coproc cat', foreground],
+        ['coproc ls >/dev/null', foreground],
+        ['coproc N { ls; } 2>&1', foreground],
+        ['x=$(echo a) 2>/dev/null', foreground],
+        ['exec {fd}<<<x', foreground],
+        ['if true; then { ls; } fi', foreground],
+        ['[ a=b ]', foreground],
+        ['x=$; ls', foreground],
+        ['for x in a b; { echo "$x"; }', foreground],
+        ['{x} y', foreground],
+        ['ls @(a|b)', foreground],
+        ['cat <<EOF; ls\nx\nEOF', foreground],
+        ['cat <<A <<B\na\nA\nb\nB', foreground],
+        ['cat <<A | cat <<B\na\nA\nb\nB', foreground],
+        ['if true <<EOF; then\nx\nEOF\nls\nfi', foreground],
+        ['x=$(cat <<A) ls', foreground],
+        ['x=$(cat <<A)\nrm -rf .\nA', foreground],
+        ['case x in a) ls ;& esac', foreground],
+        ['echo ${x:-(a)}', foreground],
     ] as const)('allows %s', ([command, request]) => decided(command, request, false, { kind: 'allow' }));
 });

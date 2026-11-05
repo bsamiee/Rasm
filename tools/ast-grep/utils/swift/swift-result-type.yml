@@ -3,4 +3,6 @@ id: swift-result-type
 language: swiftlang
 rule:
     kind: user_type
-    pattern: {context: 'func f() -> Swift.Result<$$$TYPES> {}', selector: user_type}
+    any:
+        - pattern: {context: 'func f() -> Swift.Result<$$$TYPES> {}', selector: user_type}
+        - pattern: {context: 'func f() -> Swift::Result<$$$TYPES> {}', selector: user_type}

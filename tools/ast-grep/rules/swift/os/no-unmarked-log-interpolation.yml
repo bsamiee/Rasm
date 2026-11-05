@@ -10,6 +10,6 @@ rule:
             kind: interpolated_expression
             all:
                 - has: {field: name, regex: '^privacy$'}
-                - has: {field: value, regex: '^((os\.)?OSLogPrivacy)?\.(public|private|sensitive)(?-u:\b)'}
+                - has: {field: value, regex: '^((os(\.|::))?OSLogPrivacy)?\.(public|private|sensitive)(?-u:\b)'}
 message: '`$VALUE` enters a log message under `.auto` privacy, redacted for a string or object'
 note: 'Mark each interpolation with `privacy: .public`, `.private`, or `.sensitive`'

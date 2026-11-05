@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-mcp"
-version.workspace    = true
-edition.workspace    = true
-description          = "MCP host on rasm-daemon: sessions with telemetry, routed app servers with tasks and elicitation, and upstream proxies"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["mcp", "modelcontextprotocol", "rmcp", "streamable-http", "proxy"]
-categories           = ["network-programming", "web-programming::http-server"]
+name              = "rasm-mcp"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

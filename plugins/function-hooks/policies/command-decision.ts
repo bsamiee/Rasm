@@ -38,13 +38,14 @@ const policyFailure = (detail: string): string => `function-hooks policy did not
 const scriptDecision = async (system: System, source: Uint8Array, script: Script, request: CommandRequest): Promise<Decision> => {
     const { commands } = script;
     const [apps, writers] = await Promise.all([runningApps(system, commands), taskWriters(system, request, commands)]);
-    const routes = new Map((await Promise.all(commands.map(async (each) => (await appRoute(system, request, apps, each)).values.map((route) => [each, route] as const)))).flat());
+    const routes = new Map((await Promise.all(commands.map(async (each) => (await appRoute(system, request, each)).values.map((route) => [each, route] as const)))).flat());
     const call: Call = { system, source, script, request, apps, writers, routes, projects: new Map(), parses: new Map() };
     const verdicts = (
         await Promise.all([...[deletes, git, searchRoots, noOpReplacements, inputSources, selfMatches, foregroundWaits, taskTails, backgroundJobs, timeoutCommands, ghidra, projectCopies, pipefail, loopReruns, processKills, appPolls].map((policy) => policy(call)), ...commands.map((each) => commandRewrites(call, each))])
     ).flat();
     const reasons = [...new Set(verdicts.flatMap((verdict) => (verdict.kind === 'refuse' ? [verdict.reason] : [])))];
-    const edits = verdicts.flatMap((verdict) => (verdict.kind === 'edit' ? [verdict] : []));
+    const spans = verdicts.flatMap((verdict) => (verdict.kind === 'edit' ? [verdict] : []));
+    const edits = spans.filter(({ start, end }) => !spans.some((wider) => wider.start <= start && end <= wider.end && wider.end - wider.start > end - start));
     const backgrounds = verdicts.flatMap((verdict) => (verdict.kind === 'background' ? [verdict.notice] : []));
     const notices = [...new Set([...edits.flatMap(({ notice }) => notice.values), ...backgrounds])];
     const timeouts = edits.flatMap(({ timeout }) => timeout.values);
@@ -68,7 +69,7 @@ const commandDecision = async (system: System, command: string, request: Command
     const source = new TextEncoder().encode(command);
     return (await parse(system, command)).match<Decision | Promise<Decision>>(
         (script) => scriptDecision(system, source, script, request),
-        (faults) => ({ kind: 'deny', reason: `Command not parsed. ${faultText(faults)}` }),
+        (faults) => ({ kind: 'deny', reason: `Command not parsed, ${faultText(faults)}` }),
     );
 };
 

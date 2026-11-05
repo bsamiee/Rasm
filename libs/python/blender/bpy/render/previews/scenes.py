@@ -343,7 +343,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         release = ExitStack()
 
         def undone(request: object, step: Callable[[], object]) -> None:
-            release.callback(_held, identity, lambda: catch(step, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(request))))
+            release.callback(_released, identity, lambda: catch(step, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(request))))
 
         def lit(light: bpy.types.Object, data: bpy.types.Light) -> Outcome[None]:
             def relit() -> None:
@@ -416,7 +416,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 paired(meshed(scene, shapes), written(scene, ("camera",), camera))
                 .bind(lambda _: paired(lit(light, data), aimed(scene, camera, lens), environment(scene)))
                 .bind(lambda _: self.stacked(identity, staging, scene, release))
-                .map(lambda restoring: release.callback(_held, identity, restoring))
+                .map(lambda restoring: release.callback(_released, identity, restoring))
                 .map(lambda _: scene)
             )
 
@@ -505,7 +505,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         def captured(scene: bpy.types.Scene) -> Outcome[Readback]:
             paths = {key: Path(bpy.app.tempdir, f"{scene.session_uid}_{self.capture.key}_{key}.exr") for key in _Capture}
             value = Some(identity.identifier(self.value)) if staging.value else Nothing
-            release.callback(_held, identity, partial(_unlinked, paths))
+            release.callback(_released, identity, partial(_unlinked, paths))
             for name in value.to_list():
                 aovs = scene.view_layers[0].aovs
                 aov = aovs.add()
@@ -568,10 +568,9 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _held(identity: Identity, step: Callable[[], Outcome[object]]) -> None:
-    """Runs one release step, holding its faults for the extension."""
-    for faults in step().swap().to_option().to_list():
-        identity.reports.hold(faults)
+def _released(identity: Identity, step: Callable[[], Outcome[object]]) -> None:
+    """Runs one release step, logging its faults."""
+    identity.reports.faulted(step())
 
 
 def _unlinked(paths: Mapping[_Capture, Path]) -> Outcome[None]:

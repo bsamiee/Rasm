@@ -4,12 +4,12 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {nthChild: 1, regex: '^((Subprocess\.)?run|(Subprocess\.)?Configuration(\.init)?)$'}
+        - has: {nthChild: 1, regex: '^((Subprocess(\.|::))?run|(Subprocess(\.|::))?Configuration(\.init)?)$'}
         - has: {stopBy: end, kind: value_argument, all: [{has: {field: name, regex: '^environment$'}}, {has: {field: value, pattern: $ENVIRONMENT}}]}
         - has:
             stopBy: end
             kind: call_expression
-            regex: '^((Subprocess\.)?Executable)?\.path\('
+            regex: '^((Subprocess(\.|::))?Executable)?\.path\('
             pattern: $PATH
             has: {kind: call_suffix, has: {stopBy: end, kind: value_argument, has: {field: value, kind: simple_identifier, pattern: $RESOLVED}}}
         - inside:
@@ -18,7 +18,6 @@ rule:
             has:
                 kind: property_declaration
                 all:
-                    - has: {field: name, has: {field: bound_identifier, pattern: $RESOLVED}}
-                    - has: {stopBy: end, kind: call_expression, pattern: '$_.resolveExecutablePath(in: $ENVIRONMENT)'}
+                    - has: {kind: pattern, has: {field: bound_identifier, pattern: $RESOLVED}, precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, has: {stopBy: end, kind: call_expression, pattern: '$_.resolveExecutablePath(in: $ENVIRONMENT)'}}}
 message: '`$PATH` runs `$RESOLVED` that `resolveExecutablePath(in: $ENVIRONMENT)` found for the child''s own environment'
 note: 'Run `Executable.name(<name>)` with the same `environment:`, and match `SubprocessError.Code.executableNotFound` for a missing executable'

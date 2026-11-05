@@ -74,7 +74,7 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
             Accessible = new Accessible { Role = AccessRole.Image, Label = culture.TextInfo.Listed(shown.Map(static held => held.Series.Label)) },
         }.Grown;
         return new View.Overlay(plot, [
-            Corners(Cluster(PhysicalAxis.Vertical, Controls + Views(culture).ToSeq() + Status), Some(Navigation.Zooms(View))),
+            Corners(Cluster(PhysicalAxis.Vertical, Controls + Views(culture).ToSeq() + Loading), Some(Navigation.Zooms(View))),
             new View.Flex(PhysicalAxis.Vertical, Seq<View>(Corners(Cluster(PhysicalAxis.Vertical, Pointer.Map(at => (View)new View.Text([View.Spoken(at, culture)]) { Role = Roles.Readout }).ToSeq()), Cluster(PhysicalAxis.Vertical, Legended.ToSeq() + Overview(layers, highlighted, culture).ToSeq())))
                 + ruled.Filter(_ => Ruler).Map(Scale).ToSeq()) {
                 Width = Sizing.Grow.Unit,
@@ -136,13 +136,12 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
                 key => Saved.Find(preset => preset.Key == key).Map(static preset => preset.Label).IfNone(key.Identifier),
                 edit => Navigation.Edited(Saved.Applied(edit))).Drawn(culture));
 
-    private Seq<View> Status =>
+    private Seq<View> Loading =>
         Series.Choose(static series => series.Entities.Switch(
-                pending: static pending => Some(Progress.Ring(pending.Work)),
-                ready: static _ => Option<View>.None,
-                empty: static _ => Some<View>(new View.Box { Role = Roles.Status }),
-                failed: static _ => Some<View>(new View.Box { Role = Roles.Status, Conditions = [Condition.Faulted] }))
-            .Map(glyph => (View)Reported(glyph, series.Entities.Message.IfNone(series.Label))));
+            pending: static pending => Some(Progress.Ring(pending.Work)),
+            ready: static _ => Option<View>.None,
+            empty: static _ => Option<View>.None,
+            failed: static _ => Option<View>.None));
 
     private Option<View> Legended {
         get {
@@ -169,9 +168,6 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
 
     private static View.Flex Corners(Option<View> start, Option<View> end) =>
         new(PhysicalAxis.Horizontal, start.ToSeq() + Seq<View>(new View.Box { Width = Sizing.Grow.Unit }) + end.ToSeq()) { Width = Sizing.Grow.Unit };
-
-    private static View.Flex Reported(View mark, string text) =>
-        new(PhysicalAxis.Horizontal, [mark, new View.Text([text]) { Role = Roles.Label, MaxLines = 1 }]) { Accessible = new Accessible { Role = AccessRole.Status, Interrupts = Some(value: false) } };
 
     // --- [READ]
     private Seq<(Series<TEntity> Series, uint Ordinal)> Ordered {

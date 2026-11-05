@@ -2,7 +2,7 @@
 language: rustlang
 severity: error
 rule:
-    kind: 'function_item, function_signature_item, struct_item, enum_item, union_item, trait_item, const_item, static_item, type_item, mod_item'
+    kind: 'function_item, function_signature_item, struct_item, enum_item, union_item, trait_item, trait_alias, macro_definition, const_item, static_item, type_item, mod_item'
     all:
         - has: {kind: visibility_modifier, regex: '^pub$'}
         - has: {field: name, regex: '^_\p{XID_Continue}', pattern: $NAME}

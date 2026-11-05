@@ -111,7 +111,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             let dismiss: NSButton = NSButton(title: "Dismiss", target: panel, action: #selector(NSWindow.orderOut(_:)))
             dismiss.setAccessibilityIdentifier("dismiss")
             panel.contentView = dismiss
-            panel.orderFront(nil)
+            panel.orderBack(nil)
             return panel
         }
         func undescribed() -> NSWindow {
@@ -120,7 +120,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             window.isRestorable = false
             window.isReleasedWhenClosed = false
             window.setAccessibilityElement(false)
-            window.orderFront(nil)
+            window.orderBack(nil)
             return window
         }
         func collapsed() -> NSWindow {
@@ -128,7 +128,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             window.title = "Collapsed"
             window.isRestorable = false
             window.isReleasedWhenClosed = false
-            window.orderFront(nil)
+            window.orderBack(nil)
             return window
         }
         func swatch() -> NSWindow {
@@ -142,7 +142,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             window.center()
             for shown: NSWindow in windows { shown.orderOut(nil) }
             NSApp.unhideWithoutActivation()
-            window.orderFront(nil)
+            window.orderBack(nil)
             return window
         }
         func table() -> NSWindow {
@@ -164,7 +164,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             scroll.hasVerticalScroller = true
             window.contentView = scroll
             window.center()
-            window.orderFront(nil)
+            window.orderBack(nil)
             return window
         }
         func deferred(titled title: String, _ work: @escaping @MainActor () -> Void) {
@@ -257,7 +257,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
         window.contentView = NSStackView(views: [press, field, check, popUp, status])
         window.representedURL = settings.document
         window.isDocumentEdited = settings.edited
-        window.orderFront(nil)
+        window.orderBack(nil)
         return window
     }
 }

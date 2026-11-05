@@ -21,7 +21,7 @@ utils:
                 stopBy: end
                 has:
                     any:
-                        - {kind: property_declaration, has: {field: name, has: {field: bound_identifier, pattern: $MEMBER}}}
+                        - {kind: property_declaration, has: {kind: pattern, has: {field: bound_identifier, pattern: $MEMBER}}}
                         - {kind: function_declaration, has: {field: name, pattern: $MEMBER}}
     self-reader:
         kind: function_declaration

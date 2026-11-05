@@ -17,14 +17,15 @@ utils:
             - kind: call_expression
               has: {field: function, matches: {rust-imported-name: {source: {regex: '(?-u:\b)std::thread::'}, name: {regex: '^(sleep(_until)?|yield_now|park_timeout)$'}}}}
     loop-exit:
-        kind: 'break_expression, return_expression'
+        matches: rust-diverging
+        not: {kind: continue_expression}
     status-probe:
         kind: call_expression
         has: {field: function, kind: field_expression, has: {field: field, regex: '^do_step_status$'}}
 rule:
     kind: 'loop_expression, while_expression, for_expression'
     all:
-        - has: {field: body, has: {stopBy: &scope {kind: 'closure_expression, function_item, async_block, loop_expression, while_expression, for_expression'}, matches: timed-wait, pattern: $SLEEP}}
+        - has: {field: body, has: {stopBy: &scope {any: [{matches: rust-return-boundary}, {kind: 'loop_expression, while_expression, for_expression'}]}, matches: timed-wait, pattern: $SLEEP}}
         - not: {has: {field: body, has: {stopBy: *scope, matches: status-probe}}}
         - any:
             - kind: while_expression

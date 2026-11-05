@@ -114,20 +114,6 @@ struct MenuBarExtraContent: View {
                         .padding(.vertical, 8)
                 case .failure: EmptyView()
             }
-
-            let issue: String? =
-                switch store {
-                    case .success(let store): store.issue(at: now)
-                    case .failure(let error): error.localizedDescription
-                    case .none: nil
-                }
-            if let issue {
-                Text(issue)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
     }
 
@@ -171,15 +157,12 @@ private struct AccountCard: View {
                 providerGlyph
                 VStack(alignment: .leading, spacing: 8) {
                     gauges
-                    Group {
-                        if let note: String { Text(note) }
-                        if let blocking: AccountOperation = model.blockingOperation {
-                            Text(blocking.refusalDescription)
-                        }
+                    if let note: String {
+                        Text(note)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -214,11 +197,9 @@ private struct AccountCard: View {
     }
 
     private var note: String? {
-        switch (model.issue, model.running?.kind, model.authentication) {
-            case (.some(let issue), _, _): issue.description(at: now)
-            case (.none, .signingOut, _), (.none, .removing, _): model.running?.kind.name.description
-            case (.none, _, .signInRequired): "Sign in required"
-            case (.none, _, .connected): model.usage.note(at: now)
+        switch model.authentication {
+            case .signInRequired: "Sign in required"
+            case .connected: model.usage.note(at: now)
         }
     }
 }

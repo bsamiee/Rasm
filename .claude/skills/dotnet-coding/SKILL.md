@@ -5,25 +5,23 @@ description: "Use when writing or reviewing C#, covering functional design with 
 
 # [DOTNET_CODING]
 
-Covers C# design from signature shape to host boundary, with LanguageExt, Thinktecture, and Mapperly types as vocabulary.
+Covers C# design from signature shape to host boundary, with LanguageExt and Thinktecture types as vocabulary.
 
 [PRINCIPLES]:
-- Facts are stated once at their owner, and every other use derives from it
-- Packages and hosts are used through their members, and a hand-written form of a member is a defect
 - Parameters every caller passes alike fold into their owner
 - Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:
-- [01]-[FUNCTIONS](references/functions.md): Worked flows for functions as values, from combinators to the composition root and a request's effects
-- [02]-[SEQUENCES](references/sequences.md): Worked flows behind the expression rules, from deferral to a text-to-report pipeline
-- [03]-[RESULTS](references/results.md): Worked flows for validators, `Fin` workflows, host translation, union folds, and result equations
-- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshot and transition model behind the immutability rules, with persistent structure costs
-- [05]-[EFFECTS](references/effects.md): Worked flows for effects at the boundary, from isolating I/O and injection to running the composed effect
-- [06]-[STATE](references/state.md): Worked flows for state passed through `State` and `StateT`, with the generators and the loop forms
-- [07]-[STREAMS](references/streams.md): Observable model and agent model, with per-item failure, backpressure, and entity processes
-- [08]-[EVENT_SOURCING](references/event-sourcing.md): Event history as the source of truth, from storage to the command and query sides
-- [09]-[LANGUAGE_FEATURES](references/language-features.md): Language and runtime features that reshape declarations, with when each applies
-- [10]-[ANALYZERS](references/analyzers.md): Roslyn action scopes, semantic identity, traversal costs, and document fixes
+- [01]-[FUNCTIONS](references/functions.md): Behavior held as function values and programs composed from them
+- [02]-[SEQUENCES](references/sequences.md): Collection work as deferred stages and folds in place of loops and accumulators
+- [03]-[RESULTS](references/results.md): Outcomes as values that workflows compose under result equations and hosts translate
+- [04]-[IMMUTABLE_DATA](references/immutable-data.md): Change modeled as successive snapshots, with limits and costs of immutability
+- [05]-[EFFECTS](references/effects.md): Side effects described as values around a pure core and run once by host
+- [06]-[STATE](references/state.md): Behavior depending on earlier inputs, with state as explicit input and its successor as output
+- [07]-[STREAMS](references/streams.md): Values that arrive over time and processes that serialize changes to one shared value
+- [08]-[EVENT_SOURCING](references/event-sourcing.md): Entity transitions stored as source of truth, with every snapshot and view derived from them
+- [09]-[LANGUAGE_FEATURES](references/language-features.md): Features that replace a family of members or hand-written form with one declaration
+- [10]-[ANALYZERS](references/analyzers.md): Roslyn analyzers and fixes, with findings established by resolved semantics and edits preserving meaning
 
 ## [01]-[FUNCTIONS]
 

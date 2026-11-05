@@ -16,7 +16,8 @@ import UniformTypeIdentifiers
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 let captures: URL = URL.temporaryDirectory.appending(component: ProcessInfo.processInfo.processName, directoryHint: .isDirectory)
-let logVariable: String = "WATCH_APPS_LOG"
+let logsVariable: String = "WATCH_APPS_LOGS"
+let logRetention: TimeInterval = 7 * 24 * 60 * 60
 let sessionVariable: String = "CLAUDE_CODE_SESSION_ID"
 let installedNames: String = "Installed application paths, bundle identifiers, or display names. Names ignore case and diacritics"
 
@@ -134,6 +135,15 @@ extension JSONDecoder {
     }
 }
 
+func sessionLog(in folder: String) -> URL {
+    let environment: [String: String] = ProcessInfo.processInfo.environment
+    return URL(filePath: folder, directoryHint: .isDirectory).appending(component: "\(environment[sessionVariable] ?? ProcessInfo.processInfo.processName).jsonl")
+}
+
+func sessionLogs(in folder: String) throws -> [URL] {
+    try FileManager.default.contentsOfDirectory(at: URL(filePath: folder, directoryHint: .isDirectory), includingPropertiesForKeys: [.contentModificationDateKey]).filter { file in file.pathExtension == "jsonl" }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 @main
@@ -179,10 +189,20 @@ struct WatchApps: AsyncParsableCommand {
         parent.activate()
         let encoder: JSONEncoder = JSONEncoder.lines
         let process: pid_t = getpid()
-        let log: Result<FileDescriptor, ApplicationFailure>? = ProcessInfo.processInfo.environment[logVariable].map { path in
+        let log: Result<FileDescriptor, ApplicationFailure>? = ProcessInfo.processInfo.environment[logsVariable].map { folder in
             Result { () throws(ApplicationFailure) in
-                do { return try FileDescriptor.open(FilePath(path), .writeOnly, options: [.append, .create], permissions: [.ownerReadWrite, .groupRead, .otherRead]) } catch {
-                    throw ApplicationFailure(subject: path, reason: .host(error))
+                do {
+                    try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+                    let cutoff: Date = .now.addingTimeInterval(-logRetention)
+                    for file: URL in try sessionLogs(in: folder) {
+                        do {
+                            if let written: Date = try file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate, written < cutoff { try FileManager.default.removeItem(at: file) }
+                        } catch let error as CocoaError where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile {}
+                    }
+                    let current: FilePath = FilePath(sessionLog(in: folder).path(percentEncoded: false))
+                    return try FileDescriptor.open(current, .writeOnly, options: [.append, .create], permissions: [.ownerReadWrite, .groupRead, .otherRead])
+                } catch {
+                    throw ApplicationFailure(subject: folder, reason: .host(error))
                 }
             }
         }
@@ -563,30 +583,31 @@ struct Log: ParsableCommand {
         let decoder: JSONDecoder = JSONDecoder.lines
         try WatchApps.run(
             printing: Result { () throws(ApplicationFailure) -> [Data] in
-                guard let path: String = ProcessInfo.processInfo.environment[logVariable] else {
-                    throw ApplicationFailure(subject: logVariable, reason: .unmatched(Unmatched(subject: "environment variable", query: logVariable, candidates: [])))
+                guard let folder: String = ProcessInfo.processInfo.environment[logsVariable] else {
+                    throw ApplicationFailure(subject: logsVariable, reason: .unmatched(Unmatched(subject: "environment variable", query: logsVariable, candidates: [])))
                 }
                 let lines: [Data]
                 let records: [Record<JSONValue>]
                 do {
-                    lines = try Data(contentsOf: URL(filePath: path)).split(separator: UInt8(ascii: "\n"))
+                    let files: [URL] = try pid == nil ? [sessionLog(in: folder)] : sessionLogs(in: folder)
+                    lines = try files
+                        .filter { file in FileManager.default.fileExists(atPath: file.path(percentEncoded: false)) }
+                        .flatMap { file in try Data(contentsOf: file).split(separator: UInt8(ascii: "\n")) }
                     records = try lines.map { line in try decoder.decode(Record<JSONValue>.self, from: line) }
                 } catch {
-                    throw ApplicationFailure(subject: path, reason: .host(error))
+                    throw ApplicationFailure(subject: folder, reason: .host(error))
                 }
                 let output: [Data]
                 if let pid {
-                    let start: Int = records.lastIndex { record in record.pid == pid && record.argv != nil } ?? records.endIndex
+                    let start: Int = records.indices.filter { index in records[index].pid == pid && records[index].argv != nil }.max { first, second in records[first].at < records[second].at } ?? records.endIndex
                     let end: Int = records[start...].firstIndex { record in record.pid == pid && record.exit != nil }.map { end in end + 1 } ?? records.endIndex
                     output = (start..<end).filter { index in records[index].pid == pid }.map { index in lines[index] + [UInt8(ascii: "\n")] }
                 } else {
-                    let session: String? = ProcessInfo.processInfo.environment[sessionVariable]
                     let runs: [Run] = records.reduce(into: (runs: [Run](), active: [pid_t: Int]())) { folded, record in
                         switch (record.argv, record.line, record.exit, folded.active[record.pid]) {
-                            case (.some(let argv), _, _, _) where record.session == session:
+                            case (.some(let argv), _, _, _):
                                 folded.active[record.pid] = folded.runs.endIndex
                                 folded.runs.append(Run(pid: record.pid, at: record.at, argv: argv))
-                            case (.some, _, _, _): folded.active[record.pid] = nil
                             case (.none, .some(.object(let line)), _, .some(let run)): folded.runs[run].last.merge(line.mapValues(\.outlined)) { _, next in next }
                             case (.none, _, .some(let exit), .some(let run)):
                                 folded.runs[run].exit = exit
@@ -594,7 +615,7 @@ struct Log: ParsableCommand {
                             case (.none, _, _, _): break
                         }
                     }.runs
-                    do { output = try runs.map(encoder.encodeLine) } catch { throw ApplicationFailure(subject: path, reason: .host(error)) }
+                    do { output = try runs.map(encoder.encodeLine) } catch { throw ApplicationFailure(subject: folder, reason: .host(error)) }
                 }
                 return output
             }

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-accessed-name
+language: csharplang
+arguments: [name]
+utils:
+    simple:
+        matches: {csharp-simple-name: {name: {matches: name}}}
+rule:
+    any:
+        - kind: member_access_expression
+          has: {field: name, matches: simple}
+        - kind: conditional_access_expression
+          has: {kind: member_binding_expression, has: {field: name, matches: simple}}

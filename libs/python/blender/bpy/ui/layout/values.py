@@ -22,9 +22,8 @@ from blender.bpy.data.rna.properties import annotated
 from blender.bpy.data.rna.snapshots import Applied, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration
-from blender.bpy.extension.reports import alerted
 from blender.bpy.settings.attachments import Attached, Attachment, Host
-from blender.bpy.settings.presets import Preset
+from blender.bpy.settings.presets import Preset, PRESET_PATH
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import ConditionalRow, Keywords, operator_button, OperatorButton, realized, RowContent, RowDraw
 from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
@@ -182,7 +181,7 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
         """Saves the current values as a preset, replacing the saved preset of that name."""
         name, identity = call.properties.name, call.identity
         match _claimed(self.preset, identity, name).to_optional():
-            case (_, Path() as path):
+            case (_, Path() as path) if self.preset.owned(identity, path):
                 return self.current(call.context).bind(partial(self.preset.written, path)).map(lambda _: operators.Done(notes=(("INFO", _reported("Replaced {}", path.stem)),)))
             case (_, _):
                 return Error(Fault.of(Reason.TAKEN, name, member=str(self.preset.folder(identity))))
@@ -228,22 +227,22 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
         commands = self.commands
         catalog = tuple((stem, kept, self.preset.read(kept)) for stem, kept in self.preset.listed(identity).items())
         valid = tuple((stem, held) for stem, _, value in catalog for held in value.to_option().to_list())
-        matched = self.matches(context, tuple(value for _, value in valid)).map(lambda marks: dict(zip((stem for stem, _ in valid), marks)))
-        alerted(layout, matched)
+        matched = identity.reports.settled(self.matches(context, tuple(value for _, value in valid)).map(lambda marks: dict(zip((stem for stem, _ in valid), marks))))
         for stem, kept, value in catalog:
-            line, chosen, user = layout.row(align=True), {"stem": stem}, isinstance(kept, Path)
-            label: Keywords = {"text": bpy.path.display_name(stem, title_case=not user), "translate": False, "icon": "CHECKMARK" if matched.default_value({}).get(stem, False) else "BLANK1"}
-            alerted(line, value)
-            for _ in value.to_option().to_list():
-                alerted(line, operator_button(line, identity, Placement(commands[StoreCommand.APPLY], chosen), label))
+            line, chosen, user, name = layout.row(align=True), {"stem": stem}, self.preset.owned(identity, kept), Preset.titled(stem, kept)
+            if identity.reports.settled(value).is_some():
+                label: Keywords = {"text": name, "translate": False, "icon": "CHECKMARK" if matched.default_value({}).get(stem, False) else "BLANK1"}
+                identity.reports.faulted(operator_button(line, identity, Placement(commands[StoreCommand.APPLY], chosen), label))
+            else:
+                line.label(text=name, translate=False, icon="ERROR")
             for command in (StoreCommand.REPLACE, StoreCommand.RENAME, StoreCommand.EXPORT, StoreCommand.DELETE) if user else (StoreCommand.EXPORT,):
-                alerted(line, operator_button(line, identity, Placement(commands[command], chosen), {"text": "", "icon": command.icon}))
+                identity.reports.faulted(operator_button(line, identity, Placement(commands[command], chosen), {"text": "", "icon": command.icon}))
         layout.separator()
         footer(layout.row(align=True), holder, context)
 
     def acquisitions(self, _identity: Identity, /) -> Acquisitions:
-        """Acquires the command operators."""
-        return tuple(self.commands.values())
+        """Acquires the extension preset path and the command operators."""
+        return (PRESET_PATH, *self.commands.values())
 
 
 class Captured(msgspec.Struct, frozen=True, kw_only=True):
@@ -453,30 +452,29 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
             draw(layout, holder, context)
         for host, lock in ((host, lock) for host in found.to_option().to_list() for lock in Option.of_optional(commands.get(StoreCommand.LOCK)).to_list()):
             kept, group, declared = attached.locks(host), attached.struct(host), annotated(attached.form)
-            alerted(layout, kept)
-            locks = kept.default_value(frozenset())
+            locks = identity.reports.settled(kept).default_value(frozenset())
             for prop in (prop for prop in definition(group).properties if prop.identifier in declared):
                 keywords: Keywords = {"text": prop.name, "text_ctxt": prop.translation_context, "icon": "LOCKED" if prop.identifier in locks else "UNLOCKED"}
-                alerted(layout, operator_button(layout, identity, Placement(lock, {"field": prop.identifier}), keywords))
+                identity.reports.faulted(operator_button(layout, identity, Placement(lock, {"field": prop.identifier}), keywords))
         layout.separator()
         for draw in lines:
             draw(layout.row(align=True), holder, context)
-        held = found.bind(attached.history)
-        entries = held.map(
-            lambda value: (*((index, entry.moment) for index, entry in enumerate(value.past, 1)), *((-index, entry.moment) for index, entry in enumerate(value.future, 1)))
-        ).default_value(())
+        entries = (
+            identity.reports
+            .settled(found.bind(attached.history))
+            .map(lambda value: (*((index, entry.moment) for index, entry in enumerate(value.past, 1)), *((-index, entry.moment) for index, entry in enumerate(value.future, 1))))
+            .default_value(())
+        )
         for offset, moment in entries:
             line, chosen = layout.row(align=True), {"offset": offset}
-            alerted(
-                line,
+            identity.reports.faulted(
                 paired(
                     operator_button(
                         line, identity, Placement(commands[StoreCommand.RESTORE], chosen), {"text": f"{moment.astimezone():%X}", "translate": False, "icon": "BACK" if offset > 0 else "FORWARD"}
                     ),
                     operator_button(line, identity, Placement(commands[StoreCommand.FORGET], chosen), {"text": "", "icon": "X"}),
-                ),
+                )
             )
-        alerted(layout, held)
 
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
         """Acquires the command operators and the preset catalog over the bound attachment."""
@@ -513,14 +511,17 @@ def _asked(template: str, _context: bpy.types.Context, properties: _Named, /) ->
 
 def _claimed[T: msgspec.Struct](preset: Preset[T], identity: Identity, name: str) -> Option[tuple[str, T | Path]]:
     """Returns the listed preset whose file name the name takes, compared case-folded."""
-    filename: str = AddPresetBase.as_filename(name)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    normalized = filename.casefold()
+    normalized = Preset.stem_of(name).casefold()
     return Option.of_optional(next((pair for pair in preset.listed(identity).items() if pair[0].casefold() == normalized), None))
 
 
 def _user[T: msgspec.Struct](preset: Preset[T], identity: Identity, stem: str) -> Outcome[Path]:
     """Returns the user file of a stem, absent fault for a stock preset."""
-    return preset.found(identity, stem).bind(lambda stored: Option.of_optional(try_downcast(Path, stored)).to_result_with(partial(Fault.of, Reason.ABSENT, str(preset.folder(identity)), member=stem)))
+    return preset.found(identity, stem).bind(
+        lambda stored: (
+            Option.of_optional(try_downcast(Path, stored)).filter(partial(preset.owned, identity)).to_result_with(partial(Fault.of, Reason.ABSENT, str(preset.folder(identity)), member=stem))
+        )
+    )
 
 
 # --- [HOSTS]

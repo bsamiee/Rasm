@@ -50,6 +50,6 @@ rule:
         - kind: method_definition
           all:
             - has: {field: body, matches: trailing-gen}
-            - not: {regex: '^(?:(?:static|public|private|protected|override|readonly|async)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)*(?:get|set)[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+[[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]#\[]'}
+            - not: {regex: '^(?:(?:static|public|private|protected|override|readonly|async)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+)*(?:get|set)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+[[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]#\[]'}
 message: 'Function returns `$M.gen` in place of declaring `$M.fn`'
 note: 'Declare `Effect.fnUntraced(<generator>)`; use `Function.flow` for host runners and `Effect.fn(<name>)` for tracing'

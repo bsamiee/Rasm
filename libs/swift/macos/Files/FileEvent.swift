@@ -25,8 +25,8 @@ public struct FileEvent: Sendable {
 
     @safe private actor Watcher {
         // --- [STATE]
-        let continuation: AsyncStream<Result<[FileEvent], FileFailure>>.Continuation
-        private let queue: DispatchSerialQueue = DispatchSerialQueue(label: "Files.FileEvent")
+        private let continuation: AsyncStream<Result<[FileEvent], FileFailure>>.Continuation
+        private let queue: DispatchSerialQueue = DispatchSerialQueue(label: String(reflecting: FileEvent.self))
         private var stream: FSEventStreamRef?
 
         init(continuation: AsyncStream<Result<[FileEvent], FileFailure>>.Continuation) {
@@ -88,7 +88,7 @@ public struct FileEvent: Sendable {
         private static let changed: FSEventStreamCallback = { _, info, count, eventPaths, eventFlags, _ in
             guard let info: UnsafeMutableRawPointer = unsafe info else { return }
             let reported: AnyObject = unsafe Unmanaged<AnyObject>.fromOpaque(eventPaths).takeUnretainedValue()
-            guard CFGetTypeID(reported) == CFArrayGetTypeID(), let paths: [String] = reported as? [String] else { return }
+            guard let paths: [String] = reported as? [String] else { return }
             unsafe Unmanaged<Watcher>.fromOpaque(info).takeUnretainedValue().continuation.yield(
                 .success(zip(paths, unsafe UnsafeBufferPointer(start: eventFlags, count: count)).map { path, flags in FileEvent(url: URL(filePath: path), flags: flags) })
             )

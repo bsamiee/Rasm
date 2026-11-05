@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-stats"
-version.workspace    = true
-edition.workspace    = true
-description          = "Statistics over named bounded spaces: mergeable summaries, dependence matrices, Monte Carlo, Latin hypercube, Sobol and factorial designs, confidence and bootstrap intervals, NUTS calibration and Guideline 14 grading, Saltelli and Morris sensitivity"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["statistics", "sampling", "sensitivity", "calibration", "mcmc"]
-categories           = ["mathematics", "science"]
+name              = "rasm-stats"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

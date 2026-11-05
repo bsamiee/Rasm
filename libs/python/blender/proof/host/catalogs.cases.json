@@ -1,0 +1,14 @@
+{
+    "limit": "1 minute",
+    "script": "proof/host/catalogs.py",
+    "cases": [
+        {
+            "name": "Blender's asset browser loads the published catalogs and its re-save keeps them",
+            "call": "opened",
+            "args": [],
+            "precondition": { "area": { "type": "FILE_BROWSER" } },
+            "until": "resaved()",
+            "read": { "saved": "_LIBRARY in context.preferences.filepaths.asset_libraries and saved()", "shot": "_LIBRARY in context.preferences.filepaths.asset_libraries and shot()" }
+        }
+    ]
+}

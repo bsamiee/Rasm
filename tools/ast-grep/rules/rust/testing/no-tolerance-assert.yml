@@ -8,7 +8,7 @@ utils:
         has: {regex: '^-$', follows: {pattern: $_}}
     abs-call:
         regex: '^\.$'
-        precedes: {regex: '^abs$', precedes: {kind: token_tree, regex: '^\(\p{White_Space}*\)$'}}
+        precedes: {regex: '^abs$', precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$'}}
     absolute-difference:
         kind: call_expression
         any:

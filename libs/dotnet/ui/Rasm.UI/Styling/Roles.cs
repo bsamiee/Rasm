@@ -11,7 +11,6 @@ public static class Roles {
     public static readonly Key Section = new Key.Named(nameof(Section));
     public static readonly Key Tab = new Key.Named(nameof(Tab));
     public static readonly Key TabList = new Key.Named(nameof(TabList));
-    public static readonly Key StatusBar = new Key.Named(nameof(StatusBar));
     public static readonly Key Card = new Key.Named(nameof(Card));
     public static readonly Key Dialog = new Key.Named(nameof(Dialog));
     public static readonly Key Sheet = new Key.Named(nameof(Sheet));

@@ -212,9 +212,9 @@ internal sealed class DefinedOptionsPage : OptionsDialogPage {
     public override string LocalPageTitle => LocalText.Of(row.Caption).Local;
 
     public override Image? PageImage =>
-        Session.Run(row.Icon.Match(
-                Some: static icon => Icons.Raster(icon, PageImageSize).Map(static Image? (bitmap) => bitmap),
-                None: static () => IO.lift(static Image? () => Session.PlugIn.Icon(PageImageSize))),
+        Session.Run(IconSlot.Page.Square.Bind(pixels => row.Icon.Match(
+                Some: icon => Icons.Raster(icon, pixels).Map(static Image? (bitmap) => bitmap),
+                None: () => IO.lift(Image? () => Session.PlugIn.Icon(pixels)))),
             failed: null);
 
     public override object? PageControl => hosted.Frame.ValueUnsafe();
@@ -234,8 +234,6 @@ internal sealed class DefinedOptionsPage : OptionsDialogPage {
     public override void OnDefaults() => _ = hosted.Run(static body => body.Scope.Commit(body.Group, body.Group.Defaults).Map(unit));
 
     public override Result RunScript(RhinoDoc doc, RunMode mode) => HostedView.Scripted(row, IO.pure(doc), new CommitMode.Immediate());
-
-    private static Size PageImageSize => new(128, 128);
 
     private IO<Unit> Marking(ViewBody body) =>
         from listened in body.Scope.Listen(_ => Marked(body))

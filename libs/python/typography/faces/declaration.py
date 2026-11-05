@@ -5,18 +5,16 @@ from enum import auto, StrEnum
 from functools import partialmethod
 from pathlib import Path
 from typing import Annotated, Literal
-lazy from functools import partial
 lazy from itertools import batched
 lazy import math
 lazy import unicodedata
 
-from expression.extra.result import catch
 import msgspec
 from ufoLib2.objects.info import WidthClass
 
 from typography.faces.coverage import Coverage
 from typography.faces.layout import Tag
-lazy from typography.faces.faults import Fault, Outcome, Reason
+lazy from typography.faces.faults import loaded, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -341,11 +339,11 @@ class OrnamentSet(_Set, frozen=True, kw_only=True):
 
 
 class FontSet(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
-    """Declared font set: families, ornament sets, the shaping corpus, and the output folder, paths relative to the declaration."""
+    """Declared font set: families, ornament sets, the shaping corpus, and the fontspector configuration, paths relative to the declaration."""
 
     name: _Name
     corpus: str
-    output: str
+    fontspector: str
     families: tuple[Family, ...]
     ornaments: tuple[OrnamentSet, ...] = ()
 
@@ -369,46 +367,69 @@ class FontSet(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=T
         return tuple(*group.faces for group in self.groups)
 
 
+class _Shaping(msgspec.Struct, frozen=True, kw_only=True):
+    test_directory: str
+
+
+class _Fontspector(msgspec.Struct, frozen=True, kw_only=True):
+    """Fontspector configuration table a set reads: the shaping test directory, relative to the configuration's folder."""
+
+    shaping: _Shaping
+
+
 class Declared(msgspec.Struct, frozen=True, kw_only=True):
-    """Decoded font set with the folder its relative paths resolve against."""
+    """Decoded font set with the folder its relative paths resolve against, the folder its builds write to, and the folder of its approved shaping expectations."""
 
     set: FontSet
     root: Path
+    output: Path
+    approvals: Path
 
     @property
     def corpus(self) -> Path:
         """Shaping corpus file."""
         return self.root / self.set.corpus
 
+    @property
+    def configuration(self) -> Path:
+        """Fontspector profile and configuration every check run reads."""
+        return self.root / self.set.fontspector
+
     def original(self, face: Faces, /) -> Path:
         """Returns the original binary a face reads."""
         return self.root / next(group.original for group in self.set.groups if group.name == face.family) / face.original
 
+    def approved(self, face: Faces, /) -> Path:
+        """Returns the approved shaping expectations of a face."""
+        return self.approvals / f"{face.stem}.json"
+
     def _output(self, folder: str, suffix: str, face: Faces, /) -> Path:
         """Returns a face's output file under a folder, an empty folder name selecting the family folder."""
-        return self.root / self.set.output / (folder or face.family.replace(" ", "")) / f"{face.stem}{suffix}"
+        return self.output / (folder or face.family.replace(" ", "")) / f"{face.stem}{suffix}"
 
     source = partialmethod(_output, "source", ".ufo")
     binary = partialmethod(_output, "", ".ttf")
     check = partialmethod(_output, "check", ".json")
-    approved = partialmethod(_output, "approved", ".json")
+    stamp = partialmethod(_output, "", ".json")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@catch(exception=msgspec.DecodeError)
-def _decoded(raw: bytes, /) -> FontSet:
-    return msgspec.toml.decode(raw, type=FontSet)
+def declared(path: Path, output: Path, /) -> Outcome[Declared]:
+    """Reads a set declaration and the fontspector configuration it names, its builds writing under an output folder.
 
+    Args:
+        path: Set declaration TOML.
+        output: Folder the set's sources, binaries, and check reports write to.
 
-def declared(path: Path, /) -> Outcome[Declared]:
-    """Reads and decodes a set declaration, `UNREADABLE` for a failed read and `INVALID` for a refused decode."""
-    return (
-        catch(Path.read_bytes, exception=OSError)(path)
-        .map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
-        .bind(lambda raw: _decoded(raw).map_error(partial(Fault.of, Reason.INVALID, str(path))))
-        .map(lambda font_set: Declared(set=font_set, root=path.parent))
+    Returns:
+        Ok(declared), `UNREADABLE` for a failed read and `INVALID` for a refused decode of either file.
+    """
+    return loaded(FontSet, path).bind(
+        lambda font_set: loaded(_Fontspector, configuration := path.parent / font_set.fontspector).map(
+            lambda found: Declared(set=font_set, root=path.parent, output=output, approvals=configuration.parent / found.shaping.test_directory)
+        )
     )
 
 

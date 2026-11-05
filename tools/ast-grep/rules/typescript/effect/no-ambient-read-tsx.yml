@@ -30,7 +30,7 @@ utils:
     ambient-reference:
         any:
             - matches: typescript-global-reference
-              regex: '^((globalThis|window|self)\.)?(Date\.now|Temporal\.Now\.[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+|Math\.random|crypto\.(randomUUID|getRandomValues)|performance\.(now|timeOrigin)|process\.hrtime(\.bigint)?|process\.uptime)$'
+              regex: '^((globalThis|window|self)\.)?(Date\.now|Temporal\.Now\.[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+|Math\.random|crypto\.(randomUUID|getRandomValues)|performance\.(now|timeOrigin)|process\.hrtime(\.bigint)?|process\.uptime)$'
             - matches: imported
             - kind: member_expression
               all:

@@ -6,7 +6,7 @@ rule:
     pattern: $USAGE
     not: {matches: rust-macro-argument}
     any:
-        - regex: '(^[br]*#*"|\\n|\n)\p{White_Space}*(?i:usage)\p{White_Space}*(:|\\n|\n)'
-        - regex: '(^[br]*#*"|\\n|\n)\p{White_Space}*-[A-Za-z0-9],\p{White_Space}+--[a-z][\p{XID_Continue}-]*'
+        - regex: '(^[br]*#*"|\\n|\n)\p{Pattern_White_Space}*(?i:usage)\p{Pattern_White_Space}*(:|\\n|\n)'
+        - regex: '(^[br]*#*"|\\n|\n)\p{Pattern_White_Space}*-[A-Za-z0-9],\p{Pattern_White_Space}+--[a-z][\p{XID_Continue}-]*'
 message: '`$USAGE` spells command-line help text by hand'
 note: 'Derive `clap::Parser` on the command with `#[command(about = <text>)]` and `#[arg(help = <text>)]` per argument'

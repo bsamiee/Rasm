@@ -12,6 +12,7 @@
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",
+        "@rasm/uxp": "workspace:*",
         "@types/node": "catalog:",
         "indesign-uxp-types": "catalog:"
     }

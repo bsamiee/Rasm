@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: plpgsql
+severity: error
+utils:
+    first:
+        kind: proc_stmt
+        nthChild: {position: 1, ofRule: {kind: proc_stmt}}
+    bare-if:
+        kind: stmt_if
+        not: {has: {kind: 'elsif_clause, else_clause'}}
+    bare-continue:
+        kind: stmt_exit
+        all: [{has: {kind: kw_continue}}, {not: {has: {field: label, kind: any_identifier}}}]
+rule:
+    kind: stmt_for
+    pattern: $LOOP
+    has: {field: in, kind: for_query}
+    any:
+        - has:
+            kind: loop_body
+            has:
+                kind: proc_sect
+                has:
+                    matches: first
+                    has:
+                        any:
+                            - {matches: bare-continue, has: {field: when, kind: sql_expression}}
+                            - matches: bare-if
+                              has:
+                                field: then
+                                not: {has: {nthChild: {position: 2, ofRule: {kind: proc_stmt}}}}
+                                has: {kind: proc_stmt, has: {matches: bare-continue, not: {has: {kind: kw_when}}}}
+        - has:
+            kind: loop_body
+            has:
+                kind: proc_sect
+                not: {has: {nthChild: {position: 2, ofRule: {kind: proc_stmt}}}}
+                has: {matches: first, has: {matches: bare-if}}
+transform:
+    HEAD: {replace: {source: $LOOP, replace: '(?si)[\t\n\x0B\f\r ]+loop(?-u:\b).*$', by: ''}}
+message: '`$HEAD` selects rows by a test at the top of its body'
+note: 'Move the test into the query `WHERE` so the loop reads only its rows'

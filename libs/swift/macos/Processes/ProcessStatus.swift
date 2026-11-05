@@ -29,3 +29,8 @@ extension ProcessStatus {
         }
     }
 }
+
+public func mainThreadUserTime(of process: pid_t) throws(Errno) -> Duration {
+    let main: UInt64 = try information(of: process, PROC_PIDLISTTHREADS, UInt64.zero)
+    return .nanoseconds(try information(of: process, PROC_PIDTHREADINFO, proc_threadinfo(), argument: main).pth_user_time)
+}

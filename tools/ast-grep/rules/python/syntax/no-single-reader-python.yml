@@ -40,7 +40,7 @@ utils:
         any:
             - inside: {kind: subscript, field: value}
             - inside: {kind: attribute, field: object, has: {field: attribute, regex: '^get$'}, inside: {kind: call, field: function}}
-            - follows: {pattern: $$OPERATOR, regex: '^(not[\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)?in$'}
+            - follows: {pattern: $$OPERATOR, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$'}
     reference:
         kind: identifier
         pattern: $NAME
@@ -58,11 +58,12 @@ utils:
                 - inside: {kind: keyword_argument, field: name}
                 - inside: {kind: function_definition, field: name}
     rebinding:
-        kind: identifier
+        kind: 'identifier, type_identifier'
         pattern: $NAME
         any:
+            - kind: type_identifier
             - inside: {kind: 'parameters, lambda_parameters, list_splat_pattern, dictionary_splat_pattern, as_pattern_target, pattern_list, tuple_pattern, list_pattern, global_statement, nonlocal_statement, dotted_name'}
-            - inside: {kind: 'default_parameter, typed_default_parameter, named_expression, function_definition, class_definition', field: name}
+            - inside: {kind: 'default_parameter, typed_default_parameter, named_expression, function_definition', field: name}
             - inside: {kind: aliased_import, field: alias}
             - inside: {kind: typed_parameter}
               nthChild: 1
@@ -184,7 +185,7 @@ rule:
             - any:
                 - inside: {kind: module}
                 - all:
-                    - has: {field: name, regex: '^__?[A-Za-z0-9]'}
+                    - has: {field: name, regex: '^__?[^_]'}
                     - any:
                         - matches: class-member
                         - inside: {kind: decorated_definition, matches: class-member, not: {has: {kind: decorator, not: {regex: '^@(staticmethod|classmethod)$'}}}}

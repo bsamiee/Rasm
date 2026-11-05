@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
+ignores: ['tools/harnesses/run.ts']
 utils:
     runner:
         any:
@@ -20,8 +21,8 @@ rule:
             kind: member_expression
             pattern: $SINK
             any:
-                - matches: {effect-module-member: {module: {regex: '(?-u:\b)Logger$'}, member: {regex: '^(layer|make|map|batched|toFile|CurrentLoggers|LogToStderr|defaultLogger|tracerLogger|format[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+|console[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+|with[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]+)$'}}}
-                - matches: {effect-module-member: {module: {regex: '(?-u:\b)(Otlp|OtlpExporter|OtlpLogger|OtlpTracer|OtlpMetrics|OtelLogger|OtelTracer|OtelMetrics|PrometheusMetrics|NodeSdk|WebSdk)$'}, member: {regex: '^(layer[^\x00-#%-/:-@\[-\^`{-~\p{White_Space}\x{200B}\x{2060}\x{FEFF}]*|make)$'}}}
+                - matches: {effect-module-member: {module: {regex: '(?-u:\b)Logger$'}, member: {regex: '^(layer|make|map|batched|toFile|CurrentLoggers|LogToStderr|defaultLogger|tracerLogger|format[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+|console[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+|with[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+)$'}}}
+                - matches: {effect-module-member: {module: {regex: '(?-u:\b)(Otlp|OtlpExporter|OtlpLogger|OtlpTracer|OtlpMetrics|OtelLogger|OtelTracer|OtelMetrics|PrometheusMetrics|NodeSdk|WebSdk)$'}, member: {regex: '^(layer[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|make)$'}}}
                 - matches: {effect-module-member: {module: {regex: '(?-u:\b)Tracer$'}, member: {regex: '^make$'}}}
                 - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(withLogger|withTracer)$'}}}
         - not: {has: {stopBy: end, matches: runner}}

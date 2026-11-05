@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { layerConfig } from '@effect/platform-node/NodeHttpServer';
+import type { AssetsBinding, JsonBinding } from 'cf/config';
 import { Config, ConfigProvider, Effect, Layer, Logger, Record, Result, Schema, Struct } from 'effect';
 import { FetchHttpClient, HttpEffect, HttpRouter, HttpServerResponse, HttpStaticServer } from 'effect/http';
 import { Otlp, OtlpSerialization } from 'effect/observability';
@@ -11,7 +12,7 @@ import { nodeBundle } from '#/vite';
 
 interface Field extends Struct.Lambda {
     (binding: { readonly type: string }): typeof Json | typeof Schema.String;
-    readonly '~lambda.out': this['~lambda.in'] extends { readonly type: 'json' } ? typeof Json : typeof Schema.String;
+    readonly '~lambda.out': this['~lambda.in'] extends JsonBinding ? typeof Json : typeof Schema.String;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -28,10 +29,10 @@ const serveNode = Effect.fnUntraced(
                 Schema.Struct(
                     Struct.map(
                         config.env,
-                        Struct.lambda<Field>(({ type }) => (type === 'json' ? Json : Schema.String)),
+                        Struct.lambda<Field>(({ type }) => (type === ('json' satisfies JsonBinding['type']) ? Json : Schema.String)),
                     ),
                 ),
-            ).pipe(Effect.provide(ConfigProvider.layerAdd(ConfigProvider.fromUnknown(Record.filterMap(config.env, ({ type }) => (type === 'assets' ? Result.succeed(root) : Result.failVoid))), { asPrimary: true }))),
+            ).pipe(Effect.provide(ConfigProvider.layerAdd(ConfigProvider.fromUnknown(Record.filterMap(config.env, ({ type }) => (type === ('assets' satisfies AssetsBinding['type']) ? Result.succeed(root) : Result.failVoid))), { asPrimary: true }))),
             HttpStaticServer.make({ root }),
         ]);
         return HttpRouter.serve(

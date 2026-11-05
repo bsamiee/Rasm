@@ -6,7 +6,7 @@ utils:
         kind: 'char_literal, string_literal'
         regex: '^[''"](,|;|\||\\t)[''"]$'
     line-source:
-        regex: '\.lines\(\)|(^|::)lines\(|\.split(_terminator)?\(\p{White_Space}*[''"]\\n[''"]\p{White_Space}*\)'
+        regex: '\.lines\(\)|(^|::)lines\(|\.split(_terminator)?\(\p{Pattern_White_Space}*[''"]\\n[''"]\p{Pattern_White_Space}*\)'
     line-receiver:
         any:
             - kind: identifier
@@ -54,7 +54,7 @@ utils:
                     - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(\{[^{}]*\}(,|;|\\t)){2,}\{[^{}]*\}(\\r)?\\n"$'}}
                 - all:
                     - matches: printing
-                    - has: {kind: token_tree, has: {stopBy: end, kind: identifier, regex: '^join$', follows: {regex: '^\.$'}, precedes: {kind: token_tree, regex: '^\(\p{White_Space}*"(,|;|\\t)"\p{White_Space}*\)$'}}}
+                    - has: {kind: token_tree, has: {stopBy: end, kind: identifier, regex: '^join$', follows: {regex: '^\.$'}, precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*"(,|;|\\t)"\p{Pattern_White_Space}*\)$'}}}
             - not: {matches: formatter-parameter}
     record-join:
         kind: call_expression

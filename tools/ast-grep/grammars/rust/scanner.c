@@ -11,7 +11,7 @@
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-enum { FIELD_LETTER = 'a' };
+enum { FIELD_LETTER = 'a', FRONTMATTER = ERROR_SENTINEL + 1, SHEBANG, FENCE_MINIMUM = 3 };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -21,6 +21,100 @@ typedef struct {
 } FieldLexer;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+static uint32_t fence_length(TSLexer *lexer) {
+    uint32_t length = 0;
+    for (; lexer->lookahead == '-'; length++) {
+        advance(lexer);
+    }
+    return length;
+}
+
+static void skip_line(TSLexer *lexer) {
+    while (lexer->lookahead != '\n' && !lexer->eof(lexer)) {
+        advance(lexer);
+    }
+}
+
+static void skip_block_comment(TSLexer *lexer, bool *line_marked) {
+    for (uint32_t depth = 1; depth > 0 && !lexer->eof(lexer);) {
+        int32_t current = lexer->lookahead;
+        advance(lexer);
+        if (current == '\n' && !*line_marked) {
+            lexer->mark_end(lexer);
+            *line_marked = true;
+        } else if (current == '/' && lexer->lookahead == '*') {
+            advance(lexer);
+            depth++;
+        } else if (current == '*' && lexer->lookahead == '/') {
+            advance(lexer);
+            depth--;
+        }
+    }
+}
+
+static bool scan_shebang(TSLexer *lexer) {
+    advance(lexer);
+    if (lexer->lookahead != '!') {
+        return false;
+    }
+    advance(lexer);
+    bool line_marked = false;
+    for (;;) {
+        if (lexer->lookahead == '[') {
+            return false;
+        }
+        if (lexer->eof(lexer)) {
+            break;
+        }
+        if (lexer->lookahead == '\n' && !line_marked) {
+            advance(lexer);
+            lexer->mark_end(lexer);
+            line_marked = true;
+        } else if (iswspace(lexer->lookahead)) {
+            advance(lexer);
+        } else if (lexer->lookahead == '/') {
+            advance(lexer);
+            if (lexer->lookahead == '/') {
+                skip_line(lexer);
+            } else if (lexer->lookahead == '*') {
+                advance(lexer);
+                skip_block_comment(lexer, &line_marked);
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    if (!line_marked) {
+        skip_line(lexer);
+        advance(lexer);
+        lexer->mark_end(lexer);
+    }
+    lexer->result_symbol = SHEBANG;
+    return true;
+}
+
+static bool scan_frontmatter(TSLexer *lexer) {
+    uint32_t opening = fence_length(lexer);
+    if (opening < FENCE_MINIMUM) {
+        return false;
+    }
+    for (;;) {
+        skip_line(lexer);
+        if (lexer->eof(lexer)) {
+            return false;
+        }
+        advance(lexer);
+        if (fence_length(lexer) >= opening) {
+            skip_line(lexer);
+            lexer->result_symbol = FRONTMATTER;
+            lexer->mark_end(lexer);
+            return true;
+        }
+    }
+}
 
 static void field_advance(TSLexer *lexer, bool skipped) {
     FieldLexer *self = (FieldLexer *)lexer;
@@ -60,6 +154,17 @@ unsigned(SCANNER(serialize))(void *payload, char *buffer) { return rust_upstream
 void(SCANNER(deserialize))(void *payload, const char *buffer, unsigned length) { rust_upstream_deserialize(payload, buffer, length); }
 
 bool(SCANNER(scan))(void *payload, TSLexer *lexer, const bool *valid_symbols) {
+    if (valid_symbols[SHEBANG] && !valid_symbols[ERROR_SENTINEL] && lexer->lookahead == '#') {
+        return scan_shebang(lexer);
+    }
+    if (valid_symbols[FRONTMATTER] && !valid_symbols[ERROR_SENTINEL]) {
+        while (iswspace(lexer->lookahead)) {
+            skip(lexer);
+        }
+        if (lexer->lookahead == '-') {
+            return scan_frontmatter(lexer);
+        }
+    }
     if (!valid_symbols[FLOAT_LITERAL]) {
         return rust_upstream_scan(payload, lexer, valid_symbols);
     }

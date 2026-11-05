@@ -1,36 +1,38 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Runtime.Versioning;
+using System.Text;
+using System.Xml;
 using System.Xml.Linq;
 using LanguageExt.ClassInstances;
 using Rasm.Rhino;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rhino.Resources;
 using SuperLinq;
 using UUIDNext;
-using Translations = LanguageExt.HashMap<LanguageExt.ClassInstances.EqInt, int, LanguageExt.HashMap<LanguageExt.ClassInstances.EqStringOrdinal, string, string>>;
 
 namespace Rasm.Rui;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class RuiText {
+// --- [MODELS] --------------------------------------------------------------------------
+internal sealed record Translations(HashMap<EqInt, int, HashMap<EqStringOrdinal, string, string>> Tables) {
     // --- [LOCALIZATION]
     public static int English { get; } = CultureInfo.GetCultureInfo("en-US").LCID;
 
-    extension(Translations tables) {
-        public XElement Of(string name, string english) =>
-            new(name, new XElement(Locale(English), english),
-                tables.AsEnumerable().Choose(table => table.Value.Find(english).Map(local => new XElement(Locale(table.Key), local))));
-    }
+    public XElement Of(string name, string english) =>
+        new(name, new XElement(Locale(English), english),
+            Tables.AsEnumerable().Choose(table => table.Value.Find(english).Map(local => new XElement(Locale(table.Key), local))));
 
     private static string Locale(int lcid) => string.Create(CultureInfo.InvariantCulture, $"locale_{lcid}");
 
     // --- [RESOURCES]
     public static Translations Read(Assembly plugIn) =>
-        new(toSeq(plugIn.GetManifestResourceNames())
+        new(new HashMap<EqInt, int, HashMap<EqStringOrdinal, string, string>>(toSeq(plugIn.GetManifestResourceNames())
             .Filter(static name => name.Contains(".Localization.", StringComparison.Ordinal) && name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
-            .Choose(name => Culture(Path.GetExtension(Path.GetFileNameWithoutExtension(name)).TrimStart('.')).Map(lcid => (lcid, Table(plugIn, name)))));
+            .Choose(name => Culture(Path.GetExtension(Path.GetFileNameWithoutExtension(name)).TrimStart('.')).Map(lcid => (lcid, Table(plugIn, name))))));
 
     private static Option<int> Culture(string segment) =>
         parseInt(segment) || Try.lift(() => CultureInfo.GetCultureInfo(segment).LCID).Run().ToOption();
@@ -44,6 +46,7 @@ internal static class RuiText {
     }
 }
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class RuiFiles {
     // --- [FILES]
     public static IO<Unit> Write(string plugIn, string rui, Seq<string> references) =>
@@ -56,7 +59,12 @@ internal static class RuiFiles {
                 Use: _ =>
                     from loaded in IO.lift(() => AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(plugIn)))
                     from document in Document(loaded)
-                    from written in IO.lift(() => document.Match(Some: held => held.Save(rui), None: () => File.Delete(rui)))
+                    from written in IO.lift(() => document.Match(
+                        Some: held => {
+                            using XmlWriter writer = XmlWriter.Create(rui, new XmlWriterSettings { Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), OmitXmlDeclaration = true, Indent = true });
+                            held.Save(writer);
+                        },
+                        None: () => File.Delete(rui)))
                     select written,
                 Fin: static handler => IO.lift(() => AssemblyLoadContext.Default.Resolving -= handler)),
         };
@@ -65,18 +73,18 @@ internal static class RuiFiles {
     private static IO<Option<XDocument>> Document(Assembly plugIn) =>
         IO.lift(() => Toolbars.Declared(plugIn).Traverse(declared =>
             from file in Toolbars.Identity(plugIn)
-            let text = RuiText.Read(plugIn)
+            let text = Translations.Read(plugIn)
             let toolbars = toSeq(Reached(declared.Toolbars + declared.Groups.Bind(static toolbarGroup => toSeq(toolbarGroup.Tabs))).DistinctBy(toolbar => BarId(file, toolbar)))
             let placements = Toolbars.Placements(file, declared)
             let macros = toSeq(Macros(toolbars.Bind(static toolbar => toolbar.Groups) + declared.Extensions.Bind(static menu => menu.Groups) + declared.Menus.Bind(static menu => menu.Groups))
                 .DistinctBy(held => MacroId(file, held.Macro)))
             let arts = toSeq((toolbars.Choose(static toolbar => toolbar.Face.Icon) + macros.Choose(static held => held.Face.Icon)
                 + toolbars.Bind(static toolbar => toolbar.Groups.Flatten()).Choose(static command => command.Face.Icon)).DistinctBy(static art => art.Id, StringComparer.Ordinal))
-            from elements in (arts.Traverse(art => Icon(file, art)).As(), toolbars.Traverse(toolbar => Bar(file, text, toolbar)).As())
+            from elements in (arts.Traverse(art => Icon(file, plugIn, art)).As(), toolbars.Traverse(toolbar => Bar(file, text, toolbar)).As())
                 .Apply(static (icons, bars) => (Icons: icons, Bars: bars)).As()
             select new XDocument(new XElement("RhinoUI",
                 new XAttribute("major_ver", 5), new XAttribute("minor_ver", 0), new XAttribute("guid", file), new XAttribute("plug_in_guid", file),
-                new XAttribute("localize", bool.FalseString), new XAttribute("default_language_id", RuiText.English),
+                new XAttribute("localize", bool.FalseString), new XAttribute("default_language_id", Translations.English),
                 new XElement("extend_rhino_menus", placements.Filter(static placed => placed.Path.IsSome).IsEmpty ? Seq<XElement>() : Seq(Extended(file, text, plugIn, placements))),
                 new XElement("menus", placements.Filter(static placed => placed.Path.IsNone).Map(placed => Menu(file, text, placed))),
                 new XElement("tool_bar_groups", declared.Groups.Map(toolbarGroup => Group(file, text, toolbarGroup))),
@@ -172,13 +180,25 @@ internal static class RuiFiles {
     private static Option<XAttribute> Bitmap(Guid file, CommandFace face) =>
         face.Icon.Map(art => new XAttribute("bitmap_id", IconId(file, art.Id)));
 
-    private static Fin<XElement> Icon(Guid file, IconResource art) =>
-        from light in Svg(art.Assembly, art.Id).ToFin(new RhinoFault(art.Id, RhinoReason.Missing))
-        select new XElement("icon",
-            new XAttribute("guid", IconId(file, art.Id)),
-            new XAttribute("name", art.Id),
-            new XElement("light", light),
-            Svg(art.Assembly, Path.GetExtension(art.Id) switch { var extension => $"{art.Id[..^extension.Length]}_darkmode{extension}" }).Map(static held => new XElement("dark", held)).ToSeq());
+    private static Fin<XElement> Icon(Guid file, Assembly plugIn, IconResource art) =>
+        Internal.ScanEmbeddedResources(art.Assembly).GetValueOrDefault(art.Id) switch {
+            var variants =>
+                from light in Svg(art.Assembly, (plugIn.GetCustomAttribute<TargetPlatformAttribute>()?.PlatformName.StartsWith("Windows", StringComparison.OrdinalIgnoreCase) is true ? variants?.WindowsResourceName : variants?.MacResourceName) ?? art.Id)
+                    .ToFin(new RhinoFault(art.Id, RhinoReason.Missing))
+                select new XElement("icon",
+                    new XAttribute("guid", IconId(file, art.Id)),
+                    new XAttribute("name", art.Id),
+                    new XElement("light", Optional(variants?.DarkModeResourceName).Bind(dark => Svg(art.Assembly, dark)).Map(dark => Inked(light, dark)).IfNone(light))),
+        };
+
+    private static XElement Inked(XElement light, XElement dark) =>
+        new(light.Name,
+            light.Attributes(),
+            Seq("fill", "stroke").Choose(ink => Optional(dark.Attribute(ink)?.Value)
+                .Filter(value => !string.Equals(value, light.Attribute(ink)?.Value, StringComparison.OrdinalIgnoreCase))
+                .Map(value => new XAttribute($"{ink}-dark", value))),
+            light.Nodes().OfType<XText>(),
+            light.Elements().Zip(dark.Elements(), Inked));
 
     private static Option<XElement> Svg(Assembly assembly, string key) {
         using Stream? stream = assembly.GetManifestResourceStream(key);
@@ -219,9 +239,9 @@ internal static class RuiFiles {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 internal static class Program {
     public static int Main(string[] args) =>
-        (from request in IO.lift(Fin<(string PlugIn, string Rui, string References)> () => args is [var plugIn, var rui, var references]
+        (from request in IO.lift(Fin<(string PlugIn, string Rui, string References)> () => args is [var plugIn, var rui, ['@', .. var references]]
                 ? (plugIn, rui, references)
-                : Error.New("Pass the plug-in assembly, its RUI path, and the file listing its reference assembly paths"))
+                : Error.New(string.Create(CultureInfo.InvariantCulture, $"Expected <plug-in> <rui> @<references>, received {args.Length}: {string.Join(' ', args)}")))
          from references in IO.liftAsync(env => File.ReadAllLinesAsync(request.References, env.Token))
          from written in RuiFiles.Write(request.PlugIn, request.Rui, toSeq(references))
          select written).RunSafe().Match(

@@ -1,4 +1,4 @@
-import { UxpManifest } from '@rasm/uxp';
+import { Version } from '@rasm/automation';
 import { Schema } from 'effect';
 import Builder from 'fast-xml-builder';
 
@@ -11,8 +11,8 @@ const XML = new Builder({ ignoreAttributes: false, format: true, indentBy: '    
 class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand: unique symbol }>('ExtensionManifest')({
     id: Schema.String,
     name: Schema.String,
-    version: UxpManifest.Version,
-    host: Schema.Struct({ app: Schema.Literals(['ILST', 'AEFT', 'PHXS', 'IDSN', 'PPRO', 'AUDT', 'FLPR', 'DRWV', 'KBRG', 'AME']), minVersion: UxpManifest.Version, maxVersion: Schema.optionalKey(UxpManifest.Version) }),
+    version: Version,
+    host: Schema.Struct({ app: Schema.Literals(['ILST', 'AEFT', 'PHXS', 'IDSN', 'PPRO', 'AUDT', 'FLPR', 'DRWV', 'KBRG', 'AME']), minVersion: Version, maxVersion: Schema.optionalKey(Version) }),
 }) {
     static readonly target = 'es3';
     static readonly chromium = 'chrome99';
@@ -21,6 +21,7 @@ class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand
     static readonly panel = 'index.html';
     static readonly script = 'host.jsx';
     static readonly file = 'CSXS/manifest.xml';
+    static readonly debugFile = '.debug';
 
     get xml(): string {
         const { app, minVersion, maxVersion } = this.host;
@@ -48,6 +49,12 @@ class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand
                     },
                 },
             },
+        });
+    }
+    debug(port: number): string {
+        return XML.build({
+            '?xml': { '@_version': '1.0', '@_encoding': 'UTF-8' },
+            ExtensionList: { Extension: { '@_Id': this.id, HostList: { Host: { '@_Name': this.host.app, '@_Port': port } } } },
         });
     }
 }

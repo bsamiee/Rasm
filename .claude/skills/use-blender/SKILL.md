@@ -5,7 +5,7 @@ description: "Use when driving Blender or reading bpy members from the installed
 
 # [USE_BLENDER]
 
-Covers MCP-driven GUI sessions, background runs, extension installs, logs, and evaluation runs of Blender 5.4 at `BLENDER_PATH`, with workflows installed extensions serve. Use `blender-coding` for code a session or run executes.
+Covers MCP-driven GUI sessions, background runs, extension installs, logs, and evaluation runs of Blender at `BLENDER_PATH`, with workflows installed extensions serve. Use `blender-coding` for code a session or run executes.
 
 [REFERENCES]:
 - [01]-[GIS_SITE](references/gis-site.md): Georeferenced scenes, terrain, imagery, OSM, point clouds, and sun placement
@@ -165,6 +165,7 @@ Each source writes its log to one place:
 |  [02]   | `pack`, `install` | Nx task output, native install output forwarded from the GUI                  |
 |  [03]   | Task GUI          | `execute_blender_code` answers, Info editor lines in `window_manager.reports` |
 |  [04]   | Crash, Blender    | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR` |
+|  [05]   | Extension logger  | `extension.log` under `extension_path_user`, JSON lines across sessions       |
 
 Log reads follow host rules:
 - Blender Python reads Python variables (`PYTHONUNBUFFERED`, `PYTHONPYCACHEPREFIX`) under `--python-use-system-env` alone, prints reaching the log per line and bytecode `.cache/pycache`

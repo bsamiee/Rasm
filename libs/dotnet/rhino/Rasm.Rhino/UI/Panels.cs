@@ -46,7 +46,7 @@ public static class HostPanels {
 
     // --- [ICONS]
     public static IO<Unit> Icon(View.Panel row, IconResource icon) =>
-        IO.lift(static () => Panels.IconSizeInPixels).Bind(pixels => Icons.DrawingIcon(icon, pixels)).Bind(drawn => IO.lift(() => Panels.ChangePanelIcon(row.Identity, drawn)));
+        Icons.DrawingIcon(icon, IconSlot.PanelTab).Bind(drawn => IO.lift(() => Panels.ChangePanelIcon(row.Identity, drawn)));
 
     // --- [EVENTS]
     public static HostEvent<(uint Document, bool Shown)> Shown(View.Panel row) =>

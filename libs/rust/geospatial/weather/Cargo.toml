@@ -1,14 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-weather"
-version.workspace    = true
-edition.workspace    = true
-description          = "Weather a site receives: EPW and GRIB2 series resampled to any step, ASHRAE design conditions, climate summaries, degree days, running means, wind roses and profiles, psychrometrics and thermal comfort, Perez and CIE sky matrices over Reinhart patches"
-repository.workspace = true
-license.workspace    = true
-keywords             = ["weather", "epw", "climate", "comfort", "sky"]
-categories           = ["science::geo"]
+name              = "rasm-weather"
+edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

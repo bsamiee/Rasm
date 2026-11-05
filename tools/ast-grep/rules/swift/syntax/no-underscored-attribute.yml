@@ -16,7 +16,7 @@ utils:
     self-calling:
         kind: function_declaration
         all:
-            - has: {field: name, kind: simple_identifier, pattern: $NAME}
+            - has: {field: name, kind: function_name, pattern: $NAME}
             - has:
                 field: body
                 has:
@@ -30,13 +30,13 @@ utils:
 rule:
     kind: attribute
     pattern: $ATTR
-    regex: '^@(inline\(\p{White_Space}*__always\p{White_Space}*\)|_alwaysEmitIntoClient)$'
+    regex: '^@(inline\([\t-\r ]*__always[\t-\r ]*\)|_alwaysEmitIntoClient)$'
     any:
         - regex: '^@inline'
           inside: {kind: modifiers, inside: {any: [{matches: overridable-member}, {matches: self-calling}]}}
         - pattern: $KEPT
 transform:
-    INLINE: {replace: {source: $KEPT, replace: '^@inline\(\p{White_Space}*__always\p{White_Space}*\)$', by: '@inline(always)'}}
+    INLINE: {replace: {source: $KEPT, replace: '^@inline\([\t-\r ]*__always[\t-\r ]*\)$', by: '@inline(always)'}}
     STABLE: {replace: {source: $INLINE, replace: '^@_alwaysEmitIntoClient$', by: '@export(implementation)'}}
 fix: $STABLE
 message: '`$ATTR` spells an attribute through its underscored form'

@@ -19,7 +19,7 @@ rule:
                 - has: {stopBy: end, regex: '^POSIX_SPAWN_(SETSID|SETPGROUP)$'}
             - all:
                 - has: {nthChild: 1, regex: '^posix_spawn_file_actions_adddup2$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 3, regex: '^(((Darwin|Glibc|Musl)\.)?STD(IN|OUT|ERR)_FILENO|[012])$'}}}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 3, regex: '^(((Darwin|Glibc|Musl)(\.|::))?STD(IN|OUT|ERR)_FILENO|[012])$'}}}
             - has: {nthChild: 1, regex: '^posix_spawn_file_actions_addchdir(_np)?$'}
         - inside: {stopBy: end, matches: configurator}
 message: '`$SITE` restates a swift-subprocess platform option inside `preSpawnProcessConfigurator`'

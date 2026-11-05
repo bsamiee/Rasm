@@ -23,7 +23,7 @@ utils:
 rule:
     any:
         - kind: property_declaration
-          has: {field: value, matches: registration}
+          has: {matches: registration}
         - kind: assignment
           has: {field: result, matches: registration}
     precedes: {pattern: $CHECK}

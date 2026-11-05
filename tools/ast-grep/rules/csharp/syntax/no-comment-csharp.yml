@@ -4,9 +4,9 @@ severity: error
 rule:
     kind: comment
     pattern: $COMMENT
-    not: {regex: '^// --- \[[A-Z][A-Z0-9_]*\]( -+)?[\p{White_Space}\x{FEFF}]*$'}
+    not: {regex: '^// --- \[[A-Z][A-Z0-9_]*\]( -+)?[\t-\r \x{A0}\x{3000}\x{FEFF}]*$'}
 transform:
-    FIRST: {replace: {source: $COMMENT, replace: '(?s)^(/\*+)[ \t]*([^\n]*?)[\p{White_Space}\x{FEFF}]*\n.*$', by: '$1 $2 */'}}
-    TEXT: {replace: {source: $FIRST, replace: '[\p{White_Space}\x{FEFF}]+$', by: ''}}
+    FIRST: {replace: {source: $COMMENT, replace: '(?s)^(/\*+)[ \t]*([^\n]*?)[\t-\r \x{A0}\x{3000}\x{FEFF}]*\n.*$', by: '$1 $2 */'}}
+    TEXT: {replace: {source: $FIRST, replace: '[\t-\r \x{A0}\x{3000}\x{FEFF}]+$', by: ''}}
 message: '`$TEXT` is a comment other than a `// --- [<LABEL>]` divider'
 note: 'Move the comment''s fact into a name or type and delete it'

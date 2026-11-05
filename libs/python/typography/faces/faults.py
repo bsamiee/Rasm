@@ -1,11 +1,14 @@
-"""Faults, their reasons, and result accumulation for every typography package."""
+"""Faults, their reasons, result accumulation, and the file reads answering in them for every typography package."""
 
 from collections.abc import Iterable
 from enum import StrEnum
+from functools import partial
 from itertools import chain
+from pathlib import Path
 from typing import Never
 
 from expression import Result
+from expression.extra.result import catch
 import msgspec
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -73,6 +76,16 @@ def paired[A, B](a: Outcome[A], b: Outcome[B], /) -> Outcome[tuple[A, B]]:
             return Error((faults[0], *chain(faults[1:], b.swap().default_value(()))))
 
 
+def read(path: Path, /) -> Outcome[bytes]:
+    """Reads one file's bytes, `UNREADABLE` for a failed read."""
+    return catch(Path.read_bytes, exception=OSError)(path).map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
+
+
+def loaded[T](form: type[T], path: Path, /) -> Outcome[T]:
+    """Reads and decodes one TOML file into a record, `UNREADABLE` for a failed read and `INVALID` for a refused decode."""
+    return read(path).bind(lambda raw: catch(lambda: msgspec.toml.decode(raw, type=form), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, str(path))))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Error", "Fault", "Faults", "Ok", "Outcome", "Reason", "accumulated", "paired"]
+__all__ = ["Error", "Fault", "Faults", "Ok", "Outcome", "Reason", "accumulated", "loaded", "paired", "read"]
