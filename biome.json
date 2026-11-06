@@ -160,24 +160,12 @@
             }
         },
         {
-            "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/extendscript.ts", "tools/harnesses/hosts/adobe/extendscript.ts", "tools/harnesses/hosts/adobe/{illustrator,indesign,photoshop}/engine/**" ],
+            "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/extendscript.ts" ],
             "linter": {
                 "rules": {
                     "nursery": { "useIncludes": "off", "useModernMathApis": "off", "useStringStartsEndsWith": "off" },
                     "style": { "noDefaultExport": "off", "useAtIndex": "off", "useNamedCaptureGroup": "off", "useNumberNamespace": "off", "useUnicodeRegex": "off" },
                     "suspicious": { "noForIn": "off", "noGlobalIsFinite": "off", "noGlobalIsNan": "off", "noPrototypeBuiltins": "off", "useGuardForIn": "off", "useIsArray": "off" }
-                }
-            }
-        },
-        {
-            "includes": [ "tools/harnesses/hosts/adobe/extendscript.ts", "tools/harnesses/hosts/adobe/{illustrator,indesign,photoshop}/engine/**" ],
-            "linter": {
-                "rules": {
-                    "complexity": { "noArguments": "off", "noExcessiveCognitiveComplexity": "off", "useArrowFunction": "off" },
-                    "style": { "noContinue": "off", "noMagicNumbers": "off", "noNestedTernary": "off", "noParameterAssign": "off", "useErrorCause": "off", "useForOf": "off", "useSpreadOverApply": "off" },
-                    "nursery": { "noImpliedEval": "off", "noUselessCall": "off" },
-                    "security": { "noGlobalEval": "off" },
-                    "suspicious": { "noDoubleEquals": "off", "noEmptyBlockStatements": "off", "noShadow": "off" }
                 }
             }
         },

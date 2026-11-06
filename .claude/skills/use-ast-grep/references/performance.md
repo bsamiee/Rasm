@@ -49,7 +49,7 @@ Pattern sites cost what parsing their snippet costs, a bare `$X` or literal `L` 
 Regexes compile eagerly per document with no sharing across documents or rules, `replace` included. Compile cost follows the engine a pattern selects and not its length, rising in order: unanchored literal or literal alternation, `$`, ASCII class and literal prefix (`^foo`), `\b` under either mode, Unicode `\d` at twice `[0-9]`, Unicode `\s` at six times an ASCII class, Unicode `\w` at ten times `[0-9A-Za-z_]`, `\p{XID_Start}\p{XID_Continue}*`:
 - Only an ASCII class saves over `\s`, an explicit `\p{White_Space}` class costs the same
 - `.` costs as much as `^\s`
-- Always-true arms (an optional capture's last, a lineage end) take a `kind` list where the node's kinds are named, else `regex: ''` below a pattern per token
+- Always-true arms (an optional capture's last, a lineage end) take `{not: {any: []}}`, `regex: ''` compiling one regex per site
 - Gates that only skip work take the cheapest literal superset (`concat|All|prepend`), over-matching costs walk and never findings or rows
 - Text a capture's presence decides (a separator, a constant) comes from a rewriter with a literal fix, a `replace` over `(.)\z` compiling an anchored regex per site
 - Unicode `\b` makes lazy and full DFAs quit at a non-ASCII byte, the search reruns on a slower engine
@@ -166,11 +166,11 @@ Each CLI process chooses workers independently and shares no concurrency budget 
 
 ## [08]-[MEASUREMENT]
 
-Instruction counts hold steady between runs of one load order where wall time moves, lazily resolved utils giving a rule one cost mode per load order, one thread, one output mode, and the minimum and median of five runs per side keep the comparison fair:
+Instruction counts hold steady between runs of one load order where wall time moves, lazily resolved utils giving a rule one cost per load order, comparisons take one thread, one output mode, and the minimum and median of repeated runs per side:
 
 ```bash
 hyperfine -N --ignore-failure=1 --metrics instructions,time_wall_clock -r <runs> -L id '<baseline>,<rule>' --export-json <timings> "ast-grep scan --threads 1 --filter '^{id}\$' --json=stream <path>"
-jq -r '.results[] | [.parameters.id, .summary.instructions.mean] | @tsv' <timings>
+jq -r '.results[] | [.parameters.id, .summary.instructions.min, .summary.instructions.median] | @tsv' <timings>
 ```
 
 - `--ignore-failure=1` accepts the finding exit and fails the benchmark on a load exit (`8`), `-i` reports a failed load's cost as the rule's

@@ -464,7 +464,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [31]   | `FoldableExtensions.FoldWhile(S, Func<S,A,S>, Func<(S,A),bool>)`       | `fold`     | Predicate-bounded fold                    |
 |  [32]   | `FoldableExtensions.FoldMap(Func<A,B>)`                                | `fold`     | Monoidal aggregation                      |
 |  [33]   | `FoldableExtensions.Find(Func<A,bool>)`                                | `static`   | `Option`-shaped search                    |
-|  [34]   | `FoldableExtensions.FindAll(Func<A,bool>)`                             | `static`   | Every match as a `Seq`                    |
+|  [34]   | `FoldableExtensions.FindAll(Func<A,bool>)`                             | `static`   | Every match as an `Iterable`              |
 |  [35]   | `Arr.create(A[])`                                                      | `static`   | Immutable-array construction              |
 |  [36]   | `Arr.createRange(IEnumerable<A>)`                                      | `static`   | Construction from `IEnumerable<A>`        |
 |  [37]   | `HashMap.Find(K)`                                                      | `instance` | `Option<V>` lookup                        |

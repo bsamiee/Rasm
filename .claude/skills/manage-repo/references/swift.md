@@ -15,8 +15,6 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Nx attaches each test target to its module's `test` or `test:integration` through `--test-product`, `--filter` builds every test target
 - `OMIT_DYNAMIC_TEST_SUPPORT` links `IssueReportingTestSupport` static for swift-custom-dump tests, the dynamic form prints linker version warnings
 - Remote packages take `.package(url:from:)`, a package only an app imports takes an `up-to-next-major-version` row in that app instead, `upgrade:swift` moves both
-- Nx sync generator `swift-dependencies` writes each target's `dependencies:` from its sources' `import` lines, local modules then products, and refuses a module of a package `Package.swift` omits
-- Products no source imports (`IssueReportingTestSupport` on test targets) join through the manifest's `for target` loop, a new package through `swift package add-dependency`
 - Manifest `settings` own compiler and linker policy in typed forms, `unsafeFlags` where none exists
 - Checkers run from root tool rows, a SwiftLint or swift-format package plugin adds a second tool version
 
@@ -43,7 +41,8 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Projects hold one shared scheme in `xcshareddata/xcschemes`, its `BuildAction` and `LaunchAction` naming the target
 - Xcode autocreates a duplicate of a shared scheme with no `LaunchAction`
 - App icons are an `AppIcon.icon` document `actool` renders at build, no rendered image is checked in
-- `icon.json` holds the values an app states, appearances and platforms follow from rows it omits, `position` needs `scale` and `translation-in-points` together, `scale` multiplies the master's point size on the 1024 canvas
+- `icon.json` holds the values an app states, appearances and platforms follow from rows it omits
+- `icon.json` `position` needs `scale` and `translation-in-points` together, `scale` multiplies the master's point size on the 1024 canvas
 - Views take system colors, a color an app states is a color set its target names through `ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME`, a root row warns in every app holding no such set
 - `ictool` for `.icon` documents sits at `$(xcode-select -p)/../Applications/Icon Composer.app/Contents/Executables/ictool`, `xcrun --find ictool` and `/usr/bin/ictool` resolve to an `actool` front end
 - `packages` holds the root package as `{ "kind": "local", "path": "<parents to root>" }`, product rows name it `..`
@@ -68,7 +67,8 @@ Project and target settings override root `Xcode.xcconfig`:
 - `build-settings` writes `Xcode.xcconfig` and `Directory.Build.props` identity rows from root `package.json`
 - `build-settings` writes the `dump-package` macOS floor to `Xcode.xcconfig`, SwiftLint, pixi platform, and mise for rustc, clang, CMake and maturin
 - `registerAgents` in `CurrentProcess` re-registers every plist in `Contents/Library/LaunchAgents` on each launch, launchd otherwise keeps the job and environment of the version first registered
-- Imageset SVGs are Git symlinks, `<Mark>Symbol` into `AppIcon.icon/Assets` and a third-party mark into a catalog package under `node_modules`, each master root holds the 16-point size `Image` reads, `actool` refuses a symlinked `.icon` layer
+- Imageset SVGs are Git symlinks, `<Mark>Symbol` into `AppIcon.icon/Assets` and a third-party mark into a catalog package under `node_modules`
+- Master roots hold the 16-point size `Image` reads, `actool` refuses a symlinked `.icon` layer
 - Automatic signing under the root team gives an Apple Development designated requirement keeping TCC grants, ad hoc signing prompts again
 - Products needing a TCC grant are `application` bundles at `/Applications`, `LSBackgroundOnly` when they show no interface
 - Xcode `install` replaces `/Applications/<Name>.app` from the zip `pack` writes through `ditto`

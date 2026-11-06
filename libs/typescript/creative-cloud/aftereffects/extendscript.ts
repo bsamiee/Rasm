@@ -5,8 +5,18 @@ import { fileFromUrl, handleEnvelope, reflectionOf, specifierStep } from '@rasm/
 
 export default handleEnvelope({
     indexBase: 1,
-    dialogs: { suppress: () => app.beginSuppressDialogs(), restore: () => app.endSuppressDialogs(false) },
-    undoGroup: { begin: (label) => app.beginUndoGroup(label), end: () => app.endUndoGroup() },
+    dialogs: () => {
+        app.beginSuppressDialogs();
+        return () => {
+            app.endSuppressDialogs(false);
+        };
+    },
+    undoGroup: (label) => {
+        app.beginUndoGroup(label);
+        return () => {
+            app.endUndoGroup();
+        };
+    },
     specifier: (value) => {
         const [project, comp, id] = [specifierStep('project'), readProperty(value, 'containingComp'), readProperty(value, 'id')];
         if (value === app.project) {

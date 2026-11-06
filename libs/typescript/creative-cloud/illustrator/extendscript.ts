@@ -1,5 +1,5 @@
 import { illegalArgument, readProperty } from '@rasm/extendscript';
-import { assignProperties, fileFromUrl, handleEnvelope, specifierStep } from '@rasm/extendscript/extendscript';
+import { assignProperties, fileFromUrl, handleEnvelope, preserve, specifierStep } from '@rasm/extendscript/extendscript';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -53,16 +53,7 @@ const specifier = (value: unknown): string | undefined => {
 
 export default handleEnvelope({
     indexBase: 0,
-    dialogs: {
-        suppress: () => {
-            const level = app.userInteractionLevel;
-            app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
-            return level;
-        },
-        restore: (level) => {
-            app.userInteractionLevel = level;
-        },
-    },
+    dialogs: () => preserve(app, { userInteractionLevel: UserInteractionLevel.DONTDISPLAYALERTS }),
     specifier,
     open: (payload) => app.open(fileFromUrl(payload.file)),
     render: (payload, resolve) => {

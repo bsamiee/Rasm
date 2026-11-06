@@ -14,7 +14,6 @@ export const meta = {
 
 const { hosts, languages } = await workflow('languages')
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
-const BAR = `Read ${REPO}/.claude/workflows/BAR.md first.`
 const PROSE = `python ${REPO}/.claude/skills/clean-prose/scripts/prose.py check`
 const PLURALS = new Intl.PluralRules('en')
 const NOUNS = {
@@ -103,8 +102,8 @@ const once = (prompt, opts) => (Object.hasOwn(FINISHED, opts.label)
   : agent(prompt, opts).then((result) => result ?? note(opts.label, 'agent ended with no result'), broke(opts.label)))
 
 // --- [STAGES]
-const read = (unit, skills = skillsOf(unit.paths)) => once(`Load ${loads(row.skills)}. ${BAR}
-Reader over \`git diff ${RANGE} -- ${unit.paths.join(' ')}\`: read every hunk with its file at HEAD, at ${RELEASE} with package sources under ${row.sources}, and name each improvement and each regression the hunks show by the bar's [HUNKS] lines, small and large alike, that its owner does not yet state or check soundly. A regression names the check or skill line that refuses it.
+const read = (unit, skills = skillsOf(unit.paths)) => once(`Load ${loads(row.skills)}.
+Reader over \`git diff ${RANGE} -- ${unit.paths.join(' ')}\`: read every hunk with its file at HEAD, at ${RELEASE} with package sources under ${row.sources}, and name each improvement and each regression the hunks show, small and large alike, that its owner does not yet state or check soundly. A regression names the check or skill line that refuses it.
 Each finding goes to the first owner below stating it soundly for every instance; an owner reporting a subset of another's instances owns nothing, and a row turning a check off stays while its reason holds:
 ${ranked(skills)}
 Search the owner's paths for the check, row or skill lines deciding the form and name the files holding them; a fact no present check or reference holds names the folder its new check or reference joins. Edit nothing. Return (structured) the findings, each with the code's file and line as its site, the fact as its current form, stronger form and reason, its owner, the existing owner files it edits, and the folder a new check or reference joins, else empty.`, {
@@ -113,7 +112,7 @@ Search the owner's paths for the check, row or skill lines deciding the form and
   model: 'opus',
   schema: { type: 'object', properties: { findings: FINDINGS([...NAMES, ...skills]) }, required: ['findings'] },
 })
-const write = (group, reroutable, scope = `the files at or under ${group.files.join(', ')}`) => once(`Load ${loads([...group.owner.skills, row.skills[0], 'clean-prose'])}. ${BAR}
+const write = (group, reroutable, scope = `the files at or under ${group.files.join(', ')}`) => once(`Load ${loads([...group.owner.skills, row.skills[0], 'clean-prose'])}.
 Writer for ${group.owner.name}, owning ${group.owner.decides}, over ${scope}, from the improvements and regressions committed between ${args.base} and HEAD:
 ${listed(group.findings.map(shown))}
 Read ${group.files.join(', ')} whole with the code at each site. At this owner, for every instance each fact covers: fix each contradiction, tighten or widen each weak, naive or narrow check, remove each check its owner cannot decide soundly or that judges comments or dividers, and add each missing check.${row.metadata.length > 0 ? ` A rule for a form one release introduces or retires sets \`metadata\` ${row.metadata.join(' or ')}.` : ''} A new check follows the checks beside it${group.owner === SYNTAX ? '' : ', its cases beside theirs'}. Ids, names and messages are short, agent-facing and clean-prose. ${group.owner === SYNTAX ? 'Prove each rule you edit or add once, as use-ast-grep\'s rule-building states: one scan of a scratch file of violating forms and near misses, then the project at zero findings, in the foreground.' : `Run ${group.owner.name} over the finding sites alone in the foreground, before and after your edits.`}${reroutable ? ' A change a file outside yours needs (a util other rules call, a row or check of another owner, an earlier owner stating the fact) returns as a reroute with its owner and the files it edits, and that file stays as it is.' : ''}
@@ -140,7 +139,7 @@ const close = (written, skills) => {
   const removed = [...new Set(touched.flatMap((done) => done.result.removed).map((id) => `\`${id}\``))]
   const commands = [...new Set(owners.flatMap((owner) => owner.targets))].map((command) => `\`${command}\``)
   const snippets = row.snippet && skills.length > 0 ? [`each snippet \`git diff HEAD -- ${skills.map((skill) => `.claude/skills/${skill}`).join(' ')}\` changes, piped through \`${row.snippet}\``] : []
-  return touched.length + snippets.length === 0 ? Promise.resolve('no check or snippet changed') : once(`Load ${loads([...owners.flatMap((owner) => owner.skills), row.skills[0]])}. ${BAR}
+  return touched.length + snippets.length === 0 ? Promise.resolve('no check or snippet changed') : once(`Load ${loads([...owners.flatMap((owner) => owner.skills), row.skills[0]])}.
 Close over ${[...new Set(touched.flatMap((done) => done.result.files.map(relative)))].join(', ') || 'the skill snippets'}. Writer reports:
 ${touched.map((done) => `## ${done.group.label}\n${done.result.report}`).join('\n\n') || 'no check changed'}
 ${renamed.length + removed.length > 0 ? `Update every mention across the tree (skills, config reasons, per-line ignores, sgconfig.yml) of each id renamed (${renamed.join(', ') || 'none'}) or removed (${removed.join(', ') || 'none'}). ` : ''}Run each command once in the foreground, a command taking paths over the changed files it reads:
@@ -152,7 +151,7 @@ Fix each finding once at its cause (the code it names, or the check when it misf
 
 log(`tune ${args.language} over ${RANGE}${exclude.length > 0 ? `, except ${exclude.join(', ')}` : ''}`)
 phase('Map')
-const listing = await once(`${BAR} Partition every file \`git diff --name-only ${RANGE} -- ${[...row.pathspec, ...exclude.map((path) => `':(exclude)${path}'`)].join(' ')}\` lists into units by \`git diff --numstat\` volume: related files join (the files under the ${row.unit} with the test files under ${row.tests} mirroring them, consumers beside what they consume), and units pack as much diff as one reader reads whole with its files and judges well, so small folders share a unit and a folder splits only where its diff alone exceeds one reader. Every file falls in one unit. Edit nothing. Return (structured) the units.`, {
+const listing = await once(`Partition every file \`git diff --name-only ${RANGE} -- ${[...row.pathspec, ...exclude.map((path) => `':(exclude)${path}'`)].join(' ')}\` lists into units by \`git diff --numstat\` volume: related files join (the files under the ${row.unit} with the test files under ${row.tests} mirroring them, consumers beside what they consume), and units pack as much diff as one reader reads whole with its files and judges well, so small folders share a unit and a folder splits only where its diff alone exceeds one reader. Every file falls in one unit. Edit nothing. Return (structured) the units.`, {
   label: 'map:units',
   phase: 'Map',
   schema: { type: 'object', properties: { units: { type: 'array', items: { type: 'object', properties: { name: TEXT, paths: LIST }, required: ['name', 'paths'] } } }, required: ['units'] },
@@ -175,13 +174,13 @@ const held = skillSet.filter((skill) => findings.some((finding) => finding.owner
 log(`${counted(findings.length, NOUNS.finding)}: ${checked.length} in ${counted(groups.length, NOUNS.group)}, ${findings.length - checked.length} across ${counted(held.length, NOUNS.skill)}${held.length > 0 ? ` (${held.join(', ')})` : ''}`)
 
 const skilling = pipeline(held,
-  (skill) => once(`Load Skill(${skill}) and Skill(clean-prose). ${BAR}
+  (skill) => once(`Load Skill(${skill}) and Skill(clean-prose).
 Writer for .claude/skills/${skill}, from the improvements and regressions committed between ${args.base} and HEAD:
 ${listed(findings.filter((finding) => finding.owner === skill).map(shown))}
 Read the files these findings name and the lines they touch. Replace, add or remove the snippet, section or rule the committed code justifies; a new case rewrites the line that owns its rule. Each fact sits once within the skill and once across ${skillSet.join(', ')}, \`rg\` over their folders showing where another states it. Snippets show packages under ${row.sources} at ${RELEASE} with placeholder names, coupled to no repository library. Edit only .claude/skills/${skill}. Return at most 10 lines: each section, snippet and line changed.`, { label: `skill:${skill}`, phase: 'Skills' }),
-  (_, skill) => once(`Load Skill(${skill}). ${BAR}
+  (_, skill) => once(`Load Skill(${skill}).
 Adversary for .claude/skills/${skill}. Read \`git diff HEAD -- .claude/skills/${skill}\` and ${untracked(`.claude/skills/${skill}`)} hunk by hunk, removals included, with the passage around each. Rebuild in place each passage, snippet and rule weaker than the code in the tree, wrong against the package sources under ${row.sources} at ${RELEASE}, or stating a fact another of ${skillSet.join(', ')} states. Edit only .claude/skills/${skill}. Return at most 6 lines: what you rebuilt.`, { label: `adversary:${skill}`, phase: 'Skills', model: 'opus' }),
-  (_, skill) => once(`Load Skill(clean-prose) and read every file under its references whole. ${BAR}
+  (_, skill) => once(`Load Skill(clean-prose) and read every file under its references whole.
 Apply it to each line \`git diff HEAD -- .claude/skills/${skill}\` and ${untracked(`.claude/skills/${skill}`)} change, with its passage, then run \`${PROSE} .claude/skills/${skill}\` once in the foreground and fix what it reports. Return at most 5 lines.`, { label: `prose:${skill}`, phase: 'Skills' }),
 )
 const checking = pumped(groups, (group) => write(group, true)).then((first) => {

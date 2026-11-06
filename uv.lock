@@ -28,7 +28,6 @@ prerelease-mode = "allow"
 [manifest]
 members = [
     "blender",
-    "blender-harness",
     "darkroom",
     "rasm",
 ]
@@ -1042,11 +1041,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/f0/8a/278cfc4d0e59e483f
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/21/6f5f68c1699fd49a45a076479e3a47e36b0a16c771653a3f0d9b375ab3d0/blender_asset_tracer-2.2.1-py3-none-any.whl", hash = "sha256:8b8835b1f63f78b5999082d6415b0bfd778c2032a15875c69bcc0a1922de974c", size = 74671, upload-time = "2026-10-08T15:05:29.584Z" },
 ]
-
-[[package]]
-name = "blender-harness"
-version = "0.0.0"
-source = { virtual = "tools/harnesses/hosts/blender" }
 
 [[package]]
 name = "blinker"

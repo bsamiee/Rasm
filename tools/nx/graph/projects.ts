@@ -16,6 +16,7 @@ type Inference = Workspace & { readonly configFiles: readonly string[]; readonly
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TESTS = 'tests';
+const MODULES = 'node_modules';
 const CONTAINERS = /^(?:testcontainers|@testcontainers\/.+)$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -41,7 +42,9 @@ const moduleRequests = Effect.fnUntraced(function* (workspaceRoot: string, file:
 const imports = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
     const [path, requests] = yield* Effect.all([Path.Path, moduleRequests(workspaceRoot, file)]);
     const { resolve } = createRequire(path.join(workspaceRoot, file));
-    const [files, specifiers] = Array.partition(requests.filter(Predicate.not(isBuiltin)), (request) => (request.startsWith('.') || request.startsWith('#') ? Result.succeed(path.relative(workspaceRoot, resolve(request))) : Result.fail(request)));
+    const located = (request: string) => path.relative(workspaceRoot, resolve(request));
+    const source = (request: string) => Option.filter(Option.liftThrowable(located)(request), (held) => !held.split(path.sep).includes(MODULES));
+    const [files, specifiers] = Array.partition(requests.filter(Predicate.not(isBuiltin)), (request) => (request.startsWith('.') || request.startsWith('#') ? Result.succeed(located(request)) : Result.fromOption(source(request), () => request)));
     return { files, specifiers };
 });
 const reach = (workspaceRoot: string, frontier: readonly string[], graph: Readonly<Record<string, Effect.Success<ReturnType<typeof imports>>>>): Effect.Effect<Readonly<Record<string, Effect.Success<ReturnType<typeof imports>>>>, Effect.Error<ReturnType<typeof imports>>, Effect.Services<ReturnType<typeof imports>>> =>
@@ -237,7 +240,9 @@ const markers = {
             ...named,
             tags: ['language:typescript'],
             targets: {
-                'typecheck:tsc': { inputs: [...files.map((held) => ({ fileset: `{workspaceRoot}/${held}`, includeIgnored: true })), ...(options.typeRoots ?? []).map((typeRoot) => ({ fileset: `{workspaceRoot}/${path.relative(workspaceRoot, typeRoot)}/**/*.d.ts`, includeIgnored: true }))] },
+                'typecheck:tsc': {
+                    inputs: [`{workspaceRoot}/${dir}/**/*`, ...files.map((held) => ({ fileset: `{workspaceRoot}/${held}`, includeIgnored: true })), ...(options.typeRoots ?? []).map((typeRoot) => ({ fileset: `{workspaceRoot}/${path.relative(workspaceRoot, typeRoot)}/**/*.d.ts`, includeIgnored: true }))],
+                },
                 check: {},
                 ...integration,
                 ...(owner === dir && Record.has(manifest.dependencies, '@effect/sql-pg') ? { 'lint:squawk': {} } : {}),

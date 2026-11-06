@@ -891,7 +891,6 @@
         <PackageVersion Include="Microsoft.Testing.Platform"                              Version="2.5.2" />                             <!-- Test execution platform hosting self-contained test applications -->
         <PackageVersion Include="Microsoft.Testing.Platform.MSBuild"                      Version="2.5.2" />                             <!-- MSBuild integration and entry point generation for testing platform -->
         <PackageVersion Include="NaCl.Net"                                                Version="0.1.13" />                            <!-- Curve25519, XSalsa20, and Poly1305 cryptography primitives -->
-        <PackageVersion Include="Namotion.Reflection"                                     Version="3.5.1" />                             <!-- Reflection over XML docs, nullability, and contextual types -->
         <PackageVersion Include="NATS.Client.Abstractions"                                Version="3.3.2" />                             <!-- Serialization abstractions and client interfaces -->
         <PackageVersion Include="NATS.Client.Core"                                        Version="3.3.2" />                             <!-- Messaging client with pub-sub and request-reply -->
         <PackageVersion Include="NATS.Client.Hosting"                                     Version="3.3.2" />                             <!-- Service collection registration for connections -->

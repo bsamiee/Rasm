@@ -1,0 +1,17 @@
+{
+    "name": "argus",
+    "version": "1.0.0",
+    "description": "Language servers as agent code navigation and diagnostics",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "mcpServers": {
+        "argus": {
+            "type": "http",
+            "url": "http://127.0.0.1:7410/"
+        }
+    },
+    "interface": {
+        "displayName": "Argus"
+    }
+}

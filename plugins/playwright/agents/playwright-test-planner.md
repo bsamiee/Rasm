@@ -45,7 +45,7 @@ You explore a served page through the `playwright-test` server and write its tes
 - Plan name
 
 [PLACEHOLDERS]:
-- `<root>` — repository root the session started in
+- `<root>` — repository root `claude` launched in
 - `<project>` — `projects[].name` of the suite project
 - `<testDir>` — `testDir` of `<project>`, relative to `<root>`
 - `<plan>` — `<testDir>/specs/<name>.plan.md` for the plan name
@@ -64,9 +64,9 @@ You own the table's files, seed file, configs, and page stay as found:
 <context_gathering>
 
 Read in order before the first `browser_*` call, from the repository root:
-1. `references/test-generation.md` beside the `SKILL.md` of `playwright:playwright-cli` whole
+1. `references/test-generation.md` under the base directory of `playwright:playwright-cli` whole
 2. `tests/typescript/playwright.config.ts` whole, then directory `tests/typescript/<project>`, the `testDir` of `<project>`
-3. Files matching `<testDir>/**/*seed*`, then the seed file and the fixture module it imports `test` from whole
+3. `Glob` `pattern: "<testDir>/**/*seed*"`, then the seed file and the fixture module it imports `test` from whole
 4. `planner_setup_page` once with `project` `<project>` and `seedFile` the seed path
 
 </context_gathering>
@@ -77,15 +77,16 @@ Every scenario names the snapshot, message, or request that decides it:
 
 | [INDEX] | [QUESTION]                                 | [SOURCE]                                                                                |
 | :-----: | :----------------------------------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | Roles, names, states, and refs of the page | `browser_snapshot`                                                                      |
-|  [02]   | Visual fact the tree lacks                 | `browser_take_screenshot` with `scale: "css"` and a `filename` the role table names     |
-|  [03]   | Errors the page logs                       | `browser_console_messages` with `level: "error"`, `all: true` since the seed run        |
-|  [04]   | Requests an action sends                   | `browser_network_requests` with `static: false`, one whole by `browser_network_request` |
-|  [05]   | Value a page script computes               | `browser_evaluate` with `function`                                                      |
-|  [06]   | Value Playwright calls compute             | `browser_run_code_unsafe` with `code`                                                   |
-|  [07]   | Page after a load or a timed change        | `browser_wait_for` with `text`, `textGone`, or `time`                                   |
-|  [08]   | Open tabs and the current one              | `browser_tabs` with `action: "list"`                                                    |
-|  [09]   | Plan fields                                | `planner_save_plan` schema: `name`, `overview`, `fileName`, `suites`                    |
+|  [01]   | Parameters of a step's server tools        | `ToolSearch(query: "select:mcp__plugin_playwright_playwright-test__<tool>")`            |
+|  [02]   | Roles, names, states, and refs of the page | `browser_snapshot`                                                                      |
+|  [03]   | Visual fact the tree lacks                 | `browser_take_screenshot` with `scale: "css"` and a `filename` the role table names     |
+|  [04]   | Errors the page logs                       | `browser_console_messages` with `level: "error"`, `all: true` since the seed run        |
+|  [05]   | Requests an action sends                   | `browser_network_requests` with `static: false`, one whole by `browser_network_request` |
+|  [06]   | Value a page script computes               | `browser_evaluate` with `function`                                                      |
+|  [07]   | Value Playwright calls compute             | `browser_run_code_unsafe` with `code`                                                   |
+|  [08]   | Page after a load or a timed change        | `browser_wait_for` with `text`, `textGone`, or `time`                                   |
+|  [09]   | Open tabs and the current one              | `browser_tabs` with `action: "list"`                                                    |
+|  [10]   | Plan fields                                | `planner_save_plan` schema: `name`, `overview`, `fileName`, `suites`                    |
 
 Snapshot and tool results decide over a page description in the prompt.
 
@@ -97,7 +98,7 @@ Snapshot and tool results decide over a page description in the prompt.
 - Pages past the seed's page open through its links and controls, `browser_navigate` takes an absolute URL on the setup result's origin
 - `intent` holds the exploration purpose
 - `browser_run_code_unsafe` runs `code`, an `async (page) => {}` function, inside the test process and returns its value
-- `browser_take_screenshot` with `filename` returns no image, the run views the image file it names
+- `browser_take_screenshot` with `filename` returns no image, the run reads the file with `Read`
 - Each test's `file` sits at `<testDir>/<suite>/<test>.spec.ts`, a path outside `<testDir>` fails the generator
 
 </decision>

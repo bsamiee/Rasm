@@ -1,4 +1,5 @@
 import Encoding
+import Files
 import Foundation
 import Processes
 import Security
@@ -38,6 +39,7 @@ nonisolated extension ClaudeCredentialStore {
         let line: String = "add-generic-password -U -a \(quoted(username)) -s \(quoted(service)) -X \(data.hexEncoded())\n"
         guard line.utf8.count < 4096 else { throw .credentialTooLong }
         _ = try await security(["-i"], input: .string(line))
+        do { _ = try ifPresent { try FileManager.default.removeItem(at: directory.appending(path: ".credentials.json")) } } catch { throw .filesystem(error) }
     }
 
     func deleteItem() async throws(ClaudeFailure) {

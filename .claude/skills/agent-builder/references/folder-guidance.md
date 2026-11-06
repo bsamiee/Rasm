@@ -11,7 +11,7 @@ Claude Code reads each file as context, and loading decides which facts a folder
 - Subdirectory files load once Claude reads, writes, or edits a file there, a fact needed before the first file read sits a level above
 - Loaded files concatenate from root to leaf with no override, and Claude follows either side of a contradiction
 - Lines are context and Claude decides whether to follow them, a rule without exceptions becomes a check
-- Claude reads `AGENTS.md` in a directory where no `CLAUDE.md` sits at or above it, Codex reads `AGENTS.md` alone
+- Claude reads `AGENTS.md` in a directory where no `CLAUDE.md` sits at or above it
 - `AGENTS.md` beside each folder `CLAUDE.md` is the relative symlink `AGENTS.md -> CLAUDE.md`, Claude reads its content once
 - Edit and Write refuse a path through a symlink, edits go to `CLAUDE.md`
 

@@ -52,7 +52,7 @@ const tomlRows =
         patch(text, update(parse(text)));
 const rows = Effect.fnUntraced(function* (tree: Tree) {
     const workspace = yield* openWorkspace({ workspaceRoot: tree.root, nxJsonConfiguration: readNxJsonFromDisk(tree.root) });
-    const [{ author, repository }, { tools, platforms, targets }] = yield* Effect.all([decodeTree(tree, Identity.schema, Identity.file), workspace.cached(SwiftManifest, [SWIFT_MANIFEST], workspace.swiftPackage('dump-package'))]);
+    const [{ author, repository }, { tools, platforms, targets }] = yield* Effect.all([decodeTree(tree, Identity.schema, Identity.file), workspace.cached(SwiftManifest, [SWIFT_MANIFEST], ['swift', 'package', 'dump-package'])]);
     const { version } = yield* Effect.fromOption(Array.findFirst(platforms, ({ name }) => name === 'macos'));
     const [{ settings }] = targets;
     const kinds = settings.map(Struct.get('kind'));

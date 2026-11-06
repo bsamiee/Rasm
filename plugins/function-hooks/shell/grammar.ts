@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Record, Result, Schema, String } from 'effect';
+import { Array, Effect, Option, Result, Schema, String } from 'effect';
 import { HookError, Host } from '#/host';
 import type { Program } from '#/shell/programs';
 import type { Word } from '#/shell/script';
@@ -46,17 +46,6 @@ interface Cursor {
     readonly separated: boolean;
     readonly subcommand: string;
 }
-interface Scope {
-    readonly line: boolean;
-    readonly label: string;
-}
-interface ZshOption {
-    readonly key: string;
-    readonly spelling: string;
-    readonly valued: string;
-    readonly help: string;
-    readonly colons: string;
-}
 type Step = readonly [Partial<Parsed>, Cursor];
 interface Reading {
     readonly specs: readonly Spec[];
@@ -70,10 +59,6 @@ const CAMEL = /[A-Z]/gu;
 const NOTATION = /^(?:(?<short>-[^,]+), )?(?<long>-[^=]+)(?:=(?<arity>\d?))?$/u;
 const FLAG_TYPES: ReadonlySet<string> = new Set(['bool', 'boolSlice', 'count']);
 const NO_GRAMMAR: Grammar = { options: new Map(), commands: new Map() };
-const ZSH_CASE = /^\s*case \$(?<kind>line|state)\b/u;
-const ZSH_END = /^\s*esac\b/u;
-const ZSH_LABEL = /^\s*\((?<label>[\w-]+)\)$/u;
-const ZSH_OPTION = /^'(?:\([^)]*\))?\*?(?<spelling>--?[\w-]+)(?<valued>[+=]?)\[(?<help>(?:\\.|[^\\\]])*)\](?<colons>:*)/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -130,49 +115,16 @@ const dumpedGrammar = (node: Dumped): Grammar => ({
     commands: new Map((node.subcommands ?? []).map((command) => [command.commandName, dumpedGrammar(command)])),
 });
 
-const scoped = (scopes: readonly Scope[], text: string): readonly Scope[] => {
-    const kind = ZSH_CASE.exec(text)?.groups?.['kind'];
-    const label = ZSH_LABEL.exec(text)?.groups?.['label'];
-    if (kind !== undefined) {
-        return [...scopes, { line: kind === 'line', label: '' }];
-    }
-    return ZSH_END.test(text) ? scopes.slice(0, -1) : scopes.map((scope, at) => (label !== undefined && at === scopes.length - 1 ? { ...scope, label } : scope));
-};
-
-const clapFlag = (group: Array.NonEmptyReadonlyArray<ZshOption>): typeof ExportedFlag.Type => ({
-    ...Object.fromEntries(group.map(({ spelling }) => (spelling.startsWith('--') ? ['Longhand', spelling.slice(2)] : ['Shorthand', spelling.slice(1)]))),
-    Type: group[0].valued === '' ? 'bool' : 'string',
-    ...(group[0].colons === '::' ? { NoOptDefVal: '' } : {}),
-});
-
-const clapExport = (script: string): Exported => {
-    const [, lines] = Array.mapAccum(script.split('\n'), [] as readonly Scope[], (scopes, text) => {
-        const held = scoped(scopes, text);
-        return [held, { path: held.filter(({ line }) => line).map(({ label }) => label), option: ZSH_OPTION.exec(text)?.groups }] as const;
-    });
-    const options = lines.flatMap(({ path, option }): readonly ZshOption[] => (option === undefined ? [] : [{ key: path.join(' '), spelling: option['spelling'] ?? '', valued: option['valued'] ?? '', help: option['help'] ?? '', colons: option['colons'] ?? '' }]));
-    const flags = Array.isReadonlyArrayNonEmpty(options) ? Array.groupWith(options, (left, right) => left.key === right.key && left.help === right.help) : [];
-    const node = (path: readonly string[]): Exported => ({
-        Name: path.at(-1) ?? '',
-        Commands: Array.dedupe(lines.filter((line) => line.path.length === path.length + 1 && line.path.slice(0, -1).join(' ') === path.join(' ')).map(({ path: held }) => held.join(' '))).map((held) => node(held.split(' '))),
-        LocalFlags: flags.filter(([{ key }]) => key === path.join(' ')).map(clapFlag),
-    });
-    return node([]);
-};
-
 const grammarOf = Effect.fnUntraced(function* (program: string, row: Program, primary: string) {
     const host = yield* Host;
     if (row.dump === true) {
         const { stdout } = yield* host.run([program, '--experimental-dump-help']);
         return dumpedGrammar((yield* Effect.mapError(Schema.decodeEffect(Dump)(stdout), HookError.of(program))).command);
     }
-    const overlay = new Map([...(row.flags ?? []), ...[...(row.walks?.names ?? []), ...(row.code ?? [])].map((name) => `${name}=`)].flatMap(notated));
-    if (row.clap !== undefined) {
-        return exportedGrammar(clapExport((yield* host.run([program, ...row.clap])).stdout), new Map(), overlay);
-    }
     const exported = (name: string) => host.run(['carapace', name, 'export'], { env: { CARAPACE_BUILTINS: 'bash', CARAPACE_SHELL: 'bash', CARAPACE_BRIDGES: '', XDG_CONFIG_HOME: host.path.join(host.root, '.config') } });
     const own = yield* exported(program);
     const { stdout } = String.isEmpty(String.trim(own.stdout)) ? yield* exported(primary) : own;
+    const overlay = new Map([...(row.flags ?? []), ...[...(row.walks?.names ?? []), ...(row.code ?? [])].map((name) => `${name}=`)].flatMap(notated));
     return String.isEmpty(String.trim(stdout)) ? { ...NO_GRAMMAR, options: overlay } : exportedGrammar(yield* Effect.mapError(Schema.decodeEffect(Export)(stdout), HookError.of('carapace')), new Map(), overlay);
 });
 

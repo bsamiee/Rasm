@@ -11,7 +11,7 @@ Run commands from a terminal or harness with Accessibility access, each prints t
 1. Open the app with `launch` and read its `pid` from the `launched` line
 2. Act on each last line by the state table, on the `pid` of the instance work drives
 3. Run `read` for element ids a line leaves out, then `perform` or `set` on one id
-4. While a call outside `watch-apps` runs (Atelier script, harness case), run `watch` on the app and its dialog helpers in a Monitor
+4. While a call outside `watch-apps` runs (Atelier script), run `watch` on the app and its dialog helpers in a Monitor
 
 ```bash
 watch-apps launch [<app>...] [--new] [--wait] \
@@ -47,7 +47,7 @@ Monitor {"command": "watch-apps watch <app> [<helper>]...",
 - Hooks rewrite `open`, `xed`, a launching `osascript`, and a bundle's executable into `launch`, a headless switch and a background-only or `LSUIElement` bundle running as written
 - Hooks rewrite `killall` and `pkill` into `kill` of their pids when each descends from the session, and refuse any other kill of every match
 - Hooks run `watch` in a Monitor alone, drop a filter piped after it, and refuse a loop polling `read` or `watch`
-- Hooks refuse `osascript` posting through System Events, taking focus, or scripting a `tools/harnesses` host past its launch
+- Hooks refuse `osascript` posting through System Events, taking focus
 - Claude Code watches each app a session launches, reuses, or drives through Rhino or Blender MCP, sending dialogs, hangs, and crashes to its agent
 - Claude Code quits each instance an agent created (`created: true`) when that agent's turn ends and the session's when it ends, `--force` staying an agent's command
 
@@ -164,5 +164,5 @@ Actions go to the app's process through AX actions on its elements and leave the
 - Host terminals stay above every target and absent from every image, `would land on` naming one means moving the target by script
 - Coordinates come from the last `computer-use` image, `frame` values never feed a click
 - One agent acts at a time, and no script or other `computer-use` call shares its block
-- Harness cases hold no `computer-use`, and products never depend on it
+- Products never depend on `computer-use`
 - Tools named `app_*`, where a session lists them, act without the screen and replace the display tools above

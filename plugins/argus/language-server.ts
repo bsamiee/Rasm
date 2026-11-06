@@ -4,7 +4,7 @@ import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { fromReadable, toReadableNever } from '@effect/platform-node/NodeStream';
 import type { Event } from '@parcel/watcher';
-import { Array, type Cause, Config, Duration, Effect, Fiber, FileSystem, Function, flow, HashMap, HashSet, Iterable, Match, Number, Option, Predicate, Queue, Record, Result, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, type Cause, Config, Duration, Effect, Fiber, FileSystem, Function, flow, HashMap, HashSet, Iterable, Match, Number, Option, Predicate, Queue, Record, Result, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { escape, minimatch } from 'minimatch';
 import {
@@ -222,7 +222,7 @@ class LanguageServer {
                     source.cancel();
                     source.dispose();
                 }),
-        ).pipe(Effect.catchTag('UnknownError', this.#classify), Effect.timeout(timeout), Effect.raceFirst(this.#resources.stopped));
+        ).pipe(Effect.catchTag('UnknownError', this.#classify), Effect.retry({ while: (error) => error instanceof ResponseError && error.code === LSPErrorCodes.ContentModified, schedule: Schedule.spaced('100 millis') }), Effect.timeout(timeout), Effect.raceFirst(this.#resources.stopped));
     }
 
     readonly #classify = ({ cause }: Cause.UnknownError) =>

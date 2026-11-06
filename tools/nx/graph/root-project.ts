@@ -203,7 +203,7 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, python, pythonScop
             memoized(
                 'ast-grep rules',
                 AstGrepRuleSet,
-                ruleFiles,
+                [...ruleFiles, path.relative(workspaceRoot, import.meta.filename)],
                 glob(workspaceRoot, ruleFiles).pipe(Effect.flatMap(Effect.validate((file: string) => decodeFile(YamlStream.pipe(Schema.decodeTo(Schema.Array(AstGrepRule(path.basename(file, path.extname(file)))))), workspaceRoot, file), { concurrency: 'unbounded' })), Effect.map(Array.flatten)),
             ),
         ],
@@ -251,7 +251,7 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, python, pythonScop
                     ...split('lint:ast-grep', {
                         tree: {
                             command: walk(['--error=no-suppress-all', ...offs]),
-                            syncGenerators: [`./${GENERATORS}:effect-operations`, `./${GENERATORS}:injection-utils`, `./${GENERATORS}:outline-catalogs`],
+                            syncGenerators: [`./${GENERATORS}:injection-utils`, `./${GENERATORS}:outline-catalogs`],
                             inputs: [...read(Object.keys(sources)), ...Object.values(languageGlobs).flatMap(Array.map((pattern) => `{workspaceRoot}/**/${pattern}`)), ...skipped, ...ruleInputs, 'astGrep'],
                         },
                         classes: {

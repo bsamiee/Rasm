@@ -1,0 +1,12 @@
+{
+    "name": "playwright",
+    "description": "Browser automation and test authoring for agents",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "skills": "./skills/",
+    "mcpServers": "./.mcp.json",
+    "interface": {
+        "displayName": "Playwright"
+    }
+}

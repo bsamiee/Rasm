@@ -13,7 +13,6 @@ const ADDRESSED = /^(?:tell|(?<verb>\w+)) (?:application|app) (?:id )?"(?<app>[^
 const LAUNCHING = /^(?:activate|launch|run|reopen|open (?:POSIX file )?"(?<path>[^"]+)")$/u;
 const SHELL_SCRIPT = /\bdo shell script\b/u;
 const FOCUS = /\bactivate\b|\bset\s+frontmost\b|AXRaise/u;
-const SCRIPTED_APP = /Application\(\s*["'](?<app>[^"']+)["']\s*\)/gu;
 const POSTING = /System Events|com\.apple\.systemevents/u;
 const WEB_URL = /^https?:/iu;
 const SIGNAL_PREFIX = /^-?(?:SIG)?/u;
@@ -115,16 +114,7 @@ const statements = (lines: readonly string[]) =>
         },
     )[1].flat();
 
-const applicationsIn = (line: string) => Array.fromIterable(line.matchAll(SCRIPTED_APP)).map(({ groups }) => groups?.app);
-
-const harnessed = Effect.fnUntraced(function* (apps: readonly string[], { host }: Call) {
-    const hosts = apps.length === 0 ? [] : yield* Effect.orElseSucceed(host.fs.readDirectory(host.path.join(host.root, 'tools/harnesses')), (): readonly string[] => []);
-    return Array.cartesian(apps, hosts)
-        .filter(([app, folder]) => app.toLowerCase().includes(folder))
-        .flatMap(([, folder]) => refusal(`osascript scripts ${folder}, run harness ${folder} <target>`));
-});
-
-const scripted: Fix = Effect.fnUntraced(function* (site, call) {
+const scripted: Fix = (site) => {
     const lines = [...site.values('-e'), ...Option.toArray(site.command.input)];
     const said = site.values('-l').includes('JavaScript') ? [] : statements(lines);
     const apps = [...new Set(said.map(({ app }) => app).filter(Predicate.isNotUndefined))].map(quote);
@@ -142,10 +132,8 @@ const scripted: Fix = Effect.fnUntraced(function* (site, call) {
     if (said.length > 0 && said.every(({ app, launches }) => app !== undefined && launches) && (documents.length === 0 || apps.length === 1)) {
         return whole(site, launchLine(apps, documents.map(quote)), 'osascript');
     }
-    const scripting = [...said.filter(({ launches }) => !launches).map(({ app }) => app), ...lines.flatMap(applicationsIn)].filter(Predicate.isNotUndefined);
-    const refused = yield* harnessed(scripting, call);
-    return refused.length === 0 && lines.some((line) => FOCUS.test(line)) ? refusal(`osascript takes focus, use ${WATCHER} capture or perform`) : refused;
-});
+    return lines.some((line) => FOCUS.test(line)) ? refusal(`osascript takes focus, use ${WATCHER} capture or perform`) : [];
+};
 
 // --- [BINARIES]
 

@@ -37,16 +37,18 @@ const WebManifest = Schema.fromJsonString(Schema.Unknown);
 
 const headTag = (tag: string, attrs: NonNullable<HtmlTagDescriptor['attrs']>): HtmlTagDescriptor => ({ tag, attrs, injectTo: 'head' });
 const cascade = (nodes: readonly ChildNode[], scheme: Scheme): readonly (readonly [string, string])[] =>
-    nodes.flatMap(
-        Match.type<ChildNode>().pipe(
-            Match.discriminatorsExhaustive('type')({
-                atrule: ({ name, params, nodes: held = [] }) => (name !== 'media' || params.replaceAll(/\s/gu, '') === `(prefers-color-scheme:${scheme})` ? cascade(held, scheme) : []),
-                comment: () => [],
-                decl: ({ prop, value }) => [[prop, value] as const],
-                rule: ({ selectors, nodes: held }) => (selectors.every((selector) => DOCUMENT_ROOT.test(selector)) ? cascade(held, scheme) : []),
-            }),
-        ),
-    );
+    nodes
+        .filter((node) => (node.type !== 'atrule' || node.name !== 'media' || node.params.replaceAll(/\s/gu, '') === `(prefers-color-scheme:${scheme})`) && (node.type !== 'rule' || node.selectors.every((selector) => DOCUMENT_ROOT.test(selector))))
+        .flatMap(
+            Match.type<ChildNode>().pipe(
+                Match.discriminatorsExhaustive('type')({
+                    atrule: ({ nodes: held = [] }) => cascade(held, scheme),
+                    comment: () => [],
+                    decl: ({ prop, value }) => [[prop, value] as const],
+                    rule: ({ nodes: held }) => cascade(held, scheme),
+                }),
+            ),
+        );
 const computed = (declared: ReadonlyMap<string, string>, scheme: Scheme, value: string): Option.Option<string> => {
     const { call, parameters } = CSS_CALL.exec(value.trim())?.groups ?? {};
     const [first, second] = parameters === undefined ? [] : list.comma(parameters);

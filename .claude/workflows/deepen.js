@@ -21,7 +21,6 @@ export const meta = {
 const { hosts, languages } = await workflow('languages')
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const WORKFLOWS = '/Users/bardiasamiee/.claude/rasm/workflows'
-const BAR =`${REPO}/.claude/workflows/BAR.md`
 const OUTLINE = 'ast-grep outline'
 const RETURN = 'Return (structured) files you edited, added or deleted, and changes reaching other files.'
 const MODES = {
@@ -125,7 +124,7 @@ const basis = (paths, target = paths.join(', ')) => {
   const evidence = [...(row.companion ? [`companion ${row.companion}`] : []), ...(inputs.length > 0 ? [`evidence ${inputs.join(', ')}`] : []), `catalog ${row.catalog}`, ...sources(paths), `recorded findings in ${WORKFLOWS} and docs/research`]
   return [
     `Target: ${target} in ${REPO}, base commit ${args.base}.`,
-    `Load ${skills.join(', ')}${families}, Skill(clean-prose) and Skill(search-code), and read ${BAR} first.`,
+    `Load ${skills.join(', ')}${families}, Skill(clean-prose) and Skill(search-code).`,
     `Inputs: ${evidence.join('; ')}.`,
     ...(hosted.length > 0 ? ['Nothing takes focus from the owner, who is using this machine: no app.activate in a script body, no computer-use, whose access prompt also holds an agent until the owner answers. An app runs through Skill(watch-apps), under `watch-apps watch` in a Monitor with its output unfiltered, so every dialog and alert line reaches you and you answer it, and a proof that needs focus is reported, not taken.'] : []),
   ].join('\n')
@@ -162,10 +161,10 @@ Editor for ${state.files.join(', ')}. ${origin}Apply deletions first, rewrite a 
 ${listed(changes)}
 ${bound} ${RETURN}`, { label, phase, schema: EDITED }).then((result) => advance(state, result))
 const adversary = (phase, lean, tier) => (state, item) => once(`${brief(state.files)}
-Adversary over ${state.files.join(', ')}. ${diff(state.files)} Finish or revert each shuffle, restore each regression, and apply in place each change the bar asks of them${lean}.
+Adversary over ${state.files.join(', ')}. ${diff(state.files)} Finish or revert each shuffle, restore each regression, and rebuild them in place${lean}.
 ${own(state.files)} ${RETURN}`, { label: `challenge:${item.tag}:${tier}`, phase, model: 'opus', schema: EDITED }).then((result) => advance(state, result))
 const verdict = (phase) => (state, item) => once(`${brief(state.files)}
-Verdict over ${state.files.join(', ')}. ${diff(state.files)} Judge each hunk by the bar: finish or revert each shuffle and restore each regression, in place.
+Verdict over ${state.files.join(', ')}. ${diff(state.files)} Judge each hunk: finish or revert each shuffle and restore each regression, in place.
 ${own(state.files)} ${RETURN}`, { label: `verdict:${item.tag}`, phase, schema: EDITED }).then((result) => advance(state, result))
 const finish = (challenge, judge) => [adversary(challenge, mode.lean, 1), adversary(challenge, ', leaning to collapse existing declarations into stronger logic', 2), verdict(judge)]
 const owned = (group) => (finding) => finding.files.every((path) => group.files.includes(path))

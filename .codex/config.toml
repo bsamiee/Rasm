@@ -134,17 +134,11 @@ default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7408/"
 tool_timeout_sec            = 600
 
-# --- [SKILLS] ---------------------------------------------------------------------------
-
-[[skills.config]]
-name    = "agent-builder"
-enabled = false
-
-[[skills.config]]
-name    = "delegate-codex"
-enabled = false
-
 # --- [PLUGINS] --------------------------------------------------------------------------
+
+[marketplaces.rasm]
+source_type = "local"
+source      = "./plugins"
 
 [plugins."argus@rasm"]
 enabled                                       = true

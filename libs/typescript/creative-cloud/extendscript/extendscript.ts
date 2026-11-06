@@ -7,10 +7,10 @@ import { attempt, escaped, finite, illegalArgument, isList, isPlain, isRecord, m
 type Payload<Tag extends Envelope['tag']> = Extract<Envelope, { readonly tag: Tag }>['payload'];
 type Fields = Readonly<Record<string, unknown>>;
 type Declared = (typeof ObjectModel.Result.Encoded)['_tag'];
-interface ApplicationHooks<Held> {
+interface ApplicationHooks {
     readonly indexBase: number;
-    readonly dialogs: { readonly suppress: () => Held; readonly restore: (held: Held) => void };
-    readonly undoGroup?: { readonly begin: (label: string) => void; readonly end: () => void };
+    readonly dialogs: () => () => void;
+    readonly undoGroup?: (label: string) => () => void;
     readonly specifier: (value: object) => string | undefined;
     readonly open: (payload: Payload<'open'>) => object;
     readonly render: (payload: Payload<'render'>, resolve: (specifier: string) => readonly Fields[]) => void;
@@ -27,17 +27,17 @@ const ownKeys = (value: object): string[] => {
     }
     return found;
 };
-const within = <Held, A>(enter: () => Held, leave: (held: Held) => void, body: () => A): A => {
-    const held = enter();
+const within = <A>(acquire: () => () => void, body: () => A): A => {
+    const release = acquire();
     try {
         return body();
     } finally {
-        leave(held);
+        release();
     }
 };
 const reflectionOf = (value: unknown): Reflection | undefined => {
     const isReflection = (each: unknown): each is Reflection => isRecord(each) && typeof each.name === 'string' && isList(each.properties) && isList(each.methods) && isList(each.staticProperties);
-    const reflection = attempt(() => ((typeof value === 'function' || isRecord(value)) && 'reflect' in value ? value.reflect : undefined));
+    const reflection = readProperty(value, 'reflect');
     return isReflection(reflection) ? reflection : undefined;
 };
 const enumerated = (reflection: Reflection): boolean => reflection.staticProperties.length > 0 && reflection.properties.length === 0 && reflection.methods.length === 0;
@@ -67,6 +67,16 @@ const assignProperties = <T extends object>(target: T, ...layers: readonly (Fiel
         throw illegalArgument(`${reflectionOf(target)?.name ?? Object.prototype.toString.call(target)} refused ${refused.join(', ')}`);
     }
     return target;
+};
+const preserve = (target: object, values: Fields): (() => void) => {
+    const held: Record<string, unknown> = {};
+    for (const key of recordKeys(values)) {
+        held[key] = readProperty(target, key);
+    }
+    assignProperties(target, values);
+    return () => {
+        assignProperties(target, held);
+    };
 };
 const fileFromUrl = (url: string): File => {
     const located = url.slice(url.indexOf('//') + 2);
@@ -200,7 +210,7 @@ const model = (base: number, name: string | undefined): unknown => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const handleEnvelope = <Held>({ indexBase, dialogs, undoGroup, specifier, open, render }: ApplicationHooks<Held>) => {
+const handleEnvelope = ({ indexBase, dialogs, undoGroup, specifier, open, render }: ApplicationHooks) => {
     const resolve = resolver(indexBase);
     return (request: Envelope): string => {
         const group = request.tag === 'execute_script' || request.tag === 'render' ? undoGroup : undefined;
@@ -230,9 +240,9 @@ const handleEnvelope = <Held>({ indexBase, dialogs, undoGroup, specifier, open, 
                     return request satisfies never;
             }
         };
-        const grouped = group === undefined ? answer : () => within(() => group.begin(request.label), group.end, answer);
+        const grouped = group === undefined ? answer : () => within(() => group(request.label), answer);
         return reply(
-            () => within(dialogs.suppress, dialogs.restore, grouped),
+            () => within(dialogs, grouped),
             specifier,
             (thrown) => request.tag === 'execute_script' && readProperty(thrown, 'source') === request.payload.code,
         );
@@ -241,4 +251,4 @@ const handleEnvelope = <Held>({ indexBase, dialogs, undoGroup, specifier, open, 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assignProperties, fileFromUrl, handleEnvelope, ownKeys, reflectionOf, specifierStep };
+export { assignProperties, fileFromUrl, handleEnvelope, ownKeys, preserve, reflectionOf, specifierStep };

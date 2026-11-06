@@ -1,8 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores:
-    - tools/harnesses/hosts/adobe/acrobat/**
 utils:
     built-source:
         pattern: $SOURCE

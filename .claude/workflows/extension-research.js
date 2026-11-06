@@ -18,7 +18,6 @@ const WORKFLOWS = '/Users/bardiasamiee/.claude/rasm/workflows'
 const DIR =`${REPO}/docs/research/typescript-extension`
 const HOST = `${REPO}/docs/research/applications/indesign`
 const COMPANION = `${REPO}/.claude/workflows/TYPESCRIPT.md`
-const BAR = `${REPO}/.claude/workflows/BAR.md`
 const study = (...names) => names.map((name) => `${DIR}/studies/${name}.md`)
 const distilled = (...names) => names.map((name) => `${HOST}/distilled/${name}`)
 const COLOR = [...study('adobe-indesign-color', 'color-engines'), ...distilled('internals/adobe-indesign-color'), `${HOST}/internals/adobe-indesign-color/README.md`]
@@ -116,7 +115,7 @@ const plan = async () => {
   const found = `${SCRATCH}/capability`
   const sources = [...notes.map((name) => `${DIR}/${name}.md`), `${DIR}/packages.md`]
   const folders = rows.map((row) => `${REPO}/libs/typescript/${row}`)
-  const basis = `${BASIS} Read ${BAR}, the code bar a build run on the plan meets.\nPlan domain: ${KEY}, rows ${rows.join(', ')}.`
+  const basis = `${BASIS}\nPlan domain: ${KEY}, rows ${rows.join(', ')}.`
   phase('Read')
   const mapped = await once(`${evidence.length === 0 ? '' : `List every file under ${evidence.join(', ')} with its size in bytes, and every ${HOST}/products/<family>/<product>/rebuilt folder of the same families with no distilled folder for its product.
 Group the files by the product or concern they hold, each group what one reader reads whole at full depth: one product's files together, a product more than one reader holds split by its top-level folders.
@@ -134,7 +133,7 @@ Write ${found}/${index + 1}.md: one line per capability the files hold or their 
   phase('Plan')
   const planned = await once(`${basis}
 Plan writer. Copy ${matrix} and ${COMPANION} into ${BASE} before any edit. Read ${[...capability, ...unread, ...sources, matrix, COMPANION, ...code].join(', ')} as they stand.
-Write ${written}, the input a \`deepen\` build run per row reads, opening with one pointer each to ${COMPANION} (method) and ${BAR} (code bar): per row, each capability as one relation or parameterized operation at the lowest level holding it whole, the capabilities readers name apart merged into it, with the functions that become its uses, the host mechanism, each packages.md package at its full capability with the hand code its members delete and the hand code they leave, the consumers that move, and the gates, omitting what the code holds whole and what no build agent acts on.
+Write ${written}, the input a \`deepen\` build run per row reads, opening with one pointer to ${COMPANION} (method): per row, each capability as one relation or parameterized operation at the lowest level holding it whole, the capabilities readers name apart merged into it, with the functions that become its uses, the host mechanism, each packages.md package at its full capability with the hand code its members delete and the hand code they leave, the consumers that move, and the gates, omitting what the code holds whole and what no build agent acts on.
 Then write the domain's capability rows in ${matrix} and its rows (${rows.join(', ')}) in ${COMPANION} [03] (OWNS its capabilities, CONSUMERS its importers, AFTER its workspace dependencies and gates), a nested row outside its parent's scope.
 Return (structured) the files you edited and at most 8 lines.`, { label: `plan:${KEY}`, phase: 'Plan', model: 'opus', schema: EDITED })
   if (!planned) throw new Error(`plan writer returned nothing for ${KEY}`)

@@ -1,7 +1,6 @@
 import type { ProjectGraph, ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Equal, Option, Predicate, Record, Schema, String } from 'effect';
-import { unignored } from '#/policies/files';
-import { type Call, cut, edited, ensure, type Fix, feedsJq, has, type Policy, perSubcommand, quote, redirected, refusal, silent, spoken, unassign, when, whole } from '#/policies/fix';
+import { type Call, cut, edited, type Fix, feedsJq, has, inserted, type Policy, perSubcommand, quote, redirected, refusal, silent, spoken, unassign, when, whole } from '#/policies/fix';
 import type { Word } from '#/shell/script';
 import { analyzed, Shell, type Site } from '#/shell/site';
 
@@ -192,7 +191,8 @@ const fitted = (site: Site, host: Call['host'], node: ProjectGraphProjectNode, r
     const wanted = keysOf(site, (name) => known.has(name) && !selects.includes(name) && !ignores.includes(name));
     const { places, extra } = scopeOf(site, host);
     const covers = (folders: readonly string[]): boolean => places.every((file) => folders.some((held) => host.inside(file, held)));
-    const fitting = found.filter((ran) => wanted.isSubsetOf(ran.keys) && new Set(extra).isSubsetOf(new Set(ran.extra)) && (ran.places.length === 0 || (places.length > 0 && covers(ran.places))));
+    const fits = found.filter((ran) => wanted.isSubsetOf(ran.keys) && new Set(extra).isSubsetOf(new Set(ran.extra)) && (ran.places.length === 0 || (places.length > 0 && covers(ran.places))));
+    const fitting = places.length > 0 && fits.some(({ places: held }) => held.length > 0) ? fits.filter(({ places: held }) => held.length > 0) : fits;
     const dropped = new Set([...known, ...selects, ...ignores]);
     const [skipped] = site.items.filter(({ names }) => names.length === 0).slice(0, subcommandWords(site));
     const rest = site.items.filter((item) => item !== skipped && (item.names.length === 0 ? site.row.routes?.entries !== true : !new Set(item.names).isSubsetOf(dropped) && new Set(valueKeys(item.names, item.values)).isDisjointFrom(dropped)));
@@ -200,7 +200,10 @@ const fitted = (site: Site, host: Call['host'], node: ProjectGraphProjectNode, r
     const takes = ({ target: own }: Run): boolean => groupOf(targets, own, node.name) === own || membersOf(targets, groupOf(targets, own, node.name), node.name, true).includes(own);
     const accepting = switched ? fitting.filter((ran) => takes(ran) && (Option.isNone(ran.site.separator) || ran.site.row !== site.row)) : fitting;
     const fewest = Math.min(...accepting.map(({ keys }) => keys.size));
-    const targetOf = (ran: Run): string => (switched || ran.places.length > 0 ? ran.target : groupOf(targets, ran.target, node.name));
+    const targetOf = (ran: Run): string => {
+        const group = groupOf(targets, ran.target, node.name);
+        return switched || ran.places.length > 0 || !membersOf(targets, group, node.name).every((member) => found.some(({ target: held }) => held === member)) ? ran.target : group;
+    };
     const [target, ...others] = [...new Set(accepting.filter(({ keys }) => keys.size === fewest).map(targetOf))];
     if (target === undefined || others.length > 0) {
         return Option.none();
@@ -315,6 +318,11 @@ const launchedThrough: Fix = Effect.fnUntraced(function* (site, { host }) {
     return launcher === undefined ? [] : edited(site, site.head, spoken(launcher.command.words.filter(({ start }) => start <= launcher.head.start)), site.program);
 });
 
+const customLanguages: Fix = (site) => {
+    const [, subcommand = site.head] = site.words;
+    return site.has('--custom-languages') ? [] : inserted(site, (subcommand.text.startsWith('-') ? site.head : subcommand).end, ' --custom-languages allow');
+};
+
 // --- [NX]
 
 const addressOf = ({ operands }: Site) => {
@@ -377,14 +385,13 @@ const TASKS: Policy = {
         ruff: { routes: { rooted: true, modes: ['--fix', '--no-fix', '--fix-only', '--no-fix-only', '--unsafe-fixes', '--no-unsafe-fixes', '--check', '--diff'] } },
         'ast-grep': {
             aliases: ['sg'],
-            clap: ['completions', 'zsh'],
-            walks: { under: ['run', 'scan', 'outline'] },
+            flags: ['-U, --update-all', '-i, --interactive', '--custom-languages=', '--filter=', '--globs=', '--color='],
             routes: { rooted: true, modes: ['--update-all', '--interactive'], direct: ['outline'] },
-            fixes: [ensure('--custom-languages allow'), unignored('--no-ignore vcs')],
+            fixes: [customLanguages],
         },
         mypy: {
             flags: ['--cache-dir=', '--config-file=', '--python-version='],
-            routes: { rooted: true, flat: true, through: 'refurb', ignores: ['--cache-dir', '--no-pretty', '--config-file=pyproject.toml'] },
+            routes: { rooted: true, flat: true, through: 'refurb', ignores: ['--cache-dir', '--no-pretty', '--config-file'] },
         },
         refurb: { flags: ['--config-file=', '--python-version='], informational: ['--explain'], routes: { rooted: true, flat: true }, fixes: [launchedThrough] },
         pytest: { routes: { rooted: true, flat: true, across: true } },

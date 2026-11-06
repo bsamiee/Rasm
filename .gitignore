@@ -17,8 +17,6 @@ buildServer.json
 *.received.*
 *.pending-snap
 *.snap.new
-*.results.json
-*.captures/
 .playwright-cli/
 
 # --- [HOST_WRITES] ----------------------------------------------------------------------

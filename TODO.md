@@ -2,25 +2,15 @@
 
 ## [01]-[WORK]
 
-Libraries in every language and their consumers are rebuilt as general capability any future app, tool or plugin composes, each app holding its own content. Fresh sessions read this section, `.claude/workflows/BAR.md`, CLAUDE.md and README.md, then drive the queue to its end.
+Libraries in every language and their consumers are rebuilt as general capability any future app, tool or plugin composes, each app holding its own content. Fresh sessions read this section, CLAUDE.md and README.md, then drive the queue to its end.
 
-### [01.1]-[BAR]
+### [01.1]-[OPERATING]
 
-`.claude/workflows/BAR.md` holds code bar, hunk judgment and agent rules every workflow prompt names once:
-- Capability: domain's full depth as general logic, new and extended capability held to the bar of every existing line
-- Derivation: values from owner, host or standard; related quantities in one algebraic relation; one parameterized operation in place of variants
-- Packages: each dependency at its newest release used to its full capability through its own members; hand logic a package states goes
-- Reduction: types, classes, constants and string sets fold into fewer, richer objects; one name per concept; only what consumers compose is public
-- Architecture: no mini file, single-file folder, wrapper, alias or coined name; present code and consumers lack authority, moving with each rebuild
-- Judgment: each change does more with less, read hunk by hunk in `git diff` against its base, small wins and small regressions counted alike
-
-### [01.2]-[OPERATING]
-
-- Leads are Opus agents with focused briefs (goal, inputs, `BAR.md`) free of pass numbers, narrowed scope, validation language and negative framing
+- Leads are Opus agents with focused briefs (goal, inputs) free of pass numbers, narrowed scope, validation language and negative framing
 - Fan-out follows a run's units (plan rows, findings, files, domains, hosts): disjoint at once, overlapping in order, agents reading unit evidence
 - Adversaries read diff and files whole, no earlier agent's report; later passes lean to collapse; each pass deepens capability as hard as it reduces
 - Agents run commands in foreground and checks once at the end, editing only their own files; messages to agents inside a running workflow go nowhere
-- Desktop apps run through watch-apps, host probes through `tools/harnesses`, Ghidra through use-ghidra; function-hooks rewrites or refuses the rest
+- Desktop apps run through watch-apps, Ghidra through use-ghidra; function-hooks rewrites or refuses the rest
 - Defects are fixed at cause in the pass finding them, in every layer holding them (tool, hook, skill, library); nothing found is deferred or unacted
 - Distilled products evidence logic, not scripts to copy; findings in `~/.claude/rasm/workflows/` and `docs/research` are acted on, not rediscovered
 - Prose (skills, rules, messages, guidance) changes through clean-prose by replacing the line owning a fact, with no appended clause
@@ -36,7 +26,6 @@ Libraries in every language and their consumers are rebuilt as general capabilit
   - Ownership order from `languages.js`: Biome/tsconfig, Ruff/ty/mypy/refurb, clippy/dylint, `.editorconfig`/globalconfig/Roslyn, swiftlint, ast-grep
   - One writer per checker, per skill a writer, adversary and clean-prose pass, one close
 - Extension research: `extension-research.js` with `key` one domain note, or `mode` plan and `key` one domain for its build plan, one run at a time
-- Harness depth: `harness-depth.js` with `key`, `base`, `name`, `apps`, `skills` and `products`
 - Folder guidance: `guidance.js` once the tree is committed after a round of rebuilds
 
 ### [01.4]-[RESEARCH]
@@ -50,7 +39,7 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 ### [01.5]-[STATE]
 
 - TypeScript: 14 `TYPESCRIPT.md` [03] rows built, sweep, audit, project reductions, one-name-per-concept fold and skill and check tune (`46ab9d28c`)
-- Workflows: `deepen.js`, `tune.js`, `languages.js` and `BAR.md` replace the per-language scripts; fan-out from units (`bf444ecef`, `cf438234f`)
+- Workflows: `deepen.js`, `tune.js` and `languages.js` replace the per-language scripts; fan-out from units (`bf444ecef`, `cf438234f`)
 - Desktop apps: watch-apps, its library and function-hooks route, observe and clean up every launch (`3297a5770`)
 - Ghidra: one project per binary shared through `Serve.java` (`cc48d8bfa`)
 - Rust waits for a later session's launch:
@@ -73,7 +62,7 @@ Numbers run in order; a number with a letter runs beside the number it shares.
   - Fix: one cross-group pass over the union of spanning findings, deduplicated by file and change, chained once
   - Fix: a set with no change skips its adversaries; consumers outside the paths move in the editor that changes their API
   - Fix: the lead and the check run before anything optional; each run is measured and reports its cost
-  - Then read `tune.js`, `extension-research.js`, `harness-depth.js` and `guidance.js` for the same fan-out and closure faults
+  - Then read `tune.js`, `extension-research.js` and `guidance.js` for the same fan-out and closure faults
 - 1: InPage, one `deepen` run per package with `plan` `~/.claude/rasm/workflows/typescript-extension/inpage/PLAN.md`, its inputs and its oracle:
   - Finish typography: its plan rows, then its lead review and check with the oracle
   - Then search, then indesign, then `apps/creative-cloud/atelier`
@@ -84,10 +73,6 @@ Numbers run in order; a number with a letter runs beside the number it shares.
   - Deepens per crate in Deepen left order
   - Cadence: one build and one deepen at launch, another pair every 30 minutes, at most three of each running, each commit freeing its slot
   - Once deepen targets run out, deepen runs over the geospatial group, cli group or chosen crates; `tune` over Rust every few commits
-- 1b: Harness logging pass closes (one trace per run, one read command, host and system logs linked, InDesign case-drop fault fixed)
-  - Its cross-group fixes are committed; left: lead review against `BAR.md`, clean-prose over messages and help, one check with the Blender run
-  - Then one `harness-depth` run per host, InDesign and Illustrator first, the rest one at a time
-  - Then open host proofs: ScribeDOOR before its trial ends, Grid Calculator, script domains, kashida width (`ARCHITECTURE.md` probe 13)
 - 1c: Font library `libs/python/typography` and `tools/foundry` CLI, building, refining and verifying any font, Perso-Arabic one domain in depth:
   - Round one committed (3,049 lines in seven packages, `foundry ACTION DECLARATION [NAME] [DESTINATION]`), so push it first
   - Then two or three `deepen` rounds over both paths with `deepen-brief.md` input, each a fresh run from the prior round
@@ -99,8 +84,6 @@ Numbers run in order; a number with a letter runs beside the number it shares.
   - One folder per family; set declaration `assets/fonts/rasm.toml`, corpus `assets/fonts/corpus.toml`
   - Agents judge glyph renders (weight, proportion, joining, mark placement, spacing) by universal Perso-Arabic principles, not Urdu or Desi forms
   - Every face complete, none outline-only or partial: metrics, features and behavior stated in full, metadata with the set's own names and notices
-- 1e: Stroke gap, first once 1b's logging pass commits: InDesign reads the stroke family's 4 pt bottom-edge case as 4 against 1
-  - Probe the case through `tools/harnesses/hosts/adobe/indesign`, then fix the rebuilt module or the library at the cause
 - 2: Extension after 1, in [02] order: research per note, then a plan per domain, then a build run per `TYPESCRIPT.md` row, tuned over its commits
 - 3: Folder guidance after 2 and 1a
 - 4: Drain: every item closes; [03] alone stays
@@ -129,7 +112,7 @@ Extension is the repository's central deliverable, held to one standard:
 ### [02.3]-[PHASES]
 
 1. Acquire: done, products in `docs/research/applications/<host>/products/<domain>/<key>/`, distilled code in `<host>/distilled/<domain>/<key>/`
-2. Decompile: binary proofs through Ghidra's emulator, host proofs through `tools/harnesses/hosts/adobe/indesign`
+2. Decompile: binary proofs through Ghidra's emulator
    - Host proofs run in InDesign 2027 Beta, or 2026 where a product loads only there
 3. Distill: one distiller per algorithm family rewrites `rebuilt/` into `distilled/`, held identical by its A/B harness
    - Adversaries follow per family and across the product
@@ -161,7 +144,6 @@ Extension is the repository's central deliverable, held to one standard:
   - `internals/adobe-indesign-color` README locating each rebuilt family
 - Research notes: cleaned to principles at their owners, pre-clean copies in `~/.claude/rasm/workflows/typescript-extension/base/`
 - Fonts: proofs, probes and research examples set text in the faces under `assets/fonts`; library code reads what any face states and names none
-- Harnesses: one launch path for every host, each run logged under `.artifacts/logs/harnesses/` with its summary in the CLI result
   - Agents open, drive and quit apps through watch-apps, the hook routing every other form there
 - Next proofs: host cases written and unrun (second script decompile, Grid Calculator, ScribeDOOR, script domains)
   - ScribeDOOR for Illustrator runs on the launch path, its trial ending around 8 November

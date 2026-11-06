@@ -5,4 +5,4 @@ rule:
     kind: preprocessor_directive
     has: {field: name, pattern: $DIRECTIVE}
 message: '`$DIRECTIVE` is an ExtendScript directive TypeScript refuses'
-note: The host binding states the engine (the CEP manifest's `ScriptPath`, the harness engine), and shared code is an imported module the Vite build bundles
+note: The host binding states the engine (the CEP manifest's `ScriptPath`), and shared code is an imported module the Vite build bundles

@@ -28,7 +28,6 @@ Rasm/
 │   ├── bridge/               # rasm-mcp-bridge binary serving a stdio MCP server over Streamable HTTP
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
 │   ├── foundry/              # CLI over the typography library, a declared font set reconciled, built, shaped, verified, published
-│   ├── harnesses/            # Host proof harness running case files in each desktop host, every run traced to a log
 │   ├── nx/                   # Nx plugin inferring a project from each project file
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
 │   ├── roslyn/               # C# analyzers, code fixes, and BannedSymbols*.txt bans
@@ -73,7 +72,6 @@ Rasm/
 ├── .claude/                  # Claude Code knowledge and settings
 ├── .mcp.json                 # Claude Code MCP servers
 ├── .codex/                   # Codex knowledge and settings
-├── .agents/                  # Codex skills, a link to .claude/skills
 ├── .vscode/                  # VS Code settings and recommended extensions
 ├── CLAUDE.md                 # Agent standards, AGENTS.md is its symlink
 └── README.md
@@ -125,7 +123,6 @@ Before starting Claude Code or Codex, run `mise install`, `pnpm install`, and `n
 - Caches sit under root `.cache/` and a project's generated output under `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
 - Libraries name no log location: processes stream to stderr or stdout for pitchfork, a container, or the shell (Rust binaries take `LOG_DIRECTORY`), plug-ins write where their host states, and Swift writes to the unified log
 - Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, a tool with one partition per run or session holds a folder there, daemon and supervisor output sit in pitchfork's log store
-- Harness runs write `.artifacts/logs/harnesses/host=<host>/run=<id>/records.jsonl` and hang samples, `harness <host> log` prints the current run with its linked reports inline
 
 ## [04]-[DELIVERY]
 
@@ -145,7 +142,7 @@ Products reach a person through separate levels:
 |  [05]   | .NET tool package                | `mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name                      |
 |  [06]   | Task graph                       | `nx.json`, inference in `tools/nx`                                                                   |
 |  [07]   | Checker configuration            | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
-|  [08]   | Secret                           | `mise.toml` `DOPPLER_PROJECT` and `DOPPLER_CONFIG`, named in the consuming target's `doppler run` prefix |
+|  [08]   | Secret                           | `mise.toml` `DOPPLER_PROJECT` and `DOPPLER_CONFIG`, named in a target's `doppler run` prefix         |
 |  [09]   | Resource or repository setting   | Typed row of an `infra/` program, `rasm:infra:up` for the repository, `<project>:hosting` per app    |
 |  [10]   | Tool with no consumer            | Machine setup                                                                                        |
 |  [11]   | Ghidra install                   | Official distribution through mise                                                                   |

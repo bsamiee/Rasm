@@ -14,7 +14,7 @@ const UNESCAPED = /[^ !#-[\]-~]/g;
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'object' && value !== null;
 const isList = (value: unknown): value is readonly unknown[] => Object.prototype.toString.call(value) === '[object Array]';
-const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> => isRecord(value) && Object.prototype.toString.call(value) === '[object Object]';
+const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> => isRecord(value) && Object.prototype.toString.call(value) === '[object Object]' && value.constructor === Object;
 const finite = (value: unknown): number | undefined => (typeof value === 'number' && isFinite(value) ? value : undefined);
 const message = (thrown: unknown): string => String(isRecord(thrown) ? thrown.message : thrown);
 const attempt = <A>(body: () => A): A | undefined => {
@@ -40,7 +40,8 @@ const recordKeys = (value: Readonly<Record<string, unknown>>): string[] => {
     }
     return found;
 };
-const readProperty = (value: unknown, key: string): unknown => attempt(() => (isRecord(value) ? value[key] : undefined));
+const isKeyed = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'function' || isRecord(value);
+const readProperty = (value: unknown, key: string): unknown => attempt(() => (isKeyed(value) ? value[key] : undefined));
 const unmatched = (subject: string, query: string, candidates: readonly string[]): Replied<'Unmatched'> => ({ _tag: 'Unmatched', subject, query, candidates });
 const illegalArgument = (text: string): Replied<'IllegalArgument'> => ({ _tag: 'IllegalArgument', message: text });
 const escaped = (text: string): string => `"${text.replace(UNESCAPED, (character) => `\\u${`000${character.charCodeAt(0).toString(HEX)}`.slice(HEX_WIDTH)}`)}"`;

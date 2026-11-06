@@ -1,6 +1,6 @@
 ---
 name: agent-builder
-description: "Use when writing or reviewing an agent definition, covering definition structure for Claude Code and Codex"
+description: "Use when writing or reviewing an agent definition, covering definition structure for Claude Code"
 argument-hint: "[agent-file]"
 ---
 
@@ -74,7 +74,7 @@ Markdown parses text against an opening tag as one HTML block, and a blank line 
 - Decision facts pair each tool behavior with the output line showing it
 
 [PROCEDURES]:
-- Steps write paths from repository root, name an MCP tool or a command in call form with a deciding argument, and state a read, search, or edit by its path, pattern, or replacement, the form both hosts run
+- Steps write paths from repository root and name a tool in call form with a deciding argument
 - Each edit is one exact-string replacement
 - Tables one step uses sit under it, tables more than one step names sit in their own element between `decision` and `procedure`
 - Disposable files sit under a private directory the role table owns, procedure ends by deleting it
@@ -92,12 +92,8 @@ Steps name tools in the form the harness runs:
 - MCP tools appear as `mcp__<server>__<tool>`, a plugin server's as `mcp__plugin_<plugin>_<server>__<tool>`, searches take a bounded result count
 - Paths an MCP tool resolves outside the shell are absolute
 - Skills load, preloaded or through `Skill`, with a `Base directory for this skill: <dir>` line
-- Steps read `references/<file>.md` beside the `SKILL.md` of `<skill>`, the form both hosts resolve
+- Steps read `references/<file>.md` under the base directory of `<skill>`
 - `${CLAUDE_PLUGIN_ROOT}` expands in a plugin agent's body and no other agent's, `${CLAUDE_SKILL_DIR}` in no agent's body
-
-[CODEX_TOOLS]:
-- Skills list each entry as `<skill>: <description> (file: <root>/<folder>/SKILL.md)` over a table of roots, inherited by every agent
-- Steps read `references/<file>.md` beside the `SKILL.md` of `<skill>`
 
 [CLI_TOOLS]:
 - Commands take the documented form with flags `--help` prints

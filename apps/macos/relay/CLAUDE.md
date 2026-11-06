@@ -24,6 +24,7 @@ Claude stores are Claude Code config directories, each with an account file and 
 - `claude` children point at one store and drop variables that redirect their credential or API
 - Refresh tokens are single use, a reused one revokes its token family and signs out every holder
 - Claude Code refreshes under `.oauth_refresh.lock` and `<realpath>.lock` and writes credentials under `.storage-write.lock` in its store
+- Claude Code writes `.credentials.json` when a Keychain write fails and reads it only while the item is absent, while it exists running sessions detect outside writes by its mtime alone, Relay's Keychain writes delete it
 - Refresh holds the three locks on its store, re-reads it, and adopts any token another process wrote
 - Switch holds the three locks on every store it touches and runs no `claude` child or HTTP request inside
 - Switch records its target after reading every store it moves, a failed move and launch finish a recorded switch

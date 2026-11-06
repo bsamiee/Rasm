@@ -10,9 +10,7 @@
 - Code smells are fixed as found, existing code has no authority, a pattern that bends new code or a refactor out of shape is rebuilt from its root
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Run applications and hosts live as work needs them
-- Apps and windows a test, probe, harness, or agent opens take no focus and stay behind the user's work, inside or outside the project
-- Host probes run through `tools/harnesses`, a probe that fails or falls short fixes its harness at the cause as general capability
-- Host questions run as case files through `harness <host> <target>` under a `watch-apps` Monitor, answers read through `harness <host> log`, a product question through that product's own tools
+- Apps and windows a test, probe, or agent opens take no focus and stay behind the user's work, inside or outside the project
 - Tools agents run outside Nx targets answer in one command with no path or flag beyond the question, and log, observe, and clean up automatically
 - Checks, tests, and host probes run once when work is done, a loop that reruns them after each change is a defect
 - Changes to root files, `eng/`, `infra/`, and `tools/` extend the owning target, setting, or package, a parallel script or one-off flag is a defect
@@ -26,7 +24,7 @@
 - ALWAYS use `manage-repo` skill for a change to how the repository is structured, built, or checked
 - ALWAYS use `search-web` skill for a question the open web answers
 - ALWAYS use `search-code` skill for any fact about a dependency
-- ALWAYS use `ast-grep outline <path>` to choose what to read in an unread file or folder, read whole what you edit or judge
+- ALWAYS use `ast-grep outline <path>` to choose what to read in an unread file or folder
 - ALWAYS use `secrets` skill for a command or build that reads a secret
 - ALWAYS use `github` MCP for exploration, research, and interaction for Github
 - ALWAYS use `blender-coding` skill for Python that runs inside Blender
@@ -52,7 +50,7 @@
 |  [08]   | `difft`     | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change           |
 |  [09]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times commands under the same controls, `-S default` adds a shell         |
 |  [10]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output               |
-|  [11]   | `outline`   | `ast-grep outline <path>` lists a path's declarations, `--items exports` its public API                     |
+|  [11]   | `outline`   | `ast-grep outline <path>` lists file declarations or folder exports, `--items exports` a file's public API  |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
@@ -67,7 +65,6 @@ Values derive from the declaration or host API that states them:
 - ALWAYS derive a values from the operation and its target, a caller-written description is a defect
 - ALWAYS derive behavior and presentation from count, kind, and nesting of supplied parts, callers state content alone
 - ALWAYS build a derived file into build output by a host tool where one exists, a per-user host setting goes through that host's API at plug-in load
-- ALWAYS write a derived row or file a tool reads from the checkout through a generator a check reruns, a hand-kept copy is a defect
 - ALWAYS fetch a third-party file no package holds by pinned commit and checksum, each variant of a hand-made master (font, SVG mark) builds from it
 
 ## [03]-[DEPENDENCY_POLICY]
@@ -128,3 +125,20 @@ Source files group declarations into sections and an owner's members into operat
 - Bash: `readonly` values are `[CONSTANTS]`, `declare -Ar` maps `[TABLES]`, `main` `[COMPOSITION]`
 - SQL: types and domains are `[TYPES]`, tables `[MODELS]`, functions `[OPERATIONS]`, indexes, triggers, and grants `[COMPOSITION]`
 - Configuration files: sections name the tool or table they configure (`[RUFF]`, `[TOOLS]`)
+
+## [05]-[CODE_QUALITY]
+
+Architecture: no one-folder-one-file combos, no flat folders, no mini files, no god files, no `.d.ts`, no src/. No coined terms in files, folders, members, messages (clean-prose). One import line per source, one export line per file, no aliases, no `{ Change, change }`:
+- All code is made as library shaped code, treated as a package a different project imports and creating API for non-coupled integration
+- Nothing existing is binding; consumers get rebuilt as splash never anchoring decisions, no aliasing, shims, or maintaing them, we do not tolerate soft refactoring
+- Rebuild code, never shuffle, alias, forward, wrap or extract helpers, must result in less code, objects, and surface level members
+- Reduce surface (internal and external), LoC, and logic, identifying how to remove content and integrate its capabiltiy in a smaller surface, the logic of it, not nesting
+
+- ALWAYS TREAT External packages as first class, use the newest release and fully integrate their capabilities, and have deep usage not surface level of them
+- ALWAYS derive from host, external libraries and sources, never handroll what can be used directly, and identifying where we are wrapping instead of deriving
+- NEVER hardcode values or logic, can ALWAYS use better logic to derive values
+- NEVER make "stringy" code, values and logic instead, types that are just strings or unions of strings are junk and can be removed (not soft replaced) and logic rebuilt proeprly
+- NEVER tolerate deep nesting code indendented more than 3 levels, rebuild through optimizing the logic chain fully to it, never with extraction, helpers, nesting or forwarding
+- Structs, enums, types, constants, strings are ALWAYS junk, and signs of handrolling/obscuring source capability, and creating unnecessary logic
+- Push for fewer, richer objects, one object can ALWAYS replace 2-4+ objects not as the same type, and rebuilding consumers to not anchor to a poor shape
+- Algebraic logic for values and logic flow, parametrized values and fields (replacing many naive fields/parameters)

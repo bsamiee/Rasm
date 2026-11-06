@@ -15,11 +15,6 @@
             "schema": "./schema.json",
             "description": "Writes every default pnpm catalog key into root devDependencies"
         },
-        "swift-dependencies": {
-            "factory": "./packages/swift-dependencies.ts#swiftDependencies",
-            "schema": "./schema.json",
-            "description": "Writes each Package.swift target dependencies argument from the modules its sources import"
-        },
         "injection-utils": {
             "factory": "./ast-grep/injection-utils.ts#injectionUtils",
             "schema": "./schema.json",
@@ -29,11 +24,6 @@
             "factory": "./ast-grep/outline-catalogs.ts#outlineCatalogs",
             "schema": "./schema.json",
             "description": "Writes each sgconfig.yml outlineRules catalog from its sources document, its language, and the shared utils, rewriters, and transforms each document calls"
-        },
-        "effect-operations": {
-            "factory": "./ast-grep/effect-operations.ts#effectOperations",
-            "schema": "./schema.json",
-            "description": "Writes the ast-grep Effect operation utils from the duals and overloads of each catalog effect and @effect package module"
         },
         "rust-analyzer": {
             "factory": "./settings/rust-analyzer.ts#rustAnalyzer",

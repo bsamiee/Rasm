@@ -103,7 +103,7 @@
                     "upgrade:actions": { "command": "actions-up --yes --style preserve --min-age 0", "dependsOn": [ "upgrade:mise" ] },
                     "upgrade:docker": { "command": "mise run docker:update", "dependsOn": [ "upgrade:mise" ] },
                     "release": { "command": "doppler run --only-secrets GITHUB_TOKEN --no-fallback --attempts 1 -- node eng/typescript/release/main.ts", "parallelism": false },
-                    "infra": { "command": "doppler run --only-secrets GITHUB_TOKEN --no-fallback --attempts 1 -- node infra/main.ts repository", "configurations": { "preview": { "args": "preview" }, "up": { "args": "up" }, "refresh": { "args": "refresh" } }, "parallelism": false },
+                    "infra": { "command": "doppler run --only-secrets GITHUB_TOKEN,SIXLABORSLICENSEKEY --no-fallback --attempts 1 -- node infra/main.ts repository", "configurations": { "preview": { "args": "preview" }, "up": { "args": "up" }, "refresh": { "args": "refresh" } }, "parallelism": false },
                     "docker": { "command": "mise daemons start docker" },
                     "clean": { "command": "node eng/typescript/cleanup/main.ts", "parallelism": false }
                 },
@@ -174,7 +174,7 @@
                 "configurations": { "debug": { "args": [ "--no-restore", "--configuration", "Debug" ] }, "release": { "args": [ "--no-restore", "--configuration", "Release" ] } },
                 "dependsOn": [ { "projects": [ "rasm" ], "target": "restore" } ]
             },
-            { "filter": { "projects": [ "tag:language:dotnet" ] }, "command": "doppler run --only-secrets SIXLABORSLICENSEKEY --no-fallback --attempts 1 -- dotnet build", "cache": false, "parallelism": false },
+            { "filter": { "projects": [ "tag:language:dotnet" ] }, "command": "doppler run --only-secrets SIXLABORSLICENSEKEY --no-fallback --attempts 1 -- dotnet build", "configurations": { "ci": { "command": "dotnet build" } }, "cache": false, "parallelism": false },
             {
                 "filter": { "projects": [ "tag:build:xcode" ] },
                 "executor": "nx:run-commands",

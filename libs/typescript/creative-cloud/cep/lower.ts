@@ -8,6 +8,8 @@ import { Array, Effect, Option, Order, Schema } from 'effect';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ASSUMED = { assumptions: { iterableIsArray: true } };
+const RESERVED =
+    /^(?:abstract|boolean|break|byte|case|catch|char|class|const|continue|debugger|default|delete|do|double|else|enum|export|extends|false|final|finally|float|for|function|goto|if|implements|import|in|instanceof|int|interface|long|native|new|null|package|private|protected|public|return|short|static|super|switch|synchronized|this|throw|throws|transient|true|try|typeof|var|void|volatile|while|with)$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,18 +30,38 @@ const Entry = Schema.Struct({ originalSource: Schema.String, originalLine: Schem
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const grouped = (code: string): string => {
-    const marks: (readonly [number, string])[] = [];
+    const marks: (readonly [number, number, string])[] = [];
     simple(parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true }), {
         LogicalExpression: ({ operator, right }) => {
             if (operator === '||' && right.type === 'LogicalExpression' && right.operator === '&&') {
-                marks.push([right.start, '('], [right.end, ')']);
+                marks.push([right.start, right.start, '('], [right.end, right.end, ')']);
+            }
+        },
+        ConditionalExpression: ({ consequent, alternate }) => {
+            marks.push(
+                ...[consequent, alternate]
+                    .filter(({ type }) => type === 'ConditionalExpression')
+                    .flatMap(({ start, end }): (readonly [number, number, string])[] => [
+                        [start, start, '('],
+                        [end, end, ')'],
+                    ]),
+            );
+        },
+        Property: ({ key, computed }) => {
+            if (!computed && key.type === 'Identifier' && RESERVED.test(key.name)) {
+                marks.push([key.start, key.start, '"'], [key.end, key.end, '"']);
+            }
+        },
+        MemberExpression: ({ property, computed }) => {
+            if (!computed && property.type === 'Identifier' && RESERVED.test(property.name)) {
+                marks.push([code.lastIndexOf('.', property.start), property.start, '["'], [property.end, property.end, '"]']);
             }
         },
     });
     return Array.sort(
         marks,
-        Order.mapInput(Order.flip(Order.Number), ([at]: readonly [number, string]) => at),
-    ).reduce((text, [at, mark]) => `${text.slice(0, at)}${mark}${text.slice(at)}`, code);
+        Order.mapInput(Order.flip(Order.Number), ([at]: readonly [number, number, string]) => at),
+    ).reduce((text, [start, end, mark]) => `${text.slice(0, start)}${mark}${text.slice(end)}`, code);
 };
 const lower = (code: string, target: JscTarget, syntax: 'typescript' | 'ecmascript' = 'ecmascript') =>
     Effect.try({

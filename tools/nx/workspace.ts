@@ -72,14 +72,14 @@ const CargoMetadata = Schema.Struct({
         }).pipe(Schema.encodeKeys({ manifest: 'manifest_path' })),
     ),
 });
-const Names = Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
 const SwiftPackage = Schema.Struct({
     targets: Schema.Array(
-        Schema.Struct({ name: Schema.String, c99name: Schema.String, type: Schema.Literals(['executable', 'library', 'test', 'macro', 'plugin', 'snippet', 'system-target', 'binary']), path: Schema.String, sources: Names, locals: Names }).pipe(Schema.encodeKeys({ locals: 'target_dependencies' })),
+        Schema.Struct({ name: Schema.String, c99name: Schema.String, type: Schema.Literals(['executable', 'library', 'test', 'macro', 'plugin', 'snippet', 'system-target', 'binary']), path: Schema.String, locals: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(
+            Schema.encodeKeys({ locals: 'target_dependencies' }),
+        ),
     ),
     products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String) })),
     platforms: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.String })),
-    dependencies: Schema.Array(Schema.Struct({ identity: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
 });
 const NxReleaseConfiguration = Schema.Struct({ releaseTag: Schema.Struct({ pattern: Schema.String }), groups: Schema.Record(Schema.String, Schema.Struct({ projects: Schema.ArrayEnsure(Schema.String) })) });
 
@@ -183,31 +183,6 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
     const cached = <A, I>(schema: Schema.Codec<A, I>, inputs: string[], [command, ...args]: readonly [string, ...string[]], document: Schema.Codec<unknown, string> = JsonDocument) =>
         memoized([command, ...args].join(' '), schema, inputs, Effect.flatMap(runCommand(command, args, { cwd: workspaceRoot }), Schema.decodeEffect(document.pipe(Schema.decodeTo(schema)))));
     const lockedPackages = (project: string) => cached(PylockExport, ['uv.lock', `**/${PYPROJECT}`], ['uv', 'export', '--frozen', '--format', 'pylock.toml', '--no-hashes', '--no-emit-project', '--project', project], TextFormat.Toml);
-    const swiftPackage = (...args: readonly string[]) => ['swift', 'package', '--scratch-path', path.join(workspaceRoot, '.cache/swiftpm/build'), ...args] as const;
-    const typescript = yield* Effect.cached(
-        Effect.acquireRelease(
-            Effect.sync(
-                () =>
-                    new API({
-                        cwd: workspaceRoot,
-                        fs: {
-                            directoryExists: serverFS.useOS,
-                            fileExists: serverFS.useOS,
-                            getAccessibleEntries: serverFS.useOS,
-                            readFile: (file) => {
-                                configReads.add(file);
-                                return serverFS.useOS;
-                            },
-                            realpath: serverFS.useOS,
-                            stat: serverFS.useOS,
-                            writeFile: serverFS.useOS,
-                            removeFile: serverFS.useOS,
-                        },
-                    }),
-            ),
-            (api) => Effect.sync(api.close),
-        ).pipe(Scope.provide(scope)),
-    );
     const crates = yield* Effect.cached(Effect.map(cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, '**/*.rs'], ['cargo', 'metadata', '--format-version', '1', '--no-deps']), Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) })))));
     const patterns = ['pnpm-lock.yaml', 'tools/*/examples/**'];
     const hosts = yield* Effect.cached(fs.readDirectory(path.join(workspaceRoot, APPS)));
@@ -215,8 +190,6 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         workspaceRoot,
         cached,
         memoized,
-        swiftPackage,
-        typescript,
         lockedPackages,
         crates,
         hosts,
@@ -239,15 +212,39 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
             pythonScopes: Effect.cached(Effect.flatMap(hosts, (folders) => readScopes(workspaceRoot, folders))),
             release: Effect.cached(Schema.decodeUnknownEffect(NxReleaseConfiguration)(nxJsonConfiguration.release)),
             configs: Effect.cached(
-                Effect.map(typescript, (api) => (file: string) => {
-                    configReads.clear();
-                    const config = api.parseConfigFile(path.join(workspaceRoot, file));
-                    return { config, files: [...configReads].map(path.relative.bind(null, workspaceRoot)) };
-                }),
+                Effect.acquireRelease(
+                    Effect.sync(
+                        () =>
+                            new API({
+                                cwd: workspaceRoot,
+                                fs: {
+                                    directoryExists: serverFS.useOS,
+                                    fileExists: serverFS.useOS,
+                                    getAccessibleEntries: serverFS.useOS,
+                                    readFile: (file) => {
+                                        configReads.add(file);
+                                        return serverFS.useOS;
+                                    },
+                                    realpath: serverFS.useOS,
+                                    stat: serverFS.useOS,
+                                    writeFile: serverFS.useOS,
+                                    removeFile: serverFS.useOS,
+                                },
+                            }),
+                    ),
+                    (api) => Effect.sync(api.close),
+                ).pipe(
+                    Scope.provide(scope),
+                    Effect.map((api) => (file: string) => {
+                        configReads.clear();
+                        const config = api.parseConfigFile(path.join(workspaceRoot, file));
+                        return { config, files: [...configReads].map(path.relative.bind(null, workspaceRoot)) };
+                    }),
+                ),
             ),
             python: Effect.cached(cached(PythonRuntime, [Mise.file], ['mise', 'tool', 'python', '--json'])),
             swift: Effect.cached(
-                Effect.map(cached(SwiftPackage, [SWIFT_MANIFEST, '**/*.swift'], swiftPackage('describe', '--type', 'json')), (described) => ({
+                Effect.map(cached(SwiftPackage, [SWIFT_MANIFEST], ['swift', 'package', '--scratch-path', path.join(workspaceRoot, '.cache/swiftpm/build'), 'describe', '--type', 'json']), (described) => ({
                     ...described,
                     tests: Array.partition(described.targets, Filter.fromPredicate<(typeof described.targets)[number]>(Predicate.Struct({ type: Equal.equals('test') }))),
                 })),
@@ -263,4 +260,4 @@ const runPlugin = <A, E>(effect: Effect.Effect<A, E, Scope.Scope | PluginService
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, pluginRuntime, Release, runPlugin, SWIFT_MANIFEST, SwiftPackage, type Workspace, WorkspaceError };
+export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, pluginRuntime, Release, runPlugin, SWIFT_MANIFEST, type Workspace, WorkspaceError };

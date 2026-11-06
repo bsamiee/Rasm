@@ -4,8 +4,6 @@
 
 ## [01]-[READING]
 
-Outlines pay where they replace a broad read by choosing the file or range to read, and add cost before a whole read made anyway.
-
 Flags select what compiles before the walk, a skipped container's inner declarations appear as items:
 
 | [INDEX] | [FLAG]              | [SKIPS_COMPILE]                                          |
@@ -29,18 +27,14 @@ Modes and views print by resolved value:
 - Item filters never reach members, members follow their item
 - Text marks exported items bold outside `--items exports`, imports italic outside `--items imports`, and private members dim
 - `--color never` erases every mark, select those flags through `--items`, `--pub-members`, or JSON
-- Text prints the name for an empty signature and a row's start line as `range.start.line + 1`, JSON `range` holding its end
-- Decorated definitions print the decorator's line
+- Text prints the name in place of an empty signature, its line number is `range.start`, a decorated definition prints the decorator's line
 - `-l <lang>` walks that language's files plus every file of a host that injects it, and parses each walked file as `<lang>`
 - Injected rows come through a host path or `-l <host>`, `-l <injected>` over a tree holding hosts yields host files misparsed as the injected language
-- `--stdin -l <lang>` outlines piped code with its injections and ignores path arguments
-- Piped code reproduces a file's rows under the file's JSON `language`, a built-in alias for a custom language running bundled extractors
+- `--stdin -l <lang>` outlines piped code with its injections, `--stdin` ignores path arguments
 - Directory runs walk the languages holding extractors plus every host injecting one of them, and omit files without items
 - HTML hosts inject each `<script>` and `<style>` by its `lang` attribute with no config, `.html` joins directory runs
-- Markdown heading rows are `module` rows covering the heading alone, its section running to the next heading of equal or shallower level
 - Named files without items print `nothing found` at exit 0 when the command holds no directory argument
-- Named paths bypass hidden, ignore, and `--globs` filters, entries below a named directory obey them
-- Folders an ignore file drops (`dist/` under a root `.gitignore`) read under `--no-ignore vcs`, an include glob never reaching into them
+- Named paths bypass hidden, ignore, and `--globs` filters
 - Hosts without extractors show their injections in directory runs, through a named file, and under `-l <host>`
 - Rows sort by byte offset, injected rows take the host's path, `language`, and positions
 
@@ -65,7 +59,7 @@ Scripts read JSON with these contracts:
 - Paths print as given (`./a.rs` under `.`), `run` normalizes them (`a.rs`), a join across both normalizes first
 - `range` holds the same shape and values as `run --json`, an enclosing item is an interval join on `byteOffset` that tests lines
 - Items start at a declaration keyword past any `export` or `declare`, bindings of a grouped declaration at each declarator
-- Member spans end at the first later member their name does not qualify, else at their item's `range.end`, never inside their own range
+- Token members end before the first later row no `$OWNER` and separator of theirs or of a row in their span starts, else at their item's `range.end`
 - Rows whose signature names a receiver their name lacks (`self.x` named `x`) sit inside the chain of the token row before them
 - `astKind` alone separates an injected row from a native one, same-range rows can be byte-identical, dedupe on range, name, and `astKind`
 - Ties keep native rows first, then entry order
@@ -76,32 +70,9 @@ Config is found from the working directory, never from a target path:
 - Invalid `languageInjections` exit 8, catalog errors exit 1
 
 Rows compare by key, a broken file still yields partial rows and a diff reads them as false removals:
-- Comparisons read `--items all --view expanded --json=stream -j 1`, keeping members under a container `--items exports` skips
-- Exposure is `isExported` on an item, `isPublic` on a member of an exported item or of a literal-false container (`impl`)
-- Rows key by `(path, symbolType, owner, name)` as a bag, since overloads and owners local to them repeat
-- Bags pair unchanged rows first, then equal signatures as body or exposure changes, the rest as signature changes
-- Signatures compare whitespace folded, bodies as exact bytes of the trimmed span less rows inside it
-- Span hashes fold whitespace and mask the declaration's name token once, masking every occurrence merges `brand('<name>')` rows
-- Keys leaving a file while their `(owner, name)` stays under another `symbolType` read as a signature change
-- Unpaired rows read as moved when their `(owner, name)` is unique on both sides in different files
-- Unpaired rows read as renamed when one removed and one added row share `symbolType` and span hash
-- `ERROR` and `MISSING` nodes print a `symbolType` `null` row named `ERROR`
-- Files holding an `ERROR` row on either side, or rows before and none after, read unknown and never removed
+- Consumers key rows by `(symbolType, owner, name)`, a key holds a bag because overloads and owners local to them repeat
+- `ERROR` and `MISSING` nodes print a `symbolType` `null` row named `ERROR`, any one marking its file unknown, its other rows neither removed nor unchanged
 - Error rows print under `--items all` and `structure`, `digest` and `expanded` list one as a private member of an item whose walked body failed
-
-Equal declarations group across files by derived span:
-- Items group by `(language, symbolType)` and span hash over 60 or more folded characters
-- Items of 4 or more members also group by the bag of member name and member span hash
-- Items inside another item's range are injected rows, since native items never nest
-- Groups skip modules, imports, `impl` blocks, injected rows, and files holding `ERROR`
-
-Rows reach other tools in these forms:
-- `git -c core.attributesFile=<file> -c diff.<driver>.textconv=<filter> diff` reads rows for one command, `<file>` holding `*.<ext> diff=<driver>`
-- Repository `.gitattributes` rows outrank `core.attributesFile`
-- Textconv filters print JSON `signature` values alone, since text line numbers shift with every edit above a row
-- Git runs a textconv filter once per blob, each run paying full catalog load, and `--stat` and `--numstat` count source lines
-- `--json=stream` reads as a table, `duckdb` `read_json` taking items through `unnest(items)` and members through a second `unnest`
-- Hook text past 10,000 characters on Claude Code, or about 2,500 tokens on Codex below a handler's `additionalContextLimit`, moves to a file behind a preview
 
 ## [03]-[LOADING]
 

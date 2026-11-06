@@ -91,16 +91,6 @@ const CASES = {
       fixtures: { select: { write: ['libs/typescript', 'libs/typescript/data', 'apps/web', '.', '../outside', 'tools/held'], remove: ['CLAUDE.md', 'apps/old/CLAUDE.md', 'libs/typescript/CLAUDE.md', 'apps/x.ts'] } },
     },
   ],
-  'harness-depth': [
-    {
-      name: 'indesign',
-      args: { key: 'indesign', name: 'InDesign', apps: ['2026', '2027'], skills: ['watch-apps'], products: ['docs/research/x'], base: BASE },
-      fixtures: {
-        'mine:model': { needs: ['need one', 'need two'], findings: ['model finding'] },
-        'edit:slice': { slices: [{ files: ['tools/harnesses/hosts/adobe/indesign/host.ts'], findings: ['f'] }, { files: ['tools/harnesses/hosts/adobe/indesign/host.ts'], findings: ['g'] }, { files: ['tools/harnesses/run.ts'], findings: ['h'] }, { files: ['libs/typescript/outside.ts'], findings: ['outside the kit'] }], refused: [] },
-      },
-    },
-  ],
   'extension-research': [
     { name: 'note', args: { key: 'color' } },
     { name: 'plan', args: { key: 'color', mode: 'plan' } },

@@ -36,6 +36,9 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
             () => attempt.failed,
             () => <MediaFailure asset={placement.asset} message={placement.kind === 'video' ? 'Video failed to play' : 'Image failed to load'} onRetry={() => setAttempt(({ count }) => ({ count: count + 1, failed: false }))} />,
         ),
+        Match.when({ kind: 'video', poster: (poster: ImageAsset | undefined): poster is ImageAsset => thumbnail && poster !== undefined }, ({ poster, asset: { width, height } }) => (
+            <img alt={label} className="block size-full object-contain" decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={assetUrl(poster)} srcSet={imageSourceSet(poster)} width={width} />
+        )),
         Match.discriminatorsExhaustive('kind')({
             pdf: (sheet) => (
                 <ErrorBoundary fallback={<MediaFailure asset={placement.asset} message="PDF viewer failed to load" />}>
@@ -44,13 +47,10 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
                     </Suspense>
                 </ErrorBoundary>
             ),
-            video: ({ poster, asset: { width, height } }) =>
-                thumbnail && poster !== undefined ? (
-                    <img alt={label} className="block size-full object-contain" decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={assetUrl(poster)} srcSet={imageSourceSet(poster)} width={width} />
-                ) : (
-                    // biome-ignore lint/a11y/useMediaCaption: Uploads hold no timed text, owners burn in captions and write transcripts as descriptions
-                    <video aria-label={label} className="block size-full object-contain" controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline={true} poster={poster && assetUrl(poster)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
-                ),
+            video: ({ poster, asset: { width, height } }) => (
+                // biome-ignore lint/a11y/useMediaCaption: Uploads hold no timed text, owners burn in captions and write transcripts as descriptions
+                <video aria-label={label} className="block size-full object-contain" controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline={true} poster={poster && assetUrl(poster)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
+            ),
             image: (image) => (
                 // biome-ignore lint/a11y/noNoninteractiveElementInteractions: Error event is the only load failure signal of img
                 <img
