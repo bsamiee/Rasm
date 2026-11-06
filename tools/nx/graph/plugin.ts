@@ -3,7 +3,7 @@ import { Array, Effect, Equal, Function, Option, Path, Predicate, Record, Schema
 import { decodeFile, Package, XcodeProject } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
 import { attachedSuites, infer, logged, markers, moduleRequests, owning, packageName, rootTargets, suitePath } from '#/tools/nx/graph/projects';
-import { GRAMMARS, neutrality, roots, syncInputs } from '#/tools/nx/graph/root-project';
+import { GRAMMARS, neutrality, roots } from '#/tools/nx/graph/root-project';
 import { CARGO_MANIFEST, glob, JsonListRecord, openWorkspace, PYPROJECT, runPlugin, type Workspace } from '#/tools/nx/workspace';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -49,7 +49,7 @@ const sourceImports = Effect.fnUntraced(function* (context: CreateDependenciesCo
 const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfiguration>; readonly grammars: Record<string, TargetConfiguration> }> = [
     `{${Object.keys(roots).join(',')},*/**/{${Object.keys(markers).join(',')}}}`,
     Effect.fnUntraced(function* (files, options, context) {
-        const [path, workspace, { name }, synced] = yield* Effect.all([Path.Path, openWorkspace(context), Package.read(context.workspaceRoot), syncInputs(context.workspaceRoot)]);
+        const [path, workspace, { name }] = yield* Effect.all([Path.Path, openWorkspace(context), Package.read(context.workspaceRoot)]);
         const inference = { ...workspace, configFiles: files, dotnetRoots: files.filter(String.endsWith('.csproj')).map(path.dirname) };
         const inferred = yield* Effect.promise(
             createNodesFromFiles.bind(
@@ -76,7 +76,7 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
         const configuredCrates = Array.bind(yield* workspace.crates, 'nx', ({ metadata }) => Option.toArray(Option.flatMap(metadata, Struct.get('nx'))));
         return [
             ...inferred,
-            ['nx.json', rootTargets({ 'lint:nx': { inputs: synced }, restore: { options: logged(context.workspaceRoot, 'restore') }, ...(yield* neutrality(workspace)) })] as const,
+            ['nx.json', rootTargets({ restore: { options: logged(context.workspaceRoot, 'restore') }, ...(yield* neutrality(workspace)) })] as const,
             ...Array.match(unclaimed, { onEmpty: () => [], onNonEmpty: (suites) => [[PYPROJECT, rootTargets({ test: { command: 'pytest', options: { args: suites }, inputs: ['python', 'pythonFiles'] } })]] satisfies CreateNodesResultArray }),
             ...(yield* components(workspace, inferred)),
             ...configuredCrates.map(({ manifest, nx }) => [manifest, { projects: { [path.dirname(manifest)]: nx } }] as const),

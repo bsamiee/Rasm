@@ -158,7 +158,7 @@ workspace = [
     "arro3-io",                                                                   # Arrow IPC, Parquet, CSV, JSON, and NDJSON IO without pyarrow
     "deltalake",                                                                  # Lakehouse tables
     "nanoarrow",                                                                  # Arrow C Data Interface interop
-    "pyarrow",                                                                    # Arrow C++ bridge on Pixi's Arrow, no cp315 wheels under daft's <26 cap
+    "pyarrow",                                                                    # Arrow C++ bridge
     "pyiceberg",                                                                  # Apache Iceberg tables
     "pylance",                                                                    # Lance columnar/vector format
 
@@ -270,9 +270,11 @@ workspace = [
     "colour-cxf",                                                                 # CxF3 spot and spectral color exchange
     "openexr",                                                                    # Named-channel, multipart, and tiled EXR read and write
     "pillow",                                                                     # Image IO and WebP decoding
+    "pillow-heif",                                                                # HEVC HEIF read and write
     "psd-tools",                                                                  # PSD read and pixel authoring
     "pysubs2",                                                                    # Subtitle parse, convert, retime, and restyle
-    "pyvips",                                                                     # Fused decode, downscale, ICC, and smartcrop over libvips
+    "pyvips[binary]",                                                             # Fused decode, downscale, ICC, and smartcrop over libvips
+    "rawpy",                                                                      # Camera RAW decode over LibRaw
     "simpleidml",                                                                 # IDML package mutation and composition
 
     # --- [TYPOGRAPHY]
@@ -342,6 +344,7 @@ icons     = [
 ]
 dev       = [
     { include-group = "test" },
+    { include-group = "icons" },
 
     # --- [CHECKERS]
     "deptry",                                                                     # Import-to-requirement checker for host packages
@@ -407,6 +410,7 @@ environments             = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 prerelease               = "allow"
+override-dependencies    = ["cachebox>=6", "pyarrow>=26"]        # CPython 3.15 wheels start above DeepDiff and Daft bounds
 constraint-dependencies  = [
     "attrs==25.3.0; python_full_version < '3.15'",
     "autopep8==2.3.1; python_full_version < '3.15'",
@@ -430,7 +434,7 @@ constraint-dependencies  = [
     "urllib3==2.4.0; python_full_version < '3.15'",
     "zstandard==0.25.0; python_full_version < '3.15'",
 ]                                                                # Versions the installed Blender bundles, `python -m eng.python.blender upgrade` their one writer
-no-build-package         = ["epdx", "numpy"]                     # `epdx` sdist lacks `project.version`, numpy sdists fail on Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`)
+no-build-package         = ["epdx"]                              # `epdx` sdist lacks `project.version`
 extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
 [tool.uv.workspace]
@@ -438,27 +442,14 @@ members = ["libs/python/blender", "apps/blender/darkroom"]
 
 [tool.uv.sources]
 blender    = { workspace = true }
-darkroom   = { workspace = true }
 typography = { path = "libs/python/typography", editable = true }
 foundry    = { path = "tools/foundry", editable = true }
 
 [tool.uv.dependency-groups]
 workspace = { requires-python = ">=3.15" }
 
-[tool.uv.extra-build-variables]
-cachebox    = { PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1", LIBRARY_PATH = "" } # deepdiff caps `cachebox<6`, whose 5.x sdist pins PyO3 0.27 refusing Python 3.15, and links Pixi's `@rpath` libiconv maturin cannot repair
-opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }
-pyarrow     = { PYARROW_WITH_GANDIVA = "0" }
-
 [tool.uv.config-settings-package.manifold3d]
 "cmake.define.MANIFOLD_USE_BUILTIN_TBB" = "ON"
-
-[tool.uv.config-settings-package.pdal]
-"cmake.define.CMAKE_INSTALL_RPATH_USE_LINK_PATH" = "ON"
-
-[tool.uv.config-settings-package.small-gicp]
-"cmake.define.CMAKE_DISABLE_FIND_PACKAGE_Eigen3" = "ON"
-"cmake.define.CMAKE_INSTALL_RPATH_USE_LINK_PATH" = "ON"
 
 # --- [PIXI] -----------------------------------------------------------------------------
 
@@ -470,12 +461,11 @@ platforms = [{ platform = "osx-arm64", macos = "27.0" }, "linux-64", "linux-aarc
 no-default-feature = true
 
 [tool.pixi.environments.default.dependencies]
-libarrow-all = "25.*"
+hdf5         = "2.2.*"
 icu          = "78.*"
 libpdal-core = "2.10.*"
 llvm-openmp  = "*"
 librdkafka   = "2.16.*"
-libvips      = "*"
 libmagic     = "*"
 libpango     = "*"
 libharfbuzz  = "*"
@@ -484,10 +474,9 @@ libglib      = "*"
 
 [tool.pixi.environments.default.target.unix.activation.env]
 CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
-OpenMP_ROOT       = "$CONDA_PREFIX"
+HDF5_DIR          = "$CONDA_PREFIX"
 CPATH             = "$CONDA_PREFIX/include"
-LIBRARY_PATH      = "$CONDA_PREFIX/lib"
-LDFLAGS           = "-Wl,-rpath,$CONDA_PREFIX/lib"
+LDFLAGS           = "-L$CONDA_PREFIX/lib -Wl,-rpath,$CONDA_PREFIX/lib"
 
 [tool.pixi.environments.default.target.osx.tasks]
 python = { cmd = "python", env = { DYLD_FALLBACK_LIBRARY_PATH = "$CONDA_PREFIX/lib" } } # `pixi run` loses activation `DYLD_*` rows through the SIP-protected `/usr/bin/env` that captures them
@@ -496,16 +485,11 @@ python = { cmd = "python", env = { DYLD_FALLBACK_LIBRARY_PATH = "$CONDA_PREFIX/l
 python = { cmd = "python", env = { LD_LIBRARY_PATH = "$CONDA_PREFIX/lib" } } # An activation row reaches every `pixi run` child ahead of system libraries, sdist builds included
 
 [tool.pixi.environments.default.target.win.activation.env]
-ICU_VERSION = "78"
-
-[tool.pixi.environments.hdf5]
-no-default-feature = true
-
-[tool.pixi.environments.hdf5.dependencies]
-hdf5 = "2.2.*"
-
-[tool.pixi.environments.hdf5.target.unix.activation.env]
-HDF5_DIR = "$CONDA_PREFIX"
+ICU_VERSION       = "78"
+CMAKE_PREFIX_PATH = "%CONDA_PREFIX%\\Library"
+HDF5_DIR          = "%CONDA_PREFIX%\\Library"
+INCLUDE           = "%CONDA_PREFIX%\\Library\\include;%INCLUDE%"
+LIB               = "%CONDA_PREFIX%\\Library\\lib;%LIB%"
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
@@ -691,7 +675,7 @@ require-lazy = [
 [tool.ty]
 environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python"] }
 rules       = { all = "error" }
-src         = { include = [".", ".claude"], exclude = ["apps/blender/darkroom", "libs/python/blender"] }
+src         = { include = ["**", ".claude"], exclude = ["apps/blender/darkroom", "libs/python/blender"] }
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
@@ -835,6 +819,9 @@ run    = { branch = true, relative_files = true, data_file = ".artifacts/python/
 report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\(", "if __name__ == .__main__.:"] }
 
 # --- [TOMBI] ----------------------------------------------------------------------------
+
+[tool.tombi.files]
+exclude = [".mise/**", "assets/**"]
 
 [tool.tombi.format.rules]
 indent-width                    = 4

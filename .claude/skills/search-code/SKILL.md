@@ -85,13 +85,19 @@ TypeScript type and enum values of one configuration schema definition:
 jq -c '(.["$defs"] // .definitions).<Def>' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg>/<schema>.json
 ```
 
-Python package in `uv.lock`, `--with <pkg>` before `python` resolves one outside the lock:
+TypeScript catalog package no project declares, read its tarball at the catalog release:
+
+```bash
+mkdir -p .artifacts/search/<pkg>@<version> && curl -fsSL "$(pnpm view <pkg>@<version> dist.tarball)" | tar -xz -C .artifacts/search/<pkg>@<version>
+```
+
+Python package in `uv.lock`, `uv run --no-sync --with <pkg> python` resolves one outside the lock:
 1. Docs, signatures, and visible members; dotted names select members, module source holds declared `__all__` and imports
 2. Module source with `<mod>`, member source with `<mod>:<qualname>`; `-d` replaces source with origin and cache details
 
 ```bash
-uv run --frozen python -m pydoc <mod>
-uv run --frozen python -m inspect <mod>:<qualname>
+pixi run --locked python -m pydoc <mod>
+pixi run --locked python -m inspect <mod>:<qualname>
 ```
 
 Python typed signature per overload from a package's `.pyi` or its `-stubs` package where the runtime declares no types:

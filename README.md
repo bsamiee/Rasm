@@ -34,9 +34,11 @@ Rasm/
 │   └── watch-apps/           # CLI for agents observing and driving desktop apps in the background
 ├── plugins/                  # Agent harness marketplace
 ├── mise.toml                 # Tool binaries, process environment, and local daemons
+├── mise.lock                 # Tool versions, URLs, and digests per platform
 ├── mise.ci.toml              # Tool rows no CI job calls
+├── .mise/                    # Native lockfiles for Python tools
 ├── nx.json                   # Task graph
-├── package.json              # Default catalog rows, Nx executor manifest
+├── package.json              # Packages root programs use
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
@@ -96,27 +98,32 @@ flowchart LR
 
 Targets run tools with their arguments on the command, a pipeline or command list joins tools for work no single tool does.
 
-Before starting Claude Code or Codex, run `mise install`, `pnpm install`, and `nx run grammars:grammar` to build every grammar library direct `ast-grep` commands load.
+Before starting Claude Code or Codex:
+1. Run `mise install`, `pnpm install --frozen-lockfile`, and `pixi run --locked uv sync --locked`
+2. Run `nx run grammars:grammar` to build parsers direct `ast-grep` commands load
+3. On macOS, run `mise daemons register`, `mise bootstrap macos launchd-agents apply`, then `nx run rasm-mcp-bridge:install`
+4. For Codex, install `argus@rasm` and `playwright@rasm` with `codex plugin add`
 
 - `nx run rasm:check` runs every root checker and type checker, `nx run rasm:lint:<tool>` runs one checker
 - `nx run <project>:check` runs project checks and tests `rasm:check` leaves to each project
 - `nx run <project>:<target> -- <arguments>` appends to the command, paths in place of a root tool's default file set, switches to `dotnet build`
 - `nx:run-commands` targets use `--args='<shell fragment>'` for literal shell characters; the value replaces configured argument defaults
-- `nx run rasm:format` runs `nx sync`, `dotnet format` over the solution and file-based apps, then every other writer
-- `nx run rasm:format:files -- <paths>` runs non-.NET writers over named Git files
+- `nx run rasm:format` runs `nx sync`, `dotnet format` over the solution and file-based apps, then `hk fix --all`
+- `nx run rasm:format:files -- <paths>` runs `hk fix` over named paths, or modified files with no path
 - `nx run <project>:test:integration` runs cases `test` leaves out: Vitest and Rust `#[ignore]` after `rasm:docker`, Swift `<Module>IntegrationTests`
 - `nx run <project>:install` builds or packs a product and installs it into its host
 - `nx run rasm:release` on a clean tree tags and creates a GitHub release for each product Conventional Commits bump, then runs its `publish`
 - `nx run <project>:publish --tag=<tag>` pushes a released product to its host's channel
-- `git submodule update --checkout assets` fills `assets/` once per checkout, a clone without access to `bsamiee/Rasm-Assets` skips it
+- `git submodule update --init --checkout assets` fills `assets/` for font builds and publishing
 - With `assets/` checked out, `nx run rasm:fonts:<build|check>` runs `foundry` over `assets/fonts/rasm.toml` into `.artifacts/fonts/<set>`, a check failing on each finding
 - `nx run rasm:fonts:publish --destination=<folder> [<name>]` copies faces passing that check into a folder
 - `nx run rasm:infra:<preview|up|refresh>` runs a Pulumi operation on repository resources
 - `nx run <project>:hosting -- <cloudflare|docker> <preview|up|refresh|destroy> [--disposable] [--tag <tag>]` builds a web app and runs a Pulumi operation on its stack
 - `nx run rasm:upgrade` moves tool binaries, catalogs, locks, and action tags to newest releases
-- `nx run rasm:clean` removes declared outputs and tool residue, prunes caches and unused Pulumi plugins, and recovers stale macOS processes
+- `mise run clean` removes build outputs and prunes tool caches
 - `nx run rasm:rewrite:tree -- --filter='^<id>$' <path>` applies one rule's fix across a path, `ast-grep outline <path>` lists its declarations
-- Sdist builds start under `pixi run --locked -e hdf5 pixi run --locked -e default`, native runtime under `pixi run --locked -e default python`
+- `pixi run --locked uv sync` builds Python distributions against Pixi libraries
+- `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 - Projects with `.storybook/` run each story as a Chromium `test` case that fails on an axe violation
 - `nx run <project>:e2e` gives each Playwright worker its own app instance with empty stores
 - Xcode apps holding a UXP script build in a folder reference build that script first
@@ -135,7 +142,7 @@ Products reach a person through separate levels:
 
 | [INDEX] | [CONCERN]                        | [OWNER]                                                                                              |
 | :-----: | :------------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | Tool binary                      | `mise.toml` `[tools]` at `latest`                                                                    |
+|  [01]   | Tool binary                      | `mise.toml` `[tools]`, exact versions in `mise.lock`                                                   |
 |  [02]   | Process variable                 | `mise.toml` `[env]`                                                                                  |
 |  [03]   | SDK version                      | `global.json` for .NET, `xcode-select` for Swift, `rust-toolchain.toml` for Rust                     |
 |  [04]   | Package version                  | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row |
@@ -151,8 +158,8 @@ Products reach a person through separate levels:
 |  [14]   | Rust package version             | `Cargo.toml` `[workspace.dependencies]` row                                                          |
 |  [15]   | Agent harness plugin             | `plugins/<name>`                                                                                     |
 |  [16]   | Persistent local process         | `mise.toml` `[daemons]` row                                                                          |
-|  [17]   | Python runtime                   | Mise Python row, uv's `.venv`, host `pyproject.toml` requirements                                    |
-|  [18]   | Native libraries for sdists      | Pixi environments in `pyproject.toml`, exact builds in `pixi.lock`                                   |
+|  [17]   | Python runtime                   | Mise defaults to 3.15, Blender declares 3.13 in its project manifests                                |
+|  [18]   | Native libraries for sdists      | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                            |
 |  [19]   | Container runtime                | Mise clients, `[daemons]` `docker` row for Colima on macOS, Docker Engine on Linux                   |
 |  [20]   | Shared Vite configuration        | `vite.shared.ts`                                                                                     |
 |  [21]   | Shared Vitest configuration      | `vitest.config.ts`, browser settings and the story project every package derives                     |

@@ -130,7 +130,7 @@ let suites: [Target] = [
             .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "tests/swift/libs/macos/Applications",
-        exclude: ["Integration"],
+        exclude: ["Integration", "fixtures"],
     ),
     .testTarget(
         name: "ApplicationsIntegrationTests",

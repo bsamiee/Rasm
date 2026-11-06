@@ -45,7 +45,7 @@ Use `use-ast-grep` for ast-grep forms and exits
 ## [05]-[PACKAGE_MANAGERS]
 
 - `pytest -p no:<plugin>` under `required_plugins` answers `Missing required plugins` at exit 4
-- `ruff check --select ALL --isolated --preview <file>` reads the full rule set
+- `ruff check --no-cache --select ALL --isolated --preview <file>` reads the full rule set
 - `biome check --error-on-warnings`, `ruff check`, and `ruff format --check` over files are the writers' check forms, a missing path exits 1 or 2
 
 ## [06]-[DOTNET]

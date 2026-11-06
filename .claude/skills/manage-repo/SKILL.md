@@ -50,7 +50,8 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 [TARGETS]:
 - Projects with their own check hold one `check` target with no per-language name, dry-run variant, or script, a root-checked project holds none
 - `check` and its prerequisites start no container, a checker over files tests write depends on the in-process `test` writing them
-- Checkers, writers, and type checkers run as `lint:<tool>`, `format:<tool>`, and `typecheck:<tool>`, a project `lint` depends on its `lint:*`
+- Checkers and type checkers run as `lint:<tool>` and `typecheck:<tool>`, a project `lint` depends on its `lint:*`
+- `hk` holds writers, a writer needing a restore or generator holds `format:<tool>`
 - `<tool>` names the program implementing command: `dotnet format` is `dotnet-format`, `cargo fmt` is `rustfmt`, `cargo dylint` is `dylint`
 - Checker subcommands, languages, and runtimes run as `<kind>:<tool>:<part>`, a `dependsOn`-only `<kind>:<tool>` forwards arguments to them
 - Checker command lists hold dependent steps alone, a failing step hides findings of the rest

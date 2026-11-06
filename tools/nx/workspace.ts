@@ -26,7 +26,6 @@ const APPS = 'apps';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const PythonRuntime = Schema.Struct({ versions: Schema.NonEmptyArray(Schema.String) }).pipe(Schema.encodeKeys({ versions: 'active_versions' }));
 const JsonDocument = Schema.fromJsonString(Schema.Unknown);
 const JsonListRecord = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.String)));
 const Release = Schema.String.check(Schema.isPattern(/^\d+\.\d+$/u));
@@ -36,7 +35,11 @@ const WorkspacePyproject = TextFormat.Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
             tool: Schema.Struct({
-                uv: Schema.Struct({ workspace: Schema.Struct({ members: Schema.Array(Schema.String) }), requirements: Schema.Record(Schema.String, PythonRequirement) }).pipe(Schema.encodeKeys({ requirements: 'dependency-groups' })),
+                uv: Schema.Struct({
+                    workspace: Schema.Struct({ members: Schema.Array(Schema.String) }),
+                    sources: Schema.Record(Schema.String, Schema.Struct({ path: Schema.OptionFromOptionalKey(Schema.String) })),
+                    requirements: Schema.Record(Schema.String, PythonRequirement),
+                }).pipe(Schema.encodeKeys({ requirements: 'dependency-groups' })),
                 pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String), testPaths: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files', testPaths: 'testpaths' })),
                 coverage: Schema.Struct({ run: Schema.Struct({ dataFile: Schema.String }).pipe(Schema.encodeKeys({ dataFile: 'data_file' })) }),
             }),
@@ -60,7 +63,6 @@ const MemberPyproject = TextFormat.Toml.pipe(
         }),
     ),
 );
-const PylockExport = Schema.Struct({ packages: Schema.Array(Schema.Struct({ directory: Schema.OptionFromOptionalKey(Schema.Struct({ path: Schema.String })) })) });
 const CargoMetadata = Schema.Struct({
     packages: Schema.Array(
         Schema.Struct({
@@ -108,9 +110,9 @@ class WorkspaceError extends Schema.TaggedError<WorkspaceError, { readonly brand
 
 // --- [READS]
 const glob = (workspaceRoot: string, patterns: string[], exclude?: string[]) => Effect.tryPromise(() => globWithWorkspaceContext(workspaceRoot, patterns, exclude));
-const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string, { packages }: typeof PylockExport.Type) {
+const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string) {
     const [path, { tool }] = yield* Effect.all([Path.Path, decodeFile(WorkspacePyproject, workspaceRoot, PYPROJECT)]);
-    const directories = Array.getSomes(packages.map(Struct.get('directory'))).map(Struct.get('path'));
+    const directories = Array.getSomes(Object.values(tool.uv.sources).map(Struct.get('path')));
     const members = yield* Effect.forEach(Array.union(tool.uv.workspace.members, directories), (member) => Effect.map(decodeFile(MemberPyproject, workspaceRoot, path.join(member, PYPROJECT)), Struct.assign({ member })));
     const providers = Array.bind(members, 'source', ({ tool: { hatch } }) => {
         const sources = hatch.build.targets?.wheel?.sources;
@@ -182,15 +184,12 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
     };
     const cached = <A, I>(schema: Schema.Codec<A, I>, inputs: string[], [command, ...args]: readonly [string, ...string[]], document: Schema.Codec<unknown, string> = JsonDocument) =>
         memoized([command, ...args].join(' '), schema, inputs, Effect.flatMap(runCommand(command, args, { cwd: workspaceRoot }), Schema.decodeEffect(document.pipe(Schema.decodeTo(schema)))));
-    const lockedPackages = (project: string) => cached(PylockExport, ['uv.lock', `**/${PYPROJECT}`], ['uv', 'export', '--frozen', '--format', 'pylock.toml', '--no-hashes', '--no-emit-project', '--project', project], TextFormat.Toml);
     const crates = yield* Effect.cached(Effect.map(cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, '**/*.rs'], ['cargo', 'metadata', '--format-version', '1', '--no-deps']), Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) })))));
     const patterns = ['pnpm-lock.yaml', 'tools/*/examples/**'];
     const hosts = yield* Effect.cached(fs.readDirectory(path.join(workspaceRoot, APPS)));
     return {
         workspaceRoot,
         cached,
-        memoized,
-        lockedPackages,
         crates,
         hosts,
         scanExclusions: Effect.map(
@@ -206,7 +205,7 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
             ),
         ),
         ...(yield* Effect.all({
-            pyproject: Effect.cached(Effect.flatMap(lockedPackages('.'), (packages) => readPyproject(workspaceRoot, packages))),
+            pyproject: Effect.cached(readPyproject(workspaceRoot)),
             mise: Effect.cached(Mise.read(workspaceRoot)),
             packages: Effect.cached(readPackages(workspaceRoot)),
             pythonScopes: Effect.cached(Effect.flatMap(hosts, (folders) => readScopes(workspaceRoot, folders))),
@@ -242,7 +241,6 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
                     }),
                 ),
             ),
-            python: Effect.cached(cached(PythonRuntime, [Mise.file], ['mise', 'tool', 'python', '--json'])),
             swift: Effect.cached(
                 Effect.map(cached(SwiftPackage, [SWIFT_MANIFEST], ['swift', 'package', '--scratch-path', path.join(workspaceRoot, '.cache/swiftpm/build'), 'describe', '--type', 'json']), (described) => ({
                     ...described,
@@ -260,4 +258,4 @@ const runPlugin = <A, E>(effect: Effect.Effect<A, E, Scope.Scope | PluginService
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, pluginRuntime, Release, runPlugin, SWIFT_MANIFEST, type Workspace, WorkspaceError };
+export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, pluginRuntime, runPlugin, SWIFT_MANIFEST, type Workspace, WorkspaceError };

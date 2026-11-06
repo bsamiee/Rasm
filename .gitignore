@@ -53,6 +53,8 @@ credentials.json
 # --- [MACHINE] --------------------------------------------------------------------------
 
 mise.local.toml
+mise.local.lock
+.mise/locks/mise.local/
 *.user
 *.orig
 .DS_Store

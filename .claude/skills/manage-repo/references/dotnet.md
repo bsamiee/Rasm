@@ -35,7 +35,7 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 - `dotnet build` walks its own references, serial per Nx task and uncached: a restored output's new timestamp recompiles every consumer
 - Copy-local files hard link into the package folder, a test app with native packages takes `UseCurrentRuntimeIdentifier` or every `runtimes/<rid>` folder copies
 - A runtime identifier turns on copy-local, a library holding one sets `CopyLocalLockFileAssemblies` false
-- `~/.nuget/packages` stays machine-wide beside pnpm's store and uv's cache, `rasm:clean` removes `.cache`
+- `~/.nuget/packages` stays machine-wide, `mise run clean` clears the NuGet HTTP cache
 - Solution restores read `RestoreUseStaticGraphEvaluation` from `Directory.Solution.props`, no project evaluates that file
 
 ## [04]-[CHECKERS]

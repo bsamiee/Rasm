@@ -1,3 +1,4 @@
+import process from 'node:process';
 import type { ProjectGraph, ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Equal, Option, Predicate, Record, Schema, String } from 'effect';
 import { type Call, cut, edited, type Fix, feedsJq, has, inserted, type Policy, perSubcommand, quote, redirected, refusal, silent, spoken, unassign, when, whole } from '#/policies/fix';
@@ -400,6 +401,19 @@ const TASKS: Policy = {
             flags: ['--exclude='],
             routes: { ignores: ['--run'] },
             fixes: [looped('vitest', 'use --repeats')],
+        },
+        pitchfork: {
+            flags: ['-f, --force'],
+            fixes: [
+                perSubcommand({
+                    supervisor: [
+                        when(
+                            (site) => process.platform === 'darwin' && site.operands[1]?.text === 'start' && site.has('--force'),
+                            (site) => whole(site, 'launchctl kickstart -k "gui/$(id -u)/dev.mise.pitchfork"', 'pitchfork supervisor start --force', launcherStart(site)),
+                        ),
+                    ],
+                }),
+            ],
         },
         depcruise: { flags: ['--config=', '--output-type=', '-T='], routes: { rooted: true, flat: true, entries: true, ignores: ['--config', '--output-type'] } },
     },

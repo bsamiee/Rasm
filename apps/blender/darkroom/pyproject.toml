@@ -7,18 +7,18 @@ requires-python = ">=3.13"
 
 dependencies = [
     # --- [CORE]
-    "blender",        # Shared extension code with bpy behind one boundary
-    "expression",     # Results, options, and collections of every stage and panel
-    "msgspec",        # Records and tagged unions for stage settings, looks, and review results
+    "blender",                                   # Shared extension code with bpy behind one boundary
+    "expression",                                # Results, options, and collections of every stage and panel
+    "msgspec",                                   # Records and tagged unions for stage settings, looks, and review results
 
     # --- [MATHEMATICS]
-    "numpy",          # Arrays for image planes, curves, and metering
-    "scipy",          # Glare kernels and particle neighbour queries
+    "numpy",                                     # Arrays for image planes, curves, and metering
+    "scipy",                                     # Glare kernels and particle neighbour queries
 
     # --- [IMAGING]
-    "colour-science", # Transfer functions and YCbCr weights for media and emulation stages
-    "opencolorio",    # Color processing, display transforms, and LUT baking
-    "openimageio",    # Image IO and buffer operations for finish and particle stages
+    "colour-science",                            # Transfer functions and YCbCr weights for media and emulation stages
+    "opencolorio; python_full_version < '3.15'", # Color processing, display transforms, and LUT baking
+    "openimageio",                               # Image IO and buffer operations for finish and particle stages
 ]
 
 # --- [UV] -------------------------------------------------------------------------------

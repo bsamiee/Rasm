@@ -1,3 +1,6 @@
+# --- [VERSION] --------------------------------------------------------------------------
+min_version = "2026.11.1"
+
 # --- [SETTINGS] -------------------------------------------------------------------------
 [settings]
 prereleases                         = true
@@ -8,6 +11,10 @@ dotnet.cli_telemetry_optout         = true
 python.uv_venv_auto                 = "create|source"
 experimental                        = true
 auto_install                        = false
+status.missing_tools                = "always"
+use_versions_host_track             = false
+lockfile_platforms                  = ["macos-arm64", "linux-x64"]
+java.shorthand_vendor               = "corretto"
 
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
@@ -26,7 +33,7 @@ XDG_CONFIG_HOME                       = "{{ xdg_config_home }}"
 MACOSX_DEPLOYMENT_TARGET              = "27.0"
 SWIFTPM_BUILD_DIR                     = "{{config_root}}/.cache/swiftpm/build"
 OMIT_DYNAMIC_TEST_SUPPORT             = "1"
-NX_WORKSPACE_DATA_DIRECTORY           = ".cache/nx/workspace-data"
+NX_WORKSPACE_DATA_DIRECTORY           = "{{config_root}}/.cache/nx/workspace-data"
 NX_ISOLATE_PLUGINS                    = "false"
 NX_DEFAULT_OUTPUT_STYLE               = "static-failures-only"
 CLOUDFLARE_DEV_REGISTRY_PATH          = "{{config_root}}/.cache/cloudflare/registry"
@@ -34,6 +41,7 @@ STORYBOOK_DISABLE_TELEMETRY           = "1"
 PLAYWRIGHT_MCP_CONFIG                 = "{{config_root}}/.playwright/cli.config.json"
 PLAYWRIGHT_MCP_OUTPUT_DIR             = "{{config_root}}/.artifacts/playwright"
 WATCH_APPS_LOG                        = "{{config_root}}/.artifacts/logs/watch-apps.log"
+HK_LOG_FILE                           = "{{config_root}}/.artifacts/logs/hk.log"
 RHINO_MCP_URL                         = "http://127.0.0.1:{{ env.RHINO_MCP_PLATFORM_PORT }}/"
 BLENDER_PATH                          = """{% if os() == "macos" %}{{ exec(command=`mdfind "kMDItemCFBundleIdentifier == 'org.blenderfoundation.blender'" | head -n 1`, cache_key="blender-path", cache_duration="1d") }}/Contents/MacOS/Blender{% elif os() == "windows" %}{{ exec(command="where blender", cache_key="blender-path", cache_duration="1d") }}{% else %}{{ exec(command="command -v blender", cache_key="blender-path", cache_duration="1d") }}{% endif %}"""
 ATELIER_PATH                          = "/Applications/Atelier.app/Contents/MacOS/Atelier"
@@ -57,73 +65,72 @@ blender-mcp = "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdire
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 [tools]
-python                               = ["3.15", "3.13"]
-java                                 = "latest"
-node                                 = "latest"
-pnpm                                 = "latest"
-uv                                   = "latest"
-pixi                                 = "latest"
-cargo-binstall                       = "latest"
-"cargo:cargo-nextest"                = "latest"
-"cargo:cargo-llvm-cov"               = "latest"
-"cargo:cargo-edit"                   = "latest"
-"cargo:cargo-dylint"                 = "latest"
-cargo-insta                          = "latest"
-cmake                                = "latest"
-git-lfs                              = "latest"
-hk                                   = "latest"
-actionlint                           = "latest"
-"npm:actions-up"                     = "latest"
-shellcheck                           = "latest"
-shfmt                                = "latest"
-yamlfmt                              = "latest"
-tombi                                = "latest"
-google-java-format                   = "latest"
-swiftlint                            = { version = "latest", os = ["macos"] }
-periphery                            = { version = "latest", os = ["macos"] }
-"http:zxpsigncmd"                    = { version = "4.1.3", os = ["macos"], url = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/fcee8de5537d2dd2ed3d91d5a495b7041155b280/ZXPSignCMD/{{ version }}/macOS/ZXPSignCmd" }
-"dotnet:minver-cli"                  = "latest"
-"github:sbdchd/squawk"               = "latest"
-ripgrep                              = "latest"
-fd                                   = "latest"
-jq                                   = "latest"
-yq                                   = "latest"
-doppler                              = "latest"
-pulumi                               = "latest"
-gh                                   = "latest"
-pitchfork                            = "latest"
-colima                               = { version = "latest", os = ["macos"], postinstall = 'mkdir -p "$COLIMA_HOME"' }
-lima                                 = { version = "latest", os = ["macos"] }
-docker-cli                           = { version = "latest", os = ["macos", "linux"] }
-"github:docker/buildx"               = { version = "latest", bin = "docker-buildx", os = ["macos", "linux"], postinstall = 'mkdir -p "$DOCKER_CONFIG/cli-plugins" && ln -sfn "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$DOCKER_CONFIG/cli-plugins/docker-buildx"' }
-ast-grep                             = "latest"
-tree-sitter                          = "latest"
-carapace                             = "latest"
-sd                                   = "latest"
-difftastic                           = "latest"
-duckdb                               = "latest"
-hyperfine                            = "latest"
-resvg                                = "latest"
-"github:linebender/resvg"            = { version = "latest", matching = "usvg" }
-imagemagick                          = "latest"
-"github:fonttools/fontspector"       = { version = "latest", version_prefix = "fontspector-v" }
-"pypi:ast-grep/ast-grep-mcp"         = "latest"
-"pypi:tavily-cli"                    = "latest"
-"pypi:mcp-for-blender"               = "latest"
-blender-mcp                          = "v1"
-"dotnet:RoslynCodeLens.Mcp"          = "latest"
-"dotnet:NuGet.Mcp.Server"            = "latest"
-"dotnet:Microsoft.AITools.BinlogMcp" = "latest"
-"dotnet:ilspycmd"                    = "latest"
-"github:pmd/pmd"                     = { version = "latest", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
-"http:jdtls"                         = { version = "latest", url = 'https://download.eclipse.org/jdtls/milestones/{{ version }}/{{ exec(command="curl -fsSL https://download.eclipse.org/jdtls/milestones/" ~ version ~ "/latest.txt") }}', version_list_url = "https://download.eclipse.org/jdtls/milestones/", version_regex = 'milestones/(\d+\.\d+\.\d+)', version_order = "semver" }
-"http:xcode-build-server"            = { version = "latest", os = ["macos"], url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz", version_list_url = "https://api.github.com/repos/SolaWing/xcode-build-server/releases", version_json_path = ".[].tag_name", version_order = "semver" }
+python                                  = ["3.15", "3.13"]
+java                                    = "latest"
+node                                    = "26"
+pnpm                                    = "latest"
+uv                                      = "latest"
+pixi                                    = "latest"
+cargo-binstall                          = "latest"
+"aqua:nextest-rs/nextest/cargo-nextest" = "latest"
+"aqua:taiki-e/cargo-llvm-cov"           = "latest"
+"cargo:cargo-edit"                      = "latest"
+"cargo:cargo-dylint"                    = "latest"
+cargo-insta                             = "latest"
+cmake                                   = "latest"
+git-lfs                                 = "latest"
+hk                                      = "latest"
+jactionlint                             = "latest"
+shellcheck                              = "latest"
+shfmt                                   = "latest"
+yamlfmt                                 = "latest"
+tombi                                   = "latest"
+google-java-format                      = "latest"
+swiftlint                               = { version = "latest", os = ["macos"] }
+periphery                               = { version = "latest", os = ["macos"] }
+"http:zxpsigncmd"                       = { version = "4.1.3", os = ["macos"], url = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/fcee8de5537d2dd2ed3d91d5a495b7041155b280/ZXPSignCMD/{{ version }}/macOS/ZXPSignCmd" }
+"dotnet:minver-cli"                     = "latest"
+"github:sbdchd/squawk"                  = "latest"
+ripgrep                                 = "latest"
+fd                                      = "latest"
+jq                                      = "latest"
+yq                                      = "latest"
+doppler                                 = "latest"
+pulumi                                  = "latest"
+gh                                      = "latest"
+pitchfork                               = "latest"
+colima                                  = { version = "latest", os = ["macos"], postinstall = 'mkdir -p "$COLIMA_HOME"' }
+lima                                    = { version = "latest", os = ["macos"] }
+docker-cli                              = { version = "latest", os = ["macos", "linux"] }
+"github:docker/buildx"                  = { version = "latest", bin = "docker-buildx", os = ["macos", "linux"], postinstall = 'mkdir -p "$DOCKER_CONFIG/cli-plugins" && ln -sfn "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$DOCKER_CONFIG/cli-plugins/docker-buildx"' }
+ast-grep                                = "latest"
+tree-sitter                             = "latest"
+carapace                                = "latest"
+sd                                      = "latest"
+difftastic                              = "latest"
+duckdb                                  = "latest"
+hyperfine                               = "latest"
+resvg                                   = "latest"
+"github:linebender/resvg"               = { version = "latest", matching = "usvg" }
+imagemagick                             = { version = "latest", os = ["macos", "windows"] }
+"github:fonttools/fontspector"          = { version = "latest", version_prefix = "fontspector-v" }
+"pypi:ast-grep/ast-grep-mcp"            = "latest"
+"pypi:tavily-cli"                       = "latest"
+"pypi:mcp-for-blender"                  = "latest"
+blender-mcp                             = "v1"
+"dotnet:RoslynCodeLens.Mcp"             = "latest"
+"dotnet:NuGet.Mcp.Server"               = "latest"
+"dotnet:Microsoft.AITools.BinlogMcp"    = "latest"
+"dotnet:ilspycmd"                       = "latest"
+"github:pmd/pmd"                        = { version = "latest", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
+"http:jdtls"                            = { version = "latest", url = 'https://download.eclipse.org/jdtls/milestones/{{ version }}/{{ exec(command="curl -fsSL https://download.eclipse.org/jdtls/milestones/" ~ version ~ "/latest.txt") }}', version_list_url = "https://download.eclipse.org/jdtls/milestones/", version_regex = 'milestones/(\d+\.\d+\.\d+)', version_order = "semver" }
+"http:xcode-build-server"               = { version = "latest", os = ["macos"], url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz", version_list_url = "https://api.github.com/repos/SolaWing/xcode-build-server/releases", version_json_path = ".[].tag_name", version_order = "semver" }
 
 [tools."http:rustc-source"]
 version          = "{{ read_toml(path='rust-toolchain.toml')['toolchain']['channel'] | trim_start(pat='nightly-') }}"
 url              = "https://static.rust-lang.org/dist/{{ version }}/rustc-nightly-src.tar.xz"
 strip_components = 1
-postinstall      = { run = 'ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/.cargo/rustc-source"', when = "always" }
+postinstall      = { run = 'rm -rf "$MISE_TOOL_INSTALL_PATH/src/llvm-project" && ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/.cargo/rustc-source"', when = "always" }
 
 [tools."github:NationalSecurityAgency/ghidra"]
 version          = "latest"
@@ -161,18 +168,54 @@ pitchfork = { program = "{{ mise_bin }}", args = ["exec", "--", "pitchfork", "su
 namespace = "rasm"
 
 [daemons]
-roslyn-codelens    = { run = "exec env -C / roslyn-codelens-mcp --http --port $PORT", env = { DOTNET_GCConserveMemory = "5" }, port = 7401, ready_port = 7401, proxy = false, boot_start = true }
-nuget              = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- nuget-mcp-server", env = { DOTNET_GCConserveMemory = "5" }, port = 7402, ready_http = { url = "http://127.0.0.1:7402/", status = [406], timeout = "5m" }, proxy = false, boot_start = true }
-binlog             = { run = 'exec env XDG_CACHE_HOME="$PWD/.cache" rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- binlog-mcp', env = { DOTNET_GCConserveMemory = "5" }, port = 7403, ready_http = { url = "http://127.0.0.1:7403/", status = [406], timeout = "5m" }, proxy = false, boot_start = true }
-ast-grep           = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- ast-grep-server --config sgconfig.yml", env = { AST_GREP_PATH = "sh -c 'c=$1; shift; exec ast-grep \"$c\" --custom-languages allow \"$@\"' ast-grep" }, port = 7404, ready_http = { url = "http://127.0.0.1:7404/", status = [406], timeout = "5m" }, proxy = false, boot_start = true }
-rhino-mcp-platform = { run = 'exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"', env = { RHINO_MCP_DEFAULT_VERSION = "9" }, port = 7406, ready_http = { url = "http://127.0.0.1:7406/", status = [406], timeout = "5m" }, proxy = false, boot_start = true }
-blender-lab        = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- blender-mcp", env = { BLENDER_MCP_PORT = "9877" }, port = 7407, ready_http = { url = "http://127.0.0.1:7407/", status = [406], timeout = "5m" }, proxy = false, boot_start = true }
-mcp-for-blender    = { run = "exec doppler run --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 --forward-signals=false -- rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- mcp-for-blender", env = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, port = 7408, ready_http = { url = "http://127.0.0.1:7408/", status = [406], timeout = "5m" }, proxy = false, boot_start = true }
-argus              = { run = "exec node plugins/argus/main.ts --listen 127.0.0.1:$PORT", port = 7410, ready_port = 7410, proxy = false, boot_start = true }
-playwright-test    = { run = "exec playwright run-test-mcp-server --headless -c tests/typescript/playwright.config.ts --host 127.0.0.1 --port $PORT", port = 7412, ready_port = 7412, proxy = false, boot_start = true }
+roslyn-codelens    = { run = "exec env -C / roslyn-codelens-mcp --http --port $PORT", env = { DOTNET_GCConserveMemory = "5" }, port = 7401, ready_port = 7401, stop_signal = { signal = "SIGTERM", timeout = "30s" }, proxy = false, boot_start = true, retry = true }
+nuget              = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- nuget-mcp-server", env = { DOTNET_GCConserveMemory = "5" }, port = 7402, ready_http = { url = "http://127.0.0.1:7402/", status = [406], timeout = "5m" }, proxy = false, boot_start = true, retry = true }
+binlog             = { run = 'exec env XDG_CACHE_HOME="$PWD/.cache" rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- binlog-mcp', env = { DOTNET_GCConserveMemory = "5" }, port = 7403, ready_http = { url = "http://127.0.0.1:7403/", status = [406], timeout = "5m" }, proxy = false, boot_start = true, retry = true }
+ast-grep           = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- ast-grep-server --config sgconfig.yml", env = { AST_GREP_PATH = "sh -c 'c=$1; shift; exec ast-grep \"$c\" --custom-languages allow \"$@\"' ast-grep" }, port = 7404, ready_http = { url = "http://127.0.0.1:7404/", status = [406], timeout = "5m" }, proxy = false, boot_start = true, retry = true }
+rhino-mcp-platform = { run = 'exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"', env = { RHINO_MCP_DEFAULT_VERSION = "9" }, port = 7406, ready_http = { url = "http://127.0.0.1:7406/", status = [406], timeout = "5m" }, proxy = false, boot_start = true, retry = true }
+blender-lab        = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- blender-mcp", env = { BLENDER_MCP_PORT = "9877" }, port = 7407, ready_http = { url = "http://127.0.0.1:7407/", status = [406], timeout = "5m" }, proxy = false, boot_start = true, retry = true }
+mcp-for-blender    = { run = "exec doppler run --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 --forward-signals=false -- rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- mcp-for-blender", env = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, port = 7408, ready_http = { url = "http://127.0.0.1:7408/", status = [406], timeout = "5m" }, proxy = false, boot_start = true, retry = true }
+argus              = { run = "exec node plugins/argus/main.ts --listen 127.0.0.1:$PORT", port = 7410, ready_port = 7410, proxy = false, boot_start = true, retry = true }
+playwright-test    = { run = "exec playwright run-test-mcp-server --headless -c tests/typescript/playwright.config.ts --host 127.0.0.1 --port $PORT", port = 7412, ready_port = 7412, proxy = false, boot_start = true, retry = true }
 docker             = { run = '{% if os() == "macos" %}exec env -C "$COLIMA_HOME" colima start --foreground --activate=false --ssh-config=false --mount none --cpus 4 --memory 4{% else %}exec docker events{% endif %}', ready_cmd = { run = 'if [ "$(uname -s)" = Darwin ]; then colima status; else docker version; fi', timeout = "5m" }, stop_signal = { signal = "SIGTERM", timeout = "120s" } }
 
 # --- [TASKS] ----------------------------------------------------------------------------
+[tasks.clean]
+description = "Removes build outputs and prunes tool caches"
+shell       = "bash -c"
+run         = '''
+set -euo pipefail
+if [[ -d .cache ]]; then
+    fd --no-ignore --hidden --max-depth 1 --exclude ast-grep --exclude binlog-mcp --exclude fetched --exclude jdtls --exclude nx --exclude pulumi --exclude swiftpm --exclude typescript --exclude xcode . .cache --exec-batch rm -rf
+fi
+rm -rf .cache/swiftpm/build .cache/swiftpm/index .build .swiftpm .playwright-cli
+if [[ -d .artifacts ]]; then
+    fd --no-ignore --hidden --max-depth 1 --exclude logs --exclude search --exclude workflows . .artifacts --exec-batch rm -rf
+fi
+if [[ -d .artifacts/logs ]]; then
+    fd --no-ignore --hidden --type f --changed-before 7d . .artifacts/logs --exec-batch rm -f
+fi
+fd --no-ignore --hidden --type d --glob '{dist,.cloudflare}' --exclude node_modules --exclude .archive apps libs tools plugins --exec-batch rm -rf
+shopt -s nullglob
+for file in "$HOME"/.lldb/lldb-mcp-*.json; do
+    pid="${file##*-}"
+    if [[ "${pid%.json}" =~ ^[0-9]+$ ]] && ! kill -0 "${pid%.json}" 2>/dev/null; then
+        rm -f "$file"
+    fi
+done
+providers=$(jq -cs '[.[] | select(.pulumi.resource == true) | .pulumi | {name, version}]' node_modules/@pulumi/*/package.json)
+pulumi plugin ls --json | jq -r --argjson providers "$providers" '.[] | select(.kind == "resource") | {name, version} | select(IN($providers[]) | not) | [.name, .version] | @tsv' |
+    while IFS=$'\t' read -r name version; do pulumi plugin rm resource "$name" "$version" --yes; done
+cargo clean
+cargo insta reject --workspace --quiet
+dotnet nuget locals http-cache --clear
+mise cache prune
+mise daemons prune --yes
+uv cache prune
+pnpm store prune
+pnpm cache prune
+'''
+
 [tasks."docker:update"]
 description = "Updates Colima VM engine and restarts VM on macOS"
 run         = '''

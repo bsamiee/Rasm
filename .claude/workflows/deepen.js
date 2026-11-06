@@ -260,7 +260,7 @@ const writes = MODE !== 'build' ? [] : await (async () => {
   const GRAPH = { type: 'object', properties: { packages: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, section: { type: 'string' }, files: PATHS, needs: PATHS }, required: ['id', 'title', 'section', 'files', 'needs'] } } }, required: ['packages'] }
   const planned = PLAN !== null || await parallel([
     ['code', `every declaration of ${root} with file, line and purpose, every import site of each public name in the consumers the row's [CONSUMERS] cell names and every other importer, and the manifest and workspace rows naming it`],
-    ['members', `members of every catalog package the row and ${row.companion} name, at the release ${row.catalog} pins: purpose, signature and feature of each`],
+    ['members', `members of every catalog package the row and ${row.companion} name, at the release ${row.catalog} pins; use the search-code tarball form for packages no project declares`],
   ].map(([key, ask]) => () => once(`${brief([root], target)}
 Write ${dir}/brief/${key}.md: ${ask}, as cited facts the planner designs from.`, { label: `brief:${key}`, phase: 'Plan', model: 'opus' })))
     .then((briefs) => briefs.every(Boolean) && once(`${brief([root], target)}

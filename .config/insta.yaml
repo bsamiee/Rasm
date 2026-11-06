@@ -1,6 +1,0 @@
-# --- [TEST] -----------------------------------------------------------------------------
-
-test:
-    runner: nextest
-    disable_nextest_doctest: true
-    unreferenced: reject

@@ -188,17 +188,22 @@ def probed(blender: Path, /) -> Outcome[Host]:
     Returns:
         Host facts, or fault of the run, its answer, or a cached answer's read.
     """
-    program = Path(__file__).with_name("probe.py")
     tags = tuple(target.tags[0] for target in TARGETS)
 
-    def asked(record: RecordFile[Host]) -> Outcome[Host]:
-        return committed(record.path, lambda stage: scripted(blender, program, stage, *tags, stdout=subprocess.PIPE, stderr=subprocess.PIPE)).bind(lambda _: record.read())
+    def cached(base: Path) -> Outcome[Host]:
+        program = base / "libs/python/blender/probe.py"
 
-    return (
-        paired(root(), _stamp(blender, program, tags).map_error(partial(Fault.of, Reason.UNREADABLE, str(blender))))
-        .map(lambda held: RecordFile(path=held[0] / f".cache/blender/host/{held[1]}.json", form=Host))
-        .bind(lambda record: record.found().bind(lambda found: found.map(Ok).default_with(lambda: asked(record))))
-    )
+        def asked(record: RecordFile[Host]) -> Outcome[Host]:
+            return committed(record.path, lambda stage: scripted(blender, program, stage, *tags, stdout=subprocess.PIPE, stderr=subprocess.PIPE)).bind(lambda _: record.read())
+
+        return (
+            _stamp(blender, program, tags)
+            .map_error(partial(Fault.of, Reason.UNREADABLE, str(blender)))
+            .map(lambda stamp: RecordFile(path=base / f".cache/blender/host/{stamp}.json", form=Host))
+            .bind(lambda record: record.found().bind(lambda found: found.map(Ok).default_with(lambda: asked(record))))
+        )
+
+    return root().bind(cached)
 
 
 # --- [ENVIRONMENTS]

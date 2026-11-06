@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
-metadata: {python-from: '3.14'}
+ignores: ['{apps/blender,libs/python/blender}/**']
 rule:
     kind: future_import_statement
     pattern: $IMPORT

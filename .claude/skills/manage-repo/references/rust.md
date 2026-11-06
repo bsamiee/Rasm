@@ -102,8 +102,9 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - `channel` and `clippy_utils.rev` move by hand, Dylint's driver reads `sym.rs` at the first rust-clippy `Rustup` merge holding the channel
 - `clippy_utils.rev` is the newest first-parent rust-clippy commit before the next `sym.rs` change, a later one fails `lints` UI tests
 - `cargo dylint upgrade` reads a `rust-toolchain` file in library package and moves to the first commit of a `clippy_utils` version
-- `mise upgrade` installs the declared channel with its profile and components through rustup, and matching `http:rustc-source`
-- `RUSTUP_AUTO_INSTALL = "0"` leaves installs to mise, a rustup proxy call on a new channel otherwise installs it beside `mise upgrade`
+- `mise install` installs the declared channel with its profile and components through rustup, and matching `http:rustc-source`
+- Refresh `mise.lock` after changing `rust-toolchain.toml` or `global.json`
+- `RUSTUP_AUTO_INSTALL = "0"` leaves toolchain installs to mise
 - Prereleases join by hand through a catalog row naming one, `cargo upgrade` then moves that row to newer releases and prereleases
 
 ## [09]-[LINT_LIBRARIES]
@@ -112,7 +113,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Export `register_lints` through `__maybe_mangle!` beside `dylint_library!()` for native exports under `unsafe_code = "forbid"`
 - Resolved types and effective visibility belong to Dylint; overlapping ast-grep rules exclude those forms through shared utilities
 - Lint libraries stay outside application coverage; Dylint's driver executes their diagnostics
-- Drivers use Dylint's native cache outside project cleanup
+- Dylint keeps drivers in `~/.dylint_drivers` and refuses a missing `DYLINT_DRIVER_PATH` directory
 
 ## [10]-[MODULES]
 

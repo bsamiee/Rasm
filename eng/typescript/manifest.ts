@@ -74,7 +74,6 @@ const Sgconfig = manifest(
                 utilDirs: Schema.Array(Schema.String),
                 customLanguages: Schema.Record(Schema.String, Schema.Struct({ libraryPath: Schema.String, extensions: Schema.Array(Schema.String), languageSymbol: Schema.optionalKey(Schema.String), expandoChar: Schema.optionalKey(Schema.String), outlineRules: Schema.OptionFromOptionalKey(Schema.String) })),
                 languageGlobs: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-                languageInjections: Schema.Array(Schema.Struct({ hostLanguage: Schema.String })),
             }),
         ),
     ),

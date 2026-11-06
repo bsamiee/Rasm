@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
-metadata: {python-below: '3.14'}
+files: ['{apps/blender,libs/python/blender}/**']
 rule:
     matches:
         python-evaluated-subscript:

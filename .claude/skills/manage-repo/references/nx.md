@@ -13,8 +13,7 @@
 - Workspace plugin `root` option holds root targets under root `package.json` `name`, Nx infers a root project from an `nx` field alone
 - Workspace plugin `grammars` option holds rows of project `grammars`, a project apart keeps root rows out of grammar hashes
 - `analytics: false` disables telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
-- `useDaemonProcess: false` stays, concurrent agents race daemon starts into a socket error and a disabled marker only `nx reset` clears
-- Live daemons recompute the graph on every file another agent writes
+- `useDaemonProcess: false` avoids graph rebuilds on every file batch, concurrent processes share one build through `project-graph.lock`
 - Sync generators take one `tools/nx/sync/<written kind>/<name>.ts` and one `tools/nx/sync/generators.json` row, in `syncGenerators` of the target reading what they write, else in `sync.globalGenerators`
 - `lint:nx` reports generator drift and `format:nx` writes it, `nx.json` `inputs` name each file a generator reads or writes, the plugin adds imports
 - Generators on a target rerun `createNodes` per run and off a TTY refuse the task over another writer's drift
@@ -103,4 +102,4 @@ Products version by Conventional Commits into tags alone, `nx.json` `release` an
 - `publish` uploads `pack` output to the release `--tag` names, then pushes it to host's channel
 - Products on a channel with no publish API hold no `publish`, `rasm:release` tags and releases them alone
 - Feed channels (`output:appcast`, `output:extension`) take a rolling `<project>-updates` release from `infra/`
-- First releases start from an unsigned lightweight `<group>-<project>-v0.0.0` tag and `rasm:release -- --specifier <version>`, the tag then goes
+- First releases start from `0.0.0`, GitHub creates each tag with its release

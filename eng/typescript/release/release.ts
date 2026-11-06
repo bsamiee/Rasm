@@ -12,8 +12,16 @@ const release = Command.make(
     { dryRun: Flag.Boolean('dry-run').pipe(Flag.withDefault(false)), specifier: Flag.String('specifier').pipe(Flag.optional) },
     Effect.fn('release')(function* ({ dryRun, specifier }) {
         yield* runCommand.records('\0', 'git', ['status', '--porcelain', '-z', '--no-renames']).pipe(Effect.filterOrFail(Array.isArrayEmpty, (paths) => new Cause.UnknownError(paths, `Uncommitted changes in ${paths.join(', ')}, commit before release`)));
+        yield* runCommand.shown('git', ['fetch', '--tags']);
         const { projectsVersionData, releaseGraph } = yield* Effect.tryPromise(() => releaseVersion({ dryRun, ...Record.getSomes({ specifier }) }));
-        const [{ projectChangelogs }, { nodes }] = yield* Effect.all([Effect.tryPromise(() => releaseChangelog({ versionData: projectsVersionData, releaseGraph, dryRun })), Effect.try(readCachedProjectGraph)]);
+        const applying = !dryRun && Object.values(projectsVersionData).some(({ newVersion }) => newVersion !== null);
+        if (applying) {
+            yield* runCommand.shown('git', ['push', 'origin', 'HEAD']);
+        }
+        const [{ projectChangelogs }, { nodes }] = yield* Effect.all([Effect.tryPromise(() => releaseChangelog({ versionData: projectsVersionData, releaseGraph, dryRun, gitTag: false, gitPush: false })), Effect.try(readCachedProjectGraph)]);
+        if (applying) {
+            yield* runCommand.shown('git', ['fetch', '--tags']);
+        }
         const published = Object.values(Record.filterMap(projectChangelogs ?? {}, ({ releaseVersion: released }, project) => (nodes[project]?.data.targets?.publish === undefined ? Result.failVoid : Result.succeed([`${project}:publish`, `--tag=${released.gitTag}`]))));
         yield* accumulate(published, (args) => (dryRun ? Console.log(`nx run ${args.join(' ')} [dry-run]`) : runCommand.shown('nx', ['run', ...args])));
     }),

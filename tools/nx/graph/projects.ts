@@ -3,8 +3,8 @@ import type { CreateNodesResult, Optional, ProjectConfiguration, TargetConfigura
 import { interpolate } from '@nx/devkit/internal';
 import { Array, Boolean, Effect, Equal, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
+import { parseSync } from 'rolldown/utils';
 import { quote } from 'shell-quote';
-import { parseSync } from 'vite';
 import { ClaudeHooks, decodeFile, XcodeProject } from '#/eng/typescript/manifest';
 import { TextFormat } from '#/eng/typescript/text-format';
 import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, type Workspace, WorkspaceError } from '#/tools/nx/workspace';
@@ -99,7 +99,14 @@ const pythonTargets = Effect.fnUntraced(function* (dir: string, { workspaceRoot,
             ? `python -m eng.python.blender run {projectName} --package ${quote([yield* Effect.fromOption(Record.get(members, Array.headNonEmpty(suites)), () => WorkspaceError.missing(Array.headNonEmpty(suites), 'workspace package'))])} --groups test -- --python-exit-code 1 --python ${quote([path.join(workspaceRoot, 'tests/python/libs/blender/bpy/background/session.py')])} -- -n0`
             : 'pytest';
     const pytest = folders.some((host) => segments.includes(host)) ? { options: { args: suites }, outputs: [] } : { options: { args: [...suites, '--cov'], env: { COVERAGE_FILE: coverage } }, outputs: [`{workspaceRoot}/${coverage}`] };
-    return Array.match(suites, { onEmpty: () => ({}), onNonEmpty: () => ({ check: {}, test: { command, inputs: suites.map(folderInput), ...pytest } }) });
+    const parents = Array.dedupe(suites.flatMap((suite) => Array.unfold(path.dirname(suite), (parent) => (parent === '.' ? Option.none() : Option.some([parent, path.dirname(parent)])))));
+    return Array.match(suites, {
+        onEmpty: () => ({ targets: {} }),
+        onNonEmpty: (held) => ({
+            namedInputs: { default: [...suiteInput(...held).namedInputs.default, '{workspaceRoot}/conftest.py', ...parents.map((parent) => `{workspaceRoot}/${path.join(parent, '*.py')}`)] },
+            targets: { check: {}, test: { command, ...pytest } },
+        }),
+    });
 });
 const attachedSuites = <Suite>(suites: Readonly<Record<string, Suite>>, module: string) => Record.getSomes(Record.map({ test: 'Tests', 'test:integration': 'IntegrationTests' }, (suffix) => Record.get(suites, `${module}${suffix}`)));
 const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
@@ -179,20 +186,17 @@ const markers = {
         };
     }),
     'blender_manifest.toml': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [{ packages }, { id }, targets] = yield* Effect.all([workspace.lockedPackages(dir), decodeFile(BlenderManifest, workspace.workspaceRoot, workspace.file), pythonTargets(dir, workspace)], { concurrency: 'unbounded' });
+        const [{ id }, python] = yield* Effect.all([decodeFile(BlenderManifest, workspace.workspaceRoot, workspace.file), pythonTargets(dir, workspace)]);
         return {
+            ...python,
             name: id,
             tags: ['language:python', 'output:extension'],
             targets: {
                 assets: {},
-                pack: {
-                    inputs: Array.getSomes(packages.map(Struct.get('directory')))
-                        .map(Struct.get('path'))
-                        .map(folderInput),
-                },
+                pack: {},
                 install: {},
                 publish: {},
-                ...targets,
+                ...python.targets,
             },
         };
     }),
@@ -219,10 +223,10 @@ const markers = {
         return { root, name, ...xcode, targets: { ...Record.map(xcode.targets, () => ({ options })), ...Record.fromIterableWith(['build', 'pack'], (step) => [step, { options, dependsOn: bundled }]) } };
     }),
     'py.typed': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [path, { moduleRoots, commands }, targets] = yield* Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]);
+        const [path, { moduleRoots, commands }, python] = yield* Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]);
         const moduleRoot = yield* Effect.fromOption(Array.findFirst(moduleRoots, (held) => !path.relative(held, dir).startsWith('..')));
         const command = commands.includes(dir);
-        return { name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python', ...(command ? ['output:command'] : [])], targets: { ...targets, ...(command ? { install: {} } : {}) } };
+        return { ...python, name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python', ...(command ? ['output:command'] : [])], targets: { ...python.targets, ...(command ? { install: {} } : {}) } };
     }),
     'tsconfig.json': Effect.fnUntraced(function* ({ dir }, workspace) {
         const { file, workspaceRoot, configs } = workspace;

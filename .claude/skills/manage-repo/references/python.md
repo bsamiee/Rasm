@@ -31,7 +31,12 @@ uv resolves projects, workspace members, and dependency groups through native me
 - Inherited process variables and linked library contents alone do not invalidate cached wheels
 - `uv cache clean <package>` then `uv sync --reinstall-package <package>` rebuilds an unkeyed native ABI change
 - Native environment constraints and consuming build settings change together when a library's soname series changes
-- Native library environments supply build variables without supplying another Python interpreter
+- `pixi run --locked uv sync` builds against one native prefix without installing a second Python interpreter
+- Native libraries stay in Pixi when a consumer has no wheel for a declared platform or opens a library by name
+- Keep versioned soname series in Pixi requirements; use `*` for libraries opened by name or linked without a version
+- `LDFLAGS` supplies C and C++ link paths, `LIBRARY_PATH` also reaches Rust links that record no `LC_RPATH`
+- Keep uv's cache outside the checkout, where Cargo can build Rust distributions outside the root workspace
+- CI syncs the `dev` group without Pixi; dependency markers keep Blender-only packages on its interpreter
 - `exclude-dependencies` selects one provider when distributions compete for one installed module
 
 ## [04]-[ENVIRONMENT]
@@ -44,15 +49,13 @@ uv resolves projects, workspace members, and dependency groups through native me
 - Python import visibility follows installed files, `sys.path`, and import hooks
 - Native builds can reuse objects and build-system caches from earlier source builds
 - Modules named in `sys.stdlib_module_names` shadow standard libraries when earlier on the import path
-- Native library lookup sits on a pixi `python` task per OS, `pixi run` loses activation `DYLD_*` rows and an activation `LD_LIBRARY_PATH` reaches sdist builds
+- The Pixi `python` task supplies library lookup variables to its child; macOS strips inherited `DYLD_*` during activation
 
 ## [05]-[CHECKERS]
 
 - Tools supporting per-file runtimes run once, tools accepting one version per process split by project `requires-python`
 - Checker cache inputs include implementation, imported source, settings, resolved dependencies, and the resolver-selected interpreter
-- Ruff, mypy, and pytest caches keep a `pyproject.toml` row and a `mise.toml` `[env]` row, no one setting reaches every run
-- `[env]` rows reach runs skipping the configuration (`--isolated`, `--config <file>`, `--config-file`, `-c`, `stubgen`), each default otherwise lands in the working folder
-- `pyproject.toml` rows reach runs outside mise, a windowed Blender and a shell started outside the checkout
+- Ruff, mypy, and pytest read cache paths from `pyproject.toml`, commands bypassing it use their own defaults
 - `mypy` skips dot-prefixed children during directory discovery, hidden source trees take explicit inputs
 - Ruff discovers nested interpreter requirements before an extended `target-version`
 - Compiler option snapshots decide interface cache compatibility

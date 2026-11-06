@@ -49,7 +49,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - `xcprojformatter` drops `name` and `id` keys from a `packages` row
 - `package-product-members` holds one row per module the app imports, Nx draws app module edges from rows naming a root library product
 - `..` rows link a product of any package the root manifest depends on, an app lists a remote row only for a package the manifest omits
-- Requirement changes run `pkg remove`, `pkg add`, and `pkg link` per linked product, in `packages` order
+- Requirement changes edit the package version in place and run `xcprojformatter --update` once per project
 - `pkg link` finds no `..` package while the synchronized folder holds a subdirectory, its rows join `package-product-members` by hand under `xcprojformatter`
 - Synchronized folders outside the project join through `group add --filesystem-path`, which writes a group-relative path
 - Info.plist keys with no `INFOPLIST_KEY_*` setting sit in `.config/Sparkle-Info.plist`, named by a `SRCROOT`-relative `INFOPLIST_FILE`
@@ -118,7 +118,7 @@ Toolchain upgrades edit the `Package.swift` tools version and `settings`, `build
 
 `only_rules` lists every enabled rule, a rule a release adds is off until an upgrade judges its id in `swiftlint rules`:
 - `included` is unset, when present SwiftLint lints its paths in place of a directory a command passes
-- Layout rules are off, `format:swift-format` runs after `format:swiftlint` and removes the sole `return` `direct_return` writes
+- Layout rules are off, hk runs `swift-format` after `swiftlint` to remove the sole `return` `direct_return` writes
 - Rules another owner reports first are off: compiler diagnostics, Periphery's unused parameters, `array_init` sites of `typesafe_array_init`
 - Size and complexity rules are off, as are rules forcing a form file organization rejects
 - `explicit_type_interface` is on, `redundant_type_annotation` and `explicit_acl` are off

@@ -6,7 +6,7 @@ class TagVersionActions extends VersionActions {
     override readonly validManifestFilenames = null;
 
     override readCurrentVersionFromSourceManifest() {
-        return Promise.resolve(null);
+        return Promise.resolve({ currentVersion: '0.0.0', manifestPath: '' });
     }
 
     override readCurrentVersionFromRegistry() {

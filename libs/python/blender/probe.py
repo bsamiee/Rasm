@@ -1,4 +1,4 @@
-"""Writes the facts the installed Blender states as JSON to the file `--` names, each wheel platform after it mapped to its extension platforms."""
+"""Write Blender's bundled versions and extension platforms as JSON."""
 
 import importlib.metadata
 import json

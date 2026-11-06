@@ -417,6 +417,7 @@ catalog:
     vite-plugin-webfont-dl: 3.13.1
     '@octokit/rest': 22.0.1
     '@modelcontextprotocol/inspector': 2.13.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
+    actions-up: 2.0.0
     npm-check-updates: 23.1.1
     verkit: 0.5.0 # Semantic version comparison and range selection
     '@renovatebot/pep440': 6.0.0 # PEP 440 version comparison

@@ -10,11 +10,6 @@
             "schema": "./schema.json",
             "description": "Writes each library's index.ts barrels from its package.json exports and modules"
         },
-        "catalog-mirror": {
-            "factory": "./packages/catalog-mirror.ts#catalogMirror",
-            "schema": "./schema.json",
-            "description": "Writes every default pnpm catalog key into root devDependencies"
-        },
         "injection-utils": {
             "factory": "./ast-grep/injection-utils.ts#injectionUtils",
             "schema": "./schema.json",

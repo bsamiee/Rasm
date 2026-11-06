@@ -10,7 +10,7 @@ use std::{
 
 use ast_grep_config::{DeserializeEnv, Rule, RuleSerializeError, SerializableRule, Transformation};
 use ast_grep_core::{
-    Language as _, Matcher as _,
+    Language as _, Matcher as _, PatternError,
     matcher::{Pattern, PatternNode},
     tree_sitter::LanguageExt as _,
 };
@@ -188,12 +188,12 @@ enum Failure {
     Text { transform: Value, source: Unparsed },
     #[error("cannot load the custom languages")]
     Library(#[source] DynamicLangError),
-    #[error("cannot encode a rule atom")]
-    Atom(#[source] serde_json::Error),
+    #[error("cannot encode JSON")]
+    Json(#[from] serde_json::Error),
     #[error("cannot compile rule {rule}")]
     Rule { rule: Value, source: Box<RuleSerializeError> },
-    #[error("cannot write the reply")]
-    Reply(#[source] serde_json::Error),
+    #[error("cannot inspect the literal as a pattern")]
+    LiteralPattern(#[from] PatternError),
 }
 
 impl Failure {
@@ -270,12 +270,15 @@ impl Table {
         })
     }
 
-    fn leaf(&self, text: &str) -> Option<(u16, String)> {
-        let recovered = self.language.ast_grep(self.language.pre_process_pattern(text)).root().get_inner_node().has_error();
+    fn leaf(&self, text: &str) -> Result<Option<(u16, String)>, Failure> {
+        if self.language.ast_grep(self.language.pre_process_pattern(text)).root().get_inner_node().has_error() {
+            return Ok(None);
+        }
         match Pattern::try_new(text, self.language).map(|pattern| pattern.node) {
-            Ok(PatternNode::Terminal { text: parsed, is_named: true, kind_id }) if !recovered && parsed == text =>
-                Some((kind_id, self.language.get_ts_language().node_kind_for_id(kind_id)?.to_owned())),
-            Ok(_) | Err(_) => None,
+            Ok(PatternNode::Terminal { text: parsed, is_named: true, kind_id }) if parsed == text =>
+                Ok(self.language.get_ts_language().node_kind_for_id(kind_id).map(|kind| (kind_id, kind.to_owned()))),
+            Ok(_) | Err(PatternError::NoContent(_) | PatternError::MultipleNode(_) | PatternError::RootMultiMetaVar(_)) => Ok(None),
+            Err(error) => Err(error.into()),
         }
     }
 
@@ -299,7 +302,10 @@ impl Table {
             Some([literal]) if whole && literal.is_exact() => Some(String::from_utf8_lossy(literal.as_bytes()).into_owned()),
             Some(_) | None => None,
         };
-        let Some(((id, kind), text)) = exact.and_then(|text| Some((self.leaf(&text)?, text))) else {
+        let Some(text) = exact else {
+            return Ok(None);
+        };
+        let Some((id, kind)) = self.leaf(&text)? else {
             return Ok(None);
         };
         (self.tested(subject)? == Some(BTreeSet::from([id])))
@@ -445,7 +451,7 @@ fn written_classes(written: &Written) -> Result<Vec<Class>, Failure> {
 // --- [RULES]
 
 fn serialized(atom: &Atom<'_>) -> Result<(Value, SerializableRule), Failure> {
-    let rule = serde_json::to_value(atom).map_err(Failure::Atom)?;
+    let rule = serde_json::to_value(atom)?;
     let held = serde_path_to_error::deserialize(&rule).map_err(Failure::document(&rule))?;
     Ok((rule, held))
 }
@@ -465,6 +471,6 @@ fn main() -> Result<(), Report<Failure>> {
         })
     };
     let reply = Reply { tokens: tokens.iter().map(token_structure).try_collect()?, regexes: regexes.iter().map(read).try_collect()? };
-    serde_json::to_writer(io::stdout().lock(), &reply).map_err(Failure::Reply)?;
+    serde_json::to_writer(io::stdout().lock(), &reply).map_err(Failure::from)?;
     Ok(())
 }

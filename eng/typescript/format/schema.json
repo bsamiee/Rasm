@@ -1,7 +1,0 @@
-{
-    "type": "object",
-    "properties": {
-        "files": { "description": "Git paths or directories, writer default file sets when empty", "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" } }
-    },
-    "required": [ "files" ]
-}

@@ -1,8 +1,22 @@
-amends "package://github.com/jdx/hk/releases/download/v2.10.0/hk@2.10.0#/Config.pkl"
-import "package://github.com/jdx/hk/releases/download/v2.10.0/hk@2.10.0#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtins.pkl"
 
 // --- [HOOKS] ----------------------------------------------------------------------------
 hooks {
+    ["fix"] {
+        steps {
+            ["ruff"] { glob = List("**/*.{py,pyi,pyw,ipynb}"); fix = "ruff check --fix {{files}} && ruff format {{files}}" }
+            ["biome"] { glob = List("**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}"); fix = "biome check --write --error-on-warnings --no-errors-on-unmatched {{files}}" }
+            ["tombi"] { glob = List("**/*.toml"); exclude = List(".mise/**"); fix = "tombi format {{files}}" }
+            ["yamlfmt"] { glob = List("**/*.{yml,yaml}"); fix = "yamlfmt -conf .config/yamlfmt.yaml {{files}}" }
+            ["shfmt"] { glob = List("**/*.sh"); fix = "shfmt -w -- {{files}}" }
+            ["rustfmt"] { glob = List("**/*.rs"); fix = "rustfmt --config skip_children=true {{files}}" }
+            ["swiftlint"] { glob = List("**/*.swift"); fix = "swiftlint lint --fix --quiet {{files}}" }
+            ["swift-format"] { glob = List("**/*.swift"); depends = List("swiftlint"); fix = "xcrun swift-format format --in-place --parallel {{files}}" }
+            ["google-java-format"] { glob = List("**/*.java"); fix = "google-java-format --aosp --replace {{files}}" }
+            ["xcprojformatter"] { glob = List("**/project.xcproj"); workspace_indicator = "project.xcproj"; fix = "xcrun xcprojformatter --update {{workspace}}" }
+        }
+    }
     ["commit-msg"] {
         steps {
             ["conventional-commit"] = Builtins.check_conventional_commit
