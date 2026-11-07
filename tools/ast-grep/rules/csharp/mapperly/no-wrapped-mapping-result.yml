@@ -1,38 +1,38 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-files: []
 utils:
     option:
         has: {kind: identifier, nthChild: 1, regex: '^Option$'}
     wrapper-type:
         kind: generic_name
-        has:
-            kind: identifier
-            nthChild: 1
-            pattern: $WRAPPER
-            regex: '^((Option|Fin|Either|Validation|Try|Reader|State|Writer|Identity)T?|IO|Eff|These|ChronicleT|RWST|Free|K)$'
-        any:
-            - inside:
-                field: type
-                stopBy: end
-                kind: method_declaration
-                matches: mapperly-mapping-method
-              not:
-                all:
-                    - matches: option
-                    - inside:
-                        field: type
-                        stopBy: end
-                        kind: method_declaration
-                        not: {has: {kind: modifier, regex: '^partial$'}}
-            - not: {matches: option}
-              inside:
-                kind: parameter
-                stopBy: end
-                inside:
-                    kind: parameter_list
-                    inside: {kind: method_declaration, matches: mapperly-mapping-method}
+        all:
+            - has:
+                kind: identifier
+                nthChild: 1
+                pattern: $WRAPPER
+                regex: '^((Option|Fin|Either|Validation|Try|Reader|State|Writer|Identity)T?|IO|Eff|These|ChronicleT|RWST|Free|K)$'
+            - any:
+                - inside:
+                    field: type
+                    stopBy: end
+                    kind: method_declaration
+                    matches: mapperly-mapping-method
+                  not:
+                    all:
+                        - matches: option
+                        - inside:
+                            field: type
+                            stopBy: end
+                            kind: method_declaration
+                            not: {has: {kind: modifier, regex: '^partial$'}}
+                - not: {matches: option}
+                  inside:
+                    kind: parameter
+                    stopBy: end
+                    inside:
+                        kind: parameter_list
+                        inside: {kind: method_declaration, matches: mapperly-mapping-method}
     option-parameter:
         kind: identifier
         pattern: $HELD

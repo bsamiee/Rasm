@@ -275,7 +275,7 @@ internal static class Lists {
             Subscriptions.Inline<MouseEventArgs>(h => grid.MouseMove += h, h => grid.MouseMove -= h).Attach(args => latest.Bind(current =>
                 when(current.Reorderable && args.Buttons is MouseButtons.Primary && atomic(() => dragging.Value).IsEmpty,
                     from moved in atomicIO(() => dragging.Value = toHashSet(Chosen<TItem>(grid).Map(node => current.Key(node.Row))))
-                    from dropped in when(!moved.IsEmpty, use(static () => new DataObject { Text = "" }).Map(data => { grid.DoDragDrop(data, DragEffects.Move); return unit; })).As()
+                    from dropped in when(!moved.IsEmpty, use(static () => new DataObject { Text = "" }).Bind(IO<Unit> (data) => IO.lift(() => grid.DoDragDrop(data, DragEffects.Move)))).As()
                     select unit).As())),
             Subscriptions.Inline<DragEventArgs>(h => grid.DragOver += h, h => grid.DragOver -= h).Attach(args => IO.lift(() => {
                 grid.GetDragInfo(args)?.RestrictToInsert();

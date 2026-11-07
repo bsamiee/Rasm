@@ -14,9 +14,8 @@ Run commands from a terminal or harness with Accessibility access, each prints t
 4. While a call outside `watch-apps` runs (Atelier script), run `watch` on the app and its dialog helpers in a Monitor
 
 ```bash
-watch-apps launch [<app>...] [--new] [--wait] \
-    [--document <path>]... [--arguments <argument>]... [--environment NAME=VALUE]...
-watch-apps quit (<app>... | --pid <pid>) [--force]
+watch-apps launch [<app>...] [--new] [--wait] [--document <path>...] [--environment NAME=VALUE...] [-- <argument>...]
+watch-apps quit <app-or-pid>... [--force]
 ```
 
 ```text
@@ -28,7 +27,7 @@ Monitor {"command": "watch-apps watch <app> [<helper>]...",
 - Codex sessions run `read` on the app after such a call in place of a Monitor
 - `watch` and `launch` resolve names as a path when starting with `/`, then by bundle id, Spotlight name or id, and containment, ignoring case and diacritics
 - Unmatched names print a `fail` line, `watch` follows every installation a name matches and exits when no name resolves
-- `quit`, `read`, and `capture` resolve names against running apps by bundle id, display name, or bundle path, then by display name containment, or take `--pid` alone
+- `quit`, `read`, and `capture` resolve each selector as a process ID from a line, else against running apps by bundle id, display name, or bundle path, then by display name containment
 - `quit`, `read`, and `capture` act on every instance a name matches, and print `{"<name>": {}}` when none runs
 - `launch` opens the newest installed release a name matches, equal versions at different paths printing a `fail` line naming each path
 - One instance per app: `launch` reuses the instance running at the app's path unless `--new` is passed
@@ -43,8 +42,8 @@ Monitor {"command": "watch-apps watch <app> [<helper>]...",
 - `watch-apps` quits, kills, closes a document, presses a button, or writes a preference only on an agent's command or the early end of a `launch --wait` run that created the instance
 - `--document` opens each file in the one named app, or with no app named in the file's default app, an unreachable file printing a `fail` line
 - Without `--document`, AppKit apps open an untitled document or their open panel, Adobe apps their Home screen with no document
-- `--arguments` and `--environment` reach only an instance `launch` creates, one value per flag, launchd's environment fills the rest
-- Launches take Rhino `-nosplash` and Blender `--no-window-focus` (absent `-b` or `--background`), other app switches pass through `--arguments`
+- Arguments after `--` and `--environment` values reach only an instance `launch` creates, launchd's environment fills the rest
+- Launches take Rhino `-nosplash` and Blender `--no-window-focus` (absent `-b` or `--background`), other app switches pass after `--`
 - `launch` captures neither the app's output nor error stream
 - Hooks rewrite `open`, `xed`, a launching `osascript`, and a bundle's executable into `launch`, a headless switch and a background-only or `LSUIElement` bundle running as written
 - Hooks rewrite `killall` and `pkill` into `kill` of their pids when each descends from the session, and refuse any other kill of every match
@@ -60,12 +59,12 @@ Every command exits 1 after printing a `fail` line and 0 otherwise, and ends whe
 Runs other than `watch` act once and exit:
 
 ```bash
-watch-apps read (<app>... | --pid <pid>) [--window <number>]
-watch-apps capture (<app>... | --pid <pid>) [--window <number>] [--longest-side <pixels>]
+watch-apps read <app-or-pid>... [--window <number>]
+watch-apps capture <app-or-pid>... [--window <number>] [--longest-side <pixels>]
 watch-apps perform <id> <action>
 watch-apps set <id> -- '<text>'
-watch-apps key --pid <pid> <code>
-watch-apps log [--pid <run pid>]
+watch-apps key <pid> <code>
+watch-apps log [<run pid>]
 watch-apps serve
 ```
 
@@ -85,7 +84,7 @@ watch-apps serve
 - Failed actions print a `fail` line keyed by `id` with `reason` `unresolved`, `disabled`, `refused`, or `unanswered`
 - Refused and unanswered actions can have run, `read` the instance before retrying one
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
-- `log` prints one line per run of the session with its `pid`, `at`, `argv`, `exit`, and last line per key, `--pid` every record of one run
+- `log` prints one line per run of the session with its `pid`, `at`, `argv`, `exit`, and last line per key, a run pid every record of that run
 - Runs append `{at, pid, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to `$WATCH_APPS_LOG` (`.artifacts/logs/watch-apps.log`), run `exit` holding `status`, or `signal` for a run a signal ended
 - `serve` answers the `ApplicationServer` wire over standard input and output, holding its parent's grants, for clients of `@rasm/applications`
 
@@ -127,9 +126,9 @@ Instances are read at insertion and after each window, sheet, title, focus, menu
 |  [02]   | `responding`, `asking` empty            | `read`, then `perform`, `set`, or `capture --window`         |
 |  [03]   | Row in `asking` with `options` or text  | `read --window <number>`, then `perform <id> AXPress`        |
 |  [04]   | Row with `kind` `undescribed`           | `capture --window <number>`, read the image                  |
-|  [05]   | Row with `kind` `blocking`              | `capture --window <number>`, then `key --pid <pid> <code>`   |
+|  [05]   | Row with `kind` `blocking`              | `capture --window <number>`, then `key <pid> <code>`         |
 |  [06]   | `unresponsive`, `process` `stopped`     | `kill -CONT <pid>`                                           |
-|  [07]   | `unresponsive` after quit, no answer    | `quit --pid <pid> --force`                                   |
+|  [07]   | `unresponsive` after quit, no answer    | `quit <pid> --force`                                         |
 |  [08]   | `fail` `untrusted`                      | Grant Accessibility access                                   |
 |  [09]   | `exited` with `report`                  | Read the report at `url` before a launch                     |
 

@@ -8,10 +8,10 @@ export const meta = {
 
 const owned = (row) => ({
   ...row,
-  pathspec: [...row.pathspec, ...row.outlines.flatMap((key) => [`':(glob)tools/ast-grep/*/${key}/**'`, `'tools/ast-grep/outline/${key}.yml'`, `'tools/ast-grep/outline/sources/${key}.yml'`])],
+  pathspec: [...row.pathspec, ...row.outlines.flatMap((key) => [`':(glob)tools/ast-grep/*/${key}/**'`, `'tools/ast-grep/outline/${key}.yml'`])],
   owners: [...row.owners, {
     name: 'ast-grep',
-    paths: row.outlines.flatMap((key) => [`tools/ast-grep/rules/${key}`, `tools/ast-grep/utils/${key}`, `tools/ast-grep/outline/${key}.yml`, `tools/ast-grep/outline/sources/${key}.yml`]),
+    paths: row.outlines.flatMap((key) => [`tools/ast-grep/rules/${key}`, `tools/ast-grep/utils/${key}`, `tools/ast-grep/outline/${key}.yml`]),
     decides: 'a form syntax decides alone, as a rule, a util its rules call or an outline row',
     skills: ['use-ast-grep'],
   }],
@@ -63,7 +63,7 @@ return {
       ],
       blender: {
         roots: ['libs/python/blender', 'apps/blender'],
-        sources: '.cache/python/3.13/lib/python3.13/site-packages',
+        sources: '.cache/python/*/lib/python*/site-packages',
         release: "Blender's bundled Python 3.13",
       },
     }),

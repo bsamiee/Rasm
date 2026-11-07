@@ -6,8 +6,6 @@ utils:
         any:
             - kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'
             - matches: rust-negative-number
-    text:
-        kind: 'string_literal, raw_string_literal'
     fixed-token:
         any:
             - kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'
@@ -49,8 +47,8 @@ utils:
                         kind: call_expression
                         all:
                             - has: {field: function, regex: '^((::)?(std::path::|camino::))?(Utf8)?Path(Buf)?::(new|from)$'}
-                            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: text}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: text, not: {regex: '^r?#*"(/|[A-Za-z]:|\\)'}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+                            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: rust-string-literal}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: rust-string-literal, not: {regex: '^r?#*"(/|[A-Za-z]:|\\)'}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
     literal-array-join:
         kind: call_expression
         all:
@@ -68,7 +66,7 @@ utils:
                 field: function
                 kind: field_expression
                 all:
-                    - has: {field: value, matches: text}
+                    - has: {field: value, matches: rust-string-literal}
                     - has: {field: field, regex: '^(to_uppercase|to_lowercase|to_ascii_uppercase|to_ascii_lowercase|trim|trim_start|trim_end|trim_matches|trim_start_matches|trim_end_matches|replace|replacen|strip_prefix|strip_suffix)$'}
             - not: {has: {field: arguments, has: {pattern: $_, not: {matches: literal}}}}
 rule:

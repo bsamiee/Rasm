@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-sleep-call
+language: tsxlang
+utils:
+    sleep-member:
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^sleep$'}}}
+rule:
+    kind: call_expression
+    has: {field: function, matches: sleep-member}

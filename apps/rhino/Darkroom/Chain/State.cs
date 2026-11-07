@@ -163,7 +163,7 @@ public abstract partial record ChainEdit {
 
     public IO<ChainState> Committed(RhinoDoc doc) =>
         from prior in ChainState.Read(doc)
-        from next in IO.lift(() => Applied(prior))
+        from next in IO.lift(Applied(prior))
         from committed in when(next != prior, Commits.Commit(doc, string.Join(' ', GetType().Name.Cons(Target.Bind(static id => ChainState.Kind(id).ToOption()).Map(static kind => kind.Name).ToSeq())),
             new RedrawPolicy.AllViews(Deferred: true), EffectList.Tune(new EffectSource.Document(doc), typeof(DarkroomEffect).GUID, next)).Map(static _ => unit)).As()
         select next;

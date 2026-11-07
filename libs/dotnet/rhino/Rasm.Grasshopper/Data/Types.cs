@@ -291,7 +291,7 @@ public static class DataTypes {
 
     private static IO<Unit> Keyed<TValue, TKey>(Func<ITypeAssistant<TKey>, TypeAssistant<TValue>> assistant, IO<Unit> conversions) =>
         from key in IO.lift(static () => Optional(TypeAssistantServer.Find<TKey>()).ToFin(new GrasshopperFault(typeof(TKey).ToString(), GrasshopperReason.Missing)))
-        from registered in IO.lift(() => GrasshopperFault.Unless(TypeAssistantServer.Register(assistant(key)), GrasshopperReason.Declined, typeof(TValue)))
+        from registered in IO.lift(GrasshopperFault.Unless(TypeAssistantServer.Register(assistant(key)), GrasshopperReason.Declined, typeof(TValue)))
         from converted in conversions
         from restorable in Assistant<TValue>()
         select unit;

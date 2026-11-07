@@ -35,7 +35,7 @@ public static class PlugInRegistry {
             return held;
         })
         let changed = current != loadSilently
-        from loaded in IO.lift(() => RhinoFault.Unless(!changed || !info.IsLoaded, RhinoReason.Unavailable, id))
+        from loaded in IO.lift(RhinoFault.Unless(!changed || !info.IsLoaded, RhinoReason.Unavailable, id))
         from written in when(changed, IO.lift(() => PlugIn.SetLoadProtection(id, loadSilently))).As()
         select unit;
 }

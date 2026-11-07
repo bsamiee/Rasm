@@ -18,7 +18,7 @@ internal static class Internals {
     private static extern object? AsObject([UnsafeAccessorType(VariantName)] object variant);
 
     internal static IO<Option<T>> Unwrapped<T>(Func<object?> read, string name) where T : notnull =>
-        Products.Maybe(read, name).Bind(held => IO.lift(() => held.Bind(static value => VariantType.IsInstanceOfType(value) ? Optional(AsObject(value)) : Some(value))
+        Products.Maybe(read, name).Bind(held => IO.lift(held.Bind(static value => VariantType.IsInstanceOfType(value) ? Optional(AsObject(value)) : Some(value))
                 .Traverse(value => Conversions.Cast<T>(value, name)).As()))
             .Bracket();
 

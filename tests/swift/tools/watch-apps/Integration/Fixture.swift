@@ -105,7 +105,7 @@ func launch(_ fixture: Fixture, _ settings: Settings = Settings(), flags: [Strin
 }
 
 func whole(_ fixture: Fixture, pid: String, flags: [String] = []) async throws -> JSONValue {
-    let read: (lines: [JSONValue], status: TerminationStatus) = try await tool(["read", "--pid", pid] + flags)
+    let read: (lines: [JSONValue], status: TerminationStatus) = try await tool(["read", pid] + flags)
     expectNoDifference(read.status, .exited(0))
     return try #require(read.lines.first?[fixture.identifier, pid, "running"])
 }

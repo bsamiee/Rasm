@@ -85,4 +85,4 @@ rule:
         - matches: pure-result
         - matches: tried-result
 message: '`$TYPE` holds failure in a result value beside the effect failure channel'
-note: 'Return `IO<A>` or `Eff<RT, A>`, `IO.lift` for `Fin` or `Either`, `ToFin` for `Validation` or `Try`, `ValidationT` to accumulate'
+note: 'Return `IO<A>` or `Eff<RT, A>`, `IO.lift` for `Fin` or `Either`, `ToFin` for `Validation` or `Try`, `FinT<IO>` `Apply` and `Traverse` run their effects concurrently, join errors, and leave through `.Run().As().Bind(IO.lift)`'

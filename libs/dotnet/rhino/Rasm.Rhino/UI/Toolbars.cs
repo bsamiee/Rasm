@@ -206,7 +206,7 @@ public static class Toolbars {
                     .Choose(static entry => Optional(entry as MenuEntry.Item)).Map(static item => (item.Id, item)))
                 from live in use(static () => new CancellationTokenSource(), static source => Products.Each(Seq(IO.lift(source.Cancel), IO.lift(source.Dispose))).Map(unit))
                 let handler = Updated(items, live.Token)
-                from registered in IO.lift(() => Products.Each(items.Values.ToSeq(), (item, index) => RhinoFault.Unless(RuiUpdateUi.RegisterMenuItem(file, item.Menu, item.Id, handler), RhinoReason.Declined, item.Id, index)))
+                from registered in IO.lift(Products.Each(items.Values.ToSeq(), (item, index) => RhinoFault.Unless(RuiUpdateUi.RegisterMenuItem(file, item.Menu, item.Id, handler), RhinoReason.Declined, item.Id, index)))
                 select unit,
             None: static () => IO.pure(unit));
 

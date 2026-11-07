@@ -88,6 +88,7 @@ File-to-language resolution:
 
 Rule scope:
 - `files:` and `ignores:` drop a rule per path after the file parses, `ignores:` reads first, CLI `--globs` alone skips parsing
+- `files: []` matches no path and turns the rule off, a rule without `files:` reads every file of its language
 - Globs root at the config directory for configured rules, the rule file's folder under `-r`, the working directory under `--inline-rules`
 - Paths outside that root stay absolute, `**/src/a.js` matches and `src/a.js` misses
 - `*` crosses `/` (`src/*.js` matches `src/deep/b.js`, `*.js` matches every path), a plain file name matches the one file at that root

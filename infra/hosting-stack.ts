@@ -251,7 +251,8 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const hostingTargets = { cloudflare: { modes: { production: hostingMode.edge, disposable: hostingMode.disposable }, program: Effect.fnUntraced(cloudflare) }, docker: { modes: { production: hostingMode.server, disposable: hostingMode.server }, program: Effect.fnUntraced(docker) } };
-const hostingStack = Effect.fn('hostingStack')(function* (directory: string, target: keyof typeof hostingTargets, disposable: boolean, tag: Option.Option<string>) {
+const hostingStack = Effect.fn('hostingStack')(function* (directory: string, target: keyof typeof hostingTargets, tag: Option.Option<string>) {
+    const disposable = Option.isNone(tag);
     const { modes, program } = hostingTargets[target];
     const mode = disposable ? modes.disposable : modes.production;
     const file = join(directory, 'cloudflare.config.ts');

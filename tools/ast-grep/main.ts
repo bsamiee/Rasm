@@ -1,4 +1,3 @@
-import process from 'node:process';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Console, Effect, FileSystem, Match, Option, Order, Path, Predicate, Record, Result, Runtime, Schema, Stream, Struct } from 'effect';
@@ -61,7 +60,6 @@ const WORDING = { written: { relation: '', missing: 'lacks', extra: 'adds' }, co
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Catalogs = Schema.Array(Schema.Tuple([Schema.String, Schema.String]));
 const GrammarFile = Schema.fromJsonString(Schema.Struct({ rules: Schema.Record(Schema.String, Schema.Unknown), extras: Schema.Array(Schema.Unknown), externals: Schema.Array(Schema.Unknown), word: Schema.optional(Schema.NullOr(Schema.String)) }));
 const Subject: Schema.Codec<Subject> = Schema.suspend(() => Schema.Struct({ kinds: Schema.Array(Schema.String), parent: Schema.optionalKey(Schema.Struct({ field: Schema.String, subject: Subject })) }));
 const Site = Schema.Struct({ language: Schema.String, subject: Subject });
@@ -225,7 +223,7 @@ const check = Effect.gen(function* () {
     };
     const grammars = yield* Effect.forEach(Record.toEntries(customLanguages), grammar, { concurrency: 'unbounded' });
     const folders = yield* Effect.forEach([...ruleDirs, ...utilDirs], (folder) => fs.glob(`${folder}/**/*.{yml,yaml}`), { concurrency: 'unbounded' });
-    const catalogs = yield* Schema.decodeUnknownEffect(Catalogs)(Array.chunksOf(process.argv.slice(2), 2));
+    const catalogs = Sgconfig.outlineCatalogs(path, customLanguages).map((catalog) => [catalog.language, catalog.source] as const);
     const files = [...catalogs.map(([language, file]) => ({ file, language: Option.some(language) })), ...folders.flat().map((file) => ({ file, language: Option.none<string>() }))];
     const read = ({ file, language }: (typeof files)[number]) => Effect.map(fs.readFileString(file), (content) => sited(file, parsed(content), language));
     const written = [sited(Sgconfig.file, parsed(source), Option.none()), ...(yield* Effect.forEach(files, read, { concurrency: 'unbounded' }))];

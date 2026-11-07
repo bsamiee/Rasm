@@ -7,6 +7,7 @@ packages:
 catalogMode: strict
 saveExact: true
 minimumReleaseAge: 0
+managePackageManagerVersions: false
 
 # --- [CATALOG] --------------------------------------------------------------------------
 catalog:
@@ -426,19 +427,14 @@ catalogs:
 overrides:
     '@pulumi/pulumi': 'catalog:'
     cloudevents>uuid: 14.0.2
-    '@tree-sitter-grammars/tree-sitter-toml>tree-sitter': '-'
-    '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
-    '@tree-sitter-grammars/tree-sitter-yaml>tree-sitter': '-'
-    tree-sitter-postgres>tree-sitter: '-'
-    tree-sitter-swift>tree-sitter: '-'
-    tree-sitter-swift>tree-sitter-cli: '-'
+    tree-sitter: '-'
+    tree-sitter-cli: '-'
     vite-plugin-inspect>@vitejs/devtools-kit: 'catalog:'
     '@qualithm/arrow-flight-client>apache-arrow': 'catalog:'
     '@use-gesture/react>react': 'catalog:'
     '@google/model-viewer>three': 'catalog:'
     '@pulumi/pulumi>typescript': 'catalog:'
     '@effect/docgen>typescript': 'catalog:'
-    'tsconfck>typescript': 'catalog:'
     '@effect/atom-react>scheduler': 'catalog:'
     vite>yaml: 'catalog:'
     vite>@vitejs/devtools: 'catalog:'
@@ -456,10 +452,6 @@ peerDependencyRules:
     allowedVersions:
         '@loaders.gl/core': '>=4.4.0'
         '@axe-core/playwright>playwright-core': '>=1.0.0-0'
-        '@storybook/react-vite>typescript': '>=7.0.0-0'
-        '@storybook/react>typescript': '>=7.0.0-0'
-        '@joshwooding/vite-plugin-react-docgen-typescript>typescript': '>=7.0.0-0'
-        react-docgen-typescript>typescript: '>=7.0.0-0'
 
 # --- [BUILDS] ---------------------------------------------------------------------------
 allowBuilds:

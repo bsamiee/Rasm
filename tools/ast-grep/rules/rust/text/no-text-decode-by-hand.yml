@@ -8,13 +8,6 @@ utils:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^(iter|into_iter|bytes|copied|cloned)$'}}
             - not: {has: {field: function, has: {field: value, stopBy: end, kind: range_expression}}}
             - has: {field: function, has: {field: value, any: [{not: {kind: call_expression}}, {matches: byte-source}]}}
-    byte:
-        any:
-            - kind: identifier
-            - kind: unary_expression
-              all:
-                - has: {field: operator, regex: '^\*$'}
-                - has: {kind: identifier}
     to-char:
         any:
             - kind: scoped_identifier
@@ -26,9 +19,9 @@ utils:
                     - kind: call_expression
                       all:
                         - has: {field: function, regex: '^((std|core)::)?(primitive::)?char::from$'}
-                        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: byte}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+                        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: rust-identifier-value}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
                     - kind: type_cast_expression
-                      all: [{has: {field: value, matches: byte}}, {has: {field: type, regex: '^char$'}}]
+                      all: [{has: {field: value, matches: rust-identifier-value}}, {has: {field: type, regex: '^char$'}}]
     utf16-unit:
         kind: closure_expression
         has:

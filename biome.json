@@ -1,6 +1,6 @@
 {
     "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-    "files": { "ignoreUnknown": true, "includes": [ "**", "!!.venv", "!!.pixi", "!!assets", "!!.claude/workflows", "!!**/indesign-uxp-types/**/*.ts", "!!**/*.{md,yml,yaml}", "!**/*.xcassets", "!**/*.icon", "!**/*.svg" ] },
+    "files": { "ignoreUnknown": true, "includes": [ "**", "!!assets", "!!.claude/workflows", "!!**/indesign-uxp-types/**/*.ts", "!!**/*.{md,yml,yaml}", "!**/*.xcassets", "!**/*.icon", "!**/*.svg" ] },
     "formatter": { "useEditorconfig": true, "lineWidth": 320 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },
     "json": { "formatter": { "expand": "auto", "delimiterSpacing": true } },
@@ -160,7 +160,7 @@
             }
         },
         {
-            "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/extendscript.ts" ],
+            "includes": [ "**/extendscript/**", "**/extendscript.ts" ],
             "linter": {
                 "rules": {
                     "nursery": { "useIncludes": "off", "useModernMathApis": "off", "useStringStartsEndsWith": "off" },

@@ -32,7 +32,7 @@ public static partial class Hooks {
                 var empty => settings.Get(ValuesKey, empty) as KeyedValues ?? empty,
             }))
         from bound in IO.lift(() => Bound.Swap(prior => prior | Some(candidate)))
-        from held in IO.lift(() => GrasshopperFault.Unless(bound.Exists(session => ReferenceEquals(session.Plugin, plugin)), GrasshopperReason.Taken, plugin.Name))
+        from held in IO.lift(GrasshopperFault.Unless(bound.Exists(session => ReferenceEquals(session.Plugin, plugin)), GrasshopperReason.Taken, plugin.Name))
         select unit;
 
     internal static IO<Unit> Saved =>

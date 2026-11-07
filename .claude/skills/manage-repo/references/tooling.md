@@ -8,6 +8,7 @@
 - `dotnet:<id>` rows install a .NET tool package's command, `dotnet dnx` resolves the feed on each launch and keeps a CLI parent process beside the tool
 - `http:<tool>` rows install a release source archive for a tool with no registry entry and no release asset
 - `http:` rows reading a releases API set `version_order = "semver"`, mise takes the last entry of a listing ordered newest first
+- `prereleases = true` lets `latest` take a rolling development build published as a prerelease, a `version_regex` over release tags excludes it
 - `auto_install = false` prevents downloads and permits the next `PATH` copy, `status.missing_tools = "always"` reports the missing tool
 - `registry_floating = true` reads current mise and aqua registries, snapshots baked into the mise binary answer when no cached copy loads
 - Node stays on the supported major while dependency-cruiser rejects the next major's prereleases
@@ -20,6 +21,7 @@
 - Tools a target calls keep their row and read settings from repository files alone, machine setup installs tools and configures none
 - `pnpm install --frozen-lockfile` validates every workspace manifest, `CI` alone leaves pnpm resolving against a stale lock
 - Registry rows resolving to `conda:` (`imagemagick`) install a closure in their own `@rpath` prefix, linking no Homebrew, Nix, or Pixi library
+- `actions/checkout` with `lfs: true` fails its LFS scan under a partial clone `filter` (`tree:0`, `blob:none`)
 
 ## [02]-[ENVIRONMENT]
 
@@ -27,7 +29,8 @@
 - Rows render in file order, later rows read a shared value from one earlier `[env]` row as `{{ env.<NAME> }}`
 - Configuration `exec()` templates need their command on `PATH`, URL templates using `version` render during installation
 - `[env]` holds values shells and repository programs read, a value one daemon alone reads sits in its `[daemons]` row `env`
-- macOS-only `[env]` rows and tasks sit in `.config/mise.macos.toml`, which `auto_env` in `.config/miserc.toml` loads, an `os()` branch rendering empty exports an empty string where the platform file leaves the variable unset
+- Platform `[env]` and `[daemons]` rows sit in `.config/mise.<os>.toml`, which `auto_env` in `.config/miserc.toml` loads, an `os()` branch rendering empty exports an empty string where the platform file leaves the variable unset
+- Nx inference reads daemon names and source files from `mise daemons ls --json` and each row from its source, a non-boot row becoming a root target that starts it
 
 ## [03]-[SERVICES]
 
@@ -43,7 +46,7 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `boot_start = true` rows start under `pitchfork supervisor run --boot`
 - `COLIMA_HOME` and `DOCKER_CONFIG` keep VM and Docker state outside the checkout
 - Readiness without a timeout waits while the process runs, Docker times out when the VM boots without its engine
-- `rasm:docker` starts Colima on macOS and checks the Docker engine on Linux
+- `rasm:docker` starts each platform file's `docker` row: Colima on macOS, `docker events` on Linux and Windows, where systemd or Docker Desktop runs the engine and an unreachable engine fails the start at once
 - `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names socket inside the engine's host, Ryuk mounts it and fails on Colima's client socket path
 - PostgreSQL services with persisted data follow one major tag until an upgrade migrates their data.
 - Harness rows hold service URLs and read no `[env]` value into MCP config
@@ -72,10 +75,10 @@ Daemon operations:
 - Tools move by `mise lock --bump` then `mise install`, `mise upgrade` corrupts a growing `conda:` closure and drops `pypi:` environments on a Python move
 - `.config/mise.lock` holds its platforms, `mise lock --platform` sets them once and later runs keep them
 - `pypi:ast-grep/ast-grep-mcp` has no release or tag, mise holds such a GitHub source at the literal `latest` and `mise install --force` moves it
-- `build-settings` writes `.config/hk.pkl` package URLs from the `hk` row of `.config/mise.lock`, Pkl takes no interpolation in a module URI
+- `build-settings` writes `.config/hk.pkl` package URLs from the `hk` row of `.config/mise.lock`
 - `rasm:upgrade` ends with `nx sync` and a restart of each `boot_start` row onto installed tools, the supervisor keeps its binary until next login
 - `mise prune --yes` ends the update, a version a running process started from stays until that process exits
-- `upgrade:docker` runs `docker:update` on macOS. The update waits for Colima's VM, then restarts it and checks the upgraded Docker engine.
+- `upgrade:docker` takes `rasm:docker`, then runs `colima update` and restarts the `docker` row
 - `mise run clean` keeps native prefixes, task caches, and installed tools
 
 ## [05]-[TOML]

@@ -37,13 +37,13 @@ public static class MeshIntersections {
     public static IO<Seq<IntersectingMeshPair>> Pairs(Tolerances tolerances, Sets<Mesh> meshes, bool fast) =>
         from token in cancelToken
         from answered in IO.lift(() => (Found: Intersection.MeshMeshPredicate(meshes.Operands.First, meshes.Operands.Second, tolerances.MeshIntersection, fast, out IntersectingMeshPair[] pairs, textLog: null, token), Pairs: pairs))
-        from live in IO.lift(() => token.IsCancellationRequested ? Fin.Fail<Unit>(Errors.Cancelled) : unit)
+        from live in IO.lift(token.IsCancellationRequested ? Fin.Fail<Unit>(Errors.Cancelled) : unit)
         select answered.Found ? Conversions.Rows(answered.Pairs) : Seq<IntersectingMeshPair>();
 
     public static IO<bool> Intersects(Tolerances tolerances, Sets<Mesh> meshes, bool fast) =>
         from token in cancelToken
         from found in IO.lift(() => Intersection.MeshMeshPredicate(meshes.Operands.First, meshes.Operands.Second, tolerances.MeshIntersection, fast, textLog: null, token))
-        from live in IO.lift(() => token.IsCancellationRequested ? Fin.Fail<Unit>(Errors.Cancelled) : unit)
+        from live in IO.lift(token.IsCancellationRequested ? Fin.Fail<Unit>(Errors.Cancelled) : unit)
         select found;
 
     public static IO<Seq<Option<MeshClash>>> Clashes(Seq<Mesh> setA, Seq<Mesh> setB, double distance, int maxEvents) =>
@@ -59,8 +59,7 @@ public static class MeshIntersections {
 
     // --- [POINTS]
     public static IO<Seq<(Point3d Point, int Index)>> Points(Func<(Point3d[]? Points, int[]? Indices)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
-        IO.lift(call).Bind(answered => IO.lift(() =>
-            from points in Optional(answered.Points).ToFin(new RhinoFault(member, RhinoReason.Missing))
-            from indices in Optional(answered.Indices).ToFin(new RhinoFault(member, RhinoReason.Missing))
-            select toSeq(points).Zip(toSeq(indices), static (point, index) => (Point: point, Index: index)).Strict()));
+        IO.lift(call).Bind(answered => IO.lift(from points in Optional(answered.Points).ToFin(new RhinoFault(member, RhinoReason.Missing))
+                                               from indices in Optional(answered.Indices).ToFin(new RhinoFault(member, RhinoReason.Missing))
+                                               select toSeq(points).Zip(toSeq(indices), static (point, index) => (Point: point, Index: index)).Strict()));
 }

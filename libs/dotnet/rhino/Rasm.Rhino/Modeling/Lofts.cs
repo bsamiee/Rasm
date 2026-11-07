@@ -118,7 +118,7 @@ public static class Lofts {
         from made in IO.lift(network)
         from held in Products.Maybe(() => made.Surface, call)
         let failure = (NetworkFailure)made.Error
-        from surface in IO.lift(() => failure is NetworkFailure.None
+        from surface in IO.lift(failure is NetworkFailure.None
             ? held.ToFin(new RhinoFault(call, RhinoReason.Missing))
             : new RhinoFault(failure, RhinoReason.Declined))
         select surface;
@@ -130,6 +130,6 @@ public static class Lofts {
         from token in cancelToken
         from patched in IO.lift(() => (Patch: Brep.CreateVariationalPatch(edges, internalCurves, points, settings, multiThreading, token, progress.ValueUnsafe(), out Brep.VariationalPatchResult result), Result: result))
         from held in Products.Maybe(() => patched.Patch)
-        from patch in IO.lift(() => Conversions.Unreported(held.IsNone ? patched.Result.Error : null).Bind(_ => Conversions.Required(held)))
+        from patch in IO.lift(Conversions.Unreported(held.IsNone ? patched.Result.Error : null).Bind(_ => Conversions.Required(held)))
         select (patch, patched.Result);
 }

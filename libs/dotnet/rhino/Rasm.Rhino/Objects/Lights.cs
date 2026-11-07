@@ -221,7 +221,7 @@ public static class Lights {
     // --- [RECONCILE]
     public static IO<Seq<(string Slot, Guid Id, bool Created)>> Reconcile(RhinoDoc doc, KeyName group, Seq<(string Slot, LightSpec Spec)> lights) =>
         from unique in IO.lift(Conversions.Unique(lights, static light => light.Slot, StringComparer.Ordinal))
-        from key in IO.lift(() => $"{Session.PlugIn.Id:N}.{group}")
+        let key = $"{Session.PlugIn.Id:N}.{group}"
         from held in IO.lift(() => toHashMap(Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted)
             .Choose(row => Conversions.Present(row.Attributes.GetUserString(key)).Map(slot => (slot, row.Id)))))
         from placed in lights.TraverseM(light => held.Find(light.Slot).Match(

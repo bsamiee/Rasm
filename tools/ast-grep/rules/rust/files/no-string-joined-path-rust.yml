@@ -2,8 +2,6 @@
 language: rustlang
 severity: error
 utils:
-    literal:
-        kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'
     slash:
         any:
             - {kind: string_literal, regex: '^"(/|/[^/"][^"]*|[^"]*[^:/"]/)"$'}
@@ -24,7 +22,7 @@ utils:
                 - has: {stopBy: end, matches: slash, inside: {kind: binary_expression, has: {field: operator, regex: '^\+$'}}}
             - kind: call_expression
               all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^join$'}}, {has: {field: value, kind: array_expression, has: {pattern: $_, not: {matches: literal}}}}]}
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^join$'}}, {has: {field: value, kind: array_expression, has: {pattern: $_, not: {matches: rust-literal}}}}]}
                 - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: slash}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
     path-call:
         kind: call_expression

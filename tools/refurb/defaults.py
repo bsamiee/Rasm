@@ -31,11 +31,11 @@ lazy from mypy.nodes import (
     UnaryExpr,
     Var,
 )
-lazy from mypy.types import CallableType, FunctionLike, get_proper_type, Instance, Type
-lazy from refurb.checks.common import get_mypy_type, is_equivalent, stringify
+lazy from mypy.types import CallableType, FunctionLike, get_proper_type, Instance
+lazy from refurb.checks.common import is_equivalent, stringify
 lazy from refurb.error import Error
 
-from tools.refurb.findings import fullname, RasmError
+from tools.refurb.findings import fullname, RasmError, Reads
 from tools.refurb.loops import Traverser
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -73,8 +73,8 @@ class ErrorRestatedDefaultError(RasmError):
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def configured(type_of: Callable[[Expression], Type | None] | None = None) -> Callable[[MypyFile, list[Error]], None]:
-    """Returns a check that resolves mutable callees through supplied native expression types."""
+def configured(reads: Reads) -> Callable[[MypyFile, list[Error]], None]:
+    """Returns a check that resolves mutable callees through the build's expression types and reads each struct body through `reads`."""
     struct, field = fullname(msgspec.Struct), fullname(msgspec.field)
 
     def check(node: MypyFile, errors: list[Error]) -> None:
@@ -91,8 +91,7 @@ def configured(type_of: Callable[[Expression], Type | None] | None = None) -> Ca
                     callee = constructor
                 case _:
                     pass
-            receiver = (type_of(callee.expr) if type_of is not None else get_mypy_type(callee.expr)) if isinstance(callee, MemberExpr) and callee.node is None else None
-            proper = get_proper_type(receiver) if isinstance(receiver, Type) else receiver
+            proper = get_proper_type(reads.types.get(callee.expr)) if isinstance(callee, MemberExpr) and callee.node is None else None
             match callee, proper.type_object() if isinstance(proper, FunctionLike) and proper.is_type_obj() else proper:
                 case RefExpr(node=symbol), _ if symbol is not None:
                     pass
@@ -103,8 +102,8 @@ def configured(type_of: Callable[[Expression], Type | None] | None = None) -> Ca
             match symbol:
                 case Decorator(func=function) | OverloadedFuncDef(impl=Decorator(func=function) | (FuncDef() as function)):
                     return function
-                case Var(type=signature, is_final=final):
-                    match get_proper_type(type_of(callee) if type_of is not None else signature if final else None):
+                case Var():
+                    match get_proper_type(reads.types.get(callee)):
                         case CallableType() as called:
                             return called.type_object() if called.is_type_obj() else get_func_def(called)
                         case _:
@@ -117,7 +116,7 @@ def configured(type_of: Callable[[Expression], Type | None] | None = None) -> Ca
         @cache
         def fields(base: TypeInfo) -> dict[str, Expression]:
             held: dict[str, Expression] = {}
-            for statement in base.defn.defs.body:
+            for statement in reads.body(base):
                 match statement:
                     case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=CallExpr(callee=RefExpr(fullname=callee)) as call) if callee == field:
                         held[name] = next((value for argument, value in zip(call.arg_names, call.args) if argument == "default"), call)
@@ -161,7 +160,7 @@ def configured(type_of: Callable[[Expression], Type | None] | None = None) -> Ca
                     held = {
                         name: value
                         for name in frozenset(name for call in calls for name in call.arg_names if name is not None)
-                        if (base := info.get_containing_type_info(name)) is not None and (value := fields(base).get(name)) is not None and literal(value)
+                        if (value := next((found for base in info.mro if (found := fields(base).get(name)) is not None), None)) is not None and literal(value)
                     }
                 case _:
                     continue
@@ -175,7 +174,7 @@ def configured(type_of: Callable[[Expression], Type | None] | None = None) -> Ca
     return check
 
 
-check = configured()
+check = configured(Reads())
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -145,7 +145,7 @@ public static class StyleTables {
                 create: static (state, create) =>
                     (from row in state.Staged(None, create.Spec.Spec)
                      from named in IO.lift(() => { row.Name = create.Spec.Name; })
-                     from index in IO.lift(() => Conversions.Required(Conversions.Present(state.Kind.Add(state.Doc, row))))
+                     from index in IO.lift(Conversions.Required(Conversions.Present(state.Kind.Add(state.Doc, row))))
                      select Some((create.Spec.Name, index))).Bracket(),
                 change: static (state, change) =>
                     (from row in state.Staged(Some(change.Row), change.Spec.Spec)

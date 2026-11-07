@@ -2,12 +2,9 @@
 language: rustlang
 severity: error
 utils:
-    float:
-        kind: primitive_type
-        regex: '^f(32|64)$'
     component-type:
         any:
-            - matches: float
+            - matches: rust-float-type
             - kind: type_identifier
               pattern: $T
               inside: {kind: struct_item, stopBy: {kind: struct_item}, has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $T}}}}
@@ -27,7 +24,7 @@ utils:
         all:
             - has: {nthChild: {position: 2, ofRule: &field {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}}
             - not: {has: {nthChild: {position: 5, ofRule: *field}}}
-            - not: {has: {pattern: $_, all: [*field, {not: {matches: float}}]}}
+            - not: {has: {pattern: $_, all: [*field, {not: {matches: rust-float-type}}]}}
 rule:
     kind: struct_item
     all:

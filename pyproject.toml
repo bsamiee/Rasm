@@ -1,10 +1,9 @@
 # --- [PROJECT] --------------------------------------------------------------------------
 
 [project]
-name            = "rasm"
-version         = "0.0.0"
-description     = "Repository Python environment and checker policy"
-requires-python = ">=3.13"
+name        = "rasm"
+version     = "0.0.0"
+description = "Repository Python environment and checker policy"
 
 dependencies = ["blender", "typography; python_version >= '3.15'", "foundry; python_version >= '3.15'"]
 
@@ -322,7 +321,6 @@ workspace   = [
     "zxing-cpp",                                                                  # 2D matrix code encode and decode
 ]
 host-checks = [
-    "deptry",                                                                     # Import-to-requirement checker for host packages
     "fake-bpy-module-latest",                                                     # Stubs for bpy, bmesh, mathutils, and gpu
     "scipy-stubs",
     "types-networkx",
@@ -344,13 +342,8 @@ test        = [
     "sysexits",                                                                   # Portable process exit codes
     "trio",                                                                       # AnyIO Trio backend and virtual-time clocks
 ]
-icons       = [
-    "coloraide",                                                                  # Color parsing, conversion, and sRGB gamut fitting
-    "picosvg",                                                                    # SVG geometry normalization and path operations
-]
 dev         = [
     { include-group = "test" },
-    { include-group = "icons" },
     { include-group = "host-checks" },
 
     # --- [CHECKERS]
@@ -362,7 +355,8 @@ dev         = [
     "yamllint",                                                                   # YAML linter rasm:check runs
 
     # --- [SCRIPTS]
-    "asttokens",                                                                  # Source token ranges over `ast` nodes for in-place rewrites
+    "asttokens",
+    "coloraide",                                                                  # Color parsing, conversion, and sRGB gamut fitting                                                                  # Source token ranges over `ast` nodes for in-place rewrites
     "cyclopts",                                                                   # CLI parser from typed signatures
     "editorconfig",                                                               # EditorConfig property resolution per file path
     "expression",                                                                 # Result and Option types, collections, and catch over raising calls
@@ -373,7 +367,8 @@ dev         = [
     "mdit-py-plugins",                                                            # Front-matter and extension rules for markdown-it-py
     "numpy",                                                                      # N-dimensional arrays and vectorized math
     "packaging",                                                                  # Python requirement, marker, and `pylock.toml` parsing
-    "pathvalidate",                                                               # Native filename validation before resetting a Blender run folder
+    "pathvalidate",
+    "picosvg",                                                                    # SVG geometry normalization and path operations                                                               # Native filename validation before resetting a Blender run folder
     "pooch",                                                                      # Pinned downloads checked by hash into a content cache
     "psutil",                                                                     # Process and host resource readings
     "pydantic",                                                                   # Validated models at protocol boundaries
@@ -440,7 +435,7 @@ no-build-package         = ["epdx"]                              # `epdx` sdist 
 extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
 [tool.uv.workspace]
-members = ["libs/python/blender", "apps/blender/darkroom"]
+members = ["libs/python/blender", "apps/blender/*"]
 
 [tool.uv.sources]
 blender    = { workspace = true }
@@ -677,9 +672,8 @@ require-lazy = [
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
-environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python"] }
+environment = { python-platform = "all", root = [".", "libs/python"] }
 rules       = { all = "error" }
-src         = { include = ["**", ".claude"] }
 
 # --- [MYPY] -----------------------------------------------------------------------------
 

@@ -9,7 +9,7 @@ MSBuild directory files and central package versions own every shared .NET decla
 - Releases come from nuget.org, the one `NuGet.config` source, a per-commit build on a dnceng feed (`dotnet-tools`) is no release
 - Version edits splice attribute text in place, `XmlDocument` or `ProjectRootElement` saves collapse row alignment
 - Newest release is the highest listed framework-compatible release by `NuGetVersion` across base versions, a stable release above its prereleases
-- Package metadata and downloads read NuGet's HTTP cache under its default age
+- Package metadata reads NuGet's HTTP cache under its default age, `GetDownloadResourceResultAsync` reads the global packages folder before the feed
 - Rows move down when their current version is unlisted or incompatible with a consuming project's target framework
 - `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry
 - SDK moves enable the new SDK's analyzer rules through `latest-all`, rules it leaves disabled (CA1021, CA1045) take their own `.config/analyzers.globalconfig` rows
@@ -30,7 +30,7 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 ## [03]-[PROJECTS]
 
 - `MSBUILD_LOGGING_ARGS` writes a `dotnet` project target's binlog and none for a file-based `.cs` target, which takes a `-bl:` argument
-- Plug-ins and projects holding `Windows/` sources take `platform:windows` and a `check` prerequisite `build:windows` compiling them for `win-x64`
+- Products take `platform:windows` and a `check` prerequisite `build:windows`, a Release `win-x64` build compiling each referenced Rhino-host library
 - `Directory.Build.props` gives a foreign runtime its own `ArtifactsPath`, its restore rewrites `project.assets.json` for that runtime
 - `dotnet build` walks its own references, serial per Nx task and uncached: a restored output's new timestamp recompiles every consumer
 - Copy-local files hard link into the package folder
@@ -44,6 +44,9 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 - IDE design-time builds, `dotnet format`, and Roslyn workspaces read no `Directory.Build.rsp`, a setting they need sits in `Directory.Build.props`
 - File-based app builds read only `-m` and `-mt` from `Directory.Build.rsp` and reject `-check`, their virtual projects run no BuildCheck
 - MSBuildWorkspace warns on a referenced project lacking a reference assembly, `ProduceReferenceAssembly` keeps `dotnet format` loads clean
+- `dotnet format` over the solution outruns one process per project, each process recompiling every project it references
+- `dotnet format` style step runs every IDE rule from its own copy, `EnforceCodeStyleInBuild` under `DesignTimeBuild` runs them twice
+- IDE0001 and IDE0002 rerun nullable analysis for each candidate replacement, large expression-bodied members hold most of their cost
 - C# symbol bans sit in `tools/roslyn/BannedSymbols.txt`, `BannedSymbols.Library.txt` beside it holds bans for projects under `libs/`
 
 ## [05]-[ANALYZERS]
@@ -81,5 +84,6 @@ Installed Rhino owns the host assembly set, its target framework, and how each U
 - Rhino opens `<plug-in>.rui` in place beside the registered `.rhp`, an installed package's from its version folder
 - `yak build` adds a `guid:` keyword for Grasshopper 2 plug-ins alone, `BuildYakPackage` sets it on every `yak spec` manifest
 - Yak packages contain the SDK's current publish files and generated manifest, and replace the platform archive after a successful build
+- `BuildYakPackage` `Inputs` hold publish files, imported project files, the Rhino files Yak and Compat read, and the `yq` version, a run skips while the archive and manifest are newer
 - Rhino's bundled Compat checks the macOS plug-in entry assembly against installed host and published dependencies before Yak builds the archive
 - `MinVerIgnoreHeight` keeps a plug-in's version folder between release tags, so a reinstall keeps its registered path

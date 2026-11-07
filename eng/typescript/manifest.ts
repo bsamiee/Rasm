@@ -51,8 +51,11 @@ const Package = manifest(
 );
 const Installed = manifest(Package.file, Schema.fromJsonString(Schema.Struct({ name: Schema.String, dependencies: Strings, optionalDependencies: Strings, peerDependencies: Strings, napi: Schema.OptionFromOptionalKey(Schema.Unknown) })));
 const ClaudeHooks = manifest('hooks/hooks.json', Schema.fromJsonString(Schema.Struct({ modules: Schema.NonEmptyArray(Schema.String) })));
-const Mise = manifest('.config/mise.toml', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ daemons: Schema.Record(Schema.String, Schema.Union([Schema.String, Daemon])) }))));
-const MiseLock = manifest('.config/mise.lock', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ tools: Schema.Struct({ hk: Schema.NonEmptyArray(Schema.Struct({ version: Schema.String })) }) }))));
+const Mise = {
+    ...manifest('.config/mise.toml', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ daemons: Schema.Record(Schema.String, Schema.Union([Schema.String, Daemon])) })))),
+    declared: Schema.Array(Schema.Struct({ name: Schema.String, source: Schema.NullOr(Schema.String) })),
+};
+const MiseLock = manifest('.config/mise.lock', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ tools: Schema.Record(Schema.Literals(['hk', 'pnpm']), Schema.NonEmptyArray(Schema.Struct({ version: Schema.String }))) }))));
 const Workspace = manifest('pnpm-workspace.yaml', TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.String) }))));
 const Xcconfig = manifest(
     'Xcode.xcconfig',
@@ -100,19 +103,23 @@ const XcodeProject = {
         return { identifier, entitlements: path.join(root, entitlements), team: DEVELOPMENT_TEAM };
     }),
 };
-const Sgconfig = manifest(
-    'sgconfig.yml',
-    TextFormat.Yaml.pipe(
-        Schema.decodeTo(
-            Schema.Struct({
-                ruleDirs: Schema.Array(Schema.String),
-                utilDirs: Schema.Array(Schema.String),
-                customLanguages: Schema.Record(Schema.String, AstGrepLanguage),
-                languageGlobs: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-            }),
+const Sgconfig = {
+    ...manifest(
+        'sgconfig.yml',
+        TextFormat.Yaml.pipe(
+            Schema.decodeTo(
+                Schema.Struct({
+                    ruleDirs: Schema.Array(Schema.String),
+                    utilDirs: Schema.Array(Schema.String),
+                    customLanguages: Schema.Record(Schema.String, AstGrepLanguage),
+                    languageGlobs: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+                }),
+            ),
         ),
     ),
-);
+    outline: 'tools/ast-grep/outline',
+    outlineCatalogs: (path: Path.Path, languages: Readonly<Record<string, typeof AstGrepLanguage.Type>>) => Array.getSomes(Record.collect(languages, (language, { outlineRules }) => Option.map(outlineRules, (file) => ({ language, file, source: path.join(Sgconfig.outline, path.basename(file)) })))),
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

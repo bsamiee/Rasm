@@ -48,8 +48,3 @@ exclude = ["/pyproject.toml"]
 
 [tool.hatch.build.targets.wheel.sources]
 "" = "typography"
-
-# --- [FAWLTYDEPS] -----------------------------------------------------------------------
-
-[tool.fawltydeps]
-base_dir = "."

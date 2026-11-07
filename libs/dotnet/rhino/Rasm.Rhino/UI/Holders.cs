@@ -52,7 +52,7 @@ internal sealed class HostedSection : IDisposable {
         actions.IsEmpty
             ? None
             : Some<IHeaderButtonHandler>(new HeaderButtons(section, actions.Map(static action => action.Face), index =>
-                Realizing(shown: true).Bind(_ => IO.lift(() => Conversions.Required(body.Bind(held => held.Clicks.At(index))))).Bind(static click => click)));
+                Realizing(shown: true).Bind(_ => IO.lift(Conversions.Required(body.Bind(held => held.Clicks.At(index))))).Bind(static click => click)));
 
     internal Unit Reread => Session.Run(IO.lift(() => body).Bind(static held => held.Traverse(static current => current.Reread).As()));
 
@@ -221,7 +221,7 @@ public static class SectionCommands {
     // --- [VALUES]
     private static IO<Seq<Seq<Command<Invoke>>>> Listing(HistoryBinding history, RowScope scope) =>
         from held in history.History
-        from pastes in IO.lift(static () => Clipboard.Instance.ContainsText)
+        let pastes = Clipboard.Instance.ContainsText
         from zone in IO.lift(() => history.Clock.ToZonedClock().Zone)
         let stamp = LocalDateTimePattern.Create("g", LocalText.Culture)
         select Seq(

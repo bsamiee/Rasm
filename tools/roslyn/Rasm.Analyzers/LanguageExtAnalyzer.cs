@@ -71,9 +71,23 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         "`{0}` restates {1} `{2}` of `{3}`, write `{4}` at the edit",
         "`Lens<A, B>.New` getters and `with` setters over one positional record property path become `with` at the edit");
 
+    public static readonly DiagnosticDescriptor Continued = Rule(
+        "RASM1011",
+        Category,
+        "`IO.lift` thunk or `IO.pure` value returned from a continuation, write the value",
+        "`{0}` continuation returns `{1}`, write `{2}`",
+        "`IO` `Bind` and `SelectMany` continuations return no `IO.lift` thunk or `IO.pure` value as their whole result, a body with no call or side effect becomes `Map` under `Bind` and `let` in a later `from` clause, a `Fin` or `Either` thunk lifts its value");
+
+    public static readonly DiagnosticDescriptor Flattened = Rule(
+        "RASM1012",
+        Category,
+        "`Map` then `Flatten`, call `Bind`",
+        "`{0}` spells `Bind` as `Map` then `Flatten`, call `Bind` with a lambda return type over untyped parameters (`Fin<T> (x) => …`)",
+        "LanguageExt `Map` over a one-parameter function followed by `Flatten` restates `Bind`, a lambda return type over untyped parameters binds the continuation once against the `Bind` overloads");
+
     private static readonly SymbolDisplayFormat Shown = SymbolDisplayFormat.MinimallyQualifiedFormat.AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Lift, TypeTest, RoundTrip, Spread, Narrowed, Passed, Nullable, Focused];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Lift, TypeTest, RoundTrip, Spread, Narrowed, Passed, Nullable, Focused, Continued, Flattened];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         LanguageExtSymbols symbols = new(context.Compilation);
@@ -86,6 +100,19 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         Narrowings(context, narrowings, kind);
         Matches(context, symbols, fin, option);
         Lenses(context, symbols.Lenses);
+        if (symbols is { IO: { } io, IO1: { } effect }) Continuations(context, io, effect);
+        Flattens(context, fin.ContainingAssembly);
+    }
+
+    // --- [FLATTENS]
+    private static void Flattens(CompilationStartAnalysisContext context, IAssemblySymbol owner) {
+        bool Owned(IInvocationOperation call, string name) => string.Equals(call.TargetMethod.Name, name, StringComparison.Ordinal) && Same(call.TargetMethod.ContainingAssembly, owner);
+        Report<IInvocationOperation>(context, [OperationKind.Invocation], (flatten, _) =>
+            Owned(flatten, "Flatten") && Parameterless(flatten) && Receiver(flatten) is { } receiver && Stripped(receiver) is IInvocationOperation map && Owned(map, "Map")
+            && map.Arguments.Where(argument => argument.Value != Receiver(map)).ToImmutableArray() is { Length: 1 } stepped
+            && stepped[0].Parameter?.Type is INamedTypeSymbol { DelegateInvokeMethod.Parameters.Length: 1 }
+                ? [Diagnostic.Create(Flattened, flatten.Syntax.GetLocation(), flatten.Syntax)]
+                : []);
     }
 
     // --- [LIFTS]
@@ -118,9 +145,23 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 ? (operation, target, conversion)
                 : null;
         }
+        static bool Inferred(IOperation lift) {
+            IOperation? consumer = Consumer(lift);
+            if (consumer is IReturnOperation { Parent: IBlockOperation { Parent: IAnonymousFunctionOperation function } } && Sole(function.Body) == lift)
+                consumer = Consumer(function) is IDelegateCreationOperation creation ? Consumer(creation) : null;
+            return consumer switch {
+                IVariableInitializerOperation { Parent.Syntax: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax { Type.IsVar: true } } } => true,
+                IArgumentOperation { Parent: IInvocationOperation { TargetMethod: { IsGenericMethod: true } method } call, Parameter: { } parameter }
+                    when call.Syntax is InvocationExpressionSyntax { Expression: not (GenericNameSyntax or MemberAccessExpressionSyntax { Name: GenericNameSyntax }) }
+                    && (method.ReducedFrom ?? method).OriginalDefinition is { } definition
+                    && definition.Parameters[parameter.Ordinal + (method.ReducedFrom is null ? 0 : 1)] is var held =>
+                    definition.TypeParameters.Any(type => Mentions(held.Type, type) && !definition.Parameters.Any(other => !SymbolEqualityComparer.Default.Equals(other, held) && Mentions(other.Type, type))),
+                _ => false,
+            };
+        }
         ConcurrentDictionary<SyntaxNode, ConcurrentBag<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)>> candidates = new();
         context.RegisterOperationAction(analysis => {
-            if (!analysis.IsGeneratedCode && Candidate(analysis.Operation) is { } candidate && Scope(candidate.Lift.Syntax) is { } root)
+            if (!analysis.IsGeneratedCode && Candidate(analysis.Operation) is { } candidate && !Inferred(candidate.Lift) && Scope(candidate.Lift.Syntax) is { } root)
                 candidates.GetOrAdd(root, static _ => []).Add(candidate);
         }, OperationKind.Invocation, OperationKind.ObjectCreation, OperationKind.Conversion);
         context.RegisterCompilationEndAction(end => {
@@ -128,9 +169,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 end.CancellationToken.ThrowIfCancellationRequested();
                 SyntaxNode root = scope.Key;
                 ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)> lifts = [.. scope.Value.OrderByDescending(static lift => lift.Lift.Syntax.SpanStart).ThenBy(static lift => lift.Lift.Syntax.Span.Length)];
-                SemanticModel model = lifts[0].Lift.SemanticModel!;
-                ImmutableArray<(SyntaxNode Site, ISymbol? Symbol)> calls = [.. root.DescendantNodesAndSelf()
-                    .Where(static node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax).Select(node => (node, model.GetSymbolInfo(node, end.CancellationToken).Symbol))];
+                ImmutableArray<(SyntaxNode Site, ISymbol? Symbol)> calls = Calls(lifts[0].Lift.SemanticModel!.GetOperation(root, end.CancellationToken));
                 ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)> removed = Holds(root, calls, lifts, end.CancellationToken) ? lifts : lifts.Length is 1 ? [] : lifts.Aggregate(
                     ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)>.Empty,
                     (held, next) => held.Add(next) switch { var proposed => Holds(root, calls, proposed, end.CancellationToken) ? proposed : held });
@@ -169,9 +208,15 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 && SymbolEqualityComparer.Default.Equals(conversion, held.Lift.Conversion)
                 && SymbolEqualityComparer.Default.Equals(speculative.GetTypeInfo(held.Site, token).ConvertedType, held.Lift.Target))
             && calls.Where(call => !marked.ContainsKey(call.Site)).Select(static call => call.Symbol).SequenceEqual(
-                rebound.DescendantNodesAndSelf().Where(static node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax).Select(node => speculative.GetSymbolInfo(node, token).Symbol),
-                SymbolEqualityComparer.Default);
+                Calls(speculative.GetOperation(rebound, token)).Select(static call => call.Symbol), SymbolEqualityComparer.Default);
     }
+
+    private static ImmutableArray<(SyntaxNode Site, ISymbol? Symbol)> Calls(IOperation? scope) =>
+        scope is null ? [] : [.. scope.DescendantsAndSelf().Select(static (SyntaxNode? Site, ISymbol? Symbol) (operation) => operation switch {
+            IInvocationOperation { Syntax: InvocationExpressionSyntax site } call => (site, call.TargetMethod),
+            IObjectCreationOperation { Syntax: BaseObjectCreationExpressionSyntax site } made => (site, made.Constructor),
+            _ => (null, null),
+        }).Where(static call => call.Site is not null).Select(static call => (call.Site!, call.Symbol))];
 
     // --- [TYPE_TESTS]
     private static void TypeTests(CompilationStartAnalysisContext context, ImmutableArray<ISymbol> leaves, INamedTypeSymbol error, INamedTypeSymbol many) {
@@ -410,6 +455,64 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                     getter.Symbol.Parameters[0].Type.ToDisplayString(Shown),
                     written.Syntax),
             ];
+        });
+    }
+
+    // --- [CONTINUATIONS]
+    private static void Continuations(CompilationStartAnalysisContext context, INamedTypeSymbol io, INamedTypeSymbol effect) {
+        (ImmutableArray<IMethodSymbol> lifts, ImmutableArray<IMethodSymbol> pures, ImmutableArray<IMethodSymbol> binds, ImmutableArray<IMethodSymbol> maps) = (Members(io, "lift"), Members(io, "pure"), Members(effect, "Bind"), Members(effect, "Map"));
+        ImmutableArray<IMethodSymbol> continuations = [.. binds, .. Members(effect, "SelectMany")];
+        ImmutableArray<IMethodSymbol> narrowings = [.. io.ContainingNamespace.GetTypeMembers().SelectMany(static type => Members(type, "As"))];
+        ImmutableArray<ITypeSymbol> values = [.. lifts.Where(static lift => lift.Parameters is { Length: 1 } parameters && parameters[0].Type.TypeKind is not TypeKind.Delegate).Select(static lift => lift.Parameters[0].Type.OriginalDefinition)];
+        if (lifts.IsEmpty || maps.IsEmpty) return;
+        bool Valued(ITypeSymbol? type) => type is not null && values.Contains(type.OriginalDefinition, SymbolEqualityComparer.Default);
+        bool Held(IOperation? receiver, CancellationToken token) {
+            IOperation? source = receiver is null ? null : Stripped(receiver);
+            if (source is IInvocationOperation narrowed && Among(narrowed.TargetMethod, narrowings) && Parameterless(narrowed)) source = Receiver(narrowed) is { } inner ? Stripped(inner) : null;
+            if (source is ILocalReferenceOperation { Local.DeclaringSyntaxReferences: { Length: 1 } declared } local
+                && declared[0].GetSyntax(token) is VariableDeclaratorSyntax { Initializer.Value: var initial }) source = local.SemanticModel?.GetOperation(initial, token);
+            return source is IInvocationOperation { Syntax: InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name: GenericNameSyntax } } } lifted
+                && Among(lifted.TargetMethod, lifts) && Valued(lifted.TargetMethod.TypeArguments[0]);
+        }
+        Report<IInvocationOperation>(context, [OperationKind.Invocation], (step, analysis) => {
+            (IOperation? body, ExpressionSyntax? syntax) = step.Arguments is not { Length: 1 } arguments ? (null, null)
+                : Lambda(arguments[0].Value) is { Symbol.Parameters.IsEmpty: true, Syntax: LambdaExpressionSyntax { ExpressionBody: { } thunked } and not ParenthesizedLambdaExpressionSyntax { ReturnType: not null } } thunk
+                    ? (Among(step.TargetMethod, lifts) ? (Sole(thunk.Body), thunked) : (null, null))
+                : Among(step.TargetMethod, pures) && arguments[0].Value.Syntax is ExpressionSyntax given ? (Stripped(arguments[0].Value), given)
+                : (null, null);
+            if (body is null || syntax is null
+                || Consumer(step) is not IReturnOperation { Parent: IBlockOperation { Parent: IAnonymousFunctionOperation outer } } || Sole(outer.Body) != step
+                || Consumer(outer) is not IDelegateCreationOperation creation || Consumer(creation) is not IArgumentOperation { Parent: IInvocationOperation bind } || !Among(bind.TargetMethod, continuations))
+                return [];
+            ITypeSymbol accepted = step.TargetMethod.OriginalDefinition.Parameters[0].Type;
+            ITypeSymbol? produced = accepted is INamedTypeSymbol { DelegateInvokeMethod: { } invoke } ? invoke.ReturnType : accepted;
+            IParameterSymbol? parameter = outer.Symbol.Parameters.FirstOrDefault();
+            string shown = syntax.ToString();
+            bool projected = !body.DescendantsAndSelf().Any(static operation => operation is IInvocationOperation or IDynamicInvocationOperation or IAssignmentOperation or IIncrementOrDecrementOperation
+                or IEventAssignmentOperation or IRaiseEventOperation or IDynamicObjectCreationOperation or ITypeParameterObjectCreationOperation or IObjectCreationOperation { Type.IsRecord: false });
+            (string Text, ImmutableDictionary<string, string?> Properties, Location Location)? written = (produced, outer.Syntax, step.Syntax.Parent) switch {
+                (ITypeParameterSymbol, _, FromClauseSyntax { Type: null, Parent: QueryBodySyntax } clause)
+                    when projected && !Among(bind.TargetMethod, binds) && SymbolEqualityComparer.Default.Equals(body.Type, step.TargetMethod.TypeArguments[0]) =>
+                    ($"let {clause.Identifier.Text} = {shown}", ImmutableDictionary<string, string?>.Empty.Add(nameof(LetClauseSyntax), value: null), step.Syntax.GetLocation()),
+                (ITypeParameterSymbol, LambdaExpressionSyntax { AsyncKeyword.RawKind: 0, ExpressionBody: { } lifted } continuation, _)
+                    when projected && continuation is not ParenthesizedLambdaExpressionSyntax { ReturnType: not null } && Among(bind.TargetMethod, binds)
+                    && bind.Syntax is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } && bind.TargetMethod.TypeArguments is { Length: 1 } bound =>
+                    (body, SymbolEqualityComparer.Default.Equals(body.Type, bound[0])) switch {
+                        (IParameterReferenceOperation reference, true) when Same(reference.Parameter, parameter) =>
+                            (access.Expression.ToString(), ImmutableDictionary<string, string?>.Empty.Add(nameof(IParameterReferenceOperation), value: null), Named(bind)),
+                        (_, true) =>
+                            ($"{maps[0].Name}({continuation.ToString().Substring(0, lifted.SpanStart - continuation.SpanStart)}{shown})",
+                                ImmutableDictionary<string, string?>.Empty.Add(nameof(IMethodSymbol), maps[0].Name), Named(bind)),
+                        _ => bound[0].ToMinimalDisplayString(step.SemanticModel!, step.Syntax.SpanStart) switch {
+                            var type => ($"{maps[0].Name}<{type}>({continuation.ToString().Substring(0, lifted.SpanStart - continuation.SpanStart)}{shown})",
+                                ImmutableDictionary<string, string?>.Empty.Add(nameof(IMethodSymbol), maps[0].Name).Add(nameof(ITypeSymbol), type), Named(bind)),
+                        },
+                    },
+                (INamedTypeSymbol, _, _) when Valued(produced) && !Held(Receiver(bind), analysis.CancellationToken) =>
+                    (FormattableString.Invariant($"{((InvocationExpressionSyntax)step.Syntax).Expression}({shown})"), ImmutableDictionary<string, string?>.Empty, step.Syntax.GetLocation()),
+                _ => null,
+            };
+            return written is { } found ? [Diagnostic.Create(Continued, found.Location, found.Properties, bind.TargetMethod.Name, step.Syntax, found.Text)] : [];
         });
     }
 }

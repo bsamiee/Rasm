@@ -33,7 +33,7 @@ public static class Showing {
 
     private static IO<Unit> Opened(HostedWindow window, RhinoDoc doc) =>
         from held in window.Hosted.Realizing
-        from main in IO.lift(() => Conversions.Required(RhinoEtoApp.MainWindowForDocument(doc)))
+        from main in IO.lift(Conversions.Required(RhinoEtoApp.MainWindowForDocument(doc)))
         from icon in window.Row.Icon.TraverseM(art => Icons.Themed(art, IconSlot.Small, window, frames => window.Icon = frames)).As()
         from configured in IO.lift(() => {
             window.Title = LocalText.Of(window.Row.Caption).Local;

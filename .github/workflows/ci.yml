@@ -15,6 +15,7 @@ concurrency:
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
+    MSBUILDDISABLENODEREUSE: 1
     NX_MAX_CACHE_SIZE: 1GB
 
 defaults:
@@ -23,25 +24,45 @@ defaults:
 
 jobs:
     check:
-        runs-on: ubuntu-26.04
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - runner: ubuntu-26.04
+                      targets: check,test,test:integration
+                      exclude: tag:host:macos,tag:host:rhino,tag:host:claude,tag:host:blender
+                    - runner: xcode-27
+                      targets: check,test
+                      exclude: "!tag:host:macos,!tag:host:rhino"
+        runs-on: ${{ matrix.runner }}
         timeout-minutes: 60
         steps:
-            - &checkout
-              uses: actions/checkout@v7
+            - uses: actions/checkout@v7
               with:
                 fetch-depth: 0
                 lfs: true
                 persist-credentials: false
-            - &license
-              run: umask 077 && printf %s "$SIXLABORSLICENSEKEY" > "$RUNNER_TEMP/sixlabors.lic" && printf 'SixLaborsLicenseFile=%s/sixlabors.lic\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+            - run: umask 077 && printf %s "$SIXLABORSLICENSEKEY" > "$RUNNER_TEMP/sixlabors.lic" && printf 'SixLaborsLicenseFile=%s/sixlabors.lic\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
               env:
                 SIXLABORSLICENSEKEY: ${{ secrets.SIXLABORSLICENSEKEY }}
-            - &setup
-              id: setup
+            - id: setup
               uses: ./.github/actions/setup
-            - run: nx affected -t check test test:integration --configuration ci --exclude=tag:host:macos,tag:host:rhino,tag:host:claude,tag:host:blender
-            - &save-task-cache
-              uses: actions/cache/save@v6
+            - id: rhino
+              if: runner.os == 'macOS'
+              run: printf 'url=%s\n' "$(curl --silent --show-error --fail --head --location --output /dev/null --write-out '%{url_effective}' "https://www.rhino3d.com/www-api/download/direct?slug=rhino-for-mac/$(xmllint --xpath 'substring-before(/Project/ItemGroup/PackageVersion[@Include="RhinoCommon"]/@Version, ".")' Directory.Packages.props)/latest")" >> "$GITHUB_OUTPUT"
+            - uses: mcneel/setup-rhino3d@v3.0.0
+              if: runner.os == 'macOS'
+              with:
+                download-url: ${{ steps.rhino.outputs.url }}
+                email-address: b.samiee93@gmail.com
+            - if: runner.os == 'macOS'
+              run: printf 'RhinoInstallPath=%s\n' /Applications/Rhino*.app >> "$GITHUB_ENV"
+            - if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+              run: nx affected -t "${TARGETS}" --configuration ci --exclude="${EXCLUDE}"
+              env:
+                TARGETS: ${{ matrix.targets }}
+                EXCLUDE: ${{ matrix.exclude }}
+            - uses: actions/cache/save@v6
               if: ${{ !cancelled() && steps.setup.outcome == 'success' && github.event_name == 'push' }}
               with:
                 path: ${{ steps.setup.outputs.task-paths }}
@@ -49,39 +70,11 @@ jobs:
             - uses: actions/upload-artifact@v7
               if: ${{ failure() }}
               with:
-                name: diagnostics-${{ github.job }}
+                name: diagnostics-${{ runner.os }}
                 path: |
                     .artifacts/dotnet/binlog
                     .artifacts/dotnet/test
                     .artifacts/python/test
-                    .artifacts/typescript/vitest
-                include-hidden-files: true
-                retention-days: 14
-
-    macos:
-        runs-on: xcode-27
-        timeout-minutes: 60
-        steps:
-            - *checkout
-            - *license
-            - *setup
-            - id: rhino
-              run: printf 'url=%s\n' "$(curl --silent --show-error --fail --head --location --output /dev/null --write-out '%{url_effective}' "https://www.rhino3d.com/www-api/download/direct?slug=rhino-for-mac/$(xmllint --xpath 'substring-before(/Project/ItemGroup/PackageVersion[@Include="RhinoCommon"]/@Version, ".")' Directory.Packages.props)/latest")" >> "$GITHUB_OUTPUT"
-            - uses: mcneel/setup-rhino3d@v3.0.0
-              with:
-                download-url: ${{ steps.rhino.outputs.url }}
-                email-address: b.samiee93@gmail.com
-            - run: printf 'RhinoInstallPath=%s\n' /Applications/Rhino*.app >> "$GITHUB_ENV"
-            - if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-              run: nx affected -t check test --configuration ci --exclude='!tag:host:macos,!tag:host:rhino'
-            - *save-task-cache
-            - uses: actions/upload-artifact@v7
-              if: ${{ failure() }}
-              with:
-                name: diagnostics-${{ github.job }}
-                path: |
-                    .artifacts/dotnet/binlog
-                    .artifacts/dotnet/test
                     .artifacts/swift/test
                     .artifacts/typescript/vitest
                     .artifacts/xcode/build

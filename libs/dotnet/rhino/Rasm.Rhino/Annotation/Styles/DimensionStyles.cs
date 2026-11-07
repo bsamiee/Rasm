@@ -84,7 +84,7 @@ public static class DimensionStyles {
             (Doc: doc, Staged: staged),
             builtIn: static (state, builtIn) =>
                 (from styles in Products.Many(() => state.Doc.DimStyles.BuiltInStyles)
-                 from found in IO.lift(() => styles.Find(style => Rows.Names<DimensionStyle>().Equals(style.Name, builtIn.Name)).ToFin(new RhinoFault(builtIn.Name, RhinoReason.Missing)))
+                 from found in IO.lift(styles.Find(style => Rows.Names<DimensionStyle>().Equals(style.Name, builtIn.Name)).ToFin(new RhinoFault(builtIn.Name, RhinoReason.Missing)))
                  from copied in IO.lift(() => state.Staged.CopyFrom(found))
                  select copied).Bracket(),
             row: static (state, row) =>
@@ -140,7 +140,7 @@ public static class DimensionStyles {
     public static IO<Unit> Saved(RhinoDoc doc, AnnotationBase annotation) =>
         IO.lift(() => annotation.HasPropertyOverrides).Bind(overridden => when(overridden,
             (from parent in Parent(doc, annotation)
-             from rooted in IO.lift(() => RhinoFault.Unless(!parent.IsChild, RhinoReason.Unsupported, (parent.Name, parent.ParentId)))
+             from rooted in IO.lift(RhinoFault.Unless(!parent.IsChild, RhinoReason.Unsupported, (parent.Name, parent.ParentId)))
              from effective in Effective(doc, annotation, Some(parent))
              from staged in Products.Of(() => effective.Duplicate(parent.Name, parent.Id, Guid.Empty))
              from plain in IO.lift(staged.ClearAllFieldOverrides)

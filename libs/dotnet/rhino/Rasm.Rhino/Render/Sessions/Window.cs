@@ -24,7 +24,7 @@ public static class RenderWindows {
     public static IO<Seq<RenderWindow.StandardChannels>> AddRequested(RenderWindow window) =>
         from channels in ChannelState(window)
         let missing = channels.Requested.Filter(channel => !channels.Available.Contains(channel)).Strict()
-        from added in IO.lift(() => Products.Each(missing, (channel, index) => RhinoFault.Unless(window.AddChannel(channel), RhinoReason.Declined, channel, index)))
+        from added in IO.lift(Products.Each(missing, (channel, index) => RhinoFault.Unless(window.AddChannel(channel), RhinoReason.Declined, channel, index)))
         select missing;
 
     private static Seq<RenderWindow.StandardChannels> Known(RenderWindow.StandardChannels[] channels) =>

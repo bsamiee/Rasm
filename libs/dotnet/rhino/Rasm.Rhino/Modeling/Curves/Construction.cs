@@ -57,12 +57,12 @@ public static class CurveConstruction {
     public static Step<Curve> Chamfer(Tolerances tolerances, double before, double after) =>
         Steps.Derived<Curve>(curve =>
             from kinks in IO.lift(() => CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous))
-            from corners in IO.lift(() => curve.IsClosed && kinks.Exists(t => t >= curve.Domain.T1)
+            from corners in IO.lift(curve.IsClosed && kinks.Exists(t => t >= curve.Domain.T1)
                 ? Seam(curve, kinks.Filter(t => t < curve.Domain.T1).Last.IfNone(curve.Domain.T0))
                     .Bind(t => RhinoFault.Unless(curve.ChangeClosedCurveSeam(t), RhinoReason.Declined, t))
                     .Map(_ => CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous))
                 : kinks)
-            from cuts in IO.lift(() => Cuts(curve, corners.Filter(t => t > curve.Domain.T0 && t < curve.Domain.T1), before, after))
+            from cuts in IO.lift(Cuts(curve, corners.Filter(t => t > curve.Domain.T0 && t < curve.Domain.T1), before, after))
             from chamfered in cuts.IsEmpty ? IO.pure(curve) : Cut(tolerances, curve, cuts)
             select chamfered);
 
@@ -88,6 +88,6 @@ public static class CurveConstruction {
         from lines in Products.Many(() => cuts.Map(cut => new LineCurve(curve.PointAt(cut.Start), curve.PointAt(cut.End))))
         let kept = pieces.Filter(piece => !cuts.Exists(cut => cut.Start < piece.Domain.Mid && piece.Domain.Mid < cut.End))
         from joined in Products.Many(() => Curve.JoinCurves(kept + lines.Map(static line => (Curve)line), tolerances.Absolute, preserveDirection: true))
-        from single in IO.lift(() => RhinoFault.Unless(joined.Count is 1, RhinoReason.Declined, joined.Count).Map(_ => joined[0]))
+        from single in IO.lift(RhinoFault.Unless(joined.Count is 1, RhinoReason.Declined, joined.Count).Map(_ => joined[0]))
         select single;
 }

@@ -2,10 +2,6 @@
 language: tsxlang
 severity: error
 utils:
-    array-module:
-        matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}
-    record-module:
-        matches: {effect-module: {name: {regex: '(?-u:\b)Record$'}}}
     member:
         kind: member_expression
         all:
@@ -60,7 +56,7 @@ utils:
                                   | zip | zipWith | cartesian | cartesianWith | chunksOf | window | split | groupWith | scan | scanRight
                                   | initNonEmpty | tailNonEmpty | setHeadNonEmpty | setLastNonEmpty | modifyHeadNonEmpty | modifyLastNonEmpty
                                 )$
-                        - has: {field: object, matches: array-module}
+                        - has: {field: object, matches: effect-array-module}
                     - all:
                         - has: {field: property, regex: '^(from|of)$'}
                         - has: {field: object, regex: '^Array$', matches: typescript-global-reference}
@@ -128,13 +124,13 @@ rule:
             any:
                 - all:
                     - has: {field: property, regex: '^(every|length)$'}
-                    - has: {field: object, matches: array-module}
+                    - has: {field: object, matches: effect-array-module}
                 - all:
                     - has: {field: property, regex: '^(filter|forEach|join|reduce|reduceRight)$'}
-                    - has: {field: object, matches: array-module}
+                    - has: {field: object, matches: effect-array-module}
                     - inside: {kind: call_expression, field: function, has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: array-receiver}}}
                 - all:
                     - has: {field: property, regex: '^values$'}
-                    - has: {field: object, matches: record-module}
+                    - has: {field: object, matches: effect-record-module}
 message: '`$M.$F` restates a native array or object form'
 note: 'Call the same-named native array member on `<list>`, or `Object.values(<record>)` for `Record.values`'

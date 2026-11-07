@@ -96,7 +96,7 @@ public static class MeshTopology {
     // --- [MEASURES]
     public static IO<Seq<MeshThicknessMeasurement>> ComputeThickness(Seq<Mesh> meshes, double maximumThickness, Option<double> sharpAngle) =>
         from token in cancelToken
-        from measured in IO.lift(() => Conversions.Required(sharpAngle.Match(
+        from measured in IO.lift(Conversions.Required(sharpAngle.Match(
                 Some: angle => Mesh.ComputeThickness(meshes, maximumThickness, angle, token),
                 None: () => Mesh.ComputeThickness(meshes, maximumThickness, token)))
             .Map(static rows => toSeq(rows)))

@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-schema-member
+language: tsxlang
+utils:
+    schema-module:
+        matches: {effect-module: {name: {regex: '(?-u:\b)Schema$'}}}
+rule:
+    kind: member_expression
+    has: {field: object, matches: schema-module}

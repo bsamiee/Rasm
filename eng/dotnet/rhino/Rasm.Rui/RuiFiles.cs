@@ -58,7 +58,7 @@ internal static class RuiFiles {
             }).Bracket(
                 Use: _ =>
                     from loaded in IO.lift(() => AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(plugIn)))
-                    from document in IO.lift(() => Document(loaded))
+                    from document in IO.lift(Document(loaded))
                     from written in IO.lift(() => {
                         string staged = Path.Join(Path.GetDirectoryName(rui), Path.GetRandomFileName());
                         try {

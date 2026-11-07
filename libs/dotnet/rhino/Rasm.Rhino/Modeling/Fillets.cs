@@ -177,7 +177,7 @@ public static class Fillets {
             Accepted: curve.FilletSurfaceToCurve(face, t, uv.X, uv.Y, radius, alignment.AlignToCurve, railDegree, section.Degree, section.Sliders, alignment.BezierSurfaces, tolerances.Absolute, fillets, out double[] fit),
             Fit: fit))
         from result in Decoded(answered.Accepted, fillets, first: null, second: null, nameof(Curve.FilletSurfaceToCurve))
-        from fit in IO.lift(() => answered.Fit is [var curveDeviation, var faceDeviation, var faceAngle, var bezierAngle, var bezierCurvature, ..]
+        from fit in IO.lift(answered.Fit is [var curveDeviation, var faceDeviation, var faceAngle, var bezierAngle, var bezierCurvature, ..]
             ? Fin.Succ(new SurfaceToCurveFit(curveDeviation, faceDeviation, faceAngle, bezierAngle, bezierCurvature))
             : new RhinoFault(nameof(Curve.FilletSurfaceToCurve), RhinoReason.Missing))
         select (result.Fillets, fit);
@@ -190,7 +190,7 @@ public static class Fillets {
                 lists.Fillets, lists.First, lists.Second, out double[] fit),
             Fit: fit))
         from result in Decoded(answered.Accepted, lists.Fillets, lists.First, lists.Second, nameof(Curve.FilletSurfaceToRail))
-        from fit in IO.lift(() => answered.Fit is [var deviation0, var deviation1, var faceAngle0, var faceAngle1, var bezierAngle, var bezierCurvature, ..]
+        from fit in IO.lift(answered.Fit is [var deviation0, var deviation1, var faceAngle0, var faceAngle1, var bezierAngle, var bezierCurvature, ..]
             ? Fin.Succ(new SurfaceToRailFit(deviation0, deviation1, faceAngle0, faceAngle1, bezierAngle, bezierCurvature))
             : new RhinoFault(nameof(Curve.FilletSurfaceToRail), RhinoReason.Missing))
         select (result, fit);

@@ -141,10 +141,10 @@ public static partial class Dispatch {
                       from verdict in IO.lift(check.Verdict)
                       select target.Switch(
                           (Context: context, Doc: doc, Plan: plan, Stamp: stamp, Resumed: resumed, Scope: scope),
-                          local: static (state, _) => (
+                          local: static (state, _) => IO.lift(Unit () => Session.Start((
                               from batch in state.Plan.Resolved(state.Doc, state.Resumed).OnUiThread()
                               from ran in QueueRuns.Run(state.Context, state.Doc, batch, None, state.Resumed)
-                              select ran).Bracket().Scoped(state.Scope.Resources) switch { var run => IO.lift(() => Session.Start(run, owned: state.Scope)), },
+                              select ran).Bracket().Scoped(state.Scope.Resources), owned: state.Scope)),
                           packaged: static (state, packaged) => Completed(packaged.Use.Quits
                               ? Handed(state.Context, state.Doc, state.Plan, state.Stamp, state.Resumed, packaged.Folder, packaged.Stem)
                               : Packed(state.Doc, state.Plan, state.Resumed, packaged.Folder, packaged.Stem, state.Stamp).OnUiThread().Map(static _ => unit), state.Scope),
@@ -204,7 +204,7 @@ public static partial class Dispatch {
          from paths in Packed(doc, plan, resumed, folder, stem, stamp).OnUiThread()
          from moved in resumed.Traverse(record => QueueProgress.Write(
              context.Record, record with { Job = Some((string)paths[PackageFile.Job]), Ended = record.Ended | Some(RunEnd.Stopped) })).As()
-         from start in IO.lift(() => Launch(paths[PackageFile.Job]))
+         from start in IO.lift(Launch(paths[PackageFile.Job]))
          from relayed in Products.Of(() => Process.Start(start))
          from quit in Quit.OnUiThread()
          select unit).Bracket();
@@ -230,7 +230,7 @@ public static partial class Dispatch {
     // --- [JOBS]
     private static IO<Unit> Job =>
         from path in IO.lift(static () => Conversions.Present(Environment.GetEnvironmentVariable(JobVariable)).ToFin(new DarkroomFault(JobVariable, DarkroomReason.Missing)))
-        from parent in IO.lift(static () => Conversions.Present(Environment.GetEnvironmentVariable(ParentVariable))
+        from parent in IO.lift(Conversions.Present(Environment.GetEnvironmentVariable(ParentVariable))
             .Traverse(static text => int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int id) ? Fin.Succ(id) : new DarkroomFault(text, DarkroomReason.Invalid)).As())
         from started in IO.lift(() => Session.Start(Launched(parent.Traverse(MachinePower.Exited).As().Bind(_ => Run(path)))))
         select unit;

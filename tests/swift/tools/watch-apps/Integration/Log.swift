@@ -30,11 +30,11 @@ extension Integration {
             let mine: [String] = [log, "\(sessionVariable)=\(session)"]
             let launched: (lines: [JSONValue], status: TerminationStatus) = try await logged(mine, fixture.launching())
             let pid: String = try #require(launched.lines.lazy.compactMap(fixture.launched).first)
-            _ = try await logged([log, "\(sessionVariable)=other"], ["read", "--pid", pid])
+            _ = try await logged([log, "\(sessionVariable)=other"], ["read", pid])
             let folded: (lines: [JSONValue], status: TerminationStatus) = try await logged(mine, ["log"])
             let run: JSONValue = try #require(folded.lines.first)
             let written: String = try #require(run["pid"]?.argument)
-            let records: (lines: [JSONValue], status: TerminationStatus) = try await logged(mine, ["log", "--pid", written])
+            let records: (lines: [JSONValue], status: TerminationStatus) = try await logged(mine, ["log", written])
             let created: [JSONValue] = records.lines.compactMap { record in record["line", fixture.identifier, pid, "launched", "created"] }
             expectNoDifference(folded.lines.count, 1)
             expectNoDifference(run["session"], .string(session))

@@ -232,7 +232,7 @@ internal static class Typesetting {
         _ = text.Placeholder.Filter(_ => text.Edited.IsNone && text.Content.Length is 0).Match(
                 Some: placeholder => FaceRuns(shaping, placeholder, style with { TextColor = Colored(cascade, cascade.Resolve(Roles.Placeholder, cascade.Enclosing.Conditions)) }, culture),
                 None: () => text.Spans.Fold(Seq<(Span Span, int Head)>(), static (held, span) => held.Add((span, held.Last.Filter(prior => span.Part.IsSome && prior.Span.Part == span.Part).Map(static prior => prior.Head).IfNone(held.Count))))
-                    .Map(held => FaceRuns(shaping, held.Span.Text, SpanStyle(shaping, cascade, style, held.Span, held.Head), culture)).Flatten())
+                    .Bind(Seq<(string Text, TextStyle Style)> (held) => FaceRuns(shaping, held.Span.Text, SpanStyle(shaping, cascade, style, held.Span, held.Head), culture)))
             .Iter(run => source.AddText(run.Text, run.Style));
         Slice<int> context = source.CodePoints.AsSlice();
         Seq<Typeset.Run> runs = toSeq(source.FontRuns).Map(run => Shaped(shaping, run.CodePoints, context, run.Start, (TextStyle)run.Style, shaping.Instance(run.Typeface, (TextStyle)run.Style), run.Direction, culture)).Strict();

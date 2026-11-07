@@ -122,7 +122,7 @@ public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Oversc
 
     // --- [PIXELS]
     private IO<PixelFrame> Read(RenderWindow.StandardChannels channel) =>
-        RenderWindows.Read(Rendering, channel).Bind(read => IO.lift(() => Placed(read)));
+        RenderWindows.Read(Rendering, channel).Bind(read => IO.lift(Placed(read)));
 
     private Fin<PixelFrame> Placed(BitmapData pixels) =>
         Placed(pixels.Width, pixels.Height, (window, extent) => PixelFrame.From<Bgra32>(

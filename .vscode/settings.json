@@ -46,11 +46,11 @@
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.patterns": {
         ".gitignore": ".gitattributes, .gitmodules",
-        "Cargo.toml": "Cargo.lock, clippy.toml, rust-toolchain.toml, rustfmt.toml",
+        "Cargo.toml": "Cargo.lock, clippy.toml, rust-analyzer.toml, rust-toolchain.toml, rustfmt.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, Directory.Solution.props, global.json, NuGet.config, Workspace.slnx",
         "hk.pkl": "analyzers.globalconfig, periphery.json, periphery.yml, pmd.xml, squawk.toml, stubtest.ini, yamllint.yaml",
-        "mise.toml": "mise.lock, mise.macos.toml, miserc.toml",
+        "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
         "nx.json": ".editorconfig, .shellcheckrc, sgconfig.yml",
         "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, tsconfig.web.json, vite.shared.ts, vitest.config.ts",
         "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
@@ -113,6 +113,7 @@
 
     // --- [DOTNET] ----------------------------------------------------------------------
 
+    "csharp.suppressBuildAssetsNotification": true,
     "dotnet.codeLens.enableReferencesCodeLens": false,
     "dotnet.defaultSolution": "Workspace.slnx",
     "dotnet.diagnostics.reportInformationAsHint": false,
@@ -123,7 +124,6 @@
 
     "java.configuration.runtimes": [ { "default": true, "name": "JavaSE-27", "path": "${JAVA_HOME}" } ],
     "java.import.exclusions": [ "**/.cache/**", "**/.codex/skills", "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/node_modules/**" ],
-    "java.import.generatesMetadataFilesAtProjectRoot": false,
     "java.import.gradle.enabled": false,
     "java.import.maven.enabled": false,
     "java.project.referencedLibraries": [ "${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar" ],
@@ -152,11 +152,7 @@
 
     "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/vscode" },
     "rust-analyzer.cargo.targetDir": ".artifacts/rust/vscode",
-    "rust-analyzer.check.allTargets": false,
-    "rust-analyzer.check.extraArgs": [ "--locked" ],
-    "rust-analyzer.check.workspace": false,
     "rust-analyzer.checkOnSave": false,
-    "rust-analyzer.rustc.source": ".cargo/rustc-source/Cargo.toml",
 
     // --- [SHELL] -----------------------------------------------------------------------
 

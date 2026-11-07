@@ -166,7 +166,7 @@ public static class Rows {
 
     public static IO<T> Add<T>(RhinoDoc doc, TableKind<T> kind, Option<string> key, Seq<RowEdit<T>> edits) where T : ModelComponent =>
         (from fresh in use(kind.Fresh)
-         from placed in IO.lift(() => kind.Place(doc, None, key.IfNone(() => kind.FreeName(doc))))
+         from placed in IO.lift(kind.Place(doc, None, key.IfNone(() => kind.FreeName(doc))))
          from added in Edits.Apply(Added(doc, kind), fresh, (placed + edits).Map(static edit => edit.Write))
          select added).Bracket();
 
@@ -203,7 +203,7 @@ public static class Rows {
     public static IO<Seq<RowPlan<T, RowSpec<T>>>> Plan<T>(RhinoDoc doc, TableKind<T> kind, Seq<RowSpec<T>> specs, Prune prune) where T : ModelComponent =>
         from rows in IO.lift(() => kind.Live(doc))
         let owned = rows.Filter(static row => !row.IsReference)
-        from matched in IO.lift(() => Plan(owned, specs, kind.Key, static spec => spec.Key, kind.Names, prune,
+        from matched in IO.lift(Plan(owned, specs, kind.Key, static spec => spec.Key, kind.Names, prune,
             Some(fun((Seq<RowSpec<T>> unique) => unique.ToLookup(static spec => spec.Key, kind.Names) switch {
                 var declared => kind.Arrange(unique.Map(static spec => spec.Key))
                     .Map(keys => keys.Map(key => toSeq(declared[key]).Head.IfNone(() => new RowSpec<T>(key, [])))),
@@ -252,12 +252,12 @@ public static class Rows {
         from removal in IO.lift(() => prune == Prune.Purge
             ? kind.Purge.ToFin(new RhinoFault((nameof(kind.Purge), row.ComponentType), RhinoReason.Unsupported)).Map(purge => purge(doc, row))
             : kind.Table(doc).Delete(row))
-        from gone in IO.lift(() => RhinoFault.Unless(removal, RhinoReason.Declined, kind.Key(row)))
+        from gone in IO.lift(RhinoFault.Unless(removal, RhinoReason.Declined, kind.Key(row)))
         select unit;
 
     private static IO<Unit> Sorted<T>(RhinoDoc doc, TableKind<T> kind, Seq<string> keys) where T : ModelComponent =>
         from rows in IO.lift(() => kind.Live(doc))
-        from sort in IO.lift(() => kind.Sort.ToFin(new RhinoFault((nameof(kind.Sort), typeof(T)), RhinoReason.Unsupported)))
+        from sort in IO.lift(kind.Sort.ToFin(new RhinoFault((nameof(kind.Sort), typeof(T)), RhinoReason.Unsupported)))
         let listed = keys.Choose(key => rows.Find(row => !row.IsReference && kind.Names.Equals(kind.Key(row), key)))
         let ids = toHashSet(listed.Map(static row => row.Id))
         from sorted in IO.lift(() => sort(doc, (listed + rows.Filter(row => !ids.Contains(row.Id))).Map(static row => row.Index)))

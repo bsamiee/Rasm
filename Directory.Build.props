@@ -14,6 +14,7 @@
         <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/libs/'))">library</ProjectRole>
         <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/tools/roslyn/'))">analyzers</ProjectRole>
         <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">true</RhinoHost>
+        <RoslynHost Condition="$(_RepoRelativeDir.Contains('/tools/roslyn/'))">true</RoslynHost>
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Plug-In Library Copies" Condition="'$(RhinoPlugIn)' != ''">

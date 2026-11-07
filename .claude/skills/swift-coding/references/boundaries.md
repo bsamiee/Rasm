@@ -113,6 +113,7 @@ let revisions: [String] = try await log.reduceLines(into: [], limit: limit) { ha
 - `.name` searches the child environment's `PATH` whatever its working directory, a missing program is `SubprocessError.Code.executableNotFound`
 - Arguments reach the child as separate values with no shell, `.inherit.updating([...])` changes variables for one run and `nil` removes one
 - Signalable processes report exit through `kqueue` `EVFILT_PROC` with `NOTE_EXIT | NOTE_EXITSTATUS | NOTE_EXIT_DETAIL`, `data` holding wait status
+- `kAEQuitApplication` with `keyAESaveOptions` set to `kAEYes` saves every document with a location, a quit a person or agent answers leaves it unset
 
 ## [04]-[COMMAND_LINES]
 

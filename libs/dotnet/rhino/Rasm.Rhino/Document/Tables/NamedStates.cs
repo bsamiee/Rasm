@@ -92,7 +92,7 @@ public abstract partial record NamedChange {
     // --- [APPLY]
     public static IO<Seq<Committed<Seq<NamedEvent>>>> Apply(RhinoDoc doc, Seq<NamedTable> tables, Seq<NamedChange> changes) =>
         from held in NamedTable.Read(doc, tables)
-        from valid in IO.lift(() => changes.Fold(Fin.Succ(held), static (entries, change) => entries.Bind(change.Projected)))
+        from valid in IO.lift(changes.Fold(Fin.Succ(held), static (entries, change) => entries.Bind(change.Projected)))
         from journal in IO.lift(static () => (Writes: Atom(Seq<NamedWrite>()), Records: Atom(Seq<Option<uint>>())))
         from committed in toSeq(changes.Segment(static (current, previous, _) => !current.Table.Batches || !previous.Table.Batches))
             .TraverseM(segment => Applied(doc, tables, toSeq(segment), journal.Writes, journal.Records)).As()
@@ -270,10 +270,10 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
         RhinoDoc doc, InputPath path, Option<Seq<StateName>> names, Func<File3dm, IEnumerable<T>> rows, Func<T, string> entry, Func<T, Transform, IO<NamedWrite>> write) =>
         (from model in Products.Of(() => File3dm.Read(path, File3dm.TableTypeFilter.Settings, File3dm.ObjectTypeFilter.None))
          from stored in IO.lift(() => Conversions.Rows(rows(model)))
-         from chosen in IO.lift(() => names.Match(
+         from chosen in IO.lift(names.Match(
              Some: wanted => wanted.Traverse(held => stored.Find(row => Comparer.Equals(entry(row), held)).ToFin(Missing(held))).As(),
              None: () => stored))
-         from scaling in IO.lift(() => Conversions.Required(Conversions.Present(LengthUnit.Scale(model.Settings.ModelUnits, doc.ModelUnits)).Filter(static scale => scale > 0d))
+         from scaling in IO.lift(Conversions.Required(Conversions.Present(LengthUnit.Scale(model.Settings.ModelUnits, doc.ModelUnits)).Filter(static scale => scale > 0d))
              .Map(static scale => Transform.Scale(Point3d.Origin, scale)))
          from written in chosen.TraverseM(row => write(row, scaling)).As()
          select new NamedWrite(NamedWrite.Reverted(written), NamedWrite.Released(written))).Bracket();

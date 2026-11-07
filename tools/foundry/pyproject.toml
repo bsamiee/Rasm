@@ -44,8 +44,3 @@ exclude = ["/pyproject.toml"]
 
 [tool.uv.sources]
 typography = { path = "../../libs/python/typography", editable = true }
-
-# --- [FAWLTYDEPS] -----------------------------------------------------------------------
-
-[tool.fawltydeps]
-base_dir = "."

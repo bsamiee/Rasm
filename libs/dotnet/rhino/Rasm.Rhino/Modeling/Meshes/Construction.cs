@@ -115,6 +115,6 @@ public static class MeshConstruction {
         from configured in IO.lift(() => configure(extruder))
         from answered in IO.lift(() => (Accepted: extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map), Mesh: mesh, Map: map))
         from extruded in Products.Of(() => answered.Mesh, nameof(MeshExtruder.ExtrudedMesh))
-        from accepted in IO.lift(() => RhinoFault.Unless(answered.Accepted, RhinoReason.Declined, components.Count))
+        from accepted in IO.lift(RhinoFault.Unless(answered.Accepted, RhinoReason.Declined, components.Count))
         select (Mesh: extruded, Components: toSeq(answered.Map), WallFaces: toSeq(extruder.GetWallFaces()));
 }

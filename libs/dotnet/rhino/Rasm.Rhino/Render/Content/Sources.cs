@@ -41,7 +41,7 @@ public static class Contents {
                         ? IO.fail<Option<RenderContent>>(new RhinoFault($"render content name {byName.Name}", RhinoReason.Repeated))
                         : IO.pure(named.Head)))
             .Bind(found => IO.lift(found.ToFin(new RhinoFault($"render content {row}", RhinoReason.Missing))))
-        from child in IO.lift(() => slots.Fold(Fin.Succ(top), static (parent, slot) => parent.Bind(content =>
+        from child in IO.lift(slots.Fold(Fin.Succ(top), static (parent, slot) => parent.Bind(content =>
             Optional(content.FindChild(slot)).ToFin(new RhinoFault($"slot {slot} of {content.Id}", RhinoReason.Missing)))))
         select child;
 

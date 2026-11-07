@@ -37,7 +37,7 @@ public sealed record ChainScene {
          from meters in IO.lift(() => Quantities.From(1d, doc.ModelUnits).Meters.ToDouble())
          from viewport in use(() => new ViewportInfo(view.Viewport) { FrustumAspect = (double)extent.Width / extent.Height })
          from sun in use(() => doc.Lights.Sun)
-         from scene in IO.lift(() => (Viewed(view, viewport, meters, extent), Lit(doc, sun.Enabled ? Some(-sun.Vector) : None, meters)).Apply((camera, lights) => new ChainScene {
+         from scene in IO.lift((Viewed(view, viewport, meters, extent), Lit(doc, sun.Enabled ? Some(-sun.Vector) : None, meters)).Apply((camera, lights) => new ChainScene {
              Camera = Some(camera), Lights = Some(lights), Meters = Some((float)meters), Time = time,
              FocalLength = viewport.IsParallelProjection ? None : Some(Length.FromMillimeters(viewport.Camera35mmLensLength)),
          }).As())

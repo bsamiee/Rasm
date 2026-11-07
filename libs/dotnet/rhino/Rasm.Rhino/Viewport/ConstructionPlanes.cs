@@ -133,7 +133,7 @@ public static class ConstructionPlanes {
         IO.lift(() => Conversions.Present(doc.NamedConstructionPlanes.Find(name)).Map(index => doc.NamedConstructionPlanes[index]));
 
     internal static IO<ConstructionPlane> Found(RhinoDoc doc, string name) =>
-        Stored(doc, name).Bind(found => IO.lift(() => found.ToFin(Table.Missing(name))));
+        Stored(doc, name).Bind(found => IO.lift(found.ToFin(Table.Missing(name))));
 
     internal static IO<NamedWrite> Written(RhinoDoc doc, ConstructionPlane plane, [CallerMemberName] string action = "") =>
         from prior in Stored(doc, plane.Name)

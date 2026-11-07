@@ -1,7 +1,6 @@
 """Runs Blender with an isolated profile."""
 
 lazy from functools import partial
-lazy from itertools import chain
 lazy import os
 lazy from pathlib import Path
 lazy import shutil
@@ -28,15 +27,7 @@ def _launched(log: Path, blender: Path, arguments: tuple[str, ...], variables: d
     if sys.platform == "darwin" and not windowless:
         relayed = ("--python-use-system-env", "--python", str(Path(__file__).with_name("streams.py")), *arguments)
         command, environment = (
-            (
-                "watch-apps",
-                "launch",
-                blender.parents[2],
-                "--new",
-                "--wait",
-                *chain.from_iterable(("--environment", f"{key}={value}") for key, value in (variables | {"PWD": str(Path.cwd())}).items()),
-                *chain.from_iterable((f"--arguments={argument}",) if argument else ("--arguments", argument) for argument in relayed),
-            ),
+            ("watch-apps", "launch", blender.parents[2], "--new", "--wait", "--environment", *(f"{key}={value}" for key, value in (variables | {"PWD": str(Path.cwd())}).items()), "--", *relayed),
             None,
         )
     else:

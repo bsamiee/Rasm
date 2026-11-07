@@ -293,7 +293,7 @@ def even(layout: bpy.types.UILayout) -> bpy.types.UILayout:
 
 def _keyworded(identity: Identity, keywords: Keywords, icon: Option[Icon]) -> Outcome[Keywords]:
     """Returns keywords with the resolved `icon_value`, leaving the RNA icon while none is stated."""
-    return Icons.value(identity, icon).map(lambda value: {**keywords, **dict(zip(("icon_value",), value))})
+    return Icons.value(identity, icon).map(lambda value: {**keywords, **dict(zip(("icon_value",), value.to_list()))})
 
 
 def _invoked(operator: object) -> bool:

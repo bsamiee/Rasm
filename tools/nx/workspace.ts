@@ -3,7 +3,7 @@ import { layerPosix } from '@effect/platform-node/NodePath';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateNodesContext, hashArray } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Order, Path, Predicate, Record, Schema, Scope, String, Struct } from 'effect';
+import { Array, Config, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Order, Path, Predicate, Record, Result, Schema, Scope, String, Struct } from 'effect';
 import { escape } from 'minimatch';
 import { serverFS } from 'typescript/fs';
 import { API } from 'typescript/sync';
@@ -55,8 +55,6 @@ const MemberPyproject = TextFormat.Toml.pipe(
                         targets: Schema.optionalKey(Schema.Struct({ wheel: Schema.optionalKey(Schema.Struct({ sources: Schema.optionalKey(Schema.Union([Schema.Record(Schema.String, Schema.String), Schema.Array(Schema.String)])) })) })),
                     }).pipe(Schema.encodeKeys({ devModeDirs: 'dev-mode-dirs' })),
                 }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({ build: { 'dev-mode-dirs': [] } }))),
-                deptry: Schema.OptionFromOptionalKey(Schema.Record(Schema.String, Schema.Unknown)),
-                fawltydeps: Schema.OptionFromOptionalKey(Schema.Record(Schema.String, Schema.Unknown)),
             }),
         }),
     ),
@@ -110,7 +108,11 @@ const suiteParents = (path: Path.Path, suites: readonly string[]) => Array.dedup
 const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string) {
     const [path, { tool }] = yield* Effect.all([Path.Path, decodeFile(WorkspacePyproject, workspaceRoot, PYPROJECT)]);
     const directories = Array.getSomes(Object.values(tool.uv.sources).map(Struct.get('path')));
-    const members = yield* Effect.forEach(Array.union(tool.uv.workspace.members, directories), (member) => Effect.map(decodeFile(MemberPyproject, workspaceRoot, path.join(member, PYPROJECT)), Struct.assign({ member })));
+    const files = yield* glob(
+        workspaceRoot,
+        Array.union(tool.uv.workspace.members, directories).map((member) => path.join(member, PYPROJECT)),
+    );
+    const members = yield* Effect.forEach(files, (file) => Effect.map(decodeFile(MemberPyproject, workspaceRoot, file), Struct.assign({ member: path.dirname(file) })));
     const providers = Array.bind(members, 'source', ({ tool: { hatch } }) => {
         const sources = hatch.build.targets?.wheel?.sources;
         return Array.isArray(sources) ? [] : Object.values(sources ?? {});
@@ -124,9 +126,8 @@ const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string) {
     return {
         moduleRoots: Array.dedupe(Array.bind(members, 'folder', ({ tool: { hatch } }) => hatch.build.devModeDirs).map(({ member, folder }) => path.join(member, folder))),
         commands: members.filter(({ project }) => !Record.isEmptyRecord(project.scripts)).map(Struct.get('member')),
-        deptry: members.filter(({ tool: { deptry } }) => Option.isSome(deptry)),
         fawltydeps: {
-            members: members.filter(({ tool: { fawltydeps } }) => Option.isSome(fawltydeps)),
+            members,
             mapping: yield* Schema.encodeEffect(JsonListRecord)(mapping).pipe(Effect.orDie),
         },
         dataFile: tool.coverage.run.dataFile,
@@ -163,6 +164,24 @@ const readPackages = Effect.fnUntraced(function* (workspaceRoot: string) {
     const files = yield* glob(workspaceRoot, [`**/${Package.file}`]);
     return Record.fromEntries(Array.zip(files.map(path.dirname), yield* Effect.forEach(files, (file) => decodeFile(Package.schema, workspaceRoot, file), { concurrency: 'unbounded' })));
 });
+const readDaemons = Effect.fnUntraced(function* (workspaceRoot: string, declared: typeof Mise.declared.Type) {
+    const path = yield* Path.Path;
+    const owned = Array.filterMap(declared, ({ name, source }) => (source === null || path.relative(workspaceRoot, source).startsWith('..') ? Result.failVoid : Result.succeed({ name, source })));
+    const sources = Array.dedupe(owned.map(Struct.get('source')));
+    const decoded = Record.fromEntries(Array.zip(sources, yield* Effect.forEach(sources, (file) => decodeFile(Mise.schema, file), { concurrency: 'unbounded' })));
+    return {
+        daemons: Record.fromEntries(
+            Array.getSomes(
+                owned.map(({ name, source }) =>
+                    Option.map(
+                        Option.flatMap(Record.get(decoded, source), ({ daemons }) => Record.get(daemons, name)),
+                        (row) => [name, row] as const,
+                    ),
+                ),
+            ),
+        ),
+    };
+});
 
 // --- [WORKSPACE]
 const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfiguration }: Pick<CreateNodesContext, 'workspaceRoot' | 'nxJsonConfiguration'>) {
@@ -174,10 +193,17 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         Effect.sync(() => new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.cache'))),
         (held) => (cacheChanged ? Effect.sync(held.writeToDisk.bind(held)) : Effect.void),
     );
-    const cached = Effect.fnUntraced(function* <A, I>(schema: Schema.Codec<A, I>, inputs: string[], [command, ...args]: readonly [string, ...string[]], { env, pathInputs = [] }: { readonly env?: Readonly<Record<string, string>>; readonly pathInputs?: string[] } = {}) {
+    const cached = Effect.fnUntraced(function* <A, I>(
+        schema: Schema.Codec<A, I>,
+        inputs: string[],
+        [command, ...args]: readonly [string, ...string[]],
+        { env, pathInputs = [], ignoredInputs = [] }: { readonly env?: Readonly<Record<string, string>>; readonly pathInputs?: string[]; readonly ignoredInputs?: string[] } = {},
+    ) {
         const key = [command, ...args, ...Object.values(env ?? {})].join(' ');
         const [content, paths] = yield* Effect.all([Effect.tryPromise(() => hashWithWorkspaceContext(workspaceRoot, [...inputs, path.relative(workspaceRoot, import.meta.filename)])), pathInputs.length === 0 ? Effect.succeed([]) : glob(workspaceRoot, pathInputs)]);
-        const hash = paths.length === 0 ? content : hashArray([content, ...paths.toSorted()]);
+        const ignored = (yield* Effect.forEach(ignoredInputs, (pattern) => fs.glob(pattern, { root: workspaceRoot, dot: true }))).flat().toSorted();
+        const extra = [...paths.toSorted(), ...ignored, ...(yield* Effect.forEach(ignored, (file) => fs.readFileString(path.join(workspaceRoot, file))))];
+        const hash = extra.length === 0 ? content : hashArray([content, ...extra]);
         const prior = cache.get(key);
         const output = prior?.hash === hash ? prior.output : yield* runCommand(command, args, { cwd: workspaceRoot, env, extendEnv: true });
         const value = yield* Schema.decodeEffect(Schema.fromJsonString(schema))(output);
@@ -216,7 +242,11 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
             ),
         ),
         ...(yield* Effect.all({
-            mise: Effect.cached(Mise.read(workspaceRoot)),
+            mise: Effect.cached(
+                Effect.flatMap(cached(Mise.declared, [`${path.dirname(Mise.file)}/mise*.toml`], ['mise', 'daemons', 'ls', '--json'], { env: { MISE_ENV: yield* Config.String('MISE_ENV').pipe(Config.withDefault('')) }, ignoredInputs: [`${path.dirname(Mise.file)}/mise*.local.toml`] }), (declared) =>
+                    readDaemons(workspaceRoot, declared),
+                ),
+            ),
             packages: Effect.cached(readPackages(workspaceRoot)),
             pythonScopes: Effect.cached(Effect.flatMap(Effect.all([hosts, pyproject]), ([folders, { testPaths }]) => readScopes(workspaceRoot, folders, testPaths))),
             configs: Effect.cached(

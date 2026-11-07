@@ -166,6 +166,7 @@ Restore resolves requested ranges through NuGet's lowest applicable version and 
 - `NUGET_PACKAGES` overrides `globalPackagesFolder` alone, a relative value fails restore
 - `RestoreSources` replaces the configured sources for one restore, `RestoreAdditionalProjectSources` adds to them
 - `RestoreIgnoreFailedSources` turns an unreachable source into a warning
+- `maxHttpRequestsPerSource` in `<config>` bounds concurrent requests to each source, NuGet on .NET sets no bound without it
 - `RestoreUseStaticGraphEvaluation` in `Directory.Build.props` applies to a project restore
 - Solution restores read `RestoreUseStaticGraphEvaluation` from `-p:` or from `Directory.Solution.props`
 - `NuGetAudit=false` skips the vulnerability fetch

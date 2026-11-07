@@ -123,7 +123,7 @@ public sealed record RhinoTheme(string Name) {
     private IO<Unit> Switched(Ref<Option<Owned<(bool Dark, IO<Unit> Restore)>>> latest) =>
         from dark in Running
         from current in Current.Read
-        from held in IO.lift(() => latest.Value)
+        let held = latest.Value
         from switched in when(string.Equals(current, Name, StringComparison.Ordinal) && held.Exists(owned => owned.Value.Dark != dark),
             Restored(latest) >> Products.Replace(latest, Colored).Map(static _ => unit) >> Flush).As()
         select switched;
@@ -175,7 +175,7 @@ public sealed record RhinoTheme(string Name) {
 
     private IO<HashMap<ThemeKey, Color>> PaletteFor(bool dark) =>
         from live in Live(dark)
-        from resolved in IO.lift(() => Resolved(live.Values, live.Hooked))
+        from resolved in IO.lift(Resolved(live.Values, live.Hooked))
         select resolved;
 
     private static IO<(HashMap<ThemeKey, Color> Values, HashSet<PaintColor> Hooked)> Live(bool dark) =>

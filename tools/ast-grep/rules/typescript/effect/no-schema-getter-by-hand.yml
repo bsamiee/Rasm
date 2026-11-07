@@ -6,8 +6,6 @@ utils:
         regex: '^(String|Number|Boolean|BigInt|encodeURIComponent|decodeURIComponent)$'
     string-member:
         regex: '^(trim|toLowerCase|toUpperCase|capitalize|uncapitalize|snakeToCamel|camelToSnake)$'
-    string-module:
-        matches: {effect-module: {name: {regex: '(?-u:\b)String$'}}}
     identity:
         matches: {effect-function: {name: {regex: '^identity$'}}}
     getter-transform:
@@ -41,7 +39,7 @@ rule:
             - {kind: member_expression, pattern: globalThis.$NAME, has: {field: property, matches: conversion}}
             - kind: member_expression
               pattern: $MODULE.$NAME
-              all: [{has: {field: object, matches: string-module}}, {has: {field: property, matches: string-member}}]
+              all: [{has: {field: object, matches: effect-string-module}}, {has: {field: property, matches: string-member}}]
             - {matches: identity, pattern: $IDENTITY}
             - matches: {typescript-unary-function: {parameter: {pattern: $P}, result: {kind: identifier, all: [{pattern: $P}, {pattern: $IDENTITY}]}}}
             - matches:
@@ -55,7 +53,7 @@ rule:
                             - {kind: call_expression, pattern: $P.$NAME(), has: {field: function, has: {field: property, regex: '^(toString|trim|toLowerCase|toUpperCase)$'}}}
                             - kind: call_expression
                               pattern: $MODULE.$NAME($P)
-                              has: {field: function, all: [{has: {field: object, matches: string-module}}, {has: {field: property, matches: string-member}}]}
+                              has: {field: function, all: [{has: {field: object, matches: effect-string-module}}, {has: {field: property, matches: string-member}}]}
             - matches: {typescript-constant-function: {result: {matches: typescript-literal-expression, pattern: $CONSTANT}}}
               not: {matches: effect-union-member-encode}
         - pattern: $FN

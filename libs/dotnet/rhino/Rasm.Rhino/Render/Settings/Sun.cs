@@ -63,7 +63,7 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset St
 
     public static IO<SunSite> Here(Angle north, LocalDateTime moment) =>
         Products.Accepted(static () => (Sun.Here(out double latitude, out double longitude), (Latitude: latitude, Longitude: longitude)))
-            .Bind(located => IO.lift(() => GeoCoordinate.From(located.Latitude, located.Longitude).Bind(place => Placed(place, north, moment))));
+            .Bind(located => IO.lift(GeoCoordinate.From(located.Latitude, located.Longitude).Bind(place => Placed(place, north, moment))));
 
     // --- [DOCUMENT]
     public static LocalDateTime Moment(Sun sun) => LocalDateTime.FromDateTime(sun.GetDateTime(DateTimeKind.Local)).With(TimeAdjusters.TruncateToSecond);
@@ -95,7 +95,7 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset St
     internal IO<T> Observed<T>(Func<Sun, Fin<T>> read) =>
         (from sun in use(static () => new Sun { Accuracy = Sun.Accuracies.Maximum })
          from placed in Write(sun)
-         from value in IO.lift(() => read(sun))
+         from value in IO.lift(read(sun))
          select value).Bracket();
 
     internal static Fin<DateTime> Universal(Instant at) =>

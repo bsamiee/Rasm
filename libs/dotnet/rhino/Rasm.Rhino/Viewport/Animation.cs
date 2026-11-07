@@ -67,8 +67,7 @@ public sealed record AnimationSequence(AnimationKind Kind, int Frames, string Vi
 public static class Animations {
     // --- [DOCUMENT]
     public static IO<Option<AnimationSequence>> Read(RhinoDoc doc) =>
-        Products.Of(() => doc.AnimationProperties).Bind(static held => IO.lift(() =>
-            Kind(held).Bind(found => found.Traverse(kind => Sequence(held, kind)).As()))).Bracket();
+        Products.Of(() => doc.AnimationProperties).Bind(static held => IO.lift(Kind(held).Bind(found => found.Traverse(kind => Sequence(held, kind)).As()))).Bracket();
 
     public static IO<Unit> Write(RhinoDoc doc, AnimationSequence sequence) =>
         Products.Of(() => doc.AnimationProperties).Bind(held => IO.lift(() => {

@@ -101,7 +101,7 @@ extension Integration {
             let fixture: Fixture = try Fixture()
             let pid: String = try await launch(fixture)
             if let scenario { try await press(scenario, in: fixture, pid: pid) }
-            let quit: (lines: [JSONValue], status: TerminationStatus) = try await tool(["quit", "--pid", pid] + flags)
+            let quit: (lines: [JSONValue], status: TerminationStatus) = try await tool(["quit", pid] + flags)
             let exited: Bool = quit.lines.last?[fixture.identifier, pid, "exited"] != nil
             expectNoDifference(exited, status == 0)
             expectNoDifference(quit.status, .exited(status))

@@ -972,7 +972,7 @@
         <PackageVersion Include="Xbim.IO.Table"                                           Version="6.0.172" />                           <!-- Spreadsheet serialization of EXPRESS schema model data -->
     </ItemGroup>
 
-    <ItemGroup Label="Roslyn Host" Condition="$(_RepoRelativeDir.Contains('/tools/roslyn/'))">
+    <ItemGroup Label="Roslyn Host" Condition="'$(RoslynHost)' != ''">
         <PackageVersion Update="System.Collections.Immutable"                            Version="[10.0.14]" />                     <!-- Assembly version loaded by the .NET 10 editor runtime -->
     </ItemGroup>
 

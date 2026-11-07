@@ -171,16 +171,16 @@ public static class Destinations {
     private static IO<(string Folder, Seq<(OutputName Name, OutputPath Path)> Placed)> Planned(
         RhinoDoc document, OutputFolder folder, Stem stem, bool overwrite, OutputConvention convention, Seq<OutputName> names) =>
         from saved in IO.lift(() => Conversions.Present(document.Path))
-        from location in IO.lift(() => (folder.Of(saved), stem.Of(saved)).Apply(static (path, part) => (Folder: path, Stem: part)).As())
+        from location in IO.lift((folder.Of(saved), stem.Of(saved)).Apply(static (path, part) => (Folder: path, Stem: part)).As())
         let fresh = names.Filter(static name => name.Version is OutputVersioning.Next).Map(static name => name.Scope).Distinct()
         from entries in FilePublication.Faulted(location.Folder, RhinoReason.Unreadable, IO.lift(() =>
             !fresh.IsEmpty && Directory.Exists(location.Folder) ? toSeq(Directory.EnumerateFileSystemEntries(location.Folder)).Map(static entry => Path.GetFileName(entry)).Strict() : Seq<string>()))
-        from next in IO.lift(() => fresh.Traverse(scope => entries.Choose(entry => convention.VersionOf(location.Stem, scope, entry)).Max<Seq, OutputVersion>()
+        from next in IO.lift(fresh.Traverse(scope => entries.Choose(entry => convention.VersionOf(location.Stem, scope, entry)).Max<Seq, OutputVersion>()
                 .Match(Some: static top => top.Next(), None: static () => OutputVersion.MinValue)
                 .Map(version => (scope, version)))
             .As()
             .Map(static versions => toHashMap(versions)))
-        from placed in IO.lift(() => names
+        from placed in IO.lift(names
             .Map(name => (Name: name, Version: name.Version.Switch(
                 (Next: next, name.Scope),
                 unversioned: static (_, _) => Option<OutputVersion>.None,

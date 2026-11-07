@@ -132,6 +132,11 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
 
     protected static bool Sourced(ISymbol symbol) => symbol.Locations.Any(static location => location.IsInSource);
 
+    protected static bool Mentions(ITypeSymbol type, ITypeParameterSymbol held) =>
+        SymbolEqualityComparer.Default.Equals(type, held)
+        || (type is INamedTypeSymbol { TypeArguments: var arguments } && arguments.Any(argument => Mentions(argument, held)))
+        || (type is IArrayTypeSymbol array && Mentions(array.ElementType, held));
+
     protected static bool Delegated(IMethodSymbol method) => method.Parameters.Any(static parameter => parameter.Type.TypeKind is TypeKind.Delegate);
 
     protected static INamedTypeSymbol? Enumerated(ITypeSymbol type) =>

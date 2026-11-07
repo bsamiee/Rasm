@@ -98,7 +98,7 @@ public static class Layouts {
 
     private static IO<PageViewGroup> Add(RhinoDoc doc, LayoutName name) =>
         (from staged in use(() => new PageViewGroup { Name = name })
-         from index in IO.lift(() => Conversions.Required(Conversions.Present(doc.PageViewGroups.Add(staged))))
+         from index in IO.lift(Conversions.Required(Conversions.Present(doc.PageViewGroups.Add(staged))))
          from row in Rows.Find(doc.PageViewGroups, new ComponentRef<PageViewGroup>.ByIndex(index))
          select row).Bracket();
 
@@ -163,7 +163,7 @@ public static class Layouts {
             GeometryPair.WithAttributes(doc.CreateDefaultAttributes, None, attributes => IO.lift(() => {
                 (attributes.LayerIndex, attributes.Space, attributes.ViewportId) = (layer.Index, ActiveSpace.PageSpace, page.MainViewport.Id);
                 return RhinoFault.Unless(attributes.SetUserString(FrameKey, name), RhinoReason.Declined, name)
-                    .Map(_ => Conversions.Required(Conversions.Present(doc.Objects.AddInstanceObject(definition, Transform.Identity, attributes)))).Flatten();
+                    .Bind(Fin<Guid> (_) => Conversions.Required(Conversions.Present(doc.Objects.AddInstanceObject(definition, Transform.Identity, attributes))));
             })).Map(unit)).As()
         from purged in Products.Each(stale.Map(static mark => mark.Key).Distinct().Map(key => IO.lift(() => Optional(doc.InstanceDefinitions.Find(key))
             .Filter(static unused => unused.GetReferences(0).Length is 0)

@@ -24,7 +24,9 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - SwiftPM locks its scratch path from workspace load to exit, `--skip-build` included, targets that compile take `parallelism: false`
 - Nx runs `swift package describe` and `dump-package` under `.cache/swiftpm/nx-manifest` to keep manifest reads independent of builds
 - `typecheck:swift` builds test targets too, Periphery reads a test unit older than its source as a stale reference and reports live declarations unused
-- Executables outside `tests/` `install` from SwiftPM's `release` path with `install -C`, mise adds `$XDG_CONFIG_HOME/swiftpm/bin` to `PATH`
+- Executables outside `tests/` `install` from the `release` path of scratch path `$SWIFTPM_BUILD_DIR/install` with `install -C`, mise adds `$XDG_CONFIG_HOME/swiftpm/bin` to `PATH`
+- Swift Build writes `GeneratedModuleMaps` and `<Module>-Swift.h` with no configuration in the path, so configurations sharing a scratch path invalidate each other
+- SwiftPM sets `COLOR_DIAGNOSTICS` from `NO_COLOR` alone and a changed value recompiles every module, `.config/mise.toml` `[env]` holds it
 - Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
 
 ## [03]-[PROJECT_FILES]

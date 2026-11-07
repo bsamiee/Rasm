@@ -38,7 +38,7 @@ public static class Editors {
                 shelf.Listed.Map(preset => (Command<Invoke>)CommandRows.Picked(new CommandFace($"preset-{preset.Name}", (string)preset.Name), current.Exists(held => held.Name == preset.Name), _ => binding.Apply(preset).Map(unit))),
                 Seq<Command<Invoke>>(new Command<Invoke>.Run(new CommandFace("preset-save", "Save preset"), new Invoke.Effect(_ =>
                     from text in HostDialogs.Ask(() => (Dialogs.ShowEditBox(LocalText.Of("Save preset").Local, LocalText.Of("Name").Local, Conversions.Unset(current.Map(static held => (string)held.Name)), multiline: false, out string entered), entered))
-                    from name in IO.lift(() => PresetName.Validated(text))
+                    from name in IO.lift(PresetName.Validated(text))
                     from saved in binding.Save(name)
                     select unit))))));
 }

@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-iterable-module
+language: tsxlang
+rule:
+    matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}}}

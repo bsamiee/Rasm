@@ -67,7 +67,7 @@ public static class Products {
     public static IO<T> Captured<T>(Func<Action<Fin<T>>, IO<Unit>> host, [CallerArgumentExpression(nameof(host))] string call = "") =>
         from answer in atomIO(Option<Fin<T>>.None)
         from hosted in host(value => answer.Swap(_ => Some(value)))
-        from value in IO.lift(() => answer.Value.ToFin(new RhinoFault(call, RhinoReason.Missing)).Bind(static result => result))
+        from value in IO.lift(answer.Value.ToFin(new RhinoFault(call, RhinoReason.Missing)).Bind(static result => result))
         select value;
 
     public static IO<T> Captured<TArgs, T>(Action<Action<TArgs>> host, Func<TArgs, IO<T>> body, [CallerArgumentExpression(nameof(host))] string call = "") =>

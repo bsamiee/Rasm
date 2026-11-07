@@ -97,7 +97,7 @@ public static class Stages {
                 from subd in IO.pure(Optional(staged as SubD))
                 from tagged in IO.lift(() => subd.Map(static held => held.UpdateAllTagsAndSectorCoefficients()))
                 from cleared in IO.lift(() => subd.Iter(static held => held.ClearEvaluationCache()))
-                from valid in IO.lift(() => staged.IsValidWithLog(out string log) ? Fin.Succ(staged) : new RhinoFault(staged.ObjectType, RhinoReason.Invalid, Inner: Error.New(log)))
+                from valid in IO.lift(staged.IsValidWithLog(out string log) ? Fin.Succ(staged) : new RhinoFault(staged.ObjectType, RhinoReason.Invalid, Inner: Error.New(log)))
                 select valid);
 }
 

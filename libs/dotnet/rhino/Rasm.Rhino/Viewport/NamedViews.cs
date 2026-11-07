@@ -161,7 +161,7 @@ public static class NamedViews {
     private static Func<RhinoViewport, ViewInfo, IO<Unit>> Moved(Transform xform) =>
         (copy, view) =>
             from dilation in IO.lift(() => NamedTable.Dilation(xform))
-            from camera in IO.lift(() => Transformed(copy, xform, dilation))
+            from camera in IO.lift(Transformed(copy, xform, dilation))
             from plane in ConstructionPlanes.Read(view)
             from moved in ConstructionPlanes.Moved(plane, xform)
             from written in ConstructionPlanes.Write(view, moved)
@@ -203,7 +203,7 @@ public static class NamedViews {
     private static Func<Option<RhinoViewport>, IO<Unit>> Put(RhinoDoc doc, string name) =>
         row => row.Match(
             Some: held => (from view in use(() => new ViewInfo(held) { Name = name })
-                           from added in IO.lift(() => Conversions.Required(Conversions.Present(doc.NamedViews.Add(view))))
+                           from added in IO.lift(Conversions.Required(Conversions.Present(doc.NamedViews.Add(view))))
                            select unit).Bracket(),
             None: () => Products.Accepted(() => doc.NamedViews.Delete(name)));
 

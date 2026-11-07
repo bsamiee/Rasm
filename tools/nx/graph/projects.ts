@@ -2,7 +2,7 @@ import { createRequire, isBuiltin } from 'node:module';
 import { matchesGlob } from 'node:path';
 import type { CreateNodesResult, Optional, ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { findMatchingProjects, interpolate } from '@nx/devkit/internal';
-import { Array, Effect, Equal, Filter, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Effect, Equal, FileSystem, Filter, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parseSync } from 'rolldown/utils';
 import { ClaudeHooks, decodeFile, suitePath, VITEST_INTEGRATION_TESTS, Xcconfig, XcodeProject } from '#/eng/typescript/manifest';
@@ -11,7 +11,7 @@ import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, suitePare
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Inference = Workspace & { readonly configFiles: ReadonlySet<string>; readonly windowsProjects: ReadonlySet<string> };
+type Inference = Workspace & { readonly configFiles: ReadonlySet<string> };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -67,17 +67,18 @@ const owning = Effect.fnUntraced(function* ({ packages }: Workspace, dir: string
 
 // --- [INPUTS]
 const folderInput = (folder: string) => `{workspaceRoot}/${folder}/**/*`;
-const defaultInputs = (files: readonly string[]) => (files.length === 0 ? {} : { namedInputs: { default: ['{projectRoot}/**/*', ...files] } });
-const externalInputs = (path: Path.Path, root: string, files: readonly (string | undefined)[]) =>
-    defaultInputs(
-        Array.dedupe(
+const defaultInputs = (files: readonly NonNullable<ProjectConfiguration['namedInputs']>[string][number][]) => (files.length === 0 ? {} : { namedInputs: { default: ['{projectRoot}/**/*', ...files] } });
+const externalInputs = (path: Path.Path, root: string, files: readonly (string | undefined)[], packages: readonly string[] = []) =>
+    defaultInputs([
+        ...Array.dedupe(
             files
                 .filter(Predicate.isString)
                 .map(path.normalize)
                 .filter((file) => file.startsWith('../'))
                 .map((file) => `{workspaceRoot}/${path.join(root, file)}`),
         ),
-    );
+        ...Array.match(packages, { onEmpty: () => [], onNonEmpty: (externalDependencies) => [{ externalDependencies: [...externalDependencies] }] }),
+    ]);
 const rootTargets = (targets: Readonly<Record<string, TargetConfiguration>>): CreateNodesResult => ({ projects: { '.': { root: '.', targets } } });
 const pytest = (args: readonly string[], coverage?: string): TargetConfiguration => ({
     command: 'pytest --report-log=.artifacts/python/test/{projectName}/events.jsonl',
@@ -120,24 +121,26 @@ const binlog = (workspaceRoot: string, target: string) => `-bl:${workspaceRoot}/
 const logged = (workspaceRoot: string, target: string) => ({ env: { MSBUILD_LOGGING_ARGS: binlog(workspaceRoot, target) } });
 const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | ((file: Path.Path.Parsed, workspace: Inference & { readonly file: string }) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, Error, PluginServices>)>> = {
     '*.csproj': Effect.fnUntraced(function* ({ dir, name }, workspace) {
-        const { file, workspaceRoot, windowsProjects } = workspace;
+        const { file, workspaceRoot } = workspace;
         const [path, { Project }] = yield* Effect.all([Path.Path, decodeFile(MSBuildProject, workspaceRoot, file)]);
         const plugin = Project.PropertyGroup.some(({ TargetExt }) => TargetExt === '.rhp');
         const skin = Project.PropertyGroup.some(({ TargetExt }) => TargetExt === '.rhs');
         const product = plugin || skin;
-        const windows = product || windowsProjects.has(dir);
         const licensed = Project.ItemGroup.flatMap(({ PackageReference = [] }) => PackageReference).some((reference) => reference['@_Include'] === 'SixLabors.ImageSharp');
-        const tags = ['language:dotnet', ...(plugin ? ['output:rhp'] : []), ...(windows ? ['platform:windows'] : []), ...(licensed ? ['license:imagesharp'] : [])];
+        const tags = ['language:dotnet', ...(plugin ? ['output:rhp'] : []), ...(product ? ['platform:windows'] : []), ...(licensed ? ['license:imagesharp'] : [])];
         const runtime = ['--runtime', 'win-x64'];
         const logs = Record.fromIterableWith((target: string) => [target, { options: logged(workspaceRoot, target) }]);
-        const windowsPack = { 'pack:windows': { options: { args: runtime, ...logged(workspaceRoot, 'pack:windows') } } };
+        const windowsTargets = {
+            'build:windows': { command: 'dotnet build', options: { cwd: '{projectRoot}', args: [...runtime, '--configuration', 'Release'], ...logged(workspaceRoot, 'build:windows') }, parallelism: false },
+            'pack:windows': { options: { args: runtime, ...logged(workspaceRoot, 'pack:windows') } },
+        };
         const configurations = {
             debug: { args: ['--no-restore', '--configuration', 'Debug'] },
             release: { args: ['--no-restore', '--configuration', 'Release'] },
         };
         const build = product ? Record.map({ build: ['--no-restore'], 'build:release': configurations.release.args }, (args, target) => ({ dependsOn: [], options: { args, ...logged(workspaceRoot, target) }, configurations, parallelism: false })) : logs(['build', 'build:release']);
         const packaged = {
-            ...(product ? windowsPack : {}),
+            ...(product ? windowsTargets : {}),
             ...(plugin ? logs(['pack', 'install', 'publish']) : {}),
             ...(skin ? { install: { command: 'dotnet msbuild -target:InstallRhinoSkin -property:Configuration=Release', options: { cwd: '{projectRoot}', ...logged(workspaceRoot, 'install') }, dependsOn: ['pack:windows'] } } : {}),
         };
@@ -152,7 +155,6 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             targets: {
                 ...build,
                 ...packaged,
-                ...(windows ? { 'build:windows': { options: { cwd: '{projectRoot}', args: [...runtime, ...(product ? ['--configuration', 'Release'] : [])], ...logged(workspaceRoot, 'build:windows') }, parallelism: false } } : {}),
                 ...(dir.split(path.sep, 1)[0] === TESTS ? {} : { check: {} }),
             },
         };
@@ -163,10 +165,10 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             name: dir,
             tags: ['language:dotnet'],
             targets: {
-                ...Record.fromIterableWith(['build', 'format'], (step) => [step, { executor: 'nx:noop', dependsOn: [{ target: `${step}:*${ext}`, params: 'forward' as const }] }]),
+                build: { executor: 'nx:noop', dependsOn: [{ target: `build:*${ext}`, params: 'forward' }] },
+                format: { executor: 'nx:noop', dependsOn: [{ target: `format:*${ext}` }] },
                 [`restore:${base}`]: { options: { args: [file, binlog(workspaceRoot, `restore:${base}`)] } },
-                [`build:${base}`]: { dependsOn: [`restore:${base}`], options: { args: [file, '--no-restore', binlog(workspaceRoot, `build:${base}`)] } },
-                [`run:${base}`]: { dependsOn: [`build:${base}`], options: { args: [file, '--no-build', '--'] } },
+                [`build:${base}`]: { command: 'dotnet build', dependsOn: [`restore:${base}`], options: { args: [file, '--no-restore', binlog(workspaceRoot, `build:${base}`)] } },
                 [`format:${base}`]: { options: { args: [file, '--no-restore'] }, dependsOn: [`restore:${base}`] },
                 check: {},
             },
@@ -214,8 +216,10 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         };
     }),
     [XcodeProject.file]: Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [path, { files, targets }, { products }] = yield* Effect.all([Path.Path, decodeFile(XcodeProject.schema, workspace.workspaceRoot, workspace.file), workspace.swift]);
+        const [path, fs, { files, targets }, { products }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, decodeFile(XcodeProject.schema, workspace.workspaceRoot, workspace.file), workspace.swift]);
         const [root, name] = [path.dirname(dir), path.parse(dir).name];
+        const links = yield* Effect.forEach(yield* glob(workspace.workspaceRoot, [`${root}/**/*.xcassets/**/*.svg`]), (file) => Effect.option(fs.readLink(path.join(workspace.workspaceRoot, file))));
+        const catalogs = Array.dedupe(Array.getSomes(links).flatMap((target) => target.split(`${MODULES}/`).slice(1, 2).map(packageName)));
         const identifier = yield* Effect.fromOption(
             Option.flatMap(
                 Array.findFirst(targets, (target) => target.name === name),
@@ -243,6 +247,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
                 path,
                 root,
                 targets.flatMap(({ settings }) => [settings.CODE_SIGN_ENTITLEMENTS, settings.INFOPLIST_FILE]),
+                catalogs,
             ),
             implicitDependencies: products.filter((product) => local.has(product.name)).flatMap(Struct.get('targets')),
             targets: { ...Record.map(xcode.targets, () => ({ options })), ...Record.fromIterableWith(['build', 'pack'], (step) => [step, { options, dependsOn: bundled }]) },
@@ -304,7 +309,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
                         ...(configFiles.has(path.join(dir, CLOUDFLARE_CONFIG)) ? [{ dependentTasksOutputFiles: '**/*.d.ts' }] : []),
                     ],
                 },
-                check: {},
+                check: { inputs: ['default', '^production', 'typescript', ...compilerInputs, { externalDependencies: ['@effect/tsgo', 'typescript'] }] },
                 ...(configFiles.has(path.join(dir, 'vitest.config.ts')) && (portable.length > 0 || suiteFiles.includes(storybook)) ? { test: { inputs: [...compilerInputs, ...containers.map((candidate) => `!{workspaceRoot}/${candidate}`)] } } : {}),
                 ...integration,
             },
@@ -318,11 +323,11 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])],
             targets: {
                 build: { command: 'vite build --configLoader native', options: { cwd: '{projectRoot}' } },
-                ...(hosted ? { hosting: {}, publish: {} } : {}),
+                ...(hosted ? { infra: {}, publish: {} } : {}),
             },
         };
     }),
-    ...Record.fromIterableWith(['uxp', 'cep'] as const, (host) => [`${host}.config.ts` as const, { tags: [`host:${host}`], targets: { build: {}, pack: {}, install: {} } }]),
+    ...Record.fromIterableWith(['uxp', 'cep'] as const, (host) => [`${host}.config.ts` as const, { tags: [`host:${host}`], targets: { build: { command: `vite build --configLoader native --config ${host}.config.ts`, options: { cwd: '{projectRoot}' } }, pack: {}, install: {} } }]),
     'perso-arabic/rasm.toml': ({ dir, base, name }) =>
         Effect.map(Path.Path, (path) => {
             const output = `.artifacts/fonts/${name}`;
@@ -347,7 +352,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         const name = path.basename(dir);
         return {
             tags: ['output:sea'],
-            targets: { pack: { inputs: ['...', ...[...projects, Xcconfig.file, ...entitlements].map((file) => `{workspaceRoot}/${file}`)], outputs: [`${output}/{${name},${name}.mjs,sea.json,sea.entitlements,LaunchAgents}`] } },
+            targets: { pack: { command: 'vite build --configLoader native --config {projectRoot}/sea.config.ts', inputs: ['...', ...[...projects, Xcconfig.file, ...entitlements].map((file) => `{workspaceRoot}/${file}`)], outputs: [`${output}/{${name},${name}.mjs,sea.json,sea.entitlements,LaunchAgents}`] } },
         };
     }),
     [CLOUDFLARE_CONFIG]: { targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } },
@@ -363,7 +368,7 @@ const infer = Effect.fnUntraced(function* (file: string, workspace: Inference) {
     const [marker, configure] = yield* Effect.fromOption(Array.findFirst([parsed.base, path.join(path.basename(parsed.dir), parsed.base), `*${parsed.ext}`], marked));
     const { root = marker.split('/').reduce((at) => path.dirname(at), file), tags = [], targets = {}, ...configuration } = typeof configure === 'function' ? yield* configure(parsed, { ...workspace, file }) : configure;
     const hosted = Array.intersection(root.split('/'), yield* workspace.hosts).map((host) => `host:${host}`);
-    const released = Option.match(tagPrefix(workspace, root, tags, configuration.name), {
+    const released = Option.match(tagPrefix(workspace, root, tags, configuration.name ?? Option.getOrUndefined(Option.map(Record.get(yield* workspace.packages, root), Struct.get('name')))), {
         onNone: () => targets,
         onSome: (MinVerTagPrefix) => Record.map(targets, (target) => ({ ...target, options: { ...target.options, env: { ...target.options?.env, MinVerTagPrefix } } })),
     });

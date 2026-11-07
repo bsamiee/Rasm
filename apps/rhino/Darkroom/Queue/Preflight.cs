@@ -81,7 +81,7 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
     public static IO<Preflight> Check(QueueContext context, RhinoDoc doc, QueuePlan plan, QueueTarget target) =>
         from statistics in DocumentStatistics.Read(doc)
         from links in Links.Closure(new LinkedModel.Opened(doc.RuntimeSerialNumber))
-        from prompts in IO.lift(() => doc.LinkedInstanceDefinitionUpdate is LinkedInstanceDefinitionUpdateStyle.Prompt)
+        let prompts = doc.LinkedInstanceDefinitionUpdate is LinkedInstanceDefinitionUpdateStyle.Prompt
         from named in NamedTable.Read(doc, [NamedViews.Table, Snapshots.Table])
         from channels in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => (from held in use(() => scope.Settings.RenderChannels) select QueueEstimate.Components(held)).Bracket())
         from run in target.RendersHere ? QueueProgress.Observed(context).Map(static observed => Some(observed.State)) : IO.pure(Option<RunState>.None)

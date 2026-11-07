@@ -1,9 +1,12 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.Formatting;
+using Microsoft.CodeAnalysis.Operations;
 using Microsoft.CodeAnalysis.Simplification;
+using Microsoft.CodeAnalysis.Text;
 
 namespace Rasm.Analyzers.CodeFixes;
 
@@ -16,7 +19,8 @@ public sealed class LanguageExtCodeFix() : DocumentEditorCodeFix(
         SeparatedSyntaxList<CollectionElementSyntax> elements = ((CollectionExpressionSyntax)site).Elements;
         return FormattableString.Invariant($"Replace `{site}` with `{((SpreadElementSyntax)elements[0]).Expression}.Add({elements[1]})`");
     }, Append),
-    (LanguageExtAnalyzer.Narrowed, static (site, _) => FormattableString.Invariant($"Delete `{Called(site)}()`"), Unnarrow)) {
+    (LanguageExtAnalyzer.Narrowed, static (site, _) => FormattableString.Invariant($"Delete `{Called(site)}()`"), Unnarrow),
+    (LanguageExtAnalyzer.Continued, static (site, _) => FormattableString.Invariant($"Write `{site.FirstAncestorOrSelf<InvocationExpressionSyntax>()}` without its lift"), Continue)) {
     // --- [CALLS]
     private static SimpleNameSyntax Called(SyntaxNode site) {
         ExpressionSyntax expression = site.FirstAncestorOrSelf<InvocationExpressionSyntax>()!.Expression;
@@ -40,6 +44,44 @@ public sealed class LanguageExtCodeFix() : DocumentEditorCodeFix(
         Replaced(editor, site, static (current, _) =>
             current.CopyAnnotationsTo(Parenthesized(Extracted(current, LanguageExtAnalyzer.Unlifted(current)!)))
                 .WithAdditionalAnnotations(Formatter.Annotation));
+
+    // --- [CONTINUATIONS]
+    private static T Kept<T>(SyntaxNode owner, T value) where T : SyntaxNode =>
+        Extracted(owner, value).WithTrailingTrivia(owner.DescendantTrivia(TextSpan.FromBounds(value.Span.End, owner.Span.End)).Concat(owner.GetTrailingTrivia()));
+
+    private static ExpressionSyntax Lifted(InvocationExpressionSyntax step) =>
+        step.ArgumentList.Arguments[0].Expression is LambdaExpressionSyntax { ExpressionBody: { } body } ? body : step.ArgumentList.Arguments[0].Expression;
+
+    private static void Continue(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) {
+        InvocationExpressionSyntax located = site.FirstAncestorOrSelf<InvocationExpressionSyntax>()!;
+        if (diagnostic.Properties.ContainsKey(nameof(LetClauseSyntax))) {
+            Replaced(editor, located.Parent!, static (current, _) => {
+                FromClauseSyntax from = (FromClauseSyntax)current;
+                InvocationExpressionSyntax step = (InvocationExpressionSyntax)from.Expression;
+                return current.CopyAnnotationsTo(SyntaxFactory.LetClause(
+                    SyntaxFactory.Token(from.FromKeyword.LeadingTrivia, SyntaxKind.LetKeyword, from.FromKeyword.TrailingTrivia),
+                    from.Identifier,
+                    SyntaxFactory.Token(from.InKeyword.LeadingTrivia, SyntaxKind.EqualsToken, from.InKeyword.TrailingTrivia),
+                    Kept(step, Lifted(step)))).WithAdditionalAnnotations(Formatter.Annotation);
+            });
+            return;
+        }
+        Replaced(editor, located, (current, generator) => {
+            InvocationExpressionSyntax call = (InvocationExpressionSyntax)current;
+            ExpressionSyntax argument = call.ArgumentList.Arguments[0].Expression;
+            if (diagnostic.Properties.ContainsKey(nameof(IParameterReferenceOperation)))
+                return current.CopyAnnotationsTo(Extracted(call, ((MemberAccessExpressionSyntax)call.Expression).Expression)).WithAdditionalAnnotations(Formatter.Annotation);
+            if (!diagnostic.Properties.TryGetValue(nameof(IMethodSymbol), out string? name) || name is null)
+                return current.CopyAnnotationsTo(call.ReplaceNode(argument, Kept(argument, Lifted(call)))).WithAdditionalAnnotations(Formatter.Annotation);
+            InvocationExpressionSyntax step = (InvocationExpressionSyntax)((LambdaExpressionSyntax)argument).ExpressionBody!;
+            InvocationExpressionSyntax mapped = call.ReplaceNode(step, Kept(step, Lifted(step)));
+            MemberAccessExpressionSyntax access = (MemberAccessExpressionSyntax)mapped.Expression;
+            SimpleNameSyntax member = diagnostic.Properties.TryGetValue(nameof(ITypeSymbol), out string? type) && type is not null
+                ? SyntaxFactory.GenericName(SyntaxFactory.Identifier(name), SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.ParseTypeName(type)))).WithAdditionalAnnotations(Simplifier.Annotation)
+                : Identifier(generator, name);
+            return current.CopyAnnotationsTo(mapped.WithExpression(access.WithName(member.WithTriviaFrom(access.Name)))).WithAdditionalAnnotations(Formatter.Annotation);
+        });
+    }
 
     // --- [ROUND_TRIPS]
     private static void Unwrap(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) {

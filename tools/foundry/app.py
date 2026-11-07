@@ -1,5 +1,6 @@
 """Reconcile a declared font set from its originals: source, build, check, approve, run and publish each face."""
 
+from importlib.metadata import metadata
 lazy import sys
 
 from cyclopts import App, Parameter
@@ -33,7 +34,7 @@ def exited(result: Outcome[tuple[object, ...]] | None, /) -> int:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-app = App(help=__doc__, result_action=(exited, "sys_exit"), default_parameter=Parameter(negative=()), error_formatter=str)
+app = App(help=metadata("foundry")["Summary"], result_action=(exited, "sys_exit"), default_parameter=Parameter(negative=()), error_formatter=str)
 app.default(performed)
 
 # --- [EXPORTS] --------------------------------------------------------------------------

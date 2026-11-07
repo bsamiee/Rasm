@@ -109,7 +109,7 @@ public static class CommandRows {
 
     private static IO<bool> Executed((Command Command, IO<Unit> Refresh) made) =>
         from refreshed in made.Refresh
-        from enabled in IO.lift(() => made.Command.Enabled)
+        let enabled = made.Command.Enabled
         from executed in when(enabled, IO.lift(made.Command.Execute)).As()
         select enabled;
 

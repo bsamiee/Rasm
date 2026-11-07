@@ -79,7 +79,7 @@ internal static class Conversions {
 - `Bind` on `Option` skips the function after `None`, on `Seq` concatenates every produced sequence into one
 - `Filter` on `Option` turns a failed predicate into `None`, LINQ `where` works the same
 - `Iter` has its own name, overload resolution cannot distinguish `Action<A>` from `Func<A, B>` by return type
-- `Fin<A>` supplies `IfSucc` in place of `Do`, a side effect inside `IO` is a bound `IO.lift` step
+- `Fin<A>` supplies `IfSucc` in place of `Do`, a side effect inside `IO` is a bound `IO.lift` step, `Map` and `let` hold bodies with no call or side effect
 - After `None` or a failure no later action runs
 - `ToSeq` converts an option to a zero-or-one-element sequence, `Flatten` on the `ToSeq` of an `Option<Seq<A>>` yields the `Seq<A>`
 
@@ -175,7 +175,11 @@ internal static class Guards {
 - `Func<A>` defers the value, `Func<Fin<A>>` converts a `Fail` to an `IO` failure
 - `IO.lift(Fin<A>)` lifts an evaluated result, as does `IO.lift(Next)` over a `Fin<A> Next()` method group
 - `Fin<A>` has no `ToIO`
-- Bound `Fin` values lift through `.Bind(IO.lift)`, `.Bind(fin => IO.lift(() => fin))`, or `from x in IO.lift(fin)`, each typed `IO<A>`
+- Bound `Fin` values lift through `.Bind(IO.lift)` or `from x in IO.lift(fin)`, each typed `IO<A>`
+- CS9236 counts binds of an untyped lambda nested in overloaded calls
+- Typed lambda parameters report IDE0350 and explicit type arguments report IDE0001, both suggestions by default, `dotnet format` reports IDE0001 where `dotnet build` does not
+- Lambda return types over untyped parameters (`Fin<T> (x) =>`), single-overload members, method groups, and query clauses bind once
+- Overloads taking a value and a factory of one type multiply binds at calls passing a lambda in that position
 - Branches lift once, one `IO.lift` over the conditional or `Switch` with arms returning a `Fin` or value
 
 ```csharp
@@ -223,6 +227,7 @@ internal static class Leases {
 - `Traverse` under `IO` starts every element effect before awaiting any
 - Effects built with `IO.liftAsync` overlap without a bound, effects built with `IO.lift` run in order on the calling thread until the first failure
 - Bounded parallelism chunks the collection and traverses the chunks with `TraverseM`
+- `ValidationT` over `IO` applies serially, `FinT<IO>` `Apply` and `Traverse` run their effects concurrently and join errors
 - Exclusive writes to one resource go through a `Conduit` reduced under `Fork`
 - `AsyncSemaphore.EnterAsync()` under `use` serializes access, host dispatchers supply thread affinity
 

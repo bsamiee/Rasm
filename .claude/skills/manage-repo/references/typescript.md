@@ -48,6 +48,8 @@ pnpm resolves catalog versions, the Effect compiler checks projects, and Biome l
 - `test:integration` selects `*.integration.test.ts` and `*.integration.test.tsx`, and `test` excludes them
 - Bundle configs take `main.ts` beside them as entry
 - Claude Code plugins with a `hooks/hooks.json` listing `modules` take tag `host:claude`
+- `WorktreeCreate` blocks refuse `EnterWorktree`, `isolation: worktree` agents, and workflow agents at one event
+- Sessions keep the hooks module of an installed plugin they loaded, a fresh `claude -p` session runs a changed module
 
 ## [04]-[WEB]
 
@@ -90,7 +92,8 @@ pnpm resolves catalog versions, the Effect compiler checks projects, and Biome l
 - `organizeImports` runs by default, every other source action is a row
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
 - `.claude/workflows` stays out of `files.includes`, Workflow scripts await and return at top level
-- `useIgnoreFile` keeps the scanner out of every path a root or nested ignore file names, `!!` force-ignores the rest it would index: the `assets` submodule and large typings packages
+- `useIgnoreFile` keeps the scanner out of a tree a root ignore row names, a tree ignored only by its own nested `*` file (`.venv`, `.pixi`) still has its package manifests indexed
+- `!!` force-ignores a tree no ignore file covers: the `assets` submodule and large typings packages
 - Dependency patterns end in `/**/*.ts`, `useBiomeIgnoreFolder` rewrites a trailing `/**` into a form that misses dependency files
 - VS Code `json.schemas` names installed Biome and Nx schemas, a relative `$schema` resolves against a diff's `git:` URI and fails
 

@@ -72,7 +72,7 @@ public static class Details {
     public static IO<Unit> Write(RhinoDoc doc, Guid detailId, DetailState wanted) =>
         from found in ObjectTarget.Resolve<DetailViewObject, DetailView>(doc, detailId)
         from page in Products.Of(() => found.Object.ParentPageView)
-        from held in IO.lift(() => State(doc, found.Object, found.Geometry))
+        from held in IO.lift(State(doc, found.Object, found.Geometry))
         let change = wanted.Except(held)
         from activated in change.Active.Traverse(active => active
             ? Products.Accepted(() => page.SetActiveDetail(detailId))

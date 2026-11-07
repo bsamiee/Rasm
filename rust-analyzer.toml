@@ -1,0 +1,11 @@
+# --- [CHECK] ----------------------------------------------------------------------------
+
+[check]
+allTargets = false
+extraArgs  = ["--locked"]
+workspace  = false
+
+# --- [RUSTC] ----------------------------------------------------------------------------
+
+[rustc]
+source = ".cargo/rustc-source/Cargo.toml"

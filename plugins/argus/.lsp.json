@@ -20,8 +20,7 @@
         "initializationOptions": {
             "cargo": { "extraEnv": { "CARGO_BUILD_TARGET_DIR": "${CLAUDE_PROJECT_DIR}/.artifacts/rust/rust-analyzer", "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/rust-analyzer" } },
             "cachePriming": { "enable": false },
-            "check": { "command": "clippy", "workspace": false, "allTargets": false, "extraArgs": [ "--locked" ] },
-            "rustc": { "source": ".cargo/rustc-source/Cargo.toml" }
+            "check": { "command": "clippy" }
         }
     },
     "swift": {

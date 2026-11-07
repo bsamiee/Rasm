@@ -6,9 +6,6 @@ utils:
         kind: navigation_expression
         pattern: $VALUE
         has: {field: suffix, has: {field: suffix, regex: '^rawValue$'}}
-    text:
-        kind: line_string_literal
-        not: {has: {kind: interpolated_expression}}
 rule:
     pattern: $SITE
     any:
@@ -16,7 +13,7 @@ rule:
         - {kind: infix_expression, has: {field: op, regex: '^[!=]=$'}}
     all:
         - any:
-            - all: [{has: {field: lhs, matches: raw-value}}, {has: {field: rhs, matches: text}}]
-            - all: [{has: {field: lhs, matches: text}}, {has: {field: rhs, matches: raw-value}}]
+            - all: [{has: {field: lhs, matches: raw-value}}, {has: {field: rhs, matches: swift-plain-string}}]
+            - all: [{has: {field: lhs, matches: swift-plain-string}}, {has: {field: rhs, matches: raw-value}}]
 message: '`$SITE` compares the raw value `$VALUE` with a string literal'
 note: 'Compare typed value with the case (`<value> == .<case>`), or with `<Type>(rawValue: <text>)` for a raw-representable struct'

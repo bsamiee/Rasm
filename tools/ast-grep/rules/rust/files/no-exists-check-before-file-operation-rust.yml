@@ -2,8 +2,6 @@
 language: rustlang
 severity: error
 utils:
-    no-arguments:
-        has: {field: arguments, not: {has: {pattern: $_}}}
     path-argument:
         any:
             - kind: reference_expression
@@ -18,13 +16,13 @@ utils:
                 - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^fs_err_(metadata|symlink_metadata)$'}}]}
-                - matches: no-arguments
+                - matches: rust-argumentless-call
     exists-test:
         kind: call_expression
         any:
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^fs_err_try_exists$'}}]}
-                - matches: no-arguments
+                - matches: rust-argumentless-call
             - all:
                 - has: {field: function, regex: '^((::)?tokio::fs::|fs::|(::)?fs_err::(tokio::)?)(exists|try_exists)$'}
                 - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
@@ -32,7 +30,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, has: {field: value, any: [{matches: metadata-read}, {kind: await_expression, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: metadata-read}}]}}
-            - matches: no-arguments
+            - matches: rust-argumentless-call
     present:
         any:
             - matches: exists-test
@@ -59,7 +57,7 @@ utils:
                 - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^(fs_err_)?(metadata|symlink_metadata|read_dir|read_link|canonicalize)$'}}]}
-                - matches: no-arguments
+                - matches: rust-argumentless-call
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^open$'}}, {has: {field: value, regex: '^(((::)?(std|tokio)::)?(fs::)?|(::)?fs_err::(tokio::)?)OpenOptions::new\(\)'}}]}
                 - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}

@@ -3,7 +3,7 @@
 lazy import subprocess
 lazy import sys
 
-from cyclopts import App
+from cyclopts import App, Parameter
 lazy from expression import Result
 
 lazy from blender.records.faults import Fault, Outcome
@@ -28,12 +28,12 @@ def _reported(result: Outcome[int] | None) -> int:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-app = App(help=__doc__, result_action=(_reported, "sys_exit"))
-app.command("eng.python.blender.assets:assets")
-app.command("eng.python.blender.assembly:pack")
-app.command("eng.python.blender.install:install")
-app.command("eng.python.blender.assembly:upgrade")
-app.command("eng.python.blender.evaluate:run")
+app = App(name=f"python -m {__package__}", help=__doc__, result_action=(_reported, "sys_exit"), default_parameter=Parameter(negative=()))
+app.command(f"{__package__}.assets:assets")
+app.command(f"{__package__}.assembly:pack")
+app.command(f"{__package__}.install:install")
+app.command(f"{__package__}.assembly:upgrade")
+app.command(f"{__package__}.evaluate:run")
 
 
 if __name__ == "__main__":

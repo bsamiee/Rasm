@@ -16,9 +16,8 @@ const REASON_WORDS = 9;
 const KINDS = { Bash: 'foreground', Monitor: 'monitor' } as const;
 const ENDED: ReadonlySet<AgentStatus> = new Set(['completed', 'failed', 'killed']);
 const APP_SERVERS = [
-    ['rhino-mcp-platform', 'com.mcneel.rhinoceros.*'],
-    ['blender', 'org.blenderfoundation.blender'],
-    ['mcp-for-blender', 'org.blenderfoundation.blender'],
+    [/^mcp__rhino-mcp-platform__/u, 'com.mcneel.rhinoceros.*'],
+    [/^mcp__(?:mcp-for-)?blender__/u, 'org.blenderfoundation.blender'],
 ] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -135,7 +134,7 @@ const rewatched = async ($: EngineInterface, sockets: Sockets, watches: Set<stri
 };
 
 const driven = async ($: EngineInterface, sockets: Sockets, watches: Set<string>, tool: string, agent: string | undefined): Promise<void> => {
-    const identifier = APP_SERVERS.find(([server]) => tool.includes(server))?.[1];
+    const identifier = APP_SERVERS.find(([server]) => server.test(tool))?.[1];
     const key = `${await $.session.id()} ${identifier}`;
     if (identifier === undefined || watches.has(key)) {
         return;
@@ -164,7 +163,7 @@ const quitEnded = async ($: EngineInterface, sockets: Sockets): Promise<void> =>
 };
 
 const quitSession = async ($: EngineInterface, session: string): Promise<void> => {
-    const script = (await rowsOf($, session)).map(({ pid, bundle }) => `(lsappinfo info -only bundleID ${pid} | grep -qF '"${bundle}"' && watch-apps quit --pid ${pid}) </dev/null >/dev/null 2>&1 &`);
+    const script = (await rowsOf($, session)).map(({ pid, bundle }) => `(lsappinfo info -only bundleID ${pid} | grep -qF '"${bundle}"' && watch-apps quit ${pid}) </dev/null >/dev/null 2>&1 &`);
     if (script.length > 0) {
         await $.process.run(['sh', '-c', script.join('\n')], { stdin: '' });
     }
@@ -186,7 +185,7 @@ const register: Register = (on) => {
         await rewatched($, sockets, watches);
         return next(e);
     });
-    on('tool.call', { tool: new RegExp(APP_SERVERS.map(([server]) => `^mcp__${server}__`).join('|'), 'u') }, ($, e, next) => {
+    on('tool.call', { tool: new RegExp(APP_SERVERS.map(([server]) => server.source).join('|'), 'u') }, ($, e, next) => {
         driven($, sockets, watches, e.tool, e.agentId).catch((cause: unknown) => watchFailed($, cause));
         return next(e);
     }).catch(failClosed);

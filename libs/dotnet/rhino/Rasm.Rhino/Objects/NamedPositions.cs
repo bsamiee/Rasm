@@ -19,7 +19,7 @@ public sealed record NamedPosition(Guid Id, string Name, Seq<(Guid ObjectId, Tra
 public sealed record NamedPositionState(StateName Name, ObjectTarget Objects) : NamedState(NamedPositions.Table, Name) {
     internal override IO<NamedWrite> Save(RhinoDoc doc) =>
         from objects in Objects.Objects(doc)
-        from saved in IO.lift(() => NamedPositions.Saved(doc.NamedPositions, Name, toHashSet(objects.Map(static found => found.Id))))
+        from saved in IO.lift(NamedPositions.Saved(doc.NamedPositions, Name, toHashSet(objects.Map(static found => found.Id))))
         select NamedWrite.Undoable;
 }
 

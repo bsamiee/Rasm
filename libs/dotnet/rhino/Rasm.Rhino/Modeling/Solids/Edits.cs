@@ -28,7 +28,7 @@ public static class SolidEdits {
     public static Step<Brep> ReplaceSurface(Tolerances tolerances, int face, Surface surface, bool rebuildSharedEdges, bool rebuildVertices) =>
         Steps.Derived<Brep>(brep =>
             from held in IO.lift(() => brep.Within(ComponentIndexType.BrepFace, Seq(face)))
-            from index in IO.lift(() => Conversions.Required(Conversions.Present(brep.AddSurface(surface))))
+            from index in IO.lift(Conversions.Required(Conversions.Present(brep.AddSurface(surface))))
             from changed in Products.Accepted(() => brep.Faces[face].ChangeSurface(index))
             from rebuilt in Products.Accepted(() => brep.Faces[face].RebuildEdges(tolerances.Absolute, rebuildSharedEdges, rebuildVertices))
             select brep);

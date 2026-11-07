@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-identifier-value
+language: rustlang
+rule:
+    any:
+        - kind: identifier
+        - kind: unary_expression
+          all:
+            - has: {field: operator, regex: '^\*$'}
+            - has: {kind: identifier}

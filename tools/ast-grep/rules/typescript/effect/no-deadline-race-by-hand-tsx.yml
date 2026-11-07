@@ -2,16 +2,13 @@
 language: tsxlang
 severity: error
 utils:
-    sleep-call:
-        kind: call_expression
-        has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^sleep$'}}}}
     sleep-branch:
         any:
-            - matches: sleep-call
+            - matches: effect-sleep-call
             - kind: call_expression
               any:
-                - has: {field: function, kind: member_expression, has: {field: object, matches: sleep-call}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: sleep-call}}
+                - has: {field: function, kind: member_expression, has: {field: object, matches: effect-sleep-call}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: effect-sleep-call}}
 rule:
     kind: call_expression
     pattern: $RACE

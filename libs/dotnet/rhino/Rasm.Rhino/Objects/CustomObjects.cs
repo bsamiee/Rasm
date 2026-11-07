@@ -53,7 +53,7 @@ internal sealed class ObjectBody<TState, TGeometry>(ObjectDefinition<TState, TGe
     internal IO<Guid> Added(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes, Func<TGeometry, IO<RhinoObject>> add) =>
         from built in IO.lift(() => Built(state))
         from added in use(() => built).Bind(add).Map(static fresh => fresh.Id).Bracket()
-        from id in IO.lift(() => Conversions.Required(Conversions.Present(added)))
+        from id in IO.lift(Conversions.Required(Conversions.Present(added)))
         from written in attributes.Traverse(held => Products.Accepted(() => doc.Objects.ModifyAttributes(id, held, quiet: true))).As()
         select id;
 

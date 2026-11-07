@@ -5,8 +5,6 @@ utils:
     zero:
         kind: integer_literal
         regex: '^0(_?[iu](8|16|32|64|128|size))?$'
-    no-arguments:
-        has: {field: arguments, not: {has: {pattern: $_}}}
     contains-key:
         kind: call_expression
         all:
@@ -29,13 +27,13 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $V}}, {has: {field: field, regex: '^len$'}}]}
-            - matches: no-arguments
+            - matches: rust-argumentless-call
     emptiness:
         any:
             - kind: unary_expression
               all:
                 - has: {field: operator, regex: '^!$'}
-                - has: {kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $V}}, {has: {field: field, regex: '^is_empty$'}}]}}, {matches: no-arguments}]}
+                - has: {kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $V}}, {has: {field: field, regex: '^is_empty$'}}]}}, {matches: rust-argumentless-call}]}
             - kind: binary_expression
               any:
                 - all: [{has: {field: left, matches: length-call}}, {has: {field: operator, regex: '^(>|!=)$'}}, {has: {field: right, matches: zero}}]
@@ -45,7 +43,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $V}}, {has: {field: field, regex: '^(is_some|is_ok)$'}}]}
-            - matches: no-arguments
+            - matches: rust-argumentless-call
     iteration:
         any:
             - pattern: $V

@@ -136,7 +136,7 @@ public sealed record ValueBinding(
             preference.Read.Map(static held => ValueSet.Paths(held)),
             entries =>
                 from held in preference.Read
-                from next in IO.lift(() => new ValueSet(toHashMap(entries.AsIterable().Map(entry => (new EntryKey(owner, entry.Key), entry.Value)))).Recalled(owner, held))
+                from next in IO.lift(new ValueSet(toHashMap(entries.AsIterable().Map(entry => (new EntryKey(owner, entry.Key), entry.Value)))).Recalled(owner, held))
                 select preference.Write(next).Map(_ => ValueSet.Fields(owner, held).Diff(ValueSet.Fields(owner, next))));
 }
 

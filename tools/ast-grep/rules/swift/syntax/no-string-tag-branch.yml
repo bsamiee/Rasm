@@ -2,18 +2,15 @@
 language: swiftlang
 severity: error
 utils:
-    tag:
-        kind: line_string_literal
-        not: {has: {kind: interpolated_expression}}
     tag-pattern:
         kind: switch_pattern
-        has: {kind: pattern, has: {matches: tag}}
+        has: {kind: pattern, has: {matches: swift-plain-string}}
     tag-test:
         kind: equality_expression
         all:
             - has: {field: op, regex: '^==$'}
             - has: {field: lhs, pattern: $SUBJECT}
-            - has: {field: rhs, matches: tag}
+            - has: {field: rhs, matches: swift-plain-string}
 rule:
     any:
         - kind: switch_statement

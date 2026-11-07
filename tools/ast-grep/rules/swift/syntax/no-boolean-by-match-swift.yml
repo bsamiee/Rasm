@@ -21,9 +21,6 @@ utils:
         all:
             - has: {kind: switch_pattern}
             - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
-    first-entry:
-        kind: switch_entry
-        nthChild: {position: 1, ofRule: {kind: switch_entry}}
     second-entry:
         kind: switch_entry
         nthChild: {position: 2, ofRule: {kind: switch_entry}}
@@ -35,7 +32,7 @@ utils:
     boolean-switch:
         matches: two-entries
         all:
-            - has: {all: [{matches: first-entry}, {matches: literal-entry}]}
+            - has: {all: [{matches: swift-first-switch-case}, {matches: literal-entry}]}
             - has: {all: [{matches: second-entry}, {matches: literal-entry}]}
 rule:
     all:
@@ -47,7 +44,7 @@ rule:
             - matches: boolean-switch
               all:
                 - has:
-                    all: [{matches: first-entry}, {matches: single-pattern}]
+                    all: [{matches: swift-first-switch-case}, {matches: single-pattern}]
                     has: {kind: statements, has: {kind: boolean_literal, pattern: $IN, stopBy: end}}
                 - has:
                     matches: second-entry
@@ -55,7 +52,7 @@ rule:
             - matches: boolean-switch
               all:
                 - has:
-                    matches: first-entry
+                    matches: swift-first-switch-case
                     not: {matches: single-pattern}
                     has: {kind: statements, has: {kind: boolean_literal, pattern: $OUT, stopBy: end}}
                 - has:

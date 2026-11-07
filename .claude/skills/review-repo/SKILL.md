@@ -39,6 +39,7 @@ Owner checks per concern:
 - CI and repository settings: `gh api` for runs, job step timings, caches, and repository settings, set against the `infra/` program declaring them
 - Packages: lock files and installed versions through `search-code`
 - Build: resolved properties and items from the build tool, a binary log through `dotnet-msbuild-diagnostics`
+- Tool state: each log, cache, and state path a tool documents, read at its default location, a setting moving one file leaves the rest there
 
 ## [02]-[TRACING]
 

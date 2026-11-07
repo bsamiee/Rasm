@@ -28,18 +28,11 @@ utils:
                         all:
                             - has: {field: pattern, pattern: $TEXT}
                             - any: [{has: {field: type, matches: text-type}}, {has: {field: value, matches: text}}]
-    needle:
-        any:
-            - kind: identifier
-            - kind: unary_expression
-              all:
-                - has: {field: operator, regex: '^\*$'}
-                - has: {kind: identifier}
     probe:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^contains$'}}, {has: {field: value, matches: text-receiver}}]}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: needle}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: rust-identifier-value}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
     literal-needles:
         kind: array_expression
         all:

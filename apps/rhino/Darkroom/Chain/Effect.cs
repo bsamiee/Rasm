@@ -29,7 +29,7 @@ public sealed class DarkroomEffect : DefinedEffect<DarkroomEffect, ChainState>, 
     private static IO<Unit> Formed(ChainState state, EffectFrame frame) =>
         from extent in IO.lift(PixelExtent.Validated(frame.Extent.Width, frame.Extent.Height))
         from size in IO.lift(PixelExtent.Validated(frame.Rect.Width, frame.Rect.Height))
-        from doc in IO.lift(static () => Conversions.Required(RhinoDoc.ActiveDoc))
+        from doc in IO.lift(Conversions.Required(RhinoDoc.ActiveDoc))
         from scene in ChainScene.Sourced(doc, extent, None)
         from integration in DarkroomPlugIn.Integration
         from guides in IO.lift(state.Needs.Map(needs => needs.Choose(channel => Guide(frame, channel, size, extent, scene.Meters))))

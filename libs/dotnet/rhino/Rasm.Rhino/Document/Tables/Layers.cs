@@ -108,7 +108,7 @@ public static class Layers {
     public static IO<Unit> Merge(RhinoDoc doc, LayerRef source, LayerRef target) =>
         from merged in Resolve(doc, source)
         from kept in Resolve(doc, target)
-        from acyclic in IO.lift(() => RhinoFault.Unless(merged.Id != kept.Id && !Below(merged, kept.Id), RhinoReason.Invalid, (merged.FullPath, kept.FullPath)))
+        from acyclic in IO.lift(RhinoFault.Unless(merged.Id != kept.Id && !Below(merged, kept.Id), RhinoReason.Invalid, (merged.FullPath, kept.FullPath)))
         from moved in new ObjectTarget.Lookup(table => table.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, IncludeLights = true, LayerIndexFilter = merged.Index }))
             .Each(doc, found => {
                 using ObjectAttributes staged = found.Attributes.Duplicate();

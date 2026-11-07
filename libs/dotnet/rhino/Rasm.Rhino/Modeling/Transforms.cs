@@ -106,7 +106,7 @@ public static class Transformations {
         });
 
     internal static IO<T> Successor<T>(IO<GeometryBase> successor) where T : GeometryBase =>
-        successor.Bind(static made => IO.lift(() => Conversions.Cast<T>(made)));
+        successor.Bind(static made => IO.lift(Conversions.Cast<T>(made)));
 
     // --- [CONVERSIONS]
     extension(Point3d point) {

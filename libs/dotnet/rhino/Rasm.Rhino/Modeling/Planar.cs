@@ -106,7 +106,7 @@ public static class Planar {
             builder.SetSites([.. coordinates]);
             return builder.GetDiagram(Factory);
         })
-        from cells in IO.lift(() => Products.Each(toSeq(diagram.Geometries), (cell, index) => cell switch {
+        from cells in IO.lift(Products.Each(toSeq(diagram.Geometries), (cell, index) => cell switch {
             Polygon { UserData: Coordinate site } polygon => Fin.Succ((Site: World(frame.Plane, site), Cell: Ring(frame.Plane, polygon.Shell))),
             _ => new RhinoFault(cell.GeometryType, RhinoReason.Mismatched, index),
         }))
@@ -117,7 +117,7 @@ public static class Planar {
 
     private static IO<T> Analyzed<TInput, T>(Plane plane, Func<IO<TInput>> read, Func<TInput, Fin<T>> analysis) =>
         from valid in IO.lift(() => RhinoFault.Unless(plane.IsValid, RhinoReason.Invalid, plane))
-        from answer in read().Bind(input => IO.lift(() => analysis(input))).Bracket()
+        from answer in read().Bind(input => IO.lift(analysis(input))).Bracket()
         select answer;
 
     private static IO<GeometryCollection> Collection(Tolerances tolerances, Plane plane, PlanarGeometry geometry) =>
@@ -136,8 +136,8 @@ public static class Planar {
 
     private static IO<Seq<Coordinate>> Vertices(Tolerances tolerances, Plane plane, Curve curve, int index) =>
         from lines in Products.Of(() => curve.ToPolyline(tolerances.Absolute, tolerances.Angle, 0, 0))
-        from vertices in IO.lift(() => Products.Each(toSeq(lines.ToPolyline()), (vertex, _) => Local(tolerances, plane, vertex, index)))
-        from ring in IO.lift(() => curve.IsClosed switch {
+        from vertices in IO.lift(Products.Each(toSeq(lines.ToPolyline()), (vertex, _) => Local(tolerances, plane, vertex, index)))
+        from ring in IO.lift(curve.IsClosed switch {
             true => RhinoFault.Unless(vertices.Count >= 4, RhinoReason.Outside, vertices.Count, index).Map(_ => vertices.Init.Add(vertices[0].Copy())),
             false => vertices,
         })

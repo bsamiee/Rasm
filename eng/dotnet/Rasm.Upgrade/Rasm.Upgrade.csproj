@@ -6,6 +6,7 @@
 
     <ItemGroup Label="Processes">
         <PackageReference Include="CliWrap" />
+        <PackageReference Include="System.CommandLine" />
     </ItemGroup>
 
     <ItemGroup Label="Runtime Diagnostics">

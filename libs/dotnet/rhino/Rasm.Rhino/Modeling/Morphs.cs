@@ -84,8 +84,8 @@ public static class Morphs {
 
     public static IO<Seq<Plane>> Morph(Tolerances tolerances, Seq<Plane> planes, MorphKind kind, bool quickPreview) =>
         (from morpher in Morpher(kind, tolerances, preserveStructure: false, quickPreview)
-         from space in IO.lift(() => morpher.Space.ToFin(new RhinoFault(kind, RhinoReason.Unsupported)))
-         from morphed in IO.lift(() => Products.Each(planes, (plane, index) => RhinoFault.Unless(
+         from space in IO.lift(morpher.Space.ToFin(new RhinoFault(kind, RhinoReason.Unsupported)))
+         from morphed in IO.lift(Products.Each(planes, (plane, index) => RhinoFault.Unless(
              space is PointSpaceMorph managed ? managed.Applied(() => managed.Morph(ref plane)) : space.Morph(ref plane), RhinoReason.Declined, plane, index).Map(_ => plane)))
          select morphed).Bracket();
 
@@ -165,8 +165,8 @@ public static class Morphs {
                 })),
             along: static (held, of) =>
                 from source in IO.lift(() => new Frames.Along(of.Source, of.Sampling).Stations(held))
-                from target in IO.lift(() => new Frames.Along(of.Target, new Spacing.Lengths(source.Map(static station => station.Normalized))).Stations(held))
-                from paired in IO.lift(() => RhinoFault.Unless(source.Count >= 2 && source.Count == target.Count, RhinoReason.Mismatched, (source.Count, target.Count)))
+                from target in IO.lift(new Frames.Along(of.Target, new Spacing.Lengths(source.Map(static station => station.Normalized))).Stations(held))
+                from paired in IO.lift(RhinoFault.Unless(source.Count >= 2 && source.Count == target.Count, RhinoReason.Mismatched, (source.Count, target.Count)))
                 let parameters = source.Map(static station => station.Parameter).ToArray()
                 let length = of.Source.Path.GetLength()
                 select Right<MorphControl, SpaceMorph>(new PointSpaceMorph(point => Flowed(of, parameters, length, source, target, point))));

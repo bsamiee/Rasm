@@ -169,7 +169,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
              from sized in IO.lift(() => target.Window.SetSize(target.Size))
              from added in RenderWindows.AddRequested(target.Window)
              from now in IO.lift(TSelf.Definition.Clock.GetCurrentInstant)
-             from passes in IO.lift(() => MaxPasses)
+             let passes = MaxPasses
              from attached in Attached
              from feed in DefinedChangeFeed.Of(doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake)
              select new RealtimeRun(Ref(RealtimeSession.Of(target, now, Conversions.Present(target.ForCapture && passes > 0, passes))), feed)).Scoped()

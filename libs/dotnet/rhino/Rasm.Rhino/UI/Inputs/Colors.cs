@@ -114,7 +114,7 @@ public sealed record SwatchesRow(Seq<Color4f> Colors, Func<Edit<Seq<Color4f>>, I
         let add = new Command<Invoke>.Run(new CommandFace("color-add", "Add Color"), new Invoke.Effect(_ =>
             from row in latest
             from held in selected
-            from next in IO.lift(() => Conversions.Required((held.Bind(index => row.Colors.At(index)) | row.Colors.Last).Map(row.Colors.Add)))
+            from next in IO.lift(Conversions.Required((held.Bind(index => row.Colors.At(index)) | row.Colors.Last).Map(row.Colors.Add)))
             from edited in row.Edited(new Edit<Seq<Color4f>>.Changed(Applies: true, next))
             from chosen in picked.SwapIO(_ => Some(next.Count - 1))
             select unit)) { Enabled = new RowRule(_ => latest.Map(static row => !row.Colors.IsEmpty)) }

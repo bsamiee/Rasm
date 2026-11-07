@@ -52,7 +52,7 @@ const copied: Fix = Effect.fnUntraced(function* (site, { host }) {
     return bases.flat().flatMap((base) => refusal(`${site.program} copies Ghidra project ${host.path.basename(base)}, use its ${SERVE}`));
 });
 
-const heapAssigned: Fix = (_site, { analysis: { commands } }) => commands.flatMap(({ bound }) => bound).flatMap((name) => (HEAP.test(name) ? refusal(`${name} overrides the ${HEADLESS} heap, remove it`) : []));
+const heapAssigned: Fix = (_site, { analysis: { commands } }) => commands.flatMap(({ bound }) => [...bound.keys()]).flatMap((name) => (HEAP.test(name) ? refusal(`${name} overrides the ${HEADLESS} heap, remove it`) : []));
 
 const projectLocation: Fix = Effect.fnUntraced(function* (site, { host }) {
     const shared = Option.flatMap(yield* host.environment(PROJECT_VARIABLE), (folder) => host.place(folder, Option.none()));

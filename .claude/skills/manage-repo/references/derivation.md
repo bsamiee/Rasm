@@ -29,14 +29,15 @@ Sections list one system's mechanisms in axis order: members, policy, modes, val
 
 ## [03]-[HK]
 
-- Members come from step `glob`, `types` (extension, shebang, content), and `exclude`, a folder name excluding its contents
+- Members come from step `glob`, `types` (extension, shebang, content), and `exclude`, a folder name excluding its contents, `match_any` selectors in place of `glob` and `types`
 - `workspace_indicator = "<marker>"` runs one job per nearest marker, `subprojects` loads each listed folder's `hk.pkl` one level deep
-- Policy amends hk's `Config.pkl`, `(Builtins.<step>) { … }` amends one builtin, top-level `steps` generate `check` and `fix`
+- Policy amends hk's `Config.pkl`, `(Builtins.<step>) { … }` amends one builtin, top-level `steps` generate `check`, `fix`, and `pre-commit`, a hook step of the same name replaces one
+- Root configuration alone sets `fail_fast`, `jobs`, `exclude`, and `profiles`, a subproject's own copies are ignored
 - `new Group { … }` passes `dir`, `exclude`, and `workspace_indicator` to child steps setting none, lists replace
 - Modes take step `profiles` (`!` negates) through `HK_PROFILE` or `--profile`, `condition` expressions, and `required` variables
 - Values render `{{files}}`, `{{workspace}}`, and `{{workspace_files}}` per job
 - Pkl `import*` and `read*` map a glob to modules or resources, `for` and `when` generators build one step per entry
-- `hk check --plan --json` and `hk config explain` print step and file selection
+- `hk check --plan --json` prints step and file selection, `--why <step>` its reasons, `hk config explain <key>` a setting's source layers
 - Derivation covers more than one project file, and files `read()` pulls in stay out of hk's evaluation cache key
 
 ## [04]-[GITHUB_ACTIONS]
@@ -111,7 +112,7 @@ Sections list one system's mechanisms in axis order: members, policy, modes, val
 - Policy takes `extend = "<path>"`, `lint.extend-select` and `lint.extend-per-file-ignores` add where `lint.select` replaces
 - Modes take `target-version`, else `requires-python` beside the found config, `per-file-target-version` maps globs to versions
 - `ty` reads the nearest `ty.toml` or `[tool.ty]` with no `extend`, `[[tool.ty.overrides]]` scope rules by `include` and `exclude`
-- `ty` `environment.python-version` falls back to `requires-python`
+- `ty` `environment.python-version` falls back to `requires-python`, then to the environment `VIRTUAL_ENV` or `.venv` names
 - Derivation covers subtree configs, each subtree states its own `extend`
 
 ## [10]-[PIXI]

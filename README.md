@@ -101,15 +101,16 @@ flowchart LR
 - `nx:run-commands` targets use `--args='<shell fragment>'` for literal shell characters; the value replaces configured argument defaults
 - `nx run <project>:<target> -- <arguments>` appends to the command, paths in place of a root tool's default file set, switches to `dotnet build`
 - `nx run <project>:install` builds or packs a product and installs it into its host
-- `nx run <project>:publish --tag=<tag>` pushes a released product to its host's channel
-- `nx run <project>:hosting -- <cloudflare|docker> <preview|up|refresh|destroy> [--disposable] [--tag <tag>]` builds a web app and runs a Pulumi operation on its stack
-- `nx run rasm:release` on a clean tree tags and creates a GitHub release for each product Conventional Commits bump, then runs its `publish`
+- `nx run <project>:publish` pushes the release tagged at `HEAD` to its host's channel
+- `nx run <project>:infra [-- <cloudflare|docker>] [--destroy] [--apply]` prints a Pulumi stack difference and `--apply` applies it
+
+- `rasm` holds the repository stack, a release tag at `HEAD` selects production, a missing stack previews as every resource to create
+- `nx run rasm:release` prints each product's next version, notes, and `publish` call, `--apply` on a clean tree releases and publishes them
 - `nx run rasm:check` runs every root checker and type checker, `nx run rasm:lint:<tool>` runs one checker
-- `nx run rasm:format` runs `nx sync`, `dotnet format` over the solution and file-based apps, then `hk fix --all`
+- `nx run rasm:format` runs `nx sync`, `dotnet format` over the solution and file-based apps, then `hk fix`, over the paths after `--` when given
 - `hk fix <paths>` runs every writer over named paths, or modified files with no path
-- `nx run rasm:rewrite:tree -- --filter='^<id>$' <path>` applies one rule's fix across a path, `ast-grep outline <path>` lists its declarations
+- `nx run rasm:rewrite:tree -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:fonts:publish --destination=<folder> [<name>]` copies built faces into a folder
-- `nx run rasm:infra -- <preview|up|refresh>` runs a Pulumi operation on repository resources
 
 ## [04]-[DELIVERY]
 
@@ -123,24 +124,24 @@ Products reach a person through separate levels:
 | [INDEX] | [CONCERN]                      | [OWNER]                                                                                              |
 | :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------------- |
 |  [01]   | Tool binary                    | `.config/mise.toml` `[tools]`, exact versions in `.config/mise.lock`                                 |
-|  [02]   | Process variable               | `.config/mise.toml` `[env]`, macOS-only values in `.config/mise.macos.toml`                          |
+|  [02]   | Process variable               | `.config/mise.toml` `[env]`, platform-only values in `.config/mise.<os>.toml`                        |
 |  [03]   | SDK version                    | `global.json` for .NET, `xcode-select` for Swift, `rust-toolchain.toml` for Rust                     |
 |  [04]   | Package version                | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row |
 |  [05]   | .NET tool package              | `.config/mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name              |
 |  [06]   | Task graph                     | `nx.json`, inference in `tools/nx`                                                                   |
 |  [07]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
 |  [08]   | Secret                         | `.config/mise.toml` `DOPPLER_PROJECT` and `DOPPLER_CONFIG`, named in a target's `doppler run` prefix |
-|  [09]   | Resource or repository setting | Typed row of an `infra/` program, `rasm:infra` for the repository, `<project>:hosting` per app       |
+|  [09]   | Resource or repository setting | Typed row of an `infra/` program, `<project>:infra`, `rasm` holding the repository                   |
 |  [10]   | Tool with no consumer          | Machine setup                                                                                        |
 |  [11]   | Ghidra install                 | Official distribution through mise                                                                   |
 |  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
 |  [13]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports |
 |  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
 |  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
-|  [16]   | Persistent local process       | Mise `[daemons]` row, Colima's row, environment, and update in `.config/mise.macos.toml`             |
+|  [16]   | Persistent local process       | Mise `[daemons]` row, platform-only rows in `.config/mise.<os>.toml`                                 |
 |  [17]   | Python runtime                 | Mise defaults to 3.15, Blender declares 3.13 in its project manifests                                |
 |  [18]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                          |
-|  [19]   | Container runtime              | Mise clients, `[daemons]` `docker` row for Colima on macOS, Docker Engine on Linux                   |
+|  [19]   | Container runtime              | Mise clients, a `[daemons]` `docker` row per `.config/mise.<os>.toml`, Colima on macOS               |
 |  [20]   | Shared Vite configuration      | `vite.shared.ts`                                                                                     |
 |  [21]   | Shared Storybook settings      | `@rasm/test-support/main` and `@rasm/test-support/preview` entries                                   |
 |  [22]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
@@ -148,7 +149,7 @@ Products reach a person through separate levels:
 |  [24]   | Product version                | Release tag `rasm:release` creates, MinVer reads it into builds and packages                         |
 |  [25]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                  |
 
-- Tool rows name a release where `latest` resolves a development build
+- Tool rows stay at `latest`, a `version_regex` over release tags excludes a development build `latest` resolves
 
 ## [06]-[STRUCTURE]
 

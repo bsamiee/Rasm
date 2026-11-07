@@ -15,12 +15,12 @@ public static class UnitText {
         Parsed(text, settings, LengthUnit.None);
 
     private static IO<double> Parsed(string text, StringParserSettings settings, LengthUnit spaceUnit) =>
-        Whole(text, settings).Bind(parsed => IO.lift(() => Read(parsed, spaceUnit, text))).Bracket();
+        Whole(text, settings).Bind(parsed => IO.lift(Read(parsed, spaceUnit, text))).Bracket();
 
     private static IO<LengthValue> Whole(string text, StringParserSettings settings) =>
         from parsed in IO.lift(() => (Value: LengthValue.Create(text, settings, out bool whole), Whole: whole))
         from owned in use(() => parsed.Value)
-        from complete in IO.lift(() => RhinoFault.Unless(parsed.Whole && !owned.IsUnset(), RhinoReason.Unreadable, text))
+        from complete in IO.lift(RhinoFault.Unless(parsed.Whole && !owned.IsUnset(), RhinoReason.Unreadable, text))
         select owned;
 
     private static Fin<double> Read(LengthValue parsed, LengthUnit spaceUnit, string text) =>
@@ -33,9 +33,9 @@ public static class UnitText {
              : new RhinoFault(text, RhinoReason.Unreadable))
          from paper in Whole(sides.Paper, settings)
          from model in Whole(sides.Model, settings)
-         from lengths in IO.lift(() => (Read(paper, spaceUnit, text), Read(model, spaceUnit, text)).Apply(static (left, right) => (Paper: left, Model: right)).As())
-         from positive in IO.lift(() => RhinoFault.Unless(lengths.Paper > 0d && lengths.Model > 0d, RhinoReason.Unreadable, text))
-         from parsed in IO.lift(() => DrawingScale.Validated(Quantities.From(lengths.Paper, spaceUnit) / Quantities.From(lengths.Model, spaceUnit)))
+         from lengths in IO.lift((Read(paper, spaceUnit, text), Read(model, spaceUnit, text)).Apply(static (left, right) => (Paper: left, Model: right)).As())
+         from positive in IO.lift(RhinoFault.Unless(lengths.Paper > 0d && lengths.Model > 0d, RhinoReason.Unreadable, text))
+         from parsed in IO.lift(DrawingScale.Validated(Quantities.From(lengths.Paper, spaceUnit) / Quantities.From(lengths.Model, spaceUnit)))
          select parsed).Bracket();
 
     // --- [ANGLES]

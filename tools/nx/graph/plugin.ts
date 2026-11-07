@@ -76,9 +76,7 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
     Effect.fnUntraced(function* (files, options, context) {
         const [path, workspace] = yield* Effect.all([Path.Path, openWorkspace(context)]);
         const dotnetRoots = new Map(files.filter(String.endsWith('.csproj')).map((file) => [path.dirname(file), file]));
-        const windowsSources = files.filter((file) => file.endsWith('.cs') && file.includes('/Windows/'));
-        const windowsProjects = new Set([...dotnetRoots.keys()].filter((root) => windowsSources.some((file) => file.startsWith(`${root}/`) && file.slice(root.length).includes('/Windows/'))));
-        const inference = { ...workspace, configFiles: new Set(files), windowsProjects };
+        const inference = { ...workspace, configFiles: new Set(files) };
         const candidates = files.filter((file) => !file.endsWith('.cs') || findProjectForPath(file, dotnetRoots) === undefined);
         const configure = Effect.fnUntraced(function* (file: string) {
             return yield* Option.match(Record.get(file)(roots), {
@@ -91,13 +89,23 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
         const dotnetScripts = projects.filter(({ file }) => file.endsWith('.cs'));
         const dotnetUpgrade: TargetConfiguration = {
             dependsOn: ['restore', ...dotnetScripts.map(({ file, at }) => ({ projects: [`directory:${at}`], target: `restore:${path.basename(file)}` }))],
-            options: { args: ['Directory.Packages.props', ...dotnetScripts.map(Struct.get('file'))] },
+            options: { args: dotnetScripts.map(Struct.get('file')) },
         };
         const { name } = yield* Effect.flatMap(workspace.packages, (manifests) => Effect.fromOption(Record.get(manifests, '.')));
         const { daemons } = yield* workspace.mise;
+        const booted = (row: (typeof daemons)[string]) => typeof row !== 'string' && row.boot;
         return [
             ...inferred,
-            ['nx.json', rootTargets({ restore: { options: logged(context.workspaceRoot, 'restore') }, upgrade: { options: { args: Record.keys(Record.filter(daemons, (row) => typeof row !== 'string' && row.boot)) } }, 'upgrade:dotnet': dotnetUpgrade, ...(yield* neutrality(workspace)) })] as const,
+            [
+                'nx.json',
+                rootTargets({
+                    restore: { options: logged(context.workspaceRoot, 'restore') },
+                    upgrade: { options: { args: Record.keys(Record.filter(daemons, booted)) } },
+                    'upgrade:dotnet': dotnetUpgrade,
+                    ...Record.map(Record.filter(daemons, Predicate.not(booted)), (_, daemon) => ({ command: `mise daemons start ${daemon}` })),
+                    ...(yield* neutrality(workspace)),
+                }),
+            ] as const,
             ...(yield* components(workspace, projects)),
             ...Option.toArray(Option.fromUndefinedOr(options)).map(({ root }) => ['nx.json', { projects: { '.': { root: '.', name, targets: root } } }] as const),
         ];

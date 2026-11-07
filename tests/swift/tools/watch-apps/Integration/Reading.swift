@@ -34,7 +34,7 @@ extension Integration {
             let first: String = try await launch(fixture)
             let second: String = try await launch(fixture, flags: ["--new"])
             let all: (lines: [JSONValue], status: TerminationStatus) = try await tool(["read", fixture.identifier])
-            let one: (lines: [JSONValue], status: TerminationStatus) = try await tool(["read", "--pid", second])
+            let one: (lines: [JSONValue], status: TerminationStatus) = try await tool(["read", second])
             let read: [String] = all.lines.compactMap { line in line[fixture.identifier]?.fields.keys.first }
             expectNoDifference(read.sorted(), [first, second].sorted())
             expectNoDifference(one.lines.map { line in line[fixture.identifier]?.fields.keys.first }, [second])
@@ -49,7 +49,7 @@ extension Integration {
             let field: String = try #require(controls.row("identifier", is: "field")?["id"]?.argument)
             let button: String = try #require(controls.row("identifier", is: "press")?["id"]?.argument)
             let element: String = try #require(window?["id"]?.argument)
-            for arguments: [String] in [["set", field, "typed text"], ["perform", button, kAXPressAction], ["key", "--pid", pid, String(kVK_Return)]] {
+            for arguments: [String] in [["set", field, "typed text"], ["perform", button, kAXPressAction], ["key", pid, String(kVK_Return)]] {
                 let acted: (lines: [JSONValue], status: TerminationStatus) = try await tool(arguments)
                 expectNoDifference(acted.lines.last.flatMap { line in fixture.status(in: line, of: pid) }, .string("responding"), "\(arguments)")
                 expectNoDifference(acted.status, .exited(0), "\(arguments)")

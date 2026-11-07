@@ -60,6 +60,7 @@ uv resolves projects, workspace members, and dependency groups through native me
 - Ruff discovers nested interpreter requirements before an extended `target-version`
 - Compiler option snapshots decide interface cache compatibility
 - Parser threads and type-checker processes multiply resource use under concurrent invocations
+- `mypy` narrows a union holding a large `Literal` in time squared in its members, a `lambda` in `.map` with no expected type solves once per member
 - Refurb reads source arguments and default files through mypy's option parser
 - `[tool.refurb] enable_all` enables checks added by installed releases
 - `[tool.refurb] load` imports configured modules and package descendants, entry modules guard execution

@@ -224,7 +224,7 @@ public static class Values {
 
     internal static Command<Invoke> Named(IO<Option<Color4f>> current, Func<Edit<Color4f>, IO<Unit>> edited) =>
         new Command<Invoke>.Run(new CommandFace("color-named", "Named Colors…"), new Invoke.Effect(scope =>
-            from shown in current.Bind(static held => IO.lift(() => Conversions.Required(held)))
+            from shown in current.Bind(static held => IO.lift(Conversions.Required(held)))
             from document in scope.DocumentIO
             from edit in HostDialogs.ShowColorDialog(document, shown, allowAlpha: true, Some(NamedColorList.Default), Some<Func<Color4f, IO<Unit>>>(color => edited(new Edit<Color4f>.Changed(Applies: false, color))))
                 .Map<Edit<Color4f>>(static chosen => new Edit<Color4f>.Changed(Applies: true, chosen))

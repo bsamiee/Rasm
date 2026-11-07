@@ -289,7 +289,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Header commands of each offered effect by record key: its commands selecting an entry by name, then reset, each under its icon alone where it states one, else its title."""
         return MappingProxyType({
             row.kind: tuple(
-                (command, next(({"text": "", "icon": icon} for icon in command.icon.to_list()), dict[str, str]()))
+                (command, command.icon.map(lambda icon: {"text": "", "icon": icon}).default_value(dict[str, str]()))
                 for command in (*(held for held in row.registers if isinstance(held, Operator) and issubclass(held.form, Named)), self.rows.resetting)
             )
             for row in self.rows.rows

@@ -102,7 +102,7 @@ public static class NamedSelections {
 
     // --- [ROWS]
     internal static IO<Seq<NamedSelection>> Found(RhinoDoc doc, string name) =>
-        Named(doc, name).Bind(rows => IO.lift(() => rows.IsEmpty ? Table.Missing(name) : Fin.Succ(rows)));
+        Named(doc, name).Bind(rows => IO.lift(rows.IsEmpty ? Table.Missing(name) : Fin.Succ(rows)));
 
     internal static IO<Seq<NamedSelection>> Named(RhinoDoc doc, string name) =>
         NamedSelection.Read(doc).Map(rows => rows.Filter(row => Table.Comparer.Equals(row.Name, name)).Strict());
@@ -110,7 +110,7 @@ public static class NamedSelections {
     private static IO<Unit> Watched(uint serial, Func<Option<uint>, IO<Unit>> deliver) =>
         from doc in IO.lift(() => Conversions.Required(RhinoDoc.FromRuntimeSerialNumber(serial)))
         from model in Internals.SelectionModel(doc)
-        from notifier in IO.lift(() => Conversions.Cast<INotifyPropertyChanged>(model))
+        from notifier in IO.lift(Conversions.Cast<INotifyPropertyChanged>(model))
         from observed in Subscriptions.On<PropertyChangedEventHandler, PropertyChangedEventArgs>(
                 handler => notifier.PropertyChanged += handler, handler => notifier.PropertyChanged -= handler, static handler => handler.Invoke)
             .Choose(args => Conversions.Present(string.Equals(args.PropertyName, Internals.Collection, StringComparison.Ordinal), Some(serial)))

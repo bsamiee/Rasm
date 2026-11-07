@@ -57,7 +57,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         Category,
         "Type name clashes with an imported type, rename the declaration",
         "`{0}` clashes with `{1}`, rename the project declaration",
-        "Name namespace-level types apart from public imported or referenced source types of equal arity",
+        "Name namespace-level types apart from public imported types and public types of project references, of equal arity",
         WellKnownDiagnosticTags.CompilationEnd);
 
     public static readonly DiagnosticDescriptor Tested = Rule(
@@ -104,9 +104,16 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         "Properties and indexers add behavior or implement a contract instead of returning another owner's accessible member unchanged",
         WellKnownDiagnosticTags.CompilationEnd);
 
+    private static readonly DiagnosticDescriptor Factory = Rule(
+        "RASM3013",
+        Category,
+        "Overloads take a value and its factory, keep one overload",
+        "`{0}` takes `{1}` as a value and `{2}` as a factory, which multiplies binds at calls passing a lambda in that position, keep one overload",
+        "Overload sets take a method type parameter at one position as a value or as a parameterless delegate returning it, never both when each overload holds a delegate over that type parameter");
+
     private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Reader, Covered, Discarded, Fallback, Borrowed, Clash, Tested, Folder, Shadowed, Qualified, Restated, Forwarded];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Reader, Covered, Discarded, Fallback, Borrowed, Clash, Tested, Folder, Shadowed, Qualified, Restated, Forwarded, Factory];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         SystemSymbols symbols = new(context.Compilation);
@@ -115,12 +122,19 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         if (symbols.Flags is { } flags) Enums(context, flags);
         Awaitables(context);
         Namespaces(context);
-        ImmutableArray<IAssemblySymbol> sources = [.. context.Compilation.References.OfType<CompilationReference>()
-            .Select(context.Compilation.GetAssemblyOrModuleSymbol).OfType<IAssemblySymbol>()];
+        ImmutableHashSet<string> projects = context.Options.AnalyzerConfigOptionsProvider.GlobalOptions.TryGetValue("build_property.ProjectReferenceAssemblies", out string? listed)
+            ? [.. listed.Split([','], StringSplitOptions.RemoveEmptyEntries)]
+            : [];
+        string prefix = $"{context.Compilation.AssemblyName}.";
+        ImmutableArray<IAssemblySymbol> sources = [
+            .. context.Compilation.SourceModule.ReferencedAssemblySymbols.Where(assembly =>
+                projects.Contains(assembly.Identity.Name.StartsWith(prefix, StringComparison.Ordinal) ? assembly.Identity.Name.Substring(prefix.Length) : assembly.Identity.Name)),
+        ];
         Clashes(context, models, sources);
         Qualifications(context);
         Restatements(context, models);
         if (symbols.Type is { } type) Tests(context, sources, type);
+        Overloads(context);
         Files(context);
     }
 
@@ -852,6 +866,38 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             && Parameter(compared, analysis.CancellationToken) is { } parameter
                 ? [Diagnostic.Create(Tested, binary.Syntax.GetLocation(), binary.Syntax, parameter.Name, concrete.Name)]
                 : []);
+    }
+
+    // --- [OVERLOADS]
+    private static void Overloads(CompilationStartAnalysisContext context) {
+        static bool Delegates(IParameterSymbol parameter, ITypeParameterSymbol held) =>
+            parameter.Type is INamedTypeSymbol { DelegateInvokeMethod: { } invoke }
+            && (Mentions(invoke.ReturnType, held) || invoke.Parameters.Any(argument => Mentions(argument.Type, held)));
+        static IEnumerable<(IParameterSymbol Held, IParameterSymbol Made, IMethodSymbol Factory)> Pairs(IMethodSymbol value, ImmutableArray<IMethodSymbol> set) =>
+            from held in value.Parameters
+            where held.Type is ITypeParameterSymbol { TypeParameterKind: TypeParameterKind.Method } type
+                && value.Parameters.Any(other => !SymbolEqualityComparer.Default.Equals(other, held) && Delegates(other, type))
+            from factory in set
+            where held.Ordinal < factory.Parameters.Length
+                && factory.Parameters[held.Ordinal].Type is INamedTypeSymbol { DelegateInvokeMethod: { Parameters.IsEmpty: true, ReturnType: ITypeParameterSymbol { TypeParameterKind: TypeParameterKind.Method } made } }
+                && made.Ordinal == ((ITypeParameterSymbol)held.Type).Ordinal
+                && factory.Parameters.Any(other => other.Ordinal != held.Ordinal && Delegates(other, made))
+            select (held, factory.Parameters[held.Ordinal], factory);
+        context.RegisterSymbolAction(static analysis => {
+            if (analysis.IsGeneratedCode) return;
+            INamedTypeSymbol type = (INamedTypeSymbol)analysis.Symbol;
+            ImmutableArray<ImmutableArray<IMethodSymbol>> sets = [.. type.GetMembers().OfType<IMethodSymbol>()
+                .Where(static method => !method.TypeParameters.IsEmpty && !method.IsImplicitlyDeclared && !method.IsOverride && method.ExplicitInterfaceImplementations.IsEmpty)
+                .GroupBy(static method => method.Name, StringComparer.Ordinal).Select(static named => named.ToImmutableArray()).Where(static named => named.Length > 1)];
+            ImmutableHashSet<ISymbol> implementations = sets.IsEmpty ? [] : type.AllInterfaces.SelectMany(static face => face.GetMembers())
+                .Select(type.FindImplementationForInterfaceMember).OfType<ISymbol>().ToImmutableHashSet(SymbolEqualityComparer.Default);
+            foreach (ImmutableArray<IMethodSymbol> set in sets.Select(named => named.RemoveAll(implementations.Contains)).Where(static named => named.Length > 1))
+                foreach (IMethodSymbol value in set)
+                    foreach ((IParameterSymbol held, IParameterSymbol made, IMethodSymbol factory) in Pairs(value, set).Take(1)) {
+                        analysis.CancellationToken.ThrowIfCancellationRequested();
+                        analysis.ReportDiagnostic(Diagnostic.Create(Factory, value.Locations[0], [factory.Locations[0]], Label(value), held.Name, made.Name));
+                    }
+        }, SymbolKind.NamedType);
     }
 
     // --- [FILES]

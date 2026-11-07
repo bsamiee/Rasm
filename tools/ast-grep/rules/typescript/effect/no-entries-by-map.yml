@@ -2,8 +2,6 @@
 language: tsxlang
 severity: error
 utils:
-    effect-record:
-        matches: {effect-module: {name: {regex: '(?-u:\b)Record$'}}}
     native-object:
         regex: '^((globalThis|window|self)\.)?Object$'
         matches: typescript-global-reference
@@ -19,8 +17,6 @@ utils:
                     - all:
                         - has: {field: source, regex: '^.effect/Record.$'}
                         - has: {kind: import_clause, has: {kind: namespace_import, regex: '(?-u:\b)Record$'}}
-    effect-iterable:
-        matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}}}
     last-statement:
         nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}
     projection:
@@ -39,7 +35,7 @@ utils:
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^fromEntries$'}}, {has: {field: object, pattern: $FROM, any: [{matches: effect-record}, {matches: native-object}]}}]}
+        - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^fromEntries$'}}, {has: {field: object, pattern: $FROM, any: [{matches: effect-record-module}, {matches: native-object}]}}]}
         - has:
             field: arguments
             all:
@@ -50,7 +46,7 @@ rule:
                     kind: call_expression
                     any:
                         - all:
-                            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^map$'}}, {has: {field: object, matches: effect-iterable}}]}
+                            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^map$'}}, {has: {field: object, matches: effect-iterable-module}}]}
                             - has:
                                 field: arguments
                                 all:

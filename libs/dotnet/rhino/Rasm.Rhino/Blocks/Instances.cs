@@ -42,7 +42,7 @@ public static class Instances {
                 return (Objects: objects, Attributes: attributes, Xforms: xforms);
             })
                            from owned in Products.Many(() => answer.Attributes, required: false)
-                           from pieces in IO.lift(() => Products.Each(toSeq(answer.Objects.Zip(answer.Attributes, answer.Xforms)), static (row, index) =>
+                           from pieces in IO.lift(Products.Each(toSeq(answer.Objects.Zip(answer.Attributes, answer.Xforms)), static (row, index) =>
                                Conversions.Required(row.First, index).Map(held => (Piece: held, Attributes: row.Second, Xform: row.Third))))
                            from result in body(pieces)
                            select result).Bracket()
@@ -73,7 +73,7 @@ public static class Instances {
                 from id in Conversions.Required(Conversions.Present(doc.Objects.AddInstanceObject(definition.Index, piece.Xform * nested.InstanceXform, piece.Attributes)), index)
                 select id)
             : (from copy in use(() => piece.Piece.DuplicateGeometry())
-               from moved in IO.lift(() => RhinoFault.Unless(copy.Transform(piece.Xform), RhinoReason.Declined, piece.Xform, index))
-               from id in IO.lift(() => Conversions.Required(Conversions.Present(doc.Objects.Add(copy, piece.Attributes)), index))
+               from moved in IO.lift(RhinoFault.Unless(copy.Transform(piece.Xform), RhinoReason.Declined, piece.Xform, index))
+               from id in IO.lift(Conversions.Required(Conversions.Present(doc.Objects.Add(copy, piece.Attributes)), index))
                select id).Bracket();
 }

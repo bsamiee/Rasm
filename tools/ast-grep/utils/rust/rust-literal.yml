@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-literal
+language: rustlang
+rule:
+    kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'

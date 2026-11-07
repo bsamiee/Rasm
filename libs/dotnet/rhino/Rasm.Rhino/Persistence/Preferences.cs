@@ -70,7 +70,7 @@ public static class Preferences {
             select SettingOverloads<T>.Read(settings, key, legacy).IfNone(fallback),
             value =>
                 from settings in Registered(node, key, fallback, rule, hidden)
-                from writable in IO.lift(() => RhinoFault.Unless(!(settings.TryGetSettingIsReadOnly(key, out bool locked) && locked), RhinoReason.Unwritable, key))
+                from writable in IO.lift(RhinoFault.Unless(!(settings.TryGetSettingIsReadOnly(key, out bool locked) && locked), RhinoReason.Unwritable, key))
                 from written in IO.lift(() => SettingOverloads<T>.Write(settings, key, value))
                 from flushed in when(node.Root is SettingsRoot.ApplicationNode, IO.lift(static () => PlugIn.FlushSettingsSavedQueue())).As()
                 select unit,
@@ -87,7 +87,7 @@ public static class Preferences {
     public static Preference<T> Dictionary<T>(DictionaryOwner owner, string key, T fallback, Option<HostEvent<Unit>> changed = default) where T : notnull =>
         new(
             from source in owner.Read
-            from held in IO.lift(() => ArchivableDictionaries.Find<T>(source, key))
+            from held in IO.lift(ArchivableDictionaries.Find<T>(source, key))
             select held.IfNone(fallback),
             value => owner.Edit(target => ArchivableDictionaries.Set(target, key, value)),
             changed);

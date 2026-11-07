@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-plain-string
+language: swiftlang
+rule:
+    kind: line_string_literal
+    not: {has: {kind: interpolated_expression}}

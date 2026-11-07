@@ -26,8 +26,6 @@ utils:
               all:
                 - has: {field: function, kind: identifier, regex: '^(Some|Ok|Err)$'}
                 - not: {has: {field: arguments, has: {pattern: $_, not: {matches: pattern-operand}}}}
-    text-operand:
-        kind: 'string_literal, raw_string_literal'
     scrutinee:
         any:
             - {kind: reference_expression, has: {field: value, pattern: $VALUE}}
@@ -56,7 +54,7 @@ utils:
               has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: bound}
     text-condition:
         matches: equality
-        has: {field: right, matches: text-operand}
+        has: {field: right, matches: rust-string-literal}
     constant-test:
         kind: if_expression
         has: {field: condition, matches: constant-condition}

@@ -126,7 +126,7 @@ public static class Linetypes {
             None: staged.RemoveTaper))
         from cleared in IO.lift(staged.RemoveAllShapes)
         let shapes = definition.Shapes.ToSeq().Bind(static held => toSeq(held.Items))
-        from added in IO.lift(() => Products.Each(shapes, (shape, index) => shape.Switch(
+        from added in IO.lift(Products.Each(shapes, (shape, index) => shape.Switch(
             (Row: staged, Index: index),
             fromCurve: static (at, curve) => RhinoFault.Unless(at.Row.AddShape(curve.Curve, Millimeters(curve.Offset)), RhinoReason.Declined, curve.Offset, at.Index),
             fromText: static (at, text) => RhinoFault.Unless(at.Row.AddShape(text.Text, Millimeters(text.Offset)), RhinoReason.Declined, text.Offset, at.Index))))
@@ -140,7 +140,7 @@ public static class Linetypes {
         (from staged in use(static () => new Linetype())
          from named in IO.lift(() => { staged.Name = name; })
          from written in Written(staged, definition)
-         from index in IO.lift(() => Conversions.Required(Conversions.Present(doc.Linetypes.AddReferenceLinetype(staged))))
+         from index in IO.lift(Conversions.Required(Conversions.Present(doc.Linetypes.AddReferenceLinetype(staged))))
          select index).Bracket();
 
     // --- [TABLE]
@@ -160,7 +160,7 @@ public static class Linetypes {
 
     public static IO<string> Text(Seq<Length> pattern, bool millimeters) =>
         (from scratch in use(static () => new Linetype())
-         from written in IO.lift(() => RhinoFault.Unless(!pattern.IsEmpty && scratch.SetSegments(pattern.Map(Millimeters)), RhinoReason.Declined, pattern))
+         from written in IO.lift(RhinoFault.Unless(!pattern.IsEmpty && scratch.SetSegments(pattern.Map(Millimeters)), RhinoReason.Declined, pattern))
          select scratch.PatternString(millimeters)).Bracket();
 
     // --- [PREVIEW]
@@ -175,7 +175,7 @@ public static class Linetypes {
     private static IO<LinetypePreview> Previewed(Curve curve, Linetype linetype, Size pixels, double extent) =>
         (from copy in use(() => new Linetype(linetype) { WidthUnits = UnitSystem.None })
          let factor = copy.SegmentCount > 1 && copy.PatternLength > 0d && (Span / copy.PatternLength is < 5d or > 50d) ? 10d / copy.PatternLength : 1d
-         from rescaled in IO.lift(() => Products.Each(toSeq(Range(0, copy.SegmentCount)), (segment, index) => {
+         from rescaled in IO.lift(Products.Each(toSeq(Range(0, copy.SegmentCount)), (segment, index) => {
              copy.GetSegment(segment, out double length, out bool solid);
              return RhinoFault.Unless(copy.SetSegment(segment, length * factor, solid), RhinoReason.Declined, length, index);
          }))

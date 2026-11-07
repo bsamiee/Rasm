@@ -10,7 +10,6 @@ dotnet.cli_telemetry_optout         = true
 experimental                        = true
 idiomatic_version_file_enable_tools = ["dotnet", "rust"]
 java.shorthand_vendor               = "corretto"
-minimum_release_age                 = "0s"
 prereleases                         = true
 python.uv_venv_auto                 = "source"
 registry_floating                   = true
@@ -22,19 +21,24 @@ use_versions_host_track             = false
 [env]
 _.path                       = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
 BLENDER_MCP_URL              = "http://127.0.0.1:{{ env.BLENDER_LAB_PORT }}/"
-BLENDER_PATH                 = """{% if env.BLENDER_PATH | default(value="") %}{{ env.BLENDER_PATH }}{% elif os() == "windows" %}{{ exec(command=`cmd /d /c "where.exe blender 2>NUL & exit /b 0"`, cache_key="blender-path", cache_duration="1d") | split(pat="\\n") | first | trim }}{% elif os() == "linux" %}{{ exec(command="if command -v blender; then :; fi", cache_key="blender-path", cache_duration="1d") }}{% endif %}"""
 CARGO_LLVM_COV_DENY_WARNINGS = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH = "{{config_root}}/.cache/cloudflare/registry"
 DOPPLER_CONFIG               = "dev"
 DOPPLER_PROJECT              = "agent-runtime"
 DOTNET_NOLOGO                = "1"
 DOTNET_ROLL_FORWARD          = "Major"
+FORCE_COLOR                  = "0"
+GHIDRA_CLASSPATH             = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
 GHIDRA_INSTALL_DIR           = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
 GHIDRA_JAVA_OPTIONS          = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
 GHIDRA_PROJECT_DIR           = "{{ xdg_cache_home }}/rasm/ghidra/projects"
+HK_CACHE_DIR                 = "{{config_root}}/.cache/hk"
 HK_LOG_FILE                  = "{{config_root}}/.artifacts/logs/hk.log"
+HK_PKL_CACHE_DIR             = "{{config_root}}/.cache/pklr"
+HK_STATE_DIR                 = "{{ env.HK_CACHE_DIR }}/state"
 HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
 MACOSX_DEPLOYMENT_TARGET     = "27.0"
+NO_COLOR                     = "1"
 NODE_COMPILE_CACHE           = "{{config_root}}/.cache/node"
 NX_ISOLATE_PLUGINS           = "false"
 NX_WORKSPACE_DATA_DIRECTORY  = "{{config_root}}/.cache/nx/workspace-data"
@@ -44,11 +48,11 @@ PLAYWRIGHT_MCP_CONFIG        = "{{config_root}}/.playwright/cli.config.json"
 PLAYWRIGHT_MCP_OUTPUT_DIR    = "{{config_root}}/.artifacts/playwright"
 PULUMI_HOME                  = "{{config_root}}/.cache/pulumi"
 PYTHONPYCACHEPREFIX          = "{{config_root}}/.cache/pycache"
-RHINO_MCP_URL                = "http://127.0.0.1:{{ env.RHINO_MCP_PLATFORM_PORT }}/"
 RUSTUP_AUTO_INSTALL          = "0"
 RUSTUP_TOOLCHAIN             = false
 STORYBOOK_DISABLE_TELEMETRY  = "1"
 SWIFTPM_BUILD_DIR            = "{{config_root}}/.cache/swiftpm/build"
+TTY_COMPATIBLE               = "0"
 TOMBI_CACHE_HOME             = "{{config_root}}/.cache/tombi"
 UV_PYTHON                    = { tools = true, value = "{{ tools.python[0].path }}" }
 WATCH_APPS_LOG               = "{{config_root}}/.artifacts/logs/watch-apps.log"
@@ -123,16 +127,12 @@ asset_pattern    = "ghidra_*_PUBLIC_*.zip"
 bin_path         = "support"
 postinstall      = '''{% if env.CI | default(value="false") != "true" %}
 set -e
-case "$(uname -sm)" in
-    'Darwin arm64') platform=mac_arm_64 arch='-arch arm64' ;;
-    'Linux aarch64') platform=linux_arm_64 arch= ;;
-    *) platform= ;;
-esac
-if [ -n "$platform" ]; then
-    decompiler="$MISE_TOOL_INSTALL_PATH/Ghidra/Features/Decompiler"
-    make -C "$decompiler/src/decompile/cpp" -j "$(getconf _NPROCESSORS_ONLN)" ARCH_TYPE="$arch" ghidra_opt
-    mkdir -p "$decompiler/os/$platform"
-    mv "$decompiler/src/decompile/cpp/ghidra_opt" "$decompiler/os/$platform/decompile"
+decompiler="$MISE_TOOL_INSTALL_PATH/Ghidra/Features/Decompiler"
+platform="$decompiler/os/{{ os(macos="mac", windows="win") }}_{{ arch(x64="x86_64", arm64="arm_64") }}"
+if [ ! -d "$platform" ]; then
+    make -C "$decompiler/src/decompile/cpp" -j "$(getconf _NPROCESSORS_ONLN)" ARCH_TYPE= ghidra_opt
+    mkdir -p "$platform"
+    mv "$decompiler/src/decompile/cpp/ghidra_opt" "$platform/decompile"
     make -C "$decompiler/src/decompile/cpp" clean
 fi
 {% endif %}'''
@@ -199,7 +199,7 @@ port       = 7404
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7404/" }
 retry      = true
-run        = "exec rasm-mcp-bridge -- ast-grep-server --config sgconfig.yml"
+run        = "exec env AST_GREP_PATH='ast-grep --custom-languages allow' rasm-mcp-bridge -- ast-grep-server --config sgconfig.yml"
 
 [daemons.binlog]
 boot_start = true
@@ -244,15 +244,6 @@ proxy      = false
 ready_port = 7412
 retry      = true
 run        = "exec playwright run-test-mcp-server --headless -c tests/typescript/playwright.config.ts --host 127.0.0.1 --port $PORT"
-
-[daemons.rhino-mcp-platform]
-boot_start = true
-env        = { RHINO_MCP_DEFAULT_VERSION = "9" }
-port       = 7406
-proxy      = false
-ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7406/" }
-retry      = true
-run        = 'exec rasm-mcp-bridge -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"'
 
 [daemons.roslyn-codelens]
 boot_start  = true

@@ -114,7 +114,7 @@ public static class LayerStates {
     // --- [HOLD]
     private static IO<NamedWrite> Hold(RhinoDoc doc, Option<Guid> viewport) =>
         from name in IO.lift(static () => Guid.NewGuid().ToString())
-        from saved in IO.lift(() => Conversions.Required(Conversions.Present(doc.NamedLayerStates.Save(name, Conversions.Unset(viewport)))))
+        from saved in IO.lift(Conversions.Required(Conversions.Present(doc.NamedLayerStates.Save(name, Conversions.Unset(viewport)))))
         select new NamedWrite(Restored(doc, name, RestoreLayerProperties.All, viewport), Deleted(doc, name));
 
     // --- [IMPORT]

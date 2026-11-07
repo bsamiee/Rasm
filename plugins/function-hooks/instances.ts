@@ -76,7 +76,7 @@ const watched = (text: string) =>
 const quit = Effect.fnUntraced(function* (instances: readonly Instance[]) {
     const host = yield* Host;
     const live = yield* Effect.filter(instances, (instance) => Effect.map(instanceOf(instance.pid), Option.contains(instance)), { concurrency: 'unbounded' });
-    const answers = yield* Effect.forEach(live, ({ pid }) => host.output([WATCHER, 'quit', '--pid', `${pid}`]), { concurrency: 'unbounded' });
+    const answers = yield* Effect.forEach(live, ({ pid }) => host.output([WATCHER, 'quit', `${pid}`]), { concurrency: 'unbounded' });
     return { created: [], reused: [], exited: [...Array.difference(instances, live).map(({ pid }) => pid), ...exitedOf(answers.join('\n'))] } satisfies Change;
 });
 

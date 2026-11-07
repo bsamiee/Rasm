@@ -151,13 +151,13 @@ public sealed class SceneHost : IAsyncDisposable {
     public IO<Option<SKSurface>> Paint(float scale, Option<Seq<Key>> popup = default) =>
         from held in IO.lift(() => Volatile.Read(ref session))
         from now in Now
-        from drawn in IO.lift(() => (from current in held.Current
-                                     from frame in popup.Match(
-                                         Some: path => current.Hosted.Find(hosted => hosted is Hosted.Popup && hosted.Path == path).Map(static hosted => hosted.Frame),
-                                         None: Some(SKRect.Create(current.Host.Size)))
-                                     let info = Capture.Info(frame.Size, scale, current.Scene.Extended)
-                                     where info.Width > 0 && info.Height > 0
-                                     select (Mount: current, Origin: frame.Location, Info: info))
+        from drawn in IO.lift((from current in held.Current
+                               from frame in popup.Match(
+                                   Some: path => current.Hosted.Find(hosted => hosted is Hosted.Popup && hosted.Path == path).Map(static hosted => hosted.Frame),
+                                   None: Some(SKRect.Create(current.Host.Size)))
+                               let info = Capture.Info(frame.Size, scale, current.Scene.Extended)
+                               where info.Width > 0 && info.Height > 0
+                               select (Mount: current, Origin: frame.Location, Info: info))
             .Traverse(target => Rastered(popup, target.Info, scale, target.Origin).Bind(raster => raster.Drawn(target.Mount, popup, now))).As())
         from linked in held.Current.Traverse(current => Linked(held.Running, current)).As()
         select drawn;

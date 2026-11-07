@@ -46,6 +46,6 @@ public static class Fields {
             if (!double.IsFinite(distance)) _ = failed.Swap(static _ => true);
             return distance;
         }, grid.Box, grid.Resolution, rootFindingSteps))
-        from finite in IO.lift(() => RhinoFault.Unless(!failed.Value, RhinoReason.Invalid, failed.Value))
+        from finite in IO.lift(RhinoFault.Unless(!failed.Value, RhinoReason.Invalid, failed.Value))
         select mesh;
 }

@@ -45,7 +45,7 @@ public static class Cameras {
         select new CameraPose(frame, camera.TargetPoint, lens);
 
     public static IO<CameraPose> Read(RhinoViewport viewport) =>
-        use(() => new ViewportInfo(viewport)).Bind(static info => IO.lift(() => Read(info))).Bracket();
+        use(() => new ViewportInfo(viewport)).Bind(static info => IO.lift(Read(info))).Bracket();
 
     public static Fin<Unit> Write(RhinoViewport viewport, CameraPose pose) {
         using ViewportInfo copy = new(viewport);
@@ -83,14 +83,14 @@ public static class Cameras {
         Fitted(viewport, camera => RhinoFault.Unless(camera.Extents(camera.CameraAngle, box), RhinoReason.Declined, box));
 
     private static IO<CameraPose> Fitted(RhinoViewport viewport, Func<ViewportInfo, Fin<Unit>> fit) =>
-        use(() => new ViewportInfo(viewport)).Bind(camera => IO.lift(() => fit(camera).Bind(_ => Read(camera)))).Bracket();
+        use(() => new ViewportInfo(viewport)).Bind(camera => IO.lift(fit(camera).Bind(_ => Read(camera)))).Bracket();
 
     // --- [MOVES]
     public static IO<Seq<bool>> Move(RhinoDoc doc, ViewportSet viewports, Func<RhinoViewport, IO<CameraPose>> pose, RedrawPolicy redraw) =>
         Viewports.Edit(doc, viewports, viewport =>
             from posed in pose(viewport)
             from pushed in IO.lift(viewport.PushViewProjection)
-            from written in IO.lift(() => Write(viewport, posed))
+            from written in IO.lift(Write(viewport, posed))
             select unit, redraw);
 
     // --- [HOLD]
@@ -98,7 +98,7 @@ public static class Cameras {
         from held in use(() => new ViewportInfo(viewport))
         from edited in (from camera in use(() => new ViewportInfo(viewport))
                         from staged in edit(camera)
-                        from applied in IO.lift(() => Applied(viewport, camera))
+                        from applied in IO.lift(Applied(viewport, camera))
                         select applied).Bracket()
         from value in body.Finally(IO.lift(() => Applied(viewport, held)))
         select value;

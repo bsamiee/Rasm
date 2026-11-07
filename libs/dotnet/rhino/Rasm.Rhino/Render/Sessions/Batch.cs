@@ -148,7 +148,7 @@ public static class Batches {
              pipeline,
              full: static (session, _) => session.Render(),
              region: static (session, region) => session.RenderWindow(region.View, region.Rectangle, region.InWindow)))
-         from result in IO.lift(() => pipeline.CommandResult() switch {
+         from result in IO.lift(pipeline.CommandResult() switch {
              Result.Failure => Fin.Fail<Result>(new RhinoFault(RenderPipeline.LocalizeRenderReturnCode(code), RhinoReason.Declined)),
              var ended => ended,
          })

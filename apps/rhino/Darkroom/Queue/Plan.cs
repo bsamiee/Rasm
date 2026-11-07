@@ -51,7 +51,7 @@ public sealed record QueuePlacement(RenderSettings.RenderingSources Source) {
 
     public static IO<Seq<QueuePlacement>> Studied(RhinoDoc doc) =>
         (from copy in use(() => doc.AnimationProperties)
-         from window in IO.lift(() => SunWindow.Read(copy).Bind(static found => found.ToFin(new DarkroomFault("document sun study", DarkroomReason.Missing))))
+         from window in IO.lift(SunWindow.Read(copy).Bind(static found => found.ToFin(new DarkroomFault("document sun study", DarkroomReason.Missing))))
          select Seq(Active with { Sun = window })).Bracket();
 
     public static IO<Seq<QueuedEntry>> Entries(RhinoDoc doc, Seq<QueuePlacement> placements, QueueRequest request) =>

@@ -6,11 +6,8 @@ utils:
         any:
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^never$'}}}
             - matches: endless-sleep
-    sleep:
-        kind: call_expression
-        has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^sleep$'}}}}
     endless-sleep:
-        matches: sleep
+        matches: effect-sleep-call
         all:
             - has:
                 field: arguments
@@ -72,7 +69,7 @@ rule:
                     field: arguments
                     all:
                         - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
-                        - has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: sleep}
+                        - has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: effect-sleep-call}
         - pattern: $NEVER
 message: '`$NEVER` holds the program open after its last step'
 note: 'Replace the wait with `Layer.launch(Layer.effectDiscard(<program>))` and scoped cleanup through `Effect.acquireRelease`'

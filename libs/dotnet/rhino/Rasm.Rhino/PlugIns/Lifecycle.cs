@@ -63,7 +63,7 @@ internal sealed class PlugInBody {
     public Unit Commands(Func<Command, bool> register) =>
         Session.Run(Products.Each(definition.Commands.Map((row, index) =>
             from command in IO.lift(row.Realized)
-            from registered in IO.lift(() => RhinoFault.Unless(register(command), RhinoReason.Declined, row.EnglishName, index))
+            from registered in IO.lift(RhinoFault.Unless(register(command), RhinoReason.Declined, row.EnglishName, index))
             from history in when(row.History.Exists(static history => history.ReplayOnAttributeChange), IO.lift(() => {
                 command.HistoryReplayOnObjectAttributeChange = true;
             })).As()

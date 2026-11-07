@@ -37,7 +37,7 @@ public abstract partial record ImageFile {
     private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Loaded(Stream stream, string layer) =>
         from result in IO.liftVAsync(environment => ExrFile.LoadFromStreamAsync(stream, cancellationToken: environment.Token))
         from image in IO.lift(Optional(result.Value).ToFin(ImagingFault.Of(ImagingReason.Refused, result.Status, inner: Optional(result.Error).Map(Error.New))))
-        from read in IO.lift(() => Layer(toSeq(image.Parts), layer))
+        from read in IO.lift(Layer(toSeq(image.Parts), layer))
         select read;
 
     private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Decoded(Stream stream) =>

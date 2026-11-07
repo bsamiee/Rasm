@@ -1,19 +1,18 @@
 """Reads the facts the installed Blender states once per build of it, runs the child processes around it, and syncs the user bases its interpreter loads."""
 
-import os
 lazy from collections.abc import Iterable
 lazy import hashlib
 lazy from itertools import chain, takewhile
 lazy from pathlib import Path
 lazy import subprocess
 lazy import sys
-lazy from typing import Annotated
+lazy from typing import Annotated, Self
 
 import msgspec
-from packaging.tags import mac_platforms
-from packaging.version import Version
 lazy from cyclopts import Parameter
 lazy from cyclopts.types import ResolvedExistingFile
+lazy from packaging.tags import mac_platforms
+lazy from packaging.version import Version
 
 lazy from blender.records.faults import Error, Fault, Ok, Outcome, Reason
 lazy from blender.records.stores import committed, folder_made, RecordFile
@@ -21,12 +20,13 @@ lazy from blender.records.stores import committed, folder_made, RecordFile
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Blender = Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
+type Deployment = Annotated[Version, Parameter(env_var="MACOSX_DEPLOYMENT_TARGET", accepts_keys=False)]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Host(msgspec.Struct, frozen=True):
-    """Facts one Blender build states: its interpreter and release, its user site layout and default repository, its bundled distributions, its factory tool text color, its own extension platform, and the extension platforms of each wheel platform."""
+    """Facts one Blender build states: its interpreter and release, its user site layout and default repository, its bundled distributions, its factory tool text color, its own extension platform, and the extension platforms of each wheel platform the probe names."""
 
     executable: str
     version: str
@@ -74,7 +74,7 @@ class Manifest(msgspec.Struct, frozen=True):
 
 
 class Target(msgspec.Struct, frozen=True):
-    """Extension platform as the marker values selecting it from a lock and its wheel platform tags, best first: macOS from the one release this repository targets, Linux from the glibc 2.28 ABI Blender builds its libraries against."""
+    """Extension platform as the marker values selecting it from a lock and its wheel platform tags, best first: macOS from the deployment release, Linux from the glibc 2.28 ABI Blender builds its libraries against."""
 
     sys_platform: str
     platform_machine: str
@@ -82,14 +82,15 @@ class Target(msgspec.Struct, frozen=True):
     platform_system: str
     tags: tuple[str, ...]
 
+    @classmethod
+    def every(cls, macos: Version, /) -> tuple[Self, ...]:
+        """Returns each extension platform a build selects wheels for, macOS tags from the deployment release down."""
+        return (
+            cls("darwin", "arm64", "posix", "Darwin", tuple(mac_platforms((macos.major, macos.minor), "arm64"))),
+            *(cls("linux", machine, "posix", "Linux", tuple(f"manylinux_2_{minor}_{machine}" for minor in range(28, 4, -1))) for machine in ("x86_64", "aarch64")),
+            cls("win32", "AMD64", "nt", "Windows", ("win_amd64",)),
+        )
 
-# --- [TABLES] ---------------------------------------------------------------------------
-
-TARGETS = (
-    *(Target("darwin", "arm64", "posix", "Darwin", tuple(mac_platforms((macos.major, macos.minor), "arm64"))) for macos in (Version(os.environ["MACOSX_DEPLOYMENT_TARGET"]),)),
-    *(Target("linux", machine, "posix", "Linux", tuple(f"manylinux_2_{minor}_{machine}" for minor in range(28, 4, -1))) for machine in ("x86_64", "aarch64")),
-    Target("win32", "AMD64", "nt", "Windows", ("win_amd64",)),
-)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -172,18 +173,18 @@ def declared[T](path: Path, form: type[T], /) -> Outcome[T]:
 # --- [FACTS]
 
 
-def probed(base: Path, blender: Path, /) -> Outcome[Host]:
+def probed(base: Path, blender: Path, /, *tags: str) -> Outcome[Host]:
     """Reads cached host facts or probes the installed Blender build.
 
     Args:
         base: Workspace root.
         blender: Blender executable.
+        tags: Wheel platform tags the build maps to its extension platforms.
 
     Returns:
         Host facts, or fault of the run, its answer, or a cached answer's read.
     """
     program = base / "libs/python/blender/probe.py"
-    tags = tuple(target.tags[0] for target in TARGETS)
     try:
         built = blender.stat()
         stamp = hashlib.blake2b(msgspec.msgpack.encode((str(blender), built.st_mtime_ns, built.st_size, program.read_bytes(), tags)), digest_size=16).hexdigest()
@@ -246,4 +247,4 @@ def site(base: Path, host: Host, /, *, package: str | None = None, groups: tuple
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TARGETS", "Blender", "Host", "Manifest", "Pyproject", "Target", "Upstream", "declared", "exported", "headless", "probed", "ran", "root", "scripted", "site"]
+__all__ = ["Blender", "Deployment", "Host", "Manifest", "Pyproject", "Target", "Upstream", "declared", "exported", "headless", "probed", "ran", "root", "scripted", "site"]

@@ -30,8 +30,8 @@ public static class SolidAssembly {
     // --- [TOPOLOGY]
     public static IO<Brep> Build(BrepTopology topology) =>
         from brep in use(static () => new Brep())
-        from declared in IO.lift(() => Declared(brep, topology))
-        from valid in IO.lift(() => RhinoFault.Unless(brep.IsValidTopology(out string log), RhinoReason.Invalid, log))
+        from declared in IO.lift(Declared(brep, topology))
+        from valid in IO.lift(RhinoFault.Unless(brep.IsValidTopology(out string log), RhinoReason.Invalid, log))
         select brep;
 
     private static Fin<Unit> Declared(Brep brep, BrepTopology topology) =>
@@ -40,9 +40,9 @@ public static class SolidAssembly {
         from vertices in Products.Each(topology.Vertices, (vertex, at) => Conversions.Required(brep.Vertices.Add(vertex.Point, Conversions.Unset(vertex.Tolerance)), at))
         from edges in Products.Each(topology.Edges, (edge, at) =>
             (Picked(vertices, edge.Start, at), Picked(vertices, edge.End, at), Picked(curves, edge.Curve, at)).Apply(static (start, end, curve) => (Start: start, End: end, Curve: curve)).As()
-                .Map(ends => Conversions.Required(edge.Domain.Match(
+                .Bind(Fin<BrepEdge> (ends) => Conversions.Required(edge.Domain.Match(
                     Some: domain => brep.Edges.Add(ends.Start, ends.End, ends.Curve, domain, Conversions.Unset(edge.Tolerance)),
-                    None: () => brep.Edges.Add(ends.Start, ends.End, ends.Curve, Conversions.Unset(edge.Tolerance))), at)).Flatten())
+                    None: () => brep.Edges.Add(ends.Start, ends.End, ends.Curve, Conversions.Unset(edge.Tolerance))), at)))
         from trims in Products.Each(topology.Faces, (face, at) => Faced((Brep: brep, Surfaces: surfaces, Vertices: vertices, Edges: edges, At: at), face))
         select Flagged(brep, trims.Bind(static held => held));
 
@@ -53,7 +53,7 @@ public static class SolidAssembly {
                 from surface in Picked(of.Surfaces, trimmed.Surface, of.At)
                 from added in Conversions.Required(of.Brep.Faces.Add(surface), of.At).Map(face => Oriented(face, trimmed.Reversed))
                 from loops in Products.Each(toSeq(trimmed.Loops), (loop, _) => Conversions.Required(of.Brep.Loops.Add(loop.Type, added), of.At)
-                    .Map(held => Products.Each(toSeq(loop.Trims), (trim, _) => Trimmed((of.Brep, Loop: held, of.Vertices, of.Edges, of.At), trim))).Flatten())
+                    .Bind(Fin<Seq<(BrepTrim Trim, Option<IsoStatus> Iso)>> (held) => Products.Each(toSeq(loop.Trims), (trim, _) => Trimmed((of.Brep, Loop: held, of.Vertices, of.Edges, of.At), trim))))
                 select loops.Bind(static held => held),
             planar: static (of, planar) =>
                 from surface in Picked(of.Surfaces, planar.Surface, of.At)
@@ -98,6 +98,6 @@ public static class SolidAssembly {
         from pathed in Products.Accepted(() => made.SetPathAndUp(path.From, path.To, up))
         from outer in Products.Accepted(() => made.SetOuterProfile(outerProfile, cap))
         from inner in innerProfiles.TraverseM(profile => Products.Accepted(() => made.AddInnerProfile(profile))).As()
-        from valid in IO.lift(() => RhinoFault.Unless(made.IsValidWithLog(out string log), RhinoReason.Invalid, log))
+        from valid in IO.lift(RhinoFault.Unless(made.IsValidWithLog(out string log), RhinoReason.Invalid, log))
         select made;
 }

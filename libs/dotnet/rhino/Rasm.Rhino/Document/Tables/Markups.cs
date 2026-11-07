@@ -11,7 +11,7 @@ public sealed record MarkupState(StateName Name, RhinoView Source, Seq<GeometryP
         from ended in Markups.Ended(doc)
         from prior in IO.lift(() => Conversions.Present(doc.Markups.Find(Name)))
         from cleared in prior.Traverse(index => Products.Accepted(() => doc.Markups.Delete(index, quiet: true))).As()
-        from index in IO.lift(() => Conversions.Required(Conversions.Present(
+        from index in IO.lift(Conversions.Required(Conversions.Present(
             doc.Markups.Create(Source, Geometry.Map(static pair => pair.Geometry), Geometry.Map(static pair => pair.Attributes.ValueUnsafe())))))
         from named in Markups.Named(doc, index, Name)
         select NamedWrite.Undoable;

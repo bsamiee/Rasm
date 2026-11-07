@@ -117,7 +117,7 @@ public abstract class TransformationHost : TransformCommand {
     protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) =>
         body.Run(
             (from list in use(static () => new TransformObjectList())
-             from selected in IO.lift(() => Results.Ended(SelectObjects(LocalText.Of(body.Definition.Input.Prompt).Local, body.Definition.Input.Filter, list)))
+             from selected in IO.lift(Results.Ended(SelectObjects(LocalText.Of(body.Definition.Input.Prompt).Local, body.Definition.Input.Filter, list)))
              from moved in body.Definition.Input.Body(doc, mode, list)
              from applied in IO.lift(() => TransformObjects(list, moved.Xform, moved.Copy, autoHistory: true))
              select unit).Bracket());

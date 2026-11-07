@@ -58,7 +58,7 @@ public static class Notices {
 
     private static IO<Unit> Metered<T>(RhinoDoc doc, string label, int total, Atom<Loading<T>> reading) where T : notnull =>
         from answer in IO.lift(() => StatusBar.ShowProgressMeter(doc.RuntimeSerialNumber, 0, total, LocalText.Of(label).Local, embedLabel: true, showPercentComplete: true))
-        from shown in IO.lift(() => RhinoFault.Unless(answer is 1, RhinoReason.Declined, answer))
+        from shown in IO.lift(RhinoFault.Unless(answer is 1, RhinoReason.Declined, answer))
         from hidden in use(IO.pure(doc.RuntimeSerialNumber), static serial => IO.lift(() => StatusBar.HideProgressMeter(serial)).OnUiThread().Map(unit))
         from moved in Subscriptions.Changed(reading).Attach(work => Moved(work, doc.RuntimeSerialNumber).OnUiThread())
         select unit;

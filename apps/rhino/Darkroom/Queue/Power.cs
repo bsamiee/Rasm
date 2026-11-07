@@ -80,7 +80,7 @@ public static class MachinePower {
         OperatingSystem.IsWindows()
             ? (from shutdown in use(Started("shutdown", ["/s", "/t", "60"]))
                from exited in IO.liftAsync(environment => shutdown.WaitForExitAsync(environment.Token).ToUnit())
-               from code in IO.lift(() => DarkroomFault.Unless(shutdown.ExitCode is 0, DarkroomReason.Failed, shutdown.ExitCode))
+               from code in IO.lift(DarkroomFault.Unless(shutdown.ExitCode is 0, DarkroomReason.Failed, shutdown.ExitCode))
                select unit).Bracket()
             : use(Started("osascript", ["-e", "delay 60", "-e", """tell application "System Events" to shut down"""])).Map(static _ => unit).Bracket();
 

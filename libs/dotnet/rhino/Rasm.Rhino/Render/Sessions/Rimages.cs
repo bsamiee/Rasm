@@ -61,7 +61,7 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
 
     private static IO<A> Read<A>(string fileName, Func<FileStream, (XElement Xml, long Body), Fin<A>> body) =>
         use(() => new FileStream(fileName, new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.Read, Options = FileOptions.RandomAccess }))
-            .Bind(file => IO.lift(() => Indexed(file, fileName).Bind(index => body(file, index))))
+            .Bind(file => IO.lift(Indexed(file, fileName).Bind(index => body(file, index))))
             .Bracket();
 
     private static Fin<(XElement Xml, long Body)> Indexed(FileStream file, string fileName) {

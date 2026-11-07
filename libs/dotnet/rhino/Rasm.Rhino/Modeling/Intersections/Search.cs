@@ -41,7 +41,7 @@ public static class Search {
         from answered in IO.lift(() => (
             Indices: GeometryBase.GetOverlaps(objects, plane, tolerances.Absolute, wholeCurves, locked, lockedExclusive, out bool[] entire, out ComponentIndex[][] removed, out Curve[] replacements),
             Entire: entire, Removed: removed, Replacements: replacements))
-        from indices in IO.lift(() => Optional(answered.Indices).ToFin(new RhinoFault(nameof(GeometryBase.GetOverlaps), RhinoReason.Missing)))
+        from indices in IO.lift(Optional(answered.Indices).ToFin(new RhinoFault(nameof(GeometryBase.GetOverlaps), RhinoReason.Missing)))
         from rows in Products.Each(toSeq(indices).Map((index, at) => Products.Maybe(() => answered.Replacements[at])
             .Map(replacement => (Object: index, Entire: answered.Entire[at], Removed: toSeq(answered.Removed[at]), Replacement: replacement))).Strict())
         select rows;

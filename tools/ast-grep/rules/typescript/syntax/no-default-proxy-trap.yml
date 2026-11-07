@@ -37,14 +37,11 @@ utils:
         all:
             - has: {field: function, kind: member_expression, has: {field: property, pattern: $TRAP}, matches: reflect}
             - has: {field: arguments, pattern: {context: f(...$A), selector: arguments}}
-    single-return:
-        kind: statement_block
-        not: {has: {nthChild: {position: 2, ofRule: *code}}}
-    forwarded-1: {any: [{matches: reflect-1}, {matches: single-return, has: {kind: return_statement, has: {matches: reflect-1}}}]}
-    forwarded-2: {any: [{matches: reflect-2}, {matches: single-return, has: {kind: return_statement, has: {matches: reflect-2}}}]}
-    forwarded-3: {any: [{matches: reflect-3}, {matches: single-return, has: {kind: return_statement, has: {matches: reflect-3}}}]}
-    forwarded-4: {any: [{matches: reflect-4}, {matches: single-return, has: {kind: return_statement, has: {matches: reflect-4}}}]}
-    forwarded-rest: {any: [{matches: reflect-rest}, {matches: single-return, has: {kind: return_statement, has: {matches: reflect-rest}}}]}
+    forwarded-1: {any: [{matches: reflect-1}, {matches: typescript-single-statement-block, has: {kind: return_statement, has: {matches: reflect-1}}}]}
+    forwarded-2: {any: [{matches: reflect-2}, {matches: typescript-single-statement-block, has: {kind: return_statement, has: {matches: reflect-2}}}]}
+    forwarded-3: {any: [{matches: reflect-3}, {matches: typescript-single-statement-block, has: {kind: return_statement, has: {matches: reflect-3}}}]}
+    forwarded-4: {any: [{matches: reflect-4}, {matches: typescript-single-statement-block, has: {kind: return_statement, has: {matches: reflect-4}}}]}
+    forwarded-rest: {any: [{matches: reflect-rest}, {matches: typescript-single-statement-block, has: {kind: return_statement, has: {matches: reflect-rest}}}]}
 rule:
     kind: arrow_function, function_expression, method_definition
     all:

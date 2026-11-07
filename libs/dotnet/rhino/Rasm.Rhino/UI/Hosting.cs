@@ -51,7 +51,7 @@ internal sealed class ViewBody {
 
     private static IO<(BindingGroup Bindings, RowScope Scope)> Nesting(View row, RowScope enclosing) =>
         from bindings in ViewOps.Bindings(row, enclosing)
-        from history in IO.lift(() => ViewOps.History(row, bindings, enclosing.Document))
+        from history in IO.lift(ViewOps.History(row, bindings, enclosing.Document))
         select (bindings, enclosing.Nested(ViewOps.Settings(row), history, ViewOps.Locks(row, enclosing.Document)));
 
     private static IO<ViewBody> Built(View row, Seq<Command<Invoke>> actions, RowScope enclosing, BindingGroup bindings, RowScope nested, Option<Func<ViewBody, IO<Unit>>> listening) =>

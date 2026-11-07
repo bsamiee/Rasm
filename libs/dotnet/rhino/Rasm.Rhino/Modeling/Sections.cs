@@ -63,14 +63,14 @@ public static class Sections {
                     Accepted: Intersection.GeometryPlane(geometry, plane, tolerances.Absolute, joinCurves, pointCloudAsPoints, includeHiddenObjects, document, source.Xform, cache, token, out Curve[] curves, out Point3d[] points),
                     Curves: curves, Points: points))
                 from kept in Products.Many(() => cut.Curves, required: false)
-                from accepted in IO.lift(() => RhinoFault.Unless(cut.Accepted, RhinoReason.Declined, plane, index))
+                from accepted in IO.lift(RhinoFault.Unless(cut.Accepted, RhinoReason.Declined, plane, index))
                 select new Section(plane, kept, Conversions.Rows(cut.Points)),
         };
 
     // --- [LEVELS]
     public static IO<Seq<(double Level, Seq<Curve> Curves)>> Levels(Tolerances tolerances, MeshField field, Seq<double> levels) =>
         from lifted in Products.Of(field.Mesh.DuplicateMesh)
-        from written in IO.lift(() => Products.Each(field.Values, (value, vertex) => RhinoFault.Unless(
+        from written in IO.lift(Products.Each(field.Values, (value, vertex) => RhinoFault.Unless(
             lifted.Vertices.SetVertex(vertex, field.Mesh.TextureCoordinates[vertex].X, field.Mesh.TextureCoordinates[vertex].Y, value), RhinoReason.Declined, value, vertex)))
         from normals in IO.lift(lifted.RebuildNormals)
         from cache in use(static () => new MeshIntersectionCache())

@@ -29,8 +29,8 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable:
 ## [02]-[INFRA_PREFIXES]
 
 Repository programs read owner-issued values from shared project `agent-runtime` config `dev` in workplace `Parametric_Arsenal`, each through its target's `doppler run` prefix:
-- `rasm:infra` names `GITHUB_TOKEN` and `SIXLABORSLICENSEKEY` with `--only-secrets`
-- `<project>:hosting` hands the program its whole config, the program's typed `Config` read names a missing value when a target needs it
+- Targets hand their command the whole config, a program's typed `Config` read names a missing value when a target needs it
+- Daemon `mcp-for-blender` names its keys with `--only-secrets`, a third-party server receives no repository credential
 - Variables the prefix leaves unset pass through from the calling environment, a local run sets one on the command
 - Add a hosting secret through `doppler secrets set <NAME> --project agent-runtime --config dev`, a `bindings.secret()` row in `cloudflare.config.ts` names it to the program
 - CI holds no Doppler token, `rasm:infra` copies `SIXLABORSLICENSEKEY` to the repository's Actions secrets and a job step writes it to the `.lic` file `SixLaborsLicenseFile` names, a `LicenseKey` value lands in the binlogs CI uploads

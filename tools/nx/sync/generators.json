@@ -15,11 +15,6 @@
             "schema": "./schema.json",
             "description": "Writes each ast-grep rule's injection-utils metadata entry rule and utils it calls from sgconfig.yml languageInjections"
         },
-        "rust-analyzer": {
-            "factory": "./settings/rust-analyzer.ts#rustAnalyzer",
-            "schema": "./schema.json",
-            "description": "Writes shared rust-analyzer check options and compiler source settings for VS Code"
-        },
         "hosting-bindings": {
             "factory": "./settings/hosting-bindings.ts#hostingBindings",
             "schema": "./schema.json",

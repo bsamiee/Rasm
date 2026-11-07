@@ -24,8 +24,8 @@ public static class Solutions {
              ? IO.lift(() => document.Solution.StartWait(source, mode))
              : IO.liftAsync(() => document.Solution.Start(source, mode))
                  .Catch(static error => error.Is(Errors.Cancelled), _ => IO.fail<Solution>(Cancellation(nameof(SolutionServer.Start), token)))
-         from owned in IO.lift(() => GrasshopperFault.Unless(solution.Token == source.Token, GrasshopperReason.Taken, solution.Id))
-         from finished in IO.lift(() => Finished(document, solution, faults.Value.Find(solution.Id), token))
+         from owned in IO.lift(GrasshopperFault.Unless(solution.Token == source.Token, GrasshopperReason.Taken, solution.Id))
+         from finished in IO.lift(Finished(document, solution, faults.Value.Find(solution.Id), token))
          select finished).Bracket();
 
     public static IO<A> Paused<A>(Seq<Document> documents, IO<A> body) =>
@@ -64,7 +64,7 @@ public static class Documents {
              DocumentIO io = new(document: null, trackFiles, reportErrors: false, retainRoot: false, resolvePlugins);
              return io.Open(path, blocking, found => held.Swap(_ => Some(found))) ? Optional(io.Document) : None;
          })
-         from document in IO.lift(() => (opened | held.Value).ToFin(new GrasshopperFault(path, GrasshopperReason.Unreadable)))
+         from document in IO.lift((opened | held.Value).ToFin(new GrasshopperFault(path, GrasshopperReason.Unreadable)))
          select document)
         | @catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new GrasshopperFault(path, GrasshopperReason.Missing, Inner: error)))
         | @catch(
@@ -92,12 +92,12 @@ public static class Documents {
                     && File.GetLastWriteTimeUtc(entry.OriginalPath) > entry.OriginalLastWriteUtc.AddSeconds(1))
                 from loaded in changed
                     ? Load(entry.OriginalPath, trackFiles: true, blocking: roots)
-                    : Load(entry.AutoSavePath, blocking: roots).Map(recovered => {
+                    : Load(entry.AutoSavePath, blocking: roots).Bind(IO<Document> (recovered) => IO.lift(() => {
                         recovered.File.Path = entry.Kind is SessionEntryKind.Named ? entry.OriginalPath : null;
                         recovered.File.FileOverwriteWarning = null;
                         recovered.Modify();
                         return recovered;
-                    })
+                    }))
                 from pushed in IO.lift(() => ignore(bag.Push(loaded)))
                 select loaded)
         select document;
@@ -124,9 +124,9 @@ public static class Documents {
         (from inner in use(() => GrasshopperIO.IO.Duplicate(document), static held => held.Close())
          from host in use(static () => Document.NewInertDocument(), static held => held.Close())
          from cluster in IO.lift(() => new Cluster { InnerDocument = inner, RelayMessages = true })
-         from added in IO.lift(() => GrasshopperFault.Unless(host.Objects.Add(cluster), GrasshopperReason.Declined, cluster.Nomen.Name))
-         from boundary in IO.lift(() => Boundary(cluster))
-         from fed in IO.lift(() => inputs.ToSeq()
+         from added in IO.lift(GrasshopperFault.Unless(host.Objects.Add(cluster), GrasshopperReason.Declined, cluster.Nomen.Name))
+         from boundary in IO.lift(Boundary(cluster))
+         from fed in IO.lift(inputs.ToSeq()
              .Traverse(input => boundary.Inputs.Find(input.Key).ToFin(new GrasshopperFault(input.Key, GrasshopperReason.Missing)).Map(parameter => (Parameter: parameter, Tree: input.Value)))
              .As())
          from assigned in IO.lift(() => fed.Iter(static input => input.Parameter.PersistentDataWeak = input.Tree))

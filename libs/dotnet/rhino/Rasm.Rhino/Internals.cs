@@ -22,7 +22,7 @@ public static class NamedCallbacks {
         (from args in use(static () => new NamedParametersEventArgs())
          from entered in IO.lift(() => entries.Iter(entry => entry(args)))
          from executed in Products.Accepted(() => HostUtils.ExecuteNamedCallback(name, args))
-         from value in IO.lift(() => Conversions.Required(read(args)))
+         from value in IO.lift(Conversions.Required(read(args)))
          select value).Bracket();
 
     public static Option<Unit> Handled(NamedParametersEventArgs args) =>

@@ -58,7 +58,7 @@ public static class Environments {
                     return content;
                 }),
                 Contents.Child(() => RenderContentType.NewContentFromTypeId(ContentUuids.PhysicalSkyTextureType, doc), slot)])
-            from texture in IO.lift(() => Optional(created.FindChild(slot)).ToFin(new RhinoFault($"slot {slot} of {created.Id}", RhinoReason.Missing)))
+            from texture in IO.lift(Optional(created.FindChild(slot)).ToFin(new RhinoFault($"slot {slot} of {created.Id}", RhinoReason.Missing)))
             from configured in Contents.Edit(texture, RenderContent.ChangeContexts.Program, [
                 new Step<RenderContent>(sky => ContentFields.SetParameter(sky, "use-document-sun", useDocumentSun).Map(_ => sky), "use-document-sun"),
                 Gained(intensity)])

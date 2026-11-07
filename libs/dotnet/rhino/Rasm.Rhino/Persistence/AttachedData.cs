@@ -70,7 +70,7 @@ public static class AttachedData {
     public static IO<StoredRecord<T>> Read<T>(BinaryArchiveReader reader, uint typeCode, DictionaryCodec<T> codec) =>
         from begun in Products.Accepted(() => reader.BeginRead3dmChunk(typeCode, out _, out _))
         from dictionary in IO.lift(reader.ReadDictionary).Finally(Products.Accepted(() => reader.EndRead3dmChunk(suppressPartiallyReadChunkWarning: true)))
-        from stored in IO.lift(() => codec.FromDictionary(dictionary))
+        from stored in IO.lift(codec.FromDictionary(dictionary))
         select stored;
 
     public static IO<Option<T>> Read<T>(File3dm archive, Guid plugIn, Func<BinaryArchiveReader, IO<T>> read) =>

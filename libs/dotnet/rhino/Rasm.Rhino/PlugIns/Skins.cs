@@ -175,7 +175,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
     private static IO<Unit> Reopened(IterableNE<ChoiceItem<string>> items) =>
         from path in HostDialogs.ShowListBox(LocalText.Of("Open Recent"), LocalText.Of("Choose a file to open"), items, None)
-        from existing in IO.lift(() => InputPath.Of(path))
+        from existing in IO.lift(InputPath.Of(path))
         from document in Documents.With(new DocumentSource.Opened(existing), static _ => IO.pure(unit))
         select document;
 

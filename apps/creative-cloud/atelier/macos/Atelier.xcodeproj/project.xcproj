@@ -116,7 +116,6 @@
         "AUTOMATION_APPLE_EVENTS": "YES",
         "CODE_SIGN_ENTITLEMENTS": "../../../../.config/Enhanced.entitlements",
         "INFOPLIST_FILE": "../../../../.config/Sparkle-Info.plist",
-        "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.utilities",
         "INFOPLIST_KEY_LSBackgroundOnly": "YES",
         "INFOPLIST_KEY_NSAppleEventsUsageDescription": "Atelier runs scripting commands in Adobe apps when an MCP client requests them.",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.atelier",

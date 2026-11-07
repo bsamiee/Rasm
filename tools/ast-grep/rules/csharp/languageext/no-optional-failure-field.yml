@@ -3,8 +3,6 @@ language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
 utils:
-    unit-type:
-        matches: {csharp-type-name: {name: {regex: '^Unit$'}}}
     error-type-name:
         any:
             - matches: {csharp-type-name: {name: {regex: '^(Error|Expected|Exceptional|ManyErrors|Exception)$'}}}
@@ -28,8 +26,8 @@ utils:
               matches: {csharp-generic-type: {name: {regex: '^Option$'}, list: {has: {nthChild: 1, matches: error-type-name}}}}
             - kind: nullable_type
               has: {field: type, matches: error-type-name}
-            - matches: {csharp-generic-type: {name: {regex: '^Fin$'}, list: {has: {nthChild: 1, matches: unit-type}, not: {has: {nthChild: 2}}}}}
-            - matches: {csharp-generic-type: {name: {regex: '^(?:Either|Validation)$'}, list: {all: [{has: {nthChild: 1, matches: {csharp-type-name: {name: {regex: '^Error$'}}}}}, {has: {nthChild: 2, matches: unit-type}}], not: {has: {nthChild: 3}}}}}
+            - matches: {csharp-generic-type: {name: {regex: '^Fin$'}, list: {has: {nthChild: 1, matches: languageext-unit-type}, not: {has: {nthChild: 2}}}}}
+            - matches: {csharp-generic-type: {name: {regex: '^(?:Either|Validation)$'}, list: {all: [{has: {nthChild: 1, matches: {csharp-type-name: {name: {regex: '^Error$'}}}}}, {has: {nthChild: 2, matches: languageext-unit-type}}], not: {has: {nthChild: 3}}}}}
     optional-text:
         any:
             - matches: {csharp-generic-type: {name: {regex: '^Option$'}, list: {has: {kind: predefined_type, regex: '^string$'}, not: {has: {nthChild: 2}}}}}

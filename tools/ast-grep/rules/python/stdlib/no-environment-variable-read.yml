@@ -55,15 +55,26 @@ utils:
             - matches: {python-assigned-name: {value: {matches: copy-source}}}
     environment-file:
         inside: {kind: module, stopBy: end, regex: '(?-u:\b)environb?(?-u:\b)'}
+    cyclopts-parameter:
+        matches: {python-member-use: {module: {regex: '^cyclopts$'}, name: {regex: '^Parameter$'}}}
+    parameter-form:
+        any:
+            - matches: cyclopts-parameter
+            - kind: identifier
+              pattern: $FORM
+              inside:
+                kind: module
+                stopBy: end
+                has:
+                    any:
+                        - kind: type_alias_statement
+                          all: [{has: {field: left, has: {kind: identifier, pattern: $FORM}}}, {has: {field: right, has: {stopBy: end, matches: cyclopts-parameter}}}]
+                        - kind: decorated_definition
+                          all: [{has: {kind: decorator, has: {stopBy: end, matches: cyclopts-parameter}}}, {has: {field: definition, kind: class_definition, has: {field: name, pattern: $FORM}}}]
     boundary:
-        inside:
-            kind: module
-            stopBy: end
-            any:
-                - matches: python-entry-module
-                - has:
-                    kind: import_from_statement, import_statement
-                    has: {stopBy: end, kind: dotted_name, regex: '^cyclopts(\.|$)', matches: python-imported-module}
+        any:
+            - inside: {kind: module, stopBy: end, matches: python-entry-module}
+            - inside: {kind: block, stopBy: end, inside: {kind: function_definition, field: body, has: {field: parameters, has: {stopBy: end, kind: type, has: {stopBy: end, matches: parameter-form}}}}}
 rule:
     not: {matches: boundary}
     any:

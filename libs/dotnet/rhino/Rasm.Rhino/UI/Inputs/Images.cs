@@ -141,7 +141,7 @@ public sealed record PreviewRow(Thumbnail Thumbnail, Size Extent) : IRow<Preview
         from released in use(IO.pure(view), static held => held.State.Release)
         select new RowCells(view,
             from current in latest
-            from prior in IO.lift(() => view.State)
+            let prior = view.State
             from shown in view.Show(current.Thumbnail)
             from dropped in unless(ReferenceEquals(prior, current.Thumbnail), prior.Release).As()
             from sized in IO.lift(() => { view.Size = current.Extent; })

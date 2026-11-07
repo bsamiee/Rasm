@@ -34,8 +34,8 @@ public sealed record Georeference {
 
     public static IO<Georeference> Read(RhinoDoc doc) =>
         (from scratch in use(() => doc.EarthAnchorPoint)
-         from located in IO.lift(() => RhinoFault.Unless(scratch.EarthLocationIsSet() && scratch.ModelLocationIsSet(), RhinoReason.Missing, scratch.Name))
-         from elevation in IO.lift(() => scratch.EarthBasepointElevation)
+         from located in IO.lift(RhinoFault.Unless(scratch.EarthLocationIsSet() && scratch.ModelLocationIsSet(), RhinoReason.Missing, scratch.Name))
+         let elevation = scratch.EarthBasepointElevation
          from projective in IO.lift(() => { scratch.EarthBasepointElevation = 0d; })
          from modelToEarth in IO.lift(() => Transform.Translation(0d, 0d, elevation) * scratch.GetModelToEarthTransform(doc.ModelUnits))
          from earthToModel in Products.Accepted(() => (modelToEarth.TryGetInverse(out Transform inverse), inverse))

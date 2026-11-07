@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: toml
+severity: error
+files: ['**/mise*.toml']
+rule:
+    kind: pair
+    has: {stopBy: {kind: inline_table}, kind: string, regex: '(?-u:\b)os(_family)?\((?-u:\s)*\)'}
+message: The value reads the platform through `os()` or `os_family()` in a file every platform loads
+note: Move each platform's value into `.config/mise.<os>.toml`, which `auto_env` loads on that platform alone

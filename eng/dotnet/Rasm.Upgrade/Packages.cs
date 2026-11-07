@@ -255,17 +255,23 @@ internal static partial class Packages {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 internal static class Program {
-    public static async Task<int> Main(string[] args) =>
-        (await Upgrade([.. args.Where(static arg => arg is not "--dry-run")], write: !args.Contains("--dry-run", StringComparer.Ordinal)).RunSafeAsync().ConfigureAwait(false)).Match(
-            Succ: Report,
-            Fail: Report);
+    public static Task<int> Main(string[] args) {
+        System.CommandLine.Option<bool> dryRun = new("--dry-run") { Description = "Prints each move and writes nothing" };
+        System.CommandLine.Argument<string[]> apps = new("apps") { Description = "File-based apps whose packages constrain the move" };
+        System.CommandLine.RootCommand command = new("Moves Directory.Packages.props rows to the newest release each consumer admits") { dryRun, apps };
+        command.SetAction(async result =>
+            (await Upgrade(result.GetRequiredValue(apps), write: !result.GetValue(dryRun)).RunSafeAsync().ConfigureAwait(false)).Match(
+                Succ: Report,
+                Fail: Report));
+        return command.Parse(args).InvokeAsync(cancellationToken: CancellationToken.None);
+    }
 
-    private static IO<Seq<Move>> Upgrade(string[] args, bool write) =>
-        from path in IO.lift(Fin<string> () => args is [var file, ..] ? Path.GetFullPath(file) : Error.New("Pass the Directory.Packages.props path followed by any file-based apps"))
+    private static IO<Seq<Move>> Upgrade(string[] apps, bool write) =>
+        from root in IO.lift(static () => Environment.CurrentDirectory)
+        let path = Path.Join(root, "Directory.Packages.props")
         from text in IO.liftAsync(env => File.ReadAllTextAsync(path, env.Token))
         let rows = Packages.Rows(text)
-        let root = Path.GetDirectoryName(path)
-        from projects in Packages.Projects(root, toSeq(args.Skip(1)))
+        from projects in Packages.Projects(root, toSeq(apps))
         from cache in use(static () => new SourceCacheContext())
         let download = new PackageDownloadContext(cache)
         let settings = Settings.LoadDefaultSettings(root)
@@ -277,7 +283,7 @@ internal static class Program {
         select moves;
 
     private static int Report(Seq<Move> moves) {
-        _ = moves.Iter(static move => Console.WriteLine($"{move.Row.Id} {move.Row.Attribute.Value} -> {Packages.Spelling(move)}"));
+        _ = moves.Iter(static move => Console.WriteLine(JsonSerializer.Serialize(new { id = move.Row.Id, from = move.Row.Attribute.Value, to = Packages.Spelling(move) })));
         return 0;
     }
 

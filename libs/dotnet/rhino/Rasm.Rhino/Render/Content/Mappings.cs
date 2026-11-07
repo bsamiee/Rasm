@@ -45,7 +45,7 @@ public static class Mappings {
     public static IO<Seq<(Point3d Texture, int Side)>> Evaluate(TextureMapping mapping, Seq<(Point3d Point, Vector3d Normal)> samples, Transform objectTransform) =>
         from inverse in Products.Accepted(() => (objectTransform.TryGetInverse(out Transform points), points))
         let normals = objectTransform.Transpose()
-        from result in IO.lift(() => Products.Each(samples, (sample, index) =>
+        from result in IO.lift(Products.Each(samples, (sample, index) =>
             Mapped(mapping.Evaluate(sample.Point, sample.Normal, out Point3d texture, inverse, normals), texture, index)))
         select result;
 
@@ -72,7 +72,7 @@ public static class Mappings {
 
     public static IO<Option<Either<Seq<Point2d>, Seq<Point3d>>>> Coordinates(Mesh mesh, RhinoObject rhinoObject, Material material, Texture texture) =>
         from cached in IO.lift(() => mesh.SetCachedTextureCoordinatesFromMaterial(rhinoObject, material))
-        from coordinates in IO.lift(() => Optional(mesh.GetCachedTextureCoordinates(rhinoObject, texture)).Traverse(Copied).As())
+        from coordinates in IO.lift(Optional(mesh.GetCachedTextureCoordinates(rhinoObject, texture)).Traverse(Copied).As())
         select coordinates;
 
     private static Fin<Either<Seq<Point2d>, Seq<Point3d>>> Copied(CachedTextureCoordinates held) =>

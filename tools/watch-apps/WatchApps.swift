@@ -328,25 +328,15 @@ struct WatchApps: AsyncParsableCommand {
 }
 
 private struct Running: ParsableArguments {
-    @Argument(help: "Running application paths, bundle identifiers, or display names. Names ignore case and diacritics")
-    var names: [String] = []
-
-    @Option(help: "Process ID from a line")
-    var pid: pid_t?
-
-    func validate() throws(ValidationError) {
-        guard (pid == nil) != names.isEmpty else { throw ValidationError("Pass names or --pid") }
-    }
+    @Argument(help: "Running application paths, bundle identifiers, display names, or process IDs from a line. Names ignore case and diacritics")
+    var names: [String]
 
     func each(_ run: Run, _ body: @escaping @Sendable (NSRunningApplication) async throws(ApplicationFailure) -> Void) async {
-        let picked: [NSRunningApplication] = [pid.flatMap(NSRunningApplication.init(processIdentifier:))].compactMap(\.self)
-        if let pid, picked.isEmpty {
-            run.fail(String(pid), ApplicationFailure(subject: String(pid), reason: .noProcess))
-            return
+        let named: [[NSRunningApplication]] = names.map { name in
+            pid_t(name).map { pid in [NSRunningApplication(processIdentifier: pid)].compactMap(\.self) } ?? NSWorkspace.shared.instances(named: name)
         }
-        let named: [[NSRunningApplication]] = names.map(NSWorkspace.shared.instances(named:))
         for (name, found): (String, [NSRunningApplication]) in zip(names, named) where found.isEmpty { run.emit(name, [String: String]()) }
-        let instances: OrderedSet<NSRunningApplication> = OrderedSet(picked + named.joined())
+        let instances: OrderedSet<NSRunningApplication> = OrderedSet(named.joined())
         await withDiscardingTaskGroup { group in
             for instance: NSRunningApplication in instances {
                 group.addTask {
@@ -406,14 +396,15 @@ private struct Launch: AsyncParsableCommand {
     @Flag(help: "Observes one named application until it exits and returns its exit status, or 128 plus its signal. Quits an instance it created when the run ends first")
     var wait: Bool = false
 
-    @Option(help: ArgumentHelp("File to open, one per flag", valueName: "path"), transform: { path in URL(filePath: path) })
+    @Option(parsing: .upToNextOption, help: ArgumentHelp("Files to open", valueName: "path"), transform: { path in URL(filePath: path) })
     var document: [URL] = []
 
-    @Option(parsing: .unconditionalSingleValue, help: ArgumentHelp("Command-line argument of new instance, one per flag", valueName: "argument"))
+    @Argument(parsing: .postTerminator, help: ArgumentHelp("Command-line arguments of new instance after --", valueName: "argument"))
     var arguments: [String] = []
 
     @Option(
-        help: "NAME=VALUE environment variable of new instance, one per flag",
+        parsing: .upToNextOption,
+        help: "NAME=VALUE environment variables of new instance",
         transform: { entry in
             let parts: [Substring] = entry.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
             guard parts.count == 2 else { throw ValidationError("\(entry) lacks =, pass NAME=VALUE") }
@@ -552,7 +543,7 @@ private struct SetValue: AsyncParsableCommand {
 private struct Key: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Posts one key to a process holding a blocking row, frontmost and cursor unchanged. Prints its next state")
 
-    @Option(help: "Process ID from a line whose asking row reads blocking")
+    @Argument(help: "Process ID from a line whose asking row reads blocking")
     var pid: pid_t
 
     @Argument(help: "Virtual key code, \(kVK_Return) Return, \(kVK_Escape) Escape")
@@ -579,9 +570,9 @@ private struct Quit: AsyncParsableCommand {
 }
 
 private struct Log: ParsableCommand {
-    static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Prints each session run's last line per key. --pid prints every record of one run")
+    static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Prints each session run's last line per key. A process ID prints every record of one run")
 
-    @Option(help: "Process ID of one watch-apps run")
+    @Argument(help: "Process ID of one watch-apps run")
     var pid: pid_t?
 
     func run() throws {

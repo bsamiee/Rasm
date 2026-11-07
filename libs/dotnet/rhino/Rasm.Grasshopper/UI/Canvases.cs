@@ -187,7 +187,7 @@ public static class Canvases {
 
     public static IO<Bitmap> Capture(Canvas canvas, Option<Seq<Guid>> objects, Size size, bool background = true, bool wires = true, bool messages = true) =>
         from region in IO.lift(() => objects.Match(Some: ids => Bounds(canvas, ids), None: static () => (Fin<RectangleF>)RectangleF.Empty))
-        from bitmap in IO.lift(() => Optional(canvas.DrawToBitmap(region, size.Width, size.Height, background, wires, messages))
+        from bitmap in IO.lift(Optional(canvas.DrawToBitmap(region, size.Width, size.Height, background, wires, messages))
             .ToFin(new GrasshopperFault(objects.ToString(), GrasshopperReason.Unfinished)))
         select bitmap;
 

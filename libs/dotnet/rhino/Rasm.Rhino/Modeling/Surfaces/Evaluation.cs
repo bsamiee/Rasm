@@ -48,7 +48,7 @@ public static class SurfaceEvaluation {
     // --- [SAMPLES]
     public static IO<SurfaceJet> Jet(Surface surface, Point2d uv, int order) =>
         from at in IO.lift(() => InDomain(surface, uv))
-        from jet in IO.lift(() => (
+        from jet in IO.lift((
                 RhinoFault.Unless(surface.Evaluate(at.X, at.Y, order, out Point3d point, out Vector3d[] derivatives), RhinoReason.Declined, at).Map(_ => (Point: point, Partials: derivatives)),
                 surface.NormalAt(at.X, at.Y) switch { var normal => RhinoFault.Unless(normal != Vector3d.Zero, RhinoReason.Invalid, normal).Map(_ => normal) })
             .Apply((sampled, unitNormal) => new SurfaceJet(

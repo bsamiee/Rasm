@@ -1,7 +1,7 @@
 import process from 'node:process';
 import type { ProjectGraph, ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Equal, Option, type Predicate, Record, String } from 'effect';
-import { all, type Call, cut, edited, type Fix, feedsJq, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, respell, silent, spoken, unassign, when, whole } from '#/policies/fix';
+import { all, become, type Call, cut, edited, type Fix, feedsJq, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, unassign, when, whole } from '#/policies/fix';
 import type { Word } from '#/shell/script';
 import { analyzed, Shell, type Site } from '#/shell/site';
 
@@ -29,6 +29,7 @@ interface Run {
 
 const CACHE_FLAGS = new Set(['--skip-nx-cache', '--disable-nx-cache']);
 const SHELL_GLOB = /^[\w@%+=:,./*?[\]{}!-]+$/u;
+const SEARCH_PATH = 'PYTHONPATH';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -278,7 +279,7 @@ const forwardedOptions: Fix = Effect.fnUntraced(function* (site, call) {
     if (forwarded === undefined) {
         return [];
     }
-    const guards = ['ruff', 'mypy', 'pytest'].includes(ran.program) ? yield* all(...(forwarded.row.fixes ?? []))(forwarded, call) : [];
+    const guards = ['mypy', 'pytest'].includes(ran.program) ? yield* all(...(forwarded.row.fixes ?? []))(forwarded, call) : [];
     return [...guards, ...(Option.isSome(site.separator) && !site.has('--args') && forwarded.items.length > 0 && forwarded.items.every(({ names }) => names.length > 0) && keysOf(forwarded).isSubsetOf(keysOf(ran)) ? silent(cut(site, [site.separator.value, ...site.tail], `nx -- ${tail}`)) : [])];
 });
 
@@ -287,6 +288,52 @@ const projectOptions =
     (...fixes: readonly Fix[]): Fix =>
     (site, call) =>
         Option.exists(site.command.cwd, (folder) => call.host.inside(folder, call.host.root)) ? all(...fixes)(site, call) : [];
+
+const workingFolder = ({ outer, command }: Site, host: Call['host']): Option.Option<string> =>
+    outer
+        .filter(({ program }) => program === 'env')
+        .flatMap(({ values }) => values('-C'))
+        .reduce((folder, value) => host.place(value, folder), command.cwd);
+
+const searchPath = ({ assigned, command }: Site): Option.Option<readonly string[]> =>
+    Option.map(
+        Option.match(
+            Array.findLast(assigned, ({ text }) => text.startsWith(`${SEARCH_PATH}=`)),
+            {
+                onNone: () => command.bound.get(SEARCH_PATH) ?? Option.some(''),
+                onSome: ({ known, text }) => Option.liftPredicate(text.slice(SEARCH_PATH.length + 1), () => known),
+            },
+        ),
+        (value) => (value === '' ? [] : value.split(':')),
+    );
+
+const anchored = Effect.fnUntraced(function* (word: Word, cwd: Option.Option<string>, host: Call['host']) {
+    const place = Option.filter(host.place(word.text, cwd), () => !host.path.isAbsolute(word.text));
+    return Option.isSome(place) && (yield* host.exists(place.value)) ? Option.some(quote(place.value)) : Option.none();
+});
+
+const outsideScript: Fix = Effect.fnUntraced(function* (site, { host }) {
+    const { head, rest, row } = site;
+    const [script] = site.operands;
+    const cwd = workingFolder(site, host);
+    const place = script?.known === true && !site.has(...(row.code ?? [])) ? Option.filter(host.place(script.text, cwd), (held) => !host.inside(held, host.root)) : Option.none();
+    if (script === undefined || Option.isNone(place) || !Option.exists(cwd, (folder) => host.inside(folder, host.root))) {
+        return [];
+    }
+    const entries = searchPath(site);
+    if (Option.isNone(entries) || rest.some(({ known }) => !known)) {
+        return refuse('arguments unresolved', `pass literal words and ${SEARCH_PATH}`)(site);
+    }
+    const launched = head.text.includes('/') ? Option.getOrElse(yield* anchored(head, cwd, host), () => head.raw) : head.raw;
+    const search = entries.value.some((entry) => !host.path.isAbsolute(entry)) ? [`${SEARCH_PATH}=${quote(Array.getSomes(entries.value.map((entry) => host.place(entry, cwd))).join(':'))}`] : [];
+    const moved = yield* Effect.forEach([script, ...rest], (word) =>
+        Effect.map(
+            anchored(word, cwd, host),
+            Option.map((text) => edited(site, word, text)),
+        ),
+    );
+    return [...become(['env -C', quote(host.path.dirname(place.value)), ...search, launched].join(' '))(site), ...Array.getSomes(moved).flat()];
+});
 
 // --- [TABLES] --------------------------------------------------------------------------
 
@@ -301,7 +348,7 @@ const TASKS: Policy = {
                 unassign(/^NX_DAEMON=false$/u, false),
                 when((site) => site.tail.length > 0 || site.has('--args'), forwardedOptions),
                 (site) => (launcherStart(site) === site.head ? [] : edited(site, { start: launcherStart(site).start, end: site.head.start }, '')),
-                perSubcommand({ show: [hiddenErrors], graph: [hiddenErrors] }),
+                perSubcommand({ show: [hiddenErrors], graph: [hiddenErrors], reset: [refuse('drops the graph', 'fix the inputs')] }),
                 looped('nx tasks', 'use one nx run-many', 'show'),
             ],
         },
@@ -312,7 +359,6 @@ const TASKS: Policy = {
             routes: { selects: ['--project'], config: 'tsconfig.json', ignores: ['--noEmit', '--pretty', '--incremental', '--tsBuildInfoFile'] },
         },
         cargo: { flags: ['-p, --package=', '--profile='], routes: { modes: ['--fix'], selects: ['--package'], config: 'Cargo.toml' } },
-        biome: { routes: { rooted: true, modes: ['--write', '--unsafe'] } },
         ruff: {
             flags: ['--isolated', '--cache-dir='],
             fixes: [projectOptions(respell({ '--isolated': '', '--cache-dir': '' }, { notify: true }), unassign(/^RUFF_CACHE_DIR=/u))],
@@ -344,7 +390,10 @@ const TASKS: Policy = {
                 ),
             ],
         },
-        ty: { flags: ['--python-version='], routes: { rooted: true } },
+        ty: { flags: ['--python-version=', '--exclude='], routes: { rooted: true } },
+        python: { fixes: [outsideScript] },
+        pulumi: { fixes: [when(({ path, operands }) => ['up', 'destroy', 'refresh', 'preview'].includes(path[0] ?? operands[0]?.text ?? ''), refuse('skips the stack program', 'run <project>:infra'))] },
+        mise: { fixes: [perSubcommand({ upgrade: [refuse('moves tools alone', 'run mise run update')], up: [refuse('moves tools alone', 'run mise run update')] })] },
         vitest: {
             flags: ['--exclude=', '--mode='],
             routes: { modes: ['--mode'], ignores: ['--run'] },

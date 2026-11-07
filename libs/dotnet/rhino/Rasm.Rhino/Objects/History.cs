@@ -21,7 +21,7 @@ public sealed record HistoryDefinition<T>(int Version, HistoryKey<T> Inputs, Fun
         from added in (from record in use(() => new HistoryRecord(command, Version) { CopyOnReplaceObject = CopyOnReplace })
                        from built in Build(inputs)
                        from written in Inputs.Write(doc, record, inputs)
-                       from placed in IO.lift(() => Products.Each(built, (geometry, index) =>
+                       from placed in IO.lift(Products.Each(built, (geometry, index) =>
                            Conversions.Required(Conversions.Present(doc.Objects.Add(geometry, attributes.ValueUnsafe(), record, reference: false)), index)))
                        select placed).Bracket()
         select added;
@@ -34,7 +34,7 @@ public sealed record HistoryDefinition<T>(int Version, HistoryKey<T> Inputs, Fun
         from held in IO.lift(() => toSeq(data.Results))
         from appended in Products.Each(toSeq(Range(held.Count, int.Max(built.Count - held.Count, 0))).Map(_ => Products.Of(data.AppendHistoryResult)))
         from trimmed in when(built.Count < held.Count, IO.lift(() => data.UpdateResultArray(held.Take(built.Count)))).As()
-        from updated in IO.lift(() => Products.Each(toSeq(data.Results).Zip(built), static (pair, index) => Histories.Updated(pair.First, pair.Second, index)))
+        from updated in IO.lift(Products.Each(toSeq(data.Results).Zip(built), static (pair, index) => Histories.Updated(pair.First, pair.Second, index)))
         select unit;
 }
 

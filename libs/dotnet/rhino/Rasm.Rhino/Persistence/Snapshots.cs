@@ -63,7 +63,7 @@ public abstract partial record SnapshotChange {
     // --- [RUN]
     public IO<Unit> Run(RhinoDoc doc) =>
         from names in IO.lift(() => Conversions.Rows(doc.Snapshots.Names))
-        from script in IO.lift(() => Script(names))
+        from script in IO.lift(Script(names))
         from ran in Documents.RunScript(doc, script, echo: false, display: None)
         select ran;
 

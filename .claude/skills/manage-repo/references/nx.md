@@ -13,7 +13,8 @@
 - `analytics: false` disables telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
 - `useDaemonProcess: false` avoids graph rebuilds on every file batch, concurrent processes share one build through `project-graph.lock`
 - Sync generators take one `tools/nx/sync/<written kind>/<name>.ts` and one `tools/nx/sync/generators.json` row, in `syncGenerators` of the target reading what they write, else in `sync.globalGenerators`
-- `lint:nx` reports generator drift. The workspace `format` target runs `nx sync` before `hk fix`. Target `inputs` name files the generators read or write, the plugin adds rule folders, and the `**/*.{ts,tsx}` input covers generator imports
+- `lint:nx` reports generator drift, the workspace `format` target runs `nx sync` before `hk fix`
+- Target `inputs` name files the generators read or write, the plugin adds rule folders, the `**/*.{ts,tsx}` input covers generator imports
 - Generators on a target rerun `createNodes` per run and off a TTY refuse the task over another writer's drift
 - Each `grammar:<lang>` target builds `.cache/ast-grep/outline/<lang>.yml` from `tools/ast-grep/outline/<lang>.yml` as a cached output, edits go to the source
 - Catalog sources open with an idless document, each row receiving `roles` key defaults and the `utils`, `rewriters`, `transform`, and `variants` it calls
@@ -41,7 +42,9 @@ Use JSON discovery from workspace root:
 - Entry `filter` keys `projects` (names, globs, `tag:<tag>`, `directory:<glob>`, `!` exclusions), `plugin`, and `executor` must all match
 - Filters for workspace root use `projects: ["directory:."]`, unqualified names can match child project name prefixes
 - `filter.plugin` matches the plugin that set a target's `executor` or `command`, an empty inferred target matches by tag or name glob
-- Entries setting no `command` precede a key's entry setting one, Nx stamps a later entry with the inferred command and it replaces target
+- Entries setting a `command` over an inferred target holding one merge as an option, the later entry winning
+- Over an inferred target holding no `command`, an entry with another `command` or `executor` than the result merged before it replaces it whole, inferred `cwd`, `args`, and `parallelism` included
+- Plugins state the `command` of each target they infer, so a `targetDefaults` row setting another one merges
 - `targetDefaults` configures existing targets alone, over plugin-inferred values and under project configuration
 - `"...": true` in objects and `"..."` in arrays preserve lower-layer values at their position
 - `command` on a target runs one command with its `options`, `executor: nx:run-commands` with `commands` and `parallel` exists for a list alone
@@ -52,8 +55,9 @@ Use JSON discovery from workspace root:
 - Commands with `cwd` at their project read the workspace root through `$NX_WORKSPACE_ROOT`
 - Targets with `options` and no `executor`, `command`, or `targetDefaults` executor resolve to `nx:noop` with a `dependsOn` and drop without one
 - Pipes, loops, conditionals, and variables in a command entry make it a script
-- File checkers run `hk check --glob='**/*' --step=<step>`, `--all` refuses paths, and forwarded paths replace the step's file set
+- File checkers run `hk check --glob='**/*' --step=<step>`
 - Target names in `dependsOn` match as minimatch globs, `!(<name>)` excludes a target the glob matches
+- `params: 'forward'` hands the run's CLI arguments to its edge from anywhere in the closure, `rasm:format -- <path>` reaches a forwarding edge under it
 - Targets reach a target they need through `dependsOn` in place of a command running `nx`
 - Configurations differing in arguments alone set `args` over one `command`
 - `cache: true` alone caches a target, `cache: false` overrides a `targetDefaults` entry setting it for the name
@@ -75,9 +79,12 @@ Use JSON discovery from workspace root:
 |  [06]   | `{ "dependentTasksOutputFiles": "<glob>" }`    | Outputs of dependency tasks, `transitive: true` recurses     |
 |  [07]   | `{ "json": "<path>", "fields": ["<field>"] }`  | Listed fields of a JSON file, `excludeFields` the rest       |
 
-- Every task hashes all targets of its project and `nx.json`, `.gitignore`, `.nxignore` whole, no input excludes them
+- Every task hashes all targets of its project, `nx.json`, `.gitignore`, and `.nxignore` whole, and root `tsconfig.base.json`, no input excludes them
 - File inputs include untracked files and exclude ignored files
 - `includeIgnored: true` on a `{ "fileset": "<glob>" }` entry hashes ignored matches from disk, on a `!` entry excludes ignored matches
+- `includeIgnored` filesets rooted at `{workspaceRoot}/**` walk every ignored tree on disk per task graph
+- `--graph=stdout` hashes each task and runs its `runtime` inputs, a slow one (a JVM start) adds to each `affected` query
+- Lock file inputs and `ls -lL` over an executable carry a tool's version without starting it
 - Named inputs hold files every target naming them reads, an input one target reads inlines into it, one a plugin reads (`production`) stays
 - Compiler inputs include declared target sources disabled for execution and imported workspace source absent from graph edges
 
@@ -98,7 +105,7 @@ Products version by Conventional Commits into tags alone, `nx.json` `release` an
 - Untagged commits pack the next patch prerelease with height
 - `pack` caches where every input it reads hashes, Blender's through a runtime input over `HEAD` and its group's tags
 - Xcode and Rhino `pack` read host state no input hashes and run uncached
-- `publish` uploads `pack` output to the release `--tag` names, then pushes it to host's channel
+- `publish` reads its release tag from `HEAD` under the project's `MinVerTagPrefix`, a `git describe --exact-match` failing on an untagged commit
 - Products on a channel with no publish API hold no `publish`, `rasm:release` tags and releases them alone
 - Feed channels (`output:appcast`, `output:extension`) take a rolling `<project>-updates` release from `infra/`
 - First releases start from `0.0.0`, GitHub creates each tag with its release

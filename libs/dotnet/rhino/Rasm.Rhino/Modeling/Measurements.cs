@@ -81,9 +81,9 @@ public static class Measurements {
             from parts in subject.Placements.IsEmpty
                 ? Compute(source, index).Map(static part => Seq(part))
                 : Moved.Filter(_ => subject.Placements.Exists(Similar)).Match(
-                    Some: move => Compute(source, index).Map(computed => Products.Each(subject.Placements.Map(xform => Similar(xform)
+                    Some: move => Compute(source, index).Bind(IO<Seq<T>> (computed) => Products.Each(subject.Placements.Map(xform => Similar(xform)
                         ? Products.Of(() => Weighted([computed], [1.0])).Bind(copy => IO.lift(move(copy, xform)))
-                        : Recomputed(source, xform, index)))).Flatten(),
+                        : Recomputed(source, xform, index)))),
                     None: () => Products.Each(subject.Placements.Map(xform => Recomputed(source, xform, index))))
             select parts;
 

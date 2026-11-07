@@ -130,8 +130,8 @@ public static class Archives {
         from candidates in IO.lift(() => Conversions.Rows(archive.EmbeddedFiles)
             .Traverse(file => OutputPath.Of(Path.Join(folder, Path.GetFileName(file.Filename.Replace('\\', Path.AltDirectorySeparatorChar)))).Map(path => (File: file, Path: path)))
             .As())
-        from rows in IO.lift(() => Conversions.Unique(candidates, static row => (string)row.Path, StringComparer.OrdinalIgnoreCase))
-        from saved in IO.lift(() => Products.Each(rows, static (row, index) => RhinoFault.Unless(row.File.SaveToFile(row.Path), RhinoReason.Unwritable, (string)row.Path, index)))
+        from rows in IO.lift(Conversions.Unique(candidates, static row => (string)row.Path, StringComparer.OrdinalIgnoreCase))
+        from saved in IO.lift(Products.Each(rows, static (row, index) => RhinoFault.Unless(row.File.SaveToFile(row.Path), RhinoReason.Unwritable, (string)row.Path, index)))
         select rows.Map(static row => row.Path);
 
     public static IO<StepOutcome> Persist(File3dm archive, OutputPath path, File3dmWriteOptions options) =>

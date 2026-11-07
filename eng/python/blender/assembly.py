@@ -24,7 +24,7 @@ lazy import tomlkit
 lazy from blender.records.faults import accumulated, Error, Fault, Ok, Outcome, paired, Reason
 lazy from blender.records.stores import files_copied, folder_made
 lazy from eng.python.blender.assets import fetched, Pin
-lazy from eng.python.blender.host import Blender, declared, exported, Host, Manifest, probed, Pyproject, ran, root, Target, TARGETS
+lazy from eng.python.blender.host import Blender, declared, Deployment, exported, Host, Manifest, probed, Pyproject, ran, root, Target
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -37,13 +37,19 @@ class _Selection(msgspec.Struct, frozen=True):
     wheels: frozenset[Pin]
 
 
+class _Identity(msgspec.Struct, frozen=True):
+    author: str
+    license: str
+
+
 class _Build(msgspec.Struct, frozen=True, kw_only=True):
-    """One extension build: its folders, host, workspace, project, manifest kind, and the manifest rows release metadata states."""
+    """One extension build: its folders, host, extension platforms, workspace, project, manifest kind, and the manifest rows release metadata states."""
 
     source: Path
     directory: Path
     blender: Path
     host: Host
+    targets: tuple[Target, ...]
     base: Path
     project: str
     kind: str
@@ -68,10 +74,10 @@ def _environment(target: Target, python: str, /) -> Environment:
     }
 
 
-def _picked(locked: Pylock, subject: str, python: str, wheels: Path, /) -> Outcome[_Selection]:
+def _picked(locked: Pylock, subject: str, python: str, targets: tuple[Target, ...], wheels: Path, /) -> Outcome[_Selection]:
     """Selects from a lock per target its environments admit, a package with no fetchable wheel as fault, each wheel staged in the wheels folder."""
     version = Version(python).release[:2]
-    admitted = tuple(target for target in TARGETS if any(marker.evaluate({"sys_platform": target.sys_platform, "platform_machine": target.platform_machine}) for marker in locked.environments or ()))
+    admitted = tuple(target for target in targets if any(marker.evaluate({"sys_platform": target.sys_platform, "platform_machine": target.platform_machine}) for marker in locked.environments or ()))
     try:
         picks = tuple(
             chain.from_iterable(
@@ -87,10 +93,10 @@ def _picked(locked: Pylock, subject: str, python: str, wheels: Path, /) -> Outco
     return Error(Fault.of(Reason.ABSENT, subject, member=f"wheel for {', '.join(unwheeled)}")) if unwheeled else Ok(_Selection(admitted, first_party, fetchable))
 
 
-def _selected(path: Path, host: Host, wheels: Path, /) -> Outcome[_Selection]:
+def _selected(path: Path, host: Host, targets: tuple[Target, ...], wheels: Path, /) -> Outcome[_Selection]:
     """Decodes a `pylock.toml` and selects from it at the host's Python."""
     try:
-        return _picked(Pylock.from_dict(msgspec.toml.decode(path.read_bytes())), str(path), host.python, wheels)
+        return _picked(Pylock.from_dict(msgspec.toml.decode(path.read_bytes())), str(path), host.python, targets, wheels)
     except (OSError, msgspec.DecodeError, PylockValidationError) as error:
         return Error(Fault.of(Reason.UNREADABLE, str(path), error))
 
@@ -122,7 +128,7 @@ def _closure(build: _Build, stage: Path, work: Path, /) -> Outcome[dict[str, obj
     built, lock = work / "built", work / "pylock.toml"
     return (
         exported(build.base, build.host, lock, "--no-emit-project", "--no-editable", "--package", build.project)
-        .bind(lambda _: _selected(lock, build.host, stage / "wheels"))
+        .bind(lambda _: _selected(lock, build.host, build.targets, stage / "wheels"))
         .bind(
             lambda selection: (
                 paired(
@@ -185,16 +191,15 @@ def _archived(build: _Build, work: Path, packed: Path, /) -> Outcome[object]:
     )
 
 
-def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, maintainer: str, license: str, blender: Blender) -> Outcome[int]:  # ruff: ignore[builtin-argument-shadowing]
+def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, blender: Blender, macos: Deployment) -> Outcome[int]:
     """Builds an extension into the `archives` directory using its sibling `assets`.
 
     Args:
         source: Extension directory with manifest and dependency rows.
         directory: Parent of the generated assets and archives.
-        version: Semantic version written to manifest.
-        maintainer: Maintainer written to manifest.
-        license: SPDX identifier written to manifest.
+        version: Semantic version written to manifest, the root `package.json` author and license beside it.
         blender: Blender executable.
+        macos: macOS release the darwin wheels target.
 
     Returns:
         Zero, or fault of every failed child process, fetch, and folder write.
@@ -207,21 +212,29 @@ def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, versi
         except OSError as error:
             return Error(Fault.of(Reason.UNWRITABLE, str(error.filename or work), error))
 
-    def built(workspace: tuple[Path, Host], project: Pyproject, manifest: Manifest) -> Outcome[object]:
-        base, host = workspace
+    def identified(base: Path) -> Outcome[_Identity]:
+        try:
+            return Ok(msgspec.json.decode((base / "package.json").read_bytes(), type=_Identity))
+        except (OSError, msgspec.DecodeError) as error:
+            return Error(Fault.of(Reason.UNREADABLE, str(base / "package.json"), error))
+
+    def built(workspace: tuple[Path, Host, _Identity], project: Pyproject, manifest: Manifest) -> Outcome[object]:
+        base, host, identity = workspace
         build = _Build(
             source=source,
             directory=directory,
             blender=blender,
             host=host,
+            targets=targets,
             base=base,
             project=project.project.name,
             kind=manifest.type,
-            stamp=frozendict(version=version, maintainer=maintainer, license=[f"SPDX:{license}"]),
+            stamp=frozendict(version=version, maintainer=identity.author, license=[f"SPDX:{identity.license}"]),
         )
         return paired(folder_made(base / ".cache/blender/stage"), folder_made(directory / "archives")).bind(lambda folders: within(build, folders[0]))
 
-    workspace = root().bind(lambda base: probed(base, blender).map(lambda host: (base, host)))
+    targets = Target.every(macos)
+    workspace = root().bind(lambda base: paired(probed(base, blender, *(target.tags[0] for target in targets)), identified(base)).map(lambda held: (base, *held)))
     return paired(workspace, declared(source / "pyproject.toml", Pyproject), declared(source / "blender_manifest.toml", Manifest)).bind(lambda held: built(*held)).map(lambda _: 0)
 
 

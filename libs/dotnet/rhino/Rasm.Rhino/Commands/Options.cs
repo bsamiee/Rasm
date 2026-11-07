@@ -69,7 +69,7 @@ public static class OptionType {
     public static Func<GetBaseClass, LocalizeStringPair, TItem, IO<AddedOption<TItem>>> List<TItem>(Seq<TItem> items, Func<TItem, string> caption) where TItem : notnull =>
         (getter, name, initial) =>
             from values in items.TraverseM(item => Named(caption(item))).As()
-            from index in IO.lift(() => Indexed(getter.AddOptionList(name, values, items.TakeWhile(item => !EqualityComparer<TItem>.Default.Equals(item, initial)).Count)))
+            from index in IO.lift(Indexed(getter.AddOptionList(name, values, items.TakeWhile(item => !EqualityComparer<TItem>.Default.Equals(item, initial)).Count)))
             select new AddedOption<TItem>(index, option => IO.lift(() => Conversions.Required(items.At(option.CurrentListOptionIndex))));
 
     // --- [NAMES]
@@ -83,7 +83,7 @@ public static class OptionType {
     private static IO<AddedOption<TValue>> Held<THolder, TValue>(
         Func<THolder> create, Func<THolder, int> add, Func<THolder, Fin<TValue>> current, [CallerArgumentExpression(nameof(add))] string call = "") where THolder : class, IDisposable =>
         from holder in use(create)
-        from index in IO.lift(() => Indexed(add(holder), call))
+        from index in IO.lift(Indexed(add(holder), call))
         select new AddedOption<TValue>(index, _ => IO.lift(() => current(holder)));
 }
 

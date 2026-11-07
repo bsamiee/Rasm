@@ -3,21 +3,19 @@ language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
 utils:
-    message-base:
-        matches: {csharp-type-name: {name: {regex: '^(Expected|Exceptional)$'}}}
     message-arguments:
         kind: argument_list
         any:
             - inside:
                 kind: primary_constructor_base_type
-                has: {field: type, matches: message-base}
+                has: {field: type, matches: languageext-error-subtype}
             - inside:
                 kind: constructor_initializer
                 has: {regex: '^base$'}
                 inside: {kind: constructor_declaration, inside: {kind: declaration_list, inside: {matches: languageext-error-record}}}
             - inside:
                 kind: object_creation_expression
-                has: {field: type, matches: message-base}
+                has: {field: type, matches: languageext-error-subtype}
             - inside:
                 kind: invocation_expression
                 matches: {csharp-owner-call: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}

@@ -100,5 +100,6 @@
         "vitest": "catalog:",
         "vitest-browser-react": "catalog:",
         "yaml": "catalog:"
-    }
+    },
+    "packageManager": "pnpm@12.18.0"
 }

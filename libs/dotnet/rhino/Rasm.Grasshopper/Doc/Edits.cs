@@ -83,12 +83,12 @@ public static class Edits {
 
     public static IO<IParameter> Intercept(IParameter parameter, Side side, IParameter inserted, ActionList actions) =>
         from document in Located(parameter)
-        from ends in IO.lift(() => Optional(parameter.Attributes as IParameterAttributes).ToFin(new GrasshopperFault(parameter.Nomen.Name, GrasshopperReason.Missing)))
+        from ends in IO.lift(Optional(parameter.Attributes as IParameterAttributes).ToFin(new GrasshopperFault(parameter.Nomen.Name, GrasshopperReason.Missing)))
         from offset in IO.lift(() => {
             inserted.Attributes.Layout(Shape.Default);
             return new SizeF(SnappingSettings.Current.HorizontalGapSize + (inserted.Attributes.Bounds.Width / 2f), 0f);
         })
-        from dropped in IO.lift(() => GrasshopperFault.Unless(
+        from dropped in IO.lift(GrasshopperFault.Unless(
             document.Methods.DropObject(inserted, side is Side.Input ? ends.Inlet - offset : ends.Outlet + offset, actions), GrasshopperReason.Declined, inserted.Nomen.Name))
         from wired in side is Side.Input
             ? IO.lift(() => ignore(Connections.MigrateAllInputs(parameter, inserted, actions))) >> Connect(inserted, parameter, actions)
@@ -98,7 +98,7 @@ public static class Edits {
     public static IO<Unit> Splice(IParameter middle, ActionList actions) =>
         from document in Floating(middle)
         from ends in IO.lift(() => (Sources: Ends(document, middle.Inputs), Targets: Ends(document, middle.Outputs)))
-        from paired in IO.lift(() => GrasshopperFault.Unless(!ends.Sources.IsEmpty && !ends.Targets.IsEmpty, GrasshopperReason.Invalid, middle.Nomen.Name))
+        from paired in IO.lift(GrasshopperFault.Unless(!ends.Sources.IsEmpty && !ends.Targets.IsEmpty, GrasshopperReason.Invalid, middle.Nomen.Name))
         from wired in (from right in ends.Targets from left in ends.Sources select (Left: left, Right: right))
             .TraverseM(link => IO.lift(() => (Source: link.Left.Outputs.IndexOf(middle.InstanceId), Target: link.Right.Inputs.IndexOf(middle.InstanceId)))
                 .Bind(at => Connect(link.Left, link.Right, actions, at.Source, at.Target))).As()
@@ -112,7 +112,7 @@ public static class Edits {
             typed.UserName = relay.UserName;
             AbstractParameter.SiphonProperties(relay, typed, StateAspects.Revertable);
         })
-        from dropped in IO.lift(() => GrasshopperFault.Unless(document.Methods.DropObject(typed, relay.Attributes.Bounds.Center, actions), GrasshopperReason.Declined, typed.Nomen.Name))
+        from dropped in IO.lift(GrasshopperFault.Unless(document.Methods.DropObject(typed, relay.Attributes.Bounds.Center, actions), GrasshopperReason.Declined, typed.Nomen.Name))
         from migrated in IO.lift(() => ignore(Connections.MigrateAllInputs(relay, typed, actions))) >> Replaced(document, relay, typed, actions)
         from deleted in IO.lift(() => ignore(document.Methods.DeleteObjects([relay], wires: null, actions)))
         select typed;
@@ -130,7 +130,7 @@ public static class Edits {
 
     private static IO<Document> Floating(IParameter parameter) =>
         from document in Located(parameter)
-        from floating in IO.lift(() => GrasshopperFault.Unless(parameter.Kind is Kind.Floating, GrasshopperReason.Invalid, parameter.Kind))
+        from floating in IO.lift(GrasshopperFault.Unless(parameter.Kind is Kind.Floating, GrasshopperReason.Invalid, parameter.Kind))
         select document;
 
     private static IO<Unit> Replaced(Document document, IParameter source, IParameter replacement, ActionList actions) =>

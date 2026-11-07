@@ -21,8 +21,8 @@ public sealed record SmoothOptions(double Factor, bool X, bool Y, bool Z, bool F
 
     public Step<T> Step<T>() where T : GeometryBase =>
         Steps.Derived<T>(target => (GeometryBase)target switch {
-            Curve curve => Products.Of<GeometryBase>(() => curve.Smooth(Factor, X, Y, Z, FixBoundaries, Frame.System, Frame.Plane)).Bind(static smoothed => IO.lift(() => Conversions.Cast<T>(smoothed))),
-            Surface surface => Products.Of<GeometryBase>(() => surface.Smooth(Factor, X, Y, Z, FixBoundaries, Frame.System, Frame.Plane)).Bind(static smoothed => IO.lift(() => Conversions.Cast<T>(smoothed))),
+            Curve curve => Products.Of<GeometryBase>(() => curve.Smooth(Factor, X, Y, Z, FixBoundaries, Frame.System, Frame.Plane)).Bind(static smoothed => IO.lift(Conversions.Cast<T>(smoothed))),
+            Surface surface => Products.Of<GeometryBase>(() => surface.Smooth(Factor, X, Y, Z, FixBoundaries, Frame.System, Frame.Plane)).Bind(static smoothed => IO.lift(Conversions.Cast<T>(smoothed))),
             Mesh mesh => Vertices.Match(
                 Some: vertices =>
                     from held in IO.lift(() => mesh.Within(ComponentIndexType.MeshVertex, vertices))

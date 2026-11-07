@@ -8,7 +8,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Mathematics">
-        <PackageReference Include="HyperJet" PrivateAssets="contentfiles;analyzers;build;buildtransitive" />
+        <PackageReference Include="HyperJet" />
         <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>

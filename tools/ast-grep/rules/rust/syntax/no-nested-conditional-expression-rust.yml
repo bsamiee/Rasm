@@ -2,8 +2,6 @@
 language: rustlang
 severity: error
 utils:
-    statement:
-        kind: 'expression_statement, let_declaration, empty_statement'
     valued-if:
         kind: if_expression
         has: {field: alternative, pattern: $_}
@@ -86,7 +84,7 @@ utils:
                 has:
                     kind: block
                     any:
-                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]
+                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, not: {matches: rust-non-item-statement}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]
                         - pattern: $X
     guard-foldable-arm:
         kind: match_arm

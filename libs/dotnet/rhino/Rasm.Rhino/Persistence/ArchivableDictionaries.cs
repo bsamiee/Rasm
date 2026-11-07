@@ -23,7 +23,7 @@ public sealed record DictionaryOwner(IO<ArchivableDictionary> Read, Func<Func<Ar
             acquire.Map(static owner => owner.UserDictionary),
             edit =>
                 from owner in acquire
-                from edited in IO.lift(() => edit(owner.UserDictionary))
+                from edited in IO.lift(edit(owner.UserDictionary))
                 from committed in commit.Traverse(write => write(owner)).As()
                 select edited);
 }
@@ -192,7 +192,7 @@ public static class ArchivableDictionaries {
     // --- [RECORDS]
     public static IO<Option<T>> Read<T>(DictionaryOwner owner, DictionaryCodec<T> codec) =>
         from source in owner.Read
-        from stored in IO.lift(() => Stored(source, codec))
+        from stored in IO.lift(Stored(source, codec))
         from pending in owner.Document.Filter(_ => stored.Older).Traverse(doc => IO.lift(() => Rewrites(doc).AddOrUpdate((source, codec.Name), Rewritten(owner, codec)))).As()
         select stored.Record.Present;
 
@@ -225,7 +225,7 @@ public static class ArchivableDictionaries {
 
     private static IO<Unit> Rewritten<T>(DictionaryOwner owner, DictionaryCodec<T> codec) =>
         from source in owner.Read
-        from stored in IO.lift(() => Stored(source, codec))
+        from stored in IO.lift(Stored(source, codec))
         from written in when(stored.Older, stored.Record.Switch(
             (Owner: owner, Codec: codec),
             decoded: static (state, decoded) => Write(state.Owner, state.Codec, decoded.Value),

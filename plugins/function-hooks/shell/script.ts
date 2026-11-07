@@ -45,7 +45,7 @@ interface Command extends Span, Surroundings {
     readonly words: readonly Word[];
     readonly redirects: readonly Redirect[];
     readonly cwd: Option.Option<string>;
-    readonly bound: readonly string[];
+    readonly bound: ReadonlyMap<string, Option.Option<string>>;
     readonly input: Option.Option<string>;
 }
 interface Script {
@@ -323,7 +323,7 @@ const called = ({ Assigns = [], Args = [] }: Node, stmt: Node, frame: Frame, pla
             return { raw: sliced(span, place), op: Op, descriptor: Option.fromNullishOr(N?.Value), target: Option.map(Option.fromNullishOr(target), (node) => worded(node, ready, place)), ...spanOf(span) };
         }),
         cwd: looked(ready, DIRECTORY, place),
-        bound: [...ready.values.keys()],
+        bound: ready.values,
         input: delivered(redirects, ready, place),
     };
     return [effects(ready, words, place), merged([early, { ...NOTHING, commands: [command] }])];

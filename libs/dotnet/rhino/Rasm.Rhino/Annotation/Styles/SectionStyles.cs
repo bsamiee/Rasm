@@ -96,7 +96,7 @@ public static class SectionStyles {
     // --- [FILES]
     public static IO<StyleSpec> ReadFile(InputPath path) =>
         from native in IO.lift(() => (Read: SectionStyle.ReadFromFile(path, out SectionStyle[] styles, out HatchPattern[] patterns), Styles: styles, Patterns: patterns))
-        from read in IO.lift(() => RhinoFault.Unless(native.Read, RhinoReason.Unreadable, path))
+        from read in IO.lift(RhinoFault.Unless(native.Read, RhinoReason.Unreadable, path))
         from styles in Products.Many(() => native.Styles, required: false)
         from patterns in Products.Many(() => native.Patterns, required: false)
         from sectioned in styles.TraverseM(style => Definition(style, Some(patterns)).Map(definition => (style.Name, definition.Definition))).As()

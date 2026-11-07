@@ -5,6 +5,7 @@
         <Using Include="Thinktecture" />
         <Using Include="LanguageExt;LanguageExt.Common;LanguageExt.Traits;LanguageExt.UnsafeValueAccess" />
         <Using Include="LanguageExt.Prelude" Static="true" />
+        <PackageReference Update="HyperJet" PrivateAssets="contentfiles;analyzers;build;buildtransitive" />
         <Using Include="LanguageExt.Pipes" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'LanguageExt.Streaming'))" />
         <Using Include="LanguageExt.Sys;LanguageExt.Sys.IO;LanguageExt.Sys.Traits;LanguageExt.Sys.Diag" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'LanguageExt.Sys'))" />
         <Using Include="LanguageExt.Parsec" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'LanguageExt.Parsec'))" />
@@ -18,7 +19,18 @@
     <ItemGroup Label="Analyzer Configuration">
         <CompilerVisibleProperty Include="ProjectRole" Condition="'$(ProjectRole)' != ''" />
         <CompilerVisibleProperty Include="TargetExt" />
+        <CompilerVisibleProperty Include="ProjectReferenceAssemblies" />
     </ItemGroup>
+
+    <Target Name="ListProjectReferenceAssemblies" BeforeTargets="GenerateMSBuildEditorConfigFileShouldRun" DependsOnTargets="ResolveAssemblyReferences">
+        <ItemGroup>
+            <_ProjectReferenceAssembly Include="@(ReferencePath->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference')->'%(Filename)')" />
+            <_ProjectReferenceAssembly Name="$([System.Text.RegularExpressions.Regex]::Replace('%(Identity)', '^$([System.Text.RegularExpressions.Regex]::Escape('$(MSBuildProjectName).'))', ''))" />
+        </ItemGroup>
+        <PropertyGroup>
+            <ProjectReferenceAssemblies>@(_ProjectReferenceAssembly->'%(Name)', ',')</ProjectReferenceAssemblies>
+        </PropertyGroup>
+    </Target>
 
     <Target Name="ExcludePackageSourcesFromAnalysis" BeforeTargets="CoreCompile" Condition="'@(Compile->HasMetadata('NuGetPackageId'))' != ''">
         <WriteLinesToFile File="$(IntermediateOutputPath)PackageSources.globalconfig" Lines="is_global = true;@(Compile->HasMetadata('NuGetPackageId')->'[%(FullPath)]%0Agenerated_code = true')" Overwrite="true" WriteOnlyWhenDifferent="true" />
@@ -54,8 +66,8 @@
         <Move SourceFiles="$(IntermediateOutputPath)%(FetchedResource.Sha256)" DestinationFiles="$(_FetchedStore)%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
     </Target>
 
-    <Target Name="RestoreNativeProjectGraph" AfterTargets="Restore" Condition="'@(ProjectReference)' != '' and '$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != '$(NETCoreSdkPortableRuntimeIdentifier)'">
-        <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Restore" RemoveProperties="RuntimeIdentifier" />
+    <Target Name="RestoreNativeProjectGraph" AfterTargets="Restore" Condition="'@(ProjectReference->WithMetadataValue('UndefineProperties', 'RuntimeIdentifier'))' != '' and '$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != '$(NETCoreSdkPortableRuntimeIdentifier)'">
+        <MSBuild Projects="@(ProjectReference->WithMetadataValue('UndefineProperties', 'RuntimeIdentifier'))" Targets="Restore" RemoveProperties="RuntimeIdentifier" />
     </Target>
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
@@ -157,6 +169,7 @@
     <ItemGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
         <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute"><_Parameter1>$(PlugInId)</_Parameter1></AssemblyAttribute>
         <_RhinoLibraryReference Include="@(ProjectReference->WithMetadataValue('Filename', 'Rasm.Rhino'))" />
+        <ProjectReference Update="@(ProjectReference->WithMetadataValue('Filename', 'Rasm.Rui'))" ReferenceOutputAssembly="false" Private="false" OutputItemType="_RuiWriter" UndefineProperties="RuntimeIdentifier" />
         <_RuiSource Include="@(ProjectReference->WithMetadataValue('OutputItemType', '_RuiWriter'))" />
         <None Include="$(_PlugInRui)" TargetPath="$(TargetName).rui" CopyToOutputDirectory="PreserveNewest" Condition="'@(_RuiSource)' != '' and '$(DesignTimeBuild)' != 'true'" />
         <PlugInDescription Include="Organization" Exclude="@(PlugInDescription)" Value="$(Authors)" />
@@ -247,18 +260,17 @@
     <Target Name="BuildPlugInRui" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '@(_RuiSource)' != ''" Inputs="@(IntermediateAssembly);@(ReferenceCopyLocalPaths);@(ReferencePath);@(_RuiWriter);$(MSBuildAllProjects)" Outputs="$(_PlugInRui)">
         <WriteLinesToFile File="$(_PlugInRuiReferences)" Lines="@(ReferenceCopyLocalPaths->WithMetadataValue('Extension', '.dll')->'%(FullPath)');@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
         <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;@(_RuiWriter->'%(FullPath)')&quot; &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;$(_PlugInRui)&quot; &quot;@$(_PlugInRuiReferences)&quot;" StandardOutputImportance="low" LogStandardErrorAsError="true" />
-        <Error Condition="!Exists('$(_PlugInRui)')" Text="$(MSBuildProjectName) did not produce its declared toolbar $(_PlugInRui)." />
         <ItemGroup>
             <FileWrites Include="$(_PlugInRui);$(_PlugInRuiReferences)" />
         </ItemGroup>
     </Target>
 
-    <Target Name="PrepareYakPackage" AfterTargets="Publish" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
+    <Target Name="PrepareYakPackage" DependsOnTargets="ResolveRhinoInstallation">
         <PropertyGroup>
             <_YakPublishDir>$([MSBuild]::NormalizeDirectory('$(PublishDir)'))</_YakPublishDir>
             <_YakArtifactsPublishDir>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', '$(ArtifactsPublishOutputName)', '$(ArtifactsProjectName)', '$(ArtifactsPivots)'))</_YakArtifactsPublishDir>
             <_YakManifest>$(_YakPublishDir)manifest.yml</_YakManifest>
-            <_YakReceipt>$(IntermediateOutputPath)yak.txt</_YakReceipt>
+            <_YqVersionFile>$(IntermediateOutputPath)yq.version</_YqVersionFile>
             <_YakIcon Condition="Exists('$(PlugInIcon)')">$(_PlugInPackageIcon)</_YakIcon>
             <_YakDotnet Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(RhinoResourcesDir)dotnet/$(NETCoreSdkPortableRuntimeIdentifier.Split('-')[1])/dotnet</_YakDotnet>
         </PropertyGroup>
@@ -267,37 +279,28 @@
             <_YakStaged Include="$(_YakPublishDir)*.yak" />
             <_YakExtra Include="$(_YakPublishDir)**/*" Exclude="@(_YakPublished);$(_YakManifest);@(_YakStaged)" />
             <_YakPrevious Include="$(_YakPackageDir)*-$(_YakPlatform).yak" />
+            <_YakForeign Include="$(_YakPublishDir)**/*" Exclude="@(_YakPublished)" Condition="'$(_YakPublishDir)' != '$(_YakArtifactsPublishDir)'" />
         </ItemGroup>
-        <Error Condition="'@(_YakPublished)' == ''" Text="No publish files for $(MSBuildProjectName). Run dotnet publish to build the Yak archive." />
-        <Error Condition="'$(_YakPublishDir)' != '$(_YakArtifactsPublishDir)' and '@(_YakExtra)' != ''" Text="Publish directory $(_YakPublishDir) contains files outside the current build: @(_YakExtra). Publish to an empty directory." />
+        <Error Condition="'@(_YakForeign)' != ''" Text="Publish directory $(_YakPublishDir) holds files outside the current publish, which Yak packaging deletes or overwrites: @(_YakForeign). Publish to an empty directory." />
         <Delete Files="@(_YakStaged);@(_YakExtra)" />
+        <Exec Command="yq --version" ConsoleToMSBuild="true" StandardOutputImportance="low">
+            <Output TaskParameter="ConsoleOutput" PropertyName="_YqVersion" />
+        </Exec>
+        <WriteLinesToFile File="$(_YqVersionFile)" Lines="$(_YqVersion)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <PropertyGroup>
+            <_YakArchive>@(_YakPrevious)</_YakArchive>
+            <_YakArchive Condition="'$(_YakArchive)' == ''">$(_YakPackageDir)$(_YakPlatform).yak</_YakArchive>
+        </PropertyGroup>
         <ItemGroup>
             <_CompatReference Include="@(_RhinoSupplied->'%(HostFile)');@(_RhinoMacAssembly->'$(RhinoResourcesDir)%(Identity).dll');@(_YakPublished->WithMetadataValue('Extension', '.dll'))" Condition="'$(_YakPlatform)' == 'mac' and '$(_YakDotnet)' != ''" />
-            <_YakInput Include="@(_YakPublished);$(MSBuildThisFileFullPath);$(_YakExecutable);$(RhinoResourcesDir)dotnetstart.*.deps.json;$(RhinoResourcesDir)dotnetstart.*.runtimeconfig.json" />
+            <_YakInput Include="@(_YakPublished);$(MSBuildAllProjects);$(_YqVersionFile);$(_YakExecutable);$(RhinoResourcesDir)dotnetstart.*.deps.json;$(RhinoResourcesDir)dotnetstart.*.runtimeconfig.json" />
             <_YakInput Include="$(RhinoInstallPath)/Contents/Info.plist;$(RhinoResourcesDir)yak.dll;$(RhinoResourcesDir)yak.*.json;$(_YakDotnet)" Condition="'$(_YakDotnet)' != ''" />
             <_YakInput Include="$(RhinoResourcesDir)Compat.dll;$(RhinoResourcesDir)Compat.*.json;@(_CompatReference)" Condition="'@(_CompatReference)' != ''" />
+            <FileWrites Include="$(_YqVersionFile)" />
         </ItemGroup>
-        <GetFileHash Files="@(_YakInput->DistinctWithCase())">
-            <Output TaskParameter="Items" ItemName="_YakInputHash" />
-        </GetFileHash>
-        <Exec Command="yq --version" ConsoleToMSBuild="true" StandardOutputImportance="low">
-            <Output TaskParameter="ConsoleOutput" ItemName="_YakYqVersion" />
-        </Exec>
-        <Hash ItemsToHash="$(_YakPlatform);$(PlugInId);$(PackageTags);$(_YakIcon);@(_YakYqVersion);@(_YakInputHash->'%(FullPath)=%(FileHash)')">
-            <Output TaskParameter="HashResult" PropertyName="_YakInputDigest" />
-        </Hash>
-        <ReadLinesFromFile File="$(_YakReceipt)" Condition="Exists('$(_YakReceipt)')">
-            <Output TaskParameter="Lines" ItemName="_YakRecorded" />
-        </ReadLinesFromFile>
-        <GetFileHash Files="@(_YakPrevious);$(_YakManifest)" Condition="'@(_YakRecorded)' != '' and '@(_YakPrevious->Count())' == '1' and Exists('$(_YakManifest)')">
-            <Output TaskParameter="Items" ItemName="_YakExistingHash" />
-        </GetFileHash>
-        <PropertyGroup>
-            <_YakUnchanged Condition="'@(_YakExistingHash->Count())' == '2' and '@(_YakRecorded)' == '$(_YakInputDigest);@(_YakExistingHash->'%(FullPath)=%(FileHash)')'">true</_YakUnchanged>
-        </PropertyGroup>
     </Target>
 
-    <Target Name="BuildYakPackage" AfterTargets="PrepareYakPackage" Condition="'$(_YakInputDigest)' != '' and '$(_YakUnchanged)' != 'true'">
+    <Target Name="BuildYakPackage" AfterTargets="Publish" DependsOnTargets="PrepareYakPackage" Condition="'$(TargetExt)' == '.rhp'" Inputs="@(_YakInput)" Outputs="$(_YakArchive);$(_YakManifest)">
         <Delete Files="$(_YakManifest)" />
         <Exec Command="&quot;$(_YakDotnet)&quot; &quot;$(RhinoResourcesDir)Compat.dll&quot; -q --check-net10 --check-system-assemblies &quot;$(_YakPublishDir)$(TargetFileName)&quot; @(_CompatReference->'&quot;%(FullPath)&quot;', ' ')" Condition="'@(_CompatReference)' != ''" StandardOutputImportance="low" CustomErrorRegularExpression="^\s*✗ FAIL " EchoOff="true" />
         <Exec Command="&quot;$(_YakExecutable)&quot; spec --input &quot;$(TargetFileName)&quot;" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" LogStandardErrorAsError="true" />
@@ -305,16 +308,11 @@
         <Exec Command="&quot;$(_YakExecutable)&quot; build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" LogStandardErrorAsError="true" />
         <ItemGroup>
             <_YakBuilt Include="$(_YakPublishDir)*-$(_YakPlatform).yak" />
-            <_YakArchive Include="@(_YakBuilt->'$(_YakPackageDir)%(Filename)%(Extension)')" />
-            <_YakPrevious Remove="@(_YakArchive)" />
+            <_YakPrevious Remove="@(_YakBuilt->'$(_YakPackageDir)%(Filename)%(Extension)')" />
         </ItemGroup>
-        <Error Condition="'@(_YakBuilt->Count())' != '1'" Text="Expected one $(_YakPlatform) Yak archive for $(MSBuildProjectName), found @(_YakBuilt->Count())." />
-        <Move SourceFiles="@(_YakBuilt)" DestinationFiles="@(_YakArchive)" />
+        <Error Condition="'@(_YakBuilt)' == ''" Text="yak build exited 0 without writing a $(_YakPlatform) archive in $(_YakPublishDir), the previous archive in $(_YakPackageDir) stays." />
+        <Move SourceFiles="@(_YakBuilt)" DestinationFolder="$(_YakPackageDir)" />
         <Delete Files="@(_YakPrevious)" />
-        <GetFileHash Files="@(_YakArchive);$(_YakManifest)">
-            <Output TaskParameter="Items" ItemName="_YakBuiltHash" />
-        </GetFileHash>
-        <WriteLinesToFile File="$(_YakReceipt)" Lines="$(_YakInputDigest);@(_YakBuiltHash->'%(FullPath)=%(FileHash)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
     </Target>
 
     <Target Name="InstallYakPackage" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">

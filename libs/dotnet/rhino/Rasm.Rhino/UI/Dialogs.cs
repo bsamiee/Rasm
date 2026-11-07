@@ -54,7 +54,7 @@ public static class HostDialogs {
     public static readonly IO<Unit> Attended =
         IO.lift(static () => guard(!RhinoApp.IsRunningUnattended, Errors.Cancelled).ToFin());
 
-    public static IO<T> Ask<T>(Func<Option<T>> show) => Attended.Bind(_ => IO.lift(() => show().ToFin(Errors.Cancelled)));
+    public static IO<T> Ask<T>(Func<Option<T>> show) => Attended.Bind(_ => IO.lift(show().ToFin(Errors.Cancelled)));
 
     public static IO<T> Ask<T>(Func<(bool Accepted, T Answer)> show) => Ask(() => show() switch { var (accepted, answer) => Conversions.Present(accepted, answer) });
 
@@ -151,7 +151,7 @@ public static class HostDialogs {
             int selected = index;
             return (Dialogs.ShowSelectLinetypeDialog(ref selected, displayByLayer), selected);
         })
-        from linetype in IO.lift(() => Conversions.Required(LinetypeRef.FromHost(chosen)))
+        from linetype in IO.lift(Conversions.Required(LinetypeRef.FromHost(chosen)))
         select linetype;
 
     private static IO<Seq<int>> Indices(RhinoDoc doc, Seq<ComponentRef<Layer>> layers) =>

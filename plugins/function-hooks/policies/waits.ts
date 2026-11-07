@@ -1,7 +1,7 @@
 import { Array, Duration, Effect, Option, type Predicate } from 'effect';
 import { Verdict } from '#/decision';
 import { appOf, WATCHER } from '#/instances';
-import { absent, BACKGROUNDED, type Call, dropped, edited, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, unwrap, type Verdicts, when, within } from '#/policies/fix';
+import { absent, all, BACKGROUNDED, type Call, dropped, edited, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, unwrap, type Verdicts, when, within } from '#/policies/fix';
 import type { Word } from '#/shell/script';
 import type { Site } from '#/shell/site';
 
@@ -113,12 +113,13 @@ const psFilter: Fix = (site, call) => {
 
 const onlyTimed = ({ analysis: { sites } }: Call): boolean => sites.filter(({ command: { origin, stage }, outer }) => origin === 'call' && outer.length === 0 && !Option.exists(stage, ({ at }) => at > 0)).every(({ program }) => QUICK.has(program));
 
-const limited: Fix = (site, call) => {
+const limited: Fix = Effect.fnUntraced(function* (site: Site, call: Call) {
     const { value, unit = 's' } = LIMIT.exec(site.leading[0]?.text ?? '')?.groups ?? {};
     const limit = Duration.toMillis(LIMIT_UNITS[unit]?.(Number(value)) ?? Duration.zero);
-    const applies = call.request.kind === 'foreground' && call.request.timeout === undefined && !site.repeated && (onlyTimed(call) || limit > Duration.toMillis('5 minutes'));
-    return unwrap(applies && limit > 0 ? limit : undefined)(site, call);
-};
+    const fallback = Option.map(yield* call.host.environment('BASH_DEFAULT_TIMEOUT_MS'), Number);
+    const applies = call.request.kind === 'foreground' && call.request.timeout === undefined && !site.repeated && (onlyTimed(call) || Option.exists(fallback, (held) => limit > held));
+    return yield* all(unwrap(applies && limit > 0 ? limit : undefined))(site, call);
+});
 
 // --- [TASKS]
 

@@ -123,7 +123,7 @@ public static class Exchange {
     public static IO<Option<string>> Save(RhinoDoc doc) =>
         IO.lift(() => doc.Modified || doc.IsHeadless).Bind(pending => pending
             ? from titled in IO.lift(() => Conversions.Required(Conversions.Present(doc.Path)))
-              from writable in IO.lift(() => Writable(doc, titled))
+              from writable in IO.lift(Writable(doc, titled))
               from saved in Products.Accepted(doc.Save)
               select Some(titled)
             : IO.pure(Option<string>.None));

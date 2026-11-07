@@ -2,9 +2,6 @@
 language: swiftlang
 severity: error
 utils:
-    first-entry:
-        kind: switch_entry
-        nthChild: {position: 1, ofRule: {kind: switch_entry}}
     chained:
         kind: call_expression
         all:
@@ -23,7 +20,7 @@ utils:
 rule:
     kind: switch_statement
     all:
-        - has: {matches: first-entry, has: {matches: swift-sole-statement, has: {matches: receiver-call}}}
+        - has: {matches: swift-first-switch-case, has: {matches: swift-sole-statement, has: {matches: receiver-call}}}
         - not: {has: {kind: switch_entry, not: {has: {matches: swift-sole-statement, has: {matches: member-call}}}}}
         - has: {kind: switch_entry, not: {has: {pattern: $R, stopBy: end}}}
 constraints:

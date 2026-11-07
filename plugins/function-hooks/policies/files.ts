@@ -1,4 +1,3 @@
-import type { ProjectGraph } from '@nx/devkit';
 import { Array, Cache, Effect, Function, Option, Predicate } from 'effect';
 import { absent, become, type Call, cut, dropped, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, quote, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unresolved, type Verdicts, when, whole } from '#/policies/fix';
 import { lockDeletes } from '#/policies/ghidra';
@@ -101,13 +100,10 @@ const unignored =
 
 // --- [DELETES]
 
-const cleanOwner = ({ nodes }: ProjectGraph) => Option.fromNullishOr(Object.values(nodes).find(({ data }) => data.root === '.' && data.targets?.clean !== undefined));
-
 const deletedPlace = Effect.fnUntraced(function* (site: Site, walker: Site | undefined, word: Word, start: Option.Option<string>, place: string, globbed: string, { host }: Call) {
     const patterns = walker === undefined ? [] : [...walker.leading.map(({ text }) => text), ...walker.values(...(walker.row.walks?.names ?? []))];
     if (![globbed, ...patterns].some((pattern) => NAME_CHARACTER.test(pattern)) && host.inside(host.root, place)) {
-        const owner = Option.flatMap(yield* host.graph, cleanOwner);
-        return refusal(walker === undefined ? `${subject(site)} ${word.text} covers root, ${Option.match(owner, { onNone: () => 'name each path', onSome: ({ name }) => `run nx run ${name}:clean` })}` : `${subject(site)} deletes everything under ${word.text}, add a name pattern`);
+        return refusal(walker === undefined ? `${subject(site)} ${word.text} covers root, run mise run clean` : `${subject(site)} deletes everything under ${word.text}, add a name pattern`);
     }
     const target = Option.getOrElse(host.place(word.text, start), () => place);
     return yield* lockDeletes(site, host, patterns.length === 0 ? [target] : patterns.map((pattern) => host.path.join(target, pattern)));

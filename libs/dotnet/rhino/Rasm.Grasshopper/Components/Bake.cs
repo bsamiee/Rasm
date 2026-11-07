@@ -20,7 +20,7 @@ public static class Bakes {
         from written in (from layers in IO.lift(() => BakeContext.EnsureLayers(desired, target, attributes.ValueUnsafe(), user, meta))
                          from context in IO.lift(() => new BakeContext(process, id, target, attributes.ValueUnsafe(), user, meta))
                          from record in use(() => target.BeginUndoRecord($"Bake {context.ProcessName}"), serial => target.EndUndoRecord(serial))
-                         from ids in IO.lift(() => Written(target, Planned(
+                         from ids in IO.lift(Written(target, Planned(
                              context,
                              desired,
                              expired,
@@ -34,7 +34,7 @@ public static class Bakes {
         File3dm target, string process, Guid id, ITree desired, StashOverwriteMode expired, UserPattern user = default, MetaPattern meta = default, Option<ObjectAttributes> attributes = default) =>
         from layers in IO.lift(() => BakeContext.EnsureLayers(desired, target, attributes.ValueUnsafe(), user, meta))
         from context in IO.lift(() => new BakeContext(process, id, target, attributes.ValueUnsafe(), user, meta))
-        from ids in IO.lift(() => Written(target, Planned(
+        from ids in IO.lift(Written(target, Planned(
             context,
             desired,
             expired,

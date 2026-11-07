@@ -73,7 +73,7 @@ public abstract partial record ObjectTarget {
             named: static (doc, named) =>
                 from members in IO.lift(() => named.Entry.Table.Supported(named.Entry.Table.Members))
                 from ids in members(doc, named.Entry)
-                from found in IO.lift(() => Located(ids, doc.Objects.FindId))
+                from found in IO.lift(Located(ids, doc.Objects.FindId))
                 select found);
 
     public static IO<(TObject Object, TGeometry Geometry)> Resolve<TObject, TGeometry>(RhinoDoc document, Guid id) where TObject : RhinoObject where TGeometry : GeometryBase =>
@@ -86,7 +86,7 @@ public abstract partial record ObjectTarget {
 
     // --- [WRITES]
     public IO<Seq<Guid>> Each(RhinoDoc document, Func<RhinoObject, bool> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
-        Objects(document).Bind(found => IO.lift(() => Products.Each(found, (target, index) => call(target) ? Fin.Succ(target.Id) : new RhinoFault(member, RhinoReason.Declined, index))));
+        Objects(document).Bind(found => IO.lift(Products.Each(found, (target, index) => call(target) ? Fin.Succ(target.Id) : new RhinoFault(member, RhinoReason.Declined, index))));
 
     // --- [SELECTION]
     internal static IO<Seq<(RhinoObject Object, bool Persistent)>> Selection(RhinoDoc document) =>

@@ -44,7 +44,7 @@ public static class DisplayModes {
 
     public static IO<Seq<Guid>> Reconcile(DisplayModeSpec spec) =>
         from owner in IO.lift(static () => Session.PlugIn.Id)
-        from package in IO.lift(static () => FolderPath.Installed(Session.Assembly))
+        from package in IO.lift(FolderPath.Installed(Session.Assembly))
         from declared in spec.Modes
         let rows = declared.Map(mode => (Id: Id(owner, mode), Mode: mode)).Strict()
         from present in Products.Many(static () => DisplayModeDescription.GetDisplayModes()).Map(static modes => modes.Map(static mode => (mode.Id, mode.EnglishName)).Strict()).Bracket()
@@ -126,7 +126,7 @@ public static class DisplayModes {
         from deleted in IO.lift(() => ignore(DisplayModeDescription.DeleteDisplayMode(id)))
         from imported in Scoped(file =>
             from written in IO.lift(() => Ini.Write(file, id, table))
-            from read in IO.lift(() => Conversions.Required(Conversions.Present(DisplayModeDescription.ImportFromFile(file, interactive: false))))
+            from read in IO.lift(Conversions.Required(Conversions.Present(DisplayModeDescription.ImportFromFile(file, interactive: false))))
             select read)
         select imported;
 

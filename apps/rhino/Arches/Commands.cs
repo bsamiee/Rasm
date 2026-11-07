@@ -114,7 +114,7 @@ internal static class ArchPrompts {
         Commits.WithinRedraw(doc, new RedrawPolicy.AllViews(Deferred: true),
                 from built in build
                 from joined in Products.Many(() => Curve.JoinCurves(built, tolerances.Absolute, preserveDirection: true))
-                from added in IO.lift(() => Products.Each(joined, (curve, index) => Conversions.Required(Conversions.Present(doc.Objects.AddCurve(curve)), index)))
+                from added in IO.lift(Products.Each(joined, (curve, index) => Conversions.Required(Conversions.Present(doc.Objects.AddCurve(curve)), index)))
                 select unit)
             .Bracket()
             .Bind(kit.Done);

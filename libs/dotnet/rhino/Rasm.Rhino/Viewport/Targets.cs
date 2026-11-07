@@ -111,7 +111,7 @@ public static class Viewports {
         Commits.WithinRedraw(doc, redraw, Resolve(doc, set).Bind(rows => Products.Each(rows.Map(row =>
             from before in IO.lift(() => row.Viewport.ChangeCounter)
             from edited in edit(row.Viewport)
-            from moved in IO.lift(() => row.Viewport.ChangeCounter != before)
+            let moved = row.Viewport.ChangeCounter != before
             from committed in when(moved, row.Commit).As()
             select moved))).Bracket());
 
@@ -157,7 +157,7 @@ public static class Viewports {
     // --- [SCREEN]
     public static IO<RectangleF> Frame(RhinoView view) =>
         from window in IO.lift(() => Conversions.Required(RhinoEtoApp.MainWindowForDocument(view.Document)))
-        from frame in IO.lift(() => view.ScreenRectangle)
+        let frame = view.ScreenRectangle
         select new RectangleF(frame.X, frame.Y, frame.Width, frame.Height) / window.LogicalPixelSize;
 
     // --- [SPACE]

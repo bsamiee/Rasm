@@ -27,7 +27,7 @@ public static class Plans {
     // --- [PROGRAM]
     public static IO<Seq<RowPlan<InstanceDefinition, PlannedDefinition>>> Plan(RhinoDoc doc, Seq<PlannedDefinition> planned, Prune prune) =>
         from rows in IO.lift(() => Conversions.Rows(doc.InstanceDefinitions.GetList(ignoreDeleted: true)).Filter(static row => !row.IsReference).Strict())
-        from matched in IO.lift(() => Rows.Plan(rows, planned, static row => row.Name, static spec => spec.Metadata.Name, StringComparer.OrdinalIgnoreCase, prune,
+        from matched in IO.lift(Rows.Plan(rows, planned, static row => row.Name, static spec => spec.Metadata.Name, StringComparer.OrdinalIgnoreCase, prune,
             Some(Ordered)))
         from nesting in DefinitionGraph.Read(doc)
         let removable = toHashSet(nesting.Removable(toHashSet(matched.Choose(static step => step is RowPlan<InstanceDefinition, PlannedDefinition>.Remove remove ? Some(remove.Row.Id) : None))))

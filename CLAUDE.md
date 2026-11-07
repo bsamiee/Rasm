@@ -19,13 +19,13 @@
 ## [01]-[TOOLING]
 
 [TOOL_ROUTING]:
+- ALWAYS use `ast-grep outline <path>` to choose what to read in an unread file or folder
 - ALWAYS use `watch-apps` skill for opening, driving, observing, or quitting a desktop app
 - ALWAYS use `playwright:playwright-cli` skill for a browser session
 - ALWAYS use `playwright:playwright-trace` skill for a Playwright trace
 - ALWAYS use `manage-repo` skill for a change to how the repository is structured, built, or checked
 - ALWAYS use `search-web` skill for a question the open web answers
 - ALWAYS use `search-code` skill for any fact about a dependency
-- ALWAYS use `ast-grep outline <path>` to choose what to read in an unread file or folder
 - ALWAYS use `secrets` skill for a command or build that reads a secret
 - ALWAYS use `github` MCP for exploration, research, and interaction for Github
 - ALWAYS use `blender-coding` skill for Python that runs inside Blender

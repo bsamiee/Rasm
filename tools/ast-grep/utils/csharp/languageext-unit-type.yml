@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: languageext-unit-type
+language: csharplang
+rule:
+    matches: {csharp-type-name: {name: {regex: '^Unit$'}}}

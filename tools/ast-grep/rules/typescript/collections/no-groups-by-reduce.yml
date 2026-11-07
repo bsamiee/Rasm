@@ -10,10 +10,6 @@ utils:
         kind: identifier
         pattern: $X
         matches: {typescript-local-binding: {owner: {pattern: $REDUCER}}}
-    effect-iterable:
-        matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}}}
-    effect-record:
-        matches: {effect-module: {name: {regex: '(?-u:\b)Record$'}}}
     empty:
         any:
             - kind: object
@@ -24,7 +20,7 @@ utils:
                 - has: {field: arguments, pattern: {context: f(null), selector: arguments}}
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^empty$'}}, {has: {field: object, matches: effect-record}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^empty$'}}, {has: {field: object, matches: effect-record-module}}]}
                 - has: {field: arguments, regex: '^\([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\)$'}
             - kind: new_expression
               all:
@@ -81,7 +77,7 @@ utils:
                         kind: member_expression
                         any:
                             - has: {field: property, regex: '^concat$'}
-                            - all: [{has: {field: property, regex: '^append$'}}, {has: {field: object, matches: effect-iterable}}]
+                            - all: [{has: {field: property, regex: '^append$'}}, {has: {field: object, matches: effect-iterable-module}}]
                     - has: {field: arguments, has: {any: [{matches: element-reference}, {kind: array, has: {matches: element-reference}}]}}
             - has: {stopBy: end, matches: bucket}
     append:
@@ -98,7 +94,7 @@ utils:
                 - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $K}}, {has: {nthChild: {position: 2, ofRule: *code}, matches: extended}}]}
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^set$'}}, {has: {field: object, matches: effect-record}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^set$'}}, {has: {field: object, matches: effect-record-module}}]}
                 - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $ACC}}, {has: {nthChild: {position: 2, ofRule: *code}, pattern: $K}}, {has: {nthChild: {position: 3, ofRule: *code}, matches: extended}}]}
             - kind: pair
               all: [{has: {field: key, kind: computed_property_name, has: {pattern: $K}}}, {has: {field: value, matches: extended}}]
@@ -147,7 +143,7 @@ utils:
               any:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^set$'}}, {has: {field: object, matches: accumulator-reference}}]}
                 - all:
-                    - has: {field: function, any: [{pattern: Object.assign, matches: typescript-global-reference}, {kind: member_expression, all: [{has: {field: property, regex: '^set$'}}, {has: {field: object, matches: effect-record}}]}]}
+                    - has: {field: function, any: [{pattern: Object.assign, matches: typescript-global-reference}, {kind: member_expression, all: [{has: {field: property, regex: '^set$'}}, {has: {field: object, matches: effect-record-module}}]}]}
                     - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: accumulator-reference}}
             - kind: object
               has: {kind: spread_element, has: {matches: accumulator-reference}}
@@ -192,7 +188,7 @@ rule:
                 - has: {field: function, has: {field: object, not: {matches: effect-namespace}}}
                 - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: bucketing}}, {has: {nthChild: {position: 2, ofRule: *code}, matches: empty}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
             - all:
-                - has: {field: function, has: {field: object, matches: effect-iterable}}
+                - has: {field: function, has: {field: object, matches: effect-iterable-module}}
                 - has:
                     field: arguments
                     any:

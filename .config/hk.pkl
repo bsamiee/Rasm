@@ -1,6 +1,8 @@
 amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtins.pkl"
 
+fail_fast = false
+
 // --- [STEPS] ---------------------------------------------------------------------------
 
 steps {
@@ -13,6 +15,11 @@ steps {
         check { command { argv = List("google-java-format", "--aosp", "--dry-run", "--set-exit-if-changed", "{{files}}") } }
         check_list_files { command { argv = List("google-java-format", "--aosp", "--dry-run", "{{files}}") } }
         fix { command { argv = List("google-java-format", "--aosp", "--replace", "{{files}}") } }
+    }
+    ["jactionlint"] = (Builtins.jactionlint) {
+        check { command { argv = List("jactionlint", "--strict-exit", "--ruff=ruff", "--format", "gcc", "{{files}}") } }
+        check_diff { command { argv = List("hk", "util", "sarif-diff", "--", "jactionlint", "--ruff=ruff", "--format", "sarif", "{{files}}") } }
+        fix { command { argv = List("jactionlint", "--ruff=ruff", "--fix", "{{files}}") } }
     }
     ["ruff"] = Builtins.ruff
     ["ruff-format"] = (Builtins.ruff_format) { depends = "ruff" }
@@ -42,7 +49,6 @@ hooks {
         steps {
             ["dotnet-format"] = (Builtins.dotnet_format) {
                 check { command { argv = List("dotnet", "format", "whitespace", "--folder", "--verify-no-changes", "--include", "{{files}}") } }
-                fix = null
             }
             ["plutil"] { glob = "**/*.{plist,entitlements}"; check = "plutil -lint {{files}}" }
             ["shellcheck"] = (Builtins.shellcheck) { match_any = null; glob = "**/*.sh" }

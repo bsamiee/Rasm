@@ -10,13 +10,14 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 [REFERENCES]:
 - [01]-[NX](references/nx.md): Task graph, how Nx composes inferred targets and decides what a task hashes and runs
 - [02]-[TOOLING](references/tooling.md): Toolchain no language owns, from what installs a tool to what keeps a service running
-- [03]-[TYPESCRIPT](references/typescript.md): One catalog resolving packages, each host runtime deciding a program's types and build
-- [04]-[PYTHON](references/python.md): Project resolution under uv, each embedded interpreter bounding what resolves, builds, and bundles
-- [05]-[DOTNET](references/dotnet.md): Shared MSBuild declarations and central versions, installed Rhino deciding what a host project builds against
-- [06]-[SWIFT](references/swift.md): SwiftPM modules and Xcode apps linking them, each setting and lock at the system that reads it
-- [07]-[JAVA](references/java.md): Scripts a tool loads, each checker resolving them against that tool's jars
-- [08]-[RUST](references/rust.md): Cargo workspace, one pinned nightly and root rows holding policy every member inherits
-- [09]-[DERIVATION](references/derivation.md): Mechanisms each configuration system provides to discover members, inherit policy, and select modes
+- [03]-[HK](references/hk.md): File checkers and writers under one runner, how hooks, selection, scheduling, and patches decide each step row
+- [04]-[TYPESCRIPT](references/typescript.md): One catalog resolving packages, each host runtime deciding a program's types and build
+- [05]-[PYTHON](references/python.md): Project resolution under uv, each embedded interpreter bounding what resolves, builds, and bundles
+- [06]-[DOTNET](references/dotnet.md): Shared MSBuild declarations and central versions, installed Rhino deciding what a host project builds against
+- [07]-[SWIFT](references/swift.md): SwiftPM modules and Xcode apps linking them, each setting and lock at the system that reads it
+- [08]-[JAVA](references/java.md): Scripts a tool loads, each checker resolving them against that tool's jars
+- [09]-[RUST](references/rust.md): Cargo workspace, one pinned nightly and root rows holding policy every member inherits
+- [10]-[DERIVATION](references/derivation.md): Mechanisms each configuration system provides to discover members, inherit policy, and select modes
 
 ## [01]-[VARIATION]
 
@@ -77,6 +78,7 @@ Targets, tasks, and repository tools serve agents, and each call answers its cal
 - `<tool>` names the program implementing command: `dotnet format` is `dotnet-format`, `cargo fmt` is `rustfmt`, `cargo dylint` is `dylint`
 - Checkers take one `<kind>:<tool>` name, a subcommand, language, package, or runtime is an argument, a configuration, or a run derived from member declarations
 - Checker command lists hold dependent steps alone, a failing step hides findings of the rest
+- Runners take continue-on-failure from their configuration, a flag per call leaves a direct call stopping at its first failure
 - Writers sharing files take `parallelism: false`, `dependsOn` names producer prerequisites alone
 - Checkers fail on each finding they print, a tool passing warnings takes its own switch (`--strict`, `--error-on-warnings`, a config deny row)
 - Inputs and cache settings checker targets share sit once in a `targetDefaults` key matching their names

@@ -34,7 +34,7 @@ public static class Selections {
             rectanglePick: static (viewport, pick) => (Style: pick.Crossing ? PickStyle.CrossingPick : PickStyle.WindowPick,
                 Transform: viewport.GetPickTransform(pick.Client), X: pick.Client.X + (pick.Client.Width / 2d), Y: pick.Client.Y + (pick.Client.Height / 2d))))
         from frustum in IO.lift(() => (Found: row.Viewport.GetFrustumLine(frame.X, frame.Y, out Line worldLine), Line: worldLine))
-        from line in IO.lift(() => RhinoFault.Unless(frustum.Found, RhinoReason.Declined, (frame.X, frame.Y)).Map(_ => frustum.Line))
+        from line in IO.lift(RhinoFault.Unless(frustum.Found, RhinoReason.Declined, (frame.X, frame.Y)).Map(_ => frustum.Line))
         from framed in IO.lift(() => {
             context.View = row.View;
             context.PickStyle = frame.Style;

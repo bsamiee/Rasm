@@ -158,7 +158,7 @@ public static class EffectList {
          select value).Bracket();
 
     private static IO<PostEffectData> Found(PostEffectCollection effects, Guid id) =>
-        Products.Many(() => effects, required: false).Bind(held => IO.lift(() => held.Find(data => data.Id == id).ToFin(Missing(id))));
+        Products.Many(() => effects, required: false).Bind(held => IO.lift(held.Find(data => data.Id == id).ToFin(Missing(id))));
 
     private static RhinoFault Missing(Guid id) => new($"post effect {id}", RhinoReason.Missing);
 }

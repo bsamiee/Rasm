@@ -30,7 +30,7 @@ public static class Annotations {
         (from held in use(() => attributes.Match(Some: static given => given.Duplicate(), None: doc.CreateDefaultAttributes))
          from placed in IO.lift(() => { (held.Space, held.ViewportId) = (page.IsSome ? ActiveSpace.PageSpace : ActiveSpace.ModelSpace, page.IfNone(Guid.Empty)); })
          from layered in IO.lift(() => DimensionLayers.Of(doc).Iter(index => held.LayerIndex = index))
-         from id in IO.lift(() => Conversions.Required(Conversions.Present(doc.Objects.Add(annotation, held))))
+         from id in IO.lift(Conversions.Required(Conversions.Present(doc.Objects.Add(annotation, held))))
          select id).Bracket();
 
     public static IO<Guid> Measured(

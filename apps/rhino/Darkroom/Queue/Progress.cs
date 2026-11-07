@@ -277,22 +277,22 @@ public static partial class QueueRuns {
         from peak in OperatingSystem.IsMacOS()
             ? IO.lift(SafeNativeMethods.PeakResident)
             : (from self in use(Process.GetCurrentProcess) select self.PeakWorkingSet64).Bracket()
-        from recorded in Recorded(scope, new FrameMark(entry.Key, frame, started, began, saved.At, finished, peak))
+        from recorded in Recorded(scope, new FrameTiming(entry.Key, frame, started, began, saved.At, finished, peak))
         select unit;
 
-    private static IO<Unit> Recorded(RunScope scope, FrameMark mark) =>
+    private static IO<Unit> Recorded(RunScope scope, FrameTiming timing) =>
         from record in scope.Held.SwapIO(was => was with {
             Entries = was.Entries.AddOrUpdate(
-                mark.Entry,
-                entry => entry with { Last = Some(mark.Frame), Times = entry.Times.Add(mark.Time(scope.Context.Clock)) },
-                () => EntryProgress.Empty with { Last = Some(mark.Frame), Times = Seq(mark.Time(scope.Context.Clock)) }),
+                timing.Entry,
+                entry => entry with { Last = Some(timing.Frame), Times = entry.Times.Add(timing.Time(scope.Context.Clock)) },
+                () => EntryProgress.Empty with { Last = Some(timing.Frame), Times = Seq(timing.Time(scope.Context.Clock)) }),
         })
         from written in QueueProgress.Write(scope.Context.Record, record)
         from now in IO.lift(scope.Context.Clock.GetCurrentInstant)
         from estimate in IO.lift(() => QueueEstimate.Running(scope.Batch, record, now).Description(scope.Context.Clock.ToZonedClock().Zone))
-        let stages = mark.Stages(scope.Context.Clock)
-        let frame = (int)mark.Frame
-        from logged in IO.lift(() => Rendered(Session.Logger, frame, stages, mark.PeakWorkingSet, estimate))
+        let stages = timing.Stages(scope.Context.Clock)
+        let frame = (int)timing.Frame
+        from logged in IO.lift(() => Rendered(Session.Logger, frame, stages, timing.PeakWorkingSet, estimate))
         select unit;
 
     // --- [RESUME]

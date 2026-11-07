@@ -97,7 +97,7 @@ public sealed partial class CurvatureFit {
     public IO<CurvatureAnalysisSettingsState> Fit(Seq<Mesh> meshes, Option<CurvatureAnalysisSettings.CurvatureStyle> style = default) =>
         from state in IO.lift(CurvatureAnalysisSettings.GetCurrentState)
         from selected in IO.lift(() => style.Iter(value => state.Style = value))
-        from fitted in IO.lift(() => Calculate(meshes, state))
+        from fitted in IO.lift(Calculate(meshes, state))
         select fitted;
 
     [UseDelegateFromConstructor]

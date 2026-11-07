@@ -21,7 +21,7 @@ type Returns = set[OperatorReturnItems]
 type Elements[T] = bpy.types.bpy_prop_collection[T]
 ```
 
-Both aliases import and run in Blender, `Returns` typing `execute`, `invoke`, and `modal` returns and `Elements[bpy.types.Object]` a `collection.objects` parameter. `rna_enums` literals type every static host enum value (`OperatorReturnItems`, `EventTypeItems`, `OperatorTypeFlagItems`).
+Both aliases import and run in Blender, `Returns` typing `execute`, `invoke`, and `modal` returns and `Elements[bpy.types.Object]` a `collection.objects` parameter. `rna_enums` literals type every static host enum value (`OperatorReturnItems`, `EventTypeItems`, `OperatorTypeFlagItems`). mypy narrowing compares each member of a declared union with each narrowed member at every read and class pattern, a cost a large `rna_enums` literal multiplies, and a `match` over such a parameter reads through a local typed as the union its arms test (`Path | bpy.types.ID | str`).
 
 ## [02]-[STUB_DEFECTS]
 

@@ -151,7 +151,7 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
             documentScope: static (state, scope) =>
                 Commits.Commit(scope.Doc, state.Binding.Caption, scope.Redraw,
                         from diff in state.Binding.Group.Apply(state.Target, state.Locks)
-                        from recording in IO.lift(() => scope.Doc.UndoRecordingIsActive)
+                        let recording = scope.Doc.UndoRecordingIsActive
                         from registered in when(recording && !diff.Changes.IsEmpty,
                             Commits.Register(scope.Doc, state.Binding.Caption,
                                 state.Binding.Updated(history => history.Followed(diff.Inverse())), state.Binding.Updated(history => history.Followed(diff)))).As()

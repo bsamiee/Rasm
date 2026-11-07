@@ -4,8 +4,6 @@ severity: error
 utils:
     disposable:
         matches: {csharp-type-name: {name: {regex: '^IDisposable$'}}}
-    unit-type:
-        matches: {csharp-type-name: {name: {regex: '^Unit$'}}}
 rule:
     kind: generic_name
     pattern: $TYPE
@@ -22,8 +20,8 @@ rule:
                     - has:
                         nthChild: 2
                         any:
-                            - matches: unit-type
-                            - matches: {csharp-generic-type: {name: {regex: '^IO$'}, list: {has: {nthChild: 1, matches: unit-type}}}}
+                            - matches: languageext-unit-type
+                            - matches: {csharp-generic-type: {name: {regex: '^IO$'}, list: {has: {nthChild: 1, matches: languageext-unit-type}}}}
                     - not: {has: {nthChild: 3}}
 message: '`$TYPE` passes a release callback'
 note: 'Acquire through `use` and release at the owning operation''s `Bracket`, lifetime-long acquisitions run on owner''s `EnvIO`'

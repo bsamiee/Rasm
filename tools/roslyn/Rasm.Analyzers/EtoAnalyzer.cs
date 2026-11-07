@@ -249,7 +249,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         }
         models.Report<IInvocationOperation>([OperationKind.Invocation], (transfer, _, reading) =>
             Among(transfer.TargetMethod, lifetimes.Transfers)
-            && transfer.Arguments.FirstOrDefault(static argument => argument.Parameter?.Ordinal is 0) is { Value: var value } && Derives(Stripped(value).Type, widget)
+            && transfer.Arguments.FirstOrDefault(static argument => argument.Parameter?.Ordinal is 0) is { Value: var value } && Derives(Carried(value).Type, widget)
             && Held(value, reading) is { } held && (Retained(held, transfer, reading) ?? Source(held, reading)) is { } owner
                 ? [Diagnostic.Create(Twice, transfer.Syntax.GetLocation(), Label(transfer), held.Name, owner)]
                 : []);
@@ -348,8 +348,14 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
                 : []);
 
     // --- [BINDINGS]
+    private static IOperation Carried(IOperation reference) {
+        IOperation value = Stripped(Lambda(reference) is { Symbol.Parameters.IsEmpty: true } factory && Sole(factory.Body) is { } made ? made : reference);
+        while (value is IConversionOperation { OperatorMethod: null, Conversion: { IsIdentity: true } or { IsReference: true } } conversion) value = Stripped(conversion.Operand);
+        return value;
+    }
+
     private static ISymbol? Held(IOperation reference, Reading reading) =>
-        Stripped(reference) switch {
+        Carried(reference) switch {
             { Syntax: IdentifierNameSyntax name } when reading.For(name.SyntaxTree).GetSymbolInfo(name, reading.Token).Symbol is { } held
                 && held is IParameterSymbol or IRangeVariableSymbol => held,
             ILocalReferenceOperation local => local.Local,

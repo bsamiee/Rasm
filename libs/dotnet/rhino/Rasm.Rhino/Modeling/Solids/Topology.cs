@@ -40,10 +40,9 @@ public static class SolidTopology {
                 First: extended0, Second: extended1)))
         from first in Products.Maybe(() => answered.First, nameof(Brep.ExtendBrepFacesToConnect))
         from second in Products.Maybe(() => answered.Second, nameof(Brep.ExtendBrepFacesToConnect))
-        from connected in IO.lift(() =>
-            from accepted in RhinoFault.Unless(answered.Accepted, RhinoReason.Declined, answered.Accepted)
-            from pair in (Conversions.Required(first), Conversions.Required(second)).Apply(static (held, other) => (Face0: held, Face1: other)).As()
-            select pair)
+        from connected in IO.lift(from accepted in RhinoFault.Unless(answered.Accepted, RhinoReason.Declined, answered.Accepted)
+                                  from pair in (Conversions.Required(first), Conversions.Required(second)).Apply(static (held, other) => (Face0: held, Face1: other)).As()
+                                  select pair)
         select connected;
 
     // --- [SPLITS]
@@ -83,6 +82,6 @@ public static class SolidTopology {
                 CutAway: cutAway)))
         from kept in Products.Many(() => wired.Kept, required: false, nameof(Brep.WireCut))
         from cutAway in Products.Many(() => wired.CutAway, required: false, nameof(Brep.WireCut))
-        from accepted in IO.lift(() => RhinoFault.Unless(wired.Cut, RhinoReason.Declined, wired.Cut))
+        from accepted in IO.lift(RhinoFault.Unless(wired.Cut, RhinoReason.Declined, wired.Cut))
         select (Kept: kept, CutAway: cutAway);
 }

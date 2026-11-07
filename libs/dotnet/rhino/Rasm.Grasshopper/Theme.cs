@@ -41,7 +41,7 @@ public sealed record GrasshopperTheme(string Name) {
     public IO<Unit> Install =>
         from installed in unless(Settings.SandBox,
             from plugin in IO.lift(static () => Hooks.Session.Plugin)
-            from definition in IO.lift(() => Definition)
+            from definition in IO.lift(Definition)
             from described in IO.lift(() => {
                 definition.Author = plugin.Name;
                 definition.Description = plugin.Info;

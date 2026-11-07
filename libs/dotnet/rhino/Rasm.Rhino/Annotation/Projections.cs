@@ -54,7 +54,7 @@ public static class Projections {
          from styled in IO.lift(() => style.Iter(stroke =>
              (held.LinetypeSource, held.LinetypeIndex, held.PlotWeightSource, held.PlotWeight) =
                  (ObjectLinetypeSource.LinetypeFromObject, stroke.Linetype, ObjectPlotWeightSource.PlotWeightFromObject, stroke.Width)))
-         from id in IO.lift(() => Conversions.Required(Conversions.Present(doc.Objects.Add(geometry, held))))
+         from id in IO.lift(Conversions.Required(Conversions.Present(doc.Objects.Add(geometry, held))))
          select id).Bracket();
 
     // --- [SECTIONS]

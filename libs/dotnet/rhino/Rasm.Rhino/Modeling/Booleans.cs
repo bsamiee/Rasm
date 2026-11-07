@@ -79,7 +79,7 @@ public static class Booleans {
 
     private static IO<Seq<Grouped<Mesh, int>>> Checked(Func<(Mesh[]? Meshes, Result Result, int[][]? Map)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
         from answered in IO.lift(call)
-        from ended in IO.lift(() => Results.Ended(answered.Result, member))
+        from ended in IO.lift(Results.Ended(answered.Result, member))
         from groups in Mapped(() => (answered.Meshes, answered.Map), member)
         select groups;
 
@@ -105,13 +105,13 @@ public static class Booleans {
     // --- [PROVENANCE]
     public static IO<Seq<Grouped<T, int>>> Keyed<T>(Func<(T[]? Rows, int[]? Key)> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : GeometryBase =>
         from answered in Products.Many(() => call(), required: false, member)
-        from key in IO.lift(() => Conversions.Required(answered.Out, call: member))
+        from key in IO.lift(Conversions.Required(answered.Out, call: member))
         let owners = key.Select(static (owner, input) => (Owner: owner, Input: input)).ToLookup(static entry => entry.Owner, static entry => entry.Input)
         select answered.Values.Map((row, index) => new Grouped<T, int>(row, toSeq(owners[index]))).Strict();
 
     public static IO<Seq<Grouped<T, int>>> Mapped<T>(Func<(T[]? Rows, int[][]? Map)> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : GeometryBase =>
         from answered in Products.Many(() => call(), required: false, member)
-        from map in IO.lift(() => Conversions.Required(answered.Out, call: member))
+        from map in IO.lift(Conversions.Required(answered.Out, call: member))
         select answered.Values.Zip(toSeq(map), static (row, inputs) => new Grouped<T, int>(row, toSeq(inputs))).Strict();
 
     // --- [OPERANDS]
