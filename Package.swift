@@ -84,38 +84,6 @@ let executables: [Target] = [
         path: "tools/watch-apps",
     )
 ]
-let support: [Target] = [
-    .target(
-        name: "TestSupport",
-        dependencies: ["Applications", "Processes", "Results", .product(name: "Subprocess", package: "swift-subprocess")],
-        path: "tests/swift/support",
-        exclude: ["appkit"],
-    ),
-    .executableTarget(
-        name: "AppKitFixture",
-        dependencies: ["CurrentProcess", "Processes", .product(name: "Subprocess", package: "swift-subprocess")],
-        path: "tests/swift/support/appkit",
-    ),
-]
-let suites: [Target] = [
-
-    // --- [TOOLS]
-
-    .testTarget(
-        name: "watch-appsTests",
-        dependencies: ["Encoding", "Processes", "TestSupport", "watch-apps", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "Subprocess", package: "swift-subprocess")],
-        path: "tests/swift/tools/watch-apps",
-        exclude: ["Integration"],
-    ),
-    .testTarget(
-        name: "watch-appsIntegrationTests",
-        dependencies: [
-            "AppKitFixture", "Encoding", "Processes", "TestSupport", "watch-apps", .product(name: "CustomDump", package: "swift-custom-dump"),
-            .product(name: "Subprocess", package: "swift-subprocess"),
-        ],
-        path: "tests/swift/tools/watch-apps/Integration",
-    ),
-]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -142,7 +110,7 @@ let package: Package = Package(
         .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.2"),
         .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.0.1"),
     ],
-    targets: modules + executables + support + suites,
+    targets: modules + executables,
 )
 
 for target: Target in package.targets {

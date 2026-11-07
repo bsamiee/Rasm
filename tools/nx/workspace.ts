@@ -4,7 +4,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateNodesContext, hashArray } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { decodeFile, Mise, Package, runCommand, TextFormat } from '@rasm/eng';
-import { Array, Config, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Order, Path, Predicate, Record, Result, Schema, type Scope, String, Struct } from 'effect';
+import { Array, Config, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, SchemaGetter, type Scope, String, Struct } from 'effect';
 import { escape } from 'minimatch';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -18,41 +18,43 @@ const CARGO_MANIFEST = 'Cargo.toml';
 const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
 const SWIFT_MANIFEST = 'Package.swift';
 const PYPROJECT = 'pyproject.toml';
+const UV_LOCK = 'uv.lock';
 const APPS = 'apps';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const JsonListRecord = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.String)));
 const Release = Schema.String.check(Schema.isPattern(/^\d+\.\d+$/u));
-const PythonRequirement = Schema.Struct({ minimum: Schema.TemplateLiteralParser(['>=', Schema.Trim.pipe(Schema.decodeTo(Release))]) }).pipe(Schema.encodeKeys({ minimum: 'requires-python' }));
-const HostPyproject = TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ project: PythonRequirement })));
-const WorkspacePyproject = TextFormat.Toml.pipe(
-    Schema.decodeTo(
-        Schema.Struct({
-            tool: Schema.Struct({
-                uv: Schema.Struct({
-                    workspace: Schema.Struct({ members: Schema.Array(Schema.String) }),
-                    sources: Schema.Record(Schema.String, Schema.Struct({ path: Schema.OptionFromOptionalKey(Schema.String) })),
-                }),
-                pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String), testPaths: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files', testPaths: 'testpaths' })),
-                coverage: Schema.Struct({ run: Schema.Struct({ dataFile: Schema.String }).pipe(Schema.encodeKeys({ dataFile: 'data_file' })) }),
-            }),
-        }),
-    ),
-);
+const RequiresPython = Schema.Union([Schema.TemplateLiteralParser(['>=', Release]), Schema.TemplateLiteralParser(['==', Release, '.*'])]).pipe(Schema.decodeTo(Release, { decode: SchemaGetter.transform(([, release]) => release), encode: SchemaGetter.transform((release) => ['>=', release] as const) }));
+const WorkspacePyproject = TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ tool: Schema.Struct({ pytest: Schema.Struct({ testPaths: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ testPaths: 'testpaths' })) }) })));
 const MemberPyproject = TextFormat.Toml.pipe(
     Schema.decodeTo(
         Schema.Struct({
-            project: Schema.Struct({ name: Schema.String, scripts: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }),
-            tool: Schema.Struct({
-                hatch: Schema.Struct({
-                    build: Schema.Struct({
-                        devModeDirs: Schema.Array(Schema.String),
-                        targets: Schema.optionalKey(Schema.Struct({ wheel: Schema.optionalKey(Schema.Struct({ sources: Schema.optionalKey(Schema.Union([Schema.Record(Schema.String, Schema.String), Schema.Array(Schema.String)])) })) })),
-                    }).pipe(Schema.encodeKeys({ devModeDirs: 'dev-mode-dirs' })),
-                }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({ build: { 'dev-mode-dirs': [] } }))),
-            }),
+            project: Schema.Struct({
+                scripts: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+                entryPoints: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.String)).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+            }).pipe(Schema.encodeKeys({ entryPoints: 'entry-points' })),
         }),
+    ),
+);
+const Requirement = Schema.Struct({ name: Schema.String });
+const RequirementGroups = Schema.Record(Schema.String, Schema.Array(Requirement)).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
+const UvLock = TextFormat.Toml.pipe(
+    Schema.decodeTo(
+        Schema.Struct({
+            version: Schema.Literal(1),
+            requiresPython: RequiresPython,
+            manifest: Schema.Struct({ members: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({ members: [] }))),
+            package: Schema.Array(
+                Schema.Struct({
+                    name: Schema.String,
+                    source: Schema.Struct({ editable: Schema.OptionFromOptionalKey(Schema.String), virtual: Schema.OptionFromOptionalKey(Schema.String) }),
+                    dependencies: Schema.Array(Requirement).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+                    optionalDependencies: RequirementGroups,
+                    devDependencies: RequirementGroups,
+                }).pipe(Schema.encodeKeys({ optionalDependencies: 'optional-dependencies', devDependencies: 'dev-dependencies' })),
+            ),
+        }).pipe(Schema.encodeKeys({ requiresPython: 'requires-python' })),
     ),
 );
 const CargoMetadata = Schema.Struct({
@@ -97,60 +99,35 @@ class WorkspaceError extends Schema.TaggedError<WorkspaceError, { readonly brand
 // --- [READS]
 
 const glob = (workspaceRoot: string, patterns: string[], exclude?: string[]) => Effect.tryPromise(() => globWithWorkspaceContext(workspaceRoot, patterns, exclude));
-const suitePath = (path: Path.Path, base: string, directory: string) => (directory === base || directory.startsWith(`${base}${path.sep}`) ? directory : path.join(base, ...directory.split(path.sep).filter((segment, index) => index !== 1 || segment !== path.basename(base))));
-const suiteParents = (path: Path.Path, suites: readonly string[]) => Array.dedupe(suites.flatMap((suite) => Array.unfold(path.dirname(suite), (parent) => (parent === '.' ? Option.none() : Option.some([parent, path.dirname(parent)])))));
-const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string) {
-    const [path, { tool }] = yield* Effect.all([Path.Path, decodeFile(WorkspacePyproject, workspaceRoot, PYPROJECT)]);
-    const directories = Array.getSomes(Object.values(tool.uv.sources).map(Struct.get('path')));
-    const files = yield* glob(
-        workspaceRoot,
-        Array.union(tool.uv.workspace.members, directories).map((member) => path.join(member, PYPROJECT)),
-    );
-    const members = yield* Effect.forEach(files, (file) => Effect.map(decodeFile(MemberPyproject, workspaceRoot, file), Struct.assign({ member: path.dirname(file) })));
-    const providers = Array.bind(members, 'source', ({ tool: { hatch } }) => {
-        const sources = hatch.build.targets?.wheel?.sources;
-        return Array.isArray(sources) ? [] : Object.values(sources ?? {});
-    })
-        .filter(Predicate.Struct({ source: String.isNonEmpty }))
-        .map(({ project, source }) => {
-            const separator = source.indexOf('/');
-            return { distribution: project.name, importRoot: separator < 0 ? source : source.slice(0, separator) };
-        });
-    const mapping = Record.map(Array.groupBy(providers, Struct.get('distribution')), Function.flow(Array.map(Struct.get('importRoot')), Array.dedupe));
-    return {
-        moduleRoots: Array.dedupe(Array.bind(members, 'folder', ({ tool: { hatch } }) => hatch.build.devModeDirs).map(({ member, folder }) => path.join(member, folder))),
-        commands: members.filter(({ project }) => !Record.isEmptyRecord(project.scripts)).map(Struct.get('member')),
-        fawltydeps: {
-            members,
-            mapping: yield* Schema.encodeEffect(JsonListRecord)(mapping).pipe(Effect.orDie),
-        },
-        dataFile: tool.coverage.run.dataFile,
-        ...tool.pytest,
-    };
-});
-const readScopes = Effect.fnUntraced(function* (workspaceRoot: string, folders: readonly string[], testPaths: readonly string[]) {
+const readPython = Effect.fnUntraced(function* (workspaceRoot: string, locks: readonly string[]) {
     const path = yield* Path.Path;
-    const conftest = (directory: string) => path.join(directory, 'conftest.py');
-    const [files, sources] = yield* Effect.all(
-        [
-            glob(
-                workspaceRoot,
-                folders.map((host) => `**/${host}/**/${PYPROJECT}`),
+    const [{ tool }, decoded] = yield* Effect.all([decodeFile(WorkspacePyproject, workspaceRoot, PYPROJECT), Effect.forEach(locks, (lock) => Effect.map(decodeFile(UvLock, workspaceRoot, lock), Struct.assign({ root: path.dirname(lock) })), { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
+    const listed = decoded.flatMap(({ root, manifest, package: packages }) => packages.map((entry) => ({ root, entry, at: Option.firstSomeOf([entry.source.editable, entry.source.virtual]), member: manifest.members.includes(entry.name) })));
+    const owned = Array.getSomes(
+        listed.map(({ root, entry, at, member }) =>
+            Option.map(
+                Option.filter(at, (held) => member || held === '.'),
+                (held) => ({ root, entry, dir: path.join(root, held) }),
             ),
-            glob(workspaceRoot, [conftest('.'), ...suiteParents(path, testPaths).map(conftest), ...testPaths.map((directory) => `${directory}/**/*.{py,pyi}`)]),
-        ],
-        { concurrency: 'unbounded' },
+        ),
     );
-    return yield* Effect.validate(
-        files,
-        Effect.fnUntraced(function* (file: string) {
-            const scope = path.dirname(file);
-            const { project } = yield* decodeFile(HostPyproject, workspaceRoot, file);
-            const suites = testPaths.map((base) => suitePath(path, base, scope)).filter((suite) => sources.some(String.startsWith(`${suite}${path.sep}`)));
-            return { scope, version: project.minimum[1], suites, fixtures: suites.length === 0 ? [] : Array.sort(Array.intersection([conftest('.'), ...suiteParents(path, suites).map(conftest)], sources), Order.String) };
-        }),
-        { concurrency: 'unbounded' },
-    );
+    const manifests = yield* Effect.forEach(owned, ({ dir }) => decodeFile(MemberPyproject, workspaceRoot, dir, PYPROJECT), { concurrency: 'unbounded' });
+    const members = Array.zipWith(owned, manifests, ({ root, dir, entry: { name, source, dependencies, optionalDependencies, devDependencies } }, { project }) => ({
+        root,
+        dir,
+        name,
+        importName: String.kebabToSnake(name),
+        requires: Array.dedupe([...dependencies, ...Object.values(optionalDependencies).flat(), ...Object.values(devDependencies).flat()].map(Struct.get('name'))),
+        suite: Option.isSome(source.virtual) && tool.pytest.testPaths.some((at) => !path.relative(at, dir).startsWith('..')),
+        scripts: Object.keys(project.scripts),
+        plugin: Record.has(project.entryPoints, 'pytest11'),
+    }));
+    return {
+        roots: Record.fromIterableWith(decoded, ({ root, requiresPython }) => [root, { lock: `{workspaceRoot}/${path.join(root, UV_LOCK)}`, interpreter: { runtime: `uv run --project ${root} --no-sync python -c "import sys, sysconfig; print(sys.version, sysconfig.get_platform())"` }, release: requiresPython }]),
+        members: Record.fromIterableBy(members, Struct.get('dir')),
+        owners: Record.fromIterableBy(members, Struct.get('name')),
+        mapping: yield* Schema.encodeEffect(JsonListRecord)(Record.fromIterableWith(members, ({ name, importName }) => [name, [importName]])).pipe(Effect.orDie),
+    };
 });
 
 const readPackages = Effect.fnUntraced(function* (workspaceRoot: string) {
@@ -181,7 +158,6 @@ const readDaemons = Effect.fnUntraced(function* (workspaceRoot: string, declared
 
 const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfiguration }: Pick<CreateNodesContext, 'workspaceRoot' | 'nxJsonConfiguration'>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const pyproject = yield* Effect.cached(readPyproject(workspaceRoot));
     const cache = yield* Effect.acquireRelease(
         Effect.sync(() => new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.cache'))),
         (held) => Effect.sync(held.writeToDisk.bind(held)),
@@ -218,7 +194,6 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         workspaceRoot,
         crates,
         hosts,
-        pyproject,
         swiftManifest,
         nxJsonConfiguration,
         scanExclusions: Effect.map(
@@ -240,7 +215,6 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
                 ),
             ),
             packages: Effect.cached(readPackages(workspaceRoot)),
-            pythonScopes: Effect.cached(Effect.flatMap(Effect.all([hosts, pyproject]), ([folders, { testPaths }]) => readScopes(workspaceRoot, folders, testPaths))),
             swift: Effect.cached(
                 Effect.map(swiftManifest(SwiftPackage, 'describe', '--type', 'json'), (described) => ({
                     ...described,
@@ -258,4 +232,4 @@ const runPlugin = <A, E>(effect: Effect.Effect<A, E, Scope.Scope | PluginService
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, runPlugin, SWIFT_MANIFEST, suiteParents, suitePath, type Workspace, WorkspaceError };
+export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, openWorkspace, type PluginServices, PYPROJECT, readPython, runPlugin, SWIFT_MANIFEST, UV_LOCK, type Workspace, WorkspaceError };

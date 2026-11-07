@@ -29,6 +29,7 @@
 - Rows render in file order, later rows read a shared value from one earlier `[env]` row as `{{ env.<NAME> }}`
 - Configuration `exec()` templates need their command on `PATH`, URL templates using `version` render during installation
 - `[env]` holds values shells and repository programs read, a value one daemon alone reads sits in its `[daemons]` row `env`
+- Output color variables for agents sit in the agent harness environment, never in `[env]`
 - Platform `[env]` and `[daemons]` rows sit in `.config/mise.<os>.toml`, which `auto_env` in `.config/miserc.toml` loads, an `os()` branch rendering empty exports an empty string where the platform file leaves the variable unset
 - Nx inference reads daemon names and source files from `mise daemons ls --json` and each row from its source, a non-boot row becoming a root target that starts it
 

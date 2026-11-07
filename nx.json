@@ -15,7 +15,7 @@
             "options": {
                 "root": {
                     "typecheck:tsc": { "command": "tsc" },
-                    "typecheck:swift": { "command": "swift build --disable-automatic-resolution --build-tests", "parallelism": false },
+                    "typecheck:swift": { "command": "swift build --no-color-diagnostics --disable-automatic-resolution --build-tests" },
                     "typecheck:clippy": { "command": "cargo clippy --locked --workspace --lib --bins", "inputs": [ "rustWorkspace", "{workspaceRoot}/clippy.toml" ], "parallelism": false },
                     "typecheck:javac": { "command": "rm -rf .cache/javac && fd --hidden --extension java --exec-batch javac -Xlint:all,-path -Werror -d .cache/javac -cp \"$GHIDRA_CLASSPATH\"", "inputs": [ "ghidra" ], "outputs": [ "{workspaceRoot}/.cache/javac" ] },
                     "lint:dotnet-format": { "command": "hk check --glob='**/*' --step=dotnet-format", "inputs": [ "hk", "{workspaceRoot}/global.json", "{workspaceRoot}/**/.editorconfig", "{workspaceRoot}/**/*.cs" ] },
@@ -44,7 +44,8 @@
                     },
                     "lint:tombi": { "command": "hk check --glob='**/*' --step=tombi --step=tombi-lint", "inputs": [ "hk", "{workspaceRoot}/**/*.toml", { "runtime": "tombi --version" } ] },
                     "lint:hk": { "command": "hk validate --deny-warnings", "inputs": [ "hk" ] },
-                    "lint:yamllint": { "command": "hk check --glob='**/*' --step=yamllint", "inputs": [ "hk", "python", "{workspaceRoot}/**/*.{yml,yaml}", { "runtime": "yamllint --version" } ] },
+                    "lint:yamllint": { "command": "hk check --glob='**/*' --step=yamllint", "inputs": [ "hk", "{workspaceRoot}/**/*.{yml,yaml}", { "runtime": "yamllint --version" } ] },
+                    "lint:uv": { "command": "uv lock --check", "inputs": [ "{workspaceRoot}/**/pyproject.toml", "{workspaceRoot}/uv.lock", { "runtime": "uv --version" } ] },
                     "lint:jactionlint": {
                         "command": "hk check --glob='**/*' --step=jactionlint",
                         "inputs": [
@@ -65,7 +66,6 @@
                     "check": { "inputs": [ "{workspaceRoot}/**/*" ] },
                     "upgrade": { "executor": "nx:run-commands", "options": { "commands": [ { "command": "nx sync", "forwardAllArgs": false }, "mise daemons restart" ], "parallel": false }, "dependsOn": [ "upgrade:*", { "projects": [ "tag:build:xcode" ], "target": "upgrade:xcode" } ], "parallelism": false },
                     "upgrade:dotnet": { "command": "dotnet run --no-restore --project eng/dotnet/Rasm.Upgrade --" },
-                    "upgrade:python": { "executor": "nx:run-commands", "options": { "commands": [ "pixi update", "python -m eng.python.blender upgrade", "uv lock --upgrade", "pixi run --locked uv sync --locked" ], "parallel": false } },
                     "upgrade:typescript": {
                         "executor": "nx:run-commands",
                         "options": { "commands": [ "ncu --workspaces --target newest --upgrade --install never --reject @typescript/native", "rasm-upgrade-typescript", "pnpm install", "playwright install --only-shell --no-remove chromium" ], "parallel": false },
@@ -99,8 +99,7 @@
             "{workspaceRoot}/tools/roslyn/**/*",
             { "externalDependencies": [] }
         ],
-        "python": [ "{workspaceRoot}/**/pyproject.toml", "{workspaceRoot}/uv.lock", "{workspaceRoot}/pixi.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" } ],
-        "blender": [ "{workspaceRoot}/eng/python/blender/{__main__,host}.py", "{workspaceRoot}/libs/python/blender/{bpy/**/*.py,records/**/*.py,probe.py}", { "runtime": "ls -lL \"$BLENDER_PATH\"" }, { "env": "MACOSX_DEPLOYMENT_TARGET" } ],
+        "blender": [ { "runtime": "ls -lL \"$BLENDER_PATH\"" }, { "env": "MACOSX_DEPLOYMENT_TARGET" } ],
         "version": [ { "runtime": "git rev-parse HEAD && git for-each-ref refs/tags" } ],
         "nodePlatform": [ { "runtime": "node -p \"[process.version, process.platform, process.arch].join('-')\"" } ],
         "typescript": [ "{workspaceRoot}/tsconfig.{base,web}.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type" ] } ],
@@ -148,8 +147,8 @@
         "serve": [ { "filter": { "projects": [ "tag:output:cloudflare" ] }, "configurations": { "e2e": { "args": [ "--mode", "e2e", "--strictPort" ] } } } ],
         "assets": [
             {
-                "command": "python -m eng.python.blender assets {projectRoot} .artifacts/blender/{projectName}/assets",
-                "inputs": [ "{projectRoot}/icons/**/*.svg", "{projectRoot}/**/*.xml", "{projectRoot}/pyproject.toml", "python", "blender", "{workspaceRoot}/eng/python/blender/{assets,icons,theme}.py" ],
+                "command": "rasm-eng assets {projectRoot} .artifacts/blender/{projectName}/assets",
+                "inputs": [ "{projectRoot}/icons/**/*.svg", "{projectRoot}/**/*.xml", "{projectRoot}/pyproject.toml", "python", "blender", { "input": "production", "projects": [ "rasm-eng" ], "dependencies": true }, { "input": "python", "projects": [ "rasm-eng" ] } ],
                 "outputs": [ "{workspaceRoot}/.artifacts/blender/{projectName}/assets" ],
                 "cache": true
             }
@@ -158,9 +157,19 @@
             { "filter": { "projects": [ "tag:output:rhp" ] }, "command": "dotnet publish --no-build --configuration Release", "options": { "cwd": "{projectRoot}" }, "dependsOn": [ "build:release" ] },
             {
                 "filter": { "projects": [ "tag:output:extension" ] },
-                "command": "version=$(minver -v e) && python -m eng.python.blender pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\"",
+                "command": "version=$(minver -v e) && rasm-eng pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\"",
                 "dependsOn": [ "assets" ],
-                "inputs": [ "default", "^default", "python", "blender", "{workspaceRoot}/eng/python/blender/{assembly,assets}.py", "{workspaceRoot}/libs/python/blender/**/*", { "dependentTasksOutputFiles": "**/*" }, { "json": "{workspaceRoot}/package.json", "fields": [ "author", "license" ] }, "version" ],
+                "inputs": [
+                    "default",
+                    "^default",
+                    "python",
+                    "blender",
+                    { "input": "production", "projects": [ "rasm-eng" ], "dependencies": true },
+                    { "input": "python", "projects": [ "rasm-eng" ] },
+                    { "dependentTasksOutputFiles": "**/*" },
+                    { "json": "{workspaceRoot}/package.json", "fields": [ "author", "license" ] },
+                    "version"
+                ],
                 "outputs": [ "{workspaceRoot}/.artifacts/blender/{projectName}/archives" ],
                 "cache": true
             },
@@ -195,10 +204,10 @@
                 "dependsOn": [ "...", "pack" ]
             },
             { "filter": { "projects": [ "tag:output:rhp" ] }, "command": "dotnet msbuild -target:InstallYakPackage -property:Configuration=Release", "options": { "cwd": "{projectRoot}" }, "dependsOn": [ "pack" ] },
-            { "filter": { "projects": [ "tag:output:extension" ] }, "command": "python -m eng.python.blender install .artifacts/blender/{projectName}/archives", "dependsOn": [ "pack" ] },
+            { "filter": { "projects": [ "tag:output:extension" ] }, "command": "rasm-eng install .artifacts/blender/{projectName}/archives", "dependsOn": [ "pack" ] },
             {
                 "filter": { "projects": [ "tag:output:command" ] },
-                "command": "uv export --frozen --no-hashes --no-emit-local --no-default-groups --quiet --output-file .artifacts/python/{projectName}.constraints.txt && uv tool install --python \"$(mise which python)\" --constraints .artifacts/python/{projectName}.constraints.txt --editable {projectRoot}"
+                "command": "uv export --frozen --no-hashes --no-emit-local --no-default-groups --package {projectName} --quiet --output-file .artifacts/python/{projectName}.constraints.txt && uv tool install --constraints .artifacts/python/{projectName}.constraints.txt --editable {projectRoot}"
             },
             { "filter": { "projects": [ "tag:host:uxp", "tag:host:cep" ] }, "command": "rasm-install-adobe-plugins .artifacts/{projectRoot}", "dependsOn": [ "pack" ] },
             {
@@ -208,7 +217,7 @@
             },
             {
                 "filter": { "projects": [ "tag:build:swiftpm" ] },
-                "command": "export SWIFTPM_BUILD_DIR=\"$SWIFTPM_BUILD_DIR/install\" && swift build --disable-automatic-resolution -c release --product {projectName} && mkdir -p \"$XDG_CONFIG_HOME/swiftpm/bin\" && install -C -m 755 \"$SWIFTPM_BUILD_DIR/release/{projectName}\" \"$XDG_CONFIG_HOME/swiftpm/bin\""
+                "command": "export SWIFTPM_BUILD_DIR=\"$SWIFTPM_BUILD_DIR/install\" && swift build --no-color-diagnostics --disable-automatic-resolution -c release --product {projectName} && mkdir -p \"$XDG_CONFIG_HOME/swiftpm/bin\" && install -C -m 755 \"$SWIFTPM_BUILD_DIR/release/{projectName}\" \"$XDG_CONFIG_HOME/swiftpm/bin\""
             }
         ],
         "publish": [
@@ -262,28 +271,24 @@
                 "inputs": [ "production", "^production", "dotnet", { "env": "DOTNET_ROLL_FORWARD" }, { "env": "DOTNET_ROLL_FORWARD_TO_PRERELEASE" }, { "runtime": "dotnet --list-runtimes" } ],
                 "outputs": [ "{workspaceRoot}/.artifacts/dotnet/test/{projectName}" ]
             },
-            { "filter": { "projects": [ "tag:language:python" ] }, "inputs": [ "...", "default", "^default", "python" ] },
+            {
+                "filter": { "projects": [ "tag:language:python" ] },
+                "command": "uv run --project {projectRoot} --no-sync pytest {projectRoot} --report-log=.artifacts/python/test/{projectName}/events.jsonl",
+                "options": { "env": { "COVERAGE_FILE": ".artifacts/python/coverage/data/{projectName}/.coverage" } },
+                "inputs": [ "default", "^production", "python" ],
+                "outputs": [ "{workspaceRoot}/.artifacts/python/test/{projectName}", "{workspaceRoot}/.artifacts/python/coverage/data/{projectName}" ]
+            },
             { "filter": { "plugin": "@nx/vitest" }, "inputs": [ "...", "nodePlatform", { "externalDependencies": [ "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ], "outputs": [ "{workspaceRoot}/.artifacts/typescript/vitest/{projectRoot}/vitest.config" ] },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo nextest run --locked --package {projectName}", "inputs": [ "default", "^default", "rust", "nextest" ], "parallelism": false },
             { "filter": { "projects": [ "tag:host:dylint" ] }, "inputs": [ "...", { "runtime": "cargo dylint --version" } ] },
             {
                 "filter": { "projects": [ "tag:build:swiftpm" ] },
-                "command": "rm -rf .artifacts/swift/test/{projectName} && mkdir -p .artifacts/swift/test/{projectName} && swift test --disable-index-store --disable-xctest --disable-automatic-resolution --attachments-path .artifacts/swift/test/{projectName} --event-stream-output-path .artifacts/swift/test/{projectName}/events.jsonl",
+                "command": "rm -rf .artifacts/swift/test/{projectName} && mkdir -p .artifacts/swift/test/{projectName} && swift test --no-color-diagnostics --disable-index-store --disable-xctest --disable-automatic-resolution --attachments-path .artifacts/swift/test/{projectName} --event-stream-output-path .artifacts/swift/test/{projectName}/events.jsonl",
                 "inputs": [ "...", "default", "^default", "swift" ],
-                "outputs": [ "{workspaceRoot}/.artifacts/swift/test/{projectName}" ],
-                "parallelism": false
+                "outputs": [ "{workspaceRoot}/.artifacts/swift/test/{projectName}" ]
             }
         ],
-        "test:integration": [
-            { "filter": { "projects": [ "@rasm/test-database" ] }, "inputs": [ "...", "{workspaceRoot}/.config/squawk.toml", { "runtime": "squawk --version" } ] },
-            {
-                "filter": { "projects": [ "tag:build:swiftpm" ] },
-                "command": "rm -rf .artifacts/swift/test-integration/{projectName} && mkdir -p .artifacts/swift/test-integration/{projectName} && swift test --disable-index-store --disable-xctest --disable-automatic-resolution --attachments-path .artifacts/swift/test-integration/{projectName} --event-stream-output-path .artifacts/swift/test-integration/{projectName}/events.jsonl",
-                "inputs": [ "...", "default", "^default", "swift" ],
-                "outputs": [ "{workspaceRoot}/.artifacts/swift/test-integration/{projectName}" ],
-                "parallelism": false
-            }
-        ],
+        "test:integration": [ { "filter": { "projects": [ "@rasm/test-database" ] }, "inputs": [ "...", "{workspaceRoot}/.config/squawk.toml", { "runtime": "squawk --version" } ] } ],
         "check": [
             { "dependsOn": [ "...", "typecheck:*", "lint:*" ] },
             { "filter": { "projects": [ "tag:language:dotnet" ] }, "dependsOn": [ "...", { "target": "build", "params": "forward" } ], "inputs": [ "default", "^default", "dotnet", "{workspaceRoot}/Workspace.slnx" ] },

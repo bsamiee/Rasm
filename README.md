@@ -27,7 +27,6 @@ Rasm/
 │   ├── ast-grep/             # Per-language support ast-grep lacks for reading repository code and enforcing syntax-level standards
 │   ├── bridge/               # rasm-mcp-bridge binary serving a stdio MCP server over Streamable HTTP
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
-│   ├── foundry/              # CLI over the typography library, a declared font set reconciled, built, shaped, and published
 │   ├── nx/                   # Nx plugin inferring a project from each project file
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
 │   ├── roslyn/               # C# analyzers, code fixes, and BannedSymbols*.txt bans
@@ -41,7 +40,7 @@ Rasm/
 ├── tsconfig.web.json         # Browser `lib` every web project extends
 ├── vitest.config.ts          # Root Vitest run over every project suite
 ├── biome.json                # TypeScript and JSON formatting and lint
-├── pyproject.toml            # Python environment, dependency groups, and checker settings
+├── pyproject.toml            # Python workspace root, catalog groups, and checker settings
 ├── global.json               # .NET SDK versions
 ├── Workspace.slnx            # .NET solution
 ├── Directory.Packages.props  # .NET central package versions
@@ -60,6 +59,7 @@ Rasm/
 ├── .editorconfig             # Editor settings and .NET formatting options
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .gitignore                # Generated, secret, and machine-local paths
+├── .nxignore                 # Paths Nx leaves out of project files, input hashes, and affected
 ├── .shellcheckrc             # ShellCheck checks off where an ast-grep rule owns the form
 ├── .swift-format             # Swift lint and format rules
 ├── .swiftlint.yml            # Swift lint rules swift-format lacks
@@ -92,7 +92,7 @@ flowchart LR
 ## [03]-[TASKS]
 
 - `git submodule update --init --checkout assets` fills `assets/` for font builds and publishing
-- `mise run update` moves tools, catalogs, locks, and action tags to newest releases, reinstalls `tools/` products, and prunes old tool versions
+- `mise run update` moves tools, catalogs, locks, and action tags to newest releases, reinstalls `tools/` products and Python commands, and prunes old tool versions
 - `mise run clean` removes build outputs and prunes tool caches
 - `pixi run --locked uv sync` builds Python distributions against Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`

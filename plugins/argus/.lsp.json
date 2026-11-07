@@ -20,15 +20,14 @@
         "initializationOptions": {
             "cargo": { "extraEnv": { "CARGO_BUILD_TARGET_DIR": "${CLAUDE_PROJECT_DIR}/.artifacts/rust/rust-analyzer", "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/rust-analyzer" } },
             "cachePriming": { "enable": false },
-            "check": { "command": "clippy" }
+            "checkOnSave": false
         }
     },
     "swift": {
         "command": "sourcekit-lsp",
         "extensionToLanguage": { ".swift": "swift" },
         "diagnostics": false,
-        "env": { "SWIFTPM_BUILD_DIR": "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index" },
-        "initializationOptions": { "swiftPM": { "scratchPath": "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index", "forceResolvedVersions": true } }
+        "initializationOptions": { "backgroundIndexing": false, "swiftPM": { "scratchPath": "${SWIFTPM_BUILD_DIR}", "forceResolvedVersions": true, "buildSystem": "swiftbuild" } }
     },
     "java": {
         "command": "mise",
@@ -67,6 +66,7 @@
         "command": "bash-language-server",
         "args": [ "start" ],
         "extensionToLanguage": { ".sh": "shellscript", ".bash": "shellscript" },
-        "diagnostics": false
+        "diagnostics": false,
+        "env": { "BACKGROUND_ANALYSIS_MAX_FILES": "0" }
     }
 }

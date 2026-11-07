@@ -1,10 +1,10 @@
 import { createRequire } from 'node:module';
 import type { CreateNodesResult, TargetConfiguration } from '@nx/devkit';
 import { decodeFile, librarySurface, Sgconfig } from '@rasm/eng';
-import { Array, Cache, Effect, Equal, FileSystem, Option, Order, Path, Predicate, Record, Schema, String, Struct } from 'effect';
+import { Array, Cache, Effect, FileSystem, Option, Order, Path, Record, Schema, String, Struct } from 'effect';
 import { quote } from 'shell-quote';
-import { attachedSuites, folderInput, imports, packageName, reach, rootTargets, swiftProject, TESTS } from '#/graph/projects.ts';
-import { glob, PYPROJECT, SWIFT_MANIFEST, type Workspace } from '#/workspace.ts';
+import { BLENDER_MANIFEST, folderInput, type Inference, imports, packageName, reach, swiftProject } from '#/graph/projects.ts';
+import { glob, PYPROJECT, SWIFT_MANIFEST, UV_LOCK, type Workspace } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -34,74 +34,70 @@ const importInputs = (graph: Effect.Success<ReturnType<typeof reach>>) => [...Ob
 
 // --- [TARGETS]
 
-const pythonChecks = Effect.fnUntraced(function* ({ hosts, pyproject, pythonScopes }: Workspace) {
-    const [path, folders, { fawltydeps }, scopes] = yield* Effect.all([Path.Path, hosts, pyproject, pythonScopes]);
+const pythonChecks = Effect.fnUntraced(function* ({ python, packages, configFiles }: Inference) {
+    const [path, { roots, members, owners }, manifests] = yield* Effect.all([Path.Path, python, packages]);
+    const [{ name }, workspace] = yield* Effect.all([Effect.fromOption(Record.get(manifests, '.')), Effect.fromOption(Record.get(roots, '.'))]);
     const restore = 'restore:python';
-    const groups = Record.collect(Array.groupBy(scopes, Struct.get('version')), (version, members) => {
-        const directories = Array.dedupe(members.flatMap(({ scope, suites }) => [scope, ...suites]));
-        const fixtures = Array.dedupe(members.flatMap(Struct.get('fixtures')));
-        const scoped = quote([...directories, ...fixtures]);
-        const environment = `.cache/python/${version}`;
-        const interpreterInput = { runtime: `uv python find --system ${version} --show-version` };
-        const selection = `--no-active --python ${version}`;
-        return {
-            version,
-            directories,
-            fixtures,
-            interpreterInput,
-            install: `UV_PROJECT_ENVIRONMENT=${environment} uv sync --locked ${selection} --no-default-groups --group host-checks`,
-            check: {
-                target: { inputs: [...directories.map(folderInput), ...fixtures.map((file) => `{workspaceRoot}/${file}`), interpreterInput], dependsOn: [restore] },
-                ty: `VIRTUAL_ENV=${environment} ty check ${scoped}`,
-                mypy: `python -m tools.refurb --python-version ${version} ${scoped} -- --python-executable "$(VIRTUAL_ENV=${environment} uv python find ${version})"`,
+    const refurb = 'rasm-refurb';
+    const nested = Record.remove(roots, '.');
+    const folders = Record.keys(nested);
+    const extensions = Object.values(members).filter(({ dir }) => configFiles.has(path.join(dir, BLENDER_MANIFEST)));
+    const required = extensions.flatMap(({ root, requires }) => [root, ...Array.getSomes(requires.map((held) => Record.get(owners, held))).map(Struct.get('root'))]);
+    const hosted = Array.intersection(folders, required);
+    const located = Array.getSomes(Object.values(members).map(({ dir, root }) => Option.map(Record.get(nested, root), ({ release }) => ({ dir, release, environment: path.relative(dir, path.join(root, '.venv')) }))));
+    const ty = { TY_UV: '1', UV_LOCKED: '1' };
+    const checked = { dependsOn: [{ projects: [name], target: restore }], inputs: ['default', '^production', 'python', workspace.lock] };
+    const inputs = ['pythonFiles', ...folders.map((folder) => `!${folderInput(folder)}`), '{workspaceRoot}/**/pyproject.toml', workspace.lock, workspace.interpreter, { externalDependencies: [] }];
+    const tyExclusions = quote(folders.flatMap((folder) => ['--exclude', folder]));
+    const mypyExclusions = quote(folders.flatMap((folder) => ['--exclude', `^${RegExp.escape(`${folder}/`)}`]));
+    return {
+        projects: {
+            ...Record.fromIterableWith(located, ({ dir, release, environment }) => [
+                dir,
+                {
+                    root: dir,
+                    targets: {
+                        'typecheck:ty': { ...checked, command: 'ty check .', options: { cwd: '{projectRoot}', env: { ...ty, VIRTUAL_ENV: environment } } },
+                        'typecheck:mypy': {
+                            ...checked,
+                            command: `${refurb} --config-file ${path.relative(dir, PYPROJECT)} --python-version ${release} . -- --python-executable ${path.join(environment, 'bin', 'python')}`,
+                            inputs: [...checked.inputs, { input: 'production', projects: [refurb] }],
+                            options: { cwd: '{projectRoot}', env: { VIRTUAL_ENV: environment } },
+                        },
+                    },
+                },
+            ]),
+            '.': {
+                root: '.',
+                targets: {
+                    ...Array.match(folders, { onEmpty: () => ({}), onNonEmpty: (held) => ({ [restore]: { executor: 'nx:run-commands', options: { commands: held.map((root) => `cd ${quote([root])} && VIRTUAL_ENV=.venv uv sync --locked`) } } }) }),
+                    'typecheck:ty': { command: `ty check ${tyExclusions}`, inputs, options: { env: { ...ty, VIRTUAL_ENV: '.venv' } } },
+                    'typecheck:mypy': { command: `${refurb} -- ${mypyExclusions}`, inputs },
+                    'upgrade:python': {
+                        executor: 'nx:run-commands',
+                        options: {
+                            commands: ['pixi update', ...hosted.map((root) => `rasm-eng upgrade ${quote([root])}`), ...folders.map((root) => `uv lock --upgrade --directory ${quote([root])}`), 'uv lock --upgrade', 'pixi run --locked uv sync --locked'],
+                            parallel: false,
+                        },
+                    },
+                },
             },
-            environment,
-        };
-    });
-    const hostDirectories = Array.dedupe(groups.flatMap(Struct.get('directories')));
-    const hostFixtures = Array.dedupe(groups.flatMap(Struct.get('fixtures'))).filter((file) => file.split(path.sep).some((part) => folders.includes(part)));
-    const tyExclusions = quote([...hostDirectories, ...hostFixtures].flatMap((file) => ['--exclude', file]));
-    const mypyExclusions = quote([...hostDirectories.map((folder) => `^${RegExp.escape(`${folder}/`)}`), ...hostFixtures.map((file) => `^${RegExp.escape(file)}$`)].flatMap((pattern) => ['--exclude', pattern]));
-    const commands = [
-        {
-            suffix: '',
-            target: { inputs: ['pythonFiles'] },
-            ty: `ty check ${tyExclusions}`,
-            mypy: `python -m tools.refurb -- ${mypyExclusions}`,
         },
-        ...groups.map(({ version, check }) => ({ suffix: `:${version}`, ...check })),
-    ];
-    const fawltyRuns = fawltydeps.members.map(({ member, project }) => {
-        const hosted = Option.flatMap(Array.findFirst(scopes, Predicate.Struct({ scope: Equal.equals(member) })), ({ version }) => Array.findFirst(groups, Predicate.Struct({ version: Equal.equals(version) })));
-        const checker = Option.match(hosted, {
-            onNone: () => ({ command: 'fawltydeps --check-unused', inputs: [] }),
-            onSome: ({ environment, interpreterInput }) => ({ command: `fawltydeps --check-unused --pyenv ${path.relative(member, environment)}`, dependsOn: [restore], inputs: [interpreterInput] }),
-        });
-        return [`lint:fawltydeps:${project.name}`, { ...checker, options: { cwd: member, env: { FAWLTYDEPS_CUSTOM_MAPPING: fawltydeps.mapping } }, inputs: ['python', folderInput(member), ...checker.inputs] }] as const;
-    });
-    return rootTargets({
-        ...Array.match(groups, { onEmpty: () => ({}), onNonEmpty: (held) => ({ [restore]: { executor: 'nx:run-commands', options: { commands: held.map(Struct.get('install')) } } }) }),
-        ...Record.fromIterableWith(commands, ({ suffix, target, ty }) => [`typecheck:ty${suffix}`, { ...target, command: ty, inputs: [...target.inputs, 'python'], options: { env: { TY_UV: '1', UV_LOCKED: '1' } } }]),
-        ...Record.fromIterableWith(commands, ({ suffix, target, mypy }) => [`typecheck:mypy${suffix}`, { ...target, command: mypy, inputs: [...target.inputs, '{workspaceRoot}/tools/refurb/**/*.py', 'python'] }]),
-        ...Object.fromEntries(fawltyRuns),
-    });
+    } satisfies CreateNodesResult;
 });
 const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
     const [{ targets, platforms, tests }, folders] = yield* Effect.all([swift, hosts]);
     const [suites, sources] = tests;
     const platformed = platforms.map(Struct.get('name'));
-    const suiteTargets = Record.fromIterableWith(suites, (suite) => [suite.name, { suite, files: [folderInput(suite.path), ...suites.filter(({ path }) => path.startsWith(`${suite.path}/`)).map(({ path }) => `!${folderInput(path)}`)] }]);
-    const production = sources.filter(({ path }) => !path.startsWith(`${TESTS}/`));
-    const excluded = Array.match(Array.difference(targets, production), { onEmpty: () => ({}), onNonEmpty: (all) => ({ options: { args: ['--exclude-targets', ...all.map(Struct.get('c99name'))] } }) });
+    const suiteTargets = Record.fromIterableWith(suites, (suite) => [suite.name, suite]);
+    const excluded = Array.match(Array.difference(targets, sources), { onEmpty: () => ({}), onNonEmpty: (all) => ({ options: { args: ['--exclude-targets', ...all.map(Struct.get('c99name'))] } }) });
     const modules = sources.map((target) => {
         const segments = target.path.split('/');
-        const installed = target.type === 'executable' && segments[0] !== TESTS;
-        const attached = attachedSuites(suiteTargets, target.name);
-        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, segments), folders).map(String.concat.bind(null, 'host:'))], installed ? ['install'] : []);
-        const testTargets = Record.map(attached, ({ suite, files }) => {
+        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, segments), folders).map(String.concat.bind(null, 'host:'))], target.type === 'executable' ? ['install'] : []);
+        const testTargets = Record.map(Record.getSomes({ test: Record.get(suiteTargets, `${target.name}Tests`) }), (suite) => {
             const projects = Array.difference(suite.locals, [target.name]);
             const inputs: NonNullable<TargetConfiguration['inputs']> = [
-                ...files,
+                folderInput(suite.path),
                 ...(projects.length === 0
                     ? []
                     : [
@@ -133,7 +129,7 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
                 tags: Array.intersection(platformed, folders).map(String.concat.bind(null, 'host:')),
                 targets: {
                     'typecheck:swift': { inputs: ['swift', ...sources.map(Struct.get('path')).map(folderInput)] },
-                    'lint:periphery': { ...excluded, inputs: ['swift', 'periphery', ...production.map(Struct.get('path')).map(folderInput)] },
+                    'lint:periphery': { ...excluded, inputs: ['swift', 'periphery', ...sources.map(Struct.get('path')).map(folderInput)] },
                 },
             },
         },
@@ -242,7 +238,7 @@ const neutrality = Effect.fnUntraced(function* ({ workspaceRoot, packages }: Wor
         }),
     });
 });
-const roots = { [PYPROJECT]: pythonChecks, [SWIFT_MANIFEST]: swiftModules, [Sgconfig.file]: astGrep } as const;
+const roots = { [UV_LOCK]: pythonChecks, [SWIFT_MANIFEST]: swiftModules, [Sgconfig.file]: astGrep } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

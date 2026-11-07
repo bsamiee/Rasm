@@ -6,22 +6,22 @@ import { ClaudeHooks, decodeFile, TextFormat, Xcconfig, XcodeProject } from '@ra
 import { Array, Effect, Equal, FileSystem, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parseSync } from 'rolldown/utils';
-import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, suiteParents, suitePath, type Workspace, WorkspaceError } from '#/workspace.ts';
+import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, PYPROJECT, type readPython, type Workspace, WorkspaceError } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Inference = Workspace & { readonly configFiles: ReadonlySet<string> };
+type Inference = Workspace & { readonly configFiles: ReadonlySet<string>; readonly python: ReturnType<typeof readPython> };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TESTS = 'tests';
 const MODULES = 'node_modules';
 const VITEST_INTEGRATION = 'vitest.integration.config';
+const BLENDER_MANIFEST = 'blender_manifest.toml';
 const VITE = { args: ['--configLoader', 'native'], inputs: ['typescript', 'nodePlatform'] } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const BlenderManifest = TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ id: Schema.String })));
 const MSBuildProject = TextFormat('MSBuild XML', (text) => new XMLParser({ ignoreAttributes: false, isArray: (name) => name === 'PropertyGroup' || name === 'ItemGroup' || name === 'PackageReference' }).parse(text)).pipe(
     Schema.decodeTo(
         Schema.Struct({
@@ -89,11 +89,6 @@ const sharedInputs = Effect.fnUntraced(function* (workspaceRoot: string, dir: st
     return marks.map((value) => `{workspaceRoot}/${path.relative(workspaceRoot, value)}`);
 });
 const rootTargets = (targets: Readonly<Record<string, TargetConfiguration>>): CreateNodesResult => ({ projects: { '.': { root: '.', targets } } });
-const pytest = (args: readonly string[], coverage?: string): TargetConfiguration => ({
-    command: 'pytest --report-log=.artifacts/python/test/{projectName}/events.jsonl',
-    options: { args, ...(coverage === undefined ? {} : { env: { COVERAGE_FILE: coverage } }) },
-    outputs: ['{workspaceRoot}/.artifacts/python/test/{projectName}', ...(coverage === undefined ? [] : [`{workspaceRoot}/${coverage}`])],
-});
 
 // --- [PROJECTS]
 
@@ -104,25 +99,6 @@ const tagPrefix = ({ nxJsonConfiguration: { release } }: Workspace, root: string
             ([releaseGroupName, group]) => Option.map(Option.fromNullishOr(group.releaseTag?.pattern ?? release?.releaseTag?.pattern), (pattern) => interpolate(pattern, { projectName, releaseGroupName }).replace('{version}', '')),
         ),
     );
-const pythonTargets = Effect.fnUntraced(function* (dir: string, { workspaceRoot, pyproject, hosts, configFiles }: Inference) {
-    const [path, { pythonFiles, testPaths, dataFile }, folders] = yield* Effect.all([Path.Path, pyproject, hosts]);
-    const suites = yield* Effect.filter(
-        testPaths.map((testPath) => suitePath(path, testPath, dir)),
-        (suite) => Effect.map(glob(workspaceRoot, [`${suite}/**/{${pythonFiles.join(',')}}`]), Array.isArrayNonEmpty),
-    );
-    const segments = dir.split(path.sep);
-    const coverage = `${dataFile}.{projectName}`;
-    const test = configFiles.has(path.join(dir, 'py.typed')) && !folders.some((host) => segments.includes(host)) ? pytest([...suites, '--cov'], coverage) : pytest(suites);
-    const parents = suiteParents(path, suites);
-    return Array.match(suites, {
-        onEmpty: () => ({ targets: {} }),
-        onNonEmpty: (held) => ({
-            ...defaultInputs([...held.map(folderInput), '{workspaceRoot}/conftest.py', ...parents.map((parent) => `{workspaceRoot}/${path.join(parent, '*.py')}`)]),
-            targets: { test },
-        }),
-    });
-});
-const attachedSuites = <Suite>(suites: Readonly<Record<string, Suite>>, module: string) => Record.getSomes(Record.map({ test: 'Tests', 'test:integration': 'IntegrationTests' }, (suffix) => Record.get(suites, `${module}${suffix}`)));
 const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
     tags: ['language:swift', ...tags],
     targets: Record.fromIterableWith(['build', ...targets], (target) => [target, {}]),
@@ -211,18 +187,30 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             },
         };
     }),
-    'blender_manifest.toml': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [{ id }, python] = yield* Effect.all([decodeFile(BlenderManifest, workspace.workspaceRoot, workspace.file), pythonTargets(dir, workspace)]);
+    [BLENDER_MANIFEST]: Effect.fnUntraced(function* ({ dir }, { python }) {
+        const { members } = yield* python;
+        const { name } = yield* Effect.fromOption(Record.get(members, dir));
+        return { name, tags: ['output:extension'], targets: { assets: {}, pack: {}, install: {}, publish: {} } };
+    }),
+    [PYPROJECT]: Effect.fnUntraced(function* ({ dir }, { python, packages }) {
+        const [path, { roots, members, owners, mapping }, manifests] = yield* Effect.all([Path.Path, python, packages]);
+        const member = yield* Effect.fromOption(Record.get(members, dir));
+        const [owner, { name: workspaceName }] = yield* Effect.all([Effect.fromOption(Record.get(roots, member.root)), Effect.fromOption(Record.get(manifests, '.'))]);
+        const coverage = Array.getSomes(member.requires.map((required) => Record.get(owners, required)))
+            .filter(({ plugin }) => !plugin)
+            .map(({ importName }) => `--cov=${importName}`);
+        const environment = path.relative(dir, path.join(member.root, '.venv'));
+        const command = Array.isReadonlyArrayNonEmpty(member.scripts);
+        const fawltydeps = member.root === '.' ? { command: `fawltydeps --check --pyenv ${environment}` } : { command: `fawltydeps --check-unused --pyenv ${environment}`, dependsOn: [{ projects: [workspaceName], target: 'restore:python' }] };
         return {
-            ...python,
-            name: id,
-            tags: ['language:python', 'host:blender', 'output:extension'],
+            name: member.name,
+            tags: ['language:python', ...(command ? ['output:command'] : [])],
+            implicitDependencies: member.requires.filter((required) => required !== member.name && Record.has(owners, required)),
+            namedInputs: { python: [...(member.root === dir ? [] : [owner.lock]), `{workspaceRoot}/${PYPROJECT}`, { externalDependencies: [] }, owner.interpreter] },
             targets: {
-                assets: {},
-                pack: {},
-                install: {},
-                publish: {},
-                ...python.targets,
+                ...(Array.isReadonlyArrayEmpty(member.requires) ? {} : { 'lint:fawltydeps': { ...fawltydeps, options: { cwd: '{projectRoot}', env: { FAWLTYDEPS_CUSTOM_MAPPING: mapping } }, inputs: ['default', 'python'] }, check: {} }),
+                ...(command ? { install: {} } : {}),
+                ...(member.suite ? { test: { options: { args: coverage } } } : {}),
             },
         };
     }),
@@ -263,18 +251,6 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             implicitDependencies: products.filter((product) => local.has(product.name)).flatMap(Struct.get('targets')),
             targets: { ...Record.map(xcode.targets, () => ({ options })), ...Record.fromIterableWith(['build', 'pack'], (step) => [step, { options, dependsOn: bundled }]) },
         };
-    }),
-    'py.typed': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [path, { moduleRoots, commands }, python] = yield* Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]);
-        const moduleRoot = yield* Effect.fromOption(Array.findFirst(moduleRoots, (held) => !path.relative(held, dir).startsWith('..')));
-        const command = commands.includes(dir);
-        return { ...python, name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python', ...(command ? ['output:command'] : [])], targets: { ...python.targets, ...(command ? { install: {} } : {}) } };
-    }),
-    '__main__.py': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const path = yield* Path.Path;
-        yield* Effect.filterOrFail(Effect.succeed(dir), (root) => !['py.typed', 'blender_manifest.toml'].some((marker) => workspace.configFiles.has(path.join(root, marker))));
-        const python = yield* Effect.filterOrFail(pythonTargets(dir, workspace), ({ targets }) => 'test' in targets);
-        return { ...python, name: path.basename(dir), tags: ['language:python'] };
     }),
     'tsconfig.json': { tags: ['language:typescript'], targets: { check: {} } },
     '.storybook/main.ts': {
@@ -321,20 +297,23 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             };
         }),
     ]),
-    'perso-arabic/rasm.toml': ({ dir, base, name }) =>
-        Effect.map(Path.Path, (path) => {
-            const output = `.artifacts/fonts/${name}`;
-            const action = (verb: string) => `foundry ${verb} ${path.join(dir, base)} --output ${output}`;
-            const closure = [{ input: 'production', projects: ['foundry'] }, { input: 'production', projects: ['foundry'], dependencies: true }, { externalDependencies: [] }, { runtime: 'uv tree --frozen --package foundry' }, { runtime: 'python --version' }];
-            return {
-                root: '.',
-                targets: {
-                    'fonts:build': { command: action('build'), inputs: [folderInput(dir), `!${folderInput(path.join(dir, 'shaping'))}`, ...closure], outputs: [`{workspaceRoot}/${output}/*/**/*`, `!{workspaceRoot}/${output}/check/**/*`], cache: true },
-                    'fonts:check': { command: action('check'), dependsOn: ['fonts:build'], inputs: [folderInput(dir), ...closure, { runtime: 'fontspector --version' }], outputs: [`{workspaceRoot}/${output}/check`], cache: true },
-                    'fonts:publish': { command: action('publish'), dependsOn: ['fonts:check'] },
-                },
-            };
-        }),
+    'perso-arabic/rasm.toml': Effect.fnUntraced(function* ({ dir, base, name }, { python }) {
+        const [path, { roots, members }] = yield* Effect.all([Path.Path, python]);
+        const script = 'foundry';
+        const owner = yield* Effect.fromOption(Array.findFirst(Object.values(members), ({ scripts }) => scripts.includes(script)));
+        const { interpreter } = yield* Effect.fromOption(Record.get(roots, owner.root));
+        const output = `.artifacts/fonts/${name}`;
+        const action = (verb: string) => `${script} ${verb} ${path.join(dir, base)} --output ${output}`;
+        const closure = [{ input: 'production', projects: [owner.name] }, { input: 'production', projects: [owner.name], dependencies: true }, { externalDependencies: [] }, { runtime: `uv export --frozen --no-hashes --quiet --package ${owner.name}` }, interpreter];
+        return {
+            root: '.',
+            targets: {
+                'fonts:build': { command: action('build'), inputs: [folderInput(dir), `!${folderInput(path.join(dir, 'shaping'))}`, ...closure], outputs: [`{workspaceRoot}/${output}/*/**/*`, `!{workspaceRoot}/${output}/check/**/*`], cache: true },
+                'fonts:check': { command: action('check'), dependsOn: ['fonts:build'], inputs: [folderInput(dir), ...closure, { runtime: 'fontspector --version' }], outputs: [`{workspaceRoot}/${output}/check`], cache: true },
+                'fonts:publish': { command: action('publish'), dependsOn: ['fonts:check'] },
+            },
+        };
+    }),
     'sea.config.ts': Effect.fnUntraced(function* ({ dir, base }, { configFiles, workspaceRoot }) {
         const path = yield* Path.Path;
         const projects = [...configFiles].filter((file) => path.basename(file) === XcodeProject.file && !path.relative(dir, file).startsWith('..'));
@@ -377,4 +356,4 @@ const infer = Effect.fnUntraced(function* (file: string, workspace: Inference) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { attachedSuites, folderInput, imports, infer, logged, markers, owning, packageName, reach, rootTargets, swiftProject, TESTS };
+export { BLENDER_MANIFEST, folderInput, type Inference, imports, infer, logged, markers, owning, packageName, reach, rootTargets, swiftProject, TESTS };

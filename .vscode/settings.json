@@ -51,7 +51,7 @@
         "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, Directory.Solution.props, global.json, NuGet.config, Workspace.slnx",
         "hk.pkl": "analyzers.globalconfig, periphery.json, periphery.yml, pmd.xml, squawk.toml, stubtest.ini, yamllint.yaml",
         "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
-        "nx.json": ".editorconfig, .shellcheckrc, sgconfig.yml",
+        "nx.json": ".editorconfig, .nxignore, .shellcheckrc, sgconfig.yml",
         "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, tsconfig.web.json, vitest.config.ts",
         "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "pixi.lock, uv.lock",
@@ -157,15 +157,6 @@
     // --- [SHELL] -----------------------------------------------------------------------
 
     "bashIde.backgroundAnalysisIgnore": [ "**/.artifacts/**", "**/.cache/**", "**/.git/**", "**/.pixi/**", "**/.venv/**", "**/node_modules/**", "assets/**", "docs/research/**" ],
-
-    // --- [SWIFT] -----------------------------------------------------------------------
-
-    "swift.autoGenerateLaunchConfigurations": false,
-    "swift.buildPath": ".cache/swiftpm/vscode",
-    "swift.disableAutoResolve": true,
-    "swift.logFileLogLevel": "info",
-    "swift.sourcekit-lsp.supported-languages": [ "swift" ],
-    "swift.swiftEnvironmentVariables": { "SWIFTPM_BUILD_DIR": ".cache/swiftpm/vscode" },
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
 

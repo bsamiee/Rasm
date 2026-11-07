@@ -14,6 +14,7 @@
 - Run applications and hosts live as work needs them
 - Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project
 - Commands agents run answer in one call: no flag for a derivable fact, resulting state returned, exit status true, logs and cleanup automatic
+- Agent language servers run with background indexing and checking off, reading modules that builds write
 - Hooks rewrite a wrong command form or refuse it with one short reason, cover forms the owner named, and block no action the owner asks for
 - Configuration states each fact at its owner and varies by subject and mode through the tool's own mechanism, an addition edits its declaration alone
 - Changes to root files, `eng/`, `infra/`, and `tools/` extend the owning target, setting, or package, a parallel script or one-off flag is a defect

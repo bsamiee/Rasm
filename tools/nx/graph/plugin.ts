@@ -1,12 +1,11 @@
-import { type CreateDependencies, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type TargetConfiguration } from '@nx/devkit';
+import { type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, type TargetConfiguration } from '@nx/devkit';
 import { findProjectForPath } from '@nx/devkit/internal';
-import { runCommand } from '@rasm/eng';
-import { Array, Effect, Function, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
+import { Array, Effect, Function, Option, Path, Predicate, Record, String, Struct } from 'effect';
 import { infer, logged, markers, owning, rootTargets } from '#/graph/projects.ts';
 import { neutrality, roots } from '#/graph/root-project.ts';
 import { buildSettings } from '#/sync/settings/build-settings.ts';
 import { hostingBindings } from '#/sync/settings/hosting-bindings.ts';
-import { JsonListRecord, openWorkspace, runPlugin, type Workspace } from '#/workspace.ts';
+import { openWorkspace, readPython, runPlugin, UV_LOCK, type Workspace } from '#/workspace.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -46,11 +45,20 @@ const components = Effect.fnUntraced(function* (workspace: Workspace, projects: 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfiguration> }> = [
-    `{${Object.keys(roots).join(',')},*/**/{${Object.keys(markers).join(',')}}}`,
+    `{${Object.keys(roots).join(',')},*/**/{${[...Object.keys(markers), UV_LOCK].join(',')}}}`,
     Effect.fnUntraced(function* (files, options, context) {
         const [path, workspace] = yield* Effect.all([Path.Path, openWorkspace(context)]);
         const dotnetRoots = new Map(files.filter(String.endsWith('.csproj')).map((file) => [path.dirname(file), file]));
-        const inference = { ...workspace, configFiles: new Set(files) };
+        const inference = {
+            ...workspace,
+            configFiles: new Set(files),
+            python: yield* Effect.cached(
+                readPython(
+                    context.workspaceRoot,
+                    files.filter((file) => path.basename(file) === UV_LOCK),
+                ),
+            ),
+        };
         const candidates = files.filter((file) => !file.endsWith('.cs') || findProjectForPath(file, dotnetRoots) === undefined);
         const configure = Effect.fnUntraced(function* (file: string) {
             return yield* Option.match(Record.get(file)(roots), {
@@ -86,25 +94,7 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
         ];
     }, runPlugin),
 ];
-const createDependencies: CreateDependencies = Effect.fnUntraced(function* (_options, { fileMap, filesToProcess, workspaceRoot }) {
-    const changed = Object.values(filesToProcess.projectFileMap).flatMap((files) => files.map(Struct.get('file')).filter(String.endsWith('.py')));
-    if (changed.length === 0) {
-        return [];
-    }
-    const sources = yield* runCommand('ruff', ['analyze', 'graph', ...changed], { cwd: workspaceRoot }).pipe(Effect.flatMap(Schema.decodeEffect(JsonListRecord)));
-    const entries = Object.entries(sources);
-    const referenced = new Set(entries.flatMap(([file, targets]) => [file, ...targets]));
-    const owners = new Map(Object.entries(fileMap.projectFileMap).flatMap(([owner, files]) => files.filter(({ file }) => referenced.has(file)).map(({ file }) => [file, owner] as const)));
-    return entries.flatMap(([sourceFile, files]) => {
-        const source = owners.get(sourceFile);
-        return source === undefined
-            ? []
-            : Array.dedupe(files.map((file) => owners.get(file)))
-                  .filter((target): target is string => target !== undefined && target !== source)
-                  .map((target) => ({ source, target, sourceFile, type: DependencyType.static }));
-    });
-}, runPlugin);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createDependencies, createNodes };
+export { createNodes };
