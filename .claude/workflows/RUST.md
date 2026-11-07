@@ -31,7 +31,6 @@ Crates sit at `libs/rust/<category>/<crate>/`, and root `Cargo.toml` holds the c
 - Row comments state a cost no feature removes as what the row adds beside the workspace pick it duplicates ("adds `time` 0.3 beside jiff")
 - Catalog rows sit at an older release only where crates exchanging their type link it
 - Values cross as bytes or slices where no release unifies (font bytes, PDF bytes, `f64` triples)
-- `allowed-duplicate-crates` rows hold crates with every copy a normal dependency in `cargo metadata`, naming each copy's linking crates
 - Tool binaries hold their parsed arguments and `main` alone
 - `.config/mise.toml` `[daemons]`, `.mcp.json`, and Nx inference read binary names and `cargo metadata`, needing no edit on a rebuild
 

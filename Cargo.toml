@@ -766,7 +766,7 @@ unused_qualifications         = "warn"                            # Qualified pa
 # --- [GROUPS]
 
 [workspace.lints.clippy]
-cargo    = { level = "warn", priority = -1 } # Missing package metadata, duplicate crate versions, negative or redundant feature names, and wildcard requirements
+cargo    = { level = "warn", priority = -1 } # Missing package metadata, negative or redundant feature names, and wildcard requirements
 nursery  = { level = "warn", priority = -1 } # Lints under development, code smells are fixed as found
 pedantic = { level = "warn", priority = -1 } # Strict lints with occasional false positives, code smells are fixed as found
 
@@ -883,6 +883,7 @@ future_not_send             = "allow" # Demands `Sync` on generic parameters an 
 manual_assert               = "allow" # Rewrites flagged `panic!` calls into run-time assertions, expected failures use the result type
 missing_errors_doc          = "allow" # Names and types state each contract in place of doc comments
 missing_panics_doc          = "allow" # Names and types state each contract in place of doc comments
+multiple_crate_versions     = "allow" # Resolves the whole dependency graph once per crate checked, for splits upstream releases own
 option_if_let_else          = "allow" # Rewrites `match` and `if let` over `Option` into `map_or` or `map_or_else`, control flow selects by pattern matching result cases
 redundant_field_names       = "allow" # Flags `field: field` literals, rustfmt `use_field_init_shorthand` rewrites each
 redundant_pub_crate         = "allow" # Demands `pub` on items in private modules where rustc `unreachable_pub` demands `pub(crate)`

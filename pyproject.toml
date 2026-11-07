@@ -749,3 +749,7 @@ enabled = false
 [tool.tombi.schema.format.rules]
 table-keys-order.enabled   = false
 array-values-order.enabled = false
+
+[[tool.tombi.schemas]]
+path    = "https://www.schemastore.org/cargo.json" # Bundled copy lacks the artifact dependency fields SchemaStore holds
+include = ["**/Cargo.toml"]
