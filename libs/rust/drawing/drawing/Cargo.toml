@@ -1,0 +1,38 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-drawing"
+edition.workspace = true
+description       = "Drawing model PDF, DWG, drafting, and view output reads: colors, pens, linetypes, hatches, regions, text, glyph runs, elements, and pages"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+rayon                      = { workspace = true }
+stacksafe                  = { workspace = true }
+nonempty-collections       = { workspace = true }
+thiserror                  = { workspace = true }
+validated                  = { workspace = true }
+derive_more                = { workspace = true }
+enum-map                   = { workspace = true }
+itertools                  = { workspace = true }
+nutype                     = { workspace = true }
+nalgebra                   = { workspace = true }
+geo                        = { workspace = true }
+geo-types                  = { workspace = true }
+color                      = { workspace = true }
+linebender_resource_handle = { workspace = true }
+parlance                   = { workspace = true }
+kurbo                      = { workspace = true }
+linesweeper                = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

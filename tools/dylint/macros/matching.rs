@@ -2,7 +2,7 @@ use core::{iter, ops::ControlFlow};
 
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
-    eq_expr_value, fn_def_id, get_parent_expr, is_in_test,
+    eq_expr_value, fn_def_id, get_parent_expr,
     macros::{FormatArgsStorage, PanicCall, find_assert_args, matching_root_macro_call, root_macro_call_first_node},
     res::MaybeDef as _,
     source::snippet,
@@ -21,7 +21,7 @@ use rustc_middle::ty::{
 };
 
 use super::has_temporary_drop;
-use crate::{expanded_externally, impl_owner};
+use crate::{expanded_externally, impl_owner, in_test};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -83,7 +83,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         if let Some(call) = root_macro_call_first_node(cx, expr)
             && let Some(assertion @ (sym::assert_macro | sym::debug_assert_macro)) = cx.tcx.get_diagnostic_name(call.def_id)
             && !expanded_externally(cx, call.span)
-            && is_in_test(cx.tcx, expr.hir_id)
+            && in_test(cx.tcx, expr.hir_id)
             && !cx.tcx.hir_is_inside_const_context(expr.hir_id)
             && let Some((condition, message)) = find_assert_args(cx, expr, call.expn)
             && match message {

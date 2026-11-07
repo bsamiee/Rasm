@@ -1,0 +1,42 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/manual_bool_toggle.rs
+---
+warning: assignment negates `*flag` by hand
+  --> tests/rust/tools/dylint/examples/manual_bool_toggle.rs:42:31
+   |
+42 | fn flipped(flag: &mut bool) { *flag = !*flag; }
+   |                               ^^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut *flag)`
+   |
+   = note: `#[warn(manual_bool_toggle)]` on by default
+applicability MachineApplicable: call `bool::toggle`
+
+warning: assignment negates `*flag` by hand
+  --> tests/rust/tools/dylint/examples/manual_bool_toggle.rs:44:29
+   |
+44 | fn xored(flag: &mut bool) { *flag ^= true; }
+   |                             ^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut *flag)`
+applicability MachineApplicable: call `bool::toggle`
+
+warning: assignment negates `**flag` by hand
+  --> tests/rust/tools/dylint/examples/manual_bool_toggle.rs:58:34
+   |
+58 | fn boxed(flag: &mut Box<bool>) { **flag = !**flag; }
+   |                                  ^^^^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut **flag)`
+applicability MachineApplicable: call `bool::toggle`
+
+warning: assignment negates `*flag` by hand
+  --> tests/rust/tools/dylint/examples/manual_bool_toggle.rs:63:5
+   |
+63 |     *flag = !*flag;
+   |     ^^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut *flag)`
+applicability MachineApplicable: call `bool::toggle`
+
+warning: trait `Toggle` is implemented only for `&mut bool`
+ --> tests/rust/tools/dylint/examples/manual_bool_toggle.rs:9:1
+  |
+9 | trait Toggle {
+  | ^^^^^^^^^^^^
+  |
+  = help: replace `Toggle` with functions and constants for `&mut bool`
+  = note: `#[warn(single_impl_trait)]` on by default

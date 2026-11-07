@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use itertools::Either;
 use lopdf::{Dictionary, Object, ObjectId, decode_text_string, dictionary};
 use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
-use rasm_linework::Visibility;
+use rasm_drawing::Visibility;
 use validated::Validated;
 
 use crate::{

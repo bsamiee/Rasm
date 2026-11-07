@@ -11,7 +11,7 @@ using Rhino;
 var path = Environment.GetEnvironmentVariable("RHINO_TEST_ASSEMBLY");
 var arguments = JsonSerializer.Deserialize<string[]>(Environment.GetEnvironmentVariable("RHINO_TEST_ARGUMENTS"));
 var tests = new Suite(path, AssemblyLoadContext.GetLoadContext(typeof(RhinoApp).Assembly)).LoadFromAssemblyPath(path);
-Assembly.SetEntryAssembly(tests);
+typeof(Assembly).GetMethod("SetEntryAssembly", [typeof(Assembly)]).Invoke(null, [tests]);
 new Thread(() => {
     try { if (tests.EntryPoint.Invoke(null, new object[] { arguments }) is Task task) task.GetAwaiter().GetResult(); }
     finally { RhinoApp.InvokeOnUiThread(new Action(() => RhinoApp.Exit(false))); }
@@ -19,10 +19,8 @@ new Thread(() => {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-sealed class Suite : AssemblyLoadContext {
-    readonly AssemblyDependencyResolver resolver;
-    readonly AssemblyLoadContext rhino;
-    public Suite(string path, AssemblyLoadContext rhino) : base(path) { resolver = new AssemblyDependencyResolver(path); this.rhino = rhino; }
+sealed class Suite(string path, AssemblyLoadContext rhino) : AssemblyLoadContext(path) {
+    readonly AssemblyDependencyResolver resolver = new(path);
     protected override Assembly Load(AssemblyName name) => resolver.ResolveAssemblyToPath(name) is string file ? LoadFromAssemblyPath(file) : rhino.LoadFromAssemblyName(name);
     protected override IntPtr LoadUnmanagedDll(string name) => resolver.ResolveUnmanagedDllToPath(name) is string file ? LoadUnmanagedDllFromPath(file) : IntPtr.Zero;
 }

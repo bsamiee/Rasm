@@ -1,0 +1,36 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-dwg"
+edition.workspace = true
+description       = "DWG and DXF drawings read and written with layouts, plot styles, and sheet sets"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+stacksafe            = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive-where         = { workspace = true }
+derive_more          = { workspace = true }
+strum                = { workspace = true }
+itertools            = { workspace = true }
+uom                  = { workspace = true }
+acadrust             = { workspace = true }
+color                = { workspace = true }
+parlance             = { workspace = true }
+kurbo                = { workspace = true }
+linesweeper          = { workspace = true }
+rasm-drawing         = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

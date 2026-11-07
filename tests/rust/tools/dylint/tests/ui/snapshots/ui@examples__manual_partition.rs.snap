@@ -1,0 +1,105 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/manual_partition.rs
+---
+warning: two `filter` passes split `self.words` on one predicate and its negation
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:16:22
+   |
+16 |         let filled = self.words.iter().filter(|word| !word.is_empty()).copied().collect();
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: other pass here
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:15:21
+   |
+15 |         let blank = self.words.iter().filter(|word| word.is_empty()).copied().collect();
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: iterate `self.words` once with `Iterator::partition`
+   = note: `#[warn(manual_partition)]` on by default
+
+warning: `static CALLS` holds interior mutable `Atomic<usize>`
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:44:8
+   |
+44 | static CALLS: AtomicUsize = AtomicUsize::new(0);
+   |        ^^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+   = note: `#[warn(interior_mutable_static)]` on by default
+
+warning: two `filter` passes split `words` on one predicate and its negation
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:51:18
+   |
+51 |     let filled = words.iter().filter(|word| !str::is_empty(word)).copied().collect();
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: other pass here
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:50:17
+   |
+50 |     let blank = words.iter().filter(|word| str::is_empty(word)).copied().collect();
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: iterate `words` once with `Iterator::partition`
+
+warning: two `filter` passes split `words` on one predicate and its negation
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:70:22
+   |
+70 |         let filled = words.iter().filter(|word| !word.is_empty()).copied().collect();
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: other pass here
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:69:21
+   |
+69 |         let blank = words.iter().filter(|word| word.is_empty()).copied().collect();
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: iterate `words` once with `Iterator::partition`
+
+warning: two `filter` passes split `items` on one predicate and its negation
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:84:20
+   |
+84 |     let negative = items.iter().filter(|(value, _)| !(*value > 0)).copied().collect();
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: other pass here
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:83:20
+   |
+83 |     let positive = items.iter().filter(|(value, _)| *value > 0).copied().collect();
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: iterate `items` once with `Iterator::partition`
+
+warning: two `filter` passes split `items` on one predicate and its negation
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:90:20
+   |
+90 |     let rejected = items.iter().filter(|value| !(**value > 0)).collect();
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: other pass here
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:89:20
+   |
+89 |     let selected = items.iter().filter(|value| **value > 0).collect();
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: iterate `items` once with `Iterator::partition`
+
+warning: two `filter` passes split `items` on one predicate and its negation
+   --> tests/rust/tools/dylint/examples/manual_partition.rs:120:20
+    |
+120 |     let rejected = Iterator::collect(Iterator::copied(Iterator::filter(<[u8]>::iter(items), |value| !(**value > 0))));
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: other pass here
+   --> tests/rust/tools/dylint/examples/manual_partition.rs:119:20
+    |
+119 |     let selected = Iterator::collect(Iterator::copied(Iterator::filter(<[u8]>::iter(items), |value| **value > 0)));
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: iterate `items` once with `Iterator::partition`
+
+warning: `EMPTY` has one reader, `as_ref`
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:45:1
+   |
+45 | static EMPTY: Catalog = Catalog { words: Vec::new() };
+   | ^^^^^^^^^^^^^^^^^^^^^
+   |
+note: read here
+  --> tests/rust/tools/dylint/examples/manual_partition.rs:24:10
+   |
+24 |         &EMPTY
+   |          ^^^^^
+   = help: move `EMPTY` into `as_ref` as a nested item
+   = note: `#[warn(single_reader)]` on by default

@@ -1,0 +1,59 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/parameterizable_body.rs
+---
+warning: `<Banner as Render>::render` and `<Footer as Render>::render` repeat the body of `<Page as Render>::render` with another value in place of `"page"`
+  --> tests/rust/tools/dylint/examples/parameterizable_body.rs:76:5
+   |
+76 |     fn render(&self) -> String { String::from("page") }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: repeated here
+  --> tests/rust/tools/dylint/examples/parameterizable_body.rs:80:5
+   |
+80 |     fn render(&self) -> String { String::from("banner") }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+84 |     fn render(&self) -> String { String::from("footer") }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: replace `Page`, `Banner` and `Footer` with one struct holding the value, one `const` per replaced type, and one `Render` impl
+   = note: `#[warn(parameterizable_body)]` on by default
+
+warning: `retry_writes` repeats the body of `retry_reads` with another value in place of `3`
+   --> tests/rust/tools/dylint/examples/parameterizable_body.rs:119:1
+    |
+119 | const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.saturating_mul(2)) }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: repeated here
+   --> tests/rust/tools/dylint/examples/parameterizable_body.rs:121:1
+    |
+121 | const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT.saturating_mul(2)) }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: call `Policy::new` directly at each call site of `retry_reads` and `retry_writes`
+
+warning: `total_circles` repeats the body of `total_squares` with another type in place of `Square`
+   --> tests/rust/tools/dylint/examples/parameterizable_body.rs:123:1
+    |
+123 | fn total_squares(shapes: &[Square]) -> f64 { shapes.iter().map(Shape::area).sum() }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: repeated here
+   --> tests/rust/tools/dylint/examples/parameterizable_body.rs:125:1
+    |
+125 | fn total_circles(shapes: &[Circle]) -> f64 { shapes.iter().map(Shape::area).sum() }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: replace `total_squares` and `total_circles` with one function generic over `S: Shape`
+
+warning: `ticked` repeats the body of `started` with another type in place of `Uptime`
+   --> tests/rust/tools/dylint/examples/parameterizable_body.rs:165:1
+    |
+165 | fn started(value: u64) -> Uptime { Uptime::from(value.strict_add(1)) }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: repeated here
+   --> tests/rust/tools/dylint/examples/parameterizable_body.rs:167:1
+    |
+167 | fn ticked(value: u64) -> Clock { Clock::from(value.strict_add(1)) }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: replace `started` and `ticked` with one function generic over `S: From<u64>`

@@ -1,0 +1,46 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-numerical-analysis"
+edition.workspace = true
+description       = "Numerical analysis: interpolation, splines, roots, quadrature, and scattered data"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+serde                = { workspace = true }
+nutype               = { workspace = true }
+ordered-float        = { workspace = true }
+almost               = { workspace = true }
+bilby                = { workspace = true }
+csaps                = { workspace = true }
+dashu                = { workspace = true }
+faer                 = { workspace = true }
+gauss-quad           = { workspace = true }
+libm                 = { workspace = true }
+nalgebra             = { workspace = true }
+ndarray              = { workspace = true }
+num-complex          = { workspace = true }
+num-dual             = { workspace = true }
+num-traits           = { workspace = true }
+argmin               = { workspace = true }
+basin                = { workspace = true }
+spade                = { workspace = true }
+rasm-stats           = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

@@ -25,11 +25,12 @@ use core::{
     iter, mem,
     ops::ControlFlow,
 };
-use std::rc::Rc;
+use std::{path::Path, rc::Rc};
 
+use camino::Utf8Path;
 use clippy_utils::{
     consts::ConstEvalCtxt,
-    fn_def_id, get_expr_use_site, get_parent_expr, is_from_proc_macro,
+    fn_def_id, get_expr_use_site, get_parent_expr, is_from_proc_macro, is_in_cfg_test, is_in_test_function,
     macros::{FormatArgsStorage, macro_backtrace},
     paths::{PathNS, lookup_path_str},
     peel_blocks, peel_hir_expr_refs,
@@ -165,6 +166,8 @@ fn workspace_def(cx: &LateContext<'_>, item: DefId) -> bool {
         || matches!(source_map.span_to_filename(cx.tcx.def_span(item)), FileName::Real(file)
             if source_map.working_dir().local_path().is_some_and(|root| file.embeddable_name(RemapPathScopeComponents::DIAGNOSTICS).1.starts_with(root)))
 }
+
+fn in_test(tcx: TyCtxt<'_>, node: HirId) -> bool { is_in_test_function(tcx, node) || is_in_cfg_test(tcx, node) }
 
 fn expanded_externally(cx: &LateContext<'_>, span: Span) -> bool {
     span.macro_backtrace().any(|expansion| !matches!(expansion.kind, ExpnKind::Macro(MacroKind::Bang, _)) || !expansion.macro_def_id.is_some_and(|written| workspace_def(cx, written)))
@@ -691,8 +694,12 @@ mod representation;
 
 dylint_linting::__maybe_mangle! {
     pub extern "Rust" fn register_lints(session: &rustc_session::Session, store: &mut rustc_lint::LintStore) {
-        let layout = "DYLINT_MODULE_LAYOUT";
-        session.env_depinfo.lock().insert((Symbol::intern(layout), std::env::var_os(layout).as_ref().and_then(|value| value.to_str()).map(Symbol::intern)));
+        if let Some(folder) = session.io.input.opt_path().and_then(Path::parent) {
+            match Utf8Path::from_path(folder) {
+                Some(folder) => session.file_depinfo.lock().extend([Symbol::intern(folder.as_str())]),
+                None => _ = session.dcx().err(format!("`{}` is not UTF-8, so Cargo cannot track the modules in it", folder.display())),
+            }
+        }
         let format_args = FormatArgsStorage::default();
         let early = format_args.clone();
         store.register_early_lint_pass(Box::new(move || Box::new(FormatArgsCollector { format_args: FxHashMap::default(), storage: early.clone() })));
@@ -709,6 +716,7 @@ dylint_linting::__maybe_mangle! {
             duplication::duplicate_body(Rc::clone(&bodies)),
             duplication::duplicate_trait_constant(Rc::clone(&bodies)),
             duplication::duplicate_type(Rc::clone(&bodies)),
+            errors::canonicalize_without_path,
             errors::debug_main_error,
             errors::decode_without_path,
             errors::discarded_error,

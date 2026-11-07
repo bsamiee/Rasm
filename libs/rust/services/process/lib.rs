@@ -264,5 +264,11 @@ pub async fn run(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[cfg(target_os = "macos")]
-pub mod macos;
-pub mod report;
+mod macos;
+mod report;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+#[cfg(target_os = "macos")]
+pub use macos::{Launch, launch};
+pub use report::Run;

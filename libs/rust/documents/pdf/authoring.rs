@@ -19,13 +19,13 @@ use krilla::{
 };
 use kurbo::{Point, Size};
 use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
-use rasm_linework::{
+use rasm_drawing::{
     Tolerance, Visibility,
     pages::{self, Destination, Link, Page},
 };
 use validated::Validated;
 
-use self::{content::Drawing, standards::Standards, tagging::Leaves};
+use self::{content::Drawing, tagging::Leaves};
 use crate::{
     Document, PdfError, Refusal, Resolution, Subject,
     layers::{self, Group},
@@ -189,5 +189,9 @@ fn dimensioned(paper: Size) -> Result<(PageSettings, geom::Size), PdfError> {
 
 mod content;
 mod rasters;
-pub mod standards;
+mod standards;
 mod tagging;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use standards::{Press, Standards};

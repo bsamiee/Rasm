@@ -138,7 +138,8 @@ Documents follow these forms:
 - Arms binding different names share one template (`name: $NAME$ENUM`)
 - Ids start with the catalog file's stem, compile and parent errors name no file and an id alone locates one
 - Names take the source's own token, keyword constructs (`default`, `init`, `static`) bind `$$NAME` beside a `regex`, lists take their clause's name
-- `name` has no fold, a multi-line capture breaks the one-line `names` view, a `pub use a::{…}` prints across lines unless its name is rewritten
+- `name` has no fold, a multi-line capture breaks the one-line `names` view, a `use a::{…}` prints across lines unless its name is rewritten
+- Re-export lists (`pub use a::{B, C}`) emit one row per exposed name, its signature `pub use a::B`
 - Empty names keep their row (`function:  ×2`)
 - Rows stay unique in a file and stable across edits, imports unquoted from their module root
 - Repeated elements (array tables, sequence items) name their rows by a stable key (`name`, `id`), keyless ones fold into their parent's row

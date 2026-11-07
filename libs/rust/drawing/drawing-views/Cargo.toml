@@ -1,0 +1,37 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-drawing-views"
+edition.workspace = true
+description       = "Hidden-line drawing views of solids: parallel and perspective frames, classified edges, sections, and shadows"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+enum-map             = { workspace = true }
+itertools            = { workspace = true }
+nalgebra             = { workspace = true }
+manifold-rust        = { workspace = true }
+parry3d-f64          = { workspace = true }
+spade                = { workspace = true }
+kurbo                = { workspace = true }
+linesweeper          = { workspace = true }
+rasm-mesh            = { workspace = true }
+rasm-proximity       = { workspace = true }
+rasm-drawing         = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

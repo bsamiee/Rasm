@@ -25,8 +25,8 @@ Rasm/
 ├── docs/                     # Research sheets, ignored under docs/research
 ├── tools/
 │   ├── ast-grep/             # Per-language support ast-grep lacks for reading repository code and enforcing syntax-level standards
-│   ├── bridge/               # rasm-mcp-bridge binary serving a stdio MCP server over Streamable HTTP
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
+│   ├── mcp-proxy/            # rasm-mcp-proxy binary serving a stdio MCP server over Streamable HTTP
 │   ├── nx/                   # Nx plugin inferring a project from each project file
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
 │   ├── roslyn/               # C# analyzers, code fixes, and BannedSymbols*.txt bans

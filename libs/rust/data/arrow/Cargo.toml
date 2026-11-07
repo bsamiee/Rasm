@@ -1,0 +1,36 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-arrow"
+edition.workspace = true
+description       = "Typed records over Arrow record batches and Parquet storage"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+futures              = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+itertools            = { workspace = true }
+serde                = { workspace = true }
+serde_with           = { workspace = true }
+jiff                 = { workspace = true }
+newtype-uuid         = { workspace = true }
+uuid                 = { workspace = true }
+arrow                = { workspace = true }
+arrow-schema         = { workspace = true }
+parquet              = { workspace = true }
+serde_arrow          = { workspace = true }
+uom                  = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

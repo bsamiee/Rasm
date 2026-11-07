@@ -1,7 +1,7 @@
 use std::{ffi::OsString, io, path::PathBuf};
 
 use clap::{Args, ValueHint};
-use rasm_process::report::Run;
+use rasm_process::Run;
 use tokio::process::Command;
 
 // --- [MODELS] --------------------------------------------------------------------------

@@ -1,0 +1,77 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/needless_import_rename.rs
+---
+warning: `map_or` replaces `Error` with a fallback value
+   --> tests/rust/tools/dylint/examples/needless_import_rename.rs:137:42
+    |
+137 |     let rendered = rendered(&Map::new()).map_or(0, |text| text.len());
+    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+    = note: `#[warn(discarded_error)]` on by default
+
+warning: `UnsafeCell` renamed to `Cell` with no other `UnsafeCell` in scope
+ --> tests/rust/tools/dylint/examples/needless_import_rename.rs:2:5
+  |
+2 |     cell::UnsafeCell as Cell,
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: remove `as Cell` and name `UnsafeCell` at each use
+  = note: `#[warn(needless_import_rename)]` on by default
+
+warning: `Reverse` renamed to `Flipped` with no other `Reverse` in scope
+ --> tests/rust/tools/dylint/examples/needless_import_rename.rs:3:11
+  |
+3 |     cmp::{Reverse as Flipped, *},
+  |           ^^^^^^^^^^^^^^^^^^
+  |
+  = help: remove `as Flipped` and name `Reverse` at each use
+
+warning: `fmt` renamed to `format` with no other `fmt` in scope
+ --> tests/rust/tools/dylint/examples/needless_import_rename.rs:4:11
+  |
+4 |     fmt::{self as format, Error, Write as _},
+  |           ^^^^^^^^^^^^^^
+  |
+  = help: remove `as format` and name `fmt` at each use
+
+warning: `take` renamed to `taken` with no other `take` in scope
+ --> tests/rust/tools/dylint/examples/needless_import_rename.rs:6:28
+  |
+6 |     mem::{drop as discard, take as taken},
+  |                            ^^^^^^^^^^^^^
+  |
+  = help: remove `as taken` and name `take` at each use
+
+warning: `BTreeMap` renamed to `Map` with no other `BTreeMap` in scope
+  --> tests/rust/tools/dylint/examples/needless_import_rename.rs:14:5
+   |
+14 |     collections::BTreeMap as Map,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: remove `as Map` and name `BTreeMap` at each use
+
+warning: `Arc` renamed to `Shared` with no other `Arc` in scope
+  --> tests/rust/tools/dylint/examples/needless_import_rename.rs:18:5
+   |
+18 |     sync::Arc as Shared,
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: remove `as Shared` and name `Arc` at each use
+
+warning: `Duration` renamed to `Span` with no other `Duration` in scope
+  --> tests/rust/tools/dylint/examples/needless_import_rename.rs:55:9
+   |
+55 |     use core::time::Duration as Span;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: remove `as Span` and name `Duration` at each use
+
+warning: `take` renamed to `removed` with no other `take` in scope
+   --> tests/rust/tools/dylint/examples/needless_import_rename.rs:113:9
+    |
+113 |     use core::mem::take as removed;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: remove `as removed` and name `take` at each use

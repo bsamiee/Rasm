@@ -1,0 +1,157 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/redundant_error_conversion.rs
+---
+warning: `impl From<ParseFloatError> for ScaleError` wraps the source in `Parse` by hand
+  --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:68:1
+   |
+68 | impl From<ParseFloatError> for ScaleError {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: source field
+  --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:50:21
+   |
+50 |     Parse(#[source] ParseFloatError),
+   |                     ^^^^^^^^^^^^^^^
+   = help: mark the field `#[from]` and delete the impl
+   = note: `#[warn(redundant_error_conversion)]` on by default
+
+warning: `impl From<Utf8Error> for ScaleError` wraps the source in `Text` by hand
+  --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:72:1
+   |
+72 | impl From<Utf8Error> for ScaleError {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: source field
+  --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:54:9
+   |
+54 |         source: Utf8Error,
+   |         ^^^^^^^^^^^^^^^^^
+   = help: mark the field `#[from]` and delete the impl
+
+warning: `impl From<Error> for ReadError` wraps the source in `Io` by hand
+  --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:94:1
+   |
+94 | impl From<io::Error> for ReadError {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: source field
+  --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:91:18
+   |
+91 |     Io(#[source] io::Error),
+   |                  ^^^^^^^^^
+   = help: mark the field `#[from]` and delete the impl
+
+warning: `impl From<Utf8Error> for AttributedError` wraps the source in `Text` by hand
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:105:1
+    |
+105 | impl From<Utf8Error> for AttributedError {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: source field
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:101:20
+    |
+101 |     Text(#[source] Utf8Error),
+    |                    ^^^^^^^^^
+    = help: mark the field `#[from]` and delete the impl
+
+warning: `ManualError` implements `core::error::Error` by hand
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:116:1
+    |
+116 | impl error::Error for ManualError {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: derive `derive_more::Error` with `#[error(ignore)]` and mark field `0` `#[error(source, not(backtrace))]`
+    = note: `#[warn(manual_error_impl)]` on by default
+
+warning: `map_err` repeats the `From` conversion `?` applies
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:127:37
+    |
+127 |     let text = str::from_utf8(bytes).map_err(Into::<PortError>::into)?;
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+applicability MachineApplicable: delete the `map_err` call
+
+warning: `map_err` repeats the `From` conversion `?` applies
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:133:37
+    |
+133 |     let text = str::from_utf8(bytes).map_err(PortError::Text)?;
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+applicability MachineApplicable: delete the `map_err` call
+
+warning: `map_err` repeats the `From` conversion `?` applies
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:143:37
+    |
+143 |     let text = str::from_utf8(bytes).map_err(LocatedError)?;
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+applicability MachineApplicable: delete the `map_err` call
+
+warning: `map_err` repeats the `From` conversion `?` applies
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:153:28
+    |
+153 |     let text = text!(bytes).map_err(PortError::from)?;
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+applicability MachineApplicable: delete the `map_err` call
+
+warning: `map_err` repeats the `From` conversion `?` applies
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:159:37
+    |
+159 |     let text = str::from_utf8(bytes).map_err(E::from)?;
+    |                                     ^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+applicability MachineApplicable: delete the `map_err` call
+
+warning: `map_err` repeats the `From` conversion `?` applies
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:189:37
+    |
+189 |     let text = str::from_utf8(bytes).map_err(|error| PortError::Text(error))?;
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: delete the `map_err` call
+applicability MachineApplicable: delete the `map_err` call
+
+warning: `map_or` replaces `LocatedError` with a fallback value
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:215:26
+    |
+215 |         wrapped(b"8083").map_or(Ok(0), parse)?;
+    |                          ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+    = note: `#[warn(discarded_error)]` on by default
+
+warning: `map_or` replaces `OuterError` with a fallback value
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:216:26
+    |
+216 |         located(b"8084").map_or(Ok(0), inferred)?;
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+
+warning: `map_or` replaces `AttributedError` with a fallback value
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:228:29
+    |
+228 |         attributed(b"8093").map_or(Ok(0), parse)?;
+    |                             ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+
+warning: `unwrap_or_default` replaces `PortError` with a fallback value
+   --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:231:74
+    |
+231 |     black_box((run(), read(Path::new("port")).map(|text| text.len()))).0.unwrap_or_default();
+    |                                                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+
+warning: error variants `Retry` and `Text` of `PortError` repeat the same fields
+  --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:24:1
+   |
+24 | enum PortError {
+   | ^^^^^^^^^^^^^^
+   |
+note: repeated here
+  --> tests/rust/tools/dylint/examples/redundant_error_conversion.rs:26:5
+   |
+26 |     Text(#[from] Utf8Error),
+   |     ^^^^
+...
+30 |     Retry(#[source] Utf8Error),
+   |     ^^^^^
+   = help: replace `Retry` and `Text` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
+   = note: `#[warn(duplicate_type)]` on by default

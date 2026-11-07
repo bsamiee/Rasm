@@ -1,0 +1,72 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/renamed_function_params_in_macro.rs
+---
+warning: `scaled!` names the `Scale::scale` parameter `factor` as `by`
+  --> tests/rust/tools/dylint/examples/renamed_function_params_in_macro.rs:33:15
+   |
+33 |         scale(by) => u32::wrapping_mul;
+   |               ^^
+   |
+note: expanded here
+  --> tests/rust/tools/dylint/examples/renamed_function_params_in_macro.rs:32:5
+   |
+32 | /     scaled! {
+33 | |         scale(by) => u32::wrapping_mul;
+34 | |         clamp(limit) => u32::min;
+35 | |     }
+   | |_____^
+   = help: rename `by` to `factor`
+   = note: `#[warn(renamed_function_params_in_macro)]` on by default
+
+warning: `u32::wrapping_mul` wraps on overflow
+  --> tests/rust/tools/dylint/examples/renamed_function_params_in_macro.rs:21:52
+   |
+19 |   macro_rules! scaled {
+20 |       ($($method:ident($argument:ident) => $body:expr;)*) => {$(
+21 |           fn $method(&self, $argument: u32) -> u32 { $body(self.0, $argument) }
+   |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+32 | /     scaled! {
+33 | |         scale(by) => u32::wrapping_mul;
+34 | |         clamp(limit) => u32::min;
+35 | |     }
+   | |_____- in this macro invocation
+   |
+   = help: call `checked_mul` and return its `None` as an error, or `saturating_mul` to clamp at the `u32` bounds
+   = note: `#[warn(wrapping_arithmetic)]` on by default
+
+warning: `offset!` names the `Scale::shift` parameter `offset` as `delta`
+  --> tests/rust/tools/dylint/examples/renamed_function_params_in_macro.rs:27:25
+   |
+25 | macro_rules! offset {
+26 |     () => {
+27 |         fn shift(&self, delta: u32) -> u32 { self.0 + delta }
+   |                         ^^^^^
+...
+37 |     offset!();
+   |     --------- in this macro invocation
+   |
+note: expanded here
+  --> tests/rust/tools/dylint/examples/renamed_function_params_in_macro.rs:37:5
+   |
+37 |     offset!();
+   |     ^^^^^^^^^
+   = help: rename `delta` to `offset`
+
+warning: `u32::wrapping_mul` wraps on overflow
+  --> tests/rust/tools/dylint/examples/renamed_function_params_in_macro.rs:21:52
+   |
+19 |   macro_rules! scaled {
+20 |       ($($method:ident($argument:ident) => $body:expr;)*) => {$(
+21 |           fn $method(&self, $argument: u32) -> u32 { $body(self.0, $argument) }
+   |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 | /     scaled! {
+42 | |         scale(factor) => u32::wrapping_mul;
+43 | |         shift(_offset) => u32::saturating_sub;
+44 | |         clamp(limit) => u32::min;
+45 | |     }
+   | |_____- in this macro invocation
+   |
+   = help: call `checked_mul` and return its `None` as an error, or `saturating_mul` to clamp at the `u32` bounds

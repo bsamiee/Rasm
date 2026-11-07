@@ -1,7 +1,7 @@
 use core::{num::NonZero, range::RangeInclusive};
 
 use itertools::Either;
-use rasm_analysis::roots;
+use rasm_numerical_analysis::roots;
 use rasm_stats::{Bounds, BoundsError};
 use solar_positioning::SolarPosition;
 use thermalcomfort::{

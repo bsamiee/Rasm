@@ -1,0 +1,32 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-graph-layout"
+edition.workspace = true
+description       = "Graph layout: layered and force-directed layouts with routed edges, GraphML, and DOT export"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+nutype               = { workspace = true }
+uom                  = { workspace = true }
+dugong               = { workspace = true }
+manatee              = { workspace = true }
+petgraph             = { workspace = true }
+petgraph-graphml     = { workspace = true }
+kurbo                = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

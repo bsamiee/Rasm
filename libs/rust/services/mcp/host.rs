@@ -22,9 +22,11 @@ use opentelemetry_semantic_conventions::{
     SCHEMA_URL,
     attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, JSONRPC_REQUEST_ID, NETWORK_PEER_ADDRESS, NETWORK_PEER_PORT, NETWORK_PROTOCOL_NAME, NETWORK_TRANSPORT, RPC_RESPONSE_STATUS_CODE},
 };
-use rasm_command::Augmented;
+use rasm_command::{
+    Augmented,
+    telemetry::{Defaults, Handle, Layer},
+};
 use rasm_daemon::{Daemon, Lifetime};
-use rasm_telemetry::{Defaults, Handle, Layer};
 #[expect(deprecated, reason = "rmcp::ServerHandler::set_level requires its deprecated request type")]
 use rmcp::model::SetLevelRequestParams;
 use rmcp::{

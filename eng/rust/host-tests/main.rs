@@ -6,9 +6,8 @@ use std::{io, path::PathBuf, process::ExitCode};
 use clap::{Parser, Subcommand};
 use futures::{FutureExt as _, StreamExt as _};
 use jiff::fmt::friendly::SpanParser;
-use rasm_command::{CommandError, Process};
-use rasm_process::report::Run;
-use rasm_telemetry::Defaults;
+use rasm_command::{CommandError, Process, telemetry::Defaults};
+use rasm_process::Run;
 use tracing_subscriber::layer::Identity;
 
 #[cfg(target_os = "macos")]
@@ -16,8 +15,6 @@ mod adobe;
 mod blender;
 #[cfg(target_os = "macos")]
 mod desktop;
-#[cfg(target_os = "macos")]
-mod rhino;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -35,8 +32,6 @@ struct Tests {
 enum Host {
     Blender(blender::Suite),
     #[cfg(target_os = "macos")]
-    Rhino(rhino::Suite),
-    #[cfg(target_os = "macos")]
     Adobe(adobe::Suite),
 }
 
@@ -47,8 +42,6 @@ fn main() -> ExitCode {
         Run::execute(&output, budget, signals.next().map(drop), async |run| {
             match host {
                 Host::Blender(suite) => blender::test(suite, run).await,
-                #[cfg(target_os = "macos")]
-                Host::Rhino(suite) => rhino::test(suite, run).await,
                 #[cfg(target_os = "macos")]
                 Host::Adobe(suite) => adobe::test(suite, run).await,
             }

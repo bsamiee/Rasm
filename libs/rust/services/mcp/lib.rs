@@ -33,7 +33,7 @@ use tokio_stream::wrappers::WatchStream;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-pub trait Failure = rasm_telemetry::Failure + Send + Sync + 'static;
+pub trait Failure = rasm_command::telemetry::Failure + Send + Sync + 'static;
 
 pub trait Endpoint: ServerHandler + Lifetime<Error: Failure> {
     fn ready(&self) -> Result<(), McpError> { Ok(()) }
@@ -238,7 +238,7 @@ impl From<McpError> for ErrorData {
             | McpError::Handshake { source: _ }
             | McpError::Ended => ErrorCode::INTERNAL_ERROR,
         };
-        Self { code, ..server::tools::ToolError(value).into() }
+        Self { code, ..ToolError(value).into() }
     }
 }
 
@@ -343,5 +343,10 @@ fn internal(error: impl Error) -> ErrorData { ErrorData::internal_error(Report::
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 pub mod host;
-pub mod proxy;
-pub mod server;
+mod proxy;
+mod server;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use proxy::Proxy;
+pub use server::{App, CompletionRouter, Elicitation, IntoResourceContents, Registry, ResourceRouter, Server, Settings, ToolError};

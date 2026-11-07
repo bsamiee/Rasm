@@ -2,7 +2,7 @@ use std::{ffi::OsString, io, path::PathBuf};
 
 use clap::{Args, ValueHint};
 use futures::StreamExt as _;
-use rasm_process::{macos::Launch, report::Run};
+use rasm_process::{Launch, Run};
 use thiserror::Error;
 use tokio::{io::AsyncWriteExt as _, process::Command};
 use tokio_util::{

@@ -1,0 +1,36 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-network-analysis"
+edition.workspace = true
+description       = "Network analysis: catchments, routes, centrality, connectivity, flows, spanning trees, and communities"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+hashbrown            = { workspace = true }
+indexmap             = { workspace = true }
+itertools            = { workspace = true }
+serde                = { workspace = true }
+nutype               = { workspace = true }
+ordered-float        = { workspace = true }
+nalgebra             = { workspace = true }
+leiden-rs            = { workspace = true }
+petgraph             = { workspace = true }
+rustworkx-core       = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

@@ -20,8 +20,6 @@ use uom::si::{
 };
 use validated::Validated;
 
-use crate::{crs::Crs, frame::Scale};
-
 // --- [TYPES] ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
@@ -207,5 +205,10 @@ fn located(point: Point<f64>) -> Option<Position> { (point.x().abs() <= half_tur
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod crs;
-pub mod frame;
+mod crs;
+mod frame;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use crs::{Context, Crs, Encoding, Extent, Factors, Transformation};
+pub use frame::{Anchor, Frame, North, Scale, Toward};

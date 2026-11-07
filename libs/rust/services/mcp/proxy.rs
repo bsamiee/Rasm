@@ -81,7 +81,7 @@ pub struct Proxy {
 impl Proxy {
     pub async fn spawn(mut command: Command, host: Host) -> Result<Self, McpError> {
         let program = command.as_std().get_program().to_owned();
-        rasm_telemetry::inject(&Context::current(), command.as_std_mut());
+        rasm_command::telemetry::inject(&Context::current(), command.as_std_mut());
         let Host { identity, filter: _, notifier } = host;
         let mut wrapped = CommandWrap::from(command);
         wrapped.wrap(KillOnDrop).wrap(cfg_select! {

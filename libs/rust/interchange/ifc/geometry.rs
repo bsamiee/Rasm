@@ -15,7 +15,7 @@ use serde_with::{base64::Base64, serde_as};
 use validated::Validated;
 
 use crate::{
-    Composed, Constraint, Fault, IfcError, Model, Path, Value, bind, distinct,
+    Composed, Constraint, Fault, IfcError, Model, Path, Value, distinct,
     schemas::{Attribute, attribute, encoded},
 };
 
@@ -233,7 +233,7 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
     let point_cloud = |node: &Composed, PointCloud(bytes): PointCloud| {
         let failed = |source| IfcError::Cloud { node: node.path.clone(), source };
         let absent = |field| IfcError::Attribute { node: node.path.clone(), attribute: PointCloud::ID.into(), reason: Fault::Field(field) };
-        bind(Validated::from(DynReader::from_bytes(&bytes).map_err(failed)), |reader| {
+        DynReader::from_bytes(&bytes).map_err(failed).map_or_else(Validated::fail, |reader| {
             let located = |field: &'static str| reader.meta().field_defs.iter().position(|definition| definition.name == field).map(|index| (field, index));
             let column = |field: &'static str| Validated::from(located(field).ok_or_else(|| absent(field)));
             let rgb = located("rgb");
@@ -254,9 +254,9 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
                 let tint = Validated::from(rgb.map(|(name, index)| fields.get(index).and_then(color).ok_or_else(|| absent(name))).transpose());
                 coordinate(&fields, x).map4(coordinate(&fields, y), coordinate(&fields, z), tint, |east, north, up, shade| (Point3::new(east, north, up), shade))
             };
-            bind(column("x").map3(column("y"), column("z"), |x, y, z| [x, y, z]), |axes| {
-                let records = reader.map(|record| bind(Validated::from(record.map_err(failed)), |fields| point(fields, axes))).collect::<Validated<(Vec<_>, Vec<_>), _>>();
-                bind(records, |(positions, colors)| Validated::from(cloud(node, PointCloud::ID, positions, colors.into_iter().collect())))
+            column("x").map3(column("y"), column("z"), |x, y, z| [x, y, z]).ok().map_or_else(Validated::Fail, |axes| {
+                let records = reader.map(|record| record.map_err(failed).map_or_else(Validated::fail, |fields| point(fields, axes))).collect::<Validated<(Vec<_>, Vec<_>), _>>();
+                records.ok().map_or_else(Validated::Fail, |(positions, colors)| Validated::from(cloud(node, PointCloud::ID, positions, colors.into_iter().collect())))
             })
         })
     };
@@ -309,7 +309,9 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
             form::<PointBase64>(node, |PointBase64 { positions: position_bytes, colors: color_bytes }| {
                 let decoded = Validated::from(triples(node, &position_bytes))
                     .map2(Validated::from(color_bytes.as_deref().map(|colors| triples(node, colors)).transpose()), |positions, colors| (positions, colors));
-                bind(decoded, |(positions, colors)| Validated::from(cloud(node, PointBase64::ID, positions.into_iter().map(|position| Point3::from(position.map(f64::from))).collect(), colors)))
+                decoded.ok().map_or_else(Validated::Fail, |(positions, colors)| {
+                    Validated::from(cloud(node, PointBase64::ID, positions.into_iter().map(|position| Point3::from(position.map(f64::from))).collect(), colors))
+                })
             })
         }),
         (PointCloud::ID, &|node: &Composed| form::<PointCloud>(node, |record| point_cloud(node, record))),

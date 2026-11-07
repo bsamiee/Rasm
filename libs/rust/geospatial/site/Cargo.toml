@@ -3,15 +3,13 @@
 [package]
 name              = "rasm-site"
 edition.workspace = true
-publish.workspace = true
+description       = "Located site: coordinates, time zones, parcels, CRS transformations, and grid frames"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+path = "lib.rs"
+test = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
@@ -20,11 +18,11 @@ nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive_more          = { workspace = true }
+itertools            = { workspace = true }
 serde                = { workspace = true }
 serde_json           = { workspace = true }
 serde_path_to_error  = { workspace = true }
 nutype               = { workspace = true }
-itertools            = { workspace = true }
 jiff                 = { workspace = true }
 nalgebra             = { workspace = true }
 uom                  = { workspace = true }

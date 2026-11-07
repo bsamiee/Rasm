@@ -3,40 +3,38 @@
 [package]
 name              = "rasm-pdf"
 edition.workspace = true
-publish.workspace = true
+description       = "PDF documents authored, edited, read, signed, validated, and soft-proofed"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+path = "lib.rs"
+test = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
+stacksafe            = { workspace = true }
 nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive-where         = { workspace = true }
 derive_more          = { workspace = true }
-stacksafe            = { workspace = true }
 strum                = { workspace = true }
-itertools            = { workspace = true }
 indexmap             = { workspace = true }
+itertools            = { workspace = true }
+rasn                 = { workspace = true }
+rasn-cms             = { workspace = true }
 nutype               = { workspace = true }
 jiff                 = { workspace = true }
 xot                  = { workspace = true }
 secrecy              = { workspace = true }
 reqwest              = { workspace = true }
-rasn                 = { workspace = true }
-rasn-cms             = { workspace = true }
+bytemuck             = { workspace = true }
 uom                  = { workspace = true }
 color                = { workspace = true }
 moxcms               = { workspace = true }
 fast_image_resize    = { workspace = true }
-bytemuck             = { workspace = true }
 image                = { workspace = true }
 image-compare        = { workspace = true }
 tiff                 = { workspace = true }
@@ -44,15 +42,15 @@ fontdb               = { workspace = true }
 kurbo                = { workspace = true }
 linesweeper          = { workspace = true }
 usvg                 = { workspace = true }
+vello_common         = { workspace = true }
 hayro                = { workspace = true }
 hayro-svg            = { workspace = true }
 hayro-syntax         = { workspace = true }
-vello_common         = { workspace = true }
 krilla               = { workspace = true }
 krilla-svg           = { workspace = true }
 lopdf                = { workspace = true }
 pdf_oxide            = { workspace = true }
-rasm-linework        = { workspace = true }
+rasm-drawing         = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

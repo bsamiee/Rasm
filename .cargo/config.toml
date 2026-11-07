@@ -6,16 +6,15 @@
 # (#2068), which `profile.dev` line tables need. Target rustflags replace `build.rustflags`, so the
 # row repeats them.
 # [target.aarch64-apple-darwin]
-# rustflags = ["-Zunstable-options", "--jobs-frontend=4", "-Clink-arg=--ld-path=wild"]
+# rustflags = ["-Zunstable-options", "--jobs-frontend=8", "-Clink-arg=--ld-path=wild"]
 
 # --- [BUILD] ----------------------------------------------------------------------------
 
 [build]
-target-dir  = ".artifacts/rust"
-build-dir   = "{cargo-cache-home}/build/{workspace-path-hash}"
-warnings    = "deny"
-rustflags   = ["-Zunstable-options", "--jobs-frontend=4"]
-fingerprint = "content"
+target-dir = ".artifacts/rust"
+build-dir  = "{cargo-cache-home}/build/{workspace-path-hash}"
+warnings   = "deny"
+rustflags  = ["-Zunstable-options", "--jobs-frontend=8"]
 
 # --- [ENV] ------------------------------------------------------------------------------
 
@@ -30,6 +29,5 @@ feature-unification = "workspace"
 # --- [UNSTABLE] -------------------------------------------------------------------------
 
 [unstable]
-checksum-freshness  = true
 feature-unification = true
 git                 = "shallow-deps"

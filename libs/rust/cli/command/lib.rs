@@ -1,4 +1,4 @@
-#![feature(error_reporter, try_blocks_heterogeneous)]
+#![feature(default_field_values, error_reporter, trait_alias, try_blocks_heterogeneous)]
 #![cfg_attr(unix, feature(iterator_try_collect))]
 #![cfg_attr(panic = "abort", feature(lock_value_accessors, nonpoison_mutex, panic_update_hook, sync_nonpoison))]
 
@@ -26,7 +26,6 @@ use clap::{
 use clap_complete::CompleteEnv;
 use futures::stream;
 use nonempty_collections::NEVec;
-use rasm_telemetry::{Defaults, Failure, Handle, Layer, MakeWriter};
 use tokio::runtime::Runtime;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal};
@@ -43,6 +42,8 @@ use tracing_subscriber::{
     filter::LevelFilter,
     fmt::writer::{MakeWriterExt as _, OptionalWriter},
 };
+
+use self::telemetry::{Defaults, Failure, Handle, Layer, MakeWriter};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -92,7 +93,7 @@ struct Options {
     #[command(flatten)]
     color: colorchoice_clap::Color,
     #[command(flatten)]
-    telemetry: rasm_telemetry::Options,
+    telemetry: telemetry::Options,
 }
 
 #[derive(Debug)]
@@ -158,7 +159,7 @@ pub enum CommandError {
         settings::Phase::Parse(origin) | settings::Phase::Decode { path: _, origin: Some(origin) } => formatter.write_str(&origin.excerpt(&phase.to_string())),
         settings::Phase::Decode { path: _, origin: None } => write!(formatter, "{phase}"),
     }))]
-    Settings { phase: settings::Phase, source: Box<de::Error> },
+    Settings { phase: Phase, source: Box<de::Error> },
 }
 
 impl From<CommandError> for sysexits::ExitCode {
@@ -277,4 +278,9 @@ where
     })
 }
 
-pub mod settings;
+mod settings;
+pub mod telemetry;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use settings::{Layers, Origin, Phase, Provenance, decoded};

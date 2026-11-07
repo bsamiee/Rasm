@@ -1,0 +1,151 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/restriction_in_macro.rs
+---
+warning: `std::option::Option::unwrap` in a local macro expansion panics on `None`
+  --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:9:16
+   |
+ 7 | macro_rules! taken {
+ 8 |     ($value:expr) => {
+ 9 |         $value.unwrap()
+   |                ^^^^^^^^
+...
+57 | fn unwrapped(value: Option<u32>) -> u32 { taken!(value) }
+   |                                           ------------- in this macro invocation
+   |
+   = help: convert `None` into an error with `ok_or_else` and return it with `?`
+   = note: `#[warn(unwrap_used_in_macro)]` on by default
+
+warning: `std::result::Result::expect` in a local macro expansion panics on `Err`
+  --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:27:16
+   |
+25 | macro_rules! required {
+26 |     ($value:expr) => {
+27 |         $value.expect("value is present")
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+59 | fn expected(value: Result<u32, ParseIntError>) -> u32 { required!(value) }
+   |                                                         ---------------- in this macro invocation
+   |
+   = help: return the error with `?`
+   = note: `#[warn(expect_used_in_macro)]` on by default
+
+warning: `std::option::Option::unwrap` in a local macro expansion panics on `None`
+  --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:15:9
+   |
+13 | macro_rules! taken_qualified {
+14 |     ($value:expr) => {
+15 |         Option::unwrap($value)
+   |         ^^^^^^^^^^^^^^^^^^^^^^
+...
+61 | fn unwrapped_qualified(value: Option<u32>) -> u32 { taken_qualified!(value) }
+   |                                                     ----------------------- in this macro invocation
+   |
+   = help: convert `None` into an error with `ok_or_else` and return it with `?`
+
+warning: `std::result::Result::expect` in a local macro expansion panics on `Err`
+  --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:21:9
+   |
+19 | macro_rules! required_qualified {
+20 |     ($value:expr) => {
+21 |         Result::expect($value, "value is present")
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+63 | fn expected_qualified(value: Result<u32, ParseIntError>) -> u32 { required_qualified!(value) }
+   |                                                                   -------------------------- in this macro invocation
+   |
+   = help: return the error with `?`
+
+warning: `panic!` in a local macro expansion panics
+  --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:34:13
+   |
+31 | macro_rules! ensured {
+...
+34 |             panic!("broken")
+   |             ^^^^^^^^^^^^^^^^
+...
+65 | fn checked(value: u32) { ensured!(value > 1) }
+   |                          ------------------- in this macro invocation
+   |
+   = help: return a typed error for a failure the input causes, or state the invariant in the types
+   = note: `#[warn(panic_in_macro)]` on by default
+
+warning: `todo!` in a local macro expansion panics
+  --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:41:9
+   |
+39 | macro_rules! pending {
+40 |     () => {
+41 |         todo!()
+   |         ^^^^^^^
+...
+67 | fn unfinished() -> u32 { pending!() }
+   |                          ---------- in this macro invocation
+   |
+   = help: replace `todo!` with the implementation
+
+warning: `println!` in a local macro expansion writes to stdout
+  --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:47:9
+   |
+45 | macro_rules! said {
+46 |     ($($argument:tt)*) => {
+47 |         println!($($argument)*)
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+...
+69 | fn printed(value: u32) { said!("{value}") }
+   |                          ---------------- in this macro invocation
+   |
+   = help: emit a `tracing` event in place of `println!`
+   = note: `#[warn(print_in_macro)]` on by default
+
+warning: `write!` in a local macro expansion formats through `Debug`
+  --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:85:9
+   |
+83 | macro_rules! written {
+84 |     ($out:expr, $value:expr) => {
+85 |         write!($out, "{:?}", $value)
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+91 | fn writing(out: &mut String, value: u32) -> core::fmt::Result { written!(out, value) }
+   |                                                                 -------------------- in this macro invocation
+   |
+   = help: format through `Display` with `{}`
+   = note: `#[warn(use_debug_in_macro)]` on by default
+
+warning: `tokio::pin!` duplicates standard pinning
+  --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:96:5
+   |
+96 |     tokio::pin!(first, second);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: bind pinned values with `core::pin::pin!`
+   = note: `#[warn(tokio_pin)]` on by default
+
+warning: `tokio::pin!` duplicates standard pinning
+   --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:102:5
+    |
+102 |     pinned!(value);
+    |     ^^^^^^^^^^^^^^
+    |
+    = help: bind pinned values with `core::pin::pin!`
+
+warning: `tokio::pin!` duplicates standard pinning
+   --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:107:5
+    |
+107 | /     tokio::pin! {
+108 | |         let outer = async {
+109 | |             let inner = future::ready(4);
+110 | |             pinned!(inner);
+...   |
+113 | |         let other = future::ready(5);
+114 | |     }
+    | |_____^
+    |
+    = help: bind pinned values with `core::pin::pin!`
+
+warning: `tokio::pin!` duplicates standard pinning
+   --> tests/rust/tools/dylint/examples/restriction_in_macro.rs:110:13
+    |
+110 |             pinned!(inner);
+    |             ^^^^^^^^^^^^^^
+    |
+    = help: bind pinned values with `core::pin::pin!`

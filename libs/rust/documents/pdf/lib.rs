@@ -31,7 +31,7 @@ use pdf_oxide::{
     editor::{DocumentEditor, SaveOptions},
     ocr::OcrError,
 };
-use rasm_linework::{LineworkError, WidthError};
+use rasm_drawing::{LineworkError, WidthError};
 use rasn::{
     error::{DecodeError, EncodeError},
     types::Enumerated as _,
@@ -400,11 +400,22 @@ fn write_fields(structure: &mut lopdf::Document, page: ObjectId, fields: &Fields
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod authoring;
-pub mod conformance;
-pub mod editing;
-pub mod extraction;
-pub mod layers;
-pub mod measurement;
-pub mod navigation;
-pub mod proofs;
+mod authoring;
+mod conformance;
+mod editing;
+mod extraction;
+mod layers;
+mod measurement;
+mod navigation;
+mod proofs;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use authoring::{Options, Press, Standards, author, scan};
+pub use conformance::{Verdict, claims, convert, validate};
+pub use editing::{Authority, Finish, Level, Part, Redaction, assemble, fill, form_fields, overlay, redact, sign, split};
+pub use extraction::{Paths, extract, paths, recognize};
+pub use layers::{Group, groups, set};
+pub use measurement::{Measure, locate, measures};
+pub use navigation::{Navigation, label, read};
+pub use proofs::{Appearance, Raster, compare, render, svg};

@@ -85,7 +85,7 @@ impl Attribute for GlobalWarmingPotential {
 
 // --- [TARGETS]
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub(crate) struct Target {
     #[serde(rename = "ref")]
     pub(crate) reference: Path,

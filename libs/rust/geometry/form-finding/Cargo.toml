@@ -1,0 +1,33 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-form-finding"
+edition.workspace = true
+description       = "Form finding of tension and compression nets: force density, dynamic relaxation, and inverse form finding"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+faer                 = { workspace = true }
+nalgebra             = { workspace = true }
+nlopt                = { workspace = true }
+petgraph             = { workspace = true }
+rasm-stats           = { workspace = true }
+rasm-optimization    = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

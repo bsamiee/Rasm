@@ -1,0 +1,28 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/manual_variant_array.rs
+---
+warning: borrowed slice lists every variant of `Mode` in declaration order
+  --> tests/rust/tools/dylint/examples/manual_variant_array.rs:53:79
+   |
+53 |     black_box(&([ALL.len(), HOT.len(), PRIORITY.len(), Mode::VARIANTS.len()], [Mode::Fast, Mode::Slow].contains(&Mode::Slow)));
+   |                                                                               ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: read `<Mode as strum::VariantArray>::VARIANTS`; add `#[derive(strum::VariantArray)]` where the trait is absent
+   = note: `#[warn(manual_variant_array)]` on by default
+
+warning: borrowed slice lists every variant of `Measure<4>` in declaration order
+  --> tests/rust/tools/dylint/examples/manual_variant_array.rs:54:15
+   |
+54 |     black_box([Measure::<4>::Low, Measure::<4>::High].contains(&Measure::<4>::High));
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: read `<Measure<4> as strum::VariantArray>::VARIANTS`; add `#[derive(strum::VariantArray)]` where the trait is absent
+
+warning: borrowed slice lists every variant of `Visible` in declaration order
+  --> tests/rust/tools/dylint/examples/manual_variant_array.rs:58:15
+   |
+58 |     black_box([Visible::Shown, Visible::Hidden].contains(&Visible::Hidden));
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: read `<Visible as strum::VariantArray>::VARIANTS`; add `#[derive(strum::VariantArray)]` where the trait is absent

@@ -1,11 +1,9 @@
-import { matchesGlob } from 'node:path';
 import { layerPosix } from '@effect/platform-node/NodePath';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateNodesContext, hashArray } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { decodeFile, Mise, Package, runCommand, TextFormat } from '@rasm/eng';
 import { Array, Config, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, SchemaGetter, type Scope, String, Struct } from 'effect';
-import { escape } from 'minimatch';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -61,11 +59,13 @@ const CargoMetadata = Schema.Struct({
     packages: Schema.Array(
         Schema.Struct({
             name: Schema.String,
+            description: Schema.OptionFromNullOr(Schema.String),
             manifest: Schema.String,
             targets: Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.NonEmptyArray(Schema.String), types: Schema.Array(Schema.String), source: Schema.String, test: Schema.Boolean }).pipe(Schema.encodeKeys({ types: 'crate_types', source: 'src_path' }))),
             dependencies: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.OptionFromOptionalKey(Schema.String) })),
         }).pipe(Schema.encodeKeys({ manifest: 'manifest_path' })),
     ),
+    metadata: Schema.OptionFromNullOr(Schema.Struct({ dylint: Schema.OptionFromOptionalKey(Schema.Struct({ libraries: Schema.Array(Schema.Struct({ path: Schema.String })) })) })),
 });
 const SwiftPackage = Schema.Struct({
     targets: Schema.Array(
@@ -182,32 +182,16 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         return value;
     });
     const swiftManifest = <A, I>(schema: Schema.Codec<A, I>, ...args: readonly string[]) => cached(schema, [SWIFT_MANIFEST], ['swift', 'package', ...args], { env: { SWIFTPM_BUILD_DIR: path.join(workspaceRoot, '.cache/swiftpm/nx-manifest') } });
-    const crates = yield* Effect.cached(
-        Effect.map(
-            cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, 'rust-toolchain.toml', '.cargo/config.toml'], ['cargo', 'metadata', '--format-version', '1', '--no-deps'], { pathInputs: ['**/{build.rs,src/{main,lib}.rs,{src/bin,examples,tests,benches}/{*.rs,*/main.rs}}'] }),
-            Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) }))),
-        ),
-    );
-    const patterns = ['pnpm-lock.yaml', 'tools/*/examples/**'];
+    const cargo = yield* Effect.cached(cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, 'rust-toolchain.toml', '.cargo/config.toml'], ['cargo', 'metadata', '--format-version', '1', '--no-deps'], { pathInputs: ['**/{build.rs,src/{main,lib}.rs,{src/bin,examples,tests,benches}/{*.rs,*/main.rs}}'] }));
+    const crates = Effect.map(cargo, Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) }))));
     const hosts = yield* Effect.cached(fs.readDirectory(path.join(workspaceRoot, APPS)));
     return {
         workspaceRoot,
         crates,
+        dylintLibraries: Effect.map(cargo, Function.flow(Struct.get('metadata'), Option.flatMap(Struct.get('dylint')), Option.match({ onNone: Array.empty, onSome: ({ libraries }) => libraries.map((library) => path.resolve(workspaceRoot, library.path)) }))),
         hosts,
         swiftManifest,
         nxJsonConfiguration,
-        scanExclusions: Effect.map(
-            crates,
-            Function.flow(
-                Array.flatMap(Struct.get('targets')),
-                Array.filter(({ kind, test }) => kind.includes('example') || (kind.includes('test') && !test)),
-                Array.map(({ source }) => path.relative(workspaceRoot, source)),
-                Array.dedupe,
-                Array.filter((source) => !patterns.some(matchesGlob.bind(null, source))),
-                Array.map((source) => escape(source, { magicalBraces: true })),
-                Array.prependAll(patterns),
-            ),
-        ),
         ...(yield* Effect.all({
             mise: Effect.cached(
                 Effect.flatMap(cached(Mise.declared, [`${path.dirname(Mise.file)}/mise*.toml`], ['mise', 'daemons', 'ls', '--json'], { env: { MISE_ENV: yield* Config.String('MISE_ENV').pipe(Config.withDefault('')) }, ignoredInputs: [`${path.dirname(Mise.file)}/mise*.local.toml`] }), (declared) =>

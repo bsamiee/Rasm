@@ -69,10 +69,10 @@ allowed-duplicate-crates = [
     "thiserror-impl",        # 1 under `thiserror` 1 beside 2 under `thiserror` 2
     "foldhash",              # 0.1 under newest `rustworkx-core` 0.18.1 and under `hashbrown` 0.15 of newest `petgraph` 0.8.3, beside 0.2 under `hashbrown` 0.17 that `indexmap` and `rustworkx-core` take
     "web-time",              # 0.2 under the wasm target of newest `clarabel` 0.11.1 beside 1 under the wasm targets of newest `nuts-rs` 0.19.1, `indicatif` and `tracing-opentelemetry` and under `cfb` 0.14 of `umya-spreadsheet` 3.1.1
-    "ndarray",               # 0.16 under `tract-core` and `tract-data` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature beside 0.17, the catalog row, under `pdf_oxide`, `csaps`, `sprs`, `rustworkx-core`, `rasm-analysis`, `rasm-solar`, `rasm-spectra`, and `rasm-weather`
+    "ndarray",               # 0.16 under `tract-core` and `tract-data` 0.22.5 of the `pdf_oxide` 0.3.78 `ocr-tract` feature beside 0.17, the catalog row, under `pdf_oxide`, `csaps`, `sprs`, `rustworkx-core`, `rasm-numerical-analysis`, `rasm-solar-geometry`, `rasm-signal-processing`, and `rasm-weather`
     "num-bigint",            # 0.5 under `arrow-buffer` 59.3.2, the release `datafusion` 55 and `deltalake` 1.1 link, beside 0.4 under `num-rational` of `nalgebra` 0.35 and `fraction` of `jsonschema` 0.60
-    "zip",                   # 6 under newest `spreadsheet-ods` 1.0.4 and 8 under `umya-spreadsheet` 3.1.1 and newest `fmi` 0.8.0, beside 9, the catalog row, under `calamine` 0.38.0, `ironcalc` 0.9.1, `rust_xlsxwriter` 0.102.0, `office_oxide` 0.1.16, and `rasm-ifc`
-    "typed-path",            # 0.12 under `zip` 8 beside 0.13, the catalog row, under `zip` 9 and `rasm-ifc`
+    "zip",                   # 6 under newest `spreadsheet-ods` 1.0.4 and 8 under `umya-spreadsheet` 3.1.1 and newest `fmi` 0.8.0, beside 9, the catalog row, under `calamine` 0.38.0, `ironcalc` 0.9.1, `rust_xlsxwriter` 0.102.0, `office_oxide` 0.1.16, and `rasm-bcf`
+    "typed-path",            # 0.12 under `zip` 8 beside 0.13, the catalog row, under `zip` 9 and `rasm-bcf`
     "zstd",                  # 0.13 under `arrow-ipc` and `parquet` 59.3.2, the `zstd` feature of `tiff` 0.11.3, and the default `zstd` of `zip` 8 that newest `fmi` 0.8.0 takes, beside 0.14 under `compression-codecs` of `async-compression`, which `tower-http` under `reqwest` 0.13 takes
     "zstd-safe",             # 7 under `zstd` 0.13 beside 8 under `zstd` 0.14 and `compression-codecs` of `async-compression`
     "brotli",                # 8 under the `brotli` codec of `parquet` 59.3.2, which `datafusion` 55 and `deltalake` 1.1 take with its defaults, and under `hayro-cmap` of `hayro-interpret` 0.7 and 0.9, beside 9 under `compression-codecs` of `async-compression` under `reqwest` 0.13 and under `pdf_oxide` 0.3.78
@@ -99,18 +99,18 @@ allowed-duplicate-crates = [
     "phf_macros",            # 0.13 under `phf` 0.13 `macros` beside 0.14 under `phf` 0.14 `macros`
     "quick-xml",             # 0.38 under `citationberg` 0.7 of `hayagriva` and under newest `office-crypto` 0.4.0 and `spreadsheet-ods` 1.0.4, 0.41 under `umya-spreadsheet` 3.1.1, beside 0.42 under `merman-render`, `calamine` 0.38.0, and `ironcalc` 0.9.1
     "roxmltree",             # 0.20 under `fontconfig-parser` of the fontdb `fontconfig` krilla-svg turns on, on Linux and BSD, beside 0.21 under `usvg`, `typst-library`, and `merman-render`
-    "font-types",            # 0.11 under `read-fonts` 0.39 of `skrifa` 0.42, which `krilla` 0.8.2, `krilla-svg`, `subsetter`, `hayro-interpret` 0.7, and `glifo` 0.1 take, and under `write-fonts` 0.48 of `subsetter`, beside 0.12 under `read-fonts` 0.41 of `skrifa` 0.44, which `parley_engine` and `glifo` 0.4 take, and 0.46 of `skrifa` 0.49, which `hayro-font` 0.5 and `rasm-annotation` take
+    "font-types",            # 0.11 under `read-fonts` 0.39 of `skrifa` 0.42, which `krilla` 0.8.2, `krilla-svg`, `subsetter`, `hayro-interpret` 0.7, and `glifo` 0.1 take, and under `write-fonts` 0.48 of `subsetter`, beside 0.12 under `read-fonts` 0.41 of `skrifa` 0.44, which `parley_engine` and `glifo` 0.4 take, and 0.46 of `skrifa` 0.49, which `hayro-font` 0.5 and `rasm-drafting` take
     "read-fonts",            # 0.39 under `skrifa` 0.42 and `write-fonts` 0.48 and 0.41 under `fontique` 0.12, `harfrust` 0.12, and `skrifa` 0.44 beside 0.46 under `skrifa` 0.49
-    "skrifa",                # 0.42 under `krilla` 0.8.2, `krilla-svg` 0.8.1, `subsetter` 0.2.6, and `hayro-interpret` 0.7 and 0.44 under `parley_engine` 0.12 beside 0.49 under `hayro-font` 0.5 and `rasm-annotation`
+    "skrifa",                # 0.42 under `krilla` 0.8.2, `krilla-svg` 0.8.1, `subsetter` 0.2.6, and `hayro-interpret` 0.7 and 0.44 under `parley_engine` 0.12 beside 0.49 under `hayro-font` 0.5 and `rasm-drafting`
     "fearless_simd",         # 0.4 under `hayro-jpeg2000` 0.3 and `vello_common` 0.0.8 and 0.0.9, 0.7 under `vello_common` 0.3, beside 1 under `hayro` 0.9, `hayro-jbig2` 0.3 and 0.4, and `hayro-jpeg2000` 0.4 and 0.5
     "hayro-syntax",          # 0.7 under `hayro-write` 0.7 of `krilla` 0.8.2, `hayro-interpret` 0.7, and `typst-library` 0.15.1 beside 0.9 under `hayro-font` 0.5, `hayro-interpret` 0.9, and `rasm-pdf`
     "hayro-ccitt",           # 0.3 under `hayro-syntax` 0.7 and 0.4 under `hayro-jbig2` 0.3 beside 0.5 under `hayro-jbig2` 0.4 and `hayro-syntax` 0.9
     "hayro-jbig2",           # 0.3 under `hayro-syntax` 0.7 of `typst-library` 0.15.1 and `krilla` 0.8.2 beside 0.4 under `hayro-syntax` 0.9
     "hayro-jpeg2000",        # 0.3 under `hayro-syntax` 0.7 of `typst-library` 0.15.1 and `krilla` 0.8.2 and 0.4 under `grib` 0.20.2 and the `pdf_oxide` 0.3.78 `jpeg2000` feature beside 0.5 under `hayro-syntax` 0.9
     "moxcms",                # 0.8 under `image` 0.25.10, `hayro-interpret` 0.7 and 0.9, and `typst-library` 0.15.1 beside 0.9, the catalog row, under `rasm-pdf`
-    "imagesize",             # 0.14 under `krilla` 0.8.2, `usvg` 0.47.0, and `umya-spreadsheet` 3.1.1 beside 0.15, the catalog row, under `rasm-sheets`
+    "imagesize",             # 0.14 under `krilla` 0.8.2, `usvg` 0.47.0, and `umya-spreadsheet` 3.1.1 beside 0.15, the catalog row, under `rasm-drafting`
     "approx",                # 0.3 under `alga` 0.9.3, the default of `sprs` 0.11.6 under newest `csaps` 0.5.0, beside 0.5 under `nalgebra`, `simba`, `num-dual`, `statrs`, `parry3d-f64`, `geo-types`, `glam`, `glamx` and `palette`
-    "num-complex",           # 0.2 under `alga` 0.9.3 of the `sprs` under newest `csaps` 0.5.0 beside 0.4 under `faer`, `nalgebra`, `ndarray`, `sprs`, `rasm-spectra` and `rasm-analysis`
+    "num-complex",           # 0.2 under `alga` 0.9.3 of the `sprs` under newest `csaps` 0.5.0 beside 0.4 under `faer`, `nalgebra`, `ndarray`, `sprs`, `rasm-signal-processing` and `rasm-numerical-analysis`
     "smallvec",              # 1 under `parry3d-f64`, `spade`, `kurbo`, `parley`, `hyper`, `tracing-subscriber`, and `proc-macro-utils` 0.10 beside 2.0.0-beta.4 under `facet-reflect` 0.46.5 of the `facet` that `fidget-core` takes under newest `fidget` 0.5.1
 ]
 
@@ -226,7 +226,6 @@ disallowed-methods          = [
     { path = "std::path::Path::read_dir", replacement = "fs_err::PathExt::fs_err_read_dir", reason = "`io::Error` names no path" },
     { path = "std::path::Path::read_link", replacement = "fs_err::PathExt::fs_err_read_link", reason = "`io::Error` names no path" },
     { path = "std::path::Path::try_exists", replacement = "fs_err::PathExt::fs_err_try_exists", reason = "`io::Error` names no path" },
-    { path = "std::path::Path::canonicalize", replacement = "dunce::simplified", reason = "`io::Error` names no path and Windows results hold verbatim prefix, use `dunce::simplified(&fs_err::canonicalize(..)?)`" },
     { path = "std::path::Path::exists", replacement = "fs_err::exists", reason = "Reports failed read as absence" },
     { path = "std::path::Path::is_file", replacement = "fs_err::metadata", reason = "Reports failed read as absence, use `fs_err::metadata(..)?.is_file()`" },
     { path = "std::path::Path::is_dir", replacement = "fs_err::metadata", reason = "Reports failed read as absence, use `fs_err::metadata(..)?.is_dir()`" },

@@ -3,15 +3,13 @@
 [package]
 name              = "rasm-daemon"
 edition.workspace = true
-publish.workspace = true
+description       = "Served HTTP process every Rasm daemon runs: listeners, h2c serving, and two-stage drain"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+path = "lib.rs"
+test = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
@@ -32,7 +30,6 @@ http                               = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 clap                               = { workspace = true }
-rasm-telemetry                     = { workspace = true }
 rasm-command                       = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------

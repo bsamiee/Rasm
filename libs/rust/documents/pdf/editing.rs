@@ -35,7 +35,14 @@ fn forms<'document>(structure: &'document lopdf::Document, resources: &'document
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod annotations;
-pub mod assembly;
-pub mod overlay;
-pub mod signing;
+mod annotations;
+mod assembly;
+mod overlay;
+mod signing;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use annotations::{Finish, Redaction, fill, form_fields, redact};
+pub use assembly::{Part, assemble, split};
+pub use overlay::overlay;
+pub use signing::{Authority, Level, sign};

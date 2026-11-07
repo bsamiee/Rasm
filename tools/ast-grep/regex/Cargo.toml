@@ -1,32 +1,30 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-regex-classes"
+name              = "rasm-ast-grep-regex"
 edition.workspace = true
-description       = "Character classes, token structure, and exact literals of Rust regexes, as the regex engine parses them"
-publish.workspace = true
+description       = "Character classes, token structure, and exact literals of Rust regexes and ast-grep patterns, as their parsers read them"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [[bin]]
-name  = "rasm-regex-classes"
-path  = "main.rs"
-test  = false
-bench = false
+name = "rasm-ast-grep-regex"
+path = "main.rs"
+test = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-ast-grep-config      = { workspace = true }
-ast-grep-core        = { workspace = true }
-ast-grep-dynamic     = { workspace = true }
-fs-err               = { workspace = true }
 nonempty-collections = { workspace = true }
-regex-syntax         = { workspace = true }
+thiserror            = { workspace = true }
 serde                = { workspace = true }
 serde_json           = { workspace = true }
 serde_path_to_error  = { workspace = true }
-thiserror            = { workspace = true }
+ast-grep-config      = { workspace = true }
+ast-grep-core        = { workspace = true }
+ast-grep-dynamic     = { workspace = true }
+regex-syntax         = { workspace = true }
+fs-err               = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

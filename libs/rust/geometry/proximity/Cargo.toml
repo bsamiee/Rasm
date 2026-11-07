@@ -3,28 +3,26 @@
 [package]
 name              = "rasm-proximity"
 edition.workspace = true
-publish.workspace = true
+description       = "Proximity queries over placed shapes: clashes, separations, rays, neighbors, and registration"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+path = "lib.rs"
+test = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
 rayon                = { workspace = true }
-bytemuck             = { workspace = true }
 nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
-derive_more          = { workspace = true }
 derive-where         = { workspace = true }
+derive_more          = { workspace = true }
 itertools            = { workspace = true }
 nutype               = { workspace = true }
+bytemuck             = { workspace = true }
 faer                 = { workspace = true }
 glamx                = { workspace = true }
 nalgebra             = { workspace = true }

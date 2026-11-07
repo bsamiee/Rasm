@@ -97,8 +97,8 @@ pub enum Coordinates {
     Vertical { height: Length },
 }
 
-#[derive(Deserialize)]
-pub(crate) struct SpaceBoundary {
+#[derive(Debug, Deserialize)]
+pub struct SpaceBoundary {
     #[serde(rename = "relatedelement")]
     related_element: Target,
     #[serde(rename = "relatingspace")]

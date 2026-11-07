@@ -216,7 +216,7 @@ port       = 7404
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7404/" }
 retry      = true
-run        = "exec env AST_GREP_PATH='ast-grep --custom-languages allow' rasm-mcp-bridge -- ast-grep-server --config sgconfig.yml"
+run        = "exec env AST_GREP_PATH='ast-grep --custom-languages allow' rasm-mcp-proxy -- ast-grep-server --config sgconfig.yml"
 
 [daemons.binlog]
 boot_start = true
@@ -225,7 +225,7 @@ port       = 7403
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7403/" }
 retry      = true
-run        = 'exec env XDG_CACHE_HOME="$PWD/.cache" rasm-mcp-bridge -- binlog-mcp'
+run        = 'exec env XDG_CACHE_HOME="$PWD/.cache" rasm-mcp-proxy -- binlog-mcp'
 
 [daemons.blender-lab]
 boot_start = true
@@ -234,7 +234,7 @@ port       = 7407
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7407/" }
 retry      = true
-run        = "exec rasm-mcp-bridge -- blender-mcp"
+run        = "exec rasm-mcp-proxy -- blender-mcp"
 
 [daemons.mcp-for-blender]
 boot_start = true
@@ -243,7 +243,7 @@ port       = 7408
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7408/" }
 retry      = true
-run        = "exec doppler run --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 --forward-signals=false -- rasm-mcp-bridge -- mcp-for-blender"
+run        = "exec doppler run --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 --forward-signals=false -- rasm-mcp-proxy -- mcp-for-blender"
 
 [daemons.nuget]
 boot_start = true
@@ -252,7 +252,7 @@ port       = 7402
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7402/" }
 retry      = true
-run        = "exec rasm-mcp-bridge -- nuget-mcp-server"
+run        = "exec rasm-mcp-proxy -- nuget-mcp-server"
 
 [daemons.playwright-test]
 boot_start = true

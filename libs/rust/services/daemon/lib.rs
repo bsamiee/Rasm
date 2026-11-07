@@ -11,8 +11,10 @@ use itertools::Itertools as _;
 use jiff::fmt::friendly::{SpanParser, SpanPrinter};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use opentelemetry_semantic_conventions::attribute::{EXCEPTION_MESSAGE, SERVER_ADDRESS, SERVER_PORT};
-use rasm_command::{Augmented, CommandError, Process};
-use rasm_telemetry::{Defaults, Failure, Handle, Layer};
+use rasm_command::{
+    Augmented, CommandError, Process,
+    telemetry::{Defaults, Failure, Handle, Layer},
+};
 use socket2::SockRef;
 use tokio::{
     net::{self, TcpSocket},

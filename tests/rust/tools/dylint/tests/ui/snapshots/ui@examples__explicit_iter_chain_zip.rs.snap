@@ -1,0 +1,40 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/explicit_iter_chain_zip.rs
+---
+warning: `into_iter` converts `left` into an iterator only to call `chain`
+  --> tests/rust/tools/dylint/examples/explicit_iter_chain_zip.rs:79:57
+   |
+79 | fn owned(left: Vec<u32>, right: Vec<u32>) -> Vec<u32> { left.into_iter().chain(right).collect() }
+   |                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::chain` with `use core::iter;`: `iter::chain(left, right)`
+   |
+   = note: `#[warn(explicit_iter_chain_zip)]` on by default
+applicability MaybeIncorrect: call `iter::chain` with `use core::iter;`
+
+warning: `iter` converts `values` into an iterator only to call `zip`
+  --> tests/rust/tools/dylint/examples/explicit_iter_chain_zip.rs:81:55
+   |
+81 | ...2]) -> u32 { values.iter().zip(weights).map(|(value, weight)| value.strict_mul(*weight)).sum() }
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::zip` with `use core::iter;`: `iter::zip(values, weights)`
+applicability MaybeIncorrect: call `iter::zip` with `use core::iter;`
+
+warning: `iter` converts `values` into an iterator only to call `zip`
+  --> tests/rust/tools/dylint/examples/explicit_iter_chain_zip.rs:85:5
+   |
+85 |     values.iter().zip(weights).map(|(value, weight)| value.strict_add(*weight)).sum()
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::zip` with `use core::iter;`: `iter::zip(&values, weights)`
+applicability MaybeIncorrect: call `iter::zip` with `use core::iter;`
+
+warning: `iter_mut` converts `values` into an iterator only to call `zip`
+  --> tests/rust/tools/dylint/examples/explicit_iter_chain_zip.rs:90:5
+   |
+90 |     values.iter_mut().zip(weights).for_each(|(value, weight)| *value = value.strict_mul(*weight));
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::zip` with `use core::iter;`: `iter::zip(&mut values, weights)`
+applicability MaybeIncorrect: call `iter::zip` with `use core::iter;`
+
+warning: `iter` converts `map` into an iterator only to call `chain`
+  --> tests/rust/tools/dylint/examples/explicit_iter_chain_zip.rs:94:69
+   |
+94 | ... &[(u32, u32)]) -> usize { map.iter().chain(extra.iter().map(|(key, value)| (key, value))).count() }
+   |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::chain` with `use core::iter;`: `iter::chain(map, extra.iter().map(|(key, value)| (key, value)))`
+applicability MaybeIncorrect: call `iter::chain` with `use core::iter;`

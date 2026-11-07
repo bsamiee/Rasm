@@ -7,7 +7,7 @@ use jiff::civil;
 use ndarray::Array2;
 use nonempty_collections::{NEVec, NonEmptyIterator as _};
 use rasm_site::Place;
-use rasm_solar::dome::sector;
+use rasm_solar_geometry::sector;
 use rasm_stats::descriptive;
 use statrs::statistics::Statistics as _;
 use thermalcomfort::{

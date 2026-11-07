@@ -173,28 +173,26 @@ const grammarTarget = Effect.fnUntraced(function* (workspaceRoot: string, read: 
         },
     ] as const satisfies readonly [string, TargetConfiguration];
 });
-const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, scanExclusions }: Workspace) {
+const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, crates }: Workspace) {
     const classes = 'tools/ast-grep/main.ts';
+    const lock = 'pnpm-lock.yaml';
     const parsed = yield* Cache.make({ capacity: Number.POSITIVE_INFINITY, lookup: imports(workspaceRoot) });
     const read = (file: string) => Cache.get(parsed, file);
-    const [path, fs, { ruleDirs, utilDirs, customLanguages, languageGlobs }, exclusions, scanned, classGraph, outliner] = yield* Effect.all(
-        [Path.Path, FileSystem.FileSystem, Sgconfig.read(workspaceRoot), scanExclusions, glob(workspaceRoot, [`${GRAMMARS}/*/scanner.c`]), reach(read, [classes]), reach(read, [OUTLINE])],
-        {
-            concurrency: 'unbounded',
-        },
-    );
+    const [path, fs, { ruleDirs, utilDirs, customLanguages, languageGlobs }, scanned, classGraph, outliner, members] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Sgconfig.read(workspaceRoot), glob(workspaceRoot, [`${GRAMMARS}/*/scanner.c`]), reach(read, [classes]), reach(read, [OUTLINE]), crates], {
+        concurrency: 'unbounded',
+    });
     const outlines = Sgconfig.outlineCatalogs(path, customLanguages);
     const rows = Record.collect(customLanguages, (language, { libraryPath }) => ({ ...path.parse(libraryPath), library: libraryPath, catalog: Array.findFirst(outlines, (outline) => outline.language === language) }));
     const builds = Record.map(Array.groupBy(rows, Struct.get('name')), (held) => ({ library: held[0].library, binary: path.join(held[0].dir, held[0].name), catalogs: Array.getSomes(held.map(Struct.get('catalog'))) }));
     const catalogs = Object.values(builds).flatMap(Struct.get('catalogs'));
     const grammars = yield* Effect.forEach(Record.toEntries(builds), (build) => grammarTarget(workspaceRoot, read, scanned, outliner, build), { concurrency: 'unbounded' });
-    const scan = ['ast-grep scan --custom-languages allow', quote(exclusions.flatMap((pattern) => ['--globs', `!${pattern}`]))].join(' ');
+    const scan = ['ast-grep scan --custom-languages allow', quote(['--globs', `!${lock}`])].join(' ');
     const ruleLanguages = (yield* Effect.forEach(ruleDirs, (folder) => fs.readDirectory(path.join(workspaceRoot, folder)))).flat();
     const sources = Object.values({ ...Record.map(customLanguages, Struct.get('extensions')), ...Record.filter(AST_GREP_BUILT_INS, (_, language) => ruleLanguages.includes(language)) }).map(extensionInput);
     const rules = (directories: readonly string[]) => directories.map((dir) => `{workspaceRoot}/${dir}/**/*.{yml,yaml}`);
     const ruleInputs = rules([...ruleDirs, ...utilDirs]);
-    const skipped = exclusions.map((pattern) => `!{workspaceRoot}/${pattern}`);
     const built = [{ projects: [path.basename(GRAMMARS)], target: 'grammar:*' }];
+    const classifier = members.filter(({ manifest }) => !path.relative(path.dirname(classes), manifest).startsWith('..')).map(Struct.get('name'));
     return {
         projects: {
             [GRAMMARS]: { root: GRAMMARS, name: path.basename(GRAMMARS), targets: Object.fromEntries(grammars) },
@@ -206,12 +204,12 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, scanExclusions }: 
                         dependsOn: built,
                         command: `${scan} --error=no-suppress-all`,
                         syncGenerators: ['@rasm/nx:injection-utils'],
-                        inputs: [...sources, ...Object.values(languageGlobs).flatMap(Array.map((pattern) => `{workspaceRoot}/**/${pattern}`)), ...skipped, ...ruleInputs, 'astGrep'],
+                        inputs: [...sources, ...Object.values(languageGlobs).flatMap(Array.map((pattern) => `{workspaceRoot}/**/${pattern}`)), `!{workspaceRoot}/${lock}`, ...ruleInputs, 'astGrep'],
                     },
                     'lint:ast-grep:classes': {
                         dependsOn: built,
                         command: `node ${classes}`,
-                        inputs: ['typescript', `{workspaceRoot}/${Sgconfig.file}`, ...ruleInputs, ...catalogs.map(({ source }) => `{workspaceRoot}/${source}`), ...importInputs(classGraph), '{workspaceRoot}/tools/ast-grep/regex/**/*', 'rust', { dependentTasksOutputFiles: '**/*.{so,json}', transitive: true }],
+                        inputs: ['typescript', `{workspaceRoot}/${Sgconfig.file}`, ...ruleInputs, ...catalogs.map(({ source }) => `{workspaceRoot}/${source}`), ...importInputs(classGraph), { input: 'default', projects: classifier }, 'rust', { dependentTasksOutputFiles: '**/*.{so,json}', transitive: true }],
                     },
                     'rewrite:tree': { command: `${scan} --update-all`, dependsOn: built, parallelism: false },
                 },

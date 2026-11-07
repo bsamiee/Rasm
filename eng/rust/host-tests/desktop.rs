@@ -2,7 +2,7 @@ use core::num::NonZero;
 use std::{env, io, path::PathBuf};
 
 use fs_err::tokio::canonicalize;
-use rasm_process::{macos::Launch, report::Run};
+use rasm_process::{Launch, Run};
 use tokio::{net::UnixListener, process::Command};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

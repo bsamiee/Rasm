@@ -3,15 +3,13 @@
 [package]
 name              = "rasm-mcp"
 edition.workspace = true
-publish.workspace = true
+description       = "MCP host on the daemon: endpoint sessions, routed app servers, elicitation, and a stdio upstream proxy"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+path = "lib.rs"
+test = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
@@ -50,7 +48,6 @@ opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 tracing-opentelemetry              = { workspace = true }
 clap                               = { workspace = true }
-rasm-telemetry                     = { workspace = true }
 rasm-command                       = { workspace = true }
 rasm-daemon                        = { workspace = true }
 

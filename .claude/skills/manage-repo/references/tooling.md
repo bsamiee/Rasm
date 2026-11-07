@@ -53,10 +53,10 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names socket inside the engine's host, Ryuk mounts it and fails on Colima's client socket path
 - PostgreSQL services with persisted data follow one major tag until an upgrade migrates their data
 - Harness rows hold service URLs and read no `[env]` value into MCP config
-- Servers speaking stdio alone run as `rasm-mcp-bridge -- <command>`, listening on `127.0.0.1` at the `PORT` the row exports
-- Bridges hold a `4s` default grace above upstream's 3s stdin close and below 5s stop timeout, ending upstream on every stop
-- Bridge rows use `ready_http` with status `406` and a `5m` timeout to wait for the upstream handshake
-- `doppler run` rows take `--forward-signals=false`, the group's SIGTERM reaches the bridge once and a forwarded second signal abandons its drain
+- Servers speaking stdio alone run as `rasm-mcp-proxy -- <command>`, listening on `127.0.0.1` at the `PORT` the row exports
+- Proxies hold a `4s` default grace above upstream's 3s stdin close and below 5s stop timeout, ending upstream on every stop
+- Proxy rows use `ready_http` with status `406` and a `5m` timeout to wait for the upstream handshake
+- `doppler run` rows take `--forward-signals=false`, the group's SIGTERM reaches the proxy once and a forwarded second signal abandons its drain
 - `roslyn-codelens` starts from `/` without a solution and gets `30s` to stop
 - Servers starting one process per connection, or approving the connecting process by its code signature, keep a stdio row
 

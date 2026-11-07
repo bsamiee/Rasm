@@ -10,7 +10,7 @@ use clippy_utils::{
     peel_blocks,
     res::{MaybeDef as _, MaybeResPath as _},
     sym,
-    ty::get_iterator_item_ty,
+    ty::{get_iterator_item_ty, is_copy},
     usage::local_used_after_expr,
     visitors::{contains_break_or_continue, find_all_ret_expressions, for_each_expr_without_closures, is_const_evaluatable, is_local_used},
 };
@@ -264,6 +264,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             ExprKind::Call(_, [dropped])
                 if fn_def_id(cx, expr).is_diag_item(cx, sym::mem_drop)
                     && !self.publication(cx, dropped)
+                    && !is_copy(cx, typeck.expr_ty(dropped))
                     && let Some(error) = self.failure(cx, dropped, expr) =>
                 Some((expr.span, Discard::Statement, Cow::Borrowed("drop"), error)),
             ExprKind::If(condition, then, otherwise) => for_each_expr_without_closures(condition, |part| {

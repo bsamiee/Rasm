@@ -1,0 +1,108 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/unending_join.rs
+---
+warning: `for_each` over `WatchStream` can keep `futures::future::join` pending while a sender remains alive
+  --> tests/rust/tools/dylint/examples/unending_join.rs:21:13
+   |
+21 | /             updates.for_each(|update| {
+22 | |                 black_box(update);
+23 | |                 ready(())
+24 | |             }),
+   | |______________^
+   |
+note: sender held here
+  --> tests/rust/tools/dylint/examples/unending_join.rs:18:40
+   |
+18 |         let updates = WatchStream::new(self.0.subscribe());
+   |                                        ^^^^^^
+   = help: pin the futures, combine any remaining futures, and race `for_each` against them through `futures::future::select` in place of `futures::future::join`
+   = note: `#[warn(unending_join)]` on by default
+
+warning: `count` over `BroadcastStream` can keep `join!` pending while a sender remains alive
+  --> tests/rust/tools/dylint/examples/unending_join.rs:67:35
+   |
+67 |     let (seen, ()) = tokio::join!(BroadcastStream::new(received).count(), task::yield_now());
+   |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: sender held here
+  --> tests/rust/tools/dylint/examples/unending_join.rs:66:10
+   |
+66 |     let (sender, received) = broadcast::channel::<u32>(4);
+   |          ^^^^^^
+   = help: pin the futures, combine any remaining futures, and race `count` against them through `futures::future::select` in place of `join!`
+
+warning: `count` over `BroadcastStream` can keep `futures::future::join` pending while a sender remains alive
+  --> tests/rust/tools/dylint/examples/unending_join.rs:81:35
+   |
+81 |     let (seen, ()) = future::join(BroadcastStream::new(received).count(), task::yield_now()).await;
+   |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: sender held here
+  --> tests/rust/tools/dylint/examples/unending_join.rs:80:10
+   |
+80 |     let (sender, received) = broadcast::channel::<u32>(4);
+   |          ^^^^^^
+   = help: pin the futures, combine any remaining futures, and race `count` against them through `futures::future::select` in place of `futures::future::join`
+
+warning: `count` over `BroadcastStream` can keep `futures::future::join` pending while a sender remains alive
+   --> tests/rust/tools/dylint/examples/unending_join.rs:103:37
+    |
+103 |     let (seen, sent) = future::join(BroadcastStream::new(received).count(), async { sender.send(1) }).await;
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: sender held here
+   --> tests/rust/tools/dylint/examples/unending_join.rs:102:10
+    |
+102 |     let (sender, received) = broadcast::channel::<u32>(4);
+    |          ^^^^^^
+    = help: pin the futures, combine any remaining futures, and race `count` against them through `futures::future::select` in place of `futures::future::join`
+
+warning: `count` over `BroadcastStream` can keep `futures::future::join` pending while a sender remains alive
+   --> tests/rust/tools/dylint/examples/unending_join.rs:118:39
+    |
+118 |         let (seen, ()) = future::join(BroadcastStream::new(received).count(), task::yield_now()).await;
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: sender held here
+   --> tests/rust/tools/dylint/examples/unending_join.rs:116:10
+    |
+116 |     let (sender, received) = broadcast::channel::<u32>(4);
+    |          ^^^^^^
+    = help: pin the futures, combine any remaining futures, and race `count` against them through `futures::future::select` in place of `futures::future::join`
+
+warning: `count` over `WatchStream` can keep `futures::future::join` pending while a sender remains alive
+   --> tests/rust/tools/dylint/examples/unending_join.rs:188:18
+    |
+188 |     future::join(WatchStream::new(received).count(), task::yield_now()).await.0
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: sender held here
+   --> tests/rust/tools/dylint/examples/unending_join.rs:187:20
+    |
+187 |     let received = sender.subscribe();
+    |                    ^^^^^^
+    = help: pin the futures, combine any remaining futures, and race `count` against them through `futures::future::select` in place of `futures::future::join`
+
+warning: error `u8` is a primitive that names no failure
+   --> tests/rust/tools/dylint/examples/unending_join.rs:209:96
+    |
+209 |     let drained = WatchStream::new(sender.subscribe()).map(Ok::<_, u8>).try_for_each(|_| ready(Err::<(), _>(1)));
+    |                                                                                                ^^^^^^^^^^^^^^^
+    |
+    = help: return the concrete source error, or add a domain error for context or distinct failures
+    = note: `#[warn(untyped_error)]` on by default
+
+warning: `discarded_stream` has one reader, `disconnected_stream`
+   --> tests/rust/tools/dylint/examples/unending_join.rs:219:1
+    |
+219 | fn discarded_stream(stream: WatchStream<u32>) -> WatchStream<u32> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: read here
+   --> tests/rust/tools/dylint/examples/unending_join.rs:226:19
+    |
+226 |     let updates = discarded_stream(WatchStream::new(sender.subscribe()));
+    |                   ^^^^^^^^^^^^^^^^
+    = help: move `discarded_stream` into `disconnected_stream` as a closure
+    = note: `#[warn(single_reader)]` on by default

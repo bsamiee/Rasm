@@ -28,9 +28,9 @@ use nalgebra::{Rotation2, Vector2, Vector3};
 use ndarray::{aview1, aview2};
 use ndarray_interp::{InterpolateError, interp2d::Interp2D};
 use nonempty_collections::nev;
-use rasm_analysis::roots;
+use rasm_numerical_analysis::roots;
 use rasm_site::Place;
-use rasm_solar::{Sun, lapsed};
+use rasm_solar_geometry::{Sun, lapsed};
 use solar_positioning::Location;
 use uom::si::{
     acceleration::{meter_per_second_squared, standard_gravity},

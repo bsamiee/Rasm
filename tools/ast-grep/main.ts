@@ -230,7 +230,7 @@ const check = Effect.gen(function* () {
         languages: Record.fromIterableWith(grammars, ([language, , library]) => [language, library] as const),
         nodeTypes: Record.fromIterableWith(grammars, ([language, , , nodeTypes]) => [language, nodeTypes] as const),
     });
-    const reply = yield* runCommand('cargo', ['run', '--quiet', '--locked', '--package', 'rasm-regex-classes'], { stdin: { stream: Stream.encodeText(Stream.make(request)) } }).pipe(Effect.flatMap(Schema.decodeEffect(Reply)));
+    const reply = yield* runCommand('cargo', ['run', '--quiet', '--locked', '--manifest-path', path.join(import.meta.dirname, 'regex', 'Cargo.toml')], { stdin: { stream: Stream.encodeText(Stream.make(request)) } }).pipe(Effect.flatMap(Schema.decodeEffect(Reply)));
     const [structures, regexes] = [new Map(Array.zip(tokens.keys(), reply[0])), reply[1]];
     const parse = (rule: Token) => [{ type: 'Concatenation', elements: Option.toArray(Option.map(Option.fromUndefinedOr(structures.get(patternKey(rule))), revived)) }];
     const languages = Record.fromIterableWith(grammars, ([language, held]) => [language, derived(held, parse)] as const);

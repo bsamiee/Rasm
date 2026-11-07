@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: rustlang
 severity: error
-ignores: ['tools/dylint/examples/**']
 utils:
     deserializer:
         kind: call_expression

@@ -3,40 +3,49 @@
 [package]
 name              = "rasm-command"
 edition.workspace = true
-publish.workspace = true
+description       = "Process entry every Rasm executable runs: assembled clap command, settings layers, completions, man pages, runtime, signals, and telemetry"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+path = "lib.rs"
+test = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-futures              = { workspace = true }
-tokio                = { workspace = true }
-annotate-snippets    = { workspace = true }
-nonempty-collections = { workspace = true }
-sysexits             = { workspace = true }
-thiserror            = { workspace = true }
-validated            = { workspace = true }
-derive_more          = { workspace = true }
-itertools            = { workspace = true }
-serde                = { workspace = true }
-serde_path_to_error  = { workspace = true }
-toml                 = { workspace = true }
-camino               = { workspace = true }
-fs-err               = { workspace = true, features = ["tokio"] }
-tracing-appender     = { workspace = true }
-tracing-subscriber   = { workspace = true }
-clap                 = { workspace = true }
-clap_complete        = { workspace = true }
-clap_mangen          = { workspace = true }
-colorchoice-clap     = { workspace = true }
-rasm-telemetry       = { workspace = true }
+futures                            = { workspace = true }
+tokio                              = { workspace = true }
+annotate-snippets                  = { workspace = true }
+nonempty-collections               = { workspace = true }
+sysexits                           = { workspace = true }
+thiserror                          = { workspace = true }
+validated                          = { workspace = true }
+derive_more                        = { workspace = true }
+enum-map                           = { workspace = true }
+itertools                          = { workspace = true }
+serde                              = { workspace = true }
+serde_path_to_error                = { workspace = true }
+toml                               = { workspace = true }
+camino                             = { workspace = true }
+fs-err                             = { workspace = true, features = ["tokio"] }
+json-subscriber                    = { workspace = true }
+log                                = { workspace = true }
+opentelemetry                      = { workspace = true }
+opentelemetry-appender-tracing     = { workspace = true }
+opentelemetry-otlp                 = { workspace = true }
+opentelemetry-resource-detectors   = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry_sdk                  = { workspace = true }
+tracing                            = { workspace = true }
+tracing-appender                   = { workspace = true }
+tracing-log                        = { workspace = true }
+tracing-opentelemetry              = { workspace = true }
+tracing-subscriber                 = { workspace = true }
+clap                               = { workspace = true }
+clap_complete                      = { workspace = true }
+clap_mangen                        = { workspace = true }
+colorchoice-clap                   = { workspace = true }
 
 [target."cfg(unix)".dependencies]
 tokio-stream = { workspace = true }

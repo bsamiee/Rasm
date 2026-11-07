@@ -16,7 +16,7 @@
                 "root": {
                     "typecheck:tsc": { "command": "tsc" },
                     "typecheck:swift": { "command": "swift build --no-color-diagnostics --disable-automatic-resolution --build-tests" },
-                    "typecheck:clippy": { "command": "cargo clippy --locked --workspace --lib --bins", "inputs": [ "rustWorkspace", "{workspaceRoot}/clippy.toml" ], "parallelism": false },
+                    "typecheck:clippy": { "command": "cargo clippy --locked --workspace --lib --bins --tests", "inputs": [ "rustWorkspace", "{workspaceRoot}/clippy.toml" ], "parallelism": false },
                     "typecheck:javac": { "command": "rm -rf .cache/javac && fd --hidden --extension java --exec-batch javac -Xlint:all,-path -Werror -d .cache/javac -cp \"$GHIDRA_CLASSPATH\"", "inputs": [ "ghidra" ], "outputs": [ "{workspaceRoot}/.cache/javac" ] },
                     "lint:msbuild": {
                         "command": "doppler run --no-fallback --attempts 1 -- dotnet build --no-restore -check",
@@ -32,11 +32,7 @@
                         "inputs": [ "hk", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/{pnpm-workspace.yaml,pnpm-lock.yaml}", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,grit}", { "externalDependencies": [ "@biomejs/biome" ] } ]
                     },
                     "lint:rustfmt": { "command": "cargo fmt --check", "inputs": [ "rustWorkspace", "{workspaceRoot}/rustfmt.toml" ] },
-                    "lint:dylint": {
-                        "command": "DYLINT_MODULE_LAYOUT=\"$(fd --hidden --extension rs --type f --print0 | LC_ALL=C sort -z | git hash-object --stdin)\" cargo dylint --fail-on-no-libraries --all --workspace -- --locked --lib --bins",
-                        "inputs": [ "rustWorkspace", { "runtime": "cargo dylint --version" } ],
-                        "parallelism": false
-                    },
+                    "lint:dylint": { "command": "cargo dylint --fail-on-no-libraries --all --workspace -- --locked --lib --bins --tests", "inputs": [ "rustWorkspace", { "runtime": "cargo dylint --version" } ], "parallelism": false },
                     "lint:swift-format": { "command": "hk check --glob='**/*' --step=swift-format", "inputs": [ "hk", "swiftFiles", "{workspaceRoot}/.swift-format", { "runtime": "xcrun swift-format --version" } ] },
                     "lint:swiftlint": { "command": "hk check --glob='**/*' --step=swiftlint", "inputs": [ "hk", "swiftFiles", "{workspaceRoot}/.swiftlint.yml", { "runtime": "swiftlint version" } ] },
                     "lint:periphery": { "command": "periphery scan --config .config/periphery.yml --index-store-path \"$SWIFTPM_BUILD_DIR/out\" --retain-public", "dependsOn": [ "typecheck:swift" ] },
@@ -118,8 +114,7 @@
         "nodePlatform": [ { "runtime": "node -p \"[process.version, process.platform, process.arch].join('-')\"" } ],
         "typescript": [ "{workspaceRoot}/tsconfig.{base,web}.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type" ] } ],
         "tsc": [ "typescript", { "externalDependencies": [ "@effect/tsgo", "@typescript/native" ] } ],
-        "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] } ],
-        "nextest": [ "{workspaceRoot}/.config/nextest.toml", { "runtime": "cargo nextest --version" } ],
+        "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] }, { "runtime": "rustc --print host-tuple" } ],
         "swift": [ "{workspaceRoot}/{Package.swift,Package.resolved}", "xcodeTools" ],
         "xcodeTools": [ { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ],
         "periphery": [ "{workspaceRoot}/.config/periphery.{yml,json}", { "runtime": "periphery version" } ],
@@ -296,8 +291,7 @@
                 "outputs": [ "{workspaceRoot}/.artifacts/python/test/{projectName}", "{workspaceRoot}/.artifacts/python/coverage/data/{projectName}" ]
             },
             { "filter": { "plugin": "@nx/vitest" }, "inputs": [ "...", "nodePlatform", { "externalDependencies": [ "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ], "outputs": [ "{workspaceRoot}/.artifacts/typescript/vitest/{projectRoot}/vitest.config" ] },
-            { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo nextest run --locked --package {projectName}", "inputs": [ "default", "^default", "rust", "nextest" ], "parallelism": false },
-            { "filter": { "projects": [ "tag:host:dylint" ] }, "inputs": [ "...", { "runtime": "cargo dylint --version" } ] },
+            { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo nextest run --locked --package {projectName} --tests", "inputs": [ "...", "default", "^default", "rust", "{workspaceRoot}/.config/nextest.toml", { "runtime": "cargo nextest --version" } ], "parallelism": false },
             {
                 "filter": { "projects": [ "tag:build:swiftpm" ] },
                 "command": "rm -rf .artifacts/swift/test/{projectName} && mkdir -p .artifacts/swift/test/{projectName} && swift test --no-color-diagnostics --disable-index-store --disable-xctest --disable-automatic-resolution --attachments-path .artifacts/swift/test/{projectName} --event-stream-output-path .artifacts/swift/test/{projectName}/events.jsonl",

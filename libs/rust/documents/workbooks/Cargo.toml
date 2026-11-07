@@ -3,15 +3,13 @@
 [package]
 name              = "rasm-workbooks"
 edition.workspace = true
-publish.workspace = true
+description       = "Spreadsheet workbooks read and written as XLS, XLSX, XLSB, and ODS"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+path = "lib.rs"
+test = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

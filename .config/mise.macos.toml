@@ -25,4 +25,4 @@ port       = 7406
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7406/" }
 retry      = true
-run        = 'exec rasm-mcp-bridge -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"'
+run        = 'exec rasm-mcp-proxy -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"'

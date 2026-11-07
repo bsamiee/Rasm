@@ -113,6 +113,13 @@ rg -n -A8 '^\s*pub (\w+ )*(fn|struct|enum|trait|type|const|static|macro) <Symbol
     $CARGO_HOME/registry/src/index.crates.io-*/<crate>-<version> --glob '*.rs'
 ```
 
+Rust compiler, standard library, Cargo, Clippy, rustfmt, and rust-analyzer declaration at the pinned nightly's commit, from the source archive mise links at `.cargo/rustc-source`, `<folder>` being `compiler`, `library`, or `src/tools/<tool>`:
+
+```bash
+rg -n -A8 '^\s*pub (\w+ )*(fn|struct|enum|trait|type|const|static|macro) <Symbol>\b' \
+    ${CLAUDE_PROJECT_DIR}/.cargo/rustc-source/<folder> --glob '*.rs'
+```
+
 MSBuild target with `Condition`, `Inputs`, and `DependsOnTargets` across the SDK `global.json` resolves, package targets under `build/` or `buildTransitive/`:
 
 ```bash

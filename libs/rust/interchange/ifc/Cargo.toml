@@ -3,15 +3,13 @@
 [package]
 name              = "rasm-ifc"
 edition.workspace = true
-publish.workspace = true
+description       = "IFC5 models: IFCX layers and imports, composition, schema validation, spatial and systems graphs, alignments, and geometry"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+path = "lib.rs"
+test = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
@@ -25,23 +23,15 @@ derive_more          = { workspace = true }
 strum                = { workspace = true }
 indexmap             = { workspace = true }
 itertools            = { workspace = true }
-smallvec             = { workspace = true }
 bytes                = { workspace = true }
 data-encoding        = { workspace = true }
-data-encoding-macro  = { workspace = true }
 serde                = { workspace = true, features = ["rc"] }
 serde_json           = { workspace = true }
 serde_path_to_error  = { workspace = true }
 serde_with           = { workspace = true }
 nutype               = { workspace = true }
 jiff                 = { workspace = true }
-newtype-uuid         = { workspace = true }
-newtype-uuid-macros  = { workspace = true }
-uuid                 = { workspace = true }
-xot                  = { workspace = true }
 fs-err               = { workspace = true, features = ["tokio"] }
-typed-path           = { workspace = true }
-zip                  = { workspace = true }
 aws-lc-rs            = { workspace = true }
 reqwest              = { workspace = true }
 url                  = { workspace = true }

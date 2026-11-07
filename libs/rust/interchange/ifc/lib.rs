@@ -4,7 +4,7 @@ use core::{
     borrow::Borrow,
     hash::Hash,
     mem,
-    num::{ParseFloatError, ParseIntError, TryFromIntError},
+    num::{ParseIntError, TryFromIntError},
     ptr,
     str::FromStr,
 };
@@ -14,7 +14,6 @@ use std::{
     sync::Arc,
 };
 
-use data_encoding::DecodeError;
 use indexmap::IndexMap;
 use itertools::Itertools as _;
 use jiff::fmt::temporal::Pieces;
@@ -31,8 +30,6 @@ use serde_with::{DefaultOnNull, DeserializeFromStr, DisplayFromStr, SerializeDis
 use tokio::task::JoinError;
 use uom::si::{self, f64::Length};
 use url::Url;
-use validated::Validated;
-use zip::result::ZipError;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -415,6 +412,8 @@ impl Model {
 
     pub fn nodes(&self) -> impl Iterator<Item = &Composed> { self.nodes.iter().map(Arc::as_ref) }
 
+    pub fn head(&self, name: &str) -> Option<&Composed> { self.heads.get(name).map(Arc::as_ref) }
+
     pub fn get(&self, path: &Path) -> Result<&Composed, IfcError> { descend(&self.heads, path).map(Arc::as_ref).ok_or_else(|| IfcError::Missing { path: path.clone() }) }
 
     pub fn holding(&self, id: &str) -> impl Iterator<Item = &Composed> { self.holding.get(id).into_iter().flatten().map(Arc::as_ref) }
@@ -500,28 +499,6 @@ pub enum Constraint {
     Length(f64),
     #[display("fraction {_0} lies outside 0 to 1")]
     Fraction(f32),
-    #[display("number {_0} is not finite")]
-    Finite(f64),
-    #[display("aspect ratio {_0} is not positive")]
-    AspectRatio(f64),
-    #[display("field of view {_0}° lies outside 0° to 180°")]
-    FieldOfView(f64),
-    #[display("BCF text is empty")]
-    Text,
-    #[display("{_0} is no boolean")]
-    Boolean(Box<str>),
-    #[display("color holds {_0} bytes")]
-    Color(usize),
-    #[display("IfcGuid {_0} holds more than 128 bits")]
-    IfcGuid(Box<str>),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
-pub enum Alphabet {
-    #[display("IfcGuid")]
-    IfcGuid,
-    #[display("hexadecimal")]
-    Hexadecimal,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -548,42 +525,16 @@ pub enum IfcError {
     Invalid { node: Path, attribute: Box<str>, source: serde_path_to_error::Error<serde_json::Error> },
     #[error("{0}")]
     Constrained(Constraint),
-    #[error("{text} is no number")]
-    Number { text: Box<str>, source: ParseFloatError },
-    #[error("{text} is no integer")]
-    Integer { text: Box<str>, source: ParseIntError },
-    #[error("{text} is no timestamp")]
-    Timestamp { text: Box<str>, source: jiff::Error },
-    #[error("{text} is no UUID")]
-    Uuid { text: Box<str>, source: uuid::Error },
-    #[error("{text} is no {alphabet} text")]
-    Encoded { text: Box<str>, alphabet: Alphabet, source: DecodeError },
     #[error("{node} names {attribute} with no EPSG code")]
     Epsg { node: Path, attribute: Box<str>, source: ParseIntError },
     #[error("{node} holds a curve of {count} vertices, past the u32 vertex count range")]
     Vertices { node: Path, count: usize, source: TryFromIntError },
-    #[error("BCF entry {entry} exceeds the ZIP64 size range")]
-    Size { entry: Box<str>, source: TryFromIntError },
     #[error("{path} holds conflicting opinions on {opinion}")]
-    Conflict { path: Path, opinion: composition::Subject },
+    Conflict { path: Path, opinion: Subject },
     #[error("{node} holds no triangle mesh")]
     Mesh { node: Path, source: TriMeshBuilderError },
     #[error("{node} holds an unreadable PCD point cloud")]
     Cloud { node: Path, source: pcd_rs::Error },
-    #[error("BCF {found} is no BCF release this crate reads")]
-    Version { found: Box<str> },
-    #[error("BCF entry {entry} is unreadable")]
-    Archive { entry: Box<str>, source: ZipError },
-    #[error("BCF entry {entry} holds malformed XML")]
-    Xml { entry: Box<str>, source: xot::Error },
-    #[error("BCF entry {entry} holds {element} as {}", .text.as_deref().unwrap_or("nothing"))]
-    Element { entry: Box<str>, element: Box<str>, text: Option<Box<str>> },
-    #[error("BCF entry {entry} holds a malformed {element}")]
-    Content { entry: Box<str>, element: Box<str>, source: Box<Self> },
-    #[error("BCF entry {entry} repeats {guid}")]
-    Duplicate { entry: Box<str>, guid: issues::Guid },
-    #[error("BCF topic {topic} names absent {guid}")]
-    Dangling { topic: issues::TopicUuid, guid: issues::Guid },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -593,13 +544,6 @@ pub fn read(bytes: &[u8], url: Option<&Url>) -> Result<Layer, IfcError> {
     serde_path_to_error::deserialize(&mut json)
         .and_then(|layer| json.end().map(|()| layer).map_err(|source| serde_path_to_error::Error::new(serde_path_to_error::Track::new().path(), source)))
         .map_err(|source| IfcError::Decode { url: url.cloned(), source })
-}
-
-fn bind<T, U>(value: Validated<T, IfcError>, step: impl FnOnce(T) -> Validated<U, IfcError>) -> Validated<U, IfcError> {
-    match value {
-        Validated::Good(held) => step(held),
-        Validated::Fail(failures) => Validated::Fail(failures),
-    }
 }
 
 fn descend<'nodes>(heads: &'nodes IndexMap<Name, Arc<Composed>>, path: &Path) -> Option<&'nodes Arc<Composed>> {
@@ -629,11 +573,17 @@ fn distinct<'model>(starts: impl IntoIterator<Item = &'model Arc<Composed>>) -> 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod alignment;
-pub mod composition;
-pub mod edits;
+mod alignment;
+mod composition;
+mod edits;
 pub mod geometry;
-pub mod imports;
-pub mod issues;
+mod imports;
 pub mod schemas;
 pub mod spatial;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use alignment::{Alignment, Evaluation, LinearReference};
+pub use composition::{Opinions, Stated, Subject, compose, compose_partial, conflicts, federate, opinions};
+pub use edits::{diff, effective_diff, merge, overlay};
+pub use imports::{Fetch, Sri, Stack, closure, stack};

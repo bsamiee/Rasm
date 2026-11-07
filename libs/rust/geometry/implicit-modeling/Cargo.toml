@@ -1,0 +1,29 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-implicit-modeling"
+edition.workspace = true
+description       = "Implicit field solids: field trees, lattices, shell walls, and octree meshing"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+rayon        = { workspace = true }
+thiserror    = { workspace = true }
+derive-where = { workspace = true }
+itertools    = { workspace = true }
+nalgebra     = { workspace = true }
+statrs       = { workspace = true }
+fidget       = { workspace = true }
+parry3d-f64  = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

@@ -1,0 +1,40 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/manual_path_is_empty.rs
+---
+warning: path emptiness is tested through `OsStr`
+  --> tests/rust/tools/dylint/examples/manual_path_is_empty.rs:25:33
+   |
+25 | fn blank(path: &Path) -> bool { path.as_os_str().is_empty() }
+   |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Path::is_empty`: `<::std::path::Path>::is_empty(path)`
+   |
+   = note: `#[warn(manual_path_is_empty)]` on by default
+applicability MachineApplicable: call `Path::is_empty`
+
+warning: path emptiness is tested through `OsStr`
+  --> tests/rust/tools/dylint/examples/manual_path_is_empty.rs:27:42
+   |
+27 | fn blank_owned(path: &PathBuf) -> bool { path.as_os_str().is_empty() }
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Path::is_empty`: `<::std::path::Path>::is_empty(path)`
+applicability MachineApplicable: call `Path::is_empty`
+
+warning: path emptiness is tested through `OsStr`
+  --> tests/rust/tools/dylint/examples/manual_path_is_empty.rs:29:47
+   |
+29 | fn joined(root: &Path, child: &str) -> bool { root.join(child).as_os_str().is_empty() }
+   |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Path::is_empty`: `<::std::path::Path>::is_empty(&root.join(child))`
+applicability MachineApplicable: call `Path::is_empty`
+
+warning: path emptiness is tested through `OsStr`
+  --> tests/rust/tools/dylint/examples/manual_path_is_empty.rs:35:37
+   |
+35 | fn qualified(path: &Path) -> bool { std::ffi::OsStr::is_empty(Path::as_os_str(path)) }
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Path::is_empty`: `<::std::path::Path>::is_empty(path)`
+applicability MachineApplicable: call `Path::is_empty`
+
+warning: path emptiness is tested through `OsStr`
+  --> tests/rust/tools/dylint/examples/manual_path_is_empty.rs:37:42
+   |
+37 | fn projected(path: &Projected) -> bool { path.as_os_str().is_empty() }
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Path::is_empty`: `<::std::path::Path>::is_empty(path)`
+applicability MachineApplicable: call `Path::is_empty`

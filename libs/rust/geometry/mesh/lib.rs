@@ -216,9 +216,18 @@ fn trimesh(vertices: Vec<Vector>, indices: Vec<u32>, flags: TriMeshFlags, operat
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod booleans;
-pub mod decomposition;
-pub mod measures;
-pub mod reduction;
-pub mod refinement;
-pub mod sections;
+mod booleans;
+mod decomposition;
+mod measures;
+mod reduction;
+mod refinement;
+mod sections;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use booleans::{Csg, Minkowski, boolean, minkowski};
+pub use decomposition::decompose;
+pub use measures::{Curvature, Measures, curvature, measure};
+pub use reduction::{Cloud, Reduction, Simplifier, reduce, reduce_points, simplify};
+pub use refinement::{Refinement, Smoothing, refine};
+pub use sections::{Contour, Trim, contours, segments, split, trim};

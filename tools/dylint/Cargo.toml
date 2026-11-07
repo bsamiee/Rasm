@@ -3,9 +3,9 @@
 # --- [IDENTITY]
 
 [package]
-name              = "lints"
+name              = "rasm-lints"
 edition.workspace = true
-publish.workspace = true
+description       = "Dylint lints over resolved names, types, and expansions Clippy lacks"
 
 # --- [RUST_ANALYZER]
 
@@ -14,113 +14,21 @@ rustc_private = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
-# --- [LIB]
-
 [lib]
 path       = "lib.rs"
 test       = false
-doctest    = false
-bench      = false
 crate-type = ["cdylib"]
-
-# --- [EXAMPLE]
-
-[[example]]
-name = "assertions_outside_tests"
-path = "../../tests/rust/tools/dylint/assertions_outside_tests.rs"
-
-[[example]]
-name       = "duplicate_trait_constant_exported"
-crate-type = ["lib"]
-
-[[example]]
-name = "interior_mutable_static"
-path = "../../tests/rust/tools/dylint/interior_mutable_static.rs"
-
-[[example]]
-name       = "macro_alias_exported"
-crate-type = ["lib"]
-
-[[example]]
-name = "macro_matching"
-path = "../../tests/rust/tools/dylint/macro_matching.rs"
-
-[[example]]
-name       = "manual_path_is_empty_no_std"
-crate-type = ["lib"]
-
-[[example]]
-name       = "manual_reference_impl_exported"
-crate-type = ["lib"]
-
-[[example]]
-name       = "manual_upcast_exported"
-crate-type = ["lib"]
-
-[[example]]
-name       = "needless_reference_field_exported"
-crate-type = ["lib"]
-
-[[example]]
-name       = "single_reader_exported"
-crate-type = ["lib"]
-
-[[example]]
-name       = "untyped_error_exported"
-crate-type = ["lib"]
-
-# --- [TEST]
-
-[[test]]
-name = "lints"
-path = "../../tests/rust/tools/dylint/expansions.rs"
-test = false
-
-[[test]]
-name = "ui"
-path = "../../tests/rust/tools/dylint/main.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
-# --- [RUNTIME]
-
 [dependencies]
-clippy_utils   = { workspace = true }
-dunce          = { workspace = true }
-dylint_linting = { workspace = true }
-fs-err         = { workspace = true }
-itertools      = { workspace = true }
 strum          = { workspace = true }
-
-# --- [TESTING]
-
-[dev-dependencies]
-derive_more                        = { workspace = true }
-dylint-non-exhaustive              = { path = "examples/non_exhaustive" }
-futures                            = { workspace = true }
-tokio                              = { workspace = true }
-tokio-stream                       = { workspace = true }
-tokio-util                         = { workspace = true }
-anyhow                             = { workspace = true }
-nonempty-collections               = { workspace = true }
-nuts-rs                            = { workspace = true }
-thiserror                          = { workspace = true }
-validated                          = { workspace = true }
-indexmap                           = { workspace = true }
-serde                              = { workspace = true }
-serde_json                         = { workspace = true }
-serde_path_to_error                = { workspace = true }
-uuid                               = { workspace = true }
-rmcp                               = { workspace = true }
-opentelemetry-otlp                 = { workspace = true }
-opentelemetry-semantic-conventions = { workspace = true }
-opentelemetry_sdk                  = { workspace = true }
-tracing                            = { workspace = true }
-clap                               = { workspace = true }
-cargo_metadata                     = { workspace = true }
-insta                              = { workspace = true }
-rasm-mcp                           = { workspace = true }
-rayon                              = { workspace = true }
+itertools      = { workspace = true }
+camino         = { workspace = true }
+dunce          = { workspace = true }
+fs-err         = { workspace = true }
+clippy_utils   = { workspace = true }
+dylint_linting = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

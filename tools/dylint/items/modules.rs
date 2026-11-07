@@ -315,9 +315,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 }
             }
         }
-        if !tcx.sess.is_test_crate() {
-            Self::orphans(cx, &compiled, known.into_iter().map(|(path, _, _)| path));
-        }
+        Self::orphans(cx, &compiled, known.into_iter().map(|(path, _, _)| path));
         for (&target, sites) in &self.sites {
             let outside = || sites.iter().filter(move |&&(caller, _)| caller != target);
             if let Ok(caller) = outside().map(|&(caller, _)| caller).all_equal_value()

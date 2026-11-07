@@ -6,6 +6,7 @@ import { ClaudeHooks, decodeFile, TextFormat, Xcconfig, XcodeProject } from '@ra
 import { Array, Effect, Equal, FileSystem, Function, Option, Path, Predicate, Record, Result, Schema, String, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parseSync } from 'rolldown/utils';
+import { parse, quote } from 'shell-quote';
 import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, PYPROJECT, type readPython, type Workspace, WorkspaceError } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -178,28 +179,24 @@ const markers: Readonly<
             },
         };
     }),
-    [CARGO_MANIFEST]: Effect.fnUntraced(function* ({ dir }, { file, workspaceRoot, crates, mise }) {
-        const [path, all, { daemons }] = yield* Effect.all([Path.Path, crates, mise], { concurrency: 'unbounded' });
+    [CARGO_MANIFEST]: Effect.fnUntraced(function* (_, { file, workspaceRoot, crates, dylintLibraries, mise }) {
+        const [path, all, libraries, { daemons }] = yield* Effect.all([Path.Path, crates, dylintLibraries, mise], { concurrency: 'unbounded' });
         const crate = yield* Effect.fromOption(Array.findFirst(all, ({ manifest }) => manifest === file));
-        const sources = Array.dedupe(crate.targets.map(({ source }) => path.dirname(path.relative(workspaceRoot, source)))).filter((source) => path.relative(dir, source).split(path.sep, 1)[0] === '..');
-        const bins = crate.targets.filter(({ kind }) => kind.includes('bin'));
-        const named = new Set(bins.map(({ name }) => name));
+        const named = new Set(crate.targets.filter(({ kind }) => kind.includes('bin')).map(Struct.get('name')));
         const commands = Record.getSomes(Record.map(daemons, (row) => (typeof row === 'string' || !row.boot ? Option.none() : row.run)));
-        const launched = Record.keys(Record.filter(commands, (command) => !named.isDisjointFrom(new Set(command.split(' ')))));
-        const tests = crate.targets.filter(Struct.get('test'));
-        const tested = Array.isArrayNonEmpty(tests);
-        const dylint = crate.dependencies.some(({ name }) => name === 'dylint_linting');
-        const library = ({ kind, types }: (typeof crate.targets)[number]) => Array.intersection(Array.difference(kind, ['bin']), types).length > 0;
-        const args = tests.flatMap((target) => (library(target) ? ['--lib'] : [`--${Array.headNonEmpty(target.kind)}`, target.name]));
+        const launched = Record.keys(Record.filter(commands, (command) => !named.isDisjointFrom(new Set(parse(command).filter(Predicate.isString)))));
         const local = new Set(Array.getSomes(crate.dependencies.map(Struct.get('path'))));
+        const dependencies = all.filter(({ manifest }) => local.has(path.resolve(workspaceRoot, path.dirname(manifest)))).map(Struct.get('name'));
+        const linted = libraries.some((library) => local.has(library));
+        const test = linted ? { inputs: [{ runtime: 'cargo dylint --version' }] } : { configurations: { coverage: { command: `cargo llvm-cov nextest --locked ${quote([crate.name, ...dependencies].flatMap((name) => ['--package', name]))} --tests --lcov`, 'output-path': `.artifacts/rust/coverage/${crate.name}.lcov` } }, outputs: ['{workspaceRoot}/{options.output-path}'] };
         return {
-            ...defaultInputs(sources.map(folderInput)),
             name: crate.name,
-            tags: ['language:rust', ...(dylint ? ['host:dylint'] : [])],
-            implicitDependencies: all.filter(({ manifest }) => local.has(path.resolve(workspaceRoot, path.dirname(manifest)))).map(Struct.get('name')),
+            ...Option.getOrUndefined(Option.map(crate.description, (description) => ({ metadata: { description } }))),
+            tags: ['language:rust'],
+            implicitDependencies: dependencies,
             targets: {
-                ...(tested ? { test: { options: { args } } } : {}),
-                ...(bins.length > 0 ? { build: {} } : {}),
+                ...(crate.targets.some(Struct.get('test')) ? { test } : {}),
+                ...(named.size > 0 ? { build: {} } : {}),
                 ...(launched.length > 0 ? { install: { options: { args: launched } } } : {}),
             },
         };

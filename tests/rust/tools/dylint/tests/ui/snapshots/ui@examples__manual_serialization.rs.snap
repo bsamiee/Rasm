@@ -1,0 +1,63 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/manual_serialization.rs
+---
+warning: `ContentBlock::text` receives text from `serde_json::to_string`
+  --> tests/rust/tools/dylint/examples/manual_serialization.rs:15:71
+   |
+15 | fn tried(port: &Port) -> Result<ContentBlock, serde_json::Error> { Ok(ContentBlock::text(serde_json::to_string(port)?)) }
+   |                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: serialized here
+  --> tests/rust/tools/dylint/examples/manual_serialization.rs:15:90
+   |
+15 | fn tried(port: &Port) -> Result<ContentBlock, serde_json::Error> { Ok(ContentBlock::text(serde_json::to_string(port)?)) }
+   |                                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: pass `port` to `ContentBlock::json`
+   = note: `ContentBlock::json` returns `Result<ContentBlock, ErrorData>`
+   = note: `#[warn(manual_serialization)]` on by default
+
+warning: `ContentBlock::text` receives text from `serde_json::to_string`
+  --> tests/rust/tools/dylint/examples/manual_serialization.rs:19:8
+   |
+19 |     Ok(ContentBlock::text(text))
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: serialized here
+  --> tests/rust/tools/dylint/examples/manual_serialization.rs:18:16
+   |
+18 |     let text = serde_json::to_string(port)?;
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: pass `port` to `ContentBlock::json`
+   = note: `ContentBlock::json` returns `Result<ContentBlock, ErrorData>`
+
+warning: `ContentBlock::text` receives text from `serde_json::to_string`
+  --> tests/rust/tools/dylint/examples/manual_serialization.rs:22:45
+   |
+22 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
+   |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: serialized here
+  --> tests/rust/tools/dylint/examples/manual_serialization.rs:22:64
+   |
+22 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
+   |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: pass `port` to `ContentBlock::json`
+   = note: `ContentBlock::json` returns `Result<ContentBlock, ErrorData>`
+
+warning: `unwrap_or_default` replaces `Error` with a fallback value
+  --> tests/rust/tools/dylint/examples/manual_serialization.rs:22:92
+   |
+22 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
+   |                                                                                            ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+   = note: `#[warn(discarded_error)]` on by default
+
+warning: `unwrap_or_default` replaces `Error` with a fallback value
+  --> tests/rust/tools/dylint/examples/manual_serialization.rs:34:121
+   |
+34 | ...e_json::to_string(port).map(|_| String::from("other")).unwrap_or_default()) }
+   |                                                           ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`

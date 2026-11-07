@@ -95,8 +95,14 @@ fn values(block: &Range<Data>) -> impl Iterator<Item = Result<((u32, u32), Value
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod evaluation;
+mod evaluation;
 pub mod ods;
-pub mod reading;
-pub mod templates;
+mod reading;
+mod templates;
 pub mod writing;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use evaluation::recalculate;
+pub use reading::{open, records};
+pub use templates::fill;

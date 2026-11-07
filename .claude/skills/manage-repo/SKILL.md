@@ -47,7 +47,7 @@ Repository work varies by operation, subject (project, package, stack, file), an
 - Project files are written by hand as the file set their language's init command produces
 - Project files extending a root file exist for a plugin discovering projects by file name, a `--config` tool reads the root file from any `cwd`
 - Rows changing no tool output or lock go, documented defaults included, a row canceling another goes with the canceled row
-- Lists replacing a default list keep its entries, a schema, release notes, or installed source states each default
+- Lists replacing a default list keep its entries through the tool's mechanism (Clippy's `".."`) unless the rule's row states the policy dropping them
 - Skills name the tools they drive, their scripts, and output paths, and hold no target or project row
 - Scripts join their subject's skill, a script an app, target, or workflow consumes joins the repository
 - Capabilities come from tool configuration and extension points, then another tool, then a script or `eng/` project for work no tool or package does

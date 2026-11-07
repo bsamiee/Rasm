@@ -1,0 +1,151 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/macro_formatting.rs
+---
+warning: `Termination` prints `Error` from `main` through its derived `Debug`
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:86:14
+   |
+86 | fn main() -> fmt::Result {
+   |              ^^^^^^^^^^^
+   |
+   = help: return `Result<(), std::error::Report<Error>>` under `#![feature(error_reporter)]`
+   = note: `#[warn(debug_main_error)]` on by default
+
+warning: `format!` wraps one `Display` value without formatting options
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:47:70
+   |
+47 | fn displayed(value: &Reading) -> impl IntoIterator<Item = String> { [format!("{value}"), format!("{0}", value), format!("{}", value)...
+   |                                                                      ^^^^^^^^^^^^^^^^^^
+   |
+   = help: call the `ToString::to_string` trait method on the formatted value
+   = note: `#[warn(display_format)]` on by default
+
+warning: `format!` wraps one `Display` value without formatting options
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:47:90
+   |
+47 | fn displayed(value: &Reading) -> impl IntoIterator<Item = String> { [format!("{value}"), format!("{0}", value), format!("{}", value)...
+   |                                                                                          ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call the `ToString::to_string` trait method on the formatted value
+
+warning: `format!` wraps one `Display` value without formatting options
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:47:113
+   |
+47 | ...String> { [format!("{value}"), format!("{0}", value), format!("{}", value), render!("{value}"), ToString::to_string(value)] }
+   |                                                          ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call the `ToString::to_string` trait method on the formatted value
+
+warning: `format!` wraps one `Display` value without formatting options
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:47:135
+   |
+47 | ...value}"), format!("{0}", value), format!("{}", value), render!("{value}"), ToString::to_string(value)] }
+   |                                                           ^^^^^^^^^^^^^^^^^^
+   |
+   = help: call the `ToString::to_string` trait method on the formatted value
+
+warning: formatter writes a literal through formatting arguments
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:53:9
+   |
+53 |         write!(formatter, "plain")?;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write the literal directly
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:53:9
+   |
+53 |         write!(formatter, "plain")?;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: `#[warn(literal_write)]` on by default
+
+warning: formatter writes a literal through formatting arguments
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:54:9
+   |
+54 |         write!(formatter, "{{escaped}}\n")?;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write the literal directly
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:54:9
+   |
+54 |         write!(formatter, "{{escaped}}\n")?;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: formatter writes a literal through formatting arguments
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:55:9
+   |
+55 |         write!(formatter, r#"raw "{{value}}""#)?;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write the literal directly
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:55:9
+   |
+55 |         write!(formatter, r#"raw "{{value}}""#)?;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: formatter writes a literal through formatting arguments
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:56:9
+   |
+56 |         writeln!(formatter, "row")?;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write the literal directly
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:56:9
+   |
+56 |         writeln!(formatter, "row")?;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: formatter writes a literal through formatting arguments
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:57:9
+   |
+57 |         writeln!(formatter)?;
+   |         ^^^^^^^^^^^^^^^^^^^
+   |
+help: write the literal directly
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:57:9
+   |
+57 |         writeln!(formatter)?;
+   |         ^^^^^^^^^^^^^^^^^^^
+
+warning: formatter writes a literal through formatting arguments
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:58:9
+   |
+58 |         put!(formatter, "alias")?;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: write the literal directly
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:58:9
+   |
+58 |         put!(formatter, "alias")?;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `format!` wraps one `Display` value without formatting options
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:65:63
+   |
+65 | fn literal_arguments() -> impl IntoIterator<Item = String> { [format!("{}", 42_u32), format!("{}", format_args!("{}", 7_u8))] }
+   |                                                               ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call the `ToString::to_string` trait method on the formatted value
+
+warning: `format!` wraps one `Display` value without formatting options
+  --> tests/rust/tools/dylint/examples/macro_formatting.rs:65:86
+   |
+65 | fn literal_arguments() -> impl IntoIterator<Item = String> { [format!("{}", 42_u32), format!("{}", format_args!("{}", 7_u8))] }
+   |                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call the `ToString::to_string` trait method on the formatted value
+
+warning: `write` renamed to `put` with no other `write` in scope
+ --> tests/rust/tools/dylint/examples/macro_formatting.rs:1:34
+  |
+1 | use core::{fmt, hint::black_box, write as put};
+  |                                  ^^^^^^^^^^^^
+  |
+  = help: remove `as put` and name `write` at each use
+  = note: `#[warn(needless_import_rename)]` on by default
+
+warning: `format` renamed to `render` with no other `format` in scope
+ --> tests/rust/tools/dylint/examples/macro_formatting.rs:2:5
+  |
+2 | use std::format as render;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: remove `as render` and name `format` at each use

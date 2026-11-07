@@ -148,6 +148,7 @@ Source files group declarations into sections and an owner's members into operat
 - Swift: `@main` types are `[COMPOSITION]`, an `extension` sits in the section of the type it extends
 - Rust: traits and unit enums are `[TYPES]`, payload enums `[MODELS]`, error enums `[ERRORS]`
 - Rust: `impl` blocks sit in the section of their type, a lint pass `impl` in `[COMPOSITION]`
+- Rust: `mod` lines are `[COMPOSITION]`, `pub use` lists `[EXPORTS]`
 - Bash: `readonly` values are `[CONSTANTS]`, `declare -Ar` maps `[TABLES]`, `main` `[COMPOSITION]`
 - SQL: types and domains are `[TYPES]`, tables `[MODELS]`, functions `[OPERATIONS]`, indexes, triggers, and grants `[COMPOSITION]`
 - Configuration files: sections name the tool or table they configure (`[RUFF]`, `[TOOLS]`)

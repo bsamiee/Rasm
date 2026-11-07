@@ -129,9 +129,17 @@ fn finite(verdicts: impl IntoIterator<Item = bool>) -> Result<(), ProximityError
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod containment;
-pub mod distances;
-pub mod pairs;
-pub mod points;
+mod containment;
+mod distances;
+mod pairs;
+mod points;
 pub mod rays;
-pub mod registration;
+mod registration;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use containment::containing;
+pub use distances::{Projection, project};
+pub use pairs::{Clash, Interference, clashes, separations};
+pub use points::{Cloud, Item, Neighbor, Neighborhood, nearest, neighbors, normals};
+pub use registration::{Fraction, FractionError, Icp, Kernel, Metric, Registration, Target, Weight, WeightError, fit, register};

@@ -3,7 +3,7 @@ use core::{iter, mem};
 use clippy_utils::{
     consts::{ConstEvalCtxt, Constant},
     diagnostics::span_lint_hir_and_then,
-    fn_def_id, get_parent_expr, is_in_test,
+    fn_def_id, get_parent_expr,
     macros::root_macro_call,
     paths::PathNS,
     peel_blocks, peel_hir_expr_while, sym,
@@ -22,7 +22,7 @@ use rustc_middle::ty::{self, AdtDef, Ty, TyCtxt};
 use rustc_span::{Span, Symbol};
 
 use super::text_view;
-use crate::{Access, Place, access, constructed, expanded_externally, exported, fn_item_value, impl_owner, is_text, paths, place};
+use crate::{Access, Place, access, constructed, expanded_externally, exported, fn_item_value, impl_owner, in_test, is_text, paths, place};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -114,7 +114,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 compared.extend(tags.iter().copied());
             }
         };
-        if (!expanded_externally(cx, expr.span) || root_macro_call(expr.span).is_some_and(|call| cx.tcx.is_diagnostic_item(sym::matches_macro, call.def_id))) && !is_in_test(cx.tcx, expr.hir_id) {
+        if (!expanded_externally(cx, expr.span) || root_macro_call(expr.span).is_some_and(|call| cx.tcx.is_diagnostic_item(sym::matches_macro, call.def_id))) && !in_test(cx.tcx, expr.hir_id) {
             if let ExprKind::Match(scrutinee, arms, MatchSource::Normal) = expr.kind
                 && is_text(cx, typeck.expr_ty(scrutinee))
                 && let tagged = arms.iter().filter_map(|arm| Some((tags(cx, arm.pat)?, arm.body))).collect::<Vec<_>>()

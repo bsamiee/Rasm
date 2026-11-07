@@ -22,7 +22,6 @@
         "fast-xml-builder": "catalog:",
         "fast-xml-parser": "catalog:",
         "jsonc-parser": "catalog:",
-        "minimatch": "catalog:",
         "nx": "catalog:",
         "rolldown": "catalog:",
         "shell-quote": "catalog:",

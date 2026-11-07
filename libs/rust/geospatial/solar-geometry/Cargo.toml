@@ -1,0 +1,36 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-solar-geometry"
+edition.workspace = true
+description       = "Solar geometry at a site: sun positions, rises and sets, sky patches, incidence, exposure, and solar envelopes"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+nutype               = { workspace = true }
+jiff                 = { workspace = true }
+gauss-quad           = { workspace = true }
+nalgebra             = { workspace = true }
+ndarray              = { workspace = true }
+uom                  = { workspace = true }
+rstar                = { workspace = true }
+solar-positioning    = { workspace = true }
+rasm-proximity       = { workspace = true }
+rasm-site            = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

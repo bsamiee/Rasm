@@ -5,7 +5,7 @@ use hayro_syntax::object::{self, Array, Dict, Name, dict::keys};
 use kurbo::{Affine, Point, Rect, Shape, Vec2};
 use lopdf::{Dictionary, Object, StringFormat, decode_text_string, dictionary, text_string};
 use nonempty_collections::{IntoNonEmptyIterator as _, NonEmptyIterator as _};
-use rasm_linework::pages::{self, Page, Scale, Viewport};
+use rasm_drawing::pages::{self, Page, Scale, Viewport};
 use uom::{
     si::{Unit as _, area::square_millimeter, f64::Length, length::millimeter},
     str::ParseQuantityError,

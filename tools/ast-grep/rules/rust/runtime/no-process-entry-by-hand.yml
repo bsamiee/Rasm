@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: rustlang
 severity: error
-ignores: ['libs/rust/cli/command/**', 'tools/dylint/examples/**']
+ignores: ['libs/rust/cli/command/**']
 utils:
     qualified-path:
         regex: '^(::)?(tokio::)?runtime::((Local)?Runtime::new|Builder::new_(multi|current)_thread)$|^(::)?((tokio::)?signal::)?(unix::signal|(windows::)?ctrl_c|windows::ctrl_(break|close|logoff|shutdown))$|(^|::)CompleteEnv::with_factory$|^(::)?(clap_complete::)?((aot|generator)::)?generate(_to)?$|^(::)?clap_mangen::(Man::new|generate_to)$'

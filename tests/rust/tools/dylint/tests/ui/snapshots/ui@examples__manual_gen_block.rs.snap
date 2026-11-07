@@ -1,0 +1,60 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/manual_gen_block.rs
+---
+warning: assignment negates `self.ready` by hand
+  --> tests/rust/tools/dylint/examples/manual_gen_block.rs:99:9
+   |
+99 |         self.ready = !self.ready;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut self.ready)`
+   |
+   = note: `#[warn(manual_bool_toggle)]` on by default
+applicability MachineApplicable: call `bool::toggle`
+
+warning: assignment negates `self.ready` by hand
+   --> tests/rust/tools/dylint/examples/manual_gen_block.rs:108:9
+    |
+108 |         self.ready = !self.ready;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut self.ready)`
+applicability MachineApplicable: call `bool::toggle`
+
+warning: `Iterator` impls for `Countdown` and `Repeated` have the same `next` body
+  --> tests/rust/tools/dylint/examples/manual_gen_block.rs:59:5
+   |
+59 |     fn next(&mut self) -> Option<u8> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: repeated here
+  --> tests/rust/tools/dylint/examples/manual_gen_block.rs:89:5
+   |
+89 |     fn next(&mut self) -> Option<u8> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: generate the `Iterator` impls from one `macro_rules!` over the implementing type
+   = note: `#[warn(duplicate_body)]` on by default
+
+warning: `Countdown` is built at one site and implements only `Iterator`
+   --> tests/rust/tools/dylint/examples/manual_gen_block.rs:9:8
+    |
+  9 | struct Countdown {
+    |        ^^^^^^^^^
+    |
+note: built here
+   --> tests/rust/tools/dylint/examples/manual_gen_block.rs:153:23
+    |
+153 |     let counted: u8 = Countdown { left: 3 }.sum();
+    |                       ^^^^^^^^^^^^^^^^^^^^^
+    = help: replace `Countdown` with a `gen move { .. }` block at its construction site under `#![feature(gen_blocks)]`
+    = note: `#[warn(manual_gen_block)]` on by default
+
+warning: `Restart` is built at one site and implements only `Iterator`
+   --> tests/rust/tools/dylint/examples/manual_gen_block.rs:18:8
+    |
+ 18 | struct Restart {
+    |        ^^^^^^^
+    |
+note: built here
+   --> tests/rust/tools/dylint/examples/manual_gen_block.rs:155:39
+    |
+155 |     let restarted: u8 = Iterator::sum(Restart { left: 4 });
+    |                                       ^^^^^^^^^^^^^^^^^^^
+    = help: replace `Restart` with a `gen move { .. }` block at its construction site under `#![feature(gen_blocks)]`

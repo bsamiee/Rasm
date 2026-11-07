@@ -30,7 +30,8 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - `default-features = false` sits only where a default fails a build or run, harms all members, or duplicates a TLS, crypto, runtime, or clock crate
 - Restricted rows add back only defaults their role needs that no dependency turns on, their comment stating the fact that excludes others
 - Members inherit catalog rows whole through `workspace = true`, `feature-unification = "workspace"` builds each member under workspace features
-- Members reach a member through its catalog row naming `path` alone, an unpublished package needs no `version` on a path dependency
+- Members reach a member through its catalog row naming `path`, an unpublished package needs no `version` on a path dependency
+- Catalog rows of a package with no library take `artifact = "bin"`, the form a dependency on a binary takes, and a member row beside `workspace = true` ignores the key
 - Native libraries a `links` key names take one owner row, a second binding crate of the same library fails resolution
 - Rows pulling ring beside aws-lc-rs with no feature avoiding it stay until a member imports their crate
 
@@ -67,35 +68,37 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Clippy and Dylint read the `dev` profile, a profile of their own builds and runs each shared unit again
 - Workspace wrappers key member units apart, every wrapper shares dependency, proc macro, and build script units
 - `cargo dylint` builds its library into `dylint/libraries` and passes `--target-dir dylint/target` under the target directory, `build.build-dir` keeps units in one folder whatever target directory a run names
-- `build.fingerprint = "content"` marks a dep-info path holding no checksum (a directory) stale on every run
 - Cargo configs hold no `fine-grain-locking`, concurrent runs dirtying shared units deadlock on unit locks
 
 ## [06]-[MEMBERS]
 
 - Members declare `name`, `edition.workspace = true`, their target, and `[lints] workspace = true`, Cargo assumes edition 2015 and no lints otherwise
-- `[workspace.package]` states `edition` and `publish = false`, keys every member shares
-- Members inherit both, `cargo_common_metadata` skips an unpublished package
+- `[workspace.package]` states `edition`, the key every member shares
+- Members state no `version`, Cargo then reading `publish` as empty and `cargo_common_metadata` skipping the package
 - Member `[dependencies]` rows list what the crate's code imports, a row no code imports leaves with that code, and its catalog row stays
-- `description` sits on a member whose code reads it, `clap::command!()` and `#[command(about)]` take it as the command `about`
+- Members state one `description` sentence naming their concern, which `cargo metadata`, `cargo info`, and Nx project metadata print and clap's `command!()` and `#[command(about)]` take as the command `about`
 - Executables state their version on their `clap` command, the commit describe string `install` compiles in as `RASM_VERSION`, else `0.0.0`, and libraries read `Command::get_version` for `service.version` and MCP identity
 - Members name their crate root beside `Cargo.toml` through `[lib] path` or `[[bin]] path`, Cargo discovers targets under `src/` alone
+- Product library and binary targets take `test = false`, their suite holding every test, and leave `doctest` and `bench` unset, no entry point running either
+- Suites are packages named `<package>-tests` at `tests/rust/<package path minus the language segment>/`, a manifest naming the tested package in `[dev-dependencies]` and a `lib.rs` of one newline under `[lib] test = false`
+- Suite tests build as one binary over topic modules at `tests/it/main.rs`, the lint suite's harness at `tests/ui/main.rs`, since each `tests/<name>.rs` Cargo discovers links the package closure again
+- Fixtures are targets of the suite using them with their crates in its `[dev-dependencies]`, a fixture that compiles and never runs taking `test = false`
 - Binary packages take their binary's name, the Nx project and installed command then share one name
 
 ## [07]-[CHECKERS]
 
-- Clippy is the workspace's type check over its library and binary targets, a separate `cargo check` repeats its compile
+- Clippy is the workspace's type check, a separate `cargo check` repeats its compile
 - Clippy and Dylint run once at root under `--workspace`, per-package runs repeat `cargo metadata` and hold build folder lock in turn for units a workspace run finds fresh
 - Joins stay on `futures::future::join` until a rust-analyzer release resolves the def-site helper macro of `core::future::join!`
-- `check.allTargets` and `check.extraArgs` check a saved example or binary alone by `--example` or `--bin`, an override runs one command per save
 - VS Code sets `cargo.targetDir` and Argus sets `CARGO_BUILD_TARGET_DIR` to keep each client's outputs separate
 - Both clients set `CARGO_BUILD_BUILD_DIR` through `cargo.extraEnv` with Cargo's path template to keep build locks separate from Nx
-- Both clients read `.cargo/rustc-source/Cargo.toml` through an ignored symlink to mise's matching official compiler source archive
+- Both clients set `rustc.source = "discover"`, reading `rustc_*` crate source from the sysroot folder `rustc-dev` installs, and turn `checkOnSave` off, a client check running unlocked over the lint fixtures
 - `cargo fmt` runs once at the virtual root, one invocation formats every member
 - `rustfmt.toml` holds keys the pinned nightly rustfmt applies, a nightly key needs no `unstable_features` row and stable rustfmt ignores it
 - `rustfmt.toml` sets `edition` and `style_edition`, plain `rustfmt` reads neither from `Cargo.toml`
 - `rustfmt.toml` fails the check on each line it cannot fit in `max_width`
 - Comment wrapping keys stay unset, they split section dividers
-- Dylint `orphan_module` fails on a `.rs` file or `mod.rs` folder in a module's folder no module declares when its crate next compiles
+- Dylint `orphan_module` fails on a `.rs` file or `mod.rs` folder in a module's folder no module declares
 - `cargo modules orphans` loads the whole workspace through rust-analyzer per package
 
 ## [08]-[UPGRADES]
@@ -112,6 +115,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 `[workspace.metadata.dylint]` selects workspace lint libraries with inherited dependencies and lint policy:
 - Export `register_lints` through `__maybe_mangle!` beside `dylint_library!()` for native exports under `unsafe_code = "forbid"`
+- `register_lints` adds the crate root's folder to `file_depinfo`, and `mtime` freshness reads a folder's newest entry, so an added file anywhere under it rechecks the crate
 - Resolved types and effective visibility belong to Dylint; overlapping ast-grep rules exclude those forms through shared utilities
 - Lint libraries stay outside application coverage; Dylint's driver executes their diagnostics
 - Dylint keeps drivers in `~/.dylint_drivers` and refuses a missing `DYLINT_DRIVER_PATH` directory
@@ -122,5 +126,4 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Module files take `foo.rs` beside `foo/`, a `foo/mod.rs` beside `foo.rs` fails the build
 - Modules beside `Cargo.toml` take no `build`, `tests`, `examples`, or `benches` name, Cargo builds or discovers each as a target
 - Types parallel to a dependency's family take its word order, a router beside `<Kind>Router` is `<Kind>Router`, a conversion `Into<Target>`
-- Public items sit in public modules reached by path, ast-grep `no-public-reexport` fails a written re-export
-- Crate roots close with their `mod` lines under `[COMPOSITION]`
+- Crate roots and module files holding file modules keep them private and list public items in `pub use` lines, a module staying `pub mod` when another package imports the module itself (`rasm_stats::descriptive`) or one of its public names collides with a name bound in its parent (E0252, E0255)

@@ -1,0 +1,31 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-dependency-graph"
+edition.workspace = true
+description       = "Acyclic evaluation graph: dependency order, propagation, cycles, tearing, and critical paths"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive-where         = { workspace = true }
+derive_more          = { workspace = true }
+enum-map             = { workspace = true }
+itertools            = { workspace = true }
+num-traits           = { workspace = true }
+petgraph             = { workspace = true }
+rustworkx-core       = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

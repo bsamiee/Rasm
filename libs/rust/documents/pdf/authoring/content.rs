@@ -22,7 +22,7 @@ use krilla::{
 use krilla_svg::{SurfaceExt as _, SvgSettings};
 use kurbo::{Affine, Cap, Join, PathEl, Rect, Shape as _, Size};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
-use rasm_linework::{Color, Content, Element, GlyphRun, Opacity, Pen, Placement, Region, Side, hatches, strokes};
+use rasm_drawing::{Color, Content, Element, GlyphRun, Opacity, Pen, Placement, Region, Side, hatches, strokes};
 use uom::si::{f64::Length, length::millimeter, ratio::ratio};
 use usvg::Tree;
 use validated::Validated;
@@ -286,7 +286,7 @@ fn placed(surface: &mut Surface<'_>, content: &Content, placement: Placement, op
 fn fill(color: &Color, opacity: Opacity, rule: FillRule) -> Fill { Fill { paint: paint(color), opacity: normalized(opacity), rule } }
 
 fn paint(color: &Color) -> Paint {
-    let cmyk_color = |value: &rasm_linework::Cmyk| cmyk::Color::new(value.cyan, value.magenta, value.yellow, value.black);
+    let cmyk_color = |value: &rasm_drawing::Cmyk| cmyk::Color::new(value.cyan, value.magenta, value.yellow, value.black);
     match color {
         Color::Srgb(value) => {
             let [red, green, blue, _] = value.to_rgba8().to_u8_array();

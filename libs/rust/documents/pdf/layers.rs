@@ -12,7 +12,7 @@ use lopdf::{
     decode_text_string, dictionary, text_string,
 };
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use rasm_linework::Visibility;
+use rasm_drawing::Visibility;
 use validated::Validated;
 
 use crate::{Document, PdfError, Refusal, Standard, Subject, conformance, entry};

@@ -14,9 +14,9 @@ use jiff::{SignedDuration, Span, Timestamp, civil, tz::TimeZone};
 use nalgebra::Vector2;
 use ndarray_interp::BuilderError;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
-use rasm_analysis::AnalysisError;
+use rasm_numerical_analysis::AnalysisError;
 use rasm_site::Place;
-use rasm_solar::{SolarError, Sun};
+use rasm_solar_geometry::{SolarError, Sun};
 use solar_positioning::{PreparedPositions, SolarPosition};
 use thermalcomfort::{Humidity, Temperature, constants::STEFAN_BOLTZMANN, environment::ScaleWindSpeedLogError};
 use twofloat::TwoFloat;
@@ -426,9 +426,9 @@ pub fn completed(hours: &Hours) -> Result<Hours, WeatherError> {
         .records
         .iter()
         .map(|hour| {
-            let relative_humidity = hour.relative_humidity.or_else(|| hour.dry_bulb.zip(hour.dew_point).map(|(dry_bulb, dew_point)| comfort::relative_humidity(dry_bulb, dew_point)));
+            let relative_humidity = hour.relative_humidity.or_else(|| hour.dry_bulb.zip(hour.dew_point).map(|(dry_bulb, dew_point)| relative_humidity(dry_bulb, dew_point)));
             let dew_point = match (hour.dew_point, hour.dry_bulb, relative_humidity) {
-                (None, Some(dry_bulb), Some(humidity)) => comfort::dew_point(dry_bulb, humidity)?,
+                (None, Some(dry_bulb), Some(humidity)) => dew_point(dry_bulb, humidity)?,
                 (stated, _, _) => stated,
             };
             let infrared = hour.infrared.or_else(|| {
@@ -469,7 +469,7 @@ pub fn completed(hours: &Hours) -> Result<Hours, WeatherError> {
 // --- [SOLAR]
 
 fn position(sun: &Sun, interval: Range<Timestamp>) -> Result<(PreparedPositions, SolarPosition), WeatherError> {
-    rasm_solar::at(interval, 0.5).and_then(|at| rasm_solar::position(sun, at)).map_err(WeatherError::Solar)
+    rasm_solar_geometry::at(interval, 0.5).and_then(|at| rasm_solar_geometry::position(sun, at)).map_err(WeatherError::Solar)
 }
 
 fn extraterrestrial(prepared: &PreparedPositions) -> HeatFluxDensity {
@@ -520,9 +520,16 @@ where I: IntoIterator<Item = Refusal> {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod climate;
-pub mod comfort;
-pub mod design;
+mod climate;
+mod comfort;
+mod design;
 pub mod epw;
 pub mod gridded;
-pub mod sky;
+mod sky;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use climate::{DegreeDayMethod, DegreeDays, Profile, Rose, Statistic, Terrain, degree_days, integral, rose, running_mean, summary, typical, wind};
+pub use comfort::{Adaptive, Conditions, Exposure, Index, Limit, Limits, Psychrometrics, Standard, adaptive, dew_point, equivalent, outdoor, pmv, psychrometrics, relative_humidity, utci};
+pub use design::{Annual, Cooling, Design, Edition, Extremes, Heating, Humidification, computed, profile};
+pub use sky::{Light, Matrix, Model, Sky, Spectrum, irradiance, matrix};

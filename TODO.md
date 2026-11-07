@@ -43,12 +43,12 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 - Desktop apps: watch-apps, its library and function-hooks route, observe and clean up every launch (`3297a5770`)
 - Ghidra: one project per binary shared through `Serve.java` (`cc48d8bfa`)
 - Rust waits for a later session's launch:
-  - Deepened: cli, typeset, ifc, analysis, layout, implicit, dependency, annotation, mesh, site, solar, weather
+  - Deepened: cli, typst, ifc, bcf, numerical-analysis, regression, graph-layout, implicit-modeling, dependency-graph, drafting annotation, mesh, site, solar-geometry, weather
   - Deepen left, in order:
-    - Services and graphs: telemetry, daemon, mcp, network
-    - Numerics and geometry: stats, optimize, spectra, dynamics, proximity, planar, form
-    - Data, drawing, documents and interchange: tables, linework, views, sheets, pdf, workbooks, cad
-  - Checks owed: `rasm-sheets` against the deepened annotation
+    - Services and graphs: `rasm-command` `telemetry`, daemon, mcp, network-analysis
+    - Numerics and geometry: stats, optimization, signal-processing, dynamic-simulation, proximity, planar-geometry, form-finding
+    - Data, drawing, documents and interchange: arrow, drawing, drawing-views, drafting `sheets`, pdf, workbooks, dwg
+  - Checks owed: `rasm-drafting` `sheets` against the deepened annotation
 
 ### [01.5]-[QUEUE]
 

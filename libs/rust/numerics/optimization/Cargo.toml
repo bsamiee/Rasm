@@ -1,0 +1,43 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-optimization"
+edition.workspace = true
+description       = "Optimization: bounded nonlinear solves, conic programs, allocation models, and Pareto ranking"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+bounded-integer      = { workspace = true }
+nutype               = { workspace = true }
+ordered-float        = { workspace = true }
+nalgebra             = { workspace = true }
+good_lp              = { workspace = true }
+nlopt                = { workspace = true }
+rasm-stats           = { workspace = true }
+
+[target."cfg(target_os = \"macos\")".dependencies]
+clarabel = { workspace = true, features = ["sdp-accelerate"] }
+
+[target."cfg(target_os = \"linux\")".dependencies]
+clarabel = { workspace = true, features = ["sdp-openblas"] }
+
+[target."cfg(windows)".dependencies]
+clarabel = { workspace = true, features = ["sdp-mkl"] }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

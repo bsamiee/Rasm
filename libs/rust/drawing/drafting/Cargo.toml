@@ -1,0 +1,44 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-drafting"
+edition.workspace = true
+description       = "Drafting annotation and sheet sets: text, notation, dimensions, tolerances, leaders, marks, symbols, legends, tables, viewports, and layer tables"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+stacksafe                  = { workspace = true }
+nonempty-collections       = { workspace = true }
+validated                  = { workspace = true }
+derive_more                = { workspace = true }
+enum-map                   = { workspace = true }
+indexmap                   = { workspace = true }
+itertools                  = { workspace = true }
+nutype                     = { workspace = true }
+rust_decimal               = { workspace = true }
+uom                        = { workspace = true }
+color                      = { workspace = true }
+colorgrad                  = { workspace = true }
+imagesize                  = { workspace = true }
+fontdb                     = { workspace = true }
+fontique                   = { workspace = true }
+linebender_resource_handle = { workspace = true }
+parlance                   = { workspace = true }
+parley                     = { workspace = true }
+skrifa                     = { workspace = true }
+kurbo                      = { workspace = true }
+linesweeper                = { workspace = true }
+usvg                       = { workspace = true }
+rasm-drawing               = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

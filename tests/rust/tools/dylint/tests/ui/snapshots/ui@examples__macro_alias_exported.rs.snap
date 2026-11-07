@@ -1,0 +1,5 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/macro_alias_exported.rs
+---
+

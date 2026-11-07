@@ -12,11 +12,7 @@ use jiff::civil;
 use nalgebra::{UnitQuaternion, UnitVector3, Vector3};
 use ndarray::{Array2, ArrayView1, Axis, ShapeBuilder as _};
 use rasm_proximity::{Assembly, Distance};
-use rasm_solar::{
-    direction,
-    dome::patches,
-    exposure::{Sensor, Transmittance, incidence},
-};
+use rasm_solar_geometry::{Sensor, Transmittance, direction, incidence, patches};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use uom::si::{
     angle::{degree, radian},

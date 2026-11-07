@@ -12,7 +12,7 @@ use pdf_oxide::{
     geometry, layout,
     ocr::{OcrEngine, OcrOutput, OcrSpan},
 };
-use rasm_linework::{Color, Element, LineworkError, MiterLimit, MiterLimitError, Path, Pen, Region, Tolerance, Visibility, Width, pages::Layer};
+use rasm_drawing::{Color, Element, LineworkError, MiterLimit, MiterLimitError, Path, Pen, Region, Tolerance, Visibility, Width, pages::Layer};
 use uom::si::linear_number_density::per_millimeter;
 use validated::Validated;
 

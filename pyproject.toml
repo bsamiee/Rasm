@@ -749,9 +749,3 @@ enabled = false
 [tool.tombi.schema.format.rules]
 table-keys-order.enabled   = false
 array-values-order.enabled = false
-
-[[tool.tombi.schemas]]
-root    = "profile.*"
-path    = "tombi://www.schemastore.org/cargo.json#/definitions/Profile"
-include = ["Cargo.toml"]
-strict  = false                                                         # Schema lacks `trim-paths` key `[profile.dist]` sets

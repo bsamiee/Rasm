@@ -11,8 +11,8 @@ use futures::{
     future::{self, BoxFuture},
 };
 use itertools::{Either, Itertools as _};
+use rasm_command::telemetry::Handle;
 use rasm_daemon::Lifetime;
-use rasm_telemetry::Handle;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler,
     handler::server::{prompt::PromptContext, router::prompt::PromptRouter, tool::ToolRouter},
@@ -31,7 +31,7 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use validated::Validated;
 
 use self::{
-    resources::{ResourceRouter, Resources},
+    resources::Resources,
     tools::{Ledger, Parked},
 };
 use crate::{Endpoint, Failure, McpError, host::Host, internal};
@@ -344,5 +344,10 @@ fn paged<T>(rows: impl IntoIterator<Item = T>, page: NonZero<usize>, key: impl F
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod resources;
-pub mod tools;
+mod resources;
+mod tools;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use resources::{IntoResourceContents, ResourceRouter};
+pub use tools::{Elicitation, ToolError};

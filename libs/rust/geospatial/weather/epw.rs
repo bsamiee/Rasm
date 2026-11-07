@@ -16,7 +16,7 @@ use jiff::{
     tz::{Offset, TimeZone},
 };
 use rasm_site::{Elevation, Place, Position};
-use rasm_solar::{Refraction, Sun, events};
+use rasm_solar_geometry::{Refraction, Sun, events};
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
     de::{DeserializeOwned, IgnoredAny, value},

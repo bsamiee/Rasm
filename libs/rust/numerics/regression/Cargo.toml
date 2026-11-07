@@ -1,0 +1,37 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-regression"
+edition.workspace = true
+description       = "Regression over weighted observations: polynomial, nonlinear, and separable fits with estimators, uncertainty, influence, and prediction bands"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+rayon                   = { workspace = true }
+nonempty-collections    = { workspace = true }
+thiserror               = { workspace = true }
+validated               = { workspace = true }
+itertools               = { workspace = true }
+serde                   = { workspace = true }
+almost                  = { workspace = true }
+faer                    = { workspace = true }
+libm                    = { workspace = true }
+nalgebra                = { workspace = true }
+num-dual                = { workspace = true }
+statrs                  = { workspace = true }
+nlopt                   = { workspace = true }
+rasm-stats              = { workspace = true }
+rasm-optimization       = { workspace = true }
+rasm-numerical-analysis = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

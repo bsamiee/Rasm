@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use clippy_utils::{
     ExprUseNode,
     diagnostics::span_lint_hir_and_then,
-    fn_def_id, fn_def_id_with_node_args, get_expr_use_site, get_parent_expr_for_hir, is_in_test,
+    fn_def_id, fn_def_id_with_node_args, get_expr_use_site, get_parent_expr_for_hir,
     macros::{FormatArgsStorage, find_format_arg_expr, first_node_macro_backtrace, macro_backtrace},
     paths::PathNS,
     peel_blocks, peel_hir_expr_while,
@@ -34,7 +34,7 @@ use rustc_trait_selection::{
 
 use super::{text_source, untyped_kind};
 use crate::{
-    ReportedRenderings, associated_trait, constructed, expanded_externally, fn_item_value, impl_owner, is_error, is_text,
+    ReportedRenderings, associated_trait, constructed, expanded_externally, fn_item_value, impl_owner, in_test, is_error, is_text,
     macros::{assertions, cargo_test_target},
     parameter, path, paths, pointee, record_rendering, resolve, result_parts, signature,
 };
@@ -194,7 +194,7 @@ impl<'tcx> Visitor<'tcx> for Uses<'tcx> {
 
 fn sink<'tcx>(cx: &LateContext<'tcx>, pass: &mut Pass<'tcx>, text: &'tcx Expr<'tcx>, source: Option<Ty<'tcx>>) -> Option<Sink> {
     fn asserted(cx: &LateContext<'_>, pass: &Pass<'_>, comparison: &Expr<'_>) -> bool {
-        if !pass.test_target && !is_in_test(cx.tcx, comparison.hir_id) {
+        if !pass.test_target && !in_test(cx.tcx, comparison.hir_id) {
             return false;
         }
         if first_node_macro_backtrace(cx, comparison).any(|call| pass.assertions.contains(&call.def_id)) {

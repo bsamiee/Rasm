@@ -198,6 +198,7 @@ fn unread<'tcx>(cx: &LateContext<'tcx>, handler: &Expr<'tcx>) -> Option<&'tcx Ex
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+pub(crate) mod canonicalize_without_path;
 pub(crate) mod debug_main_error;
 pub(crate) mod decode_without_path;
 pub(crate) mod discarded_error;

@@ -1,0 +1,156 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/stringly_typed_value.rs
+---
+warning: `unwrap_or_default` replaces `Error` with a fallback value
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:159:34
+    |
+159 |     input.read_line(&mut answer).unwrap_or_default();
+    |                                  ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+    = note: `#[warn(discarded_error)]` on by default
+
+warning: `level` holds one of `"warn"`, `"info"` as text
+  --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:14:22
+   |
+14 |     fn weight(&self, level: &str) -> usize {
+   |                      ^^^^^
+   |
+note: branched on here
+  --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:15:12
+   |
+15 |         if level == "warn" {
+   |            ^^^^^^^^^^^^^^^
+16 |             self.base().strict_mul(2)
+17 |         } else if level == "info" {
+   |                   ^^^^^^^^^^^^^^^
+   = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+   = note: `#[warn(stringly_typed_value)]` on by default
+
+warning: field `kind` holds one of `"build"`, `"test"` as text
+  --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:34:5
+   |
+34 |     kind: String,
+   |     ^^^^^^^^^^^^
+   |
+note: branched on here
+  --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:73:5
+   |
+73 | /     match &job.kind {
+74 | |         "build" => build(job),
+75 | |         "test" => test(job),
+76 | |         _ => 0,
+77 | |     }
+   | |_____^
+   = help: declare `kind` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+
+warning: field `state` holds one of `"done"`, `"pending"` as text
+  --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:52:5
+   |
+52 |     state: &'static str,
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+note: branched on here
+  --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:82:67
+   |
+82 | fn finished(steps: &[Step]) -> usize { steps.iter().filter(|step| step.state == DONE).count() }
+   |                                                                   ^^^^^^^^^^^^^^^^^^
+   = help: declare `state` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+
+warning: `level` holds one of `"warn"`, `"info"` as text
+  --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:86:11
+   |
+86 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
+   |           ^^^^^
+   |
+note: branched on here
+  --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:86:51
+   |
+86 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
+   |                                                   ^^^^^^^^^^^^^^^
+   = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+
+warning: `mode` holds one of `"fast"`, `"slow"`, `"pause"` as text
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:107:9
+    |
+107 |     let mode = "fast";
+    |         ^^^^
+    |
+note: branched on here
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:108:5
+    |
+108 | /     match mode {
+109 | |         "fast" => input.len(),
+110 | |         "slow" => input.len().strict_mul(2),
+111 | |         PAUSE => input.len().strict_add(1),
+112 | |         _ => 0,
+113 | |     }
+    | |_____^
+    = help: declare `mode` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+
+warning: `level` holds one of `"warn"`, `"info"` as text
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:147:12
+    |
+147 | fn leveled(level: &str, text: &str) -> usize {
+    |            ^^^^^
+    |
+note: branched on here
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:148:8
+    |
+148 |     if level == "warn" {
+    |        ^^^^^^^^^^^^^^^
+149 |         text.len()
+150 |     } else if level == "info" {
+    |               ^^^^^^^^^^^^^^^
+    = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+
+warning: `mode` holds one of `"fast"`, `"slow"` as text
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:170:10
+    |
+170 | fn speed(mode: &str) -> u32 {
+    |          ^^^^
+    |
+note: branched on here
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:171:5
+    |
+171 | /     match mode {
+172 | |         "fast" => 1,
+173 | |         "slow" => 2,
+174 | |         _ => 3,
+175 | |     }
+    | |_____^
+    = help: declare `mode` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+
+warning: field `kind` holds one of `"json"`, `"text"` as text
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:188:5
+    |
+188 |     pub kind: String,
+    |     ^^^^^^^^^^^^^^^^
+    |
+note: branched on here
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:192:8
+    |
+192 |     if request.kind == "json" {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+193 |         1
+194 |     } else if request.kind == "text" {
+    |               ^^^^^^^^^^^^^^^^^^^^^^
+    = help: declare `kind` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+
+warning: text-keyed `tally` is addressed by fixed keys `"ok"`, `"err"`
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:164:9
+    |
+164 |     let mut tally = BTreeMap::new();
+    |         ^^^^^^^^^
+    |
+note: addressed here
+   --> tests/rust/tools/dylint/examples/stringly_typed_value.rs:165:18
+    |
+165 |     tally.insert("ok", words.len());
+    |                  ^^^^
+166 |     tally.insert("err", 0);
+    |                  ^^^^^
+167 |     tally.get("ok").copied().unwrap_or_default().strict_add(tally["err"])
+    |               ^^^^                                                ^^^^^
+    = help: key `tally` by an enum with a variant per key, or replace it with a struct holding a field per key

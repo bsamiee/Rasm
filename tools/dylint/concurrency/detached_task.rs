@@ -88,15 +88,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx LetStmt<'tcx>) {
         if let Some(init) = local.init
             && !expanded_externally(cx, local.span)
+            && let PatKind::Binding(_, binding, _, None) = local.pat.kind
             && let Some((handle, work)) = self.detached(cx, init)
         {
-            match local.pat.kind {
-                PatKind::Binding(_, binding, _, None) => {
-                    self.unread.insert(binding, Some(Unread { span: local.span, handle, work }));
-                }
-                PatKind::Wild => Self::report(cx, (handle, work), local.hir_id, local.span),
-                _ => {}
-            }
+            self.unread.insert(binding, Some(Unread { span: local.span, handle, work }));
         }
     }
 

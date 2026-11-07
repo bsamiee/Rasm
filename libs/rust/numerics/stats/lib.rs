@@ -80,9 +80,17 @@ impl LogpError for StatsError {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod calibration;
+mod calibration;
 pub mod descriptive;
-pub mod inference;
-pub mod sampling;
-pub mod sensitivity;
-pub mod sketches;
+mod inference;
+mod sampling;
+mod sensitivity;
+mod sketches;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use calibration::{Convergence, Fit, Resolution, Trace, calibrate, calibrated, convergence, fit};
+pub use inference::{Confidence, ConfidenceError, Interval, bootstrap, interval};
+pub use sampling::{Design, Window, WindowError, sample};
+pub use sensitivity::{Effects, Indices, Levels, LevelsError, Morris, Outputs, Saltelli, Sensitivity};
+pub use sketches::Summary;

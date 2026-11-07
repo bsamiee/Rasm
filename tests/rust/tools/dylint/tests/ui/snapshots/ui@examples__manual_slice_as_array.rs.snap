@@ -1,0 +1,222 @@
+---
+source: tests/rust/tools/dylint/tests/ui/main.rs
+input_file: tests/rust/tools/dylint/examples/manual_slice_as_array.rs
+---
+warning: fallible conversion checks the length of `slice` to view it as `&[u8; 4]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:59:47
+   |
+59 | fn viewed(slice: &[u8]) -> Option<&[u8; 4]> { <&[u8; 4]>::try_from(slice).ok() }
+   |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+   |                                               |
+   |                                               help: call `<[T]>::as_array`: `<[_]>::as_array::<4>(slice)`
+   |
+   = note: `#[warn(manual_slice_as_array)]` on by default
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `slice` to view it as `&mut [u8; 2]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:61:59
+   |
+61 | fn viewed_mut(slice: &mut [u8]) -> Option<&mut [u8; 2]> { slice.try_into().ok() }
+   |                                                           ^^^^^^^^^^^^^^^^-----
+   |                                                           |
+   |                                                           help: call `<[T]>::as_mut_array`: `<[_]>::as_mut_array::<2>(slice)`
+applicability MachineApplicable: call `<[T]>::as_mut_array`
+
+warning: fallible conversion checks the length of `slice[..2]` to view it as `[u8; 2]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:63:46
+   |
+63 | fn prefix(slice: &[u8]) -> Option<[u8; 2]> { slice[..2].try_into().ok() }
+   |                                              ^^^^^^^^^^^^^^^^^^^^^-----
+   |                                              |
+   |                                              help: call `<[T]>::as_array`: `<[_]>::as_array::<2>(&slice[..2]).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `slice[slice.len() - 2..]` to view it as `[u8; 2]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:65:46
+   |
+65 | fn suffix(slice: &[u8]) -> Option<[u8; 2]> { slice[slice.len() - 2..].try_into().ok() }
+   |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+   |                                              |
+   |                                              help: call `<[T]>::as_array`: `<[_]>::as_array::<2>(&slice[slice.len() - 2..]).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `array[..2]` to view it as `[u8; 2]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:67:55
+   |
+67 | fn array_prefix(array: &[u8; 4]) -> Option<[u8; 2]> { array[..2].try_into().ok() }
+   |                                                       ^^^^^^^^^^^^^^^^^^^^^-----
+   |                                                       |
+   |                                                       help: call `<[T]>::first_chunk`: `<[_]>::first_chunk::<2>(array).copied()`
+applicability MachineApplicable: call `<[T]>::first_chunk`
+
+warning: fallible conversion checks the length of `array[array.len() - 2..]` to view it as `[u16; 2]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:69:57
+   |
+69 | fn array_suffix(array: &[u16; 4]) -> Option<[u16; 2]> { array[array.len() - 2..].try_into().ok() }
+   |                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+   |                                                         |
+   |                                                         help: call `<[T]>::last_chunk`: `<[_]>::last_chunk::<2>(array).copied()`
+applicability MachineApplicable: call `<[T]>::last_chunk`
+
+warning: fallible conversion checks the length of `slice` to view it as `[u8; N]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:71:63
+   |
+71 | fn generic<const N: usize>(slice: &[u8]) -> Option<[u8; N]> { slice.try_into().ok() }
+   |                                                               ^^^^^^^^^^^^^^^^-----
+   |                                                               |
+   |                                                               help: call `<[T]>::as_array`: `<[_]>::as_array::<N>(slice).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `array[..r#N]` to view it as `[u8; N]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:73:79
+   |
+73 | fn generic_prefix<const r#N: usize>(array: &[u8; r#N]) -> Option<[u8; r#N]> { array[..r#N].try_into().ok() }
+   |                                                                               ^^^^^^^^^^^^^^^^^^^^^^^-----
+   |                                                                               |
+   |                                                                               help: call `<[T]>::first_chunk`: `<[_]>::first_chunk::<r#N>(array).copied()`
+applicability MachineApplicable: call `<[T]>::first_chunk`
+
+warning: fallible conversion checks the length of `slice` to view it as `[u8; 2]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:75:67
+   |
+75 | fn required(slice: &[u8]) -> Result<[u8; 2], TryFromSliceError> { slice.try_into() }
+   |                                                                   ^^^^^^^^^^^^^^^^
+   |
+   = help: call `<[T]>::as_array::<2>` and handle `None`
+
+warning: fallible conversion checks the length of `slice[..2]` to view it as `[u8; 4]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:81:57
+   |
+81 | fn mismatched_prefix(slice: &[u8]) -> Option<[u8; 4]> { slice[..2].try_into().ok() }
+   |                                                         ^^^^^^^^^^^^^^^^^^^^^-----
+   |                                                         |
+   |                                                         help: call `<[T]>::as_array`: `<[_]>::as_array::<4>(&slice[..2]).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `slice[slice.len() - 2..]` to view it as `[u8; 4]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:83:57
+   |
+83 | fn mismatched_suffix(slice: &[u8]) -> Option<[u8; 4]> { slice[slice.len() - 2..].try_into().ok() }
+   |                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+   |                                                         |
+   |                                                         help: call `<[T]>::as_array`: `<[_]>::as_array::<4>(&slice[slice.len() - 2..]).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `slice[..length]` to view it as `[u8; 4]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:85:69
+   |
+85 | fn dynamic_prefix(slice: &[u8], length: usize) -> Option<[u8; 4]> { slice[..length].try_into().ok() }
+   |                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+   |                                                                     |
+   |                                                                     help: call `<[T]>::as_array`: `<[_]>::as_array::<4>(&slice[..length]).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `(*slice)` to view it as `[u8; 4]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:87:53
+   |
+87 | fn dereferenced(slice: &&[u8]) -> Option<[u8; 4]> { (*slice).try_into().ok() }
+   |                                                     ^^^^^^^^^^^^^^^^^^^-----
+   |                                                     |
+   |                                                     help: call `<[T]>::as_array`: `<[_]>::as_array::<4>((*slice)).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `(if flag { left } else { right })` to view it as `[u8; 4]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:89:73
+   |
+89 | fn selected(left: &[u8], right: &[u8], flag: bool) -> Option<[u8; 4]> { (if flag { left } else { right }).try_into().ok() }
+   |                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+   |                                                                         |
+   |                                                                         help: call `<[T]>::as_array`: `<[_]>::as_array::<4>((if flag { left } else { right })).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `(match flag {
+                 true => left,
+                 false => right,
+             })` to view it as `[u8; 4]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:92:5
+   |
+92 | /     (match flag {
+93 | |         true => left,
+94 | |         false => right,
+95 | |     })
+96 | |     .try_into()
+   | |_______________^
+   |
+help: call `<[T]>::as_array`
+   |
+92 ~     <[_]>::as_array::<4>((match flag {
+93 +         true => left,
+94 +         false => right,
+95 +     })).copied()
+   |
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `slice` to view it as `[u8; 4]`
+   --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:100:49
+    |
+100 | fn qualified(slice: &[u8]) -> Option<[u8; 4]> { <&[u8] as TryInto<[u8; 4]>>::try_into(slice).ok() }
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+    |                                                 |
+    |                                                 help: call `<[T]>::as_array`: `<[_]>::as_array::<4>(slice).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `slice` to view it as `[u8; 4]`
+   --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:102:63
+    |
+102 | fn qualified_ok(slice: &[u8]) -> Option<[u8; 4]> { Result::ok(<[u8; 4]>::try_from(slice)) }
+    |                                                    -----------^^^^^^^^^^^^^^^^^^^^^^^^^^- help: call `<[T]>::as_array`: `<[_]>::as_array::<4>(slice).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `slice` to view it as `&[u8; 4]`
+   --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:104:37
+    |
+104 | fn isolated(slice: &[u8]) -> bool { <&[u8; 4]>::try_from(slice).ok().is_some() }
+    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+    |                                     |
+    |                                     help: call `<[T]>::as_array`: `<[_]>::as_array::<4>(slice)`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `view` to view it as `&[u8; 4]`
+   --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:106:54
+    |
+106 | fn projected(view: &Projected) -> Option<&[u8; 4]> { <&[u8; 4] as TryFrom<&[u8]>>::try_from(view).ok() }
+    |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+    |                                                      |
+    |                                                      help: call `<[T]>::as_array`: `<[_]>::as_array::<4>(view)`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `view` to view it as `[u8; 4]`
+   --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:108:61
+    |
+108 | fn projected_mut(view: &mut Projected) -> Option<[u8; 4]> { <[u8; 4] as TryFrom<&mut [u8]>>::try_from(view).ok() }
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+    |                                                             |
+    |                                                             help: call `<[T]>::as_mut_array`: `<[_]>::as_mut_array::<4>(view).copied()`
+applicability MachineApplicable: call `<[T]>::as_mut_array`
+
+warning: fallible conversion checks the length of `view.0[view.0.len() - 2..]` to view it as `[u16; 2]`
+   --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:110:61
+    |
+110 | fn projected_suffix(view: &FieldView) -> Option<[u16; 2]> { view.0[view.0.len() - 2..].try_into().ok() }
+    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+    |                                                             |
+    |                                                             help: call `<[T]>::as_array`: `<[_]>::as_array::<2>(&view.0[view.0.len() - 2..]).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: fallible conversion checks the length of `array[array.len() - 2..]` to view it as `[u8; 2]`
+   --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:112:53
+    |
+112 | fn overridden(array: &[u8; 4]) -> Option<[u8; 2]> { array[array.len() - 2..].try_into().ok() }
+    |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----
+    |                                                     |
+    |                                                     help: call `<[T]>::as_array`: `<[_]>::as_array::<2>(&array[array.len() - 2..]).copied()`
+applicability MachineApplicable: call `<[T]>::as_array`
+
+warning: trait `Measured` is implemented only for `[u8; 4]`
+  --> tests/rust/tools/dylint/examples/manual_slice_as_array.rs:10:1
+   |
+10 | trait Measured {
+   | ^^^^^^^^^^^^^^
+   |
+   = help: replace `Measured` with functions and constants for `[u8; 4]`
+   = note: `#[warn(single_impl_trait)]` on by default
