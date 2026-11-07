@@ -1,4 +1,4 @@
-import { vitestProject } from '../../../../vitest.config.ts';
+import { vitestProject } from '@rasm/test-support/vitest';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

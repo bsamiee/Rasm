@@ -1,7 +1,7 @@
 import { Array, Record } from 'effect';
 import javascript from 'tree-sitter-javascript/grammar.js';
 import tsx from 'tree-sitter-typescript/tsx/grammar.js';
-import { after, chain, choiceOf, classes, collected, constants, drop, extend, lexical, named, optionalOf, reaches, rewrite, spans, string, symbol, widen } from '../derive.js';
+import { after, chain, choiceOf, classes, collected, constants, drop, extend, lexical, named, optionalOf, reaches, rewrite, spans, string, symbol, widen } from '#/tools/ast-grep/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -1,11 +1,11 @@
 import { Array, Effect, Function, Option, Record, Schema, SchemaGetter, Struct } from 'effect';
 import type { Font } from 'fontkit';
 import { type Face, Feature, type FeatureNameIds } from 'harfbuzzjs';
+import { TypographyError } from '#/error';
 import type { Settings } from '#/settings';
 import type { Names } from '#/shaping/internal/names';
 import { Lookup, type Tables } from '#/shaping/internal/tables';
 import type { ShapedText } from '#/shaping/shaped-text';
-import { TypographyError } from '#/typography-error';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

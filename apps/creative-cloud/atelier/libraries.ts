@@ -1,9 +1,9 @@
-import { AfterEffects } from '@rasm/aftereffects';
-import type { Installation } from '@rasm/applications';
+import { AfterEffects } from '@rasm/aftereffects/contract';
+import type { Installation } from '@rasm/applications/contract';
 import { Peer } from '@rasm/automation/peer';
-import { Illustrator } from '@rasm/illustrator';
-import { InDesign } from '@rasm/indesign';
-import { Photoshop } from '@rasm/photoshop';
+import { Illustrator } from '@rasm/illustrator/contract';
+import { InDesign } from '@rasm/indesign/contract';
+import { Photoshop } from '@rasm/photoshop/contract';
 import { Array, Layer } from 'effect';
 import { atelierLink } from '#/atelier-link';
 

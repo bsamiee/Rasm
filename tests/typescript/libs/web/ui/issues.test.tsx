@@ -1,4 +1,5 @@
-import { Field, Issues } from '@rasm/ui';
+import { Field } from '@rasm/ui/field';
+import { Issues } from '@rasm/ui/issues';
 import { Array, Option, Result, Schema, SchemaParser } from 'effect';
 import { Form } from 'react-aria-components';
 import { expect, it, vi } from 'vitest';

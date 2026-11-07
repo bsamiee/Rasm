@@ -1,7 +1,7 @@
-import { ReorderableList } from '@rasm/ui';
 import { type ComponentProps, useState } from 'react';
 import { fn } from 'storybook/test';
 import preview from '#/.storybook/preview';
+import { ReorderableList } from '#/reorderable-list';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

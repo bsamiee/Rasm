@@ -1,5 +1,6 @@
-import { ExecuteScript, HostError, Requests } from '@rasm/automation';
-import { UxpManifest } from '@rasm/uxp';
+import { HostError } from '@rasm/automation/error';
+import { ExecuteScript, Requests } from '@rasm/automation/requests';
+import { UxpManifest } from '@rasm/uxp/manifest';
 import { RpcMiddleware } from 'effect/rpc';
 
 // --- [SERVICES] ------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import type { Plugin } from 'vite';
-import { HostingError } from '#/hosting-error';
+import { HostingError } from '#/error';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

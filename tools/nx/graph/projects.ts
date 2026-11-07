@@ -2,10 +2,12 @@ import { createRequire, isBuiltin } from 'node:module';
 import { matchesGlob } from 'node:path';
 import type { CreateNodesResult, Optional, ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { findMatchingProjects, interpolate } from '@nx/devkit/internal';
+import { Xcconfig, XcodeProject } from '@rasm/applications/xcode';
+import { suitePath, VITEST_INTEGRATION_TESTS } from '@rasm/test-support/suite';
 import { Array, Effect, Equal, FileSystem, Filter, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parseSync } from 'rolldown/utils';
-import { ClaudeHooks, decodeFile, suitePath, VITEST_INTEGRATION_TESTS, Xcconfig, XcodeProject } from '#/eng/typescript/manifest';
+import { ClaudeHooks, decodeFile } from '#/eng/typescript/manifest';
 import { TextFormat } from '#/eng/typescript/text-format';
 import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, suiteParents, type Workspace, WorkspaceError } from '#/tools/nx/workspace';
 
@@ -35,6 +37,7 @@ const MSBuildProject = TextFormat('MSBuild XML', (text) => new XMLParser({ ignor
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [READS]
+
 const packageName = (specifier: string) =>
     specifier
         .split('/')
@@ -66,6 +69,7 @@ const owning = Effect.fnUntraced(function* ({ packages }: Workspace, dir: string
 });
 
 // --- [INPUTS]
+
 const folderInput = (folder: string) => `{workspaceRoot}/${folder}/**/*`;
 const defaultInputs = (files: readonly NonNullable<ProjectConfiguration['namedInputs']>[string][number][]) => (files.length === 0 ? {} : { namedInputs: { default: ['{projectRoot}/**/*', ...files] } });
 const externalInputs = (path: Path.Path, root: string, files: readonly (string | undefined)[], packages: readonly string[] = []) =>
@@ -87,6 +91,7 @@ const pytest = (args: readonly string[], coverage?: string): TargetConfiguration
 });
 
 // --- [PROJECTS]
+
 const tagPrefix = ({ release }: Workspace, root: string, tags: readonly string[], name: string | undefined) =>
     Option.flatMap(Option.fromUndefinedOr(name), (projectName) =>
         Option.flatMap(

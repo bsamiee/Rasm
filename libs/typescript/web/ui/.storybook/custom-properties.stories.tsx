@@ -1,5 +1,5 @@
-import { CustomProperties } from '@rasm/ui';
 import preview from '#/.storybook/preview';
+import { CustomProperties } from '#/custom-properties';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

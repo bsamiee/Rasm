@@ -1,7 +1,7 @@
 import process from 'node:process';
-import type { RunningInstance } from '@rasm/applications';
+import type { RunningInstance } from '@rasm/applications/contract';
 import { hosts, registered, replaced } from '@rasm/automation/installer';
-import { UxpManifest } from '@rasm/uxp';
+import { UxpManifest } from '@rasm/uxp/manifest';
 import { Array, Effect, FileSystem, Option, Path, Predicate, Result, Schema, Stream, String, SubscriptionRef } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Adobe } from '#/adobe';

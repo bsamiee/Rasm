@@ -1,8 +1,8 @@
 import { ConfigProvider, Context, Effect, Function, Layer, Logger, Scheduler } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { r2Store, r2UploadStore } from 'partial-content/r2';
-import { HostingError } from '#/hosting-error';
-import { ObjectStorage } from '#/server/object-storage';
+import { HostingError } from '#/error';
+import { ObjectStorage } from '#/object-storage';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

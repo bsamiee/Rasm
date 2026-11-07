@@ -1,5 +1,5 @@
 import { assert, type Vitest } from '@effect/vitest';
-import { ObjectStorage } from '@rasm/hosting/server';
+import { ObjectStorage } from '@rasm/hosting/object-storage';
 import { Array, ByteSize, Bytes, Context, Deferred, Duration, Effect, Fiber, Function, Layer, Option, Record, type Scope, Stream, Struct } from 'effect';
 import { HttpServerRequest, HttpServerResponse, Multipart } from 'effect/http';
 import { isObjectNotFoundError } from 'partial-content';

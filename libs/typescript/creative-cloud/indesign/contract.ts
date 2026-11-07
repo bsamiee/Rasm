@@ -1,6 +1,8 @@
-import { HostError, ObjectModel, Reference, Requests, request } from '@rasm/automation';
-import { Settings, Source } from '@rasm/typography';
-import { UxpManifest } from '@rasm/uxp';
+import { HostError } from '@rasm/automation/error';
+import { ObjectModel, Reference, Requests, request } from '@rasm/automation/requests';
+import { Settings } from '@rasm/typography/settings';
+import { Source } from '@rasm/typography/source';
+import { UxpManifest } from '@rasm/uxp/manifest';
 import { Effect, Option, Record, Schema, SchemaTransformation, Struct } from 'effect';
 import { RpcGroup, RpcMiddleware } from 'effect/rpc';
 import { Slice } from '#/internal/slice';
@@ -312,6 +314,7 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
 }
 
 // --- [TYPESETTING]
+
 const TextSpecifier = Schema.String.annotate({ description: 'Text or container specifier' });
 const Run = Schema.Struct({
     index: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).annotate({ description: 'Insertion point index in target before run' }),

@@ -1,4 +1,4 @@
-import { Reference } from '@rasm/automation';
+import { Reference } from '@rasm/automation/requests';
 import { Array, Effect, Option, Schema, SchemaGetter, SchemaTransformation, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------

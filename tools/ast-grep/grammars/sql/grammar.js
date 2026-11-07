@@ -1,6 +1,6 @@
 import sqlite from 'tree-sitter-sqlite3/grammar.js';
-import { compose, LINE_COMMENT } from '../compose.js';
-import { any, automaton, chain, children, choiceOf, collected, drop, extend, mandatory, named, optionalOf, pattern, reaches, replace, rewrite, string, symbol, unicode, widen, without } from '../derive.js';
+import { compose, LINE_COMMENT } from '#/tools/ast-grep/grammars/compose.js';
+import { any, automaton, chain, children, choiceOf, collected, drop, extend, mandatory, named, optionalOf, pattern, reaches, replace, rewrite, string, symbol, unicode, widen, without } from '#/tools/ast-grep/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

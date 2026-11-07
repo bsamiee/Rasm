@@ -1,4 +1,4 @@
-import { CustomProperties } from '@rasm/ui';
+import { CustomProperties } from '@rasm/ui/custom-properties';
 import type { ComponentProps } from 'react';
 import { renderToString } from 'react-dom/server';
 import { expect, it } from 'vitest';

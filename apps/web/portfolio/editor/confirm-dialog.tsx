@@ -1,4 +1,4 @@
-import { Backdrop } from '@rasm/ui';
+import { Backdrop } from '@rasm/ui/backdrop';
 import { Button, Dialog, DialogTrigger, Heading, Modal, Text } from 'react-aria-components';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

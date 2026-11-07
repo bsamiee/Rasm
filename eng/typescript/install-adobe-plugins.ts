@@ -1,9 +1,9 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { HostError } from '@rasm/automation';
+import { HostError } from '@rasm/automation/error';
 import { extension, installed, replaced, running } from '@rasm/automation/installer';
-import { ExtensionManifest } from '@rasm/cep';
-import { UxpManifest } from '@rasm/uxp';
+import { ExtensionManifest } from '@rasm/cep/manifest';
+import { UxpManifest } from '@rasm/uxp/manifest';
 import { Array, Console, Effect, FileSystem, Path, Schema } from 'effect';
 import { Argument, Command } from 'effect/cli';
 import { ChildProcess } from 'effect/process';

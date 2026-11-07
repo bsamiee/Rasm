@@ -8,10 +8,10 @@ import { FetchHttpClient, HttpEffect, HttpMiddleware, HttpRouter, HttpServerResp
 import { Otlp, OtlpSerialization } from 'effect/observability';
 import { s3Store, s3UploadStore } from 'partial-content/s3';
 import { hostingMode } from '#/cloudflare';
-import { HostingError } from '#/hosting-error';
+import { HostingError } from '#/error';
 import { nodeBundle } from '#/node-bundle';
-import { ObjectStorage } from '#/server/object-storage';
-import { Template } from '#/server/template';
+import { ObjectStorage } from '#/object-storage';
+import { Template } from '#/template';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

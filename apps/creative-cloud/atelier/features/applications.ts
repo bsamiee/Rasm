@@ -1,7 +1,10 @@
-import { Installation, Launch, Launched, Perform, Screenshot, State, WindowID } from '@rasm/applications';
+import { Installation, Launch, Launched, Perform, Screenshot, State, WindowID } from '@rasm/applications/contract';
 import { Automation } from '@rasm/applications/node';
-import { HostError } from '@rasm/automation';
-import { Content, Resource, Route, Server } from '@rasm/mcp';
+import { HostError } from '@rasm/automation/error';
+import { Content } from '@rasm/mcp/content';
+import { Resource } from '@rasm/mcp/resource';
+import { Route } from '@rasm/mcp/route';
+import { Server } from '@rasm/mcp/server';
 import { Context, Effect, FileSystem, Path, Record, Result, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { imageSize } from 'image-size';

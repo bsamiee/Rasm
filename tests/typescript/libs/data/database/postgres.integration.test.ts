@@ -1,8 +1,10 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { PgClient } from '@effect/sql-pg';
 import { assert, inject, it } from '@effect/vitest';
-import { Catalog, type Column, Relation } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
+import type { Column } from '@rasm/database/column';
 import { pgClient } from '@rasm/database/pg';
+import { Relation } from '@rasm/database/relation';
 import { nodeBundle } from '@rasm/hosting/node-bundle';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { Context, Effect, FileSystem, Layer, Option, Path, Redacted, Schema, String, Struct } from 'effect';

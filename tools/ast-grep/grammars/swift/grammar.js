@@ -1,5 +1,5 @@
 import swift from 'tree-sitter-swift/grammar.js';
-import { after, any, before, chain, children, drop, extend, located, named, optionalOf, replace, rewrite, string, symbol, widen } from '../derive.js';
+import { after, any, before, chain, children, drop, extend, located, named, optionalOf, replace, rewrite, string, symbol, widen } from '#/tools/ast-grep/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

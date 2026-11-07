@@ -1,13 +1,15 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { Choice, Field, ReorderableList } from '@rasm/ui';
+import { Choice } from '@rasm/ui/choice';
+import { Field } from '@rasm/ui/field';
+import { ReorderableList } from '@rasm/ui/reorderable-list';
 import { Array, Optic, Struct } from 'effect';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
-import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
-import { draft, portfolio, updateEntry } from '#/editor/state.ts';
-import { Destination, nextDestination, pendingUploads } from '#/editor/uploader.ts';
-import { choiceLayout, entryTitle, format, joinDetails, literalOptions } from '#/media/labels.ts';
-import { Entry, type EntryId } from '#/model/portfolio.ts';
+import { choiceLayout, entryTitle, format, joinDetails, literalOptions } from '#/client/labels';
+import { draft, portfolio, updateEntry } from '#/client/state';
+import { Destination, nextDestination, pendingUploads } from '#/client/uploader';
+import { ConfirmDialog } from '#/editor/confirm-dialog';
+import { Entry, type EntryId } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

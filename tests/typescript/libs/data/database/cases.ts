@@ -1,6 +1,9 @@
 import { D1Client } from '@effect/sql-d1';
 import { assert, type TestContext, type Vitest } from '@effect/vitest';
-import { atomic, Catalog, Column, Relation } from '@rasm/database';
+import { atomic } from '@rasm/database/atomic';
+import { Catalog } from '@rasm/database/catalog';
+import { Column } from '@rasm/database/column';
+import { Relation } from '@rasm/database/relation';
 import { Array, BigDecimal, DateTime, Effect, Equal, Exit, Fiber, type Layer, Option, Order, Predicate, Schema, type Scope, String, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { SqlClient, SqlError } from 'effect/sql';

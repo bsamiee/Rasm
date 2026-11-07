@@ -1,15 +1,16 @@
 import { useAtomSet } from '@effect/atom-react';
-import { Field, MenuButton } from '@rasm/ui';
+import { Field } from '@rasm/ui/field';
+import { MenuButton } from '@rasm/ui/menu-button';
 import { Array, Function, Option, Record, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { useState } from 'react';
 import { CheckboxGroup } from 'react-aria-components';
-import { draft, updateEntry } from '#/editor/state.ts';
-import { format, joinDetails, sheetLabel } from '#/media/labels.ts';
-import { MediaFigure } from '#/media/media-figure.tsx';
-import type { AssetId, Assets } from '#/model/asset.ts';
-import { Composition, CompositionId, Placement } from '#/model/placement.ts';
-import type { EntryId } from '#/model/portfolio.ts';
+import { format, joinDetails, sheetLabel } from '#/client/labels';
+import { draft, updateEntry } from '#/client/state';
+import { MediaFigure } from '#/media/media-figure';
+import type { AssetId, Assets } from '#/model/asset';
+import { Composition, CompositionId, Placement } from '#/model/placement';
+import type { EntryId } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

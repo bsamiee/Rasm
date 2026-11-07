@@ -1,11 +1,12 @@
 import { parse, patch } from '@decimalturn/toml-patch';
 import type { Tree } from '@nx/devkit';
 import { readNxJsonFromDisk } from '@nx/devkit/internal';
+import { Xcconfig } from '@rasm/applications/xcode';
 import { Array, Cause, Effect, Function, Optic, Option, Schema } from 'effect';
 import XMLBuilder from 'fast-xml-builder';
 import { applyEdits } from 'jsonc-parser';
 import { parseDocument, YAMLMap } from 'yaml';
-import { Mise, MiseLock, Package, Xcconfig } from '#/eng/typescript/manifest';
+import { Mise, MiseLock, Package } from '#/eng/typescript/manifest';
 import { decodeTree, syncGenerator, YAML_LAYOUT } from '#/tools/nx/sync/tree';
 import { openWorkspace, PYPROJECT, SWIFT_MANIFEST } from '#/tools/nx/workspace';
 

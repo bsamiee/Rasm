@@ -1,5 +1,5 @@
 import bash from 'tree-sitter-bash/grammar.js';
-import { after, automaton, chain, choiceOf, drop, extend, leading, located, named, optionalOf, outermost, pattern, reaches, replace, rewrite, string, symbol, widen, without } from '../derive.js';
+import { after, automaton, chain, choiceOf, drop, extend, leading, located, named, optionalOf, outermost, pattern, reaches, replace, rewrite, string, symbol, widen, without } from '#/tools/ast-grep/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

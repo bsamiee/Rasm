@@ -3,9 +3,9 @@ import { Array, Data, type Duration, Effect, Layer, Option, String, Struct } fro
 import { SqlClient, type Statement } from 'effect/sql';
 import { atomic } from '#/atomic';
 import { Column } from '#/column';
-import { Engine } from '#/internal/engine/engine';
+import { ReconcileError } from '#/error';
+import { Engine } from '#/internal/engine';
 import { refusals } from '#/internal/reconcile';
-import { ReconcileError } from '#/reconcile-error';
 import type { Relation } from '#/relation';
 
 // --- [MODELS] --------------------------------------------------------------------------

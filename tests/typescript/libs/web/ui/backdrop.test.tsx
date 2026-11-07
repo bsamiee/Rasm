@@ -1,5 +1,5 @@
 import { RegistryContext } from '@effect/atom-react';
-import { Backdrop } from '@rasm/ui';
+import { Backdrop } from '@rasm/ui/backdrop';
 import { AtomRegistry } from 'effect/reactivity';
 import { type ReactNode, StrictMode } from 'react';
 import { Button, Dialog, DialogTrigger, Modal } from 'react-aria-components';

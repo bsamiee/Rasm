@@ -1,10 +1,9 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/error';
 import { Array, Context, Duration, Effect, Function, identity, Layer, Record, Schedule, Schema, Stream } from 'effect';
 import type { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
-import { Execute, Terms } from '#/apple-events';
-import { Installation, Launch, Launching, Perform, Pid, Pressure, RunningInstance, Screenshot, State, WindowID } from '#/applications';
+import { Execute, Installation, Launch, Launching, Perform, Pid, Pressure, RunningInstance, Screenshot, State, Terms, WindowID } from '#/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

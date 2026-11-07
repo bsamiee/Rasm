@@ -1,12 +1,12 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { Array, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
-import { RequestAlert } from '#/editor/request-alert.tsx';
-import { discardRequest, recoveryRequest } from '#/editor/state.ts';
-import { queue } from '#/editor/uploader.ts';
-import { joinDetails } from '#/media/labels.ts';
-import type { Recovery } from '#/model/api.ts';
+import { joinDetails } from '#/client/labels';
+import { discardRequest, recoveryRequest } from '#/client/state';
+import { queue } from '#/client/uploader';
+import { ConfirmDialog } from '#/editor/confirm-dialog';
+import { RequestAlert } from '#/editor/request-alert';
+import type { Recovery } from '#/model/api';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

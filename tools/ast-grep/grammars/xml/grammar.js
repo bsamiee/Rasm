@@ -1,5 +1,5 @@
 import xml from '@tree-sitter-grammars/tree-sitter-xml/xml/grammar.js';
-import { automaton, chain, choiceOf, classes, constants, drop, extend, located, named, optionalOf, pattern, reaches, replace, rewrite, spans, string, symbol, without } from '../derive.js';
+import { automaton, chain, choiceOf, classes, constants, drop, extend, located, named, optionalOf, pattern, reaches, replace, rewrite, spans, string, symbol, without } from '#/tools/ast-grep/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

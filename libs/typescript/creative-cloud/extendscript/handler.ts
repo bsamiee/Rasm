@@ -1,6 +1,6 @@
-import type { ObjectModel } from '@rasm/automation';
-import type { Envelope } from '@rasm/cep';
-import { attempt, escaped, finite, illegalArgument, isList, isPlain, isRecord, map, message, readProperty, recordKeys, reply, unmatched } from '#/runtime';
+import type { ObjectModel } from '@rasm/automation/requests';
+import type { Envelope } from '@rasm/cep/contract';
+import { attempt, escaped, finite, illegalArgument, isList, isPlain, isRecord, map, message, readProperty, recordKeys, reply, unmatched } from '#/reply';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

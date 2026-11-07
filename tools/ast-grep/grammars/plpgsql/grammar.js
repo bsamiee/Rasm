@@ -1,7 +1,7 @@
 import { Predicate } from 'effect';
 import plpgsql from 'tree-sitter-postgres/plpgsql/grammar.js';
 import postgres from 'tree-sitter-postgres/postgres/grammar.js';
-import { any, extend, mandatory, optionalOf, pattern, rebuild, rewrite, string, symbol, unicode, widen } from '../derive.js';
+import { any, extend, mandatory, optionalOf, pattern, rebuild, rewrite, string, symbol, unicode, widen } from '#/tools/ast-grep/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

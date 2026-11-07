@@ -1,9 +1,9 @@
-import { LongestSide } from '@rasm/applications';
-import { Unmatched } from '@rasm/search';
+import { LongestSide } from '@rasm/applications/contract';
+import { Unmatched } from '@rasm/search/error';
 import { Array, Cause, Context, Effect, Option, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, String, Struct } from 'effect';
 import { Url } from 'effect/http';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { HostError } from '#/host-error';
+import { HostError } from '#/error';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

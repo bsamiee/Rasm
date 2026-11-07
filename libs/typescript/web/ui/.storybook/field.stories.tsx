@@ -1,5 +1,5 @@
-import { Field } from '@rasm/ui';
 import preview from '#/.storybook/preview';
+import { Field } from '#/field';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

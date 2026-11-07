@@ -1,5 +1,5 @@
 import python from 'tree-sitter-python/grammar.js';
-import { drop, extend, named, replace, symbol, widen } from '../derive.js';
+import { drop, extend, named, replace, symbol, widen } from '#/tools/ast-grep/grammars/derive.js';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

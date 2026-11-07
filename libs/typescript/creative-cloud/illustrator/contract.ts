@@ -1,5 +1,5 @@
-import { Requests } from '@rasm/automation';
-import { ExtensionManifest } from '@rasm/cep';
+import { Requests } from '@rasm/automation/requests';
+import { ExtensionManifest } from '@rasm/cep/manifest';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

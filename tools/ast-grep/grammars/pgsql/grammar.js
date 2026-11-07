@@ -1,7 +1,7 @@
 import { Array, Option, Predicate, Record, String } from 'effect';
 import postgres from 'tree-sitter-postgres/postgres/grammar.js';
-import { compose, LINE_COMMENT, level } from '../compose.js';
-import { children, closure, collected, extend, lexical, mandatory, optionalOf, pattern, reaches, rebuild, rewrite, states, string, symbol, unicode } from '../derive.js';
+import { compose, LINE_COMMENT, level } from '#/tools/ast-grep/grammars/compose.js';
+import { children, closure, collected, extend, lexical, mandatory, optionalOf, pattern, reaches, rebuild, rewrite, states, string, symbol, unicode } from '#/tools/ast-grep/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { workspaceRoot } from '@nx/devkit';
+import { XCODE_REQUIREMENT, XcodeProject, XcodeRemote } from '@rasm/applications/xcode';
 import { Array, Cause, Console, Effect, FileSystem, flow, Match, Option, Record, Result, Schema, Stream, Struct, Tuple } from 'effect';
 import { Command } from 'effect/cli';
 import { applyEdits, type Edit, modify } from 'jsonc-parser';
@@ -9,7 +10,7 @@ import nx from 'nx/package.json' with { type: 'json' };
 import { compare, normalizeFull } from 'verkit';
 import { stringify } from 'yaml';
 import { accumulate } from '#/eng/typescript/accumulate';
-import { Sgconfig, XCODE_REQUIREMENT, XcodeProject, XcodeRemote } from '#/eng/typescript/manifest';
+import { Sgconfig } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ const Moves = Schema.fromJsonString(Schema.Array(Schema.Struct({ file: Schema.St
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [REQUIREMENTS]
+
 const unsupported = (file: string, repository: string, requirement: string) => new Cause.IllegalArgumentError(`${file}: ${repository} uses ${requirement}, expected ${file.endsWith(MANIFEST) ? 'from' : XCODE_REQUIREMENT}`);
 const manifest = Effect.fnUntraced(function* (language: string, file: string, text: string) {
     const rules = RULES.map((rule) => stringify({ language, severity: 'info', ...rule })).join('---\n');
@@ -96,6 +98,7 @@ const newest = Effect.fn('newest')(function* (url: string) {
 });
 
 // --- [FILES]
+
 const read = Effect.fnUntraced(function* (language: string, file: string) {
     const fs = yield* FileSystem.FileSystem;
     const text = yield* fs.readFileString(file);
