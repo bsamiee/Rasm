@@ -67,6 +67,18 @@ public static class Products {
             var held => held,
         });
 
+    // --- [SCOPES]
+
+    internal static IO<T> Scoped<T>(
+        Func<T> call, [CallerArgumentExpression(nameof(call))] string member = "", [CallerFilePath] string file = "", [CallerMemberName] string caller = "", [CallerLineNumber] int line = 0) =>
+        (from risky in use(() => new RiskyAction(member, file, caller, line))
+         from value in IO.lift(call)
+         select value).Bracket();
+
+    internal static IO<Unit> Scoped(
+        Action call, [CallerArgumentExpression(nameof(call))] string member = "", [CallerFilePath] string file = "", [CallerMemberName] string caller = "", [CallerLineNumber] int line = 0) =>
+        Scoped(fun(call), member, file, caller, line);
+
     // --- [CALLBACKS]
 
     public static IO<T> Captured<T>(Func<Action<Fin<T>>, IO<Unit>> host, [CallerArgumentExpression(nameof(host))] string call = "") =>

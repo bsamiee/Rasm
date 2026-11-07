@@ -57,8 +57,14 @@ public static class Contents {
             var floating => Floating(floating),
         };
 
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_AutoDelete")]
+    internal static extern void AutoDelete(RenderContent content, bool autoDelete);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Field)]
+    internal static extern ref int RuntimeSerialNumber(RenderContent content);
+
     private static RenderContent Floating(RenderContent content) {
-        Internals.AutoDelete(content, autoDelete: true);
+        AutoDelete(content, autoDelete: true);
         return content;
     }
 

@@ -14,9 +14,9 @@ namespace Darkroom.Output;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record ExportFile(FileExtension Extension, Func<Stream, IO<Unit>> Encode);
+internal sealed record ExportFile(FileExtension Extension, Func<Stream, IO<Unit>> Encode);
 
-public sealed record LutChoice(int Size, float Low, float Span, Gamut Gamut, Transfer Transfer, LutFormat Format) {
+internal sealed record LutChoice(int Size, float Low, float Span, Gamut Gamut, Transfer Transfer, LutFormat Format) {
     public static LutChoice Default { get; } = new(Size: 33, Low: -10f, Span: 20f, Gamut.StandardRgb, new Transfer.Linear(), LutFormat.Cube);
 
     public Fin<LutTable> Bake(Seq<PixelPass.Point> chain, Gamut working) =>
@@ -34,7 +34,7 @@ public sealed record LutChoice(int Size, float Low, float Span, Gamut Gamut, Tra
         ];
 }
 
-public sealed record OutputEdit(OutputBook Book, int Current) {
+internal sealed record OutputEdit(OutputBook Book, int Current) {
     private Option<OutputTarget> Target => toSeq(Book.Targets).At(Current);
 
     public Seq<OptionSpec<StageStep<OutputEdit, OutputBook>>> Options(StageKit<OutputEdit, OutputBook> kit) =>
@@ -71,7 +71,7 @@ public sealed record OutputEdit(OutputBook Book, int Current) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public static class Exports {
+internal static class Exports {
 
     // --- [COMMANDS]
 

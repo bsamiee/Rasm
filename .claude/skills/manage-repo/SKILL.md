@@ -39,7 +39,7 @@ Repository work varies by operation, subject (project, package, stack, file), an
 - Concerns with no owner take a new file named for the tool that reads it
 - Structure joins with its first consumer, a row, file, target, or value nothing reads goes
 - Row consumers are importers (`package.json` included), reading tools, targets, MCP rows, skills, `.gitattributes` filters, and `[CLI_TOOLING]` rows
-- Catalog rows and their overrides stay without an importer, catalogs hold packages for future projects
+- Catalog rows and overrides stay without an importer for future projects, a client row for a store or broker the repository dropped goes
 - Build chains and project kinds of a declared host stay while no project uses them
 - Rows naming a package, binary, or server point at one a project file or tool row installs
 - Root files hold policy every project shares, a row one project consumes sits in the project file

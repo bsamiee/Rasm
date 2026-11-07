@@ -173,7 +173,7 @@ internal static class Lists {
                 var after when after.Map(node => (row.Key(node.Row), node.Kids.Count)) == built.Before.Map(node => (row.Key(node.Row), node.Kids.Count)) => state with {
                     Reloads = built.Before.Zip(after).Filter(static pair => !EqDefault<TItem>.Equals(pair.First.Row, pair.Second.Row)).Map(static pair => (pair.First, pair.Second.Row)),
                 },
-                _ => state with { Nodes = built.After, Store = new TreeGridItemCollection(built.After.Map<ITreeGridItem>(static node => node)), Reloads = [] },
+                _ => state with { Nodes = built.After, Store = [with(built.After.Map<ITreeGridItem>(static node => node))], Reloads = [] },
             },
         };
 

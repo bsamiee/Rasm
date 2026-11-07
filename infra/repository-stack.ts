@@ -1,7 +1,8 @@
 import { readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
 import { findMatchingProjects, readNxJsonFromDisk } from '@nx/devkit/internal';
-import { ActionsRepositoryPermissions, ActionsSecret, IssueLabels, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
+import { ActionsRepositoryPermissions, ActionsSecret, IssueLabels, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryDeployKey, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { secret } from '@pulumi/pulumi';
+import { PrivateKey } from '@pulumi/tls';
 import { Package } from '@rasm/eng';
 import { Config, Effect, FileSystem, Path, Record, Redacted } from 'effect';
 
@@ -33,9 +34,13 @@ const repositoryStack = {
             },
             { protect: true },
         );
+        const assets = new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true });
+        const assetsKey = new PrivateKey(`${name}-assets-deploy`, { algorithm: 'ED25519' });
         return {
             repository: fullName,
-            assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
+            assets: assets.fullName,
+            assetsDeployKey: new RepositoryDeployKey(`${name}-assets-deploy`, { repository: assets.name, title: `${name} CI`, key: assetsKey.publicKeyOpenssh, readOnly: true }).title,
+            assetsSecret: new ActionsSecret(`${name}-assets-deploy-key`, { repository, secretName: 'ASSETS_DEPLOY_KEY', value: assetsKey.privateKeyOpenssh }).secretName,
             securityUpdates: new RepositoryDependabotSecurityUpdates(`${name}-security-updates`, { repository: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository }).repository, enabled: false }).enabled,
             allowedActions: new ActionsRepositoryPermissions(`${name}-actions-permissions`, { repository, allowedActions: 'all' }).allowedActions,
             workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'read' }).defaultWorkflowPermissions,

@@ -9,7 +9,7 @@ namespace Darkroom.Catalog;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class WaveForm {
+internal sealed partial class WaveForm {
     public static readonly WaveForm Bands = new("bands", static point => point.X);
     public static readonly WaveForm Rings = new("rings", static point => float.Hypot(point.X, point.Y));
 
@@ -25,7 +25,7 @@ public sealed partial class WaveForm {
 [JsonDerivedType(typeof(Magic), nameof(Magic))]
 [JsonDerivedType(typeof(Wave), nameof(Wave))]
 [JsonDerivedType(typeof(White), nameof(White))]
-public abstract partial record NoiseBasis {
+internal abstract partial record NoiseBasis {
 
     // --- [SAMPLING]
 
@@ -102,7 +102,7 @@ public abstract partial record NoiseBasis {
     }
 }
 
-public sealed record NoiseSource(NoiseBasis Basis, ShortSideLength ScaleX, ShortSideLength ScaleY, float DriftX, float DriftY, float Evolution) {
+internal sealed record NoiseSource(NoiseBasis Basis, ShortSideLength ScaleX, ShortSideLength ScaleY, float DriftX, float DriftY, float Evolution) {
     public static NoiseSource Default { get; } = new(NoiseBasis.Perlin.Default, ShortSideLength.Create(1f), ShortSideLength.Create(1f), 0f, 0f, 0f);
 
     public Fin<Func<Vector4, float>> Sampler(float time, uint field) =>

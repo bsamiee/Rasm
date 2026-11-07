@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-files: ['apps/rhino/Darkroom/**', 'libs/dotnet/geometry/Rasm.Spatial/**', 'libs/dotnet/graphics/Rasm.Imaging/**', 'libs/dotnet/rhino/Rasm.Rhino/**', 'libs/dotnet/ui/Rasm.UI/**']
+files: ['apps/rhino/Darkroom/**', 'libs/dotnet/geometry/**', 'libs/dotnet/graphics/Rasm.Imaging/**', 'libs/dotnet/rhino/Rasm.Rhino.Modeling/**', 'libs/dotnet/rhino/Rasm.Rhino/**', 'libs/dotnet/ui/Rasm.UI/**']
 utils:
     lower-half:
         kind: 'argument_list, tuple_expression'

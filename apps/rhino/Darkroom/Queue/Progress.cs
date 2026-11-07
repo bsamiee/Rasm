@@ -22,27 +22,27 @@ namespace Darkroom.Queue;
 
 [SmartEnum<string>]
 [JsonConverter(typeof(ThinktectureJsonConverterFactory))]
-public sealed partial class RunEnd {
+internal sealed partial class RunEnd {
     public static readonly RunEnd Succeeded = new("succeeded");
     public static readonly RunEnd Stopped = new("stopped");
     public static readonly RunEnd Failed = new("failed");
 }
 
 [Union]
-public abstract partial record RunState {
+internal abstract partial record RunState {
     public sealed record Absent : RunState;
     public sealed record Active(int ProcessId, Instant Heard) : RunState;
     public sealed record Ended(RunEnd End) : RunState;
     public sealed record Crashed(Instant Heard) : RunState;
 }
 
-public sealed record Relaunch(string Job, Duration Delay);
+internal sealed record Relaunch(string Job, Duration Delay);
 
-public sealed record EntryProgress(Option<SequenceNumber> Last, Seq<Duration> Times, HashMap<Seq<NamePart>, OutputVersion> Versions) {
+internal sealed record EntryProgress(Option<SequenceNumber> Last, Seq<Duration> Times, HashMap<Seq<NamePart>, OutputVersion> Versions) {
     public static EntryProgress Empty { get; } = new(None, Seq<Duration>(), HashMap<Seq<NamePart>, OutputVersion>());
 }
 
-public sealed record QueueProgress(
+internal sealed record QueueProgress(
     Option<string> Job, int ProcessId, Instant ProcessStart, int Retries, Duration Delay, Option<RunEnd> Ended, HashMap<UInt128, EntryProgress> Entries) {
 
     // --- [STATE]
@@ -119,7 +119,7 @@ internal sealed record ProgressRecord(Option<string> Job, int ProcessId, Instant
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public static partial class QueueRuns {
+internal static partial class QueueRuns {
 
     // --- [EXECUTION]
 

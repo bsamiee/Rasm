@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>RhinoCommon as typed effects, with plug-ins declared as data</Description>
+        <IsPackable>true</IsPackable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
@@ -9,17 +10,20 @@
     </ItemGroup>
 
     <ItemGroup Label="Rhino">
-        <PackageReference Include="Microsoft.Win32.SystemEvents" />
+        <PackageReference Include="Microsoft.Win32.SystemEvents" Condition="'$(TargetPlatformIdentifier)' != 'Windows'" />
+        <PackageReference Include="RhinoCommon" />
     </ItemGroup>
 
     <ItemGroup Label="Core">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="LanguageExt.Streaming" />
         <PackageReference Include="Microsoft.VisualStudio.Threading" />
         <PackageReference Include="Mono.Unix" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
         <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UUIDNext" />
     </ItemGroup>
@@ -29,7 +33,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Mathematics">
-        <PackageReference Include="HyperJet" />
         <PackageReference Include="MathNet.Numerics" />
     </ItemGroup>
 
@@ -40,7 +43,6 @@
 
     <ItemGroup Label="Geospatial">
         <PackageReference Include="GeoTimeZone" />
-        <PackageReference Include="NetTopologySuite" />
     </ItemGroup>
 
     <ItemGroup Label="Color">
@@ -61,7 +63,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
-        <ProjectReference Include="../../bim/Rasm.Drafting/Rasm.Drafting.csproj" />
-        <ProjectReference Include="../../geometry/Rasm.Spatial/Rasm.Spatial.csproj" />
+        <ProjectReference Include="../../drawing/Rasm.Drafting/Rasm.Drafting.csproj" />
     </ItemGroup>
 </Project>

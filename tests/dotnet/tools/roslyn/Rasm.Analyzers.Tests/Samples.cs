@@ -34,14 +34,14 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 
     private static readonly ReferenceAssemblies Framework = new(References["TargetingPackFramework"], new PackageIdentity(References["TargetingPackId"], References["TargetingPackVersion"]), Path.Combine("ref", References["TargetingPackFramework"]));
 
-    private static readonly ImmutableArray<PortableExecutableReference> FixtureReferences = [.. References
-        .Where(static reference => reference.Key.StartsWith("FixtureReference.", StringComparison.Ordinal))
+    private static readonly ImmutableArray<PortableExecutableReference> AdditionalReferences = [.. References
+        .Where(static reference => reference.Key.StartsWith("AdditionalReference.", StringComparison.Ordinal))
         .Select(static reference => MetadataReference.CreateFromFile(reference.Value))];
 
     internal Analysis(DiagnosticDescriptor? rule = null) {
         ReferenceAssemblies = Framework;
         DisabledDiagnostics.AddRange(["CS1701", "CS1702"]);
-        TestState.AdditionalReferences.AddRange(FixtureReferences);
+        TestState.AdditionalReferences.AddRange(AdditionalReferences);
         TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         TestState.DocumentationMode = DocumentationMode.Parse;
         CompilerDiagnostics = CompilerDiagnostics.Warnings;
@@ -111,7 +111,7 @@ public sealed class Samples {
         await analysis.RunAsync(token);
         _ = await Verify(string.Concat(reported.OrderBy(static pair => pair.Key.Path, StringComparer.Ordinal)
             .ThenBy(static pair => pair.Key.Span.Start).ThenBy(static pair => pair.Key.Span.End).ThenBy(static pair => pair.Key.Id, StringComparer.Ordinal)
-            .Select(static pair => pair.Value))).UseDirectory("Snapshots").UseFileName(rule);
+            .Select(static pair => pair.Value))).UseFileName(rule);
     }
 
     [Fact]
@@ -321,25 +321,18 @@ public sealed class Samples {
         return MetadataReference.CreateFromStream(image);
     }
 
-    [Fact]
-    public async Task SourceReferences() {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        Analysis analysis = new() {
-            TestCode = ReferencedCode,
-            ExpectedDiagnostics = {
-                new DiagnosticResult(Analysis.Rules["RASM3006"].Descriptor).WithLocation(0).WithArguments("Entry", "Models.Entry"),
-                new DiagnosticResult(Analysis.Rules["RASM3007"].Descriptor).WithLocation(1).WithArguments("value is Dither", "TState", "Dither"),
-            },
-        };
-        analysis.TestState.AdditionalReferences.Add((await ReferencedAsync(analysis, "Catalog", ReferencedModels, token)).ToMetadataReference());
-        await analysis.RunAsync(token);
-    }
-
-    [Fact]
-    public async Task MetadataReferences() {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ProjectReferences(bool listed) {
         CancellationToken token = TestContext.Current.CancellationToken;
         Analysis analysis = new() { TestCode = ReferencedCode };
-        analysis.TestState.AdditionalReferences.Add(Metadata(await ReferencedAsync(analysis, $"{analysis.TestState.Name}.Catalog", ReferencedModels, token), token));
+        analysis.TestState.AdditionalReferences.Add(Metadata(await ReferencedAsync(analysis, "Catalog", ReferencedModels, token), token));
+        analysis.TestState.AnalyzerConfigFiles.Add(("/Build.globalconfig", $"is_global = true\n{(listed ? "build_property.ProjectReferenceAssemblies = Catalog\n" : "")}"));
+        analysis.ExpectedDiagnostics.AddRange(listed ? [
+            new DiagnosticResult(Analysis.Rules["RASM3006"].Descriptor).WithLocation(0).WithArguments("Entry", "Models.Entry"),
+            new DiagnosticResult(Analysis.Rules["RASM3007"].Descriptor).WithLocation(1).WithArguments("value is Dither", "TState", "Dither"),
+        ] : []);
         await analysis.RunAsync(token);
     }
 
@@ -400,44 +393,14 @@ public sealed class Samples {
             """, token)).ToMetadataReference());
         await analysis.RunAsync(token);
     }
-
-    [Theory]
-    [InlineData(null, ".dll", false)]
-    [InlineData(null, ".exe", false)]
-    [InlineData("library", ".dll", true)]
-    [InlineData(null, ".rhp", true)]
-    public async Task RedrawApplicability(string? role, string extension, bool expected) {
-        CancellationToken token = TestContext.Current.CancellationToken;
-        Analysis analysis = new() {
-            TestCode = """
-                using System;
-                using Rhino;
-
-                internal static class Redraws {
-                    internal static void Redrawn(RhinoDoc doc) => {|#0:doc.Views.Redraw()|};
-
-                    internal static Action Deferred(RhinoDoc doc) => {|#1:doc.Views.Redraw|};
-                }
-
-                """,
-        };
-        analysis.TestState.AnalyzerConfigFiles.Add(("/Build.globalconfig", $"is_global = true\n{(role is null ? "" : $"build_property.ProjectRole = {role}\n")}build_property.TargetExt = {extension}\n"));
-        analysis.TestState.AdditionalReferences.Add(Metadata(await ReferencedAsync(analysis, $"{analysis.TestState.Name}.Policies", """
-            namespace Rasm.Rhino.Document;
-
-            public static class Commits;
-            """, token), token));
-        analysis.ExpectedDiagnostics.AddRange(expected ? [
-            new DiagnosticResult(RhinoAnalyzer.Redraw).WithLocation(0).WithArguments("doc.Views.Redraw()"),
-            new DiagnosticResult(RhinoAnalyzer.Redraw).WithLocation(1).WithArguments("doc.Views.Redraw"),
-        ] : []);
-        await analysis.RunAsync(token);
-    }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 internal static class Snapshots {
     [ModuleInitializer]
-    internal static void Initialize() => VerifierSettings.UseUtf8NoBom();
+    internal static void Initialize() {
+        VerifierSettings.UseUtf8NoBom();
+        UseProjectRelativeDirectory("Snapshots");
+    }
 }

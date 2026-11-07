@@ -10,7 +10,7 @@ namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record RenderRegion(double Left, double Top, double Right, double Bottom) {
+internal sealed record RenderRegion(double Left, double Top, double Right, double Bottom) {
     public static RenderRegion Of(Rectangle area, Size extent) =>
         new((double)area.Left / extent.Width, (double)area.Top / extent.Height, (double)area.Right / extent.Width, (double)area.Bottom / extent.Height);
 
@@ -19,7 +19,7 @@ public sealed record RenderRegion(double Left, double Top, double Right, double 
 }
 
 [SmartEnum<string>]
-public sealed partial class RegionFrame {
+internal sealed partial class RegionFrame {
     public static readonly RegionFrame Full = new("full", static (_, _) => Option<Rectangle>.None);
     public static readonly RegionFrame Action = new("action", Framing.Action);
     public static readonly RegionFrame Title = new("title", Framing.Title);
@@ -32,7 +32,7 @@ public sealed partial class RegionFrame {
             (from frame in use(() => scope.Settings.SafeFrame) select Framed(frame, extent).Map(area => RenderRegion.Of(area, extent))).Bracket());
 }
 
-public sealed class OverscanFrame {
+internal sealed class OverscanFrame {
     private OverscanFrame(PixelExtent frame, PixelExtent padded) => (Frame, Padded) = (frame, padded);
 
     public PixelExtent Frame { get; }

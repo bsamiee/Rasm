@@ -80,7 +80,8 @@ Analyze `<dir>/<project>/build.binlog`, the second build's log:
 
 `CoreCompile` declares its sources, references, and analyzers as `Inputs` and the assembly, reference assembly, and documentation file as `Outputs`, a no-change build skips it.
 - `Deterministic` is `true` by default, identical inputs produce an identical assembly
-- `ProduceReferenceAssembly` is `true` by default, `Csc` writes `obj/<config>/<tfm>/refint/<name>.dll`
+- `ProduceReferenceAssembly` is `true` by default for `.NETCoreApp` 5.0 and later, `false` for every other framework
+- `Csc` writes `refint/<name>.dll` in the intermediate directory, `<ArtifactsPath>/obj/<project>/<pivot>/` under the artifacts layout
 - `CopyRefAssembly` updates `ref/<name>.dll` when the public API changes
 - Changes inside a method body recompile the library and leave every consumer's `CoreCompile` skipped
 - New public types rewrite the reference assembly and recompile every consumer, `CoreCompile` shows `skipped: false` in each dependent

@@ -23,6 +23,7 @@
         "@pulumi/postgresql": "catalog:",
         "@pulumi/pulumi": "catalog:",
         "@pulumi/random": "catalog:",
+        "@pulumi/tls": "catalog:",
         "@rasm/eng": "workspace:*",
         "@rasm/hosting": "workspace:*",
         "effect": "catalog:",

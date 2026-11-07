@@ -18,7 +18,7 @@ namespace Darkroom.Queue;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class PackageUse {
+internal sealed partial class PackageUse {
     public static readonly PackageUse JobFile = new("JobFile", quits: false);
     public static readonly PackageUse Handoff = new("Handoff", quits: true);
 
@@ -26,7 +26,7 @@ public sealed partial class PackageUse {
 }
 
 [Union]
-public abstract partial record QueueTarget {
+internal abstract partial record QueueTarget {
     private static readonly NamePart JobsPart = NamePart.Create("jobs");
 
     public string Name => Switch(local: static _ => nameof(Local), packaged: static held => held.Use.Key, flamenco: static _ => nameof(Flamenco));
@@ -47,20 +47,20 @@ public abstract partial record QueueTarget {
     public sealed record Flamenco(OutputFolder Folder, Stem Stem, FlamencoSettings Farm) : QueueTarget;
 }
 
-public sealed record QueueContext(OutputPath Record, IO<QueueSettings> Settings, TimeProvider Clock, Func<QueueEvent, IO<Unit>> Notify) {
+internal sealed record QueueContext(OutputPath Record, IO<QueueSettings> Settings, TimeProvider Clock, Func<QueueEvent, IO<Unit>> Notify) {
     public static IO<QueueContext> Open =>
         from record in IO.lift(static () => OutputPath.Of(Path.Join(Directory.CreateDirectory(Session.PlugIn.SettingsDirectory).FullName, $"{nameof(QueueProgress)}.json")))
         from sender in NoticeSender.Acquire(QueueSettings.Read.Map(static held => held.Notices), DarkroomPlugIn.Clock)
         select new QueueContext(record, QueueSettings.Read, DarkroomPlugIn.Clock, sender.Notify);
 }
 
-public sealed record QueueRequest(Option<float> Clay, double Overscan, RegionFrame Region, bool Resume) {
+internal sealed record QueueRequest(Option<float> Clay, double Overscan, RegionFrame Region, bool Resume) {
     public static QueueRequest Default { get; } = new(None, 0d, RegionFrame.Full, Resume: false);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public static partial class Dispatch {
+internal static partial class Dispatch {
 
     // --- [REGISTRATION]
 

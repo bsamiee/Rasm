@@ -10,15 +10,15 @@ namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record DamageMark(float Likelihood, Hold Hold, float White) {
+internal sealed record DamageMark(float Likelihood, Hold Hold, float White) {
     public static DamageMark Default { get; } = new(0f, Hold.Create(Duration.FromSeconds(6d / 24d)), 0f);
 }
 
-public sealed record FilmSpots(DamageMark Mark, PointCells Cells) {
+internal sealed record FilmSpots(DamageMark Mark, PointCells Cells) {
     public static FilmSpots Default { get; } = new(DamageMark.Default, new(ShortSideLength.Create(0.02f * ReferenceFrame.GreaterSide), 0.02f, 2f * 0.2f, 1f, 0f, 0.3f));
 }
 
-public sealed record FilmDamage(
+internal sealed record FilmDamage(
     FilmSpots Specks, FilmSpots Dirt, FilmSpots Blotches, DamageMark Scratches, float ScratchCount, ShortSideLength ScratchWidth, float ScratchRate, DamageMark Hairs,
     float HairCount, ShortSideLength HairWidth, ShortSideLength HairLength, float HairCurl, float HairRate, float WeaveRate, int Seed, Timing Timing) : IPixelStage<FilmDamage> {
     public static FilmDamage Default { get; } = new(
@@ -106,7 +106,7 @@ public sealed record FilmDamage(
     private static Vector128<int> Lattice(Vector4 site) => Vector128.ConvertToInt32(Vector128.Floor(site.AsVector128()));
 }
 
-public sealed record FilmFlicker(float Depth, float Rate, int Seed, Timing Timing) : IPixelStage<FilmFlicker> {
+internal sealed record FilmFlicker(float Depth, float Rate, int Seed, Timing Timing) : IPixelStage<FilmFlicker> {
     public static FilmFlicker Default { get; } = new(0f, 5f * 0.5f * 24f, 0, Timing.Default);
 
     public static Fin<Option<PixelPass>> Pass(FilmFlicker state, PassContext context) =>

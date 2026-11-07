@@ -198,7 +198,7 @@ public static class DisplayModes {
         select unit;
 
     private static Seq<(Guid Slot, Guid Target)> Overridden(ObjectAttributes attributes, Seq<Guid> slots, HashMap<Guid, Guid> moved) =>
-        slots.Choose(slot => DisplayMaterialRefs.DisplayMaterialRef(attributes, slot).Bind(held => moved.Find(held)).Map(target => (slot, target))).Strict();
+        slots.Choose(slot => DisplayModeRules.DisplayMaterialRef(attributes, slot).Bind(held => moved.Find(held)).Map(target => (slot, target))).Strict();
 
     private static Option<Guid> Shown(RhinoViewport viewport) {
         using DisplayModeDescription? mode = viewport.DisplayMode;

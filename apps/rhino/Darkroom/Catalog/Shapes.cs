@@ -10,7 +10,7 @@ namespace Darkroom.Catalog;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class ShapeFit {
+internal sealed partial class ShapeFit {
     public static readonly ShapeFit ShortSide = new("short-side", static _ => Vector2.One);
     public static readonly ShapeFit LongSide = new("long-side", static extent => new Vector2((float)int.Max(extent.Width, extent.Height) / extent.ShortSide));
 
@@ -19,7 +19,7 @@ public sealed partial class ShapeFit {
 }
 
 [SmartEnum<string>]
-public sealed partial class ShapeKind {
+internal sealed partial class ShapeKind {
     public static readonly ShapeKind Ellipse = new("ellipse", static (shape, half) => DistanceField.Ellipse(half, shape.Exponent));
     public static readonly ShapeKind Box = new("box", static (shape, half) => DistanceField.Box(half, shape.Roundness));
     public static readonly ShapeKind Polygon = new("polygon", static (shape, half) => DistanceField.Polygon(half, shape.Sides, shape.Inset, shape.Roundness));
@@ -33,7 +33,7 @@ public sealed partial class ShapeKind {
 }
 
 [SmartEnum<string>]
-public sealed partial class ShapeOperation {
+internal sealed partial class ShapeOperation {
     public static readonly ShapeOperation Union = new("union", static (first, second, smoothing, _) => first.Union(second, smoothing));
     public static readonly ShapeOperation Difference = new("difference", static (first, second, smoothing, _) => first.Difference(second, smoothing));
     public static readonly ShapeOperation Intersection = new("intersection", static (first, second, smoothing, _) => first.Intersection(second, smoothing));
@@ -43,13 +43,13 @@ public sealed partial class ShapeOperation {
     public partial DistanceField Join(DistanceField first, DistanceField second, float smoothing, float progress);
 }
 
-public sealed record ShapePrimitive(ShapeKind Kind, FieldPlacement Placement, ShortSideLength Width, ShortSideLength Height, float Roundness, float Exponent, int Sides, float Inset, float Apex, ShapeFit Fit) {
+internal sealed record ShapePrimitive(ShapeKind Kind, FieldPlacement Placement, ShortSideLength Width, ShortSideLength Height, float Roundness, float Exponent, int Sides, float Inset, float Apex, ShapeFit Fit) {
     public static ShapePrimitive Default { get; } = new(ShapeKind.Ellipse, FieldPlacement.Default, ShortSideLength.Create(0.5f), ShortSideLength.Create(0.5f), 0f, 2f, 5, 0f, 0f, ShapeFit.ShortSide);
 
     public DistanceField Field(PixelExtent extent) => Placement.Placed(Kind.Field(this, new Vector2(Width, Height) * Fit.Scale(extent)), extent);
 }
 
-public sealed record ShapeStyle(Unicolour Outline, bool Inverted) {
+internal sealed record ShapeStyle(Unicolour Outline, bool Inverted) {
     private static readonly NoiseBasis Gate = NoiseBasis.Perlin.Default with {
         Dimensions = NoiseDimensions.Four,
         Octaves = new(15f, 0.9f, 2f),
@@ -82,7 +82,7 @@ public sealed record ShapeStyle(Unicolour Outline, bool Inverted) {
     }
 }
 
-public sealed record Shapes(ShapePrimitive First, ShapePrimitive Second, float Progress, ShapeStyle Style, GeneratedLayer Layer, int Seed) : IPixelStage<Shapes> {
+internal sealed record Shapes(ShapePrimitive First, ShapePrimitive Second, float Progress, ShapeStyle Style, GeneratedLayer Layer, int Seed) : IPixelStage<Shapes> {
     public const uint Stream = 16u;
 
     public Option<ShapeOperation> Operation { get; init; }
@@ -98,7 +98,7 @@ public sealed record Shapes(ShapePrimitive First, ShapePrimitive Second, float P
     }
 }
 
-public sealed record Lightning(
+internal sealed record Lightning(
     FieldPlacement Placement, ShortSideLength Length, ShortSideLength Thickness, int Depth, float Displacement, int Branches, float Reach, Angle Spread, float Taper, float Speed,
     ShapeStyle Style, GeneratedLayer Layer, int Seed, Timing Timing, Hold Hold) : IPixelStage<Lightning> {
     private const int Levels = 5;
@@ -137,7 +137,7 @@ public sealed record Lightning(
             DistanceField.Capsule(vertices[k], vertices[k + 1], radius(k / (vertices.Length - 1f)), radius((k + 1f) / (vertices.Length - 1f))), 0f));
 }
 
-public sealed record Letterbox(ShapeStyle Style, GeneratedLayer Layer, int Seed) : IPixelStage<Letterbox> {
+internal sealed record Letterbox(ShapeStyle Style, GeneratedLayer Layer, int Seed) : IPixelStage<Letterbox> {
     public Option<float> Aspect { get; init; }
     public Option<ShortSideLength> Inset { get; init; }
     public Option<ShortSideLength> Radius { get; init; }

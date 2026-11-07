@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-files: ['libs/dotnet/rhino/Rasm.Rhino/**', 'libs/dotnet/rhino/Rasm.Grasshopper/**']
+files: ['libs/dotnet/rhino/Rasm.Rhino/**', 'libs/dotnet/rhino/Rasm.Rhino.Modeling/**', 'libs/dotnet/rhino/Rasm.Grasshopper/**']
 utils:
     function-name:
         matches: {csharp-simple-name: {name: {pattern: {context: 'class $NAME;', selector: identifier}}}}

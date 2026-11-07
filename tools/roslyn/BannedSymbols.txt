@@ -13,6 +13,8 @@ M:System.Diagnostics.Stopwatch.GetElapsedTime(System.Int64,System.Int64);Ambient
 F:System.Diagnostics.Stopwatch.Frequency;Ambient tick ratio restates elapsed time, read `GetElapsedTime(start)` from a `TimeProvider` argument
 P:System.TimeProvider.TimestampFrequency;Timestamp ratio restates elapsed time, call `GetElapsedTime(start)` on the `TimeProvider`
 P:NodaTime.SystemClock.Instance;Ambient clock, read time from a `TimeProvider` argument
+M:System.Threading.Thread.Sleep(System.Int32);Blocks on the ambient clock, await `Task.Delay(delay, timeProvider)`
+M:System.Threading.Thread.Sleep(System.TimeSpan);Blocks on the ambient clock, await `Task.Delay(delay, timeProvider)`
 M:System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor
 M:System.Runtime.Serialization.FormatterServices.GetUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor
 M:System.Runtime.Serialization.FormatterServices.GetSafeUninitializedObject(System.Type);Creates an instance without running a constructor, call a declared factory or public constructor

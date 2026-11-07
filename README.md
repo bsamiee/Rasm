@@ -44,10 +44,9 @@ Rasm/
 ├── global.json               # .NET SDK versions
 ├── Workspace.slnx            # .NET solution
 ├── Directory.Packages.props  # .NET central package versions
-├── Directory.Build.props     # .NET build defaults and project classification by tree position
-├── Directory.Build.targets   # .NET items, host package references, and build targets
+├── Directory.Build.props     # .NET build defaults
+├── Directory.Build.targets   # .NET items and Rhino host targets
 ├── Directory.Build.rsp       # MSBuild switches every command-line build under the root reads
-├── Directory.Solution.props  # Solution restore settings
 ├── NuGet.config              # NuGet source and per-source request limit
 ├── Package.swift             # Swift modules, executables, and remote package catalog
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits
@@ -90,7 +89,7 @@ flowchart LR
 
 ## [03]-[TASKS]
 
-- `git submodule update --init --checkout assets` fills `assets/` for font builds and publishing
+- `git submodule update --init --checkout assets` fills `assets/` for font builds, Darkroom builds, and publishing
 - `mise run update` moves tools, catalogs, locks, and action tags to newest releases, reinstalls `tools/` products and CLI projects, and prunes old tool versions
 - `mise run clean` removes build outputs and prunes tool caches
 - `pixi run --locked uv sync` builds Python distributions against Pixi libraries
@@ -152,8 +151,7 @@ Products reach a person through separate levels:
 - Caches sit under root `.cache/` and a project's generated output under `.artifacts/`, each tool moved by one setting every run reads
 - Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, a tool with one partition per run or session holds a folder there
 - Xcode apps holding a UXP script build in a folder reference build that script first
-- Task graph tags a project `host:<host>` for each `apps/<host>/` folder name in its path, a Swift module and the root project also for each `Package.swift` platform naming an `apps/` folder
-- .NET build takes Rhino hosts from the `rhino/` path folder
+- Task graph tags a .NET project `host:rhino` from the `RhinoHost` its nearest `Directory.Build.props` states, and every other project `host:<host>` for each `apps/<host>/` folder name in its path, a Swift module and the root project also for each `Package.swift` platform naming an `apps/` folder
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files are the language manifests and markers Nx plugins read, never `project.json`
 - `Workspace.slnx` lists every project `.csproj`

@@ -198,18 +198,20 @@ Each declaration has one owning file, chosen by what it reads and who overrides 
 |  [01]   | Repository root paths, `ArtifactsPath`, `UseArtifactsOutput`, `ArtifactsProjectName`                 | `Directory.Build.props`          |
 |  [02]   | `BaseIntermediateOutputPath`, `MSBuildProjectExtensionsPath`                                         | `Directory.Build.props`          |
 |  [03]   | Defaults a project overrides: `Nullable`, `ImplicitUsings`, `TreatWarningsAsErrors`, `AnalysisLevel` | `Directory.Build.props`          |
-|  [04]   | Classification from `MSBuildProjectName` or `MSBuildProjectDirectory`                                | `Directory.Build.props`          |
+|  [04]   | Properties every project under one folder shares                                                     | Nested `Directory.Build.props`   |
 |  [05]   | Analyzer `PackageReference` every project gets                                                       | `Directory.Build.props`          |
-|  [06]   | Values derived from `TargetFramework`, `OutputType`, or another body property                        | `Directory.Build.targets`        |
-|  [07]   | `Using` items, conditioned on `@(PackageReference)` or not, `Update` on SDK glob items               | `Directory.Build.targets`        |
-|  [08]   | Custom targets and `DependsOn` extensions                                                            | `Directory.Build.targets`        |
-|  [09]   | `TargetFramework`, `OutputType`, `ArtifactsPivots`, `PackageReference`, `ProjectReference`           | Project file                     |
-|  [10]   | Package versions, `PackageVersion`, `GlobalPackageReference`                                         | `Directory.Packages.props`       |
-|  [11]   | Analyzer severity, `build_check.*` severity and options                                              | `.editorconfig`                  |
-|  [12]   | Machine-local overrides                                                                              | `$(MSBuildProjectFullPath).user` |
-|  [13]   | Properties and targets a package gives its consumers                                                 | Package `build/` files           |
+|  [06]   | `GlobalAnalyzerConfigFiles` items managed core targets read before `Directory.Build.targets`         | `Directory.Build.props`          |
+|  [07]   | Values derived from `TargetFramework`, `OutputType`, or another body property                        | `Directory.Build.targets`        |
+|  [08]   | `Using` items, conditioned on `@(PackageReference)` or not, `Update` on SDK glob items               | `Directory.Build.targets`        |
+|  [09]   | Custom targets and `DependsOn` extensions                                                            | `Directory.Build.targets`        |
+|  [10]   | `TargetFramework`, `OutputType`, `ArtifactsPivots`, `PackageReference`, `ProjectReference`           | Project file                     |
+|  [11]   | Package versions, `PackageVersion`, `GlobalPackageReference`                                         | `Directory.Packages.props`       |
+|  [12]   | Analyzer severity, `build_check.*` severity and options                                              | `.editorconfig`                  |
+|  [13]   | Machine-local overrides                                                                              | `$(MSBuildProjectFullPath).user` |
+|  [14]   | Properties and targets a package gives its consumers                                                 | Package `build/` files           |
 
-- MSBuild imports the nearest `Directory.Build.props` and `.targets` above a project, a nested file opens with an import of the outer one
+- MSBuild imports the nearest `Directory.Build.props` and `.targets` above a project, a nested file imports the outer one
+- Nested `.props` files set properties the outer file's conditions read before the import, every other property after it
 
 ## [06]-[TROUBLESHOOTING]
 

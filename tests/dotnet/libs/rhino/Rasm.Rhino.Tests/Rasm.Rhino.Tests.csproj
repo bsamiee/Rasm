@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Tests of RhinoCommon as typed effects, run inside Rhino</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino">
+        <PackageReference Include="RhinoCommon" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../../../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
+    </ItemGroup>
+</Project>

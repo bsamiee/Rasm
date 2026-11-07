@@ -31,8 +31,10 @@ jobs:
                       targets: check,test,test:integration
                       exclude: tag:host:macos,tag:host:rhino,tag:host:claude,tag:host:blender
                     - runner: xcode-27
-                      targets: check,test
+                      targets: check
                       exclude: "!tag:host:macos,!tag:host:rhino,!tag:host:blender"
+                      rhino: true
+                      test_exclude: "!tag:host:macos,!tag:host:blender"
         runs-on: ${{ matrix.runner }}
         timeout-minutes: 60
         steps:
@@ -41,26 +43,41 @@ jobs:
                 fetch-depth: 0
                 lfs: true
                 persist-credentials: false
+            - id: assets
+              if: matrix.rhino
+              run: printf 'ref=%s\n' "$(git rev-parse HEAD:assets)" >> "$GITHUB_OUTPUT"
+            - uses: actions/checkout@v7
+              if: matrix.rhino
+              with:
+                repository: ${{ github.repository }}-Assets
+                ref: ${{ steps.assets.outputs.ref }}
+                path: assets
+                ssh-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
+                persist-credentials: false
             - run: umask 077 && printf %s "$SIXLABORSLICENSEKEY" > "$RUNNER_TEMP/sixlabors.lic" && printf 'SixLaborsLicenseFile=%s/sixlabors.lic\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
               env:
                 SIXLABORSLICENSEKEY: ${{ secrets.SIXLABORSLICENSEKEY }}
             - id: setup
               uses: ./.github/actions/setup
             - id: rhino
-              if: runner.os == 'macOS'
+              if: matrix.rhino
               run: printf 'url=%s\n' "$(curl --silent --show-error --fail --head --location --output /dev/null --write-out '%{url_effective}' "https://www.rhino3d.com/www-api/download/direct?slug=rhino-for-mac/$(xmllint --xpath 'substring-before(/Project/ItemGroup/PackageVersion[@Include="RhinoCommon"]/@Version, ".")' Directory.Packages.props)/latest")" >> "$GITHUB_OUTPUT"
             - uses: mcneel/setup-rhino3d@v3.0.0
-              if: runner.os == 'macOS'
+              if: matrix.rhino
               with:
                 download-url: ${{ steps.rhino.outputs.url }}
                 email-address: b.samiee93@gmail.com
-            - if: runner.os == 'macOS'
+            - if: matrix.rhino
               run: printf 'RhinoInstallPath=%s\n' /Applications/Rhino*.app >> "$GITHUB_ENV"
             - if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
               run: nx affected -t "${TARGETS}" --configuration ci --exclude="${EXCLUDE}"
               env:
                 TARGETS: ${{ matrix.targets }}
                 EXCLUDE: ${{ matrix.exclude }}
+            - if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.test_exclude }}
+              run: nx affected -t test --configuration ci --exclude="${EXCLUDE}"
+              env:
+                EXCLUDE: ${{ matrix.test_exclude }}
             - uses: actions/upload-artifact@v7
               if: ${{ failure() }}
               with:

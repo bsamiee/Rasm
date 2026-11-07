@@ -80,8 +80,8 @@ public sealed class CaptureAnalyzer : RasmAnalyzer {
                 .Concat(nodes.OfType<ILocalFunctionOperation>().Where(static function => function.Body is not null).Select(static function => (function.Symbol, Body: function.Body!)))
                 .ToDictionary<(IMethodSymbol Symbol, IBlockOperation Body), ISymbol, IBlockOperation>(static function => function.Symbol.OriginalDefinition, static function => function.Body, SymbolEqualityComparer.Default);
             SemanticModel model = block.OperationBlocks[0].SemanticModel!;
-            HashSet<IRangeVariableSymbol> ranges = new(SymbolEqualityComparer.Default);
-            Dictionary<IRangeVariableSymbol, IOperation> aliases = new(SymbolEqualityComparer.Default);
+            HashSet<IRangeVariableSymbol> ranges = [with(SymbolEqualityComparer.Default)];
+            Dictionary<IRangeVariableSymbol, IOperation> aliases = [with(SymbolEqualityComparer.Default)];
             List<(ISymbol Symbol, IOperation Value, ImmutableArray<IInvocationOperation> Calls)> bindings = [];
             List<(IOperation Value, ImmutableArray<IInvocationOperation> Calls)> reads = [];
             List<(IOperation Source, IOperation Value, ImmutableArray<IInvocationOperation> Calls)> writes = [];
@@ -179,7 +179,7 @@ public sealed class CaptureAnalyzer : RasmAnalyzer {
             static bool Captures(ImmutableArray<IInvocationOperation> binding, ImmutableArray<IInvocationOperation> callback) =>
                 binding.Length < callback.Length && binding.SequenceEqual(callback.Take(binding.Length));
             static IOperation Position(IOperation value, ImmutableArray<IInvocationOperation> calls, ImmutableArray<IInvocationOperation> scope) => calls.Length > scope.Length ? calls[scope.Length] : value;
-            HashSet<ISymbol> reported = new(SymbolEqualityComparer.Default);
+            HashSet<ISymbol> reported = [with(SymbolEqualityComparer.Default)];
             foreach ((ISymbol symbol, IOperation value, ImmutableArray<IInvocationOperation> scope) in bindings) {
                 token.ThrowIfCancellationRequested();
                 IOperation within = symbol is IRangeVariableSymbol ranged

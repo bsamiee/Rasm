@@ -17,7 +17,7 @@ Parameters per built-in task that decide correctness and incremental behavior. E
 - `ConvertToAbsolutePath` (`Paths`, output `AbsolutePaths`) resolves against the project directory
 - `ZipDirectory` (`SourceDirectory`, `DestinationFile`, `Overwrite`) fails on an existing file unless `Overwrite="true"`
 - `Unzip` (`SourceFiles`, `DestinationFolder`, `SkipUnchangedFiles`, `OverwriteReadOnlyFiles`), `SkipUnchangedFiles` defaults to `true`
-- `DownloadFile` (`SourceUrl`, `DestinationFolder`, `DestinationFileName`, `SkipUnchangedFiles`, `Retries`, output `DownloadedFile`)
+- `DownloadFile` (`SourceUrl`, `DestinationFolder`, `DestinationFileName`, `SkipUnchangedFiles`, `Retries`, `RetryDelayMilliseconds`, `Timeout`, `FailIfNotIncremental`, output `DownloadedFile`) fetches anonymously with no header or credential parameter
 - `DownloadFile` `SkipUnchangedFiles` defaults to `true` and needs a last-modified header from the server
 - `GetReferenceAssemblyPaths` (`TargetFrameworkMoniker`, `RootPath`, output `ReferenceAssemblyPaths`) resolves .NET Framework reference assemblies
 - `PrepareForBuild` runs `GetReferenceAssemblyPaths` in every build, a second call in a project changes nothing

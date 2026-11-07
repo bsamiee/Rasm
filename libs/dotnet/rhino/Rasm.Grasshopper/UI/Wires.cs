@@ -87,7 +87,7 @@ public sealed class RoutedWire<TRoute> : WireShape where TRoute : IWireRoute {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class StraightRoute : IWireRoute {
-    public static Polyline Route(PointF source, PointF target) => new([source.To3d(), target.To3d()]);
+    public static Polyline Route(PointF source, PointF target) => [source.To3d(), target.To3d()];
 }
 
 public sealed class OrthogonalRoute : IWireRoute {

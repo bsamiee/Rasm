@@ -16,7 +16,7 @@ namespace Darkroom.Queue;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [Union]
-public abstract partial record PreflightFinding {
+internal abstract partial record PreflightFinding {
     public Error Error => Switch(
         queueEmpty: static _ => new DarkroomFault("render queue", DarkroomReason.Empty),
         sourceRefused: static held => new DarkroomFault((FormattableString)$"entry source {held.Source}", held.Reason, held.Index),
@@ -74,7 +74,7 @@ public abstract partial record PreflightFinding {
     public sealed record RenderOnCpu() : PreflightFinding;
 }
 
-public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFinding> Cautions, Map<int, ulong> Memory) {
+internal sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFinding> Cautions, Map<int, ulong> Memory) {
 
     // --- [VERDICT]
 

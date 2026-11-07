@@ -35,7 +35,7 @@ public abstract partial record LensDirt {
     }
 }
 
-public sealed record Bloom(float Size, float Strength, float DirtGain) : IPixelStage<Bloom> {
+internal sealed record Bloom(float Size, float Strength, float DirtGain) : IPixelStage<Bloom> {
     public static Bloom Default { get; } = new(0.5f, 0.7f * float.Pow(0.15f, 1.5f), 1f);
 
     public Option<LensDirt> Dirt { get; init; }
@@ -51,7 +51,7 @@ public sealed record Bloom(float Size, float Strength, float DirtGain) : IPixelS
             select spread));
 }
 
-public sealed record StarGlare(Iris Aperture, ShortSideLength Radius) : IPixelStage<StarGlare> {
+internal sealed record StarGlare(Iris Aperture, ShortSideLength Radius) : IPixelStage<StarGlare> {
     public static StarGlare Default { get; } = new(Iris.Create(6, double.Pi / 3d, 0d, 0d, 1d), ShortSideLength.Create(2f / ReferenceFrame.Height));
 
     public static Fin<Option<PixelPass>> Pass(StarGlare state, PassContext context) =>
@@ -61,7 +61,7 @@ public sealed record StarGlare(Iris Aperture, ShortSideLength Radius) : IPixelSt
                 spread => frame.Spread(0f, 0f, light => spread.Convolve(light), BlendingMode.Normal, 1f, [], progress))));
 }
 
-public sealed record Ghosts(float Threshold, float Knee, int Iterations, float Modulation) : IPixelStage<Ghosts> {
+internal sealed record Ghosts(float Threshold, float Knee, int Iterations, float Modulation) : IPixelStage<Ghosts> {
     public static Ghosts Default { get; } = new(1f, 0.1f, 3, 0.25f);
 
     public static Fin<Option<PixelPass>> Pass(Ghosts state, PassContext context) =>
@@ -69,7 +69,7 @@ public sealed record Ghosts(float Threshold, float Knee, int Iterations, float M
             key => Glare.Ghosts(key, frame, 16f / ReferenceFrame.Height * frame.Extent.ShortSide / 3f, state.Iterations, state.Modulation), BlendingMode.Add, 1f, [], progress)));
 }
 
-public sealed record Halation(float Threshold, float Knee, ShortSideLength Radius, Unicolour Color) : IPixelStage<Halation> {
+internal sealed record Halation(float Threshold, float Knee, ShortSideLength Radius, Unicolour Color) : IPixelStage<Halation> {
     public static Halation Default { get; } = new(2f, 1f, ShortSideLength.Create(64f * 0.2f / ReferenceFrame.Height), new Unicolour(ColourSpace.Rgb, 1d, 0x59 / 255d, 0d));
 
     public static Fin<Option<PixelPass>> Pass(Halation state, PassContext context) =>
@@ -83,7 +83,7 @@ public sealed record Halation(float Threshold, float Knee, ShortSideLength Radiu
 }
 
 [SmartEnum<string>]
-public sealed partial class FocusField {
+internal sealed partial class FocusField {
     public static readonly FocusField Uniform = new("uniform", [], static (state, _, cap) => Some(Bokeh.Correlated(state.Aperture, state.Fringe, new Vector4(cap))));
     public static readonly FocusField Depth = new("depth", [GuideChannel.Depth], static (state, context, cap) =>
         from depth in context.Guides.Find(GuideChannel.Depth)
@@ -99,7 +99,7 @@ public sealed partial class FocusField {
     public partial Option<PixelPass> Pass(Defocus state, PassContext context, float cap);
 }
 
-public sealed record Defocus(
+internal sealed record Defocus(
     FocusField Field, ShortSideLength Radius, FieldPlacement Placement, ShortSideLength Extent, float Aspect, ShortSideLength Feather, Iris Aperture, float Fringe) : IPixelStage<Defocus> {
     public static Defocus Default { get; } = new(
         FocusField.Depth, ShortSideLength.Create(0.02f * ReferenceFrame.GreaterSide), FieldPlacement.Default, ShortSideLength.Create(0.15f), 1f, ShortSideLength.Create(0.25f),
@@ -117,7 +117,7 @@ public sealed record Defocus(
 }
 
 [SmartEnum<string>]
-public sealed partial class LensDirection {
+internal sealed partial class LensDirection {
     public static readonly LensDirection Distort = new("distort", static (distorted, fitted) => (distorted, fitted));
     public static readonly LensDirection Undistort = new("undistort", static (distorted, fitted) => (fitted, distorted));
 
@@ -125,7 +125,7 @@ public sealed partial class LensDirection {
     public partial (Projection.Rectilinear Output, Projection.Rectilinear Input) Paired(Projection.Rectilinear distorted, Projection.Rectilinear fitted);
 }
 
-public sealed record LensProfile(LensDistortion Lens, double Dispersion, LensDirection Direction, float Fit, Resampling Resampling) : IPixelStage<LensProfile> {
+internal sealed record LensProfile(LensDistortion Lens, double Dispersion, LensDirection Direction, float Fit, Resampling Resampling) : IPixelStage<LensProfile> {
     public static LensProfile Default { get; } = new(new LensDistortion(-0.05d, 0d, 0d, 0d, 0d), 0.05d, LensDirection.Distort, 0f, Resampling.Default with { Wrap = WrapMode.Clamp });
 
     public static Fin<Option<PixelPass>> Pass(LensProfile state, PassContext context) =>
@@ -146,7 +146,7 @@ public sealed record LensProfile(LensDistortion Lens, double Dispersion, LensDir
         };
 }
 
-public sealed record AxialAberration(ShortSideLength Radius, Iris Aperture) : IPixelStage<AxialAberration> {
+internal sealed record AxialAberration(ShortSideLength Radius, Iris Aperture) : IPixelStage<AxialAberration> {
     public static AxialAberration Default { get; } = new(ShortSideLength.Create(20f / ReferenceFrame.Height), Defocus.Default.Aperture);
 
     public static Fin<Option<PixelPass>> Pass(AxialAberration state, PassContext context) =>
@@ -157,7 +157,7 @@ public sealed record AxialAberration(ShortSideLength Radius, Iris Aperture) : IP
 [JsonPolymorphic]
 [JsonDerivedType(typeof(Natural), nameof(Natural))]
 [JsonDerivedType(typeof(Outline), nameof(Outline))]
-public abstract partial record Vignette : IPixelStage<Vignette> {
+internal abstract partial record Vignette : IPixelStage<Vignette> {
     public static Vignette Default { get; } = new Natural();
 
     public static Fin<Option<PixelPass>> Pass(Vignette state, PassContext context) =>

@@ -47,9 +47,6 @@ steps {
 hooks {
     ["check"] {
         steps {
-            ["dotnet-format"] = (Builtins.dotnet_format) {
-                check { command { argv = List("dotnet", "format", "whitespace", "--folder", "--verify-no-changes", "--include", "{{files}}") } }
-            }
             ["plutil"] { glob = "**/*.{plist,entitlements}"; check = "plutil -lint {{files}}" }
             ["shellcheck"] = (Builtins.shellcheck) { match_any = null; glob = "**/*.sh" }
             ["tombi-lint"] = (Builtins.tombi) { check { command { argv = super.argv + List("--error-on-warnings") } } }
@@ -59,6 +56,6 @@ hooks {
             }
         }
     }
-    ["commit-msg"] { steps { ["conventional-commit"] = Builtins.check_conventional_commit } }
+    ["commit-msg"] { steps { ["conventional-commit"] = Builtins.check_conventional_commit; ["release-scope"] { check = "rasm-release scope {{commit_msg_file}}" } } }
     ["pre-commit"] { enabled = false }
 }

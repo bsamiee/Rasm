@@ -6,7 +6,7 @@ Repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.
 
 ```text
 <repo>/
-├── Directory.Build.props         # Repository roots, artifacts layout, classification, overridable defaults
+├── Directory.Build.props         # Repository roots, artifacts layout, overridable defaults
 ├── Directory.Build.targets       # Values derived from the project body, shared items, targets
 ├── Directory.Packages.props      # Every package version
 ├── libs/
@@ -23,9 +23,7 @@ Repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.
     <PropertyGroup>
         <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepositoryRoot)', '.artifacts'))</ArtifactsPath>
-        <Stage Condition="'$(Stage)' == ''">library</Stage>
-        <Role Condition="$(MSBuildProjectDirectory.StartsWith('$(RepositoryRoot)tests'))">tests</Role>
-        <Role Condition="'$(Role)' == ''">library</Role>
+        <Stage>library</Stage>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -36,23 +34,18 @@ Repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.
 
 ## [03]-[NESTED_DIRECTORY_BUILD_PROPS]
 
-Private property `_OuterDirectoryBuildProps` keeps nested quotes out of the import condition.
-
 ```xml
 <!-- tests/Directory.Build.props -->
 <Project>
-    <PropertyGroup>
-        <_OuterDirectoryBuildProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_OuterDirectoryBuildProps>
-    </PropertyGroup>
-    <Import Project="$(_OuterDirectoryBuildProps)" Condition="'$(_OuterDirectoryBuildProps)' != ''" />
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
     <PropertyGroup>
-        <IsTestProject>true</IsTestProject>
+        <OutputType>Exe</OutputType>
     </PropertyGroup>
 </Project>
 ```
 
-`Library.Tests` evaluates `_OuterDirectoryBuildProps` to the root file path, `Stage` to `library`, `Role` to `tests`, and `IsTestProject` to `true`.
+`Library.Tests` evaluates `Stage` to `library` and `OutputType` to `Exe`.
 
 ## [04]-[ROOT_DIRECTORY_BUILD_TARGETS]
 
@@ -97,7 +90,6 @@ Private property `_OuterDirectoryBuildProps` keeps nested quotes out of the impo
         <ImplicitUsings>enable</ImplicitUsings>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <IsPackable>false</IsPackable>
-        <IsTestProject>true</IsTestProject>
     </PropertyGroup>
 </Project>
 ```

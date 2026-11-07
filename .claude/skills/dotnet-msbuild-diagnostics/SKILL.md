@@ -30,7 +30,7 @@ Targets running `dotnet build`, `restore`, `publish`, `msbuild`, `test`, or `for
 |  [05]   | `-check`                                             | BuildCheck reports as build diagnostics                              |
 |  [06]   | `--no-restore -graph -isolate`                       | Static graph build, `MSB4252` on an undeclared project instance      |
 |  [07]   | `-p:Name=Value`                                      | Global property for restore and build passes                         |
-|  [08]   | `-restoreProperty:Name=Value`                        | Global property for restore pass, build pass reads empty             |
+|  [08]   | `-restoreProperty:Name=Value`                        | Restore-pass global property in place of every `-p:` value           |
 |  [09]   | `-pp:<file>.xml`                                     | Every import expanded in place with file boundaries, no build        |
 |  [10]   | `-getProperty:A,B -getItem:C -getResultOutputFile:f` | Evaluated values as JSON in `f`, no build, one project file per call |
 |  [11]   | `-t:X -getTargetResult:X`                            | Runs `X` and prints its returned items as JSON                       |
@@ -187,9 +187,8 @@ Failed restores stop every project, failed references block their dependents. St
 |  [12]   | `BC0301` | Project under the Downloads folder or another untrusted directory    | Error, project      |
 |  [13]   | `BC0302` | `Exec` that runs `dotnet`, `msbuild`, or `nuget` to build a project  | Warning             |
 
-- `BC0201` and `BC0202` accept a self-reference and an emptiness check, and report a read inside a `Condition`
-- `AllowUninitializedPropertiesInConditions=true` on both codes accepts the condition reads, `false` is the default
-- Project scope covers the project file, `scope=all` extends `BC0201`, `BC0202`, and `BC0203` to every import
+- `BC0201` and `BC0202` accept a self-reference and an emptiness check, and report a read inside a `Condition` under every `AllowUninitializedPropertiesInConditions` value
+- `BC0201`, `BC0202`, and `BC0203` report project-file reads alone under every `scope` value
 - `-check` on a replay, `dotnet msbuild <log>.binlog -check`, reruns checks over stored events and writes no file
 - Replays print the original `BinaryLogger wrote to:` line and double every count
 - `mcp__binlog__binlog_warnings` with `category=BuildCheck` lists the reports of a `-check` capture with the console counts
@@ -201,16 +200,13 @@ Failed restores stop every project, failed references block their dependents. St
 ```ini
 [*.csproj]
 build_check.BC0101.severity = error
-build_check.BC0201.scope = all
-build_check.BC0201.AllowUninitializedPropertiesInConditions = true
-build_check.BC0202.AllowUninitializedPropertiesInConditions = true
 ```
 
 - `severity` takes `default`, `none`, `suggestion`, `warning`, or `error`, `scope` takes `project_file`, `work_tree_imports`, or `all`
 
 ### [04.1]-[WORKFLOW]
 
-1. Run `nx run <project>:build -- -t:Rebuild`, or `nx run-many -t build -p tag:language:dotnet` for every project
+1. Run `nx run rasm:lint:msbuild` for the solution, or `nx run <project>:build -- -check` for one project
 2. Read each `BC` line on the console, or run `mcp__binlog__binlog_errors` then `mcp__binlog__binlog_warnings` with `category=BuildCheck`
 3. Fix the file the report names, `BC0201` and `BC0202` name `file(line,col)`, `BC0101` and `BC0102` name the path and both projects
 

@@ -12,7 +12,7 @@ namespace Darkroom.Catalog;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class DenoisePasses {
+internal sealed partial class DenoisePasses {
     public static readonly DenoisePasses Beauty = new("none", []);
     public static readonly DenoisePasses Albedo = new("albedo", [GuideChannel.Albedo]);
     public static readonly DenoisePasses AlbedoNormal = new("albedo-normal", [GuideChannel.Albedo, GuideChannel.Normal]);
@@ -21,7 +21,7 @@ public sealed partial class DenoisePasses {
 }
 
 [SmartEnum<string>]
-public sealed partial class GuidePrefilter {
+internal sealed partial class GuidePrefilter {
     public static readonly GuidePrefilter Off = new("off", static (_, guides, _, _) => IO.pure(guides with { Clean = true }));
     public static readonly GuidePrefilter Fast = new("fast", static (_, guides, _, _) => IO.pure(guides));
     public static readonly GuidePrefilter Accurate = new("accurate", static (denoiser, guides, quality, progress) => denoiser.Prefiltered(guides, quality, progress));
@@ -30,7 +30,7 @@ public sealed partial class GuidePrefilter {
     public partial IO<DenoiseGuides> Cleaned(Denoiser denoiser, DenoiseGuides guides, DenoiseQuality quality, Option<IProgress<int>> progress);
 }
 
-public sealed record Denoise(
+internal sealed record Denoise(
     DenoisePasses Guides, GuidePrefilter Prefilter,
     [property: JsonConverter(typeof(JsonNumberEnumConverter<DenoiseQuality>))] DenoiseQuality Quality) : IPixelStage<Denoise> {
     public static Denoise Default { get; } = new(DenoisePasses.AlbedoNormal, GuidePrefilter.Accurate, DenoiseQuality.High);
@@ -51,7 +51,7 @@ public sealed record Denoise(
         context.Guides.Find(channel).Filter(_ => Guides.Channels.Exists(held => held == channel));
 }
 
-public sealed record Clarity(float Highlights, float Shadows, float Detail) : IPixelStage<Clarity> {
+internal sealed record Clarity(float Highlights, float Shadows, float Detail) : IPixelStage<Clarity> {
     public static Clarity Default { get; } = new(1f, 1f, 1f);
 
     public static Fin<Option<PixelPass>> Pass(Clarity state, PassContext context) =>
@@ -61,7 +61,7 @@ public sealed record Clarity(float Highlights, float Shadows, float Detail) : IP
                 0.5d * ReferenceFrame.GreaterSide / 6d * context.Extent.ShortSide, context.Working, progress)));
 }
 
-public sealed record FilmGrain(
+internal sealed record FilmGrain(
     float Intensity, ShortSideLength Size, float Chroma, int Seed, Timing Timing, Hold Hold, float Shadows, float Midtones, float Highlights,
     float ShadowEdge, float MidtoneSpan, float HighlightSpan, Option<string> Scan, ShortSideLength ScanSpan) : IPixelStage<FilmGrain> {
     public static FilmGrain Default { get; } = new(
@@ -85,7 +85,7 @@ public sealed record FilmGrain(
             None: () => (GrainNoise.White(field), Size.Pixels(context.Extent)));
 }
 
-public sealed record SensorNoise(float Shot, float Read, float Chroma, int Seed, Timing Timing, Hold Hold) : IPixelStage<SensorNoise> {
+internal sealed record SensorNoise(float Shot, float Read, float Chroma, int Seed, Timing Timing, Hold Hold) : IPixelStage<SensorNoise> {
     public static SensorNoise Default { get; } = new(0.1875f * 0.25f * MathF.Sqrt(Metering.MiddleGray), 0f, 0f, 0, Timing.Default, Hold.MinValue);
 
     public static Fin<Option<PixelPass>> Pass(SensorNoise state, PassContext context) =>

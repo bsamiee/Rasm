@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.UI;
@@ -50,8 +51,8 @@ public abstract class DefinedPane<TSelf> : Eto.Forms.Panel, IHelp where TSelf : 
     public string HelpUrl => HostedView.HelpUrl(TSelf.Definition);
 
     public IO<Option<RenderWindow>> Window =>
-        IO.lift(() => Optional(Internals.FindExistingPanelData(owner: null, Session.PlugIn.Id, typeof(TSelf).GUID))
-            .Bind(data => Conversions.Present(Internals.SidePaneUiIdFromPanelObject(data, this)))
+        IO.lift(() => Optional(ContentViews.FindExistingPanelData(owner: null, Session.PlugIn.Id, typeof(TSelf).GUID))
+            .Bind(data => Conversions.Present(ContentViews.SidePaneUiIdFromPanelObject(data, this)))
             .Bind(static id => Optional(RenderWindow.FromSessionId(id))));
 
     public void OnVisibilityChanged(bool visible) => _ = hosted.Shown(visible);
@@ -60,7 +61,7 @@ public abstract class DefinedPane<TSelf> : Eto.Forms.Panel, IHelp where TSelf : 
 
     public static IO<Option<TSelf>> FromRenderSessionId(Guid renderSessionId) =>
         IO.lift(() => Optional(RenderPanels.FromRenderSessionId(Session.PlugIn, typeof(TSelf), renderSessionId))
-            .Bind(static instance => Optional(Internals.PanelObject(instance) as TSelf)));
+            .Bind(static instance => Optional(ContentViews.PanelObject(instance) as TSelf)));
 }
 
 internal sealed class DefinedContentSection : EtoContentUISection3, ICollapsibleSection {
@@ -123,6 +124,18 @@ public static class ContentViews {
             .Attach(static args => IO.lift(() => ViewCatalog.Current.Listed<View.ContentSection>().Iter(row => args.ExpandableContentUI.AddSection(new DefinedContentSection(row)))));
 
     public static EntryKey FieldKey(RenderContent content, string field) => EntryKey.Named(EntryKey.TypeOwner(content.TypeId), field);
+
+    // --- [PANELS]
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
+    [return: UnsafeAccessorType("Rhino.Render.RenderPanelData, RhinoCommon")]
+    internal static extern object? FindExistingPanelData(RenderPanels? owner, Guid pluginId, Guid tabId);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    internal static extern Guid SidePaneUiIdFromPanelObject([UnsafeAccessorType("Rhino.Render.RenderPanelInstances, RhinoCommon")] object instances, object panelObject);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_PanelObject")]
+    internal static extern object PanelObject([UnsafeAccessorType("Rhino.UI.PanelInstance, RhinoCommon")] object instance);
 
     // --- [MENUS]
 

@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Runtime.CompilerServices;
 using Rhino.Render;
 using Rhino.Render.Fields;
 
@@ -49,16 +50,33 @@ public static class ContentFields {
             .Bind(binding => Optional(binding).Match<Fin<TDelegate>>(Some: static held => held, None: () => Rejected(None)));
     }
 
+    // --- [VARIANTS]
+
+    private const string VariantName = "Rhino.Render.Variant, RhinoCommon";
+    private static readonly Type VariantType = Type.GetType(VariantName, throwOnError: true)!;
+
+    internal static IO<Option<T>> Unwrapped<T>(Func<object?> read, string name) where T : notnull =>
+        Products.Maybe(read, name).Bind(held => IO.lift(held.Bind(static value => VariantType.IsInstanceOfType(value) ? Optional(AsObject(value)) : Some(value))
+                .Traverse(value => Conversions.Cast<T>(value, name)).As()))
+            .Bracket();
+
+    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
+    [return: UnsafeAccessorType(VariantName)]
+    private static extern object NewVariant(object? value);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern object? AsObject([UnsafeAccessorType(VariantName)] object variant);
+
     // --- [PARAMETERS]
 
     public static IO<Option<T>> GetParameter<T>(RenderContent content, string parameter, Option<string> requirement = default) where T : notnull =>
-        Internals.Unwrapped<T>(() => requirement.Match(Some: extra => content.GetExtraRequirementParameter(parameter, extra), None: () => content.GetParameter(parameter)), parameter);
+        Unwrapped<T>(() => requirement.Match(Some: extra => content.GetExtraRequirementParameter(parameter, extra), None: () => content.GetParameter(parameter)), parameter);
 
     public static IO<Unit> SetParameter(
         RenderContent content, string parameter, object value, Option<string> requirement = default,
         RenderContent.ExtraRequirementsSetContexts context = RenderContent.ExtraRequirementsSetContexts.Program) =>
         requirement.Match(
-            Some: extra => Products.Of(() => Internals.NewVariant(value))
+            Some: extra => Products.Of(() => NewVariant(value))
                 .Bind(variant => Products.Accepted(() => content.SetExtraRequirementParameter(parameter, extra, variant, context)))
                 .Bracket(),
             None: () => Products.Accepted(() => content.SetParameter(parameter, value)));

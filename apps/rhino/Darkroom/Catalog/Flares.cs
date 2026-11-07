@@ -15,7 +15,7 @@ namespace Darkroom.Catalog;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class FlareAnchor {
+internal sealed partial class FlareAnchor {
     public static readonly FlareAnchor Frame = new("frame", [], static (position, _, context) => Some((context.Extent.Point(position), Option<float>.None)));
     public static readonly FlareAnchor Sun = new("sun", [GuideChannel.Depth], static (_, _, context) =>
         context.Lights.ToFin(new DarkroomFault("Sun flare anchor", DarkroomReason.Lights)).Map(lights => lights.Sun.Bind(direction => Distant(direction, context))));
@@ -33,7 +33,7 @@ public sealed partial class FlareAnchor {
         context.Camera.Bind(camera => camera.Distant(direction)).Map(static located => (located.Point, Some(located.Depth)));
 }
 
-public sealed record FlareSource(FlareAnchor Anchor, Vector2 Position, bool Occlusion) {
+internal sealed record FlareSource(FlareAnchor Anchor, Vector2 Position, bool Occlusion) {
     public Option<Guid> Light { get; init; }
 
     public static FlareSource Default { get; } = new(FlareAnchor.Frame, new Vector2(0.5f), Occlusion: true);
@@ -47,7 +47,7 @@ public sealed record FlareSource(FlareAnchor Anchor, Vector2 Position, bool Occl
             select (PixelPass)new PixelPass.Frame(kernel(source.Point, occluder)));
 }
 
-public sealed record LensFlare(
+internal sealed record LensFlare(
     FlareSource Source, Seq<RampStop> HotspotColors, ShortSideLength HotspotSize, ShortSideLength HotspotSoftness,
     Seq<RampStop> StarburstColors, ShortSideLength StarburstLength, NoiseBasis Basis, float StarburstDensity, float StarburstSharpness, float Shimmer, Hold Hold,
     Seq<RampStop> BarColors, ShortSideLength BarLength, ShortSideLength BarThickness, Angle BarAngle,
@@ -159,7 +159,7 @@ public sealed record LensFlare(
     }
 }
 
-public sealed record LightRays(
+internal sealed record LightRays(
     float Threshold, float Softness, FlareSource Source, ShortSideLength Size, float Jitter, Unicolour Tint,
     GeneratedLayer Layer, int Seed, Timing Timing) : IPixelStage<LightRays> {
     public static LightRays Default { get; } = new(

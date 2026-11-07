@@ -110,7 +110,7 @@ Transitive pinning restores every transitive package with a `PackageVersion` ite
 
 ```xml
 <ItemGroup>
-    <PackageReference Include="Contoso.Testing.TrxReport" Condition="'$(ProjectRole)' == 'tests'" />
+    <PackageReference Include="Contoso.Hosting" Condition="'$(OutputType)' == 'Exe'" />
 </ItemGroup>
 ```
 
@@ -174,13 +174,13 @@ Restore resolves requested ranges through NuGet's lowest applicable version and 
 - Pruning removes framework-supplied packages from the graph
 - Pruned direct references get `PrivateAssets=all` and `IncludeAssets=none`, `NU1510` asks for removal when every framework prunes the reference
 
-| [INDEX] | [COMMAND]                                | [EFFECT]                                                                      |
-| :-----: | :--------------------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `dotnet restore --force`                 | Resolves again as if `project.assets.json` were deleted, keeps the HTTP cache |
-|  [02]   | `dotnet restore --runtime <rid>`         | Restores the runtime-specific assets a publish for `<rid>` needs              |
-|  [03]   | `dotnet restore -p:Name=Value`           | Global property for the restore evaluation                                    |
-|  [04]   | `dotnet nuget locals all --list`         | Paths of `global-packages`, `http-cache`, `temp`, and `plugins-cache`         |
-|  [05]   | `dotnet nuget locals http-cache --clear` | Deletes the 30 minute feed cache after a package republish                    |
+| [INDEX] | [COMMAND]                                | [EFFECT]                                                                                   |
+| :-----: | :--------------------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `dotnet restore --force`                 | Resolves again as if `project.assets.json` were deleted, keeps the HTTP cache              |
+|  [02]   | `dotnet restore --runtime <rid>`         | Global `RuntimeIdentifiers=<rid>`, `-p:RuntimeIdentifier=<rid>` sets the singular property |
+|  [03]   | `dotnet restore -p:Name=Value`           | Global property for the restore evaluation                                                 |
+|  [04]   | `dotnet nuget locals all --list`         | Paths of `global-packages`, `http-cache`, `temp`, and `plugins-cache`                      |
+|  [05]   | `dotnet nuget locals http-cache --clear` | Deletes the 30 minute feed cache after a package republish                                 |
 
 ## [04]-[PACKAGE_AUTHORING]
 
@@ -210,7 +210,7 @@ Restore resolves requested ranges through NuGet's lowest applicable version and 
 - Managed assemblies per RID go under `runtimes/<rid>/lib/<tfm>/` with an AnyCPU compile assembly under `ref/<tfm>/`
 - NuGet takes compile assets from `ref/` over `lib/` and runtime assets from `runtimes/` over `lib/`
 - `contentFiles/any/any/` with `PackageCopyToOutput="true"` writes `copyToOutput="true"` to the nuspec, for a data file a runtime opens by path
-- `build/<PackageId>.props` and `.targets` reach direct consumers, `buildTransitive/` reaches every consumer down the graph
+- Packages holding `build/` and `buildTransitive/` files for one framework import `buildTransitive/` alone
 - Packed `.props` files set properties under a condition the consumer can override
 - `PackagePath` with the file's extension names the file, any other value names a folder that keeps each glob item's `%(RecursiveDir)`
 - `Pack="true"` on `None` includes the item, `Pack="false"` on `Content` excludes it
@@ -296,7 +296,7 @@ Every CI property sits in one `PropertyGroup` in root `Directory.Build.props` un
 - `TreatWarningsAsErrors` covers compiler and NuGet warnings, `MSBuildTreatWarningsAsErrors` covers warnings MSBuild tasks and BuildCheck log
 - `SatelliteResourceLanguages=en` keeps named satellite assemblies, `GenerateDocumentationFile=true` writes the XML file and enables `CS1591`
 - Warning, satellite, and documentation properties belong to the unconditioned group
-- `EnableWindowsTargeting` stays unset on a non-Windows runner, a Windows target framework then fails `NETSDK1100`
+- Projects a non-Windows runner builds for a `-windows` framework set `EnableWindowsTargeting`, any other project leaves it unset and fails `NETSDK1100` on one
 - `global.json` `rollForward: disable` pins the SDK on runners, `DOTNET_ROLL_FORWARD` governs which runtime an application host selects
 - Use `Skill(dotnet-msbuild-diagnostics)` for BuildCheck on the pipeline build
 
@@ -332,7 +332,7 @@ dotnet test --solution Product.slnx --no-build --report-trx
 |  [03]   | `VersionOverride` in more than one project                  | One `PackageVersion` item, or a nested file with `PackageVersion Update` |
 |  [04]   | `PackageReference` with `Version` under CPM                 | `PackageVersion` in `Directory.Packages.props`                           |
 |  [05]   | `NuGet.config` without `<clear />`                          | `<clear />` first, then the named sources and their mappings             |
-|  [06]   | Central versions treated as a resolved dependency graph     | Central versions own declarations, application locks preserve closure    |
+|  [06]   | Central versions treated as a resolved dependency graph     | Central versions own declarations, lock files hold each resolved closure |
 |  [07]   | `GeneratePackageOnBuild` in a library                       | `dotnet pack` from the pipeline, a build then writes no package          |
 |  [08]   | Packed `build/` props setting a property unconditionally    | `Condition="'$(Name)' == ''"`, the consumer keeps its own value          |
 |  [09]   | Native libraries under `contentFiles`                       | `runtimes/<rid>/native/`, the one layout with RID selection              |

@@ -12,7 +12,7 @@ namespace Darkroom.Catalog;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class Separation {
+internal sealed partial class Separation {
     public static readonly Separation Mono = new("mono", static (rgb, luminance) => new Vector4(Vector3.Zero, 1f - float.Clamp(Vector3.Dot(luminance, rgb), 0f, 1f)));
     public static readonly Separation Process = new("process", static (rgb, _) => Vector3.Clamp(rgb, Vector3.Zero, Vector3.One) switch {
         var saturated => float.Max(saturated.X, float.Max(saturated.Y, saturated.Z)) switch {
@@ -26,7 +26,7 @@ public sealed partial class Separation {
 }
 
 [SmartEnum<string>]
-public sealed partial class MosaicCell {
+internal sealed partial class MosaicCell {
     public static readonly MosaicCell Square = new("square", static (state, context, frame, progress) => {
         double cell = state.Size.Pixels(context.Extent);
         CellGrid grid = CellGrid.Fit(context.Extent, cell, cell);
@@ -55,7 +55,7 @@ public sealed partial class MosaicCell {
 }
 
 [SmartEnum<string>]
-public sealed partial class GlyphColoring {
+internal sealed partial class GlyphColoring {
     public static readonly GlyphColoring Input = new("input", static (_, _, mean, _, _) => mean);
     public static readonly GlyphColoring Text = new("text", static (_, text, _, _, _) => text);
     public static readonly GlyphColoring PerCell = new("per-cell", static (state, _, _, gray, tint) => Vector3.Lerp(new Vector3(gray), tint, state.Saturation));
@@ -64,7 +64,7 @@ public sealed partial class GlyphColoring {
     public partial Vector3 Tint(GlyphCells state, Vector3 text, Vector3 mean, float gray, Vector3 tint);
 }
 
-public sealed record HalftoneScreen(Angle Angle, float U, float V) {
+internal sealed record HalftoneScreen(Angle Angle, float U, float V) {
     private const float ChannelScale = 4f;
 
     public static HalftoneScreen Default { get; } = new(Angle.FromDegrees(45d), 0f, 0f);
@@ -77,7 +77,7 @@ public sealed record HalftoneScreen(Angle Angle, float U, float V) {
         Matrix3x2.CreateScale((float)(1d / pitch)) * Matrix3x2.CreateRotation((float)Angle.Radians.ToDouble() + turn) * Matrix3x2.CreateTranslation(U, V);
 }
 
-public sealed record Halftone(
+internal sealed record Halftone(
     SpotFunction Shape, ShortSideLength Size, Separation Separation, HalftoneScreen Cyan, HalftoneScreen Magenta, HalftoneScreen Yellow, HalftoneScreen Key, float CrossOnset,
     Unicolour KeyColor, Option<Unicolour> Paper, BlendingMode Mode) : IPixelStage<Halftone> {
     public static Halftone Default { get; } = new(
@@ -117,7 +117,7 @@ public sealed record Halftone(
     }
 }
 
-public sealed record Mosaic(MosaicCell Cell, ShortSideLength Size, float Exponent, float Randomness, int Seed, Timing Timing, Hold Hold) : IPixelStage<Mosaic> {
+internal sealed record Mosaic(MosaicCell Cell, ShortSideLength Size, float Exponent, float Randomness, int Seed, Timing Timing, Hold Hold) : IPixelStage<Mosaic> {
     public static Mosaic Default { get; } = new(
         MosaicCell.Square, ShortSideLength.Create(0.1f * 0.05f * ReferenceFrame.GreaterSide), NoiseBasis.Voronoi.Default.Exponent, NoiseBasis.Voronoi.Default.Randomness, 0,
         Timing.Default with { Pace = 0f }, Hold.MinValue);
@@ -125,7 +125,7 @@ public sealed record Mosaic(MosaicCell Cell, ShortSideLength Size, float Exponen
     public static Fin<Option<PixelPass>> Pass(Mosaic state, PassContext context) => Some<PixelPass>(new PixelPass.Frame((frame, progress) => state.Cell.Run(state, context, frame, progress)));
 }
 
-public sealed record GlyphCells(
+internal sealed record GlyphCells(
     string Characters, HersheyFonts Font, ShortSideLength Size, GlyphColoring Coloring, Unicolour Text,
     Unicolour Background, float Saturation, float Jitter, int Seed, Timing Timing, Hold Hold, BlendingMode Mode)
     : IPixelStage<GlyphCells> {

@@ -12,7 +12,7 @@ namespace Darkroom.Catalog;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class GradientKind {
+internal sealed partial class GradientKind {
     public static readonly GradientKind Linear = new("linear", static extent => point => (0.5d + (point.X / (2d * extent.X)), 1d / (2d * extent.X)), static integral => integral.Mean);
     public static readonly GradientKind Radial = new("radial", static extent => point => (X: (double)point.X / extent.X, Y: (double)point.Y / extent.Y) switch {
         var (x, y) => double.Hypot(x, y) switch {
@@ -32,7 +32,7 @@ public sealed partial class GradientKind {
 }
 
 [SmartEnum<string>]
-public sealed partial class GridPattern {
+internal sealed partial class GridPattern {
     public static readonly GridPattern Lines = new("lines", static (lattice, line, _, _, _) => point => new Vector4(line, lattice.Mortar(point)));
     public static readonly GridPattern Checker = new("checker", static (lattice, line, cell, alternate, _) => point =>
         new Vector4(lattice.Bricks(point, (i, j) => long.IsEvenInteger(i + j) ? cell : alternate, line), 1f));
@@ -43,7 +43,7 @@ public sealed partial class GridPattern {
     public partial Func<Vector2, Vector4> Shade(BrickPattern lattice, Vector3 line, Vector3 cell, Vector3 alternate, uint field);
 }
 
-public sealed record Gradient(GradientKind Kind, FieldPlacement Placement, ShortSideLength Width, ShortSideLength Height, Seq<RampStop> Colors, GeneratedLayer Layer) : IPixelStage<Gradient> {
+internal sealed record Gradient(GradientKind Kind, FieldPlacement Placement, ShortSideLength Width, ShortSideLength Height, Seq<RampStop> Colors, GeneratedLayer Layer) : IPixelStage<Gradient> {
     public static Gradient Default { get; } = new(GradientKind.Linear, FieldPlacement.Default, ShortSideLength.Create(1f / 2f), ShortSideLength.Create(1f / 2f), Presets.Grayscale, GeneratedLayer.Default);
 
     public static Fin<Option<PixelPass>> Pass(Gradient state, PassContext context) =>
@@ -53,7 +53,7 @@ public sealed record Gradient(GradientKind Kind, FieldPlacement Placement, Short
         };
 }
 
-public sealed record CornerGradient(
+internal sealed record CornerGradient(
     Unicolour TopLeft, Unicolour TopRight,
     Unicolour BottomRight, Unicolour BottomLeft, GeneratedLayer Layer)
     : IPixelStage<CornerGradient> {
@@ -75,7 +75,7 @@ public sealed record CornerGradient(
     }
 }
 
-public sealed record Grid(
+internal sealed record Grid(
     GridPattern Pattern, FieldPlacement Placement, ShortSideLength Cell, float Aspect, float Offset, Unicolour LineColor,
     Unicolour CellColor, Unicolour AlternateColor, GeneratedLayer Layer, int Seed)
     : IPixelStage<Grid> {
@@ -95,7 +95,7 @@ public sealed record Grid(
             RampLight.Light(state.LineColor, context).AsVector3(), RampLight.Light(state.CellColor, context).AsVector3(), RampLight.Light(state.AlternateColor, context).AsVector3(), CoordinateHash.Branch(state.Seed, 0u, 18u))));
 }
 
-public sealed record Stripes(
+internal sealed record Stripes(
     WaveProfile Profile, FieldPlacement Placement, ShortSideLength Wavelength, Angle Bend, float Phase, float Speed, Seq<RampStop> Colors, GeneratedLayer Layer, Timing Timing)
     : IPixelStage<Stripes> {
     public static Stripes Default { get; } = new(WaveProfile.Sine, FieldPlacement.Default, ShortSideLength.Create(float.Tau / 20f), Angle.Zero, 0f, 0f, Presets.Grayscale, GeneratedLayer.Default, Timing.Default);

@@ -16,7 +16,7 @@ namespace Darkroom.Catalog;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class VideoStandard {
+internal sealed partial class VideoStandard {
     public static readonly VideoStandard Rec601 = new("rec601", YbrConfiguration.Rec601);
     public static readonly VideoStandard Rec709 = new("rec709", YbrConfiguration.Rec709);
 
@@ -33,12 +33,12 @@ public sealed partial class VideoStandard {
     ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<DarkroomFault>]
-public sealed partial class ScanLines {
+internal sealed partial class ScanLines {
     static partial void ValidateFactoryArguments(ref DarkroomFault? validationError, ref int value) =>
         validationError = value >= 1 ? null : new DarkroomFault(value, DarkroomReason.Invalid, Expression: "lines");
 }
 
-public sealed record CrtDisplay(
+internal sealed record CrtDisplay(
     PhosphorMask Mask, ShortSideLength Pitch, float MaskStrength, ScanLines Lines, bool Interlaced, float ScanlineDepth, float Collapse, float Curvature, float Framing, Timing Timing)
     : IPixelStage<CrtDisplay> {
     private const float NearShare = 0.890909f;
@@ -95,7 +95,7 @@ public sealed record CrtDisplay(
         select glass;
 }
 
-public sealed record AnalogVideo(
+internal sealed record AnalogVideo(
     VideoStandard Matrix, ScanLines Lines, float ChromaDelay, float SmearMix, float Ringing, float RingingDelay, float Emboss, float Ghost, float GhostDelay, float CrossColor,
     float LumaNoise, float ChromaNoise, ShortSideLength NoiseLength, float Snow, float SnowDensity, ShortSideLength SnowLength, float Interlace, ShortSideLength JitterPeriod,
     float Wrinkle, ShortSideLength WrinkleHeight, float WrinkleRate, float HeadSwitch, ShortSideLength HeadSwitchHeight, float RollRate, float Hum, float HumRate, int Seed,

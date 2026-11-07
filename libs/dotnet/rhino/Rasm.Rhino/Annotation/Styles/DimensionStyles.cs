@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
 using Rasm.Rhino.Document.Tables;
@@ -51,14 +52,32 @@ public static class DimensionStyles {
             && UserStrings.Of(live.GetUserStrings()) == UserStrings.Of(staged.GetUserStrings())
             && Fields.ForAll(field =>
                 (!staged.IsChild || live.IsFieldOverriden(field) == staged.IsFieldOverriden(field))
-                && DimensionStyleFields.GetDouble(live, field).Equals(DimensionStyleFields.GetDouble(staged, field))
-                && (DimensionStyleFields.GetInt(live, field), DimensionStyleFields.GetBool(live, field), DimensionStyleFields.GetString(live, field), DimensionStyleFields.GetGuid(live, field))
-                    == (DimensionStyleFields.GetInt(staged, field), DimensionStyleFields.GetBool(staged, field), DimensionStyleFields.GetString(staged, field), DimensionStyleFields.GetGuid(staged, field))
-                && Conversions.Same(DimensionStyleFields.GetColor(live, field), DimensionStyleFields.GetColor(staged, field))));
+                && GetDouble(live, field).Equals(GetDouble(staged, field))
+                && (GetInt(live, field), GetBool(live, field), GetString(live, field), GetGuid(live, field))
+                    == (GetInt(staged, field), GetBool(staged, field), GetString(staged, field), GetGuid(staged, field))
+                && Conversions.Same(GetColor(live, field), GetColor(staged, field))));
 
     private static bool SameFont(Font left, Font right) =>
         (left.PostScriptName, left.RichTextFontName, left.Weight, left.Style, left.Stretch, left.Underlined, left.Strikeout, left.PointSize)
             == (right.PostScriptName, right.RichTextFontName, right.Weight, right.Style, right.Stretch, right.Underlined, right.Strikeout, right.PointSize);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern double GetDouble(DimensionStyle style, DimensionStyle.Field field);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern int GetInt(DimensionStyle style, DimensionStyle.Field field);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern bool GetBool(DimensionStyle style, DimensionStyle.Field field);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern string GetString(DimensionStyle style, DimensionStyle.Field field);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern System.Drawing.Color GetColor(DimensionStyle style, DimensionStyle.Field field);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern Guid GetGuid(DimensionStyle style, DimensionStyle.Field field);
 
     // --- [EFFECTIVE]
 

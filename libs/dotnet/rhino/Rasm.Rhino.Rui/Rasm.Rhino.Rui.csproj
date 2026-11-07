@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Plug-in RUI files derived from code at build time</Description>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino">
+        <PackageReference Include="RhinoCommon" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="UUIDNext" />
+    </ItemGroup>
+
+    <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="SuperLinq" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
+    </ItemGroup>
+</Project>

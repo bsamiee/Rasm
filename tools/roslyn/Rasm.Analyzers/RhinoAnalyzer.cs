@@ -135,10 +135,6 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
 
     protected override void Start(CompilationStartAnalysisContext context) {
         Compilation compilation = context.Compilation;
-        AnalyzerConfigOptions options = context.Options.AnalyzerConfigOptionsProvider.GlobalOptions;
-        bool consumer = (options.TryGetValue("build_property.ProjectRole", out string? role) && string.Equals(role, "library", StringComparison.OrdinalIgnoreCase))
-            || (options.TryGetValue("build_property.TargetExt", out string? extension) && extension is ".rhp" or ".rhs");
-        bool Applies(INamedTypeSymbol owner) => consumer || SymbolEqualityComparer.Default.Equals(owner.ContainingAssembly, compilation.Assembly);
         (SystemSymbols system, RhinoCommonSymbols rhino, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt) = (new(compilation), new(compilation), new(compilation), new(compilation));
         EtoSymbols eto = new(compilation);
         if (rasm.Session is { } callbacks) Marshals(context, eto, new MacSymbols(compilation), callbacks);
@@ -157,12 +153,12 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         Writes(context, rhino.Floating, Docked, static (assignment, value, _) => assignment is ISimpleAssignmentOperation or IDeconstructionAssignmentOperation && value?.ConstantValue is { HasValue: true, Value: false });
         if (rhino.DisplayModeDescription is { } description && Lifetimes.Of(system, rasm, languageExt) is { } lifetimes) Modes(models, lifetimes, rhino.OwnedModes, description);
         if (rhino.PersistentSettings is { } settings) Reads(context, settings);
-        if (rasm.Commits is { } commits && Applies(commits))
+        if (rasm.Commits is { } commits)
             Report<IOperation>(context, [OperationKind.Invocation, OperationKind.MethodReference, OperationKind.PropertyReference], Redraw, (call, analysis) =>
                 (call is not IPropertyReferenceOperation || Written(call)) && Among(Target(call), rhino.Redraws) && !Inside<INameOfOperation>(call) && !Within(analysis.ContainingSymbol, commits));
         Duplicates(models, rhino.Duplicates);
-        if (rasm.Conduits is { } conduits && Applies(conduits)) Writes(context, rhino.ConduitEnabled, Toggled, (_, _, analysis) => !Within(analysis.ContainingSymbol, conduits));
-        if (rasm.RenderSettingsSources is { } sources && Applies(sources)) Writes(context, rhino.RenderSettings, Rendering, (_, _, analysis) => !Within(analysis.ContainingSymbol, sources));
+        if (rasm.Conduits is { } conduits) Writes(context, rhino.ConduitEnabled, Toggled, (_, _, analysis) => !Within(analysis.ContainingSymbol, conduits));
+        if (rasm.RenderSettingsSources is { } sources) Writes(context, rhino.RenderSettings, Rendering, (_, _, analysis) => !Within(analysis.ContainingSymbol, sources));
     }
 
     // --- [MARSHALS]
@@ -321,7 +317,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
             SymbolKind.NamedType);
         models.Complete((end, provided) => {
             foreach (KeyValuePair<INamedTypeSymbol, ConcurrentDictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)>> type in types) {
-                Dictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<ISymbol> Reads)> bodies = new(SymbolEqualityComparer.Default);
+                Dictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<ISymbol> Reads)> bodies = [with(SymbolEqualityComparer.Default)];
                 foreach (KeyValuePair<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)> body in type.Value) {
                     IEnumerable<ISymbol?> Reads(IOperation operation) => operation switch {
                         IPropertyReferenceOperation property when Written(property) =>
@@ -334,7 +330,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
                         .Where(member => member is not IEventSymbol && Same(member.ContainingType, type.Key)).Select(static member => member.OriginalDefinition).Distinct(SymbolEqualityComparer.Default)]));
                 }
                 IMethodSymbol? Reached(ISymbol member) {
-                    HashSet<ISymbol> seen = new(SymbolEqualityComparer.Default);
+                    HashSet<ISymbol> seen = [with(SymbolEqualityComparer.Default)];
                     Queue<ISymbol> pending = new([member]);
                     while (pending.Count is > 0) {
                         ISymbol current = pending.Dequeue();

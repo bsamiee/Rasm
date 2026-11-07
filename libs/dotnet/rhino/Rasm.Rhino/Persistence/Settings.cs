@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -96,8 +97,14 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
                 Some: plugIn => Subscriptions.On<PersistentSettingsSavedEventArgs>(h => plugIn.SettingsSaved += h, h => plugIn.SettingsSaved -= h).Attach(deliver),
                 None: static () => IO.pure(unit))));
 
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
+    private static extern void add_SettingsSaved([UnsafeAccessorType("Rhino.RhinoApp, RhinoCommon")] object? owner, EventHandler<PersistentSettingsSavedEventArgs> value);
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
+    private static extern void remove_SettingsSaved([UnsafeAccessorType("Rhino.RhinoApp, RhinoCommon")] object? owner, EventHandler<PersistentSettingsSavedEventArgs> value);
+
     private static readonly HostEvent<Unit> SettingsSaved =
-        Subscriptions.On<PersistentSettingsSavedEventArgs>(static handler => Accessors.add_SettingsSaved(owner: null, handler), static handler => Accessors.remove_SettingsSaved(owner: null, handler))
+        Subscriptions.On<PersistentSettingsSavedEventArgs>(static handler => add_SettingsSaved(owner: null, handler), static handler => remove_SettingsSaved(owner: null, handler))
             .Choose(static _ => Some(unit));
 }
 

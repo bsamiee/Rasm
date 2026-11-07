@@ -8,10 +8,10 @@ namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record NoticeSettings(Uri Server, Option<string> Topic);
+internal sealed record NoticeSettings(Uri Server, Option<string> Topic);
 
 [Union]
-public abstract partial record QueueEvent {
+internal abstract partial record QueueEvent {
     private QueueEvent(NtfyPriority priority, Option<string> tag) => (Priority, Tag) = (priority, tag);
 
     public NtfyPriority Priority { get; }
@@ -52,7 +52,7 @@ public abstract partial record QueueEvent {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public sealed partial class NoticeSender : IDisposable {
+internal sealed partial class NoticeSender : IDisposable {
 
     // --- [STATE]
 

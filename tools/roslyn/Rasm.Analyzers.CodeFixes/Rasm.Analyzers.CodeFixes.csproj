@@ -15,7 +15,7 @@
         <PackageReference Include="System.Collections.Immutable" />
     </ItemGroup>
 
-    <ItemGroup Label="Graphs">
+    <ItemGroup Label="Algorithms and Data Structures">
         <PackageReference Include="QuikGraph" ExcludeAssets="" PrivateAssets="" />
     </ItemGroup>
 

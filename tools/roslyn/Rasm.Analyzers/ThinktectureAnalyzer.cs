@@ -251,7 +251,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
             Lambda(value) ?? (Stripped(value) is IInvocationOperation { Arguments.Length: 1 } call && Among(call.TargetMethod, lifts)
                 && call.TargetMethod.OriginalDefinition.Parameters[0].Type is INamedTypeSymbol { DelegateInvokeMethod: not null } ? Lambda(call.Arguments[0].Value) : null);
         bool Picks(IAnonymousFunctionOperation function, INamedTypeSymbol owner, CancellationToken token) {
-            HashSet<IParameterSymbol> held = new(SymbolEqualityComparer.Default);
+            HashSet<IParameterSymbol> held = [with(SymbolEqualityComparer.Default)];
             bool Read(IOperation value) =>
                 Stripped(value) switch {
                     IParameterReferenceOperation reference => held.Contains(reference.Parameter),

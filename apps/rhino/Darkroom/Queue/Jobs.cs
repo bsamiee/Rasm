@@ -16,7 +16,7 @@ namespace Darkroom.Queue;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class WorkerPlatform {
+internal sealed partial class WorkerPlatform {
     public static readonly WorkerPlatform MacOs = new("darwin", static script => ["-nosplash", $"-runscript={script}"]);
     public static readonly WorkerPlatform Windows = new("windows", static script => ["/nosplash", $"/runscript={script}"]);
 
@@ -26,7 +26,7 @@ public sealed partial class WorkerPlatform {
     public partial string[] Arguments(string script);
 }
 
-public sealed record FlamencoSettings(Uri Manager, WorkerPlatform Platform, int Priority, Option<string> Scripts, Option<Guid> WorkerTag);
+internal sealed record FlamencoSettings(Uri Manager, WorkerPlatform Platform, int Priority, Option<string> Scripts, Option<Guid> WorkerTag);
 
 internal sealed record FlamencoJob(string Name, string Type, string TypeEtag, int Priority, string SubmitterPlatform, FlamencoJob.Parameters Settings, Guid? WorkerTag) {
     internal sealed record Parameters(string Copy, string[] Arguments);

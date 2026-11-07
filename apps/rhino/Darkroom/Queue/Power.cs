@@ -60,7 +60,7 @@ internal static partial class SafeNativeMethods {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public static class MachinePower {
+internal static class MachinePower {
 
     // --- [HOLDS]
 

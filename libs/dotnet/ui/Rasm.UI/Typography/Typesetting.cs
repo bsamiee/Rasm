@@ -456,7 +456,7 @@ internal static class Typesetting {
             float advance = (font.GetHorizontalGlyphAdvance(glyph) * PerUnit(typeface, style.FontSize)) + style.LetterSpacing;
             bool rightToLeft = direction is TextDirection.RTL;
             string value = Utf32Utils.FromUtf32(text);
-            Utf32Buffer decoded = new(value);
+            Utf32Buffer decoded = [with(value)];
             Seq<(int Start, int End)> graphemes = Segments(shaping.Graphemes, value).Map(held => (decoded.Utf16OffsetToUtf32Offset(held.Start), decoded.Utf16OffsetToUtf32Offset(held.End))).Strict();
             float[] boundaries = new float[text.Length + 1];
             for (int index = 0; index < graphemes.Count; index++)

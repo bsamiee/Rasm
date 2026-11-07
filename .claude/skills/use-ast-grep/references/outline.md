@@ -22,6 +22,7 @@ Modes and views print by resolved value:
 - `names` prints one line per `symbolType` in a fixed type order with repeats as `name ×N` and no line numbers, JSON keeps source order
 - `digest` lists member names per `symbolType` with public first, member `signature` is `""` there, member signatures need `expanded`
 - `--pub-members` acts in `digest` and `expanded`, a rule `isPublic` drops false matches and prunes their subtrees, without the flag false members stay dim
+- `ast-grep outline <dir> --view expanded --pub-members` prints a package's public API with every signature
 - `--type` folds case, `-`, and `_`, exits 1 on an unknown type, a skipped container stops pruning and can raise cost
 - `--match <regex>` tests item names and signatures alone, renders item signatures in every view, and saves no member work, member lookups read JSON
 - Item filters never reach members, members follow their item

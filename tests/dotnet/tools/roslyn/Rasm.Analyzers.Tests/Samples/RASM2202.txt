@@ -8,7 +8,6 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Rhino {
     public static class Products {
-        public static IO<TOut> Transfer<T, TOut>(T value, Func<T, IO<TOut>> to) where T : IDisposable => to(value);
         public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to) where T : class, IDisposable => IO.lift(() => make()!).Bind(to);
     }
 }
@@ -52,7 +51,7 @@ internal static class PlainContainer {
 
     internal static IO<int> Held(Control body) {
         Panel panel = new() { Content = body };
-        return {|#5:Products.Transfer(panel, static held => IO.pure(held.Width))|};
+        return {|#5:Products.Transfer(() => panel, static held => IO.pure(held.Width))|};
     }
 
     internal static IO<Control> Bound(Control body) =>

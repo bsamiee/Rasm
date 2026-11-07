@@ -19,7 +19,7 @@ namespace Darkroom.Output;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class LayerReader {
+internal sealed partial class LayerReader {
     public static readonly LayerReader Blender = new("blender", ChannelNaming.Blender, view: false);
     public static readonly LayerReader NukeWorld = new("nuke-world", ChannelNaming.Nuke, view: false);
     public static readonly LayerReader NukeView = new("nuke-view", ChannelNaming.Nuke, view: true);
@@ -29,7 +29,7 @@ public sealed partial class LayerReader {
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class TargetFile {
+internal sealed partial class TargetFile {
 
     // --- [ITEMS]
 
@@ -123,7 +123,7 @@ public sealed partial class TargetFile {
     private static string Named(IdentitySource source) => source.Name.IfNone(() => source.Id.ToString(CultureInfo.InvariantCulture));
 }
 
-public sealed record OutputTarget(TargetFile FileFormat, bool Alpha, OutputDepth ColorDepth, TinyEXR.Compression Codec, Option<LayerReader> Reader, bool Position, int Quality) {
+internal sealed record OutputTarget(TargetFile FileFormat, bool Alpha, OutputDepth ColorDepth, TinyEXR.Compression Codec, Option<LayerReader> Reader, bool Position, int Quality) {
     public static OutputTarget Default { get; } = new(TargetFile.Png, Alpha: false, OutputDepth.UInt8, TinyEXR.Compression.ZIP, Reader: None, Position: false, Quality: 95);
 
     public Fin<Unit> Encodable => DarkroomFault.Unless(FileFormat.Depths.Exists(depth => depth == ColorDepth), DarkroomReason.Invalid, (FileFormat.Key, ColorDepth.Key));
@@ -131,7 +131,7 @@ public sealed record OutputTarget(TargetFile FileFormat, bool Alpha, OutputDepth
     public OutputTarget Retyped(TargetFile file) => this with { FileFormat = file, ColorDepth = file.Depths.Exists(depth => depth == ColorDepth) ? ColorDepth : file.Depths[0] };
 }
 
-public sealed record OutputBook(Lst<OutputTarget> Targets, OutputFolder Folder, Stem Stem, bool Overwrite) {
+internal sealed record OutputBook(Lst<OutputTarget> Targets, OutputFolder Folder, Stem Stem, bool Overwrite) {
 
     // --- [STATE]
 

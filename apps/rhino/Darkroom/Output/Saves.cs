@@ -24,10 +24,10 @@ namespace Darkroom.Output;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record IdentitySource(ushort Id, Option<string> Name, Vector3 Color);
+internal sealed record IdentitySource(ushort Id, Option<string> Name, Vector3 Color);
 
 [SmartEnum<RenderWindow.StandardChannels>(SkipIComparable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class SavedChannel {
+internal sealed partial class SavedChannel {
 
     // --- [ITEMS]
 
@@ -83,7 +83,7 @@ public sealed partial class SavedChannel {
     }
 }
 
-public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, OverscanFrame Frame, Option<RenderRegion> Region) {
+internal sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, OverscanFrame Frame, Option<RenderRegion> Region) {
 
     // --- [FRAMES]
 

@@ -16,7 +16,7 @@ namespace Darkroom.Review;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum]
-public sealed partial class Gel {
+internal sealed partial class Gel {
     public static readonly Gel Warm = new(new Vector3(1f, 0.78f, 0.5f));
     public static readonly Gel DeepWarm = new(new Vector3(1f, 0.58f, 0.28f));
     public static readonly Gel Neutral = new(Vector3.One);
@@ -33,9 +33,9 @@ public sealed partial class Gel {
     public Vector3 Color { get; }
 }
 
-public sealed record Blob(Vector2 Center, float Sharpness, float Intensity, Vector3 Color);
+internal sealed record Blob(Vector2 Center, float Sharpness, float Intensity, Vector3 Color);
 
-public sealed record ReferenceScene {
+internal sealed record ReferenceScene {
     public float Base { get; init; } = 0.08f;
     public Vector2 Gradient { get; init; }
     public Vector3 Tint { get; init; } = Vector3.One;
@@ -66,7 +66,7 @@ public sealed record ReferenceScene {
 }
 
 [SmartEnum<string>]
-public sealed partial class ReferencePreset {
+internal sealed partial class ReferencePreset {
     public static readonly ReferencePreset GoldenHour = new("golden-hour", new() {
         Base = 0.2f, Gradient = new(0.9f, 0.1f), Tint = Gel.Warm.Color, Blobs = [new(new(0.7f, 0.3f), 1.2f, 0.7f, Gel.Warm.Color)],
     });
@@ -179,7 +179,7 @@ public sealed partial class ReferencePreset {
 }
 
 [SmartEnum<string>]
-public sealed partial class ReferenceDistribution {
+internal sealed partial class ReferenceDistribution {
     private static readonly Seq<(Vector3 Color, Vector2 Slot)> VividGels = [
         (new(1.4f, 0.12f, 0.85f), new(-0.62f, 0.18f)), (new(0.15f, 0.75f, 1.35f), new(0.62f, 0.18f)), (new(1.35f, 0.55f, 0.05f), new(0f, 0.58f)),
         (new(0.25f, 1.05f, 0.35f), new(-0.38f, -0.42f)), (new(0.75f, 0.25f, 1.35f), new(0.38f, -0.42f))];

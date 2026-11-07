@@ -34,7 +34,7 @@ public sealed record Rendering(Rimage Image, PixelExtent Extent, Instant Saved, 
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public static class RenderHistory {
+internal static class RenderHistory {
 
     // --- [STATE]
 

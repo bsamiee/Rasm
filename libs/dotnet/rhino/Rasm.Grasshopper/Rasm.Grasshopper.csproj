@@ -1,13 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Grasshopper 2 as typed effects, with plug-ins declared as data</Description>
+        <IsPackable>true</IsPackable>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino">
         <PackageReference Include="Grasshopper2" />
+        <PackageReference Include="RhinoCommon" />
     </ItemGroup>
 
     <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="UUIDNext" />
     </ItemGroup>
 

@@ -34,7 +34,7 @@ public static class Annotations {
     public static IO<Guid> Add(RhinoDoc doc, AnnotationBase annotation, Option<Guid> page, Option<ObjectAttributes> attributes = default) =>
         (from held in use(() => attributes.Match(Some: static given => given.Duplicate(), None: doc.CreateDefaultAttributes))
          from placed in IO.lift(() => { (held.Space, held.ViewportId) = (page.IsSome ? ActiveSpace.PageSpace : ActiveSpace.ModelSpace, page.IfNone(Guid.Empty)); })
-         from layered in IO.lift(() => DimensionLayers.Of(doc).Iter(index => held.LayerIndex = index))
+         from layered in IO.lift(() => (UsesDimensionLayer(natives: null, doc.RuntimeSerialNumber) ? Conversions.Present(DimensionLayerIndex(natives: null, doc.RuntimeSerialNumber)) : None).Iter(index => held.LayerIndex = index))
          from id in IO.lift(Conversions.Required(Conversions.Present(doc.Objects.Add(annotation, held))))
          select id).Bracket();
 
@@ -47,6 +47,14 @@ public static class Annotations {
          from measured in IO.lift(() => { (dimension.DetailMeasured, dimension.DistanceScale) = (detail.Id, page.Scale); })
          from id in Add(doc, dimension, Some(detail.Attributes.ViewportId))
          select id).Bracket();
+
+    // --- [LAYERS]
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "RHC_RhUseDimensionLayer")]
+    private static extern bool UsesDimensionLayer([UnsafeAccessorType("UnsafeNativeMethods, RhinoCommon")] object? natives, uint document);
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "RHC_RhGetDimensionLayerIndex")]
+    private static extern int DimensionLayerIndex([UnsafeAccessorType("UnsafeNativeMethods, RhinoCommon")] object? natives, uint document);
 
     // --- [EDITS]
 

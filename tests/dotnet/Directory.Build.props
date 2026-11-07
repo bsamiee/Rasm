@@ -1,0 +1,18 @@
+<Project>
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+    <PropertyGroup Label="Test Applications">
+        <OutputType>Exe</OutputType>
+        <TestingPlatformCommandLineArguments>--report-trx</TestingPlatformCommandLineArguments>
+    </PropertyGroup>
+
+    <ItemGroup Label="Testing">
+        <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+        <PackageReference Include="xunit.v3.mtp-v2" />
+    </ItemGroup>
+
+    <ItemGroup Label="Rhino Test Host" Condition="'$(RhinoHost)' != ''">
+        <ProjectReference Include="$(MSBuildThisFileDirectory)support/Rasm.Rhino.Testing/Rasm.Rhino.Testing.csproj" />
+        <TestingPlatformBuilderHook Include="6F1D2A53-8C4B-4E0E-9B7A-2D5C3E8A1F40" DisplayName="Rhino test host" TypeFullName="Rasm.Rhino.Testing.RhinoTestHostLauncher" />
+    </ItemGroup>
+</Project>

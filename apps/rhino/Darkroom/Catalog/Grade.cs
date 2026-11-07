@@ -11,7 +11,7 @@ namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record ContrastGrade(float Amount, float Pivot, float Vibrance, float Saturation) : IPixelStage<ContrastGrade> {
+internal sealed record ContrastGrade(float Amount, float Pivot, float Vibrance, float Saturation) : IPixelStage<ContrastGrade> {
     public static ContrastGrade Default { get; } = new(1f, 0f, 0f, 1f);
 
     public static Fin<Option<PixelPass>> Pass(ContrastGrade state, PassContext context) =>
@@ -23,7 +23,7 @@ public sealed record ContrastGrade(float Amount, float Pivot, float Vibrance, fl
         }).Graded(GradingStyle.Linear, context.Working).Map(static graded => (PixelPass)new PixelPass.Point(graded));
 }
 
-public sealed record Levels(float Black, float White) : IPixelStage<Levels> {
+internal sealed record Levels(float Black, float White) : IPixelStage<Levels> {
     public static Levels Default { get; } = new(0f, 0f);
 
     public static Fin<Levels> Auto(PixelFrame frame, Gamut working) =>
@@ -34,7 +34,7 @@ public sealed record Levels(float Black, float White) : IPixelStage<Levels> {
             : Some<PixelPass>(new PixelPass.Point(new LutTable.Range(Some((state.Black, 0f)), Some((state.Black + float.Exp2(state.White), 1f)), Clamps: false).Apply));
 }
 
-public sealed record ChannelMixer(Vector3 Red, Vector3 Green, Vector3 Blue) : IPixelStage<ChannelMixer> {
+internal sealed record ChannelMixer(Vector3 Red, Vector3 Green, Vector3 Blue) : IPixelStage<ChannelMixer> {
     public static ChannelMixer Default { get; } = new(Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
 
     public LutTable Table => new LutTable.Affine(Gamut.Columns(rgb => new Vector3(Vector3.Dot(Red, rgb), Vector3.Dot(Green, rgb), Vector3.Dot(Blue, rgb))));
@@ -43,7 +43,7 @@ public sealed record ChannelMixer(Vector3 Red, Vector3 Green, Vector3 Blue) : IP
         state == Default ? None : Some<PixelPass>(new PixelPass.Point(state.Table.Apply));
 }
 
-public sealed record ColorWheels(
+internal sealed record ColorWheels(
     GradingRgbm Global, GradingRgbm Shadows, GradingRgbm Midtones, GradingRgbm Highlights, float ShadowsEnd, float HighlightsStart, float HighlightsWidth)
     : IPixelStage<ColorWheels> {
     private static readonly GradingRgbm Neutral = new(1f, 1f, 1f, 1f);
@@ -62,7 +62,7 @@ public sealed record ColorWheels(
             };
 }
 
-public sealed record SelectiveColor(HueRange Range, Angle Shift, float Saturation, float Exposure) : IPixelStage<SelectiveColor> {
+internal sealed record SelectiveColor(HueRange Range, Angle Shift, float Saturation, float Exposure) : IPixelStage<SelectiveColor> {
     public static SelectiveColor Default { get; } = new(HueRange.Open, Angle.Zero, 1f, 0f);
 
     public static Fin<Option<PixelPass>> Pass(SelectiveColor state, PassContext context) =>
@@ -70,14 +70,14 @@ public sealed record SelectiveColor(HueRange Range, Angle Shift, float Saturatio
             : Some<PixelPass>(new PixelPass.Point(state.Range.Graded(GradingStyle.Linear, context.Working, (float)state.Shift.Revolutions, state.Saturation, state.Exposure)));
 }
 
-public sealed record PointCurveGrade(GradingRgbCurve Curves, float PreserveHue) : IPixelStage<PointCurveGrade> {
+internal sealed record PointCurveGrade(GradingRgbCurve Curves, float PreserveHue) : IPixelStage<PointCurveGrade> {
     public static PointCurveGrade Default { get; } = new(GradingRgbCurve.Neutral(GradingStyle.Linear), 0f);
 
     public static Fin<Option<PixelPass>> Pass(PointCurveGrade state, PassContext context) =>
         state.Curves.Graded(GradingStyle.Linear, state.PreserveHue).Map(static graded => (PixelPass)new PixelPass.Point(graded));
 }
 
-public sealed record ReferenceGamutCompression(Option<Gamut> Target, GamutCompression Compression) : IPixelStage<ReferenceGamutCompression> {
+internal sealed record ReferenceGamutCompression(Option<Gamut> Target, GamutCompression Compression) : IPixelStage<ReferenceGamutCompression> {
     public static ReferenceGamutCompression Default { get; } = new(None, GamutCompression.Reference);
 
     public static Fin<Option<PixelPass>> Pass(ReferenceGamutCompression state, PassContext context) =>

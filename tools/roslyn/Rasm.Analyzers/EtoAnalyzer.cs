@@ -99,7 +99,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
         ConcurrentDictionary<(ITypeSymbol Type, ControlReach Reach), ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>> completed = new(comparer);
         ConcurrentDictionary<ITypeSymbol, bool> holdings = new(SymbolEqualityComparer.Default);
         bool Holding(ITypeSymbol type, CancellationToken token) => holdings.GetOrAdd(type, source => {
-            Dictionary<(ITypeSymbol Type, ControlReach Reach), ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>> equations = new(comparer);
+            Dictionary<(ITypeSymbol Type, ControlReach Reach), ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>> equations = [with(comparer)];
             ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> Formula((ITypeSymbol Type, ControlReach Reach) key) {
                 if (completed.TryGetValue(key, out ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>? solved)) return solved;
                 if (equations.TryGetValue(key, out ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>? current)) return current;
@@ -108,7 +108,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
             }
             ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> Evaluate(ITypeSymbol input, ControlReach reach) {
                 ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>.Builder result = empty.ToBuilder();
-                HashSet<(ITypeSymbol Type, ControlReach Reach)> seen = new(comparer);
+                HashSet<(ITypeSymbol Type, ControlReach Reach)> seen = [with(comparer)];
                 Queue<(ITypeSymbol Type, ControlReach Reach)> pending = new([(input, reach)]);
                 while (pending.Count is > 0) {
                     token.ThrowIfCancellationRequested();
@@ -228,7 +228,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
                 _ => [],
             };
         string? Source(ISymbol held, Reading reading) {
-            HashSet<ISymbol> seen = new(SymbolEqualityComparer.Default) { held };
+            HashSet<ISymbol> seen = [with(SymbolEqualityComparer.Default), held];
             Stack<IOperation> pending = new(Origins(held, reading));
             while (pending.Count is > 0) {
                 IOperation value = Stripped(pending.Pop());
@@ -282,7 +282,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
             _ => null,
         }).FirstOrDefault(static body => body is not null));
         bool Routed(IOperation step, Reading reading) {
-            HashSet<IMethodSymbol> seen = new(SymbolEqualityComparer.Default);
+            HashSet<IMethodSymbol> seen = [with(SymbolEqualityComparer.Default)];
             while (step is IInvocationOperation call) {
                 reading.Token.ThrowIfCancellationRequested();
                 if (Among(call.TargetMethod, boundaries)) return true;

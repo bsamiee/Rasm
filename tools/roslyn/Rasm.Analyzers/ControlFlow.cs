@@ -46,7 +46,7 @@ internal sealed class ControlFlow {
         IEnumerable<(int Block, int Before)> Positions(IOperation operation) {
             if (scope == Find(operation, token)) return scope.Positions[operation.Syntax.Span]
                 .Where(point => scope.Events[point.Block][point.Before].Kind == operation.Kind);
-            HashSet<IMethodSymbol> owners = new(SymbolEqualityComparer.Default);
+            HashSet<IMethodSymbol> owners = [with(SymbolEqualityComparer.Default)];
             for (IOperation? held = operation; held is not null; held = held.Parent)
                 if (held is IAnonymousFunctionOperation function) owners.Add(function.Symbol);
             return scope.Events.SelectMany(static (events, block) => events.Select((value, before) => (Value: value, Block: block, Before: before)))
@@ -74,7 +74,7 @@ internal sealed class ControlFlow {
     }
 
     internal ImmutableArray<ISymbol> Targets(Value value, CancellationToken token) {
-        HashSet<ISymbol> result = new(SymbolEqualityComparer.Default);
+        HashSet<ISymbol> result = [with(SymbolEqualityComparer.Default)];
         HashSet<Value> visited = [];
         Queue<Value> pending = new([value]);
         while (pending.Count > 0) {
@@ -113,7 +113,7 @@ internal sealed class ControlFlow {
         IParameterSymbol source = supplied.OriginalDefinition;
         if (native(source)) return true;
         ImmutableHashSet<IParameterSymbol> empty = ImmutableHashSet.Create<IParameterSymbol>(SymbolEqualityComparer.Default);
-        Dictionary<IParameterSymbol, ImmutableArray<ImmutableHashSet<IParameterSymbol>>> equations = new(SymbolEqualityComparer.Default);
+        Dictionary<IParameterSymbol, ImmutableArray<ImmutableHashSet<IParameterSymbol>>> equations = [with(SymbolEqualityComparer.Default)];
         Queue<IParameterSymbol> parameters = new([source]);
         while (parameters.Count is > 0) {
             token.ThrowIfCancellationRequested();
@@ -150,7 +150,7 @@ internal sealed class ControlFlow {
             }
             equations.Add(parameter, [.. routes]);
         }
-        HashSet<IParameterSymbol> invoked = new(SymbolEqualityComparer.Default);
+        HashSet<IParameterSymbol> invoked = [with(SymbolEqualityComparer.Default)];
         bool changed;
         do {
             token.ThrowIfCancellationRequested();

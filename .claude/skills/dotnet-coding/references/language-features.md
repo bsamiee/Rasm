@@ -156,7 +156,7 @@ internal static class Faces {
 
 ## [06]-[UNSAFE_ACCESSORS]
 
-Typed `[UnsafeAccessor]` externs replace reflection by string for non-public host members whose signature is reachable, one class per concern, and `Krafs.Publicizer` takes a member whose signature crosses an inaccessible type as a generic. Each class cites proof that no public member, setting, or command states the same fact. `Viewport` is a host type with private `_scale` field and `Invalidate(bool)` method, `Host.Views` an internal type with static `Find(int)`:
+Typed `[UnsafeAccessor]` externs replace reflection by string for every non-public host member, each declared on the type that owns its subject. Each owner cites proof that no public member, setting, or command states the same fact. `Viewport` is a host type with private `_scale` field and `Invalidate(bool)` method, `Host.Views` an internal type with static `Find(int)`:
 
 ```csharp
 internal static class Viewports {
@@ -182,7 +182,8 @@ internal static class Viewports {
 - Externs named after their member omit `Name`, a member name the naming rules refuse an extern (`_scale`) sets it
 - `ref` returns write a field in place
 - Static member externs take their owner as an ignored first argument
-- `[UnsafeAccessorType]` names an owner, parameter, or return type no reference reaches, typed `object?` at the call
+- `[UnsafeAccessorType]` names an owner, parameter, or return type no reference reaches by assembly-qualified name, typed `object?` at the call
+- Generic instantiations over an inaccessible type name it inside the generic's assembly-qualified name and read through a non-generic interface (`IDictionary`)
 - Renamed or removed members throw `MissingFieldException` or `MissingMethodException` at first call
 
 ## [07]-[CALLER_INFORMATION]

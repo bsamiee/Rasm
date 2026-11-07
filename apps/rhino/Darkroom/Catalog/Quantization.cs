@@ -9,7 +9,7 @@ namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record OutputDither(Dither Method, float Amount) : IPixelStage<OutputDither> {
+internal sealed record OutputDither(Dither Method, float Amount) : IPixelStage<OutputDither> {
     public static OutputDither Default { get; } = new(Dither.WhiteNoise, 1f);
 
     public static Fin<Option<PixelPass>> Pass(OutputDither state, PassContext context) =>
@@ -17,7 +17,7 @@ public sealed record OutputDither(Dither Method, float Amount) : IPixelStage<Out
 }
 
 [SmartEnum<string>]
-public sealed partial class GradingLog {
+internal sealed partial class GradingLog {
     public static readonly GradingLog AgXLog = new("agx-log", FormationTables.AgXLog);
     public static readonly GradingLog FilmicLog = new("filmic-log", LutSpace.Filmic);
 
@@ -28,7 +28,7 @@ public sealed partial class GradingLog {
 [JsonPolymorphic]
 [JsonDerivedType(typeof(Encoded), nameof(Encoded))]
 [JsonDerivedType(typeof(Log), nameof(Log))]
-public abstract partial record LutInput {
+internal abstract partial record LutInput {
     public abstract LutSpace Space { get; }
 
     public sealed record Encoded(Gamut Gamut, Transfer Transfer) : LutInput {
@@ -44,7 +44,7 @@ public abstract partial record LutInput {
     }
 }
 
-public sealed record LutLook(Option<string> Lut, LutInput Input) : IPixelStage<LutLook> {
+internal sealed record LutLook(Option<string> Lut, LutInput Input) : IPixelStage<LutLook> {
     public static LutLook Default { get; } = new(None, LutInput.Encoded.Default);
 
     public static Fin<Option<PixelPass>> Pass(LutLook state, PassContext context) =>

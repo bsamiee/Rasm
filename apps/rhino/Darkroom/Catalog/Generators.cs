@@ -9,7 +9,7 @@ namespace Darkroom.Catalog;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-public static class ReferenceFrame {
+internal static class ReferenceFrame {
     public const float Height = 1080f;
     public const float GreaterSide = 1920f / Height;
 }
@@ -18,7 +18,7 @@ public static class ReferenceFrame {
 
 [ValueObject<Duration>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<DarkroomFault>]
-public sealed partial class Hold {
+internal sealed partial class Hold {
     private static readonly Duration Shortest = Duration.FromMilliseconds(1);
     private static readonly Duration Longest = Duration.FromSeconds(8);
 
@@ -38,7 +38,7 @@ public sealed partial class Hold {
             : new DarkroomFault(value, DarkroomReason.Invalid, Expression: "hold");
 }
 
-public sealed record Timing(Duration Clock, float Pace) {
+internal sealed record Timing(Duration Clock, float Pace) {
     private const long Wrap = (1 << 14) * NodaConstants.NanosecondsPerSecond;
 
     public static Timing Default { get; } = new(Duration.Zero, 1f);
@@ -47,7 +47,7 @@ public sealed record Timing(Duration Clock, float Pace) {
         Duration.FromNanoseconds((Clock + context.Time.Map(time => time * Pace).IfNone(Duration.Zero)).ToInt128Nanoseconds() % Wrap);
 }
 
-public sealed record FieldPlacement(Vector2 Center, Angle Rotation) {
+internal sealed record FieldPlacement(Vector2 Center, Angle Rotation) {
     public static FieldPlacement Default { get; } = new(new Vector2(0.5f), Angle.Zero);
 
     public Matrix3x2 Frame(PixelExtent extent) => DistanceField.Frame(extent, extent.Point(Center), Rotation);
@@ -56,7 +56,7 @@ public sealed record FieldPlacement(Vector2 Center, Angle Rotation) {
         field.Placed((extent.Point(Center) - extent.Point(Default.Center)) * new Vector2(1f, -1f) / extent.ShortSide, Rotation);
 }
 
-public sealed record GeneratedLayer(BlendingMode Mode, float Exposure) {
+internal sealed record GeneratedLayer(BlendingMode Mode, float Exposure) {
     public static GeneratedLayer Default { get; } = new(BlendingMode.Normal, 0f);
     public static GeneratedLayer Added { get; } = Default with { Mode = BlendingMode.Add };
 
@@ -83,7 +83,7 @@ public sealed record GeneratedLayer(BlendingMode Mode, float Exposure) {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public static class OptionalLengths {
+internal static class OptionalLengths {
     extension(Option<ShortSideLength> length) {
         public float Share => length.Map(static held => (float)held).IfNone(0f);
 

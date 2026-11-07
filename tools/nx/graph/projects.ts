@@ -3,7 +3,7 @@ import type { CreateNodesResult, Optional, ProjectConfiguration, TargetConfigura
 import { findMatchingProjects, interpolate } from '@nx/devkit/internal';
 import { createNodes } from '@nx/vitest';
 import { ClaudeHooks, decodeFile, TextFormat, Xcconfig, XcodeProject } from '@rasm/eng';
-import { Array, Effect, Equal, FileSystem, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Effect, Equal, FileSystem, Function, Option, Path, Predicate, Record, Result, Schema, String, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parseSync } from 'rolldown/utils';
 import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, PYPROJECT, type readPython, type Workspace, WorkspaceError } from '#/workspace.ts';
@@ -22,11 +22,11 @@ const VITE = { args: ['--configLoader', 'native'], inputs: ['typescript', 'nodeP
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const MSBuildProject = TextFormat('MSBuild XML', (text) => new XMLParser({ ignoreAttributes: false, isArray: (name) => name === 'PropertyGroup' || name === 'ItemGroup' || name === 'PackageReference' }).parse(text)).pipe(
+const MSBuildProject = TextFormat('MSBuild XML', (text) => new XMLParser({ ignoreAttributes: false, parseTagValue: false, isArray: (name) => name === 'PropertyGroup' || name === 'ItemGroup' || name === 'PackageReference' }).parse(text)).pipe(
     Schema.decodeTo(
         Schema.Struct({
             Project: Schema.Struct({
-                PropertyGroup: Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String), PlugInIcon: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+                PropertyGroup: Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String), PlugInIcon: Schema.optionalKey(Schema.String), RhinoHost: Schema.optionalKey(Schema.String), IsPackable: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
                 ItemGroup: Schema.Array(Schema.Struct({ PackageReference: Schema.optionalKey(Schema.Array(Schema.Struct({ '@_Include': Schema.optionalKey(Schema.String) }))) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
             }),
         }),
@@ -58,28 +58,37 @@ const reach = <A extends Effect.Success<ReturnType<ReturnType<typeof imports>>>,
     const pending = Array.dedupe(frontier.filter((file) => !Object.hasOwn(known, file)));
     return pending.length === 0 ? Effect.succeed(known) : Effect.flatMap(Effect.forEach(pending, read, { concurrency: 'unbounded' }), (found) => reach(read, found.flatMap(Struct.get('files')), { ...known, ...Object.fromEntries(Array.zip(pending, found)) }));
 };
+const lineage = (path: Path.Path, dir: string) => [...Array.unfold(dir, (at) => (at === path.dirname(at) ? Option.none() : Option.some([at, path.dirname(at)] as const))), '.'];
 const owning = Effect.fnUntraced(function* ({ packages }: Workspace, dir: string) {
     const [path, manifests] = yield* Effect.all([Path.Path, packages]);
-    const lineage = Array.unfold(dir, (at) => (at === path.dirname(at) ? Option.none() : Option.some([at, path.dirname(at)] as const)));
-    const owner = yield* Effect.fromOption(Array.findFirst([...lineage, '.'], (at) => Record.has(manifests, at)));
+    const owner = yield* Effect.fromOption(Array.findFirst(lineage(path, dir), (at) => Record.has(manifests, at)));
     return { owner, manifest: yield* Effect.fromOption(Record.get(manifests, owner)) };
+});
+const rhinoHost = Effect.fnUntraced(function* (workspaceRoot: string, dir: string) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const props = yield* Effect.findFirst(
+        lineage(path, dir).map((at) => path.join(at, 'Directory.Build.props')),
+        (file) => fs.exists(path.join(workspaceRoot, file)),
+    );
+    const decoded = yield* Effect.transposeOption(Option.map(props, (file) => decodeFile(MSBuildProject, workspaceRoot, file)));
+    return Option.exists(decoded, ({ Project }) => Project.PropertyGroup.some(({ RhinoHost }) => RhinoHost === 'true'));
 });
 
 // --- [INPUTS]
 
 const folderInput = (folder: string) => `{workspaceRoot}/${folder}/**/*`;
 const defaultInputs = (files: readonly NonNullable<ProjectConfiguration['namedInputs']>[string][number][]) => (files.length === 0 ? {} : { namedInputs: { default: ['{projectRoot}/**/*', ...files] } });
-const externalInputs = (path: Path.Path, root: string, files: readonly (string | undefined)[], packages: readonly string[] = []) =>
-    defaultInputs([
-        ...Array.dedupe(
-            files
-                .filter(Predicate.isString)
-                .map(path.normalize)
-                .filter((file) => file.startsWith('../'))
-                .map((file) => `{workspaceRoot}/${path.join(root, file)}`),
-        ),
-        ...Array.match(packages, { onEmpty: () => [], onNonEmpty: (externalDependencies) => [{ externalDependencies: [...externalDependencies] }] }),
-    ]);
+const externalInputs = (path: Path.Path, root: string, submodules: readonly string[], files: readonly (string | undefined)[], packages: readonly string[] = []) => {
+    const outside = Array.dedupe(
+        files
+            .filter(Predicate.isString)
+            .map(path.normalize)
+            .filter((file) => file.startsWith('../'))
+            .map((file) => path.join(root, file)),
+    );
+    const linked = submodules.filter((submodule) => outside.some(String.startsWith(`${submodule}${path.sep}`)));
+    return defaultInputs([...[...outside, ...linked].map((file) => `{workspaceRoot}/${file}`), ...Array.match(packages, { onEmpty: () => [], onNonEmpty: (externalDependencies) => [{ externalDependencies: [...externalDependencies] }] })]);
+};
 const sharedInputs = Effect.fnUntraced(function* (workspaceRoot: string, dir: string, file: string) {
     const [path, fs, { files }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, imports(workspaceRoot)(file)]);
     const shared = files.filter((held) => held.endsWith('.config.ts') && path.relative(dir, held).startsWith('..'));
@@ -105,51 +114,58 @@ const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
 });
 const binlog = (path: Path.Path, cwd: string, target: string) => `-bl:${path.join(path.relative(cwd, '.'), '.artifacts/dotnet/binlog/{projectName}', `${target.replaceAll(':', '-')}.binlog`)}`;
 const logged = (path: Path.Path, cwd: string, target: string) => ({ env: { MSBUILD_LOGGING_ARGS: binlog(path, cwd, target) } });
-const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | ((file: Path.Path.Parsed, workspace: Inference & { readonly file: string }) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, Error, PluginServices>)>> = {
+const markers: Readonly<
+    Record<string, (Optional<ProjectConfiguration, 'root'> & { readonly hosts?: readonly string[] }) | ((file: Path.Path.Parsed, workspace: Inference & { readonly file: string }) => Effect.Effect<Optional<ProjectConfiguration, 'root'> & { readonly hosts?: readonly string[] }, Error, PluginServices>)>
+> = {
     '*.csproj': Effect.fnUntraced(function* ({ dir, name }, workspace) {
         const { file, workspaceRoot } = workspace;
-        const [path, { Project }] = yield* Effect.all([Path.Path, decodeFile(MSBuildProject, workspaceRoot, file)]);
+        const [path, { Project }, hosted, submodules] = yield* Effect.all([Path.Path, decodeFile(MSBuildProject, workspaceRoot, file), rhinoHost(workspaceRoot, dir), workspace.submodules]);
         const plugin = Project.PropertyGroup.some(({ TargetExt }) => TargetExt === '.rhp');
         const skin = Project.PropertyGroup.some(({ TargetExt }) => TargetExt === '.rhs');
         const product = plugin || skin;
+        const packed = Project.PropertyGroup.some(({ IsPackable }) => IsPackable === 'true');
         const licensed = Project.ItemGroup.flatMap(({ PackageReference = [] }) => PackageReference).some((reference) => reference['@_Include'] === 'SixLabors.ImageSharp');
-        const tags = ['language:dotnet', ...(plugin ? ['output:rhp'] : []), ...(product ? ['platform:windows'] : []), ...(licensed ? ['license:imagesharp'] : [])];
+        const tags = ['language:dotnet', ...(plugin ? ['output:rhp'] : []), ...(packed ? ['output:nupkg'] : []), ...(licensed ? ['license:imagesharp'] : [])];
         const runtime = ['--runtime', 'win-x64'];
         const logs = Record.fromIterableWith((target: string) => [target, { options: logged(path, dir, target) }]);
         const windowsTargets = {
-            'build:windows': { command: 'dotnet build', options: { cwd: '{projectRoot}', args: [...runtime, '--configuration', 'Release'], ...logged(path, dir, 'build:windows') }, parallelism: false },
+            'build:windows': { command: 'dotnet build', dependsOn: [{ projects: ['rasm'], target: 'restore' }], options: { cwd: '{projectRoot}', args: [...runtime, '--configuration', 'Release'], ...logged(path, dir, 'build:windows') }, parallelism: false },
             'pack:windows': { options: { args: runtime, ...logged(path, dir, 'pack:windows') } },
         };
-        const configurations = {
-            debug: { args: ['--no-restore', '--configuration', 'Debug'] },
-            release: { args: ['--no-restore', '--configuration', 'Release'] },
+        const build = {
+            ...logs(['build']),
+            ...(product ? { 'build:release': { dependsOn: [], options: { args: ['--no-restore', '--configuration', 'Release'], ...logged(path, dir, 'build:release') }, parallelism: false } } : logs(['build:release'])),
         };
-        const build = product ? Record.map({ build: ['--no-restore'], 'build:release': configurations.release.args }, (args, target) => ({ dependsOn: [], options: { args, ...logged(path, dir, target) }, configurations, parallelism: false })) : logs(['build', 'build:release']);
         const packaged = {
             ...(product ? windowsTargets : {}),
             ...(plugin ? logs(['pack', 'install', 'publish']) : {}),
+            ...(packed ? { ...logs(['pack']), publish: {} } : {}),
             ...(skin ? { install: { command: 'dotnet msbuild -target:InstallRhinoSkin -property:Configuration=Release', options: { cwd: '{projectRoot}', ...logged(path, dir, 'install') }, dependsOn: ['pack:windows'] } } : {}),
         };
         return {
             ...externalInputs(
                 path,
                 dir,
+                submodules,
                 Project.PropertyGroup.map(({ PlugInIcon }) => PlugInIcon),
             ),
-            ...(product ? { name } : {}),
+            ...(product || packed ? { name } : {}),
+            hosts: hosted ? ['rhino'] : [],
             tags,
             targets: {
                 ...build,
                 ...packaged,
-                ...(dir.split(path.sep, 1)[0] === TESTS ? {} : { check: {} }),
+                'lint:dotnet-format': { options: { args: [file] } },
+                check: product ? { dependsOn: ['build:windows'] } : {},
             },
         };
     }),
     '*.cs': Effect.fnUntraced(function* ({ dir, base, ext }, { file, workspaceRoot }) {
-        const path = yield* Path.Path;
         yield* Effect.filterOrFail(decodeFile(Schema.String, workspaceRoot, file), (text) => text.startsWith('#!'));
+        const [path, hosted] = yield* Effect.all([Path.Path, rhinoHost(workspaceRoot, dir)]);
         return {
             name: dir,
+            hosts: hosted ? ['rhino'] : [],
             tags: ['language:dotnet'],
             targets: {
                 build: { executor: 'nx:noop', dependsOn: [{ target: `build:*${ext}`, params: 'forward' }] },
@@ -157,6 +173,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
                 [`restore:${base}`]: { options: { args: [file, binlog(path, '.', `restore:${base}`)] } },
                 [`build:${base}`]: { command: 'dotnet build', dependsOn: [`restore:${base}`], options: { args: [file, '--no-restore', binlog(path, '.', `build:${base}`)] } },
                 [`format:${base}`]: { options: { args: [file, '--no-restore'] }, dependsOn: [`restore:${base}`] },
+                [`lint:dotnet-format:${base}`]: { options: { args: [file] } },
                 check: {},
             },
         };
@@ -215,7 +232,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         };
     }),
     [XcodeProject.file]: Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [path, fs, { files, targets }, { products }, { DEVELOPMENT_TEAM }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, decodeFile(XcodeProject.schema, workspace.workspaceRoot, workspace.file), workspace.swift, Xcconfig.read(workspace.workspaceRoot)]);
+        const [path, fs, { files, targets }, { products }, { DEVELOPMENT_TEAM }, submodules] = yield* Effect.all([Path.Path, FileSystem.FileSystem, decodeFile(XcodeProject.schema, workspace.workspaceRoot, workspace.file), workspace.swift, Xcconfig.read(workspace.workspaceRoot), workspace.submodules]);
         const [root, name] = [path.dirname(dir), path.parse(dir).name];
         const links = yield* Effect.forEach(yield* glob(workspace.workspaceRoot, [`${root}/**/*.xcassets/**/*.svg`]), (file) => Effect.option(fs.readLink(path.join(workspace.workspaceRoot, file))));
         const catalogs = Array.dedupe(Array.getSomes(links).flatMap((target) => target.split(`${MODULES}/`).slice(1, 2).map(packageName)));
@@ -245,6 +262,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             ...externalInputs(
                 path,
                 root,
+                submodules,
                 targets.flatMap(({ settings }) => [settings.CODE_SIGN_ENTITLEMENTS, settings.INFOPLIST_FILE]),
                 catalogs,
             ),
@@ -345,8 +363,8 @@ const infer = Effect.fnUntraced(function* (file: string, workspace: Inference) {
     const path = yield* Path.Path;
     const parsed = path.parse(file);
     const [marker, configure] = yield* Effect.fromOption(Array.findFirst([parsed.base, path.join(path.basename(parsed.dir), parsed.base), `*${parsed.ext}`], marked));
-    const { root = marker.split('/').reduce((at) => path.dirname(at), file), tags = [], targets = {}, ...configuration } = typeof configure === 'function' ? yield* configure(parsed, { ...workspace, file }) : configure;
-    const hosted = Array.intersection(root.split('/'), yield* workspace.hosts).map((host) => `host:${host}`);
+    const { root = marker.split('/').reduce((at) => path.dirname(at), file), tags = [], targets = {}, hosts, ...configuration } = typeof configure === 'function' ? yield* configure(parsed, { ...workspace, file }) : configure;
+    const hosted = (hosts ?? Array.intersection(root.split('/'), yield* workspace.hosts)).map((host) => `host:${host}`);
     const released = Option.match(tagPrefix(workspace, root, tags, configuration.name ?? Option.getOrUndefined(Option.map(Record.get(yield* workspace.packages, root), Struct.get('name')))), {
         onNone: () => targets,
         onSome: (MinVerTagPrefix) => Record.map(targets, (target) => ({ ...target, options: { ...target.options, env: { ...target.options?.env, MinVerTagPrefix } } })),

@@ -88,7 +88,7 @@ const tomlRows =
 const readSettings = Effect.fnUntraced(function* (tree: Tree) {
     const workspace = yield* openWorkspace({ workspaceRoot: tree.root, nxJsonConfiguration: readNxJsonFromDisk(tree.root) });
     const [manifest, { tools, platforms, targets }, locked] = yield* Effect.all([decodeTree(tree, Package.schema, Package.file), workspace.swiftManifest(SwiftManifest, 'dump-package'), decodeTree(tree, MiseLock.schema, MiseLock.file)]);
-    const [author, repository, { version }] = yield* Effect.all([Effect.fromNullishOr(manifest.author), Effect.fromNullishOr(manifest.repository), Effect.fromNullishOr(platforms.find(({ name }) => name === 'macos'))]);
+    const [author, license, repository, { version }] = yield* Effect.all([Effect.fromNullishOr(manifest.author), Effect.fromNullishOr(manifest.license), Effect.fromNullishOr(manifest.repository), Effect.fromNullishOr(platforms.find(({ name }) => name === 'macos'))]);
     const [first] = targets;
     yield* Effect.validate(targets, ({ name, settings }) => {
         const unsupported = settings.filter(({ tool, kind, condition }) => (tool === 'swift' || tool === 'linker') && (condition !== undefined || !Object.keys(kind).every(Object.hasOwn.bind(null, SwiftFlags.fields))));
@@ -99,7 +99,7 @@ const readSettings = Effect.fnUntraced(function* (tree: Tree) {
     if (divergent.length > 0) {
         return yield* new Cause.IllegalArgumentError(`${divergent.map(({ name }) => name).join(', ')}: Xcode flags differ from ${first.name}`);
     }
-    return { author, repository, version, swift, linker, tools: tools.version, hk: Array.headNonEmpty(locked.tools.hk).version };
+    return { author, license, repository, version, swift, linker, tools: tools.version, hk: Array.headNonEmpty(locked.tools.hk).version };
 });
 const writers = {
     [Xcconfig.file]: ({ author, repository, version, linker, swift, tools }) =>
@@ -112,7 +112,7 @@ const writers = {
             SWIFT_VERSION: tools.replace(TOOLS_MINOR, '.0'),
         }),
     '.swiftlint.yml': ({ version }) => yamlRow('deployment_target', 'macOS_deployment_target', version),
-    'Directory.Build.props': ({ author, repository }) => propertyRows({ Authors: author, PackageProjectUrl: repository }),
+    'Directory.Build.props': ({ author, license, repository }) => propertyRows({ Authors: author, PackageLicenseExpression: license, PackageProjectUrl: repository }),
     [Mise.file]: ({ version }) =>
         tomlRows(
             Optic.id<MiseEnvironment>()

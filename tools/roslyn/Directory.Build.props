@@ -1,0 +1,14 @@
+<Project>
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+    <PropertyGroup Label="Roslyn Components">
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+    </PropertyGroup>
+
+    <ItemDefinitionGroup Label="Roslyn Components">
+        <PackageReference ExcludeAssets="runtime" PrivateAssets="all" />
+    </ItemDefinitionGroup>
+</Project>

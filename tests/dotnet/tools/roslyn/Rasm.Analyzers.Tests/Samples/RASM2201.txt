@@ -10,7 +10,7 @@ namespace Rasm.Rhino {
 
     public static class Products {
         public static IO<T> Of<T>(Func<T?> call) where T : class => IO.lift(() => Optional(call()).ToFin(Error.New("missing")));
-        public static IO<TOut> Transfer<T, TOut>(T value, Func<T, IO<TOut>> to) where T : IDisposable => to(value);
+        public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to) where T : class, IDisposable => IO.lift(() => make()!).Bind(to);
         public static IO<Unit> Released(Action release) => IO.lift(release);
         public static IO<T> Replace<T>(Ref<Option<Owned<T>>> slot, IO<T> body) => body;
     }
@@ -26,7 +26,7 @@ internal static class AcquiredMeasure {
 internal static class RangedFont {
     internal static IO<float> Lifted() =>
         from regular in IO.lift(() => {|#2:SystemFonts.Label()|})
-        from size in Products.Transfer(regular, static held => IO.pure(held.Size))
+        from size in Products.Transfer(() => regular, static held => IO.pure(held.Size))
         select size;
 
     internal static IO<Unit> Let() =>
@@ -38,7 +38,7 @@ internal static class RangedFont {
     internal static IO<Font> Bound() =>
         IO.lift(() => {|#4:SystemFonts.Message()|}).Bind(static font => use(() => font));
 
-    internal static IO<float> Scoped() => Products.Transfer({|#5:SystemFonts.User()|}, static font => IO.pure(font.Size));
+    internal static IO<float> Scoped() => Products.Transfer(() => {|#5:SystemFonts.User()|}, static font => IO.pure(font.Size));
 }
 
 internal static class DisposedFont {

@@ -10,7 +10,7 @@ namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record RampStop(Unicolour Color, float Position) {
+internal sealed record RampStop(Unicolour Color, float Position) {
     public bool Eased { get; init; }
 
     public static Unicolour At(Seq<RampStop> ramp, float position) =>
@@ -22,7 +22,7 @@ public sealed record RampStop(Unicolour Color, float Position) {
         };
 }
 
-public sealed record Blackbody(double Cool, double Hot) {
+internal sealed record Blackbody(double Cool, double Hot) {
     public static Blackbody Default { get; } = new(800d, 2000d);
 
     public ColorRamp Glow(Gamut gamut) =>
@@ -33,7 +33,7 @@ public sealed record Blackbody(double Cool, double Hot) {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public static class RampLight {
+internal static class RampLight {
     private const int Intervals = 256;
 
     public static ColorRamp Of(Seq<RampStop> ramp, PassContext context) =>
@@ -59,7 +59,7 @@ public static class RampLight {
     public static Vector4 Light(Unicolour color, PassContext context) => Lights([color], context)[0];
 }
 
-public static class Presets {
+internal static class Presets {
     public static Seq<RampStop> Grayscale { get; } = [new(new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d), 0f), new(new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), 1f)];
     public static Seq<RampStop> White { get; } = [new(new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), 0f)];
 

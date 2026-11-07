@@ -40,6 +40,7 @@ const Package = manifest(
         Schema.Struct({
             name: Schema.String,
             author: Schema.optionalKey(Schema.String),
+            license: Schema.optionalKey(Schema.String),
             repository: Schema.optionalKey(Schema.String),
             dependencies: Strings,
             devDependencies: Strings,

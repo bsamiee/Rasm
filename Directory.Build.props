@@ -6,15 +6,10 @@
 
     <PropertyGroup Label="Package Metadata">
         <Authors>Bardia Samiee</Authors>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/bsamiee/Rasm</PackageProjectUrl>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Project Classification">
-        <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\', '/').ToLowerInvariant())/</_RepoRelativeDir>
-        <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/libs/'))">library</ProjectRole>
-        <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/tools/roslyn/'))">analyzers</ProjectRole>
-        <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">true</RhinoHost>
-        <RoslynHost Condition="$(_RepoRelativeDir.Contains('/tools/roslyn/'))">true</RoslynHost>
+        <RepositoryUrl>$(PackageProjectUrl)</RepositoryUrl>
+        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Plug-In Library Copies" Condition="'$(RhinoPlugIn)' != ''">
@@ -25,17 +20,17 @@
     <PropertyGroup Label="Build Defaults">
         <RepoTargetFramework>net10.0</RepoTargetFramework>
         <TargetFramework>$(RepoTargetFramework)</TargetFramework>
+        <LangVersion>preview</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
         <CreateHardLinksForCopyLocalIfPossible>true</CreateHardLinksForCopyLocalIfPossible>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <EnforceCodeStyleInBuild Condition="'$(DesignTimeBuild)' != 'true'">true</EnforceCodeStyleInBuild>
         <AnalysisLevel>latest-all</AnalysisLevel>
+        <MeziantouAnalysisMode>all-errors</MeziantouAnalysisMode>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
-        <NuGetAudit>false</NuGetAudit>
+        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
         <SuppressImplicitGitSourceLink>true</SuppressImplicitGitSourceLink>
     </PropertyGroup>
 
@@ -47,30 +42,16 @@
         <RhinoEnableWindowsFormsTargeting>false</RhinoEnableWindowsFormsTargeting>
         <PublishDocumentationFiles>false</PublishDocumentationFiles>
         <PublishReferencesSymbols>false</PublishReferencesSymbols>
+        <IconLightStylesheet>$(MSBuildThisFileDirectory)eng/dotnet/rhino/icon-light.css</IconLightStylesheet>
+        <IconDarkStylesheet>$(MSBuildThisFileDirectory)eng/dotnet/rhino/icon-dark.css</IconDarkStylesheet>
     </PropertyGroup>
-
-    <PropertyGroup Label="Roslyn Components" Condition="'$(ProjectRole)' == 'analyzers'">
-        <TargetFramework>netstandard2.0</TargetFramework>
-        <LangVersion>14.0</LangVersion>
-        <IsRoslynComponent>true</IsRoslynComponent>
-        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
-        <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
-    </PropertyGroup>
-
-    <ItemDefinitionGroup Label="Roslyn Components" Condition="'$(ProjectRole)' == 'analyzers'">
-        <PackageReference ExcludeAssets="runtime" PrivateAssets="all" />
-    </ItemDefinitionGroup>
 
     <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+        <RestoreLockedMode>true</RestoreLockedMode>
     </PropertyGroup>
 
     <ItemGroup Label="Analyzer Configuration">
         <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory).config/analyzers.globalconfig" />
-    </ItemGroup>
-
-    <ItemGroup Label="Workspace Packages" Condition="'$(ProjectRole)' != 'analyzers'">
-        <PackageReference Include="LanguageExt.Core" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>
 </Project>

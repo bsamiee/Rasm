@@ -4,15 +4,6 @@
         <OutputType>Exe</OutputType>
     </PropertyGroup>
 
-    <ItemGroup Label="Processes">
-        <PackageReference Include="CliWrap" />
-        <PackageReference Include="System.CommandLine" />
-    </ItemGroup>
-
-    <ItemGroup Label="Runtime Diagnostics">
-        <PackageReference Include="Microsoft.Extensions.DependencyModel" />
-    </ItemGroup>
-
     <ItemGroup Label="Package Management">
         <PackageReference Include="NuGet.Common" />
         <PackageReference Include="NuGet.Configuration" />
@@ -21,5 +12,18 @@
         <PackageReference Include="NuGet.ProjectModel" />
         <PackageReference Include="NuGet.Protocol" />
         <PackageReference Include="NuGet.Versioning" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="CliWrap" />
+        <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Runtime Diagnostics">
+        <PackageReference Include="Microsoft.Extensions.DependencyModel" />
+    </ItemGroup>
+
+    <ItemGroup Label="Application Hosting">
+        <PackageReference Include="System.CommandLine" />
     </ItemGroup>
 </Project>

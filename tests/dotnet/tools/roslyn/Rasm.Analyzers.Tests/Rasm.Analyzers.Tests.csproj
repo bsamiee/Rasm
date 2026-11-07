@@ -1,33 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Snapshot tests of analyzer rules and their code fixes</Description>
-        <OutputType>Exe</OutputType>
-        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
         <Verify_SponsorshipExemptionUntil>2027-10</Verify_SponsorshipExemptionUntil>
         <SolutionDir>$([MSBuild]::EnsureTrailingSlash($([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'Workspace.slnx'))))</SolutionDir>
     </PropertyGroup>
 
     <ItemGroup Label="Compiler Fixtures">
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" IncludeAssets="compile" FixtureReference="true" />
-        <PackageReference Include="RhinoCommon" IncludeAssets="compile" FixtureReference="true" />
-        <PackageReference Include="System.Drawing.Common" IncludeAssets="compile" FixtureReference="true" />
-        <PackageReference Update="LanguageExt.Core;Thinktecture.Runtime.Extensions" FixtureReference="true" />
+        <PackageReference Include="LanguageExt.Core" AdditionalReference="true" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" IncludeAssets="compile" AdditionalReference="true" />
+        <PackageReference Include="RhinoCommon" IncludeAssets="compile" AdditionalReference="true" />
+        <PackageReference Include="System.Drawing.Common" IncludeAssets="compile" AdditionalReference="true" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" AdditionalReference="true" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.SourceGenerator" PrivateAssets="all" SourceGenerator="true" />
+    </ItemGroup>
+
+    <ItemGroup Label="Analyzer Authoring">
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" />
     </ItemGroup>
 
     <ItemGroup Label="Testing">
-        <PackageReference Include="Microsoft.CodeAnalysis.Common" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
-        <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" />
-        <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.SourceGenerator" PrivateAssets="all" FixtureGenerator="true" />
         <PackageReference Include="Verify.XunitV3" />
-        <PackageReference Include="xunit.v3.mtp-v2" />
-    </ItemGroup>
-
-    <ItemGroup Label="Collections">
-        <PackageReference Include="System.Collections.Immutable" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
@@ -35,18 +31,18 @@
         <ProjectReference Include="../../../../../tools/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
     </ItemGroup>
 
-    <Target Name="ResolveFixtureReferences" BeforeTargets="ResolveAssemblyReferences;GetAssemblyAttributes" DependsOnTargets="ResolvePackageAssets">
-        <JoinItems Left="@(ResolvedCompileFileDefinitions)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('FixtureReference', 'true'))" ItemSpecToUse="Left">
-            <Output TaskParameter="JoinResult" ItemName="_FixtureReference" />
+    <Target Name="ResolveAdditionalReferences" BeforeTargets="ResolveAssemblyReferences;GetAssemblyAttributes" DependsOnTargets="ResolvePackageAssets">
+        <JoinItems Left="@(ResolvedCompileFileDefinitions)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('AdditionalReference', 'true'))" ItemSpecToUse="Left">
+            <Output TaskParameter="JoinResult" ItemName="_AdditionalReference" />
         </JoinItems>
-        <JoinItems Left="@(ResolvedAnalyzers)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('FixtureGenerator', 'true'))" ItemSpecToUse="Left">
+        <JoinItems Left="@(ResolvedAnalyzers)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('SourceGenerator', 'true'))" ItemSpecToUse="Left">
             <Output TaskParameter="JoinResult" ItemName="Reference" />
         </JoinItems>
         <ItemGroup>
             <AssemblyMetadata Include="TargetingPackId" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(NuGetPackageId)')" />
             <AssemblyMetadata Include="TargetingPackVersion" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(NuGetPackageVersion)')" />
             <AssemblyMetadata Include="TargetingPackFramework" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(TargetFramework)')" />
-            <AssemblyMetadata Include="FixtureReference.%(_FixtureReference.Filename)" Value="%(_FixtureReference.FullPath)" />
+            <AssemblyMetadata Include="AdditionalReference.%(_AdditionalReference.Filename)" Value="%(_AdditionalReference.FullPath)" />
         </ItemGroup>
     </Target>
 </Project>

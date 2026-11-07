@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Rasm.Rhino.Document;
 using Rhino.Display;
 
@@ -37,14 +38,20 @@ public sealed record RenderState(Action<DisplayPipeline, Action<DisplayPipeline>
     public static RenderState Attributes(Action<DisplayPipelineAttributes> edit) =>
         new((pipeline, draw) => {
             DisplayPipelineAttributes attributes = pipeline.DisplayPipelineAttributes;
-            using DisplayPipelineAttributes held = PipelineAttributes.Copy(attributes);
+            using DisplayPipelineAttributes held = Copy(attributes);
             try {
                 edit(attributes);
                 draw(pipeline);
             } finally {
-                PipelineAttributes.CopyContents(attributes, held);
+                CopyContents(attributes, held);
             }
         });
+
+    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
+    private static extern DisplayPipelineAttributes Copy(DisplayPipelineAttributes other);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern void CopyContents(DisplayPipelineAttributes target, DisplayPipelineAttributes other);
 
     // --- [DRAWING]
 

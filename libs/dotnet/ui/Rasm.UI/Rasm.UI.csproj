@@ -1,11 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Interfaces as pure state transitions, drawn and driven by any host</Description>
+        <IsPackable>true</IsPackable>
     </PropertyGroup>
 
     <ItemGroup Label="Core">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="NodaTime" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>
 
     <ItemGroup Label="Mathematics">
@@ -33,9 +36,12 @@
     <ItemGroup Label="Typography">
         <PackageReference Include="HarfBuzzSharp" />
         <PackageReference Include="ICU4N" />
-        <PackageReference Include="Markdig" />
         <PackageReference Include="SkiaSharp.HarfBuzz" />
         <PackageReference Include="Topten.RichTextKit" />
+    </ItemGroup>
+
+    <ItemGroup Label="Documents">
+        <PackageReference Include="Markdig" />
     </ItemGroup>
 
     <ItemGroup Label="User Interface">

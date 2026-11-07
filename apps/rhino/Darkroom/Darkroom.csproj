@@ -3,15 +3,20 @@
         <Description>Post-production from raw render to finished image</Description>
         <TargetExt>.rhp</TargetExt>
         <PlugInId>b5bac151-510d-4dc3-9f2d-14526e39d793</PlugInId>
-        <PlugInIcon>../../blender/darkroom/icons/mark.svg</PlugInIcon>
+        <PlugInIcon>../../../assets/marks/darkroom/mark.svg</PlugInIcon>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <NoWarn Condition="$(TargetFramework.EndsWith('-windows'))">$(NoWarn);NU1701</NoWarn>
     </PropertyGroup>
+
+    <ItemGroup Label="Rhino">
+        <PackageReference Include="RhinoCommon" />
+    </ItemGroup>
 
     <ItemGroup Label="Core">
         <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="Microsoft.VisualStudio.Threading" />
         <PackageReference Include="NodaTime" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
@@ -31,6 +36,7 @@
         <PackageReference Include="Emgu.CV" />
         <PackageReference Include="Emgu.CV.runtime.mini.macos" Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
         <PackageReference Include="Emgu.CV.runtime.mini.windows" ExcludeAssets="buildTransitive" Condition="$(RuntimeIdentifier.StartsWith('win'))" />
+        <PackageReference Include="Emgu.runtime.windows.msvc.rt.arm64;Emgu.runtime.windows.msvc.rt.x64;Emgu.runtime.windows.msvc.rt.x86" ExcludeAssets="build;buildtransitive" NoWarn="NU1701" Condition="$(RuntimeIdentifier.StartsWith('win'))" />
         <PackageReference Include="SixLabors.ImageSharp" />
         <PackageReference Include="TinyEXR.NET" />
     </ItemGroup>

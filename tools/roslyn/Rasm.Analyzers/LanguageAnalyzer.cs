@@ -125,14 +125,13 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         if (symbols.Flags is { } flags) Enums(context, flags);
         Awaitables(context);
         Namespaces(context);
-        ImmutableHashSet<string> projects = context.Options.AnalyzerConfigOptionsProvider.GlobalOptions.TryGetValue("build_property.ProjectReferenceAssemblies", out string? listed)
-            ? [.. listed.Split([','], StringSplitOptions.RemoveEmptyEntries)]
-            : [];
-        string prefix = $"{context.Compilation.AssemblyName}.";
-        ImmutableArray<IAssemblySymbol> sources = [
-            .. context.Compilation.SourceModule.ReferencedAssemblySymbols.Where(assembly =>
-                projects.Contains(assembly.Identity.Name.StartsWith(prefix, StringComparison.Ordinal) ? assembly.Identity.Name.Substring(prefix.Length) : assembly.Identity.Name)),
+        ImmutableHashSet<string> projects = [
+            with(StringComparer.Ordinal),
+            .. context.Options.AnalyzerConfigOptionsProvider.GlobalOptions.TryGetValue("build_property.ProjectReferenceAssemblies", out string? listed)
+                ? listed.Split([','], StringSplitOptions.RemoveEmptyEntries)
+                : [],
         ];
+        ImmutableArray<IAssemblySymbol> sources = [.. context.Compilation.SourceModule.ReferencedAssemblySymbols.Where(assembly => projects.Contains(assembly.Identity.Name))];
         Clashes(context, models, sources);
         Qualifications(context);
         Restatements(context, models);
@@ -210,7 +209,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             && (Stripped(value).Type is IArrayTypeSymbol || Among(Stripped(value).Type, sets));
         static bool Literal(IFieldSymbol field, IOperation value) =>
             value is ILiteralOperation or IUnaryOperation { Operand: ILiteralOperation } or IFieldReferenceOperation { Field.IsConst: true } && SymbolEqualityComparer.Default.Equals(value.Type, field.Type);
-        static ImmutableHashSet<string> Words(string name) => [.. Word.Matches(name).Cast<Match>().Select(static word => word.Value.ToUpperInvariant())];
+        static ImmutableHashSet<string> Words(string name) => [with(StringComparer.Ordinal), .. Word.Matches(name).Cast<Match>().Select(static word => word.Value.ToUpperInvariant())];
         static string? Naming(IOperation read, ImmutableHashSet<ISymbol> candidates) =>
             Consumer(read) switch {
                 IArgumentOperation { ArgumentKind: ArgumentKind.Explicit, Parameter: { } parameter } when !candidates.Contains(parameter.ContainingSymbol.OriginalDefinition) => parameter.Name,
@@ -427,10 +426,10 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                     operand.Syntax is IdentifierNameSyntax && Variable(operand) is { } held and not IParameterSymbol { RefKind: not RefKind.None }
                     && !References(held, operand, reading).Any(Written);
                 SyntaxNode body = value.Syntax;
-                ImmutableHashSet<string> names = [.. parameters.Select(static parameter => parameter.Name)];
+                ImmutableHashSet<string> names = [with(StringComparer.Ordinal), .. parameters.Select(static parameter => parameter.Name)];
                 IEqualityComparer<IParameterSymbol> comparer = SymbolEqualityComparer.Default;
                 ILookup<IParameterSymbol, IParameterReferenceOperation> used = value.DescendantsAndSelf().OfType<IParameterReferenceOperation>().ToLookup(static read => read.Parameter, comparer);
-                ImmutableHashSet<string> passed = [.. arguments.SelectMany(static argument => Scopes.Referenced(argument.Syntax)).Select(static name => name.Identifier.ValueText)];
+                ImmutableHashSet<string> passed = [with(StringComparer.Ordinal), .. arguments.SelectMany(static argument => Scopes.Referenced(argument.Syntax)).Select(static name => name.Identifier.ValueText)];
                 bool pure = Pure(value);
                 return value is not IConversionOperation { IsImplicit: true } && !Targeted(value) && Free(body, names, local)
                     && body.SyntaxTree.GetLineSpan(body.Span, end.CancellationToken) is var lines && lines.StartLinePosition.Line == lines.EndLinePosition.Line
@@ -446,13 +445,13 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                     || Inside<INameOfOperation>(read) || (Unsafe(value.Syntax) && !Unsafe(read.Syntax)) || read.Syntax.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } site
                     || (read switch { IMemberReferenceOperation reference => reference.Instance, IInvocationOperation call => call.Instance, _ => null }) is not (null or IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance }))
                     return false;
-                ImmutableHashSet<string> local = [.. Scopes.Declared(site), "value"];
+                ImmutableHashSet<string> local = [with(StringComparer.Ordinal), .. Scopes.Declared(site), "value"];
                 bool Kept(IOperation named) =>
                     Words(member.Name).IsSubsetOf(Words(Naming(named, candidates) ?? "").Union(
                         value.Syntax.DescendantTokens().Where(static token => token.IsKind(SyntaxKind.IdentifierToken)).SelectMany(static token => Words(token.ValueText))));
                 return (member, read) switch {
-                    (IFieldSymbol field, _) when Listed(field, value) => Contained(read) && Free(value.Syntax, [], local),
-                    (IFieldSymbol field, _) => Literal(field, value) && Naming(read, candidates) is { } name && Words(field.Name).IsSubsetOf(Words(name)) && Free(value.Syntax, [], local),
+                    (IFieldSymbol field, _) when Listed(field, value) => Contained(read) && Free(value.Syntax, [with(StringComparer.Ordinal)], local),
+                    (IFieldSymbol field, _) => Literal(field, value) && Naming(read, candidates) is { } name && Words(field.Name).IsSubsetOf(Words(name)) && Free(value.Syntax, [with(StringComparer.Ordinal)], local),
                     (IPropertySymbol, IPropertyReferenceOperation) => Kept(read) && Substituted(value, Nesting(read.Syntax), local, [], []),
                     (IMethodSymbol method, IInvocationOperation call) => Kept(read) && Substituted(value, Nesting(read.Syntax), local, method.Parameters, call.Arguments),
                     (IMethodSymbol method, IMethodReferenceOperation { Parent: IDelegateCreationOperation creation } group) when !Grouped(group) =>
@@ -460,12 +459,12 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                     _ => false,
                 };
             }
-            HashSet<ISymbol> processed = new(SymbolEqualityComparer.Default);
-            HashSet<ISymbol> cyclic = new(SymbolEqualityComparer.Default);
+            HashSet<ISymbol> processed = [with(SymbolEqualityComparer.Default)];
+            HashSet<ISymbol> cyclic = [with(SymbolEqualityComparer.Default)];
             foreach (ISymbol member in candidates) {
                 end.CancellationToken.ThrowIfCancellationRequested();
                 List<ISymbol> path = [];
-                Dictionary<ISymbol, int> positions = new(SymbolEqualityComparer.Default);
+                Dictionary<ISymbol, int> positions = [with(SymbolEqualityComparer.Default)];
                 ISymbol next = member;
                 while (!processed.Contains(next) && reads.TryGetValue(next, out (IOperation Read, ISymbol Reader, int Count) read) && read.Count is 1 && candidates.Contains(read.Reader)) {
                     if (positions.TryGetValue(next, out int cycle)) {
@@ -643,7 +642,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 if (visible.FirstOrDefault(Sourced) is { } shadowing)
                     node.ReportDiagnostic(Diagnostic.Create(Shadowed, node.Node.GetLocation(), node.Node, shadowing.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), owner.ToDisplayString()));
                 else if (visible.IsEmpty && owner is INamespaceSymbol space) {
-                    ImmutableHashSet<string> sourceNames = [.. model.LookupSymbols(node.Node.SpanStart).Where(Sourced).Select(static symbol => symbol.Name)];
+                    ImmutableHashSet<string> sourceNames = [with(StringComparer.Ordinal), .. model.LookupSymbols(node.Node.SpanStart).Where(Sourced).Select(static symbol => symbol.Name)];
                     ConcurrentDictionary<INamespaceSymbol, bool> imports = ambiguous.GetOrAdd(node.Node.SyntaxTree, static _ => new(SymbolEqualityComparer.Default));
                     if (!space.GetTypeMembers().Any(member => sourceNames.Contains(member.Name))
                         && !imports.GetOrAdd(space, importedSpace => importedSpace.GetTypeMembers().Any(Ambiguous)))
@@ -711,10 +710,10 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             OperationKind.ObjectCreation,
             OperationKind.Invocation);
         models.Complete((end, available) => {
-            Dictionary<IMethodSymbol, bool> transparent = new(SymbolEqualityComparer.Default);
+            Dictionary<IMethodSymbol, bool> transparent = [with(SymbolEqualityComparer.Default)];
             bool Transparent(IMethodSymbol constructor) {
                 Stack<(IMethodSymbol Constructor, bool Expanded)> pending = new([(constructor.OriginalDefinition, false)]);
-                Dictionary<IMethodSymbol, ImmutableArray<IMethodSymbol>> dependencies = new(SymbolEqualityComparer.Default);
+                Dictionary<IMethodSymbol, ImmutableArray<IMethodSymbol>> dependencies = [with(SymbolEqualityComparer.Default)];
                 while (pending.Count is not 0) {
                     end.CancellationToken.ThrowIfCancellationRequested();
                     (IMethodSymbol held, bool expanded) = pending.Pop();

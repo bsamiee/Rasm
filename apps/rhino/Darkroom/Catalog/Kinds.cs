@@ -13,7 +13,7 @@ namespace Darkroom.Catalog;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public static class Kinds {
+internal static class Kinds {
 
     // --- [ROWS]
 

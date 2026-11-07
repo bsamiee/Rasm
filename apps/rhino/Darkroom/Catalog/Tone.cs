@@ -14,7 +14,7 @@ namespace Darkroom.Catalog;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class AgXLook {
+internal sealed partial class AgXLook {
     public static readonly AgXLook Punchy = new("punchy", [
         .. (GradingTone.Neutral(GradingStyle.Log) with { Shadows = new GradingRgbmsw(0.2f, 0.2f, 0.2f, 0.35f, 0.4f, 0.3f) }).Graded(GradingStyle.Log).ToSeq(),
         new LutTable.Cdl(CdlStyle.FwdNoClamp, Vector3.One, Vector3.Zero, new Vector3(1.0912f), 1f).Apply]);
@@ -34,7 +34,7 @@ public sealed partial class AgXLook {
 }
 
 [SmartEnum<string>]
-public sealed partial class FilmicLook {
+internal sealed partial class FilmicLook {
     public static readonly FilmicLook VeryHighContrast = new("very-high-contrast", Some("filmic_to_1.20_1-00.spi1d"));
     public static readonly FilmicLook HighContrast = new("high-contrast", Some("filmic_to_0.99_1-0075.spi1d"));
     public static readonly FilmicLook MediumHighContrast = new("medium-high-contrast", Some("filmic_to_0-85_1-011.spi1d"));
@@ -50,7 +50,7 @@ public sealed partial class FilmicLook {
 }
 
 [SmartEnum]
-public sealed partial class AgXBase {
+internal sealed partial class AgXBase {
     public static readonly AgXBase Rec1886 = new("AgX_Base_sRGB.cube", new ColorEncoding(Gamut.StandardRgb, Transfer.Gamma.Rec1886));
     public static readonly AgXBase DisplayP3 = new("AgX_Base_P3.cube", new ColorEncoding(Gamut.DisplayP3, Transfer.Gamma.Rec1886));
     public static readonly AgXBase Rec2020 = new("AgX_Base_Rec2020.cube", new ColorEncoding(Gamut.Rec2020, Transfer.Gamma.Rec1886));
@@ -64,7 +64,7 @@ public sealed partial class AgXBase {
 }
 
 [SmartEnum<string>]
-public sealed partial class Display {
+internal sealed partial class Display {
     public static readonly Display Srgb = new("srgb", DisplayDevice.Srgb, AgXBase.Rec1886);
     public static readonly Display DisplayP3 = new("display-p3", DisplayDevice.DisplayP3, AgXBase.DisplayP3);
     public static readonly Display Rec1886 = new("rec1886", DisplayDevice.Rec1886, AgXBase.Rec1886);
@@ -78,7 +78,7 @@ public sealed partial class Display {
     public AgXBase AgX { get; }
 }
 
-public sealed record SceneExposure(float Stops, Metering Meter) : IPixelStage<SceneExposure> {
+internal sealed record SceneExposure(float Stops, Metering Meter) : IPixelStage<SceneExposure> {
     public static SceneExposure Default { get; } = new(0f, Metering.Default);
 
     public Fin<SceneExposure> Metered(PixelFrame frame, Gamut working) =>
@@ -97,7 +97,7 @@ public sealed record PeakMapping(Luminance Target, float Black, float Knee) {
     public Option<Action<Span<Vector4>>> Rolled(DisplayDevice device, Luminance source) => (device with { Peak = Target }).Eetf(source, Black, Knee);
 }
 
-public sealed record CurveControls(float PreserveHue, float Purity, Option<Gamut> Basis, Vector3 Inset, Vector3 Rotation) {
+internal sealed record CurveControls(float PreserveHue, float Purity, Option<Gamut> Basis, Vector3 Inset, Vector3 Rotation) {
     public static CurveControls Default { get; } = new(1f, 0f, None, Vector3.Zero, Vector3.Zero);
 
     public ViewTransform Applied(PassContext context, Func<float, float> curve) =>
@@ -120,7 +120,7 @@ public sealed record CurveControls(float PreserveHue, float Purity, Option<Gamut
 [JsonDerivedType(typeof(ReinhardExtended), nameof(ReinhardExtended))]
 [JsonDerivedType(typeof(Hable), nameof(Hable))]
 [JsonDerivedType(typeof(PbrNeutral), nameof(PbrNeutral))]
-public abstract partial record ToneMapping {
+internal abstract partial record ToneMapping {
     public abstract Fin<PixelPass> Formed(PassContext context, Display display);
 
     private static Fin<PixelPass> Pointed(PassContext context, Display display, Fin<ViewTransform> view) =>
@@ -231,7 +231,7 @@ public abstract partial record ToneMapping {
     }
 }
 
-public sealed record ImageFormation(ToneMapping View, Display Device) : IPixelStage<ImageFormation> {
+internal sealed record ImageFormation(ToneMapping View, Display Device) : IPixelStage<ImageFormation> {
     public static ImageFormation Default { get; } = new(ToneMapping.AgXView.Default, Display.Srgb);
 
     public static Seq<(string Name, Func<ImageFormation, ImageFormation> Look)> Looks { get; } =
@@ -250,7 +250,7 @@ public sealed record ImageFormation(ToneMapping View, Display Device) : IPixelSt
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public static class FormationTables {
+internal static class FormationTables {
     public static Func<(string Resource, LutFormat Format), LutTable> Table { get; } = memoUnsafe(static ((string Resource, LutFormat Format) source) => {
         using Stream stream = typeof(FormationTables).Assembly.GetManifestResourceStream(source.Resource)!;
         using MemoryStream bytes = new();

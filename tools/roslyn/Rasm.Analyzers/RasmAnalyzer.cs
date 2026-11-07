@@ -30,7 +30,7 @@ public static class Scopes {
         }).Where(static token => !token.IsKind(SyntaxKind.None)).Select(static token => token.ValueText);
 
     public static IEnumerable<IdentifierNameSyntax> Referenced(SyntaxNode node) {
-        ImmutableHashSet<string> own = [.. Declared(node)];
+        ImmutableHashSet<string> own = [with(StringComparer.Ordinal), .. Declared(node)];
         return node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Where(used => !own.Contains(used.Identifier.ValueText)
             && used.Parent switch { MemberAccessExpressionSyntax access => access.Name != used, MemberBindingExpressionSyntax or NameColonSyntax or NameEqualsSyntax => false, _ => true });
     }
@@ -787,8 +787,8 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
 
         public IEnumerable<string> Released(IOperation value, ITypeSymbol held, Reading reading) {
             Queue<(IOperation Value, ImmutableArray<int> Path, ITypeSymbol Carrier)> pending = new([(value, [], held)]);
-            HashSet<(IOperation Value, ImmutableArray<int> Path)> visited = new(new PathComparer<IOperation>(EqualityComparer<IOperation>.Default));
-            HashSet<(ISymbol Value, ImmutableArray<int> Path)> carriers = new(new PathComparer<ISymbol>(SymbolEqualityComparer.Default));
+            HashSet<(IOperation Value, ImmutableArray<int> Path)> visited = [with(new PathComparer<IOperation>(EqualityComparer<IOperation>.Default))];
+            HashSet<(ISymbol Value, ImmutableArray<int> Path)> carriers = [with(new PathComparer<ISymbol>(SymbolEqualityComparer.Default))];
             IEnumerable<IOperation> Follow(ISymbol carrier, IOperation site, ImmutableArray<int> path) =>
                 carriers.Add((carrier, path)) ? References(carrier, site, reading) : [];
             IEnumerable<IOperation> Pass(IInvocationOperation call, ImmutableArray<int> path, ITypeSymbol carried) =>

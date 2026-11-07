@@ -81,7 +81,7 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
         bool Logs(IMethodSymbol method) =>
             method.ReturnsVoid && (symbols.Calls.Any(member => Implements(method, member)) || Same(method.ContainingType, symbols.Extensions));
         bool Reports(IMethodSymbol method, Reading reading) {
-            HashSet<IMethodSymbol> seen = new(SymbolEqualityComparer.Default);
+            HashSet<IMethodSymbol> seen = [with(SymbolEqualityComparer.Default)];
             Stack<IMethodSymbol> pending = new([method.OriginalDefinition]);
             while (pending.Count is > 0) {
                 IMethodSymbol current = pending.Pop();

@@ -5,8 +5,18 @@
         <PlugInId>07134403-e825-43e4-b711-8fa2f330760a</PlugInId>
     </PropertyGroup>
 
+    <ItemGroup Label="Rhino">
+        <PackageReference Include="RhinoCommon" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
     <ItemGroup Label="Workspace Projects">
-        <ProjectReference Include="../../../eng/dotnet/rhino/Rasm.Rui/Rasm.Rui.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Modeling/Rasm.Rhino.Modeling.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Rui/Rasm.Rhino.Rui.csproj" OutputItemType="RuiWriter" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 </Project>

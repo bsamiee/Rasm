@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using MathNet.Numerics.RootFinding;
 using QuikGraph;
 using QuikGraph.Algorithms;
@@ -87,6 +88,17 @@ public sealed record RhinoTheme(string Name) {
     public static Preference<string> Current { get; } =
         Preferences.Of(IO.lift(static () => Stored).Bind(static stored => stored.Read), static name => IO.lift(static () => Stored).Bind(stored => stored.Write(name)));
 
+    // --- [HOST_SETTINGS]
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
+    private static extern Color? GetPaintColorHook([UnsafeAccessorType("Rhino.UI.ThemeSettings, Rhino.UI")] object? owner, PaintColor paintColor);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_SettingId")]
+    private static extern string SettingId(ThemeBase zone);
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
+    private static extern string Combine(ThemeBase? owner, string parentId, string childId);
+
     // --- [APPLICATION]
 
     public IO<IO<Unit>> Apply =>
@@ -158,7 +170,7 @@ public sealed record RhinoTheme(string Name) {
     private static IO<bool> Running => IO.lift(static () => HostUtils.RunningInDarkMode);
 
     private static Preference<Option<Color>> Keyed(ThemeKey.Entry key) =>
-        IO.lift(() => Accessors.Combine(owner: null, Accessors.SettingId(key.Zone.Live()), key.Id)) switch {
+        IO.lift(() => Combine(owner: null, SettingId(key.Zone.Live()), key.Id)) switch {
             var setting => Preferences.Of(
                 from name in setting
                 from found in Keys.Existing
@@ -189,8 +201,8 @@ public sealed record RhinoTheme(string Name) {
             from entry in toSeq(zone.Live().Enumerate())
             where entry.Value is Eto.Drawing.Color
             select (Key: (ThemeKey)new ThemeKey.Entry(zone, entry.Id) { Dark = Some(dark) }, Color: Color.FromArgb(((Eto.Drawing.Color)entry.Value).ToArgb()))).Strict())
-        from paints in Accessors.Scoped(static () => toSeq(Enum.GetValues<PaintColor>())
-            .Map(static member => (Member: member, Hooked: Accessors.GetPaintColorHook(owner: null, member) is not null, Color: AppearanceSettings.GetPaintColor(member))).Strict())
+        from paints in Products.Scoped(static () => toSeq(Enum.GetValues<PaintColor>())
+            .Map(static member => (Member: member, Hooked: GetPaintColorHook(owner: null, member) is not null, Color: AppearanceSettings.GetPaintColor(member))).Strict())
         from widgets in IO.lift(() => toSeq(Enum.GetValues<WidgetColor>())
             .Map(member => (Key: (ThemeKey)new ThemeKey.Widget(member) { Dark = Some(dark) }, Color: AppearanceSettings.GetWidgetColor(member))).Strict())
         from appearance in IO.lift(() => AppearanceColors

@@ -1,3 +1,0 @@
-#0 `LoggerMessage.Define` defines a log message by hand, declare a `partial void` method under `[LoggerMessage]`
-#1 `LoggerMessage.Define` defines a log message by hand, declare a `partial void` method under `[LoggerMessage]`
-#2 `LoggerMessage.Define` defines a log message by hand, declare a `partial void` method under `[LoggerMessage]`

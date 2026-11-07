@@ -13,7 +13,7 @@ namespace Darkroom.Catalog;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class PaletteDither {
+internal sealed partial class PaletteDither {
     public static readonly PaletteDither Bayer2 = new("bayer-2", KnownDitherings.Bayer2x2);
     public static readonly PaletteDither Ordered3 = new("ordered-3", KnownDitherings.Ordered3x3);
     public static readonly PaletteDither Bayer4 = new("bayer-4", KnownDitherings.Bayer4x4);
@@ -39,7 +39,7 @@ public sealed partial class PaletteDither {
 }
 
 [SmartEnum<string>]
-public sealed partial class KuwaharaKind {
+internal sealed partial class KuwaharaKind {
     public static readonly KuwaharaKind Classic = new("classic", static pixels => Math.Floor(pixels), static (_, _, radius, frame, _) => Kuwahara.Quadrants(frame, radius));
     public static readonly KuwaharaKind Anisotropic = new("anisotropic", static pixels => pixels, static (state, extent, radius, frame, progress) =>
         Kuwahara.Sectors(frame, radius, state.Uniformity.Pixels(extent) / 3d, state.Sharpness, state.Eccentricity, progress));
@@ -51,7 +51,7 @@ public sealed partial class KuwaharaKind {
     public partial Fin<Unit> Run(Painterly state, PixelExtent extent, double radius, PixelFrame frame, Option<IProgress<int>> progress);
 }
 
-public sealed record Posterize(int Levels, float RetainHue, float DitherStrength) : IPixelStage<Posterize> {
+internal sealed record Posterize(int Levels, float RetainHue, float DitherStrength) : IPixelStage<Posterize> {
     public static Posterize Default { get; } = new(8 + 1, 0f, 0f);
 
     public Option<ShortSideLength> DitherCell { get; init; }
@@ -62,14 +62,14 @@ public sealed record Posterize(int Levels, float RetainHue, float DitherStrength
             .Map(static pass => Some(pass));
 }
 
-public sealed record PaletteReduction(int Colors, PaletteDither Dithering, float DitherStrength) : IPixelStage<PaletteReduction> {
+internal sealed record PaletteReduction(int Colors, PaletteDither Dithering, float DitherStrength) : IPixelStage<PaletteReduction> {
     public static PaletteReduction Default { get; } = new(QuantizerConstants.MaxColors, PaletteDither.FloydSteinberg, 1f);
 
     public static Fin<Option<PixelPass>> Pass(PaletteReduction state, PassContext context) =>
         Some(state.Dithering.Pass(static options => new WuQuantizer(options), state.Colors, state.DitherStrength));
 }
 
-public sealed record PaletteMapping(Seq<Unicolour> Palette, PaletteDither Dithering, float DitherStrength) : IPixelStage<PaletteMapping> {
+internal sealed record PaletteMapping(Seq<Unicolour> Palette, PaletteDither Dithering, float DitherStrength) : IPixelStage<PaletteMapping> {
     public static PaletteMapping Default { get; } = new(
         [.. Seq((0d, 0d, 0d), (1d, 0d, 0d), (0d, 1d, 0d), (0d, 0d, 1d), (1d, 1d, 0d), (1d, 0d, 1d), (0d, 1d, 1d), (1d, 1d, 1d)).Map(static corner => new Unicolour(ColourSpace.Rgb, corner))],
         PaletteDither.FloydSteinberg, 1f);
@@ -80,7 +80,7 @@ public sealed record PaletteMapping(Seq<Unicolour> Palette, PaletteDither Dither
         };
 }
 
-public sealed record Painterly(KuwaharaKind Kind, ShortSideLength Size, ShortSideLength Uniformity, float Sharpness, float Eccentricity) : IPixelStage<Painterly> {
+internal sealed record Painterly(KuwaharaKind Kind, ShortSideLength Size, ShortSideLength Uniformity, float Sharpness, float Eccentricity) : IPixelStage<Painterly> {
     public static Painterly Default { get; } = new(KuwaharaKind.Anisotropic, ShortSideLength.Create(6f / ReferenceFrame.Height), ShortSideLength.Create(4f / ReferenceFrame.Height), 1f, 1f);
 
     public static Fin<Option<PixelPass>> Pass(Painterly state, PassContext context) =>

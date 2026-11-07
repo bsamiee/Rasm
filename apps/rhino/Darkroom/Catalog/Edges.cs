@@ -12,7 +12,7 @@ namespace Darkroom.Catalog;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
-public sealed partial class EdgeChannel {
+internal sealed partial class EdgeChannel {
     public static readonly EdgeChannel Luma = new("luma", static gamut => EdgeSource.Luma(gamut.Luminance));
     public static readonly EdgeChannel Color = new("color", static _ => EdgeSource.Color);
     public static readonly EdgeChannel Hue = new("hue", static _ => EdgeSource.Hue);
@@ -25,7 +25,7 @@ public sealed partial class EdgeChannel {
 }
 
 [SmartEnum<string>]
-public sealed partial class EdgeRendering {
+internal sealed partial class EdgeRendering {
     public static readonly EdgeRendering Magnitude = new("magnitude", static (_, _, frame, edges, _) => Contours.Magnitudes(frame, edges));
     public static readonly EdgeRendering Lines = new("lines", static (state, context, frame, edges, progress) => state.Stroked(context, frame, edges, state.Line, 0f, progress));
     public static readonly EdgeRendering LinesOnFill = new("lines-on-fill", static (state, context, frame, edges, progress) => state.Stroked(context, frame, edges, state.Fill, 1f, progress));
@@ -35,7 +35,7 @@ public sealed partial class EdgeRendering {
 }
 
 [SmartEnum<string>]
-public sealed partial class LineClass {
+internal sealed partial class LineClass {
     public static readonly LineClass Outer = new("outer", static outline => outline.Outer, static outline => outline.Alignment);
     public static readonly LineClass Inner = new("inner", static outline => outline.Inner, static _ => 0f);
 
@@ -47,7 +47,7 @@ public sealed partial class LineClass {
 }
 
 [SmartEnum<string>]
-public sealed partial class OutlineSource {
+internal sealed partial class OutlineSource {
     public static readonly OutlineSource Silhouette = new("silhouette", GuideChannel.Depth, static outline => outline.Silhouette,
         static (state, context) => context.Camera.Map(camera => Contours.Silhouette(camera.Lens, state.Step)));
     public static readonly OutlineSource Crease = new("crease", GuideChannel.Normal, static outline => outline.Crease,
@@ -64,7 +64,7 @@ public sealed partial class OutlineSource {
     public partial Option<ContourMarks> Marks(GeometryOutline state, PassContext context);
 }
 
-public sealed record EdgeDetect(
+internal sealed record EdgeDetect(
     EdgeOperator Operator, EdgeChannel Source, EdgeRendering Rendering, float Threshold, Unicolour Line,
     Unicolour Fill, BlendingMode Mode) : IPixelStage<EdgeDetect> {
     public static EdgeDetect Default { get; } = new(
@@ -84,13 +84,13 @@ public sealed record EdgeDetect(
         Contours.Lines(frame, edges, Threshold, (float)Width.Pixels(context.Extent), RampLight.Light(Line, context).AsVector3(), RampLight.Light(ground, context).AsVector3(), floor, Mode, progress);
 }
 
-public sealed record ContourStroke(ShortSideLength Width, Unicolour Color) {
+internal sealed record ContourStroke(ShortSideLength Width, Unicolour Color) {
     public static ContourStroke Default { get; } = new(ShortSideLength.Create(3f / ReferenceFrame.Height), new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d));
 
     public Option<Length> World { get; init; }
 }
 
-public sealed record GeometryOutline(float Step, Angle CreaseAngle, ContourStroke Outer, float Alignment, ContourStroke Inner, Seq<RampStop> TaperRamp, BlendingMode Mode)
+internal sealed record GeometryOutline(float Step, Angle CreaseAngle, ContourStroke Outer, float Alignment, ContourStroke Inner, Seq<RampStop> TaperRamp, BlendingMode Mode)
     : IPixelStage<GeometryOutline> {
     public static GeometryOutline Default { get; } = new(
         0.05f, Angle.FromDegrees(180d - 134.4d), ContourStroke.Default, 0f, ContourStroke.Default with { Width = ShortSideLength.Create(1.5f / ReferenceFrame.Height) }, Presets.Grayscale,

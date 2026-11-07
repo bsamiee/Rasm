@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using LanguageExt.ClassInstances;
 using Rasm.Drafting;
 using Rasm.Rhino.Document.Files;
@@ -177,7 +178,7 @@ public static class Linetypes {
 
     public static IO<Seq<LinetypePreview>> Preview(Seq<Linetype> linetypes, Size pixels) =>
         (from curve in use(static () => new LineCurve(Point3d.Origin, new Point3d(Span, 0d, 0d)))
-         let extent = linetypes.Fold(0d, static (held, linetype) => Math.Max(held, LinetypePreviews.MaxExtent(owner: null, linetype)))
+         let extent = linetypes.Fold(0d, static (held, linetype) => Math.Max(held, MaxExtent(owner: null, linetype)))
          from previews in linetypes.TraverseM(linetype => Previewed(curve, linetype, pixels, extent)).As()
          select previews).Bracket();
 
@@ -195,6 +196,9 @@ public static class Linetypes {
         toSeq(DrawingUtilities.CreateLinetypePreviewGeometryEx(curve, linetype, pixels.Width, pixels.Height, scale, kind))
             .Map(static run => toSeq(run).Map(static point => new Vector2(point.X, point.Y)).Strict())
             .Strict();
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "LinetypeMaxShapeExtent")]
+    private static extern double MaxExtent([UnsafeAccessorType("Rhino.UI.DrawingUtilities, RhinoCommon")] object? owner, Linetype linetype);
 
     // --- [FILES]
 

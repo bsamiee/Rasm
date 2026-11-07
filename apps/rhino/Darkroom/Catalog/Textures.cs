@@ -9,7 +9,7 @@ namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record VortexField(int Arms, Angle Twist, ShortSideLength Radius, float Tunnel, float Spin) {
+internal sealed record VortexField(int Arms, Angle Twist, ShortSideLength Radius, float Tunnel, float Spin) {
     public static VortexField Default { get; } = new(1, Angle.FromRadians(2.8d), ShortSideLength.Create(0.5f), 0.6f, 1f / float.Tau);
 
     public Func<Vector2, Vector4> Shape(float time) {
@@ -24,13 +24,13 @@ public sealed record VortexField(int Arms, Angle Twist, ShortSideLength Radius, 
     }
 }
 
-public sealed record FieldEnvelope(ShortSideLength Width, ShortSideLength Height) {
+internal sealed record FieldEnvelope(ShortSideLength Width, ShortSideLength Height) {
     public static FieldEnvelope Default { get; } = new(ShortSideLength.Create(1f), ShortSideLength.Create(1f));
 
     public float Falloff(Vector2 point) => float.Max(1f - float.Hypot(point.X / Width, point.Y / Height), 0f) switch { var edge => 1f - (edge * edge) };
 }
 
-public sealed record NoiseTexture(
+internal sealed record NoiseTexture(
     NoiseSource Noise, FieldPlacement Placement, float Warp, NoiseBasis WarpBasis, Seq<RampStop> Colors, GeneratedLayer Layer, int Seed, Timing Timing) : IPixelStage<NoiseTexture> {
     private static readonly Octaves VoronoiOctaves = new(1f, 0.5f, 2f);
 

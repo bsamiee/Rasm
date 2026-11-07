@@ -30,7 +30,7 @@ public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSecti
         id = row.Identity.GUID;
         hosted = new HostedSection(this, row.Actions, Some(ProviderIds.RdkRenderingPostEffects), () => Excluded, visible: true,
             from document in IO.lift(() => Optional(ViewModel?.GetData(ProviderIds.RdkRendering, bForWrite: false, bAutoChangeBracket: false))
-                .Bind(static rendering => Optional(RhinoDoc.FromRuntimeSerialNumber(Internals.RhinoDocumentId(rendering))))
+                .Bind(static rendering => Optional(RhinoDoc.FromRuntimeSerialNumber(EffectList.RhinoDocumentId(rendering))))
                 .ToFin(new RhinoFault($"document of post effect section {row.Caption}", RhinoReason.Missing)))
             from scope in RowScope.Open(Some(document), new CommitMode.Immediate())
             from body in ViewBody.Realize(row, row.Actions, scope)

@@ -102,27 +102,28 @@ BAD in `custom.targets`:
 GOOD in `custom.props`:
 
 ```xml
-<ToolVersion Condition="'$(ToolVersion)' == ''">2.0</ToolVersion>
+<ToolVersion>2.0</ToolVersion>
 ```
 
-### [02.2]-[AP-05]-[STYLE]-[UNCONDITIONAL_PROPERTY_OVERRIDE_IN_MULTIPLE_SCOPES]
+### [02.2]-[AP-05]-[STYLE]-[EMPTY_CHECK_ON_A_PROPS_DEFAULT]
 
-- SMELL: `Directory.Build.props` and a `.csproj` assign one property without a condition, the last assignment wins silently
+- SMELL: `.props` default wrapped in `Condition="'$(Name)' == ''"` where a project body sets the override
+- WHY: Project bodies evaluate after every `.props` and win unconditioned, an empty check guards against an environment variable alone
 - RULE:
-    - `.props` defaults take `Condition="'$(Name)' == ''"`, the project assigns another value
-    - `OutputPath` and `IntermediateOutputPath` take no default in that form, an assigned value drops the `Configuration` segment
+    - `.props` defaults stay unconditioned, the project assigns another value in its body
+    - `OutputPath` and `IntermediateOutputPath` take no `.props` default, an assigned value drops the `Configuration` segment
     - `BaseOutputPath` or `ArtifactsPath` sets the root
 
 BAD in `Directory.Build.props`:
 
 ```xml
-<GenerateDocumentationFile>true</GenerateDocumentationFile>
+<Nullable Condition="'$(Nullable)' == ''">enable</Nullable>
 ```
 
 GOOD in `Directory.Build.props`:
 
 ```xml
-<GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == ''">true</GenerateDocumentationFile>
+<Nullable>enable</Nullable>
 ```
 
 ### [02.3]-[AP-06]-[ERROR]-[PROPS_CONDITION_ON_A_LATER_VALUE]
@@ -133,7 +134,6 @@ GOOD in `Directory.Build.props`:
     - Multi-targeting inner builds receive `TargetFramework` as a global property and match, the outer build leaves it empty
 - RULE:
     - Condition in `Directory.Build.targets` or after the assignment in the project
-    - Key an early `.props` condition on `$(MSBuildProjectName)` or the project directory
     - Item, `PackageVersion`, and `Target` conditions are OK
 
 BAD in `Directory.Build.props`:

@@ -24,7 +24,7 @@ Single-targeting `Microsoft.NET.Sdk` projects import the listed files in order, 
 |  [16]   | `Sdk/Sdk.targets`                            | Imports `$(BeforeMicrosoftNETSdkTargets)`                                                 |
 |  [17]   | `Microsoft.NET.Sdk.BeforeCommon.targets`     | `TargetFrameworkIdentifier`, `TargetFrameworkVersion`                                     |
 |  [18]   | `Microsoft.NET.DefaultOutputPaths.targets`   | `BaseOutputPath`, `OutputPath`, `IntermediateOutputPath`, `DefaultItemExcludes`           |
-|  [19]   | `Microsoft.CSharp.targets`                   | Imports `Microsoft.Common.targets`                                                        |
+|  [19]   | `Microsoft.CSharp.CurrentVersion.targets`    | Imports Roslyn `Microsoft.CSharp.Core.targets`, then `Microsoft.Common.targets`           |
 |  [20]   | `Microsoft.Common.CurrentVersion.targets`    | `TargetFrameworkMoniker`, `TargetDir`, `TargetPath`, imports `.user`, `NuGet.targets`     |
 |  [21]   | `obj/<project>.nuget.g.targets`              | Each package `build/*.targets`, absent during restore                                     |
 |  [22]   | `$(CustomBeforeDirectoryBuildTargets)`       | Repository or caller import, non-empty value                                              |
@@ -45,7 +45,8 @@ Single-targeting `Microsoft.NET.Sdk` projects import the listed files in order, 
 |  [05]   | `TargetFramework`                               | Project body                                 | `Directory.Build.targets`, every item |
 |  [06]   | `TargetFrameworkIdentifier`, `OutputPath`       | `Sdk.targets` imports                        | `Directory.Build.targets`             |
 |  [07]   | `TargetPath`, `TargetFrameworkMoniker`          | `Microsoft.Common.CurrentVersion.targets`    | `Directory.Build.targets`             |
-|  [08]   | `IsPackable`, `EnableDefaultItems`              | `Microsoft.NET.Sdk.targets` imports          | Targets, or project value             |
+|  [08]   | `EnableDefaultItems`                            | `Microsoft.NET.Sdk.targets` imports          | Targets, or project value             |
 |  [09]   | `IsTestProject`, `IsTestingPlatformApplication` | Test package `.props` or `.targets`, project | `Directory.Build.targets`             |
+|  [10]   | `IsPackable`                                    | `NuGet.Build.Tasks.Pack.targets`, when empty | Targets, or project value             |
 
 Outer builds of a multi-targeting project import `Directory.Build.targets` from `Microsoft.Common.CrossTargeting.targets`, with no `CustomBeforeDirectoryBuildTargets` or `CustomAfterDirectoryBuildTargets` import.

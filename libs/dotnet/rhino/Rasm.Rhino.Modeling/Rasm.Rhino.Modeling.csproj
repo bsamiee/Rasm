@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Geometric modeling over RhinoCommon: construction, booleans, fillets, sweeps, intersections, and repair</Description>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino">
+        <PackageReference Include="RhinoCommon" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mathematics">
+        <PackageReference Include="HyperJet" PrivateAssets="contentfiles;analyzers;build;buildtransitive" />
+        <PackageReference Include="MathNet.Numerics" />
+    </ItemGroup>
+
+    <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="QuikGraph" />
+        <PackageReference Include="SuperLinq" />
+    </ItemGroup>
+
+    <ItemGroup Label="Geospatial">
+        <PackageReference Include="NetTopologySuite" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../../geometry/Rasm.Geometry/Rasm.Geometry.csproj" />
+        <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
+    </ItemGroup>
+</Project>

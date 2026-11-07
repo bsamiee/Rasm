@@ -18,7 +18,14 @@
                     "typecheck:swift": { "command": "swift build --no-color-diagnostics --disable-automatic-resolution --build-tests" },
                     "typecheck:clippy": { "command": "cargo clippy --locked --workspace --lib --bins", "inputs": [ "rustWorkspace", "{workspaceRoot}/clippy.toml" ], "parallelism": false },
                     "typecheck:javac": { "command": "rm -rf .cache/javac && fd --hidden --extension java --exec-batch javac -Xlint:all,-path -Werror -d .cache/javac -cp \"$GHIDRA_CLASSPATH\"", "inputs": [ "ghidra" ], "outputs": [ "{workspaceRoot}/.cache/javac" ] },
-                    "lint:dotnet-format": { "command": "hk check --glob='**/*' --step=dotnet-format", "inputs": [ "hk", "{workspaceRoot}/global.json", "{workspaceRoot}/**/.editorconfig", "{workspaceRoot}/**/*.cs" ] },
+                    "lint:msbuild": {
+                        "command": "doppler run --no-fallback --attempts 1 -- dotnet build --no-restore -check",
+                        "configurations": { "ci": { "command": "dotnet build --no-restore -check" } },
+                        "options": { "env": { "MSBUILD_LOGGING_ARGS": "-bl:.artifacts/dotnet/binlog/rasm/lint-msbuild.binlog" } },
+                        "dependsOn": [ "restore" ],
+                        "inputs": [ "dotnet", "{workspaceRoot}/**/*.{csproj,proj}" ],
+                        "parallelism": false
+                    },
                     "lint:ruff": { "command": "hk check --glob='**/*' --step=ruff --step=ruff-format", "inputs": [ "hk", "{workspaceRoot}/**/*.{py,pyi,pyw,ipynb}", "{workspaceRoot}/**/{pyproject.toml,ruff.toml,.ruff.toml}", { "runtime": "ruff --version" } ] },
                     "lint:biome": {
                         "command": "hk check --glob='**/*' --step=biome",
@@ -87,16 +94,23 @@
         "projectsRelationship": "independent",
         "releaseTag": { "pattern": "{releaseGroupName}-{projectName}-v{version}" },
         "version": { "conventionalCommits": true, "versionActions": "@rasm/nx/release", "fallbackCurrentVersionResolver": "disk" },
-        "conventionalCommits": { "types": { "refactor": { "semverBump": "patch" }, "perf": { "semverBump": "patch" } } },
+        "conventionalCommits": { "useCommitScope": false, "types": { "refactor": { "semverBump": "patch" }, "perf": { "semverBump": "patch" } } },
         "changelog": { "automaticFromRef": true, "projectChangelogs": { "file": false, "createRelease": "github", "entryWhenNoChanges": "{projectName} release with no new commits", "renderOptions": { "authors": false } }, "git": { "commit": false } },
-        "groups": { "macos": { "projects": [ "tag:output:appcast" ] }, "rhino": { "projects": [ "tag:output:rhp" ] }, "blender": { "projects": [ "tag:output:extension" ] }, "web": { "projects": [ "tag:output:cloudflare" ] } }
+        "groups": {
+            "macos": { "projects": [ "tag:output:appcast" ] },
+            "rhino": { "projects": [ "tag:output:rhp" ] },
+            "nuget": { "projects": [ "tag:output:nupkg" ], "releaseTag": { "strictPreid": false }, "version": { "versionActionsOptions": { "preid": "alpha" } } },
+            "blender": { "projects": [ "tag:output:extension" ] },
+            "web": { "projects": [ "tag:output:cloudflare" ] }
+        }
     },
     "namedInputs": {
         "production": [ "{projectRoot}/**/*", "!{projectRoot}/.storybook/**/*" ],
         "dotnet": [
-            "{workspaceRoot}/{global.json,NuGet.config,.editorconfig,.config/analyzers.globalconfig,Directory.Build.props,Directory.Build.rsp,Directory.Build.targets,Directory.Packages.props,Directory.Solution.props}",
+            "{workspaceRoot}/{global.json,NuGet.config,Workspace.slnx,Directory.Build.rsp,Directory.Packages.props,.config/analyzers.globalconfig}",
+            "{workspaceRoot}/**/{Directory.Build.props,Directory.Build.targets,.editorconfig}",
             "{workspaceRoot}/eng/dotnet/rhino/*.{proj,css}",
-            "{workspaceRoot}/tools/roslyn/**/*",
+            "{workspaceRoot}/tools/roslyn/*.txt",
             { "externalDependencies": [] }
         ],
         "blender": [ { "runtime": "ls -lL \"$BLENDER_PATH\"" }, { "env": "MACOSX_DEPLOYMENT_TARGET" } ],
@@ -155,6 +169,7 @@
         ],
         "pack": [
             { "filter": { "projects": [ "tag:output:rhp" ] }, "command": "dotnet publish --no-build --configuration Release", "options": { "cwd": "{projectRoot}" }, "dependsOn": [ "build:release" ] },
+            { "filter": { "projects": [ "tag:output:nupkg" ] }, "command": "dotnet pack --no-build --configuration Release", "options": { "cwd": "{projectRoot}" }, "dependsOn": [ "build:release" ] },
             {
                 "filter": { "projects": [ "tag:output:extension" ] },
                 "command": "version=$(minver -v e) && rasm-eng pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\"",
@@ -229,6 +244,11 @@
                 "dependsOn": [ "pack", "pack:windows" ]
             },
             {
+                "filter": { "projects": [ "tag:output:nupkg" ] },
+                "command": "doppler run --no-fallback --attempts 1 --command 'tag=$(git describe --tags --exact-match --match \"$MinVerTagPrefix*\") && package=\".artifacts/dotnet/package/release/{projectName}.${tag#\"$MinVerTagPrefix\"}.nupkg\" && gh release upload \"$tag\" \"$package\" --clobber && dotnet nuget push \"$package\" --source \"https://nuget.pkg.github.com/$(gh repo view --json owner --jq .owner.login)/index.json\" --api-key \"$GH_PROJECTS_TOKEN\" --skip-duplicate'",
+                "dependsOn": [ "pack" ]
+            },
+            {
                 "filter": { "projects": [ "tag:output:appcast" ] },
                 "command": "doppler run --no-fallback --attempts 1 --command 'tag=$(git describe --tags --exact-match --match \"$MinVerTagPrefix*\") && feed=.artifacts/xcode/{projectRoot}/appcast && archive=\"$feed/{projectName}-$(git rev-list --count --first-parent HEAD)\" && mkdir -p \"$feed\" && gh release upload \"$tag\" .artifacts/xcode/{projectRoot}/{projectName}.zip .artifacts/xcode/{projectRoot}/{projectName}.dSYMs.zip $(fd --no-ignore --extension ccx --extension zxp . .artifacts/$(dirname {projectRoot})) --clobber && assets=$(gh release view {projectName}-updates --json assets --jq \".assets[].name\") && printf %s \"$assets\" | xargs -I % gh release download {projectName}-updates --dir \"$feed\" --pattern % && cp .artifacts/xcode/{projectRoot}/{projectName}.zip \"$archive.zip\" && gh release view \"$tag\" --json body --jq .body > \"$archive.md\" && printf %s \"$SPARKLE_ED_PRIVATE_KEY\" | \"$XCODE_DERIVED_DATA_PATH/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast\" --ed-key-file - \"$feed\" && fd --no-ignore --max-depth 1 --type f . \"$feed\" --exec-batch gh release upload {projectName}-updates --clobber && fd --no-ignore --type f --full-path /old_updates/ \"$feed\" --exec gh release delete-asset {projectName}-updates {/} --yes'",
                 "dependsOn": [ "...", "pack" ]
@@ -251,6 +271,7 @@
         ],
         "typecheck:claude": { "command": "tsc --pretty false -p {projectRoot}/tsconfig.claude.json", "inputs": [ "tsc", "{projectRoot}/**/*.ts", "{projectRoot}/tsconfig*.json", { "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts", "includeIgnored": true } ], "cache": true },
         "lint:*": { "cache": true },
+        "lint:dotnet-format{,:*.cs}": { "command": "dotnet format style --verify-no-changes --no-restore", "dependsOn": [ "build" ], "inputs": [ "default", "dotnet", { "dependentTasksOutputFiles": "**/ref/*.dll", "transitive": true } ], "cache": true },
         "lint:claude": { "command": "claude plugin validate {projectRoot}", "inputs": [ "{projectRoot}/**/*", { "externalDependencies": [] }, { "runtime": "claude --version" } ], "cache": true },
         "lint:periphery": [
             {
@@ -265,12 +286,8 @@
         "format:{dotnet-format,*.cs}": { "command": "dotnet format --binarylog .artifacts/dotnet/binlog/{projectName}/format.binlog", "dependsOn": [ "...", { "projects": [ "Rasm.Analyzers.CodeFixes" ], "target": "build" } ], "parallelism": false },
         "test": [
             { "cache": true },
-            {
-                "filter": { "projects": [ "tag:language:dotnet" ] },
-                "options": { "command": "dotnet test --report-trx" },
-                "inputs": [ "production", "^production", "dotnet", { "env": "DOTNET_ROLL_FORWARD" }, { "env": "DOTNET_ROLL_FORWARD_TO_PRERELEASE" }, { "runtime": "dotnet --list-runtimes" } ],
-                "outputs": [ "{workspaceRoot}/.artifacts/dotnet/test/{projectName}" ]
-            },
+            { "filter": { "plugin": "@nx/dotnet" }, "inputs": [ "...", { "env": "DOTNET_ROLL_FORWARD" }, { "env": "DOTNET_ROLL_FORWARD_TO_PRERELEASE" }, { "runtime": "dotnet --list-runtimes" } ], "outputs": [ "{workspaceRoot}/.artifacts/dotnet/test/{projectName}" ] },
+            { "filter": { "projects": [ "tag:host:rhino" ] }, "cache": false, "parallelism": false },
             {
                 "filter": { "projects": [ "tag:language:python" ] },
                 "command": "uv run --project {projectRoot} --no-sync pytest {projectRoot} --report-log=.artifacts/python/test/{projectName}/events.jsonl",
@@ -291,8 +308,7 @@
         "test:integration": [ { "filter": { "projects": [ "@rasm/test-database" ] }, "inputs": [ "...", "{workspaceRoot}/.config/squawk.toml", { "runtime": "squawk --version" } ] } ],
         "check": [
             { "dependsOn": [ "...", "typecheck:*", "lint:*" ] },
-            { "filter": { "projects": [ "tag:language:dotnet" ] }, "dependsOn": [ "...", { "target": "build", "params": "forward" } ], "inputs": [ "default", "^default", "dotnet", "{workspaceRoot}/Workspace.slnx" ] },
-            { "filter": { "projects": [ "tag:platform:windows" ] }, "dependsOn": [ "...", "build:windows" ] },
+            { "filter": { "projects": [ "tag:language:dotnet" ] }, "dependsOn": [ "...", { "target": "build", "params": "forward" } ], "inputs": [ "default", "^default", "dotnet" ] },
             { "filter": { "projects": [ "tag:language:swift" ] }, "inputs": [ "...", "default", "^default", "swift" ] },
             { "filter": { "projects": [ "tag:build:xcode" ] }, "inputs": [ "...", "{workspaceRoot}/Xcode.xcconfig", "periphery" ] },
             { "filter": { "projects": [ "tag:bundler:vite" ] }, "dependsOn": [ "...", "build" ] }

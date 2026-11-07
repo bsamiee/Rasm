@@ -10,7 +10,7 @@ namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record FrameTiming(UInt128 Entry, SequenceNumber Frame, long Started, long Began, long Saved, long Written, long PeakWorkingSet) {
+internal sealed record FrameTiming(UInt128 Entry, SequenceNumber Frame, long Started, long Began, long Saved, long Written, long PeakWorkingSet) {
     public Duration Time(TimeProvider clock) => clock.GetElapsedTime(Started, Written).ToDuration();
 
     public string Stages(TimeProvider clock) =>
@@ -18,7 +18,7 @@ public sealed record FrameTiming(UInt128 Entry, SequenceNumber Frame, long Start
 }
 
 [SmartEnum<string>]
-public sealed partial class FrameStage {
+internal sealed partial class FrameStage {
     public static readonly FrameStage Setup = new("setup", static (timing, clock) => clock.GetElapsedTime(timing.Started, timing.Began).ToDuration());
     public static readonly FrameStage Render = new("render", static (timing, clock) => clock.GetElapsedTime(timing.Began, timing.Saved).ToDuration());
     public static readonly FrameStage Save = new("save", static (timing, clock) => clock.GetElapsedTime(timing.Saved, timing.Written).ToDuration());
@@ -27,7 +27,7 @@ public sealed partial class FrameStage {
     public partial Duration Of(FrameTiming timing, TimeProvider clock);
 }
 
-public sealed record QueueEstimate(long Completed, long Total, Option<(Duration Remaining, Instant Finish)> Prediction) {
+internal sealed record QueueEstimate(long Completed, long Total, Option<(Duration Remaining, Instant Finish)> Prediction) {
 
     // --- [ETA]
 

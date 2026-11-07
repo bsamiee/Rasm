@@ -15,7 +15,7 @@ namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record PointCells(ShortSideLength Spacing, float Density, float Size, float Variation, float Spread, float Softness) {
+internal sealed record PointCells(ShortSideLength Spacing, float Density, float Size, float Variation, float Spread, float Softness) {
     private const float Randomness = 0.5f;
     private const float Largest = (1f - Randomness) / 2f;
 
@@ -48,7 +48,7 @@ public sealed record PointCells(ShortSideLength Spacing, float Density, float Si
     }
 }
 
-public sealed record ParticleField(
+internal sealed record ParticleField(
     PointCells Cells, int Layers, Angle Heading, float Speed, NoiseBasis Basis, ShortSideLength Eddy, float Evolution, float Depth, float DepthVariation, float Focus, Iris Aperture,
     float Fringe, Duration Shutter, float Fade, bool Covering, Seq<RampStop> Coating, Seq<RampStop> Colors, Blackbody Emission, float Incandescence,
     float Twinkle, float TwinkleRate, GeneratedLayer Layer, int Seed, Timing Timing) : IPixelStage<ParticleField> {

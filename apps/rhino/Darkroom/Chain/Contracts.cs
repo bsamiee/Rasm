@@ -13,7 +13,7 @@ namespace Darkroom.Chain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public interface IPixelStage<TSelf> where TSelf : IPixelStage<TSelf> {
+internal interface IPixelStage<TSelf> where TSelf : IPixelStage<TSelf> {
     public static abstract TSelf Default { get; }
 
     public static abstract Fin<Option<PixelPass>> Pass(TSelf state, PassContext context);
@@ -59,7 +59,7 @@ public sealed record PassContext(
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [SmartEnum]
-public sealed partial class DarkroomReason {
+internal sealed partial class DarkroomReason {
     public static readonly DarkroomReason Stated = new("rejected input");
     public static readonly DarkroomReason Unlisted = new("not a listed effect kind");
     public static readonly DarkroomReason Unchained = new("absent from the chain");
@@ -91,7 +91,7 @@ public sealed partial class DarkroomReason {
     public string Message { get; }
 }
 
-public sealed record DarkroomFault(object? Subject, DarkroomReason Reason, Option<int> Index = default, Option<Error> Inner = default, string Expression = "")
+internal sealed record DarkroomFault(object? Subject, DarkroomReason Reason, Option<int> Index = default, Option<Error> Inner = default, string Expression = "")
     : Expected(Reason.Message, 0, Inner),
     IValidationError<DarkroomFault> {
     public object? Subject { get; } = Subject;

@@ -14,7 +14,7 @@ namespace Darkroom.Chain;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record ChainScene {
+internal sealed record ChainScene {
 
     // --- [STATE]
 

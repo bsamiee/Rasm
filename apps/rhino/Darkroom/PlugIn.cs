@@ -17,9 +17,9 @@ namespace Darkroom;
 public sealed class DarkroomPlugIn : DefinedPlugIn<DarkroomPlugIn>, IDefined<PlugInDefinition> {
     private const uint ChainSnapshot = 0x5244_5353u;
 
-    public static TimeProvider Clock { get; } = TimeProvider.System;
+    internal static TimeProvider Clock { get; } = TimeProvider.System;
 
-    public static IO<GaussLegendreRule> Integration { get; } =
+    internal static IO<GaussLegendreRule> Integration { get; } =
         IO.lift(static () => new SettingsNode(new SettingsRoot.PlugInNode(Session.PlugIn.Id)))
             .Bind(static node => Preferences.Setting(node, "Samples", 32, Some<Func<int, bool>>(static count => count > 0)).Read)
             .Map(static count => DarkroomEffect.Derived.Derived(count, static samples => new GaussLegendreRule(0d, 1d, samples)));

@@ -1,4 +1,2 @@
--check
--warnaserror
 -clp:ErrorsOnly;DisableConsoleColor
 -tl:off

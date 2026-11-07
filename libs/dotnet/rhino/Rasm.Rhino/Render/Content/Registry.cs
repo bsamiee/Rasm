@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Rasm.Rhino.Document.Files;
 using Rhino;
 using Rhino.Render;
@@ -25,7 +26,7 @@ public sealed class DefinedContentSerializer(SerializerRow row)
     public static IO<Unit> Register(SerializerRow row) =>
         from serializer in IO.lift(() => new DefinedContentSerializer(row))
         from registered in Products.Accepted(() => serializer.RegisterSerializer(Session.PlugIn.Id))
-            .Catch(error => IO.lift(() => Internals.Destroy(serializer)) >> IO.fail<Unit>(error))
+            .Catch(error => IO.lift(() => Destroy(serializer)) >> IO.fail<Unit>(error))
         select registered;
 
     // --- [DESCRIPTIONS]
@@ -39,7 +40,7 @@ public sealed class DefinedContentSerializer(SerializerRow row)
     public override RenderContent? Read(string pathToFile) =>
         Session.Run(
             row.Read.Map(read => OnFile(pathToFile, RhinoReason.Unreadable, Products.Transfer(() => read(pathToFile), static created =>
-                IO.lift(() => RhinoFault.Unless(Internals.RuntimeSerialNumber(created) > 0, RhinoReason.Invalid, created.Id).Map(_ => (RenderContent?)Adopted(created))))))
+                IO.lift(() => RhinoFault.Unless(Contents.RuntimeSerialNumber(created) > 0, RhinoReason.Invalid, created.Id).Map(_ => (RenderContent?)Adopted(created))))))
                 .IfNone(IO.pure<RenderContent?>(value: null)),
             failed: null);
 
@@ -62,8 +63,11 @@ public sealed class DefinedContentSerializer(SerializerRow row)
 
     // --- [STEPS]
 
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern void Destroy(RenderContentSerializer serializer);
+
     private static RenderContent Adopted(RenderContent content) {
-        Internals.AutoDelete(content, autoDelete: false);
+        Contents.AutoDelete(content, autoDelete: false);
         return content;
     }
 

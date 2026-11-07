@@ -92,6 +92,7 @@ class _Language[Node](msgspec.Struct, frozen=True):
     marker: str = ""
     mask: Callable[[str], str] = str
     formatter_gaps: tuple[Callable[[_Doc[Node], int, int], bool], ...] = ()
+    statement: str = ""
 
     def lint(self, section_order: frozendict[str, int], path: Path) -> tuple[tuple[str, ...], tuple[tuple[int, int, str], ...], int]:
         with path.open(encoding="utf-8") as file:
@@ -512,7 +513,20 @@ _CONFIG: _Language[_Line] = _Language(
         ],
         "Section `{}` is out of `CLAUDE.md` order": lambda doc: [
             (n, label)
-            for ranks in ([(n, divider.label, doc.section_order[divider.label]) for n, divider in _dividers(doc) if divider.full and divider.label in doc.section_order],)
+            for sections in ([(n, divider) for n, divider in _dividers(doc) if divider.full],)
+            for ranks in (
+                [
+                    (
+                        n,
+                        divider.label,
+                        -1
+                        if index == 0 and doc.language.statement and regex.match(doc.language.statement, next((line for line in doc.lines[n + 1 :] if line.strip()), ""))
+                        else doc.section_order[divider.label],
+                    )
+                    for index, (n, divider) in enumerate(sections)
+                    if divider.label in doc.section_order
+                ],
+            )
             for (n, label, rank), highest in zip(ranks, accumulate((rank for *_, rank in ranks), max, initial=-1))
             if rank < highest
         ],
@@ -540,7 +554,12 @@ _LANGUAGES: frozendict[str, _Language[SyntaxTreeNode] | _Language[_Line]] = froz
     ".toml": replace(_CONFIG, lexer="toml", formatter_gaps=(partial(_neighbor_matches, r"^\[.*\]$|\[$", divider_below=True),)),
     ".yml": replace(_CONFIG, lexer="yaml", formatter_gaps=(_keep_chomping,)),
     ".yaml": replace(_CONFIG, lexer="yaml", formatter_gaps=(_keep_chomping,)),
-    ".cs": replace(_C_STYLE, lexer="csharp", mask=_masked_raw_strings),
+    ".cs": replace(
+        _C_STYLE,
+        lexer="csharp",
+        mask=_masked_raw_strings,
+        statement=r"(?!\[|(?:global\s+)?using\b|namespace\b|extern\b|(?:(?:public|internal|private|protected|file|static|sealed|abstract|partial|readonly|unsafe|ref|new)\s+)*(?:class|record|struct|interface|enum|delegate)\b)\S",
+    ),
     ".ts": replace(_ECMASCRIPT, lexer="typescript"),
     ".tsx": replace(_ECMASCRIPT, lexer="tsx"),
     ".mts": replace(_ECMASCRIPT, lexer="typescript"),

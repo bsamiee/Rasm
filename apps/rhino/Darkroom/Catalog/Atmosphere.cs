@@ -12,7 +12,7 @@ namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record Fog(NoiseSource Noise, float Variation, Length Start, float Amount, Seq<RampStop> Colors, GeneratedLayer Layer, int Seed, Timing Timing) : IPixelStage<Fog> {
+internal sealed record Fog(NoiseSource Noise, float Variation, Length Start, float Amount, Seq<RampStop> Colors, GeneratedLayer Layer, int Seed, Timing Timing) : IPixelStage<Fog> {
     public Option<Length> Attenuation { get; init; }
     public Option<Length> Cutoff { get; init; }
     public Option<ShortSideLength> Diffusion { get; init; }
@@ -69,7 +69,7 @@ public sealed record Fog(NoiseSource Noise, float Variation, Length Start, float
         };
 }
 
-public sealed record Starfield(
+internal sealed record Starfield(
     FieldPlacement Placement, NoiseBasis Stars, ShortSideLength StarScale, ShortSideLength StarRadius, Seq<RampStop> StarColors, float StarExposure, float Twinkle, float TwinkleRate,
     NoiseSource Nebula, float NebulaDensity, Seq<RampStop> NebulaColors, float NebulaExposure, GeneratedLayer Layer, int Seed, Timing Timing) : IPixelStage<Starfield> {
     public static Starfield Default { get; } = new(

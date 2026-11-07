@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Rasm.Rhino.Render.Content;
 using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
@@ -107,5 +108,5 @@ public static class Meshing {
     // --- [PARAMETERS]
 
     public static IO<Option<T>> GetCustomRenderMeshParameter<T>(RhinoObject rhinoObject, Guid providerId, string parameterName) where T : notnull =>
-        Internals.Unwrapped<T>(() => rhinoObject.GetCustomRenderMeshParameter(providerId, parameterName), parameterName);
+        ContentFields.Unwrapped<T>(() => rhinoObject.GetCustomRenderMeshParameter(providerId, parameterName), parameterName);
 }

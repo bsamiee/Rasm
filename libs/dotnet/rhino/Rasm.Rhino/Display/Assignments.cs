@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
@@ -8,6 +10,7 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
+using Rhino.Runtime;
 
 namespace Rasm.Rhino.Display;
 
@@ -15,9 +18,56 @@ namespace Rasm.Rhino.Display;
 
 public sealed record DisplayModeRule(Func<RhinoObject, bool> Applies, Option<ViewportTarget> Viewport, Guid Mode);
 
+[StructLayout(LayoutKind.Sequential)]
+internal readonly record struct DisplayMaterialRef(Guid ViewportId, Guid DisplayMaterialId);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class DisplayModeRules {
+
+    // --- [NATIVES]
+
+    private static readonly nint OpenNurbs = OperatingSystem.IsWindows() ? NativeLibrary.Load("opennurbs") : NativeLibrary.GetMainProgramHandle();
+
+    private static readonly delegate* unmanaged<nint, DisplayMaterialRef*, DisplayMaterialRef*, byte> FindExport =
+        (delegate* unmanaged<nint, DisplayMaterialRef*, DisplayMaterialRef*, byte>)Export(
+            "?FindDisplayMaterialRef@ON_3dmObjectAttributes@@QEBA_NAEBVON_DisplayMaterialRef@@PEAV2@@Z",
+            "_ZNK22ON_3dmObjectAttributes22FindDisplayMaterialRefERK21ON_DisplayMaterialRefPS0_");
+
+    private static readonly delegate* unmanaged<nint, DisplayMaterialRef, byte> AddExport =
+        (delegate* unmanaged<nint, DisplayMaterialRef, byte>)Export(
+            "?AddDisplayMaterialRef@ON_3dmObjectAttributes@@QEAA_NVON_DisplayMaterialRef@@@Z",
+            "_ZN22ON_3dmObjectAttributes21AddDisplayMaterialRefE21ON_DisplayMaterialRef");
+
+    private static readonly delegate* unmanaged<nint, Guid, Guid, byte> RemoveExport =
+        (delegate* unmanaged<nint, Guid, Guid, byte>)Export(
+            "?RemoveDisplayMaterialRef@ON_3dmObjectAttributes@@QEAA_NUON_UUID_struct@@0@Z",
+            "_ZN22ON_3dmObjectAttributes24RemoveDisplayMaterialRefE14ON_UUID_structS0_");
+
+    private static nint Export(string microsoft, string itanium) => NativeLibrary.GetExport(OpenNurbs, OperatingSystem.IsWindows() ? microsoft : itanium);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern nint ConstPointer(CommonObject target);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern nint NonConstPointer(ObjectAttributes target);
+
+    // --- [SLOTS]
+
+    internal static unsafe Option<Guid> DisplayMaterialRef(ObjectAttributes attributes, Guid viewport) {
+        DisplayMaterialRef search = default(DisplayMaterialRef) with { ViewportId = viewport };
+        DisplayMaterialRef found = search;
+        bool held = FindExport(ConstPointer(attributes), &search, &found) is not 0;
+        GC.KeepAlive(attributes);
+        return Conversions.Present(held && found.ViewportId == viewport, found.DisplayMaterialId);
+    }
+
+    private static unsafe void AllViewportsRemoved(ObjectAttributes staged, Guid key) {
+        DisplayMaterialRef marked = default(DisplayMaterialRef) with { DisplayMaterialId = key };
+        _ = AddExport(NonConstPointer(staged), marked);
+        _ = RemoveExport(NonConstPointer(staged), marked.ViewportId, marked.DisplayMaterialId);
+        GC.KeepAlive(staged);
+    }
 
     // --- [MARKS]
 
@@ -45,7 +95,7 @@ public static class DisplayModeRules {
         from ruled in IO.lift(() => Ruled(
             slots.Fold(HashMap<Guid, Guid>(), (held, row) => held.ContainsKey(row.Slot) || !row.Rule.Applies(found) ? held : held.Add(row.Slot, row.Rule.Mode)),
             marked,
-            slot => DisplayMaterialRefs.DisplayMaterialRef(found.Attributes, slot)))
+            slot => DisplayMaterialRef(found.Attributes, slot)))
         select Conversions.Present(!ruled.Writes.IsEmpty || ruled.Mark != marked, (found.Id, ruled.Writes, ruled.Mark));
 
     private static (Seq<(Guid Slot, Option<Guid> Mode)> Writes, HashMap<Guid, Guid> Mark) Ruled(HashMap<Guid, Guid> desired, HashMap<Guid, Guid> marked, Func<Guid, Option<Guid>> held) =>
@@ -113,7 +163,7 @@ public static class DisplayModeRules {
                 from written in IO.lift(() => { _ = staged.SetDisplayModeOverride(description, slot); })
                 select written),
             None: () => slot == Guid.Empty
-                ? IO.lift(() => DisplayMaterialRefs.AllViewportsRemoved(staged, Guid.NewGuid()))
+                ? IO.lift(() => AllViewportsRemoved(staged, Guid.NewGuid()))
                 : IO.lift(() => staged.RemoveDisplayModeOverride(slot)));
 
     internal static IO<Guid> Slot(RhinoDoc doc, Option<ViewportTarget> viewport) =>

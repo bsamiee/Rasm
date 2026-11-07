@@ -83,19 +83,22 @@ Framework negotiation fails between `.NETFramework` and `.NETCoreApp`, `SkipGetT
 
 ## [04]-[LAYER_VALIDATION_TARGET]
 
-Layer membership derives from the project directory in `Directory.Build.props`:
+Each layer folder's `Directory.Build.props` sets `LayerRoot` before importing the outer file:
 
 ```xml
-<PropertyGroup>
-    <LayerRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '<layer>'))</LayerRoot>
-    <InLayer Condition="$(MSBuildProjectDirectory.StartsWith('$(LayerRoot)'))">true</InLayer>
-</PropertyGroup>
+<Project>
+    <PropertyGroup>
+        <LayerRoot>$(MSBuildThisFileDirectory)</LayerRoot>
+    </PropertyGroup>
+
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+</Project>
 ```
 
 `Directory.Build.targets` holds:
 
 ```xml
-<Target Name="ValidateReferenceLayer" BeforeTargets="PrepareForBuild" Condition="'$(InLayer)' == 'true'">
+<Target Name="ValidateReferenceLayer" BeforeTargets="PrepareForBuild" Condition="'$(LayerRoot)' != ''">
     <ItemGroup>
         <_UpwardReference Include="@(ProjectReference->'%(FullPath)')" Condition="!$([System.String]::Copy('%(FullPath)').StartsWith('$(LayerRoot)'))" />
     </ItemGroup>

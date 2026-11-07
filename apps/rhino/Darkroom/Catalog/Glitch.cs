@@ -13,14 +13,14 @@ namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record PixelSort(SortMetric Key, float Low, float High, SortDirection Direction) : IPixelStage<PixelSort> {
+internal sealed record PixelSort(SortMetric Key, float Low, float High, SortDirection Direction) : IPixelStage<PixelSort> {
     public static PixelSort Default { get; } = new(SortMetric.Luma, 0f, 0.3f, SortDirection.Right);
 
     public static Fin<Option<PixelPass>> Pass(PixelSort state, PassContext context) =>
         Some(state.Direction.Sorted(state.Key, context.Formed ? GradingStyle.Video : GradingStyle.Linear, context.Working.Luminance, state.Low, state.High));
 }
 
-public sealed record CodecDamage(int Quality, JpegColorType ColorType, int Generations) : IPixelStage<CodecDamage> {
+internal sealed record CodecDamage(int Quality, JpegColorType ColorType, int Generations) : IPixelStage<CodecDamage> {
     public static CodecDamage Default { get; } = new(75, JpegColorType.YCbCrRatio420, 1);
 
     public static CodecDamage Jpeg { get; } = Default with { Quality = 60, Coded = 360 };
@@ -37,7 +37,7 @@ public sealed record CodecDamage(int Quality, JpegColorType ColorType, int Gener
             select progress.Iter(report => report.Report(frame.Size.Height))));
 }
 
-public sealed record Glitch(
+internal sealed record Glitch(
     ShortSideLength BlockWidth, ShortSideLength BlockHeight, float BlockDensity, ShortSideLength TearPeriod, float Split, Angle SplitDirection, float SplitJitter, float Slide,
     VideoStandard Matrix, float LumaCorruption, float ChromaCorruption, WrapMode Wrap, int Seed, Timing Timing, Hold Hold) : IPixelStage<Glitch> {
     public static Glitch Default { get; } = new(

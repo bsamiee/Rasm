@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -27,6 +29,7 @@ namespace Rasm.Upgrade;
 
 internal sealed record Row(string Id, VersionRange Range, Group Attribute);
 internal sealed record Move(Row Row, NuGetVersion Version);
+internal sealed record RestoreEntry(string Project, Option<string> Runtime);
 internal sealed record Feed(string Source, PackageMetadataResource Metadata, DownloadResource Downloads);
 internal sealed record Host(HashMap<EqStringOrdinalIgnoreCase, string, NuGetVersion> Library, HashMap<EqStringOrdinalIgnoreCase, string, string> Assembly) {
     public static Host Read(string resources) {
@@ -83,12 +86,14 @@ internal static partial class Packages {
 
     // --- [PROJECTS]
 
-    public static IO<Seq<Project>> Projects(string root, Seq<string> fileApps) =>
+    public static IO<Seq<string>> Solution(string root) =>
         IO.liftAsync(env => File.ReadAllTextAsync(Path.Join(root, "Workspace.slnx"), env.Token))
-            .Bind(solution => toSeq(toSeq(Located(solution).Descendants("Project").Attributes("Path"))
-                    .Map(static path => path.Value).Concat(fileApps).Map(path => Evaluate(Path.GetFullPath(path, root))).Chunk(Environment.ProcessorCount))
-                .TraverseM(static batch => Collect(toSeq(batch)))
-                .As())
+            .Map(static solution => toSeq(Located(solution).Descendants("Project").Attributes("Path")).Map(static path => path.Value));
+
+    public static IO<Seq<Project>> Projects(string root, Seq<string> entries) =>
+        toSeq(entries.Map(path => Evaluate(Path.GetFullPath(path, root))).Chunk(Environment.ProcessorCount))
+            .TraverseM(static batch => Collect(toSeq(batch)))
+            .As()
             .Map(static batches => batches.Flatten())
             .Bind(static evaluated => IO.lift(() => {
                 HashMap<EqStringOrdinal, string, Host> hosts = toHashMap<EqStringOrdinal, string, Host>(evaluated.Map(static result => result.Resources)
@@ -258,6 +263,30 @@ internal static partial class Packages {
 
     [GeneratedRegex("""^(?<code>[^\r\n]*?\S)[ \t]*(?=<!--)""", RegexOptions.Multiline)]
     private static partial Regex TrailingComment { get; }
+
+    // --- [LOCKS]
+
+    public static IO<Seq<RestoreEntry>> Relock(string root, Seq<string> solution, Seq<string> fileApps) =>
+        from solved in Restore(new RestoreEntry(Path.Join(root, "Workspace.slnx"), None))
+        from runtimes in IO.lift(() =>
+            from project in solution.Map(path => Path.GetFullPath(path, root))
+            from file in toSeq(Directory.EnumerateFiles(Path.GetFullPath(Path.Join(project, "..")), "packages.*.lock.json"))
+            let runtime = RuntimeLock.Match(Path.GetFileName(file)).Groups["runtime"].Value
+            where !string.Equals(runtime, RuntimeInformation.RuntimeIdentifier, StringComparison.Ordinal)
+            select new RestoreEntry(project, Some(runtime)))
+        from refreshed in Collect(fileApps.Map(app => new RestoreEntry(Path.GetFullPath(app, root), None)).Concat(runtimes).Map(Restore))
+        select solved.Cons(refreshed);
+
+    private static IO<RestoreEntry> Restore(RestoreEntry target) =>
+        IO.liftAsync(env => Cli.Wrap("dotnet")
+                .WithArguments(["restore", target.Project, "--force-evaluate", .. target.Runtime.Map(static runtime => Seq("--no-dependencies", $"-p:RuntimeIdentifier={runtime}")).IfNone(Seq<string>())])
+                .WithValidation(CommandResultValidation.None).ExecuteBufferedAsync(env.Token).Task)
+            .Bind(result => result.ExitCode is 0
+                ? IO.pure(target)
+                : IO.fail<RestoreEntry>(Error.New(string.Create(CultureInfo.InvariantCulture, $"dotnet restore {target.Project} exited with code {result.ExitCode}: {result.StandardOutput.Trim()}"))));
+
+    [GeneratedRegex("""^packages\.(?<runtime>.+)\.lock\.json$""")]
+    private static partial Regex RuntimeLock { get; }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -266,7 +295,7 @@ internal static class Program {
     public static Task<int> Main(string[] args) {
         System.CommandLine.Option<bool> dryRun = new("--dry-run") { Description = "Prints each move and writes nothing" };
         System.CommandLine.Argument<string[]> apps = new("apps") { Description = "File-based apps whose packages constrain the move" };
-        System.CommandLine.RootCommand command = new("Moves Directory.Packages.props rows to the newest release each consumer admits") { dryRun, apps };
+        System.CommandLine.RootCommand command = [with("Moves Directory.Packages.props rows to the newest release each consumer admits, then refreshes every committed lock"), dryRun, apps];
         command.SetAction(async result =>
             (await Upgrade(result.GetRequiredValue(apps), write: !result.GetValue(dryRun)).RunSafeAsync().ConfigureAwait(false)).Match(
                 Succ: Report,
@@ -274,12 +303,14 @@ internal static class Program {
         return command.Parse(args).InvokeAsync(cancellationToken: CancellationToken.None);
     }
 
-    private static IO<Seq<Move>> Upgrade(string[] apps, bool write) =>
+    private static IO<(Seq<Move> Moves, Seq<RestoreEntry> Locks)> Upgrade(string[] apps, bool write) =>
         from root in IO.lift(static () => Environment.CurrentDirectory)
         let path = Path.Join(root, "Directory.Packages.props")
+        let entries = toSeq(apps)
         from text in IO.liftAsync(env => File.ReadAllTextAsync(path, env.Token))
         let rows = Packages.Rows(text)
-        from projects in Packages.Projects(root, toSeq(apps))
+        from solution in Packages.Solution(root)
+        from projects in Packages.Projects(root, solution.Concat(entries))
         from cache in use(static () => new SourceCacheContext())
         let download = new PackageDownloadContext(cache)
         let settings = Settings.LoadDefaultSettings(root)
@@ -288,10 +319,12 @@ internal static class Program {
         from feeds in Packages.Feeds(toSeq(SettingsUtility.GetEnabledSources(settings)).Map(static source => Repository.Factory.GetCoreV3(source)))
         from moves in Packages.Collect(rows.Map(row => Packages.Newest(projects, download, packages, mapping, feeds, row))).Map(static releases => releases.Somes())
         from written in when(write && !moves.IsEmpty, IO.liftAsync(env => File.WriteAllTextAsync(path, Packages.Rewrite(text, moves), env.Token).ToUnit())).As()
-        select moves;
+        from relocked in write ? Packages.Relock(root, solution, entries) : IO.pure(Seq<RestoreEntry>())
+        select (moves, relocked);
 
-    private static int Report(Seq<Move> moves) {
-        _ = moves.Iter(static move => Console.WriteLine(JsonSerializer.Serialize(new { id = move.Row.Id, from = move.Row.Attribute.Value, to = Packages.Spelling(move) })));
+    private static int Report((Seq<Move> Moves, Seq<RestoreEntry> Locks) result) {
+        _ = result.Moves.Iter(static move => Console.WriteLine(JsonSerializer.Serialize(new { id = move.Row.Id, from = move.Row.Attribute.Value, to = Packages.Spelling(move) })));
+        _ = result.Locks.Iter(static entry => Console.WriteLine(JsonSerializer.Serialize(new { restored = entry.Project, runtime = entry.Runtime.ValueUnsafe() })));
         return 0;
     }
 

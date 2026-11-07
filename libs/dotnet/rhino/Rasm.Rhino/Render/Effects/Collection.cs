@@ -1,6 +1,8 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Render.Content;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.Render.Views;
@@ -49,8 +51,10 @@ public static class EffectList {
 
     public const string StateKey = "state";
 
+    private const PostEffectType ToneMappingStage = PostEffectType.ToneMapping + 1;
+
     public static IO<Seq<EffectEntry>> Read(RenderSettings settings) =>
-        Within(settings, static (effects, held) => IO.lift(() => ToneMapper(Conversions.Present(effects.GetSelectedPostEffect(Internals.ToneMappingStage, out Guid id), id)) switch {
+        Within(settings, static (effects, held) => IO.lift(() => ToneMapper(Conversions.Present(effects.GetSelectedPostEffect(ToneMappingStage, out Guid id), id)) switch {
             var selected => held.Map(data => EffectEntry.Of(data, selected)).Strict(),
         }));
 
@@ -63,7 +67,7 @@ public static class EffectList {
 
     public static IO<TState> State<TState>(RenderSettings settings, Guid effect, TState @default) where TState : notnull =>
         Within(settings, (_, held) => held.Find(data => data.Id == effect).Match(
-            Some: data => Recalled(Internals.Unwrapped<string>(() => data.GetParameter(StateKey), StateKey), @default),
+            Some: data => Recalled(ContentFields.Unwrapped<string>(() => data.GetParameter(StateKey), StateKey), @default),
             None: () => IO.pure(@default)));
 
     public static IO<TState> State<TState>(EffectSource source, Guid effect, TState @default) where TState : notnull =>
@@ -103,7 +107,7 @@ public static class EffectList {
 
     public static Step<PostEffectCollection> Selected(Guid effect) =>
         new(effects => Found(effects, effect).Map(_ => {
-            effects.SetSelectedPostEffect(Internals.ToneMappingStage, effect);
+            effects.SetSelectedPostEffect(ToneMappingStage, effect);
             return effects;
         }), $"selected {effect}");
 
@@ -132,7 +136,7 @@ public static class EffectList {
         from tuned in when(!running.IsEmpty,
             from stored in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments())).Bind(static documents => Products.Each(documents.Map(static doc =>
                 RenderSettingsSources.Read(doc, static scope => Within(scope.Settings, static (_, held) =>
-                        held.Traverse(static data => Internals.Unwrapped<string>(() => data.GetParameter(StateKey), StateKey).Map(text => text.Map(stored => (data.Id, stored)))).As()
+                        held.Traverse(static data => ContentFields.Unwrapped<string>(() => data.GetParameter(StateKey), StateKey).Map(text => text.Map(stored => (data.Id, stored)))).As()
                             .Map(static rows => toHashMap(rows.Somes()))))
                     .Map(states => (doc.RuntimeSerialNumber, States: states)))))
             let current = toHashMap(stored)
@@ -142,6 +146,9 @@ public static class EffectList {
                 select Products.Accepted(() => instance.Effect.SetParam(StateKey, text)))))
             select unit).As()
         select unit;
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    internal static extern uint RhinoDocumentId([UnsafeAccessorType("Rhino.Render.Rendering, RhinoCommon")] object rendering);
 
     // --- [CODECS]
 

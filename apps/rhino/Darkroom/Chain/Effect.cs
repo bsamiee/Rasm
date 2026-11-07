@@ -21,7 +21,7 @@ public sealed class DarkroomEffect : DefinedEffect<DarkroomEffect, ChainState>, 
 
     // --- [STATE]
 
-    public static Derivations Derived { get; } = new();
+    internal static Derivations Derived { get; } = new();
 
     public static EffectDefinition<ChainState> Definition { get; } = new(ChainState.Default, Formed) {
         Channels = static state => state.Needs.Match(Succ: static needs => needs.Map(static channel => channel.Key), Fail: static _ => Seq<RenderWindow.StandardChannels>()),

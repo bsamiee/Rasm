@@ -215,6 +215,12 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
                 ),
             ),
             packages: Effect.cached(readPackages(workspaceRoot)),
+            submodules: Effect.cached(
+                Effect.map(
+                    runCommand.records('\n', 'git', ['config', '--file', '.gitmodules', '--get-regexp', '\\.path$'], { cwd: workspaceRoot }),
+                    Array.map((row) => row.slice(row.indexOf(' ') + 1)),
+                ),
+            ),
             swift: Effect.cached(
                 Effect.map(swiftManifest(SwiftPackage, 'describe', '--type', 'json'), (described) => ({
                     ...described,

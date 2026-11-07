@@ -17,7 +17,7 @@ namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record FrameSpan(Seq<SequenceNumber> Numbers) {
+internal sealed record FrameSpan(Seq<SequenceNumber> Numbers) {
     public const double Rate = 24d;
 
     public Option<SequenceNumber> Named(SequenceNumber frame) => Numbers.Count > 1 ? Some(frame) : None;
@@ -28,7 +28,7 @@ public sealed record FrameSpan(Seq<SequenceNumber> Numbers) {
         toSeq(Enumerable.Range(0, sun.Map(static window => window.Frames.Count).IfNone(1))).Traverse(SequenceNumber.Validated).As().Map(static numbers => new FrameSpan(numbers));
 }
 
-public sealed record QueuedEntry(bool Renders, RenderSettings.RenderingSources Source, Option<string> View, Size Extent) {
+internal sealed record QueuedEntry(bool Renders, RenderSettings.RenderingSources Source, Option<string> View, Size Extent) {
     public Option<float> Clay { get; init; }
     public double Overscan { get; init; }
     public Option<RenderRegion> Region { get; init; }
@@ -37,7 +37,7 @@ public sealed record QueuedEntry(bool Renders, RenderSettings.RenderingSources S
     public string Label => View.IfNone(Source.ToString);
 }
 
-public sealed record QueuePlacement(RenderSettings.RenderingSources Source) {
+internal sealed record QueuePlacement(RenderSettings.RenderingSources Source) {
 
     // --- [STATE]
 
@@ -68,7 +68,7 @@ public sealed record QueuePlacement(RenderSettings.RenderingSources Source) {
         });
 }
 
-public sealed record QueueState(Seq<QueuedEntry> Entries) {
+internal sealed record QueueState(Seq<QueuedEntry> Entries) {
     private static readonly DictionaryCodec<QueueState> Codec = ArchivableDictionaries.Json<QueueState>(nameof(QueueState), 3);
 
     public static QueueState Empty { get; } = new([]);
@@ -80,7 +80,7 @@ public sealed record QueueState(Seq<QueuedEntry> Entries) {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record QueueEdit {
+internal abstract partial record QueueEdit {
     public IO<QueueState> Committed(RhinoDoc doc) =>
         from prior in QueueState.Read(doc)
         let next = Applied(toSeq(prior.Entries))
@@ -108,9 +108,9 @@ public abstract partial record QueueEdit {
     public sealed record Toggle(int Index, bool Renders) : QueueEdit;
 }
 
-public sealed record QueueOutput<TPath>(OutputTarget Target, OutputName Name, TPath Path);
+internal sealed record QueueOutput<TPath>(OutputTarget Target, OutputName Name, TPath Path);
 
-public sealed record QueueEntry<TPath>(QueuedEntry Queued, RenderSettings Settings, string Folder, NamePart Stem, bool Overwrite, FrameSpan Frames, Seq<QueueOutput<TPath>> Outputs) {
+internal sealed record QueueEntry<TPath>(QueuedEntry Queued, RenderSettings Settings, string Folder, NamePart Stem, bool Overwrite, FrameSpan Frames, Seq<QueueOutput<TPath>> Outputs) {
     public UInt128 Key => ContentKeys.Of<QueuedEntry>(hash => hash.Bytes(JsonSerializer.SerializeToUtf8Bytes(QueueJob.Identity(this), ArchivableDictionaries.Options)));
 
     public Fin<OverscanFrame> Rendered => PixelExtent.Validated(Queued.Extent.Width, Queued.Extent.Height).Bind(extent => OverscanFrame.Around(extent, Queued.Overscan));
@@ -120,7 +120,7 @@ public sealed record QueueEntry<TPath>(QueuedEntry Queued, RenderSettings Settin
     public QueueEntry<TPlaced> Placed<TPlaced>(Seq<QueueOutput<TPlaced>> outputs) => new(Queued, Settings, Folder, Stem, Overwrite, Frames, outputs);
 }
 
-public sealed record RenderBatch(Seq<QueueEntry<OutputPath>> Entries) {
+internal sealed record RenderBatch(Seq<QueueEntry<OutputPath>> Entries) {
     public long Frames => Entries.Fold(0L, static (sum, entry) => sum + entry.Frames.Numbers.Count);
 
     public static IO<RenderBatch> Placed(RhinoDoc doc, Seq<QueueEntry<Unit>> entries, bool overwrite) =>
@@ -133,7 +133,7 @@ public sealed record RenderBatch(Seq<QueueEntry<OutputPath>> Entries) {
         select new RenderBatch(entries.Map(entry => entry.Placed(toSeq(outputs[entry.Key]))));
 }
 
-public sealed record QueuePlan {
+internal sealed record QueuePlan {
 
     // --- [STATE]
 
@@ -179,11 +179,11 @@ public sealed record QueuePlan {
         }), resumed.IsSome);
 }
 
-public sealed record QueueHeartbeat(Duration Interval, int Misses) {
+internal sealed record QueueHeartbeat(Duration Interval, int Misses) {
     public Duration Silence => Interval * Misses;
 }
 
-public sealed record QueueSettings(int Retries, Duration Delay, bool SampleEstimate, bool KeepAwake, bool ShutDownAfterSuccess, QueueHeartbeat Heartbeat, NoticeSettings Notices, FlamencoSettings Flamenco) {
+internal sealed record QueueSettings(int Retries, Duration Delay, bool SampleEstimate, bool KeepAwake, bool ShutDownAfterSuccess, QueueHeartbeat Heartbeat, NoticeSettings Notices, FlamencoSettings Flamenco) {
 
     // --- [SETTINGS]
 
