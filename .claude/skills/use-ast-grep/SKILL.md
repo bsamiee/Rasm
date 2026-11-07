@@ -323,7 +323,7 @@ ast-grep-mcp runs one CLI process per tool call and hands the rule or pattern th
 - `severity: error` in a rule's YAML fails `scan`-backed tools on any match, the CLI exits 1 and the server raises it
 - `format` takes `pattern`, `cst`, or `ast`, `pattern` finds a metavariable that parsed as a different node
 - `AST_GREP_PATH` holds an executable or a command prefix split without a shell, the server appends the subcommand after it
-- Wrappers at that path place `--custom-languages allow` after the subcommand
+- Trusted configs load `customLanguages` in every server call with no flag, a host that cannot record trust (CI) passes `--custom-languages allow` to the CLI
 - `AST_GREP_CONFIG` or `--config` passes one `sgconfig.yml` to every call, custom names in the `language` description come from that file
 - Nonzero exits other than `1` raise the CLI's stderr, `run` treats exit `1` as no match, a missing path reports `No matches found`
 - `max_results` limits returned matches after the process finishes, each call's new process reloads config and grammar content without a restart

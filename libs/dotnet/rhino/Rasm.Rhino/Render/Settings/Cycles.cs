@@ -13,7 +13,7 @@ public sealed record CyclesSetting<T>(string Key, bool Document) where T : notnu
         from stored in Document
             ? RenderSettingsSources.Read(source, scope => IO.lift(() => ArchivableDictionaries.Find<T>(scope.Settings.UserDictionary, Key)))
             : IO.pure(Option<T>.None)
-        from value in stored.Match(Some: static held => IO.pure(Some(held)), None: () => Applied.Bind(applied => applied.Match(Some: static held => IO.pure(Some(held)), None: () => Default)))
+        from value in stored.Match(Some: static held => IO.pure(Some(held)), None: Applied.Bind(applied => applied.Match(Some: static held => IO.pure(Some(held)), None: Default)))
         select value;
 
     public Preference<T> Stored(RenderSettingsSource source, T fallback) => Preferences.Dictionary(RenderSettingsSources.Dictionary(source), Key, fallback);

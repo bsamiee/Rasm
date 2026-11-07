@@ -18,17 +18,20 @@ bench   = false
 
 # --- [RUNTIME]
 [dependencies]
-fs-err               = { workspace = true }
-jiff                 = { workspace = true }
-nonempty-collections = { workspace = true }
-serde                = { workspace = true }
-serde_json           = { workspace = true }
-tempfile             = { workspace = true }
-thiserror            = { workspace = true }
-tokio                = { workspace = true }
-tokio-util           = { workspace = true }
-tracing              = { workspace = true }
-walkdir              = { workspace = true }
+derive_more                        = { workspace = true }
+fs-err                             = { workspace = true }
+itertools                          = { workspace = true }
+jiff                               = { workspace = true }
+nonempty-collections               = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+serde                              = { workspace = true }
+serde_json                         = { workspace = true }
+tempfile                           = { workspace = true }
+thiserror                          = { workspace = true }
+tokio                              = { workspace = true }
+tokio-util                         = { workspace = true }
+tracing                            = { workspace = true }
+walkdir                            = { workspace = true }
 
 [target."cfg(unix)".dependencies]
 rustix = { workspace = true }
@@ -40,8 +43,8 @@ process-wrap = { workspace = true }
 libc                = { workspace = true }
 libproc             = { workspace = true }
 serde_path_to_error = { workspace = true }
+serde_with          = { workspace = true }
 tokio-stream        = { workspace = true }
-url                 = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

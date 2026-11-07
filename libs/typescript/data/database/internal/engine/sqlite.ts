@@ -265,7 +265,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                 ...entry,
                 search: searched(entry, true),
                 create: render(sql, Sqlite, catalog, entry.declared, {
-                    target: (name) => quoted(temporary(name)),
+                    target: Function.flow(temporary, quoted),
                     elements,
                     autoincrement: entry.live.autoincrement,
                     identity: Option.some(entry.identity),

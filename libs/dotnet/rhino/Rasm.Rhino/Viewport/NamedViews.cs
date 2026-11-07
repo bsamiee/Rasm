@@ -76,7 +76,7 @@ public static class NamedViews {
 
     private static IO<NamedWrite> Delete(RhinoDoc doc, NamedEntry entry) =>
         from prior in Read(doc, entry.Name, Held)
-        from deleted in Products.Transfer(prior, held => Commits.Undoable(doc, $"{nameof(Delete)} {entry.Name}", IO.pure(Some(held)), Put(doc, entry.Name), Option<RhinoViewport>.None))
+        from deleted in Products.Transfer(() => prior, held => Commits.Undoable(doc, $"{nameof(Delete)} {entry.Name}", IO.pure(Some(held)), Put(doc, entry.Name), Option<RhinoViewport>.None))
         select NamedWrite.Undoable;
 
     internal static IO<int> Find(RhinoDoc doc, string name) =>
@@ -84,7 +84,7 @@ public static class NamedViews {
 
     // --- [SAVE]
     internal static IO<NamedWrite> Staged(RhinoDoc doc, string name, RhinoViewport copy, Option<Func<RhinoViewport, ViewInfo, IO<Unit>>> stage, [CallerMemberName] string action = "") =>
-        Products.Transfer(copy, held =>
+        Products.Transfer(() => copy, held =>
             from staged in use(() => new ViewInfo(held)).Bind(view => stage.Traverse(run => run(held, view)).As()).Bracket()
             from prior in Stored(doc, name)
             from same in Same(doc, prior, held)

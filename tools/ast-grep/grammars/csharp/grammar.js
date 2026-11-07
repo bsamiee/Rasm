@@ -1,6 +1,6 @@
 import { Predicate, Record } from 'effect';
 import csharp from 'tree-sitter-c-sharp/grammar.js';
-import { after, any, children, choiceOf, classes, extend, named, optionalOf, reaches, replace, rewrite, spans, string, symbol, widen } from '../derive.js';
+import { after, any, children, choiceOf, classes, constants, extend, named, optionalOf, reaches, replace, rewrite, spans, string, symbol, widen } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -164,7 +164,7 @@ export default extend(csharp, {
         file_based_directive: ($) => choice(...Record.collect(DIRECTIVE_SEPARATORS, (kind, separator) => directive($, kind, separator))),
         directive_metadata: ($) => seq(piece('name', $.directive_name, METADATA_NAME), token.immediate('='), optional(quotable('value', $.directive_value, BARE['']))),
         _directive_space: () => token.immediate(prec(1, DIRECTIVE_SPACE)),
-        _space: () => spans(classes({ identifier: [], whitespace: [{ type: 'PATTERN', value: WHITESPACE.source, flags: WHITESPACE.flags }] }).whitespace),
+        _constants: () => constants({ SPACE: spans(classes({ identifier: [], whitespace: [{ type: 'PATTERN', value: WHITESPACE.source, flags: WHITESPACE.flags }] }).whitespace) }),
         _reserved_identifier: (_, original) => choice(original, 'allows', 'with', 'union', 'closed', 'safe'),
         modifier: widen(choiceOf(string('public')), 'closed', 'safe'),
         type_declaration: ($, original) => choice(original, $.union_declaration),

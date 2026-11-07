@@ -3,38 +3,56 @@ import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtin
 
 // --- [STEPS] ---------------------------------------------------------------------------
 
-local swiftFiles = List("**/*.swift")
-local stepsByName = new Mapping<String, Step> {
+steps {
+    ["biome"] = (Builtins.biome) {
+        glob = "**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,grit}"
+        check { command { argv = List("biome", "check", "--error-on-warnings", "--no-errors-on-unmatched", "{{files}}") } }
+        fix { command { argv = List("biome", "check", "--write", "--error-on-warnings", "--no-errors-on-unmatched", "{{files}}") } }
+    }
+    ["google-java-format"] = (Builtins.google_java_format) {
+        check { command { argv = List("google-java-format", "--aosp", "--dry-run", "--set-exit-if-changed", "{{files}}") } }
+        check_list_files { command { argv = List("google-java-format", "--aosp", "--dry-run", "{{files}}") } }
+        fix { command { argv = List("google-java-format", "--aosp", "--replace", "{{files}}") } }
+    }
+    ["ruff"] = Builtins.ruff
+    ["ruff-format"] = (Builtins.ruff_format) { depends = "ruff" }
+    ["rustfmt"] { glob = "**/*.rs"; fix = "rustfmt --config skip_children=true {{files}}" }
     ["shfmt"] = (Builtins.shfmt) { glob = "**/*.sh"; match_any = null }
-    ["tombi"] = (Builtins.tombi_format) { check_diff = null }
-    ["tombi-lint"] = (Builtins.tombi) {
-        check = (super.check!!.command!!) { argv = super.argv + List("--error-on-warnings") }
+    ["swiftlint"] = (Builtins.swiftlint) {
+        check { command { argv = List("swiftlint", "lint", "--quiet", "{{files}}") } }
+        fix { command { argv = List("swiftlint", "lint", "--fix", "--quiet", "{{files}}") } }
     }
-    ["biome"] {
-        exclude = List(".claude/workflows/**", "**/*.{xcassets,icon}/**", "assets/**")
-        fix = "biome check --write --error-on-warnings --no-errors-on-unmatched {{files}}"
-        glob = List("**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,grit}")
-    }
-    ["google-java-format"] { glob = List("**/*.java"); fix = "google-java-format --aosp --replace {{files}}" }
-    ["ruff"] { glob = List("**/*.{py,pyi,pyw,ipynb}"); fix = "ruff check --fix {{files}} && ruff format {{files}}" }
-    ["rustfmt"] { glob = List("**/*.rs"); fix = "rustfmt --config skip_children=true {{files}}" }
     ["swift-format"] {
-        depends = List("swiftlint")
+        glob = "**/*.swift"
+        depends = "swiftlint"
+        check = "xcrun swift-format lint --strict --parallel {{files}}"
         fix = "xcrun swift-format format --in-place --parallel {{files}}"
-        glob = swiftFiles
     }
-    ["swiftlint"] { glob = swiftFiles; fix = "swiftlint lint --fix --quiet {{files}}" }
+    ["tombi"] = Builtins.tombi_format
     ["xcprojformatter"] {
-        fix = "xcrun xcprojformatter --update {{workspace}}"
-        glob = List("**/\(workspace_indicator)")
-        workspace_indicator = "project.xcproj"
+        glob = "**/project.xcproj"
+        check_diff = "hk util format-diff {{files}} -- xcrun xcprojformatter"
     }
 }
 
 // --- [HOOKS] ---------------------------------------------------------------------------
 
 hooks {
-    ["check"] { steps { ...(stepsByName.toMap().filter((_, step) -> step.check != null || step.check_diff != null)) } }
+    ["check"] {
+        steps {
+            ["dotnet-format"] = (Builtins.dotnet_format) {
+                check { command { argv = List("dotnet", "format", "whitespace", "--folder", "--verify-no-changes", "--include", "{{files}}") } }
+                fix = null
+            }
+            ["plutil"] { glob = "**/*.{plist,entitlements}"; check = "plutil -lint {{files}}" }
+            ["shellcheck"] = (Builtins.shellcheck) { match_any = null; glob = "**/*.sh" }
+            ["tombi-lint"] = (Builtins.tombi) { check { command { argv = super.argv + List("--error-on-warnings") } } }
+            ["yamllint"] = (Builtins.yamllint) {
+                batch = true
+                check { command { argv = List("yamllint", "--strict", "-c", ".config/yamllint.yaml", "{{files}}") } }
+            }
+        }
+    }
     ["commit-msg"] { steps { ["conventional-commit"] = Builtins.check_conventional_commit } }
-    ["fix"] { steps { ...(stepsByName.toMap().filter((_, step) -> step.fix != null)) } }
+    ["pre-commit"] { enabled = false }
 }

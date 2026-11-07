@@ -121,17 +121,25 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
         return importlib.resources.files(identity.package) / "icons"
 
     @staticmethod
-    def value(identity: Identity, icon: Icon) -> Outcome[int]:
-        """Returns built-in icon value, packaged icon ID, or data-block preview icon, absent fault for an icon the host or the packaged set lacks."""
-        match icon:
-            case Path():
-                return ICONS.get(identity).to_result_with(lambda: Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=icon.as_posix())).bind(lambda icons: icons.icon(identity, icon))
-            case bpy.types.ID():
-                return Ok(bpy.types.UILayout.icon(icon))
-            case _:
-                name = str(icon)
+    def value(identity: Identity, icon: Option[Icon]) -> Outcome[Option[int]]:
+        """Returns built-in icon value, packaged icon ID, or data-block preview icon of a stated icon, absent fault for an icon the host or the packaged set lacks."""
+        stated: Option[Path | bpy.types.ID | str] = icon
+        match stated:
+            case Option(some=Path() as source):
+                return (
+                    ICONS
+                    .get(identity)
+                    .to_result_with(lambda: Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=source.as_posix()))
+                    .bind(lambda icons: icons.icon(identity, source))
+                    .map(Some)
+                )
+            case Option(some=bpy.types.ID() as block):
+                return Ok(Some(bpy.types.UILayout.icon(block)))
+            case Option(some=str(name)):
                 item: bpy.types.EnumPropertyItem | None = _ICON.enum_items.get(name)  # ty: ignore[unsound-assignment]
-                return Option.of_optional(item).map(lambda item: item.value).to_result_with(partial(Fault.of, Reason.ABSENT, bpy.types.UILayout.__name__, member=name))
+                return Option.of_optional(item).map(lambda item: Some(item.value)).to_result_with(partial(Fault.of, Reason.ABSENT, bpy.types.UILayout.__name__, member=name))
+            case _:
+                return Ok(Nothing)
 
     @staticmethod
     def path(identity: Identity, source: Path) -> str:

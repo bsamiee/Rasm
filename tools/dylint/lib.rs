@@ -723,7 +723,6 @@ dylint_linting::__maybe_mangle! {
             interior_mutability::needless_cell,
             items::modules,
             items::needless_import_rename,
-            items::unreachable_public_item,
             macros::formatting(format_args.clone(), reported.clone()),
             macros::matching(format_args.clone()),
             macros::renamed_function_params_in_macro,

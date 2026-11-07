@@ -13,7 +13,6 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const { hosts, languages } = await workflow('languages')
-const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const PLURALS = new Intl.PluralRules('en')
 const NOUNS = {
   unit: { one: 'unit', other: 'units' },
@@ -34,7 +33,7 @@ const FINDINGS = (owners) => ({
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [ARGS]
-const relative = (path) => path.replace(`${REPO}/`, '').replace(/^\.\//, '').replace(/#.*$/, '').replace(/\/+$/, '')
+const relative = (path) => path.replace('/Users/bardiasamiee/Developer/Rasm/', '').replace(/^\.\//, '').replace(/#.*$/, '').replace(/\/+$/, '')
 const within = (path, roots) => roots.some((root) => path === root || path.startsWith(`${root}/`))
 const row = languages[args?.language]
 const valid = row && typeof args.base === 'string' && args.base !== '' && (args.exclude === undefined || (Array.isArray(args.exclude) && args.exclude.every((path) => typeof path === 'string'))) && (args.finished === undefined || typeof args.finished === 'string')

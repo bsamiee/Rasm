@@ -3,6 +3,7 @@ use clippy_utils::{
     paths::PathNS,
     res::{MaybeDef as _, MaybeTypeckRes as _},
     sugg::Sugg,
+    sym,
     ty::{implements_trait, option_arg_ty},
 };
 use rustc_data_structures::fx::FxHashSet;
@@ -11,7 +12,7 @@ use rustc_hir::{BorrowKind, Expr, ExprKind, LetStmt, MatchSource, Mutability, Un
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{Ty, TyCtxt};
 
-use crate::{expanded_externally, paths, suggest};
+use crate::{expanded_externally, path, suggest};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -22,7 +23,9 @@ pub(crate) struct Pass {
 lint!(Pass; MANUAL_DEREF_PATTERN: "`as_str`, `as_slice`, `as_deref`, or `&*` scrutinees that deref a value for its patterns");
 
 impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { views: paths(tcx, PathNS::Value, &["alloc::string::String::as_str", "alloc::vec::Vec::as_slice", "core::option::Option::as_deref"]) } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+        Self { views: [sym::string_as_str, sym::vec_as_slice].into_iter().filter_map(|view| tcx.get_diagnostic_item(view)).chain(path(tcx, PathNS::Value, "core::option::Option::as_deref")).collect() }
+    }
 
     fn scrutinee<'tcx>(&self, cx: &LateContext<'tcx>, scrutinee: &'tcx Expr<'tcx>) {
         let derefs_purely = |owned: Ty<'tcx>| cx.tcx.lang_items().deref_pure_trait().is_some_and(|pure| implements_trait(cx, owned, pure, &[]));

@@ -16,11 +16,24 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 - [06]-[SWIFT](references/swift.md): SwiftPM modules and Xcode apps linking them, each setting and lock at the system that reads it
 - [07]-[JAVA](references/java.md): Scripts a tool loads, each checker resolving them against that tool's jars
 - [08]-[RUST](references/rust.md): Cargo workspace, one pinned nightly and root rows holding policy every member inherits
+- [09]-[DERIVATION](references/derivation.md): Mechanisms each configuration system provides to discover members, inherit policy, and select modes
 
-[SCRIPTS]:
-- [01]-[MAINTAIN](scripts/maintain.sh): Updates every installed version to its newest release and restarts each process holding an old one
+## [01]-[VARIATION]
 
-## [01]-[PLACEMENT]
+Repository work varies by operation, subject (project, package, stack, file), and mode (configuration, platform, interpreter, environment). Names state operations alone, subject and mode come from the declaration owning them and reach a tool through that tool's own mechanism:
+- Facts sit once at their owner (manifest, lock, catalog, host), each list, path, version, or name another file needs derives from it
+- Members come from tool discovery (workspace globs, inferred projects, item includes), a member list goes unless it is the owner
+- Shared policy sits in the file every member inherits, a member file states what differs from it alone
+- Project kinds (host, platform, product) join a root file as a row a tag or condition selects, or a kind file passing values to its general form
+- Root files compute per-project values (cache, output path) from the project directory their tool supplies or a project file passes
+- Modes take the tool's mode mechanism (configuration, condition, marker, matrix, platform file), never a name or row per value
+- Splits a tool forces (one interpreter per run) derive runs and scope from member declarations, a tool reading each member's version runs once
+- Adding a member, version, or platform edits its own declaration alone, an edit anywhere else marks a hand-enumerated variant
+- Derivation no tool mechanism covers sits where declarations become that tool's model: `tools/nx` inference, root MSBuild targets, `infra/`
+- `tools/`, `infra/`, `plugins/`, and `eng/` code reads project names, paths, and values from arguments and project declarations alone
+- `eng/` programs perform operations (upgrade, release, install) and hold no member list
+
+## [02]-[PLACEMENT]
 
 - Concerns with no owner take a new file named for the tool that reads it
 - Structure joins with its first consumer, a row, file, target, or value nothing reads goes
@@ -29,9 +42,6 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 - Build chains and project kinds of a declared host stay while no project uses them
 - Rows naming a package, binary, or server point at one a project file or tool row installs
 - Root files hold policy every project shares, a row one project consumes sits in the project file
-- Project kinds (host, platform, product) join a root file as a row a tag or condition selects, or a kind file passing values to its general form
-- Root files compute per-project values (cache, output path) from the project directory their tool supplies or a project file passes
-- `tools/`, `infra/`, `plugins/`, and `eng/` code reads project names, paths, and values from arguments and project declarations alone
 - Project files are written by hand as the file set their language's init command produces
 - Project files extending a root file exist for a plugin discovering projects by file name, a `--config` tool reads the root file from any `cwd`
 - Rows changing no tool output or lock go, documented defaults included, a row canceling another goes with the canceled row
@@ -41,21 +51,32 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 - Capabilities come from tool configuration and extension points, then another tool, then a script or `eng/` project for work no tool or package does
 - Root targets unify format, build, install, and release of the repository's own code
 - Wrappers over one mise tool are targets only as a prerequisite other targets name in `dependsOn`
+
+## [03]-[ENTRY_POINTS]
+
+Targets, tasks, and repository tools serve agents, and each call answers its caller's question whole:
+- Concerns keep one entry system, a concern a target, a mise task, and a script each reach keeps one of them
+- Operations take one name, a subject or mode reaches it as an argument or derives from its context, a name per subject or mode goes
 - Entry points derive their items from declarations, a configuration, script, or README line per item goes
+- Inputs a tool derives (working directory, declarations, live state, installed versions) take no flag
 - Arguments after `--` select an operation's subject (path, app, filter) or pass a one-run switch, checker policy stays in target `options.args`
 - Command prefixes shared across targets (`doppler run`) state no duplicated fact
+- Defaults run the common case, a repeated call reaches the same state
+- Operations on external state (deploy, publish, delete) report the live difference from declarations and apply on one explicit argument
+- Calls return their result: an action prints the state it produced, a failure names its subject and cause and one available next action
+- Output is machine-readable, exit status matches the printed outcome, and help or a call with nothing to do exits 0
+- Help derives from the parser's declarations, logs and cleanup run automatically into the repository log and cache folders
 
-## [02]-[CHECKS]
+## [04]-[CHECKS]
 
 [TARGETS]:
 - Projects with their own check hold one `check` target with no per-language name, dry-run variant, or script, a root-checked project holds none
 - `check` and its prerequisites start no container
 - Checkers and type checkers run as `lint:<tool>` and `typecheck:<tool>`, a project `lint` depends on its `lint:*`
-- `hk` holds writers, a writer needing a restore or generator holds `format:<tool>`
+- `hk` holds writers and each file checker's file set, a writer needing a restore or generator holds `format:<tool>`
 - `<tool>` names the program implementing command: `dotnet format` is `dotnet-format`, `cargo fmt` is `rustfmt`, `cargo dylint` is `dylint`
-- Checker subcommands, languages, and runtimes run as `<kind>:<tool>:<part>`, a `dependsOn`-only `<kind>:<tool>` forwards arguments to them
+- Checkers take one `<kind>:<tool>` name, a subcommand, language, package, or runtime is an argument, a configuration, or a run derived from member declarations
 - Checker command lists hold dependent steps alone, a failing step hides findings of the rest
-- Runtime splits stay where the tool's source applies one version per run, a tool taking per-file versions runs once
 - Writers sharing files take `parallelism: false`, `dependsOn` names producer prerequisites alone
 - Checkers fail on each finding they print, a tool passing warnings takes its own switch (`--strict`, `--error-on-warnings`, a config deny row)
 - Inputs and cache settings checker targets share sit once in a `targetDefaults` key matching their names

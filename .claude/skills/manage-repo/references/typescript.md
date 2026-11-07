@@ -13,7 +13,6 @@ pnpm resolves catalog versions, the Effect compiler checks projects, and Biome l
 - `allowBuilds` rows name packages with an install script, `true` runs it, `false` skips it, `pnpm install` reports a missing row
 - `permissions.<package>.build` outranks an `allowBuilds` row, builds stay in `allowBuilds` alone
 - `skills.dirs: []` disables agent skill links, pnpm offers no package skill for approval and removes links it created
-- `CI` set makes `pnpm install` frozen, a lock out of step with a `package.json` fails the install in place of a lock rewrite
 - `ncu --target newest` takes the latest publish, prereleases included, `greatest` takes abandoned prerelease lines with a higher number
 - `ncu --reject` leaves compiler versions for `eng/typescript/upgrade/typescript.ts` to resolve
 - `pnpm install` keeps orphans for `modulesCacheMaxAge`, `pnpm update` and `pnpm prune` remove them, then `playwright install` deletes unused browsers
@@ -26,7 +25,7 @@ pnpm resolves catalog versions, the Effect compiler checks projects, and Biome l
 - Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
 - Root `tsconfig.json` checks project `*.config.ts` and `.storybook/main.ts` files, base `exclude` keeps `${configDir}/*.config.ts` out of projects
 - Library `exports` list `.` and one entry per runtime or dependency (`./node`, `./uxp`), sync generator `barrels` in `tools/nx` writing each `index.ts`
-- `lint:dependency-cruiser` rejects a host module, runtime package, stylesheet, or other library entry in a library root entry's static load closure
+- `lint:dependency-cruiser` follows a library root entry's static load closure through installed packages and rejects a built-in or unexported module, a non-module file (stylesheet, `.node`, `.wasm`), or another library entry, `process.getBuiltinModule` probes and runtime globals stay out of a load closure
 - Packages whose installed load chain ships wasm or a Node addon fail that closure, and any npm package fails an `./extendscript` entry's closure
 - Each importer's `typecheck:tsc` checks a root entry's types under its own `lib` and `types`, a hooks plugin's `typecheck:claude` under the engine's types alone and `lint:claude` its load closure through `claude plugin validate`
 - ExtendScript code sits in programs listing `types-for-adobe` alone, a CEP panel program holds `dom` and no ExtendScript globals

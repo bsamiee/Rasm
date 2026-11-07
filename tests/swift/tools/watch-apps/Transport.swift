@@ -1,5 +1,6 @@
 import Encoding
 import Foundation
+import Processes
 import Subprocess
 import TestSupport
 import Testing
@@ -14,6 +15,7 @@ struct Transport {
         let run: ExecutionResult<[String: JSONValue]?, SequenceOutput, DiscardedOutput> = try await Subprocess.run(
             .product(named: "watch-apps"),
             arguments: ["serve"],
+            platformOptions: .session(),
             input: .inputWriter,
             output: .sequence,
             error: .discarded,

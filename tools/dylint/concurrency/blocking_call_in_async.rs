@@ -114,7 +114,6 @@ impl Pass {
                 tcx,
                 PathNS::Type,
                 &[
-                    "std::fs::File",
                     "fs_err::File",
                     "std::io::Stdin",
                     "std::io::StdinLock",
@@ -129,7 +128,10 @@ impl Pass {
                     "std::process::ChildStdout",
                     "std::process::ChildStderr",
                 ],
-            ),
+            )
+            .into_iter()
+            .chain(tcx.get_diagnostic_item(sym::File))
+            .collect(),
             forwarders: paths(tcx, PathNS::Type, &["std::io::BufReader", "std::io::BufWriter", "std::io::LineWriter", "std::io::Take", "std::io::Chain"]),
             reported: FxHashSet::default(),
         }

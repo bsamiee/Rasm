@@ -49,11 +49,6 @@ exclude = ["/pyproject.toml"]
 [tool.hatch.build.targets.wheel.sources]
 "" = "typography"
 
-# --- [RUFF] -----------------------------------------------------------------------------
-
-[tool.ruff]
-extend = "../../../pyproject.toml"
-
 # --- [FAWLTYDEPS] -----------------------------------------------------------------------
 
 [tool.fawltydeps]

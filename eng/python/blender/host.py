@@ -1,18 +1,17 @@
 """Reads the facts the installed Blender states once per build of it, runs the child processes around it, and syncs the user bases its interpreter loads."""
 
+import os
 lazy from collections.abc import Iterable
 lazy import hashlib
 lazy from itertools import chain, takewhile
 lazy from pathlib import Path
 lazy import subprocess
 lazy import sys
-lazy import tomllib
 lazy from typing import Annotated
-lazy from zipfile import BadZipFile, ZipFile
 
 import msgspec
 from packaging.tags import mac_platforms
-from pydantic import AliasChoices, AliasPath, BaseModel, Field, ValidationError
+from packaging.version import Version
 lazy from cyclopts import Parameter
 lazy from cyclopts.types import ResolvedExistingFile
 
@@ -74,12 +73,6 @@ class Manifest(msgspec.Struct, frozen=True):
     type: str
 
 
-class _ArchiveManifest(BaseModel, frozen=True, defer_build=True):
-    """The platform restriction Blender gives generated archives or their source manifest."""
-
-    platforms: tuple[str, ...] = Field((), validation_alias=AliasChoices(AliasPath("build", "generated", "platforms"), "platforms"))
-
-
 class Target(msgspec.Struct, frozen=True):
     """Extension platform as the marker values selecting it from a lock and its wheel platform tags, best first: macOS from the one release this repository targets, Linux from the glibc 2.28 ABI Blender builds its libraries against."""
 
@@ -93,7 +86,7 @@ class Target(msgspec.Struct, frozen=True):
 # --- [TABLES] ---------------------------------------------------------------------------
 
 TARGETS = (
-    Target("darwin", "arm64", "posix", "Darwin", tuple(mac_platforms((27, 0), "arm64"))),
+    *(Target("darwin", "arm64", "posix", "Darwin", tuple(mac_platforms((macos.major, macos.minor), "arm64"))) for macos in (Version(os.environ["MACOSX_DEPLOYMENT_TARGET"]),)),
     *(Target("linux", machine, "posix", "Linux", tuple(f"manylinux_2_{minor}_{machine}" for minor in range(28, 4, -1))) for machine in ("x86_64", "aarch64")),
     Target("win32", "AMD64", "nt", "Windows", ("win_amd64",)),
 )
@@ -176,29 +169,6 @@ def declared[T](path: Path, form: type[T], /) -> Outcome[T]:
         return Error(Fault.of(Reason.UNREADABLE, str(path), error))
 
 
-# --- [ARCHIVES]
-
-
-def archived(directory: Path, platform: str, /) -> Outcome[Path]:
-    """Selects the one archive whose Blender manifest admits the host platform."""
-    matches: list[Path] = []
-    try:
-        for path in directory.glob("*.zip"):
-            with ZipFile(path) as packed:
-                manifest = _ArchiveManifest.model_validate(tomllib.loads(packed.read("blender_manifest.toml").decode()))
-            if not manifest.platforms or platform in manifest.platforms:
-                matches.append(path)
-    except (OSError, BadZipFile, KeyError, UnicodeError, tomllib.TOMLDecodeError, ValidationError) as error:
-        return Error(Fault.of(Reason.UNREADABLE, str(directory), error))
-    match matches:
-        case [archive]:
-            return Ok(archive)
-        case []:
-            return Error(Fault.of(Reason.ABSENT, str(directory), member=f"{platform} extension archive"))
-        case _:
-            return Error(Fault.of(Reason.INVALID, str(directory), f"Multiple extension archives admit {platform}: {', '.join(path.name for path in sorted(matches))}"))
-
-
 # --- [FACTS]
 
 
@@ -248,17 +218,6 @@ def exported(base: Path, host: Host, lock: Path, /, *options: str) -> Outcome[su
     )
 
 
-def requirements(base: Path, host: Host, folder: Path, /, *selectors: str) -> Outcome[Path]:
-    """Installs the selected workspace lock into the given Blender user base."""
-    lock, target = folder / "pylock.toml", folder / host.user_site
-    return (
-        folder_made(folder)
-        .bind(lambda _: exported(base, host, lock, *selectors))
-        .bind(lambda _: ran("uv", "pip", "sync", "--preview-features", "pylock", "--python", host.executable, "--target", target, lock))
-        .map(lambda _: target)
-    )
-
-
 def site(base: Path, host: Host, /, *, package: str | None = None, groups: tuple[str, ...] = ()) -> Outcome[Path]:
     """Reconciles locked requirements into the user base of one selection on the installed Blender version, editable projects kept.
 
@@ -276,9 +235,15 @@ def site(base: Path, host: Host, /, *, package: str | None = None, groups: tuple
     options = (*(("--package", package) if package is not None else ()), *chain.from_iterable(("--group", group) for group in groups))
 
     folder = base / ".cache/blender/python" / host.version / "+".join((package or base.name, *groups))
-    return requirements(base, host, folder, *options).map(lambda _: folder)
+    lock = folder / "pylock.toml"
+    return (
+        folder_made(folder)
+        .bind(lambda _: exported(base, host, lock, *options))
+        .bind(lambda _: ran("uv", "pip", "sync", "--preview-features", "pylock", "--python", host.executable, "--target", folder / host.user_site, lock))
+        .map(lambda _: folder)
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TARGETS", "Blender", "Host", "Manifest", "Pyproject", "Target", "Upstream", "archived", "declared", "exported", "headless", "probed", "ran", "requirements", "root", "scripted", "site"]
+__all__ = ["TARGETS", "Blender", "Host", "Manifest", "Pyproject", "Target", "Upstream", "declared", "exported", "headless", "probed", "ran", "root", "scripted", "site"]

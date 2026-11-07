@@ -1,4 +1,5 @@
 #define tree_sitter_swift_external_scanner_scan(...) swift_upstream_scan(__VA_ARGS__)
+#define tree_sitter_swift_external_scanner_deserialize(...) swift_upstream_deserialize(__VA_ARGS__)
 
 #include "tree-sitter-swift/src/scanner.c"
 
@@ -152,6 +153,13 @@ static bool scan_trailing_constraint_comma(TSLexer *lexer) {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+void(tree_sitter_swift_external_scanner_deserialize)(void *payload, const char *buffer, unsigned length) {
+    const unsigned char *bytes = (const unsigned char *)buffer;
+    if (length >= 4) {
+        ((struct ScannerState *)payload)->ongoing_raw_str_hash_count = (uint32_t)bytes[0] << 24 | (uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3];
+    }
+}
 
 bool(tree_sitter_swift_external_scanner_scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     struct ScannerState *state = payload;

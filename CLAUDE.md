@@ -12,7 +12,8 @@
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Run applications and hosts live as work needs them
 - Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project
-- Tools agents run outside Nx targets answer in one command with no path or flag beyond the question, and log, observe, and clean up automatically
+- Commands agents run answer in one call: no flag for a derivable fact, resulting state returned, exit status true, logs and cleanup automatic
+- Configuration states each fact at its owner and varies by subject and mode through the tool's own mechanism, an addition edits its declaration alone
 - Changes to root files, `eng/`, `infra/`, and `tools/` extend the owning target, setting, or package, a parallel script or one-off flag is a defect
 
 ## [01]-[TOOLING]
@@ -62,7 +63,7 @@ Code calls the owning API in the direct form, and every layer between a caller a
 Values derive from the declaration or host API that states them:
 - ALWAYS declare a fact the API hides once at its owner, every other use derives it
 - ALWAYS reach members through typed handles the compiler or a generator derives, a name string or hand-written handle per member is a defect
-- ALWAYS derive a values from the operation and its target, a caller-written description is a defect
+- ALWAYS derive values from the operation and its target, a caller passing what the operation knows (value, flag, description) is a defect
 - ALWAYS derive behavior and presentation from count, kind, and nesting of supplied parts, callers state content alone
 - ALWAYS build a derived file into build output by a host tool where one exists, a per-user host setting goes through that host's API at plug-in load
 - ALWAYS fetch a third-party file no package holds by pinned commit and checksum, each variant of a hand-made master (font, SVG mark) builds from it
@@ -80,19 +81,18 @@ Values derive from the declaration or host API that states them:
 ## [04]-[CODE_QUALITY]
 
 Architecture: no one-folder-one-file combos, no flat folders, no mini files, no god files, no `.d.ts`, no src/. No coined terms in files, folders, members, messages (clean-prose). One import line per source, one export line per file, no aliases, no `{ Change, change }`:
-- All code is made as library shaped code, treated as a package a different project imports and creating API for non-coupled integration
-- Nothing existing is binding; consumers get rebuilt as splash never anchoring decisions, no aliasing, shims, or maintaing them, we do not tolerate soft refactoring
-- Rebuild code, never shuffle, alias, forward, wrap or extract helpers, must result in less code, objects, and surface level members
-- Reduce surface (internal and external), LoC, and logic, identifying how to remove content and integrate its capabiltiy in a smaller surface, the logic of it, not nesting
+- All code is library-shaped, written as a package another project imports, with API for integration that couples to no caller
+- Rebuild code with its consumers, never shuffle, alias, forward, wrap, or extract helpers, and leave no adapter or old path
+- Reduce surface (internal and external), lines, and logic by removing content and folding its capability into a smaller surface, never into nesting
 
-- ALWAYS TREAT External packages as first class, use the newest release and fully integrate their capabilities, and have deep usage not surface level of them
-- ALWAYS derive from host, external libraries and sources, never handroll what can be used directly, and identifying where we are wrapping instead of deriving
-- NEVER hardcode values or logic, can ALWAYS use better logic to derive values
-- NEVER make "stringy" code, values and logic instead, types that are just strings or unions of strings are junk and can be removed (not soft replaced) and logic rebuilt proeprly
-- NEVER tolerate deep nesting code indendented more than 3 levels, rebuild through optimizing the logic chain fully to it, never with extraction, helpers, nesting or forwarding
-- Structs, enums, types, constants, strings are ALWAYS junk, and signs of handrolling/obscuring source capability, and creating unnecessary logic
-- Push for fewer, richer objects, one object can ALWAYS replace 2-4+ objects not as the same type, and rebuilding consumers to not anchor to a poor shape
-- Algebraic logic for values and logic flow, parametrized values and fields (replacing many naive fields/parameters)
+- ALWAYS treat external packages as first class: newest release, every capability integrated, deep usage over surface usage
+- ALWAYS derive values and logic from the host, packages, and declarations, a hand-rolled, hardcoded, or wrapped form of them is a defect
+- NEVER write stringy code: a string or union of strings deciding behavior goes and its logic is rebuilt over values, never soft-replaced
+- NEVER nest code more than 3 levels, rebuild the logic chain to flatten it, never through extraction, helpers, nesting, or forwarding
+- Declared structs, enums, types, constants, and strings are junk by default, signs of hand-rolling that hide a source capability
+- Declared types stay only when no host, package, or declaration states their fact and each removes more logic than it adds
+- Push for fewer, richer objects, one object replaces 2-4+ objects of different types, and consumers are rebuilt to that shape
+- Values and control flow are algebraic: one parameterized value, field, or member replaces a family of near-identical ones
 
 ## [05]-[FILE_ORGANIZATION]
 

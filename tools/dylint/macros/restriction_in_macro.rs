@@ -42,18 +42,20 @@ impl Pass {
         const ON_ERR: (&str, &str) = ("`Err`", "return the error with `?`");
         const ON_OK: (&str, &str) = ("`Ok`", "match the `Result` and handle `Ok`");
         Self {
-            methods: resolve(
-                tcx,
-                PathNS::Value,
-                &[
-                    ("core::option::Option::unwrap", (UNWRAP_USED_IN_MACRO, ON_NONE)),
-                    ("core::result::Result::unwrap", (UNWRAP_USED_IN_MACRO, ON_ERR)),
-                    ("core::result::Result::unwrap_err", (UNWRAP_USED_IN_MACRO, ON_OK)),
-                    ("core::option::Option::expect", (EXPECT_USED_IN_MACRO, ON_NONE)),
-                    ("core::result::Result::expect", (EXPECT_USED_IN_MACRO, ON_ERR)),
-                    ("core::result::Result::expect_err", (EXPECT_USED_IN_MACRO, ON_OK)),
-                ],
-            ),
+            methods: [(sym::option_unwrap, (UNWRAP_USED_IN_MACRO, ON_NONE)), (sym::option_expect, (EXPECT_USED_IN_MACRO, ON_NONE))]
+                .into_iter()
+                .filter_map(|(method, reported)| Some((tcx.get_diagnostic_item(method)?, reported)))
+                .chain(resolve(
+                    tcx,
+                    PathNS::Value,
+                    &[
+                        ("core::result::Result::unwrap", (UNWRAP_USED_IN_MACRO, ON_ERR)),
+                        ("core::result::Result::unwrap_err", (UNWRAP_USED_IN_MACRO, ON_OK)),
+                        ("core::result::Result::expect", (EXPECT_USED_IN_MACRO, ON_ERR)),
+                        ("core::result::Result::expect_err", (EXPECT_USED_IN_MACRO, ON_OK)),
+                    ],
+                ))
+                .collect(),
             pins: paths(tcx, PathNS::Macro, &["tokio::pin"]),
             pin_sites: FxHashMap::default(),
         }

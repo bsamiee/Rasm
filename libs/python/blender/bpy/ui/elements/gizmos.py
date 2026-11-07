@@ -281,7 +281,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
         }
         return (type(name, (bpy.types.GizmoGroup,), native),)
 
-    return accumulated(part.icon.map(lambda held: Icons.value(identity, held).map(Some)).default_value(Ok(Nothing)) for part in parts).map(classed)
+    return accumulated(Icons.value(identity, part.icon) for part in parts).map(classed)
 
 
 # --- [TARGETS]

@@ -20,6 +20,14 @@
         <CompilerVisibleProperty Include="TargetExt" />
     </ItemGroup>
 
+    <Target Name="ExcludePackageSourcesFromAnalysis" BeforeTargets="CoreCompile" Condition="'@(Compile->HasMetadata('NuGetPackageId'))' != ''">
+        <WriteLinesToFile File="$(IntermediateOutputPath)PackageSources.globalconfig" Lines="is_global = true;@(Compile->HasMetadata('NuGetPackageId')->'[%(FullPath)]%0Agenerated_code = true')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+        <ItemGroup>
+            <EditorConfigFiles Include="$(IntermediateOutputPath)PackageSources.globalconfig" />
+            <FileWrites Include="$(IntermediateOutputPath)PackageSources.globalconfig" />
+        </ItemGroup>
+    </Target>
+
     <ItemGroup Label="Banned Symbols">
         <AdditionalFiles Include="$(MSBuildThisFileDirectory)tools/roslyn/BannedSymbols.txt" />
         <AdditionalFiles Include="$(MSBuildThisFileDirectory)tools/roslyn/BannedSymbols.Library.txt" Condition="'$(ProjectRole)' == 'library'" />

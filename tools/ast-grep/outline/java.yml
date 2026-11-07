@@ -1,60 +1,3 @@
-id: java-package
-language: javalang
-role: item
-symbolType: package
-rule: {kind: package_declaration, all: [{not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}, {pattern: $DECLARATION}]}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-transform:
-    HEADER: rewrite($DECLARATION, rewriters=[comment, tool, value])
-    LINES: replace($HEADER, replace='(?:;|[\t-\r ])+$|[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    NAME: replace($SIGNATURE, replace='^.* ', by='')
-name: $NAME
-signature: $SIGNATURE
-isExported: false
----
-id: java-import
-language: javalang
-role: item
-symbolType: module
-rule: {kind: import_declaration, all: [{not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}, {pattern: $DECLARATION}]}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-transform:
-    HEADER: rewrite($DECLARATION, rewriters=[comment])
-    LINES: replace($HEADER, replace='(?:;|[\t-\r ])+$|[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    NAME: replace($SIGNATURE, replace='^.* ', by='')
-name: $NAME
-signature: $SIGNATURE
-isImport: true
-isExported: false
----
-id: java-module
-language: javalang
-role: item
-symbolType: module
-rule: {kind: module_declaration, pattern: $DECLARATION}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - {id: body, rule: {kind: module_body}, fix: ''}
-transform:
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    NAME: replace($SIGNATURE, replace='^.* ', by='')
-    HEADER: rewrite($DECLARATION, rewriters=[body, comment, tool, value])
-name: $NAME
-signature: $SIGNATURE
----
-id: java-class
-language: javalang
-role: item
-symbolType: class
 utils:
     exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
     open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
@@ -62,15 +5,35 @@ utils:
     form:
         all:
             - has: {any: [{pattern: class}, {pattern: record}], pattern: $$KEYWORD}
-            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'class_declaration, record_declaration'}]
-            - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: 'class_declaration, record_declaration'}]
-            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {kind: 'class_declaration, record_declaration'}]
-            - any: [{has: {field: superclass, pattern: $SUPERCLASS}}, {kind: 'class_declaration, record_declaration'}]
-            - any: [{has: {field: interfaces, pattern: $INTERFACES}}, {kind: 'class_declaration, record_declaration'}]
-            - any: [{has: {field: permits, pattern: $PERMITS}}, {kind: 'class_declaration, record_declaration'}]
-rule:
-    kind: class_declaration, record_declaration
-    has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: &kinds 'class_declaration, record_declaration'}]
+            - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: *kinds}]
+            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {kind: *kinds}]
+            - any: [{has: {field: superclass, pattern: $SUPERCLASS}}, {kind: *kinds}]
+            - any: [{has: {field: interfaces, pattern: $INTERFACES}}, {kind: *kinds}]
+            - any: [{has: {field: permits, pattern: $PERMITS}}, {kind: *kinds}]
+    constant: {any: [{kind: constant_declaration}, {has: {kind: modifiers, all: [{has: {pattern: static}}, {has: {pattern: final}}]}}]}
+    variable: {not: {has: {kind: modifiers, all: [{has: {pattern: static}}, {has: {pattern: final}}]}}}
+    owner: {inside: {kind: 'class_body, interface_body, annotation_type_body, enum_body_declarations', not: {inside: {kind: object_creation_expression}}, inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant', stopBy: end, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}}
+    local:
+        inside:
+            stopBy: {kind: 'method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator, enum_constant, class_body, interface_body, annotation_type_body, enum_body_declarations'}
+            kind: method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator, enum_constant
+            not: {any: [{inside: {kind: class_body, inside: {kind: object_creation_expression}}}, {inside: {kind: field_declaration, inside: {kind: class_body, inside: {kind: object_creation_expression}}}}]}
+            any:
+                - inside: {kind: 'program, ERROR'}
+                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
+                - has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}
+                - has: {pattern: $$OWNER, not: {kind: block}}
+    placed:
+        inside:
+            stopBy: end
+            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator
+            any:
+                - inside: {kind: 'program, ERROR'}
+                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
+                - has: {field: name, pattern: {context: 'class $UP {}', selector: identifier}}
+                - has: {pattern: $$UP, not: {kind: block}}
+    plain: {all: [{any: [{not: {regex: 'class|interface|enum|record'}}, {not: {has: {stopBy: {kind: class_body}, kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration'}}}]}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}]}
 rewriters:
     - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
     - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
@@ -78,150 +41,203 @@ rewriters:
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          T: rewrite($TYPES, rewriters=[comment, tool, value])
-          P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
-          S: rewrite($SUPERCLASS, rewriters=[comment, tool, value])
-          I: rewrite($INTERFACES, rewriters=[comment, tool, value])
-          R: rewrite($PERMITS, rewriters=[comment, tool, value])
+        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+        T: rewrite($TYPES, rewriters=[comment, tool, value])
+        P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
+        S: rewrite($SUPERCLASS, rewriters=[comment, tool, value])
+        I: rewrite($INTERFACES, rewriters=[comment, tool, value])
+        R: rewrite($PERMITS, rewriters=[comment, tool, value])
       fix: "$M\n$KEYWORD $NAME$T$P\n$S\n$I\n$R"
+    - id: element
+      rule: {kind: identifier, inside: {kind: annotation_type_element_declaration, field: name, matches: form, any: [{has: {field: value, pattern: $VALUE}}, {kind: annotation_type_element_declaration}]}}
+      transform:
+        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+        Y: rewrite($TYPE, rewriters=[comment, tool, value])
+        D: {replace: {source: $VALUE, replace: '(?s).+', by: ' default …'}}
+      fix: "$M\n$Y $NAME()$DIMENSIONS$D"
+    - id: lineage
+      rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
+      transform:
+        ABOVE: rewrite($UP, rewriters=[lineage])
+      fix: $ABOVE$SELF.
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
     LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
     SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
+    NAME: replace($SIGNATURE, replace='^.* ', by='')
+    LINEAGE: rewrite($OWNER, rewriters=[lineage])
+    PATH: replace($LINEAGE, replace='\{', by='{}')
+variants:
+    interface:
+        utils:
+            form:
+                all:
+                    - has: {any: [{pattern: interface}, {pattern: '@interface'}], pattern: $$KEYWORD}
+                    - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: &kinds 'interface_declaration, annotation_type_declaration'}]
+                    - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: *kinds}]
+                    - any: [{has: {kind: extends_interfaces, pattern: $EXTENDS}}, {kind: *kinds}]
+                    - any: [{has: {field: permits, pattern: $PERMITS}}, {kind: *kinds}]
+        rewriters:
+            - id: header
+              rule: {kind: identifier, inside: {field: name, matches: form}}
+              transform:
+                M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+                T: rewrite($TYPES, rewriters=[comment, tool, value])
+                E: rewrite($EXTENDS, rewriters=[comment, tool, value])
+                R: rewrite($PERMITS, rewriters=[comment, tool, value])
+              fix: "$M\n$KEYWORD $NAME$T\n$E\n$R"
+    enum:
+        utils:
+            form:
+                all:
+                    - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: enum_declaration}]
+                    - any: [{has: {field: interfaces, pattern: $INTERFACES}}, {kind: enum_declaration}]
+        rewriters:
+            - id: header
+              rule: {kind: identifier, inside: {field: name, matches: form}}
+              transform:
+                M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+                I: rewrite($INTERFACES, rewriters=[comment, tool, value])
+              fix: "$M\nenum $NAME\n$I"
+    method:
+        utils:
+            form:
+                all:
+                    - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: &kinds 'method_declaration, annotation_type_element_declaration'}]
+                    - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: *kinds}]
+                    - any: [{has: {kind: 'annotation, marker_annotation', pattern: $ANNOTATION}}, {kind: *kinds}]
+                    - any: [{has: {field: type, pattern: $TYPE}}, {kind: *kinds}]
+                    - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {kind: *kinds}]
+                    - any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: *kinds}]
+                    - any: [{has: {kind: throws, pattern: $THROWS}}, {kind: *kinds}]
+        rewriters:
+            - id: header
+              rule: {kind: identifier, inside: {field: name, matches: form}}
+              transform:
+                M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+                T: rewrite($TYPES, rewriters=[comment, tool, value])
+                A: rewrite($ANNOTATION, rewriters=[comment, tool, value])
+                Y: rewrite($TYPE, rewriters=[comment, tool, value])
+                P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
+                H: rewrite($THROWS, rewriters=[comment, tool, value])
+              fix: "$M\n$T\n$A\n$Y $NAME$P$DIMENSIONS\n$H"
+        transform:
+            HEADER: rewrite($NAME, rewriters=[element, header])
+    constant:
+        rewriters:
+            - id: header
+              rule:
+                kind: identifier
+                inside:
+                    kind: variable_declarator
+                    field: name
+                    any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
+                    inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'field_declaration, constant_declaration'}]}
+              transform:
+                M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+                Y: rewrite($TYPE, rewriters=[comment, tool, value])
+              fix: "$M\n$Y $NAME$DIMENSIONS"
+    field:
+        rewriters:
+            - id: header
+              rule:
+                kind: identifier
+                inside:
+                    kind: variable_declarator
+                    field: name
+                    any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
+                    inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: field_declaration}]}
+              transform:
+                M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+                Y: rewrite($TYPE, rewriters=[comment, tool, value])
+              fix: "$M\n$Y $NAME$DIMENSIONS"
+    declaration:
+        transform:
+            HEADER: rewrite($DECLARATION, rewriters=[comment, tool, value])
+    directive:
+        transform:
+            HEADER: rewrite($DECLARATION, rewriters=[comment])
+    statement:
+        transform:
+            LINES: replace($HEADER, replace='(?:;|[\t-\r ])+$|[\t-\r ]+', by="\n ")
+---
+id: java-package
+role: item
+symbolType: package
+variants: [declaration, statement]
+rule: {kind: package_declaration, all: [{not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+isExported: false
+---
+id: java-import
+role: item
+symbolType: module
+variants: [directive, statement]
+rule: {kind: import_declaration, all: [{not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+isImport: true
+isExported: false
+---
+id: java-module
+role: item
+symbolType: module
+rule: {kind: module_declaration, pattern: $DECLARATION}
+rewriters:
+    - {id: body, rule: {kind: module_body}, fix: ''}
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body, comment, tool, value])
+name: $NAME
+signature: $SIGNATURE
+---
+id: java-class
+role: item
+symbolType: class
+rule:
+    kind: class_declaration, record_declaration
+    has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {matches: public}
 ---
 id: java-interface
-language: javalang
 role: item
 symbolType: interface
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    form:
-        all:
-            - has: {any: [{pattern: interface}, {pattern: '@interface'}], pattern: $$KEYWORD}
-            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'interface_declaration, annotation_type_declaration'}]
-            - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: 'interface_declaration, annotation_type_declaration'}]
-            - any: [{has: {kind: extends_interfaces, pattern: $EXTENDS}}, {kind: 'interface_declaration, annotation_type_declaration'}]
-            - any: [{has: {field: permits, pattern: $PERMITS}}, {kind: 'interface_declaration, annotation_type_declaration'}]
+variants: [interface]
 rule:
     kind: interface_declaration, annotation_type_declaration
     has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule: {kind: identifier, inside: {field: name, matches: form}}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          T: rewrite($TYPES, rewriters=[comment, tool, value])
-          E: rewrite($EXTENDS, rewriters=[comment, tool, value])
-          R: rewrite($PERMITS, rewriters=[comment, tool, value])
-      fix: "$M\n$KEYWORD $NAME$T\n$E\n$R"
-transform:
-    HEADER: rewrite($NAME, rewriters=[header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
 name: $NAME
 signature: $SIGNATURE
 isExported: {matches: public}
 ---
 id: java-enum
-language: javalang
 role: item
 symbolType: enum
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    form:
-        all:
-            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: enum_declaration}]
-            - any: [{has: {field: interfaces, pattern: $INTERFACES}}, {kind: enum_declaration}]
+variants: [enum]
 rule:
     kind: enum_declaration
     has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule: {kind: identifier, inside: {field: name, matches: form}}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          I: rewrite($INTERFACES, rewriters=[comment, tool, value])
-      fix: "$M\nenum $NAME\n$I"
-transform:
-    HEADER: rewrite($NAME, rewriters=[header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
 name: $NAME
 signature: $SIGNATURE
 isExported: {matches: public}
 ---
 id: java-method
-language: javalang
 role: item
 symbolType: method
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    form:
-        all:
-            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {kind: 'annotation, marker_annotation', pattern: $ANNOTATION}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {field: type, pattern: $TYPE}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {kind: throws, pattern: $THROWS}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
+variants: [method]
 rule:
     kind: method_declaration, annotation_type_element_declaration
     has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule: {kind: identifier, inside: {field: name, matches: form}}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          T: rewrite($TYPES, rewriters=[comment, tool, value])
-          A: rewrite($ANNOTATION, rewriters=[comment, tool, value])
-          Y: rewrite($TYPE, rewriters=[comment, tool, value])
-          P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
-          H: rewrite($THROWS, rewriters=[comment, tool, value])
-      fix: "$M\n$T\n$A\n$Y $NAME$P$DIMENSIONS\n$H"
-    - id: element
-      rule: {kind: identifier, inside: {kind: annotation_type_element_declaration, field: name, matches: form, any: [{has: {field: value, pattern: $VALUE}}, {kind: annotation_type_element_declaration}]}}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          Y: rewrite($TYPE, rewriters=[comment, tool, value])
-          D: {replace: {source: $VALUE, replace: '(?s).+', by: ' default …'}}
-      fix: "$M\n$Y $NAME()$DIMENSIONS$D"
-transform:
-    HEADER: rewrite($NAME, rewriters=[element, header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
 name: $NAME
 signature: $SIGNATURE
 isExported: {matches: public}
 ---
 id: java-constant
-language: javalang
 role: item
 symbolType: constant
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    constant: {any: [{kind: constant_declaration}, {has: {kind: modifiers, all: [{has: {pattern: static}}, {has: {pattern: final}}]}}]}
+variants: [constant]
 rule:
     any:
         - kind: field_declaration, constant_declaration
@@ -231,39 +247,14 @@ rule:
         - kind: variable_declarator
           has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
           inside: {kind: 'field_declaration, constant_declaration', matches: constant}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule:
-          kind: identifier
-          inside:
-              kind: variable_declarator
-              field: name
-              any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
-              inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'field_declaration, constant_declaration'}]}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          Y: rewrite($TYPE, rewriters=[comment, tool, value])
-      fix: "$M\n$Y $NAME$DIMENSIONS"
-transform:
-    HEADER: rewrite($NAME, rewriters=[header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{matches: public}, {inside: {kind: 'field_declaration, constant_declaration', matches: public}}]}
 ---
 id: java-field
-language: javalang
 role: item
 symbolType: field
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    variable: {not: {has: {kind: modifiers, all: [{has: {pattern: static}}, {has: {pattern: final}}]}}}
+variants: [field]
 rule:
     any:
         - kind: field_declaration
@@ -273,32 +264,11 @@ rule:
         - kind: variable_declarator
           has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
           inside: {kind: field_declaration, matches: variable}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule:
-          kind: identifier
-          inside:
-              kind: variable_declarator
-              field: name
-              any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
-              inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: field_declaration}]}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          Y: rewrite($TYPE, rewriters=[comment, tool, value])
-      fix: "$M\n$Y $NAME$DIMENSIONS"
-transform:
-    HEADER: rewrite($NAME, rewriters=[header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{matches: public}, {inside: {kind: field_declaration, matches: public}}]}
 ---
 id: java-error
-language: javalang
 role: item
 symbolType: 'null'
 rule:
@@ -312,25 +282,19 @@ isImport: false
 isExported: false
 ---
 id: java-module-directive
-language: javalang
 role: member
 parentRuleIds: [java-module]
 symbolType: module
+variants: [directive, statement]
 rule:
     kind: requires_module_directive, exports_module_directive, opens_module_directive, uses_module_directive, provides_module_directive
     all: [{not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}, {has: {pattern: $$VERB}}, {has: {kind: 'identifier, scoped_identifier', pattern: $PATH}}, {pattern: $DECLARATION}]
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[comment])
-    LINES: replace($HEADER, replace='(?:;|[\t-\r ])+$|[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
     NAME: replace($PATH, replace='[\t-\r ]+', by='')
 name: $VERB $NAME
 signature: $SIGNATURE
 ---
 id: java-member-error
-language: javalang
 role: member
 parentRuleIds: [java-module, java-class, java-interface, java-enum, java-method, java-constant, java-field]
 symbolType: 'null'
@@ -347,222 +311,48 @@ signature: ''
 isPublic: false
 ---
 id: java-member-class
-language: javalang
 role: member
 parentRuleIds: [java-class, java-interface, java-enum, java-method, java-constant, java-field]
 symbolType: class
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    form:
-        all:
-            - has: {any: [{pattern: class}, {pattern: record}], pattern: $$KEYWORD}
-            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'class_declaration, record_declaration'}]
-            - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: 'class_declaration, record_declaration'}]
-            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {kind: 'class_declaration, record_declaration'}]
-            - any: [{has: {field: superclass, pattern: $SUPERCLASS}}, {kind: 'class_declaration, record_declaration'}]
-            - any: [{has: {field: interfaces, pattern: $INTERFACES}}, {kind: 'class_declaration, record_declaration'}]
-            - any: [{has: {field: permits, pattern: $PERMITS}}, {kind: 'class_declaration, record_declaration'}]
-    owner: {inside: {kind: 'class_body, interface_body, annotation_type_body, enum_body_declarations', not: {inside: {kind: object_creation_expression}}, inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant', stopBy: end, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}}
-    local:
-        inside:
-            stopBy: {kind: 'method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator, enum_constant, class_body, interface_body, annotation_type_body, enum_body_declarations'}
-            kind: method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator, enum_constant
-            not: {any: [{inside: {kind: class_body, inside: {kind: object_creation_expression}}}, {inside: {kind: field_declaration, inside: {kind: class_body, inside: {kind: object_creation_expression}}}}]}
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}
-                - has: {pattern: $$OWNER, not: {kind: block}}
-    placed:
-        inside:
-            stopBy: end
-            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $UP {}', selector: identifier}}
-                - has: {pattern: $$UP, not: {kind: block}}
 rule:
     kind: identifier
     pattern: {context: 'class $NAME {}', selector: identifier}
     inside: {kind: 'class_declaration, record_declaration', field: name, any: [{matches: owner}, {matches: local}]}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule: {kind: identifier, inside: {field: name, matches: form}}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          T: rewrite($TYPES, rewriters=[comment, tool, value])
-          P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
-          S: rewrite($SUPERCLASS, rewriters=[comment, tool, value])
-          I: rewrite($INTERFACES, rewriters=[comment, tool, value])
-          R: rewrite($PERMITS, rewriters=[comment, tool, value])
-      fix: "$M\n$KEYWORD $NAME$T$P\n$S\n$I\n$R"
-    - id: lineage
-      rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
-      transform:
-          ABOVE: rewrite($UP, rewriters=[lineage])
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: rewrite($NAME, rewriters=[header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    LINEAGE: rewrite($OWNER, rewriters=[lineage])
-    PATH: replace($LINEAGE, replace='\{', by='{}')
 name: $PATH$NAME
 signature: $SIGNATURE
 isPublic: {inside: {field: name, matches: public}}
 ---
 id: java-member-interface
-language: javalang
 role: member
 parentRuleIds: [java-class, java-interface, java-enum, java-method, java-constant, java-field]
 symbolType: interface
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    form:
-        all:
-            - has: {any: [{pattern: interface}, {pattern: '@interface'}], pattern: $$KEYWORD}
-            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'interface_declaration, annotation_type_declaration'}]
-            - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: 'interface_declaration, annotation_type_declaration'}]
-            - any: [{has: {kind: extends_interfaces, pattern: $EXTENDS}}, {kind: 'interface_declaration, annotation_type_declaration'}]
-            - any: [{has: {field: permits, pattern: $PERMITS}}, {kind: 'interface_declaration, annotation_type_declaration'}]
-    owner: {inside: {kind: 'class_body, interface_body, annotation_type_body, enum_body_declarations', not: {inside: {kind: object_creation_expression}}, inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant', stopBy: end, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}}
-    local:
-        inside:
-            stopBy: {kind: 'method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator, enum_constant, class_body, interface_body, annotation_type_body, enum_body_declarations'}
-            kind: method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator, enum_constant
-            not: {any: [{inside: {kind: class_body, inside: {kind: object_creation_expression}}}, {inside: {kind: field_declaration, inside: {kind: class_body, inside: {kind: object_creation_expression}}}}]}
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}
-                - has: {pattern: $$OWNER, not: {kind: block}}
-    placed:
-        inside:
-            stopBy: end
-            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $UP {}', selector: identifier}}
-                - has: {pattern: $$UP, not: {kind: block}}
+variants: [interface]
 rule:
     kind: identifier
     pattern: {context: 'class $NAME {}', selector: identifier}
     inside: {kind: 'interface_declaration, annotation_type_declaration', field: name, any: [{matches: owner}, {matches: local}]}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule: {kind: identifier, inside: {field: name, matches: form}}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          T: rewrite($TYPES, rewriters=[comment, tool, value])
-          E: rewrite($EXTENDS, rewriters=[comment, tool, value])
-          R: rewrite($PERMITS, rewriters=[comment, tool, value])
-      fix: "$M\n$KEYWORD $NAME$T\n$E\n$R"
-    - id: lineage
-      rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
-      transform:
-          ABOVE: rewrite($UP, rewriters=[lineage])
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: rewrite($NAME, rewriters=[header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    LINEAGE: rewrite($OWNER, rewriters=[lineage])
-    PATH: replace($LINEAGE, replace='\{', by='{}')
 name: $PATH$NAME
 signature: $SIGNATURE
 isPublic: {inside: {field: name, matches: public}}
 ---
 id: java-member-enum
-language: javalang
 role: member
 parentRuleIds: [java-class, java-interface, java-enum, java-method, java-constant, java-field]
 symbolType: enum
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    form:
-        all:
-            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: enum_declaration}]
-            - any: [{has: {field: interfaces, pattern: $INTERFACES}}, {kind: enum_declaration}]
-    owner: {inside: {kind: 'class_body, interface_body, annotation_type_body, enum_body_declarations', not: {inside: {kind: object_creation_expression}}, inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant', stopBy: end, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}}
-    local:
-        inside:
-            stopBy: {kind: 'method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator, enum_constant, class_body, interface_body, annotation_type_body, enum_body_declarations'}
-            kind: method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator, enum_constant
-            not: {any: [{inside: {kind: class_body, inside: {kind: object_creation_expression}}}, {inside: {kind: field_declaration, inside: {kind: class_body, inside: {kind: object_creation_expression}}}}]}
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}
-                - has: {pattern: $$OWNER, not: {kind: block}}
-    placed:
-        inside:
-            stopBy: end
-            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $UP {}', selector: identifier}}
-                - has: {pattern: $$UP, not: {kind: block}}
+variants: [enum]
 rule:
     kind: identifier
     pattern: {context: 'class $NAME {}', selector: identifier}
     inside: {kind: enum_declaration, field: name, any: [{matches: owner}, {matches: local}]}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule: {kind: identifier, inside: {field: name, matches: form}}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          I: rewrite($INTERFACES, rewriters=[comment, tool, value])
-      fix: "$M\nenum $NAME\n$I"
-    - id: lineage
-      rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
-      transform:
-          ABOVE: rewrite($UP, rewriters=[lineage])
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: rewrite($NAME, rewriters=[header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    LINEAGE: rewrite($OWNER, rewriters=[lineage])
-    PATH: replace($LINEAGE, replace='\{', by='{}')
 name: $PATH$NAME
 signature: $SIGNATURE
 isPublic: {inside: {field: name, matches: public}}
 ---
 id: java-member-component
-language: javalang
 role: member
 parentRuleIds: [java-class, java-interface, java-enum, java-method, java-constant, java-field]
 symbolType: field
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    placed:
-        inside:
-            stopBy: end
-            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $UP {}', selector: identifier}}
-                - has: {pattern: $$UP, not: {kind: block}}
+variants: [declaration]
 rule:
     kind: formal_parameter, spread_parameter
     all:
@@ -570,173 +360,59 @@ rule:
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
         - any: [{has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}}, {has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}}}]
         - pattern: $DECLARATION
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: lineage
-      rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
-      transform:
-          ABOVE: rewrite($UP, rewriters=[lineage])
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: rewrite($DECLARATION, rewriters=[comment, tool, value])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    LINEAGE: rewrite($OWNER, rewriters=[lineage])
-    PATH: replace($LINEAGE, replace='\{', by='{}')
 name: $PATH$NAME
 signature: $SIGNATURE
 isPublic: {matches: open}
 ---
 id: java-member-case
-language: javalang
 role: member
 parentRuleIds: [java-class, java-interface, java-enum, java-method, java-constant, java-field]
 symbolType: enumMember
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    placed:
-        inside:
-            stopBy: end
-            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $UP {}', selector: identifier}}
-                - has: {pattern: $$UP, not: {kind: block}}
-    plain: {all: [{any: [{not: {regex: 'class|interface|enum|record'}}, {not: {has: {stopBy: {kind: class_body}, kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration'}}}]}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}]}
 rule:
     any:
         - kind: enum_constant
           all:
-              - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-              - inside: {kind: enum_body, inside: {kind: enum_declaration, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}
-              - not: {has: {field: body, kind: class_body}}
-              - matches: plain
+            - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+            - inside: {kind: enum_body, inside: {kind: enum_declaration, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}
+            - not: {has: {field: body, kind: class_body}}
+            - matches: plain
         - kind: identifier
           pattern: {context: 'class $NAME {}', selector: identifier}
           inside: {kind: enum_constant, field: name, inside: {kind: enum_body, inside: {kind: enum_declaration, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}}
 rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: lineage
-      rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
-      transform:
-          ABOVE: rewrite($UP, rewriters=[lineage])
-      fix: $ABOVE$SELF.
     - id: header
       rule: {kind: identifier, inside: {kind: enum_constant, field: name, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: enum_constant}]}}
       transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
       fix: "$M\n$NAME"
-transform:
-    HEADER: rewrite($NAME, rewriters=[header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    LINEAGE: rewrite($OWNER, rewriters=[lineage])
-    PATH: replace($LINEAGE, replace='\{', by='{}')
 name: $PATH$NAME
 signature: $SIGNATURE
 isPublic: {any: [{kind: enum_constant, matches: open}, {inside: {kind: enum_constant, field: name, matches: open}}]}
 ---
 id: java-member-method
-language: javalang
 role: member
 parentRuleIds: [java-class, java-interface, java-enum, java-method, java-constant, java-field]
 symbolType: method
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    form:
-        all:
-            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {kind: 'annotation, marker_annotation', pattern: $ANNOTATION}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {field: type, pattern: $TYPE}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-            - any: [{has: {kind: throws, pattern: $THROWS}}, {kind: 'method_declaration, annotation_type_element_declaration'}]
-    owner: {inside: {kind: 'class_body, interface_body, annotation_type_body, enum_body_declarations', not: {inside: {kind: object_creation_expression}}, inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant', stopBy: end, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}}
-    placed:
-        inside:
-            stopBy: end
-            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $UP {}', selector: identifier}}
-                - has: {pattern: $$UP, not: {kind: block}}
-    plain: {all: [{any: [{not: {regex: 'class|interface|enum|record'}}, {not: {has: {stopBy: {kind: class_body}, kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration'}}}]}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}]}
+variants: [method]
 rule:
     any:
         - kind: method_declaration, annotation_type_element_declaration
           all:
-              - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-              - matches: owner
-              - matches: plain
+            - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+            - matches: owner
+            - matches: plain
         - kind: identifier
           pattern: {context: 'class $NAME {}', selector: identifier}
           inside: {kind: method_declaration, field: name, matches: owner}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule: {kind: identifier, inside: {field: name, matches: form}}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          T: rewrite($TYPES, rewriters=[comment, tool, value])
-          A: rewrite($ANNOTATION, rewriters=[comment, tool, value])
-          Y: rewrite($TYPE, rewriters=[comment, tool, value])
-          P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
-          H: rewrite($THROWS, rewriters=[comment, tool, value])
-      fix: "$M\n$T\n$A\n$Y $NAME$P$DIMENSIONS\n$H"
-    - id: element
-      rule: {kind: identifier, inside: {kind: annotation_type_element_declaration, field: name, matches: form, any: [{has: {field: value, pattern: $VALUE}}, {kind: annotation_type_element_declaration}]}}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          Y: rewrite($TYPE, rewriters=[comment, tool, value])
-          D: {replace: {source: $VALUE, replace: '(?s).+', by: ' default …'}}
-      fix: "$M\n$Y $NAME()$DIMENSIONS$D"
-    - id: lineage
-      rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
-      transform:
-          ABOVE: rewrite($UP, rewriters=[lineage])
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: rewrite($NAME, rewriters=[element, header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    LINEAGE: rewrite($OWNER, rewriters=[lineage])
-    PATH: replace($LINEAGE, replace='\{', by='{}')
 name: $PATH$NAME
 signature: $SIGNATURE
 isPublic: {any: [{kind: identifier, inside: {field: name, matches: public}}, {matches: public}]}
 ---
 id: java-member-constructor
-language: javalang
 role: member
 parentRuleIds: [java-class, java-interface, java-enum, java-method, java-constant, java-field]
 symbolType: constructor
 utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    owner: {inside: {kind: 'class_body, interface_body, annotation_type_body, enum_body_declarations', not: {inside: {kind: object_creation_expression}}, inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant', stopBy: end, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}}
-    placed:
-        inside:
-            stopBy: end
-            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $UP {}', selector: identifier}}
-                - has: {pattern: $$UP, not: {kind: block}}
-    plain: {all: [{any: [{not: {regex: 'class|interface|enum|record'}}, {not: {has: {stopBy: {kind: class_body}, kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration'}}}]}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}]}
     form:
         all:
             - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: &kinds 'constructor_declaration, compact_constructor_declaration'}]
@@ -747,42 +423,30 @@ rule:
     any:
         - kind: constructor_declaration, compact_constructor_declaration
           all:
-              - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-              - matches: owner
-              - matches: plain
+            - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+            - matches: owner
+            - matches: plain
         - kind: identifier
           pattern: {context: 'class $NAME {}', selector: identifier}
           inside: {kind: 'constructor_declaration, compact_constructor_declaration', field: name, matches: owner}
         - kind: static_initializer, block
           all:
-              - matches: owner
-              - has: {pattern: $$NAME, not: {kind: block}}
-              - matches: plain
+            - matches: owner
+            - has: {pattern: $$NAME, not: {kind: block}}
+            - matches: plain
         - any: [{pattern: static, inside: {kind: static_initializer, matches: owner}}, {pattern: '{', inside: {kind: block, matches: owner}}]
           pattern: $$NAME
 rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: lineage
-      rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
-      transform:
-          ABOVE: rewrite($UP, rewriters=[lineage])
-      fix: $ABOVE$SELF.
     - {id: initializer, rule: {pattern: '{'}, fix: '{}'}
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          T: rewrite($TYPES, rewriters=[comment, tool, value])
-          P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
-          H: rewrite($THROWS, rewriters=[comment, tool, value])
+        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+        T: rewrite($TYPES, rewriters=[comment, tool, value])
+        P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
+        H: rewrite($THROWS, rewriters=[comment, tool, value])
       fix: "$M\n$T\n$NAME$P\n$H"
 transform:
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    LINEAGE: rewrite($OWNER, rewriters=[lineage])
-    PATH: replace($LINEAGE, replace='\{', by='{}')
     LABEL: rewrite($NAME, rewriters=[initializer])
     HEADER: rewrite($NAME, rewriters=[initializer, header])
 name: $PATH$LABEL
@@ -790,139 +454,53 @@ signature: $SIGNATURE
 isPublic: {any: [{kind: identifier, inside: {field: name, matches: public}}, {matches: public}]}
 ---
 id: java-member-constant
-language: javalang
 role: member
 parentRuleIds: [java-class, java-interface, java-enum, java-method, java-constant, java-field]
 symbolType: constant
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    constant: {any: [{kind: constant_declaration}, {has: {kind: modifiers, all: [{has: {pattern: static}}, {has: {pattern: final}}]}}]}
-    owner: {inside: {kind: 'class_body, interface_body, annotation_type_body, enum_body_declarations', not: {inside: {kind: object_creation_expression}}, inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant', stopBy: end, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}}
-    placed:
-        inside:
-            stopBy: end
-            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $UP {}', selector: identifier}}
-                - has: {pattern: $$UP, not: {kind: block}}
-    plain: {all: [{any: [{not: {regex: 'class|interface|enum|record'}}, {not: {has: {stopBy: {kind: class_body}, kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration'}}}]}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}]}
+variants: [constant]
 rule:
     any:
         - kind: field_declaration, constant_declaration
           all:
-              - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
-              - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}}
-              - matches: constant
-              - matches: owner
-              - matches: plain
+            - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+            - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}}
+            - matches: constant
+            - matches: owner
+            - matches: plain
         - kind: variable_declarator
           all:
-              - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-              - inside: {kind: 'field_declaration, constant_declaration', all: [{matches: constant}, {matches: owner}]}
-              - matches: plain
+            - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+            - inside: {kind: 'field_declaration, constant_declaration', all: [{matches: constant}, {matches: owner}]}
+            - matches: plain
         - kind: identifier
           pattern: {context: 'class $NAME {}', selector: identifier}
           inside: {kind: variable_declarator, field: name, inside: {kind: 'field_declaration, constant_declaration', all: [{matches: constant}, {matches: owner}]}}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule:
-          kind: identifier
-          inside:
-              kind: variable_declarator
-              field: name
-              any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
-              inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'field_declaration, constant_declaration'}]}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          Y: rewrite($TYPE, rewriters=[comment, tool, value])
-      fix: "$M\n$Y $NAME$DIMENSIONS"
-    - id: lineage
-      rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
-      transform:
-          ABOVE: rewrite($UP, rewriters=[lineage])
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: rewrite($NAME, rewriters=[header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    LINEAGE: rewrite($OWNER, rewriters=[lineage])
-    PATH: replace($LINEAGE, replace='\{', by='{}')
 name: $PATH$NAME
 signature: $SIGNATURE
 isPublic: {any: [{kind: variable_declarator, inside: {matches: public}}, {kind: identifier, inside: {kind: variable_declarator, inside: {matches: public}}}, {matches: public}]}
 ---
 id: java-member-field
-language: javalang
 role: member
 parentRuleIds: [java-class, java-interface, java-enum, java-method, java-constant, java-field]
 symbolType: field
-utils:
-    exposed: {any: [{has: {kind: modifiers, has: {any: [{pattern: public}, {pattern: protected}]}}}, {inside: {kind: 'interface_body, annotation_type_body'}, not: {has: {kind: modifiers, has: {pattern: private}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, object_creation_expression', not: {matches: exposed}}, {kind: 'program, ERROR', has: {kind: 'method_declaration, field_declaration'}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    variable: {not: {has: {kind: modifiers, all: [{has: {pattern: static}}, {has: {pattern: final}}]}}}
-    owner: {inside: {kind: 'class_body, interface_body, annotation_type_body, enum_body_declarations', not: {inside: {kind: object_creation_expression}}, inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant', stopBy: end, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}}
-    placed:
-        inside:
-            stopBy: end
-            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant, method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, class_body > block, enum_body_declarations > block, field_declaration > variable_declarator, constant_declaration > variable_declarator
-            any:
-                - inside: {kind: 'program, ERROR'}
-                - inside: {kind: field_declaration, inside: {kind: 'program, ERROR'}}
-                - has: {field: name, pattern: {context: 'class $UP {}', selector: identifier}}
-                - has: {pattern: $$UP, not: {kind: block}}
-    plain: {all: [{any: [{not: {regex: 'class|interface|enum|record'}}, {not: {has: {stopBy: {kind: class_body}, kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration'}}}]}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}}]}
+variants: [field]
 rule:
     any:
         - kind: field_declaration
           all:
-              - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
-              - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}}
-              - matches: variable
-              - matches: owner
-              - matches: plain
+            - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+            - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}}
+            - matches: variable
+            - matches: owner
+            - matches: plain
         - kind: variable_declarator
           all:
-              - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-              - inside: {kind: field_declaration, all: [{matches: variable}, {matches: owner}]}
-              - matches: plain
+            - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+            - inside: {kind: field_declaration, all: [{matches: variable}, {matches: owner}]}
+            - matches: plain
         - kind: identifier
           pattern: {context: 'class $NAME {}', selector: identifier}
           inside: {kind: variable_declarator, field: name, inside: {kind: field_declaration, all: [{matches: variable}, {matches: owner}]}}
-rewriters:
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: "\n"}
-    - {id: tool, rule: {kind: annotation, has: {field: name, regex: 'SuppressWarnings'}}, fix: ''}
-    - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
-    - id: header
-      rule:
-          kind: identifier
-          inside:
-              kind: variable_declarator
-              field: name
-              any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
-              inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: field_declaration}]}
-      transform:
-          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-          Y: rewrite($TYPE, rewriters=[comment, tool, value])
-      fix: "$M\n$Y $NAME$DIMENSIONS"
-    - id: lineage
-      rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
-      transform:
-          ABOVE: rewrite($UP, rewriters=[lineage])
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: rewrite($NAME, rewriters=[header])
-    LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
-    SIGNATURE: replace($LINES, replace='^\n |\n $|([(\[<]|[^.]\.)\n |\n ([)\]>.,;])|\n', by='$1$2')
-    LINEAGE: rewrite($OWNER, rewriters=[lineage])
-    PATH: replace($LINEAGE, replace='\{', by='{}')
 name: $PATH$NAME
 signature: $SIGNATURE
 isPublic: {any: [{kind: variable_declarator, inside: {matches: public}}, {kind: identifier, inside: {kind: variable_declarator, inside: {matches: public}}}, {matches: public}]}

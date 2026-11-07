@@ -1,65 +1,7 @@
 {
-    // --- [WORKSPACE_VISIBILITY] --------------------------------------------------------
+    // --- [FILES] -----------------------------------------------------------------------
 
-    "explorer.compactFolders": false,
-    "files.exclude": {
-        ".cargo/rustc-source": true,
-        ".swiftpm": true,
-        "**/.artifacts": true,
-        "**/.cache": true,
-        "**/.cloudflare": true,
-        "**/.pixi": true,
-        "**/.venv": true,
-        "**/__pycache__": true,
-        "**/dist": true,
-        "**/node_modules": true,
-        "**/xcuserdata": true
-    },
-    "search.exclude": { ".codex/skills": true, "docs/research": true },
-
-    // --- [SOURCE_CONTROL]
-
-    "git.autoRepositoryDetection": false,
-
-    // --- [EDITOR]
-
-    "chat.disableAIFeatures": true,
-    "problems.showCurrentInStatus": true,
-
-    // --- [FILE_WATCHING] ---------------------------------------------------------------
-
-    "files.watcherExclude": {
-        ".artifacts": true,
-        ".cache": true,
-        ".cargo/rustc-source": true,
-        ".pixi": true,
-        ".venv": true,
-        "docs/research": true,
-        "node_modules": true,
-        "**/.cloudflare/**": true,
-        "**/.venv/**": true,
-        "**/__pycache__/**": true,
-        "**/dist/**": true,
-        "**/node_modules/**": true,
-        "**/xcuserdata/**": true
-    },
-
-    // --- [FILE_NESTING]
-
-    "explorer.fileNesting.enabled": true,
-    "explorer.fileNesting.patterns": {
-        ".gitignore": ".gitattributes, .gitmodules",
-        "Cargo.toml": "Cargo.lock, clippy.toml, rust-toolchain.toml, rustfmt.toml",
-        "CLAUDE.md": ".mcp.json, AGENTS.md",
-        "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, Directory.Solution.props, global.json, NuGet.config, Workspace.slnx",
-        "nx.json": ".editorconfig, .shellcheckrc, sgconfig.yml",
-        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, tsconfig.web.json, vite.shared.ts, vitest.config.ts",
-        "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
-        "pyproject.toml": "pixi.lock, uv.lock",
-        "README.md": "LICENSE"
-    },
-
-    // --- [FILE_TYPES]
+    // --- [ASSOCIATIONS]
 
     "files.associations": {
         "*.aepx": "xml",
@@ -83,7 +25,7 @@
         "project.xcproj": "jsonc"
     },
 
-    // --- [FILE_ICONS]
+    // --- [ICONS]
 
     "material-icon-theme.files.associations": {
         "*.entitlements": "xml",
@@ -99,12 +41,75 @@
         "project.xcproj": "swift"
     },
 
-    // --- [MISE] ------------------------------------------------------------------------
+    // --- [NESTING]
 
-    "mise.enableCodeLens": false,
-    "mise.enableConfigDiagnostics": false,
-    "mise.notifyDaemonFailures": false,
-    "mise.showDaemonsInStatusBar": false,
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+        ".gitignore": ".gitattributes, .gitmodules",
+        "Cargo.toml": "Cargo.lock, clippy.toml, rust-toolchain.toml, rustfmt.toml",
+        "CLAUDE.md": ".mcp.json, AGENTS.md",
+        "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, Directory.Solution.props, global.json, NuGet.config, Workspace.slnx",
+        "hk.pkl": "analyzers.globalconfig, periphery.json, periphery.yml, pmd.xml, squawk.toml, stubtest.ini, yamllint.yaml",
+        "mise.toml": "mise.lock, mise.macos.toml, miserc.toml",
+        "nx.json": ".editorconfig, .shellcheckrc, sgconfig.yml",
+        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, tsconfig.web.json, vite.shared.ts, vitest.config.ts",
+        "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
+        "pyproject.toml": "pixi.lock, uv.lock",
+        "README.md": "LICENSE, TODO.md",
+        "Sparkle-Info.plist": "Enhanced.entitlements"
+    },
+
+    // --- [WATCHING]
+
+    "files.watcherExclude": {
+        ".artifacts": true,
+        ".cache": true,
+        ".cargo/rustc-source": true,
+        ".pixi": true,
+        ".swiftpm": true,
+        ".venv": true,
+        "docs/research": true,
+        "**/.cloudflare/**": true,
+        "**/__pycache__/**": true,
+        "**/dist/**": true,
+        "**/node_modules/**": true,
+        "**/xcuserdata/**": true
+    },
+
+    // --- [WORKBENCH] -------------------------------------------------------------------
+
+    // --- [EDITOR]
+
+    "chat.disableAIFeatures": true,
+    "problems.showCurrentInStatus": true,
+
+    // --- [SOURCE_CONTROL]
+
+    "git.autoRepositoryDetection": false,
+
+    // --- [VISIBILITY]
+
+    "explorer.compactFolders": false,
+    "files.exclude": {
+        ".artifacts": true,
+        ".cache": true,
+        ".cargo/rustc-source": true,
+        ".pixi": true,
+        ".swiftpm": true,
+        ".venv": true,
+        "**/.cloudflare": true,
+        "**/__pycache__": true,
+        "**/dist": true,
+        "**/node_modules": true,
+        "**/xcuserdata": true
+    },
+    "search.exclude": { ".codex/skills": true, "docs/research": true },
+
+    // --- [CMAKE] -----------------------------------------------------------------------
+
+    "cmake.configureOnEdit": false,
+    "cmake.configureOnOpen": false,
+    "cmake.sourceDirectory": "${workspaceFolder}/tools/ast-grep/grammars",
 
     // --- [DOTNET] ----------------------------------------------------------------------
 
@@ -113,40 +118,6 @@
     "dotnet.diagnostics.reportInformationAsHint": false,
     "dotnet.projects.enableAutomaticRestore": false,
     "dotnet.server.useServerGC": false,
-
-   // --- [RUST] ------------------------------------------------------------------------
-
-    "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/vscode" },
-    "rust-analyzer.cargo.targetDir": ".artifacts/rust/vscode",
-    "rust-analyzer.check.allTargets": false,
-    "rust-analyzer.check.extraArgs": [ "--locked" ],
-    "rust-analyzer.check.workspace": false,
-    "rust-analyzer.checkOnSave": false,
-    "rust-analyzer.rustc.source": ".cargo/rustc-source/Cargo.toml",
-
-    // --- [PYTHON] ----------------------------------------------------------------------
-
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
-    "python.terminal.activateEnvironment": false,
-    "ruff.configurationPreference": "filesystemFirst",
-    "ty.experimental.useUv": "on",
-
-    // --- [TYPESCRIPT] ------------------------------------------------------------------
-
-    "css.lint.unknownAtRules": "ignore",
-    "js/ts.experimental.useTsgo": true,
-    "js/ts.trace.server": "off",
-    "js/ts.tsdk.path": "./.cache/typescript",
-    "js/ts.tsserver.automaticTypeAcquisition.enabled": false,
-
-    // --- [SWIFT] -----------------------------------------------------------------------
-
-    "swift.autoGenerateLaunchConfigurations": false,
-    "swift.buildPath": ".cache/swiftpm/vscode",
-    "swift.disableAutoResolve": true,
-    "swift.logFileLogLevel": "info",
-    "swift.sourcekit-lsp.supported-languages": [ "swift" ],
-    "swift.swiftEnvironmentVariables": { "SWIFTPM_BUILD_DIR": ".cache/swiftpm/vscode" },
 
     // --- [JAVA] ------------------------------------------------------------------------
 
@@ -161,24 +132,55 @@
 
     // --- [JSON] ------------------------------------------------------------------------
 
-    "json.schemas": [
-        { "fileMatch": [ "/biome.json" ], "url": "./node_modules/@biomejs/biome/configuration_schema.json" },
-        { "fileMatch": [ "/nx.json" ], "url": "./node_modules/nx/schemas/nx-schema.json" },
-        { "fileMatch": [ "**/*.xcodeproj/project.xcproj" ], "schema": { "allowTrailingCommas": true } }
-    ],
+    "json.schemas": [ { "fileMatch": [ "/biome.json" ], "url": "./node_modules/@biomejs/biome/configuration_schema.json" }, { "fileMatch": [ "/nx.json" ], "url": "./node_modules/nx/schemas/nx-schema.json" }, { "fileMatch": [ "**/*.xcodeproj/project.xcproj" ], "schema": { "allowTrailingCommas": true } } ],
+
+    // --- [MISE] ------------------------------------------------------------------------
+
+    "mise.enableCodeLens": false,
+    "mise.enableConfigDiagnostics": false,
+    "mise.notifyDaemonFailures": false,
+    "mise.showDaemonsInStatusBar": false,
+
+    // --- [PYTHON] ----------------------------------------------------------------------
+
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+    "python.terminal.activateEnvironment": false,
+    "ruff.configurationPreference": "filesystemFirst",
+    "ty.experimental.useUv": "on",
+
+    // --- [RUST] ------------------------------------------------------------------------
+
+    "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/vscode" },
+    "rust-analyzer.cargo.targetDir": ".artifacts/rust/vscode",
+    "rust-analyzer.check.allTargets": false,
+    "rust-analyzer.check.extraArgs": [ "--locked" ],
+    "rust-analyzer.check.workspace": false,
+    "rust-analyzer.checkOnSave": false,
+    "rust-analyzer.rustc.source": ".cargo/rustc-source/Cargo.toml",
 
     // --- [SHELL] -----------------------------------------------------------------------
 
     "bashIde.backgroundAnalysisIgnore": [ "**/.artifacts/**", "**/.cache/**", "**/.git/**", "**/.pixi/**", "**/.venv/**", "**/node_modules/**", "assets/**", "docs/research/**" ],
 
+    // --- [SWIFT] -----------------------------------------------------------------------
+
+    "swift.autoGenerateLaunchConfigurations": false,
+    "swift.buildPath": ".cache/swiftpm/vscode",
+    "swift.disableAutoResolve": true,
+    "swift.logFileLogLevel": "info",
+    "swift.sourcekit-lsp.supported-languages": [ "swift" ],
+    "swift.swiftEnvironmentVariables": { "SWIFTPM_BUILD_DIR": ".cache/swiftpm/vscode" },
+
+    // --- [TYPESCRIPT] ------------------------------------------------------------------
+
+    "css.lint.unknownAtRules": "ignore",
+    "js/ts.experimental.useTsgo": true,
+    "js/ts.trace.server": "off",
+    "js/ts.tsdk.path": "./.cache/typescript",
+    "js/ts.tsserver.automaticTypeAcquisition.enabled": false,
+
     // --- [YAML] ------------------------------------------------------------------------
 
     "yaml.format.enable": false,
-    "yaml.schemas": { "https://www.schemastore.org/yamllint.json": "/.config/yamllint.yaml" },
-
-    // --- [CMAKE] -----------------------------------------------------------------------
-
-    "cmake.configureOnEdit": false,
-    "cmake.configureOnOpen": false,
-    "cmake.sourceDirectory": "${workspaceFolder}/tools/ast-grep/grammars"
+    "yaml.schemas": { "https://www.schemastore.org/yamllint.json": "/.config/yamllint.yaml" }
 }

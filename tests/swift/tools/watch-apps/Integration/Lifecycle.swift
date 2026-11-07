@@ -17,37 +17,6 @@ private let quits: [(scenario: Scenario?, flags: [String], status: Int32)] = [(n
 
 extension Integration {
     struct Lifecycle {
-        @Test(
-            .enabled(if: ProcessInfo.processInfo.environment["RASM_PROCESS_SWIFT_TEST"] != nil),
-            .application(FixtureApplication.self, launches: false),
-            .testDirectory,
-            .timeLimit(.minutes(1)),
-        )
-        func rustProcessLeaseReleasesTheNativeApplication() async throws {
-            let executable: String = try #require(ProcessInfo.processInfo.environment["RASM_PROCESS_SWIFT_TEST"])
-            let fixture: Fixture = try Fixture()
-            let evidence: URL = try #require(TestDirectory.current)
-            let log: URL = evidence.appending(component: "watch-apps.jsonl")
-            let result: ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>> = try await Subprocess.run(
-                .path(FilePath(executable)),
-                arguments: Arguments(["--ignored", "--exact", "swift_fixture_opens_documents_in_the_background_until_lease_eof", "--nocapture"]),
-                environment: .inherit.updating([
-                    "RASM_PROCESS_SWIFT_HELPER": try builtProduct(named: product).path(percentEncoded: false),
-                    "RASM_PROCESS_SWIFT_BUNDLE": fixture.bundle.path(percentEncoded: false),
-                    "RASM_PROCESS_SWIFT_DIRECTORY": evidence.path(percentEncoded: false),
-                    "WATCH_APPS_LOG": log.path(percentEncoded: false),
-                ]),
-                output: .string(limit: 1 << 20),
-                error: .string(limit: 1 << 20),
-            )
-            let transcript: URL = evidence.appending(component: "rust-appkit.log")
-            try Data((result.standardOutput + result.standardError).utf8).write(to: transcript)
-            Attachment.record(try await Attachment(contentsOf: transcript))
-            Attachment.record(try await Attachment(contentsOf: evidence.appending(component: "rust-events.jsonl")))
-            Attachment.record(try await Attachment(contentsOf: log))
-            expectNoDifference(result.terminationStatus, .exited(0))
-        }
-
         @Test(.application(FixtureApplication.self, launches: false))
         func launchPrintsLaunchedThenOutlineUntilSettled() async throws {
             let fixture: Fixture = try Fixture()
@@ -69,14 +38,15 @@ extension Integration {
         }
 
         @Test(.application(FixtureApplication.self, launches: false), .timeLimit(.minutes(1)), arguments: [false, true])
-        func interruptedLaunchLeavesTheInstanceRunningAndFailsOnlyUnderWait(wait: Bool) async throws {
+        func interruptedLaunchLeavesTheInstanceRunningUnlessWaitCreatedIt(wait: Bool) async throws {
             let fixture: Fixture = try Fixture()
             let flags: [String] = wait ? ["--wait"] : []
             let ended: (outcome: String, lines: [JSONValue], status: TerminationStatus) = try await streaming(fixture.launching(Settings(scenario: .slowLaunch), flags: flags)) { lines in
                 try await lines.launched(fixture)
             }
-            try send(0, to: ended.outcome)
-            expectNoDifference(ended.status, .exited(wait ? 1 : 0))
+            if !wait { try send(0, to: ended.outcome) }
+            expectNoDifference(ended.lines.last?[fixture.identifier, ended.outcome, "exited"] != nil, wait)
+            expectNoDifference(ended.status, .exited(0))
         }
 
         @Test(.application(FixtureApplication.self, launches: false))

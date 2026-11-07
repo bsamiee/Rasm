@@ -128,7 +128,7 @@ public sealed class SceneHost : IAsyncDisposable {
         from running in held.Match(
             Some: static run => IO.pure(Some(run)),
             None: () => animating || mount.Timers.Due.IsSome
-                ? backend.DisplayLinked(Tick).Bind(started => IO.lift(() => Stored(current => (current with { Running = current.Running || Some(started) }) switch { var next => (next, next.Running) })))
+                ? backend.DisplayLinked(Tick).Map(started => Stored(current => (current with { Running = current.Running || Some(started) }) switch { var next => (next, next.Running) }))
                 : IO.pure(Option<Func<bool, IO<Unit>>>.None))
         from ran in running.Traverse(run => run(animating)).As()
         select unit;
@@ -154,7 +154,7 @@ public sealed class SceneHost : IAsyncDisposable {
         from drawn in IO.lift(() => (from current in held.Current
                                      from frame in popup.Match(
                                          Some: path => current.Hosted.Find(hosted => hosted is Hosted.Popup && hosted.Path == path).Map(static hosted => hosted.Frame),
-                                         None: () => Some(SKRect.Create(current.Host.Size)))
+                                         None: Some(SKRect.Create(current.Host.Size)))
                                      let info = Capture.Info(frame.Size, scale, current.Scene.Extended)
                                      where info.Width > 0 && info.Height > 0
                                      select (Mount: current, Origin: frame.Location, Info: info))

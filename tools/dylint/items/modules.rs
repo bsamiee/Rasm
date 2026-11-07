@@ -14,7 +14,7 @@ use itertools::Itertools as _;
 use rustc_ast::visit;
 use rustc_attr_ir::find_attr;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap};
-use rustc_errors::{Diag, DiagCtxt, catch_fatal_errors, emitter::SilentEmitter};
+use rustc_errors::{DiagCtxt, FatalError, catch_fatal_errors, emitter::SilentEmitter};
 use rustc_expand::module::{DirOwnership, ModError, default_submod_path};
 use rustc_hir::{
     Block, Expr, ExprKind, HirId, ImplItem, Item, ItemKind, Node, Pat, PatExprKind, PatKind, TraitItem,
@@ -25,7 +25,7 @@ use rustc_hir::{
 use rustc_lexer::TokenKind;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::{hir::nested_filter, ty::TyCtxt};
-use rustc_parse::{lexer::StripTokens, new_parser_from_source_str};
+use rustc_parse::{lexer::StripTokens, new_parser_from_source_str, unwrap_or_emit_fatal};
 use rustc_session::parse::ParseSess;
 use rustc_span::{BytePos, FileName, Ident, Pos as _, RelativeBytePos, SourceFile, Span, Symbol, kw, sym};
 
@@ -164,17 +164,21 @@ fn module_paths(psess: &ParseSess, name: FileName, file: &Path, relative: Option
     }
 
     let krate = catch_fatal_errors(|| {
-        let mut parser = new_parser_from_source_str(psess, name, source.to_owned(), StripTokens::ShebangAndFrontmatter).map_err(|errors| errors.into_iter().for_each(Diag::cancel)).ok()?;
-        parser.parse_crate_mod().map_err(Diag::cancel).ok()
-    })
-    .ok()
-    .flatten();
-    let parsed = psess.dcx().has_errors().is_none();
+        unwrap_or_emit_fatal(new_parser_from_source_str(psess, name, source.to_owned(), StripTokens::ShebangAndFrontmatter)).parse_crate_mod().unwrap_or_else(|error| {
+            error.emit();
+            FatalError.raise()
+        })
+    });
+    let failed = psess.dcx().has_errors();
     psess.dcx().reset_err_count();
-    let mut paths = Vec::new();
-    let mut modules = Modules { psess, directory: file.parent().unwrap_or_else(|| Path::new("")), relative, paths: &mut paths };
-    visit::Visitor::visit_crate(&mut modules, &krate.filter(|_| parsed)?);
-    Some(paths)
+    match (krate, failed) {
+        (Ok(krate), None) => {
+            let mut paths = Vec::new();
+            visit::Visitor::visit_crate(&mut Modules { psess, directory: file.parent().unwrap_or_else(|| Path::new("")), relative, paths: &mut paths }, &krate);
+            Some(paths)
+        }
+        (Ok(_), Some(_)) | (Err(FatalError), _) => None,
+    }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -278,18 +282,20 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 Some((Arc::clone(file), path, siblings))
             })
             .collect::<Vec<_>>();
-        let Ok(mut known) = pending.iter().map(|(_, path, siblings)| identity(path, siblings.unwrap_or_default())).collect::<io::Result<FxHashSet<_>>>() else { return };
         let mut parser = ParseSess::with_dcx(DiagCtxt::new(Box::new(SilentEmitter)), tcx.sess.psess.clone_source_map());
         parser.edition = tcx.sess.edition();
+        let failed = |error: io::Error| span_lint(cx, ORPHAN_MODULE, tcx.def_span(CRATE_DEF_ID), error.to_string());
+        let mut known = match pending.iter().map(|(_, path, siblings)| identity(path, siblings.unwrap_or_default())).collect::<io::Result<FxHashSet<_>>>() {
+            Ok(known) => known,
+            Err(error) => return failed(error),
+        };
         let mut unseen = FxHashSet::default();
         while let Some((source_file, source_path, sibling_modules)) = pending.pop() {
             let Some(source) = &source_file.src else { continue };
-            for (_, text, span) in tokenize_with_text(source).filter(|(kind, ..)| matches!(kind, TokenKind::Ident | TokenKind::RawIdent)) {
+            unseen.extend(tokenize_with_text(source).filter(|(kind, ..)| matches!(kind, TokenKind::Ident | TokenKind::RawIdent)).filter_map(|(_, text, span)| {
                 let name = text.trim_prefix(RAW_IDENTIFIER_PREFIX);
-                if !walk.seen.contains(&source_file.absolute_position(RelativeBytePos::from_usize(span.start.strict_add(text.len().strict_sub(name.len()))))) {
-                    unseen.insert(Symbol::intern(name));
-                }
-            }
+                (!walk.seen.contains(&source_file.absolute_position(RelativeBytePos::from_usize(span.start.strict_add(text.len().strict_sub(name.len())))))).then(|| Symbol::intern(name))
+            }));
             let Some(sibling_modules) = sibling_modules else { continue };
             let relative = source_path.file_stem().filter(|_| !sibling_modules).and_then(OsStr::to_str).map(Ident::from_str);
             let Some(declared) = module_paths(&parser, source_file.name.clone(), &source_path, relative, source) else { return };
@@ -297,7 +303,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 let id = match identity(&candidate, siblings) {
                     Ok(id) => id,
                     Err(error) if error.kind() == ErrorKind::NotFound => continue,
-                    Err(_) => return,
+                    Err(error) => return failed(error),
                 };
                 if !known.insert(id) {
                     continue;
@@ -305,7 +311,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 match map.load_file(&candidate) {
                     Ok(file) => pending.push((file, candidate, Some(siblings))),
                     Err(error) if error.kind() == ErrorKind::NotFound => (),
-                    Err(_) => return,
+                    Err(error) => return failed(error),
                 }
             }
         }

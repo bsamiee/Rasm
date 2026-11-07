@@ -30,7 +30,7 @@
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
         <CreateHardLinksForCopyLocalIfPossible>true</CreateHardLinksForCopyLocalIfPossible>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <EnforceCodeStyleInBuild Condition="'$(DesignTimeBuild)' != 'true'">true</EnforceCodeStyleInBuild>
         <AnalysisLevel>latest-all</AnalysisLevel>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>

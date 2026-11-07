@@ -1,12 +1,134 @@
-id: python-import
-language: pythonlang
-role: item
-symbolType: module
 utils:
     exports: {kind: expression_statement, has: {kind: 'assignment, augmented_assignment, call', any: [{has: {field: left, pattern: __all__}}, {has: {field: function, kind: attribute, all: [{has: {field: object, pattern: __all__}}, {has: {field: attribute, regex: '^(?:extend|append)$'}}]}}]}}
     declared: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports}}}
+    listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $NAME}}}}
     private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
     checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
+    hidden-name: {any: [{has: {field: name, matches: private}}, {has: {field: definition, has: {field: name, matches: private}}}, {has: {field: left, matches: private}}]}
+    alias-type: {any: [{pattern: TypeAlias}, {kind: attribute, has: {field: attribute, pattern: TypeAlias}}]}
+    alias-call: {kind: call, has: {field: function, any: [{kind: identifier, regex: '^(?:NewType|TypeAliasType)$'}, {kind: attribute, has: {field: attribute, regex: '^(?:NewType|TypeAliasType)$'}}]}}
+    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
+    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
+    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
+    base: {regex: '^(?:Enum|IntEnum|StrEnum|ReprEnum|Flag|IntFlag)$'}
+    metaclass: {regex: '^(?:EnumType|EnumMeta)$'}
+    enumeration: {kind: class_definition, has: {field: superclasses, has: {any: [{kind: identifier, matches: base}, {kind: attribute, has: {field: attribute, matches: base}}, {kind: keyword_argument, all: [{has: {field: name, pattern: metaclass}}, {has: {field: value, any: [{kind: identifier, matches: metaclass}, {kind: attribute, has: {field: attribute, matches: metaclass}}]}}]}]}}}
+    protocol-name: {regex: '^Protocol$'}
+    protocol: {any: [{kind: identifier, matches: protocol-name}, {kind: attribute, has: {field: attribute, matches: protocol-name}}]}
+    structural: {kind: class_definition, has: {field: superclasses, has: {any: [{matches: protocol}, {kind: subscript, has: {field: value, matches: protocol}}]}}}
+    leaf: {kind: function_definition, all: [{not: {has: {stopBy: end, any: [{kind: 'function_definition, class_definition, type_alias_statement, ERROR'}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: name, pattern: $NAME}}]}
+    capitals: {regex: '^_*[^\p{Ll}\p{Nd}_][^\p{Ll}]*$'}
+    target: {inside: {kind: assignment, field: left, stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}}}
+    opening: {nthChild: {position: 1, ofRule: {not: {any: [{kind: 'class_definition, decorated_definition, function_definition, import_statement, import_from_statement, future_import_statement, type_alias_statement, assignment, named_expression, for_statement, with_statement, match_statement, ERROR'}, {kind: expression_statement, has: {kind: 'assignment, named_expression'}}]}}}}
+    scope: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: class_definition}]}}
+    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
+rewriters:
+    - {id: statement, rule: {kind: identifier, inside: {stopBy: end, kind: 'type_alias_statement, assignment', pattern: $STATEMENT}}, transform: {TEXT: {rewrite: {source: $STATEMENT, rewriters: [comment]}}}, fix: '$CLAUSE $GUARD: $TEXT'}
+    - {id: root, rule: {kind: dotted_name, has: {nthChild: 1, pattern: $ROOT}}, fix: $ROOT}
+    - {id: prefix, rule: {kind: import_prefix, pattern: $PREFIX}, fix: $PREFIX}
+    - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
+    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
+    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
+    - id: decorators
+      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
+      transform:
+        ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
+        REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
+      fix: '$ONE $REST'
+    - id: header
+      rule:
+        kind: type_identifier
+        inside:
+            kind: class_definition
+            field: name
+            all:
+                - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: class_definition}]
+                - any: [{has: {field: superclasses, pattern: $SUPERS}}, {kind: class_definition}]
+                - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: class_definition}]
+      transform:
+        DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
+        GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
+        BASES: {rewrite: {source: $SUPERS, rewriters: [comment]}}
+      fix: '$CLAUSE $GUARD: $DECORATEDclass $NAME$GENERIC$BASES:'
+    - {id: assigned, rule: {kind: identifier, inside: {kind: assignment, field: left, pattern: $ASSIGNMENT}}, transform: {TEXT: {rewrite: {source: $ASSIGNMENT, rewriters: [comment]}}}, fix: '$CLAUSE $GUARD: $TEXT'}
+    - {id: default, rule: {kind: default_parameter, has: {field: name, pattern: $PARAMETER}}, fix: '$PARAMETER=…'}
+    - {id: typed, rule: {kind: typed_default_parameter, all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: type, pattern: $TYPE}}]}, fix: '$PARAMETER: $TYPE = …'}
+    - {id: lambda, rule: {kind: lambda, inside: {kind: assignment, field: right}, has: {field: parameters, pattern: $PARAMETERS}}, transform: {ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [default]}}}, fix: 'lambda $ARGUMENTS:'}
+    - {id: thunk, rule: {kind: lambda, inside: {kind: assignment, field: right}}, fix: 'lambda:'}
+    - {id: valued, rule: {kind: identifier, inside: {kind: assignment, field: left, all: [{has: {field: right, pattern: $_}}, {has: {field: type, pattern: $TYPE}}]}}, fix: '$CLAUSE $GUARD: $NAME: $TYPE = …'}
+    - {id: bare, rule: {kind: identifier}, fix: '$CLAUSE $GUARD: $NAME'}
+    - id: lineage
+      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
+      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
+      fix: $ABOVE$SELF.
+transform:
+    MODULES: {rewrite: {source: $LIST, rewriters: [root], joinBy: ', '}}
+    ROOT: {rewrite: {source: $MODULE, rewriters: [prefix, root], joinBy: ''}}
+    HEADER: {rewrite: {source: $NAME, rewriters: [header]}}
+    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+variants:
+    assigned-name:
+        utils:
+            hidden-name: {has: {field: left, matches: private}}
+    defined-name:
+        utils:
+            hidden-name: {any: [{has: {field: name, matches: private}}, {has: {field: definition, has: {field: name, matches: private}}}]}
+    bound-target:
+        utils:
+            target: {inside: {kind: 'assignment, for_statement', field: left, stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}}}
+    nested-scope:
+        utils:
+            scope: {inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: 'class_definition, function_definition'}]}}
+    import:
+        rewriters:
+            - {id: statement, rule: {kind: 'import_statement, import_from_statement, future_import_statement'}, fix: '$CLAUSE $GUARD: $DECLARATION'}
+        transform:
+            HEADER: {rewrite: {source: $DECLARATION, rewriters: [statement]}}
+            LINE: {replace: {source: $HEADER, replace: '(?:\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]|#[^\n]*)+', by: ' '}}
+    function:
+        rewriters:
+            - id: header
+              rule:
+                kind: identifier
+                inside:
+                    kind: function_definition
+                    field: name
+                    all:
+                        - has: {field: parameters, pattern: $PARAMETERS}
+                        - any: [{regex: '^async', has: {regex: '^async$', pattern: $$ASYNC}}, {kind: function_definition}]
+                        - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: function_definition}]
+                        - any: [{has: {field: return_type, pattern: $RETURN}}, {kind: function_definition}]
+                        - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: function_definition}]
+              transform:
+                DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
+                GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
+                ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [default, typed, comment]}}
+                RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+              fix: '$CLAUSE $GUARD: $DECORATED$ASYNC def $NAME$GENERIC$ARGUMENTS -> $RESULT:'
+    lambda:
+        rewriters:
+            - {id: assigned, rule: {kind: identifier, inside: {kind: assignment, field: left, pattern: $ASSIGNMENT}}, transform: {TEXT: {rewrite: {source: $ASSIGNMENT, rewriters: [lambda, thunk, comment]}}}, fix: '$CLAUSE $GUARD: $TEXT'}
+    annotated:
+        rewriters:
+            - {id: typed, rule: {kind: identifier, inside: {kind: assignment, field: left, has: {field: type, pattern: $TYPE}}}, fix: '$CLAUSE $GUARD: $NAME: $TYPE'}
+    defined:
+        transform:
+            HEADER: {rewrite: {source: $NAME, rewriters: [header, assigned]}}
+    statement:
+        transform:
+            HEADER: {rewrite: {source: $NAME, rewriters: [statement]}}
+    valued:
+        transform:
+            HEADER: {rewrite: {source: $NAME, rewriters: [valued, typed, bare]}}
+---
+id: python-import
+role: item
+symbolType: module
+variants: [import]
+utils:
     listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $EXPORT}}}}
     imported: {not: {inside: {kind: import_from_statement, field: module_name}}}
     bound: {any: [{kind: dotted_name, has: {nthChild: 1, pattern: $EXPORT}}, {kind: aliased_import, has: {field: alias, pattern: $EXPORT}}]}
@@ -17,21 +139,11 @@ rule:
     all:
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
         - any:
-              - {kind: import_statement, pattern: $LIST}
-              - has: {field: module_name, pattern: $MODULE}
-              - has: {regex: '^__future__$', pattern: $$FUTURE}
+            - {kind: import_statement, pattern: $LIST}
+            - has: {field: module_name, pattern: $MODULE}
+            - has: {regex: '^__future__$', pattern: $$FUTURE}
         - matches: checked
         - pattern: $DECLARATION
-rewriters:
-    - {id: statement, rule: {kind: 'import_statement, import_from_statement, future_import_statement'}, fix: '$CLAUSE $GUARD: $DECLARATION'}
-    - {id: root, rule: {kind: dotted_name, has: {nthChild: 1, pattern: $ROOT}}, fix: $ROOT}
-    - {id: prefix, rule: {kind: import_prefix, pattern: $PREFIX}, fix: $PREFIX}
-transform:
-    MODULES: {rewrite: {source: $LIST, rewriters: [root], joinBy: ', '}}
-    ROOT: {rewrite: {source: $MODULE, rewriters: [prefix, root], joinBy: ''}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [statement]}}
-    LINE: {replace: {source: $HEADER, replace: '(?:\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]|#[^\n]*)+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
 name: $MODULES$ROOT$FUTURE
 signature: $SIGNATURE
 isImport: true
@@ -41,50 +153,28 @@ isExported:
         - all: [{matches: declared}, {has: {all: [{matches: bound}, {matches: imported}, {matches: listed}]}}]
 ---
 id: python-type-alias
-language: pythonlang
 role: item
 symbolType: struct
-utils:
-    exports: {kind: expression_statement, has: {kind: 'assignment, augmented_assignment, call', any: [{has: {field: left, pattern: __all__}}, {has: {field: function, kind: attribute, all: [{has: {field: object, pattern: __all__}}, {has: {field: attribute, regex: '^(?:extend|append)$'}}]}}]}}
-    declared: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports}}}
-    listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $NAME}}}}
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    hidden-name: {has: {field: left, matches: private}}
-    alias-type: {any: [{pattern: TypeAlias}, {kind: attribute, has: {field: attribute, pattern: TypeAlias}}]}
-    alias-call: {kind: call, has: {field: function, any: [{kind: identifier, regex: '^(?:NewType|TypeAliasType)$'}, {kind: attribute, has: {field: attribute, regex: '^(?:NewType|TypeAliasType)$'}}]}}
+variants: [assigned-name, statement]
 rule:
     all:
         - any:
-              - {kind: type_alias_statement, has: {field: left, has: {any: [{kind: identifier, pattern: $NAME}, {kind: generic_type, has: {kind: identifier, pattern: $NAME}}]}}}
-              - kind: assignment
-                all:
-                    - any: [{has: {field: type, has: {matches: alias-type}}}, {has: {field: right, matches: alias-call}}]
-                    - has: {field: left, kind: identifier, pattern: $NAME}
+            - {kind: type_alias_statement, has: {field: left, has: {any: [{kind: identifier, pattern: $NAME}, {kind: generic_type, has: {kind: identifier, pattern: $NAME}}]}}}
+            - kind: assignment
+              all:
+                - any: [{has: {field: type, has: {matches: alias-type}}}, {has: {field: right, matches: alias-call}}]
+                - has: {field: left, kind: identifier, pattern: $NAME}
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
         - matches: checked
-rewriters:
-    - {id: statement, rule: {kind: identifier, inside: {stopBy: end, kind: 'type_alias_statement, assignment', pattern: $STATEMENT}}, transform: {TEXT: {rewrite: {source: $STATEMENT, rewriters: [comment]}}}, fix: '$CLAUSE $GUARD: $TEXT'}
-    - {id: comment, rule: {kind: comment}, fix: ''}
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [statement]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{all: [{not: {matches: hidden-name}}, {not: {matches: declared}}]}, {matches: listed}]}
 ---
 id: python-type-parameter
-language: pythonlang
 role: item
 symbolType: typeParameter
+variants: [assigned-name, statement]
 utils:
-    exports: {kind: expression_statement, has: {kind: 'assignment, augmented_assignment, call', any: [{has: {field: left, pattern: __all__}}, {has: {field: function, kind: attribute, all: [{has: {field: object, pattern: __all__}}, {has: {field: attribute, regex: '^(?:extend|append)$'}}]}}]}}
-    declared: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports}}}
-    listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $NAME}}}}
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    hidden-name: {has: {field: left, matches: private}}
     variable-call: {kind: call, has: {field: function, any: [{kind: identifier, regex: '^(?:TypeVar|ParamSpec|TypeVarTuple)$'}, {kind: attribute, has: {field: attribute, regex: '^(?:TypeVar|ParamSpec|TypeVarTuple)$'}}]}}
 rule:
     kind: assignment
@@ -93,405 +183,146 @@ rule:
         - has: {field: left, kind: identifier, pattern: $NAME}
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
         - matches: checked
-rewriters:
-    - {id: statement, rule: {kind: identifier, inside: {stopBy: end, kind: 'type_alias_statement, assignment', pattern: $STATEMENT}}, transform: {TEXT: {rewrite: {source: $STATEMENT, rewriters: [comment]}}}, fix: '$CLAUSE $GUARD: $TEXT'}
-    - {id: comment, rule: {kind: comment}, fix: ''}
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [statement]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{all: [{not: {matches: hidden-name}}, {not: {matches: declared}}]}, {matches: listed}]}
 ---
 id: python-enum
-language: pythonlang
 role: item
 symbolType: enum
+variants: [defined]
 utils:
-    exports: {kind: expression_statement, has: {kind: 'assignment, augmented_assignment, call', any: [{has: {field: left, pattern: __all__}}, {has: {field: function, kind: attribute, all: [{has: {field: object, pattern: __all__}}, {has: {field: attribute, regex: '^(?:extend|append)$'}}]}}]}}
-    declared: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports}}}
-    listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $NAME}}}}
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    hidden-name: {any: [{has: {field: name, matches: private}}, {has: {field: definition, has: {field: name, matches: private}}}, {has: {field: left, matches: private}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
-    base: {regex: '^(?:Enum|IntEnum|StrEnum|ReprEnum|Flag|IntFlag)$'}
-    metaclass: {regex: '^(?:EnumType|EnumMeta)$'}
-    enumeration: {kind: class_definition, has: {field: superclasses, has: {any: [{kind: identifier, matches: base}, {kind: attribute, has: {field: attribute, matches: base}}, {kind: keyword_argument, all: [{has: {field: name, pattern: metaclass}}, {has: {field: value, any: [{kind: identifier, matches: metaclass}, {kind: attribute, has: {field: attribute, matches: metaclass}}]}}]}]}}}
     functional: {kind: call, has: {field: function, any: [{kind: identifier, matches: base}, {kind: attribute, has: {field: attribute, matches: base}}]}}
 rule:
     all:
         - any:
-              - {kind: class_definition, all: [{matches: enumeration}, {has: {field: name, pattern: $NAME}}]}
-              - {kind: decorated_definition, has: {field: definition, kind: class_definition, all: [{matches: enumeration}, {has: {field: name, pattern: $NAME}}]}}
-              - {kind: assignment, all: [{has: {field: right, matches: functional}}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: left, kind: identifier, pattern: $NAME}}]}
+            - {kind: class_definition, all: [{matches: enumeration}, {has: {field: name, pattern: $NAME}}]}
+            - {kind: decorated_definition, has: {field: definition, kind: class_definition, all: [{matches: enumeration}, {has: {field: name, pattern: $NAME}}]}}
+            - {kind: assignment, all: [{has: {field: right, matches: functional}}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: left, kind: identifier, pattern: $NAME}}]}
         - matches: checked
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: type_identifier
-          inside:
-              kind: class_definition
-              field: name
-              all:
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: class_definition}]
-                  - any: [{has: {field: superclasses, pattern: $SUPERS}}, {kind: class_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: class_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          BASES: {rewrite: {source: $SUPERS, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATEDclass $NAME$GENERIC$BASES:'
-    - {id: assigned, rule: {kind: identifier, inside: {kind: assignment, field: left, pattern: $ASSIGNMENT}}, transform: {TEXT: {rewrite: {source: $ASSIGNMENT, rewriters: [comment]}}}, fix: '$CLAUSE $GUARD: $TEXT'}
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header, assigned]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{all: [{not: {matches: hidden-name}}, {not: {matches: declared}}]}, {matches: listed}]}
 ---
 id: python-interface
-language: pythonlang
 role: item
 symbolType: interface
-utils:
-    exports: {kind: expression_statement, has: {kind: 'assignment, augmented_assignment, call', any: [{has: {field: left, pattern: __all__}}, {has: {field: function, kind: attribute, all: [{has: {field: object, pattern: __all__}}, {has: {field: attribute, regex: '^(?:extend|append)$'}}]}}]}}
-    declared: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports}}}
-    listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $NAME}}}}
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    hidden-name: {any: [{has: {field: name, matches: private}}, {has: {field: definition, has: {field: name, matches: private}}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
-    protocol-name: {regex: '^Protocol$'}
-    protocol: {any: [{kind: identifier, matches: protocol-name}, {kind: attribute, has: {field: attribute, matches: protocol-name}}]}
-    structural: {kind: class_definition, has: {field: superclasses, has: {any: [{matches: protocol}, {kind: subscript, has: {field: value, matches: protocol}}]}}}
+variants: [defined-name]
 rule:
     all:
         - any:
-              - {kind: class_definition, all: [{matches: structural}, {has: {field: name, pattern: $NAME}}]}
-              - {kind: decorated_definition, has: {field: definition, kind: class_definition, all: [{matches: structural}, {has: {field: name, pattern: $NAME}}]}}
+            - {kind: class_definition, all: [{matches: structural}, {has: {field: name, pattern: $NAME}}]}
+            - {kind: decorated_definition, has: {field: definition, kind: class_definition, all: [{matches: structural}, {has: {field: name, pattern: $NAME}}]}}
         - matches: checked
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: type_identifier
-          inside:
-              kind: class_definition
-              field: name
-              all:
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: class_definition}]
-                  - any: [{has: {field: superclasses, pattern: $SUPERS}}, {kind: class_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: class_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          BASES: {rewrite: {source: $SUPERS, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATEDclass $NAME$GENERIC$BASES:'
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{all: [{not: {matches: hidden-name}}, {not: {matches: declared}}]}, {matches: listed}]}
 ---
 id: python-class
-language: pythonlang
 role: item
 symbolType: class
+variants: [defined]
 utils:
-    exports: {kind: expression_statement, has: {kind: 'assignment, augmented_assignment, call', any: [{has: {field: left, pattern: __all__}}, {has: {field: function, kind: attribute, all: [{has: {field: object, pattern: __all__}}, {has: {field: attribute, regex: '^(?:extend|append)$'}}]}}]}}
-    declared: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports}}}
-    listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $NAME}}}}
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    hidden-name: {any: [{has: {field: name, matches: private}}, {has: {field: definition, has: {field: name, matches: private}}}, {has: {field: left, matches: private}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
     record: {regex: '^(?:NamedTuple|namedtuple|TypedDict)$'}
     functional: {kind: call, has: {field: function, any: [{kind: identifier, matches: record}, {kind: attribute, has: {field: attribute, matches: record}}]}}
 rule:
     all:
         - any:
-              - {kind: class_definition, has: {field: name, pattern: $NAME}}
-              - {kind: decorated_definition, has: {field: definition, kind: class_definition, has: {field: name, pattern: $NAME}}}
-              - {kind: assignment, all: [{has: {field: right, matches: functional}}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: left, kind: identifier, pattern: $NAME}}]}
+            - {kind: class_definition, has: {field: name, pattern: $NAME}}
+            - {kind: decorated_definition, has: {field: definition, kind: class_definition, has: {field: name, pattern: $NAME}}}
+            - {kind: assignment, all: [{has: {field: right, matches: functional}}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: left, kind: identifier, pattern: $NAME}}]}
         - matches: checked
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: type_identifier
-          inside:
-              kind: class_definition
-              field: name
-              all:
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: class_definition}]
-                  - any: [{has: {field: superclasses, pattern: $SUPERS}}, {kind: class_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: class_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          BASES: {rewrite: {source: $SUPERS, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATEDclass $NAME$GENERIC$BASES:'
-    - {id: assigned, rule: {kind: identifier, inside: {kind: assignment, field: left, pattern: $ASSIGNMENT}}, transform: {TEXT: {rewrite: {source: $ASSIGNMENT, rewriters: [comment]}}}, fix: '$CLAUSE $GUARD: $TEXT'}
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header, assigned]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{all: [{not: {matches: hidden-name}}, {not: {matches: declared}}]}, {matches: listed}]}
 ---
 id: python-function
-language: pythonlang
 role: item
 symbolType: function
-utils:
-    exports: {kind: expression_statement, has: {kind: 'assignment, augmented_assignment, call', any: [{has: {field: left, pattern: __all__}}, {has: {field: function, kind: attribute, all: [{has: {field: object, pattern: __all__}}, {has: {field: attribute, regex: '^(?:extend|append)$'}}]}}]}}
-    declared: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports}}}
-    listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $NAME}}}}
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    hidden-name: {any: [{has: {field: name, matches: private}}, {has: {field: definition, has: {field: name, matches: private}}}, {has: {field: left, matches: private}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
-    leaf: {kind: function_definition, all: [{not: {has: {stopBy: end, any: [{kind: 'function_definition, class_definition, type_alias_statement, ERROR'}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: name, pattern: $NAME}}]}
+variants: [function, lambda, defined]
 rule:
     all:
         - any:
-              - {kind: function_definition, matches: leaf}
-              - {kind: decorated_definition, all: [{has: {field: definition, matches: leaf}}, {not: {has: {any: [{kind: ERROR}, {kind: decorator, has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}]}}}]}
-              - {kind: assignment, all: [{has: {field: right, kind: lambda}}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: left, kind: identifier, pattern: $NAME}}]}
+            - {kind: function_definition, matches: leaf}
+            - {kind: decorated_definition, all: [{has: {field: definition, matches: leaf}}, {not: {has: {any: [{kind: ERROR}, {kind: decorator, has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}]}}}]}
+            - {kind: assignment, all: [{has: {field: right, kind: lambda}}, {not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: left, kind: identifier, pattern: $NAME}}]}
         - matches: checked
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: identifier
-          inside:
-              kind: function_definition
-              field: name
-              all:
-                  - has: {field: parameters, pattern: $PARAMETERS}
-                  - any: [{regex: '^async', has: {regex: '^async$', pattern: $$ASYNC}}, {kind: function_definition}]
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: function_definition}]
-                  - any: [{has: {field: return_type, pattern: $RETURN}}, {kind: function_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: function_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [default, typed, comment]}}
-          RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATED$ASYNC def $NAME$GENERIC$ARGUMENTS -> $RESULT:'
-    - {id: assigned, rule: {kind: identifier, inside: {kind: assignment, field: left, pattern: $ASSIGNMENT}}, transform: {TEXT: {rewrite: {source: $ASSIGNMENT, rewriters: [lambda, thunk, comment]}}}, fix: '$CLAUSE $GUARD: $TEXT'}
-    - {id: default, rule: {kind: default_parameter, has: {field: name, pattern: $PARAMETER}}, fix: '$PARAMETER=…'}
-    - {id: typed, rule: {kind: typed_default_parameter, all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: type, pattern: $TYPE}}]}, fix: '$PARAMETER: $TYPE = …'}
-    - {id: lambda, rule: {kind: lambda, inside: {kind: assignment, field: right}, has: {field: parameters, pattern: $PARAMETERS}}, transform: {ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [default]}}}, fix: 'lambda $ARGUMENTS:'}
-    - {id: thunk, rule: {kind: lambda, inside: {kind: assignment, field: right}}, fix: 'lambda:'}
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header, assigned]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{all: [{not: {matches: hidden-name}}, {not: {matches: declared}}]}, {matches: listed}]}
 ---
 id: python-function-owner
-language: pythonlang
 role: item
 symbolType: function
-utils:
-    exports: {kind: expression_statement, has: {kind: 'assignment, augmented_assignment, call', any: [{has: {field: left, pattern: __all__}}, {has: {field: function, kind: attribute, all: [{has: {field: object, pattern: __all__}}, {has: {field: attribute, regex: '^(?:extend|append)$'}}]}}]}}
-    declared: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports}}}
-    listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $NAME}}}}
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    hidden-name: {any: [{has: {field: name, matches: private}}, {has: {field: definition, has: {field: name, matches: private}}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
+variants: [defined-name, function]
 rule:
     all:
         - any:
-              - {kind: function_definition, has: {field: name, pattern: $NAME}}
-              - {kind: decorated_definition, has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}}
+            - {kind: function_definition, has: {field: name, pattern: $NAME}}
+            - {kind: decorated_definition, has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}}
         - matches: checked
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: identifier
-          inside:
-              kind: function_definition
-              field: name
-              all:
-                  - has: {field: parameters, pattern: $PARAMETERS}
-                  - any: [{regex: '^async', has: {regex: '^async$', pattern: $$ASYNC}}, {kind: function_definition}]
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: function_definition}]
-                  - any: [{has: {field: return_type, pattern: $RETURN}}, {kind: function_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: function_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [default, typed, comment]}}
-          RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATED$ASYNC def $NAME$GENERIC$ARGUMENTS -> $RESULT:'
-    - {id: default, rule: {kind: default_parameter, has: {field: name, pattern: $PARAMETER}}, fix: '$PARAMETER=…'}
-    - {id: typed, rule: {kind: typed_default_parameter, all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: type, pattern: $TYPE}}]}, fix: '$PARAMETER: $TYPE = …'}
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{all: [{not: {matches: hidden-name}}, {not: {matches: declared}}]}, {matches: listed}]}
 ---
 id: python-constant
-language: pythonlang
 role: item
 symbolType: constant
+variants: [annotated, valued]
 utils:
-    exports: {kind: expression_statement, has: {kind: 'assignment, augmented_assignment, call', any: [{has: {field: left, pattern: __all__}}, {has: {field: function, kind: attribute, all: [{has: {field: object, pattern: __all__}}, {has: {field: attribute, regex: '^(?:extend|append)$'}}]}}]}}
-    declared: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports}}}
-    listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $NAME}}}}
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    capitals: {regex: '^_*[^\p{Ll}\p{Nd}_][^\p{Ll}]*$'}
-    target: {inside: {kind: assignment, field: left, stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}}}
     hidden-name: {any: [{kind: identifier, matches: private}, {has: {field: left, matches: private}}]}
 rule:
     all:
         - any:
-              - kind: assignment
-                all:
-                    - not: {has: {field: right, kind: assignment}}
-                    - any: [{has: {field: left, matches: capitals}}, {has: {field: type, has: {stopBy: end, regex: '^Final$'}}}]
-                    - has: {field: left, kind: identifier, pattern: $NAME}
-              - {kind: identifier, all: [{matches: capitals}, {matches: target}, {pattern: $NAME}]}
+            - kind: assignment
+              all:
+                - not: {has: {field: right, kind: assignment}}
+                - any: [{has: {field: left, matches: capitals}}, {has: {field: type, has: {stopBy: end, regex: '^Final$'}}}]
+                - has: {field: left, kind: identifier, pattern: $NAME}
+            - {kind: identifier, all: [{matches: capitals}, {matches: target}, {pattern: $NAME}]}
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
         - matches: checked
-rewriters:
-    - {id: typed, rule: {kind: identifier, inside: {kind: assignment, field: left, has: {field: type, pattern: $TYPE}}}, fix: '$CLAUSE $GUARD: $NAME: $TYPE'}
-    - {id: valued, rule: {kind: identifier, inside: {kind: assignment, field: left, all: [{has: {field: right, pattern: $_}}, {has: {field: type, pattern: $TYPE}}]}}, fix: '$CLAUSE $GUARD: $NAME: $TYPE = …'}
-    - {id: bare, rule: {kind: identifier}, fix: '$CLAUSE $GUARD: $NAME'}
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [valued, typed, bare]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{all: [{not: {matches: hidden-name}}, {not: {matches: declared}}]}, {matches: listed}]}
 ---
 id: python-variable
-language: pythonlang
 role: item
 symbolType: variable
+variants: [bound-target, annotated, valued]
 utils:
-    exports: {kind: expression_statement, has: {kind: 'assignment, augmented_assignment, call', any: [{has: {field: left, pattern: __all__}}, {has: {field: function, kind: attribute, all: [{has: {field: object, pattern: __all__}}, {has: {field: attribute, regex: '^(?:extend|append)$'}}]}}]}}
-    declared: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports}}}
-    listed: {inside: {kind: 'module, ERROR', stopBy: end, regex: __all__, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, try_statement, except_clause, finally_clause'}}, matches: exports, has: {kind: string_content, stopBy: end, pattern: $NAME}}}}
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    target: {inside: {kind: 'assignment, for_statement', field: left, stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}}}
     hidden-name: {any: [{kind: identifier, matches: private}, {has: {field: left, matches: private}}, {has: {field: name, matches: private}}]}
 rule:
     all:
         - any:
-              - kind: assignment
-                all:
-                    - not: {has: {field: right, kind: assignment}}
-                    - has: {field: left, kind: identifier, pattern: $NAME}
-              - kind: named_expression
-                all: [{not: {inside: {kind: lambda, stopBy: end}}}, {has: {field: name, pattern: $NAME}}]
-              - kind: identifier
-                all:
-                    - not: {pattern: _}
-                    - any:
-                          - matches: target
-                          - inside:
-                                any:
-                                    - {kind: dotted_name, not: {has: {nthChild: 2}}, inside: {kind: 'case_pattern, keyword_pattern'}}
-                                    - {kind: splat_pattern}
-                                    - {kind: as_pattern, inside: {kind: case_pattern}}
-                                    - {kind: as_pattern_target, inside: {kind: as_pattern, inside: {kind: with_item}}}
-                                    - {kind: 'tuple, list, parenthesized_expression, list_splat', inside: {kind: as_pattern_target, stopBy: {not: {kind: 'as_pattern_target, tuple, list, parenthesized_expression, list_splat'}}, inside: {kind: as_pattern, inside: {kind: with_item}}}}
-                    - pattern: $NAME
+            - kind: assignment
+              all:
+                - not: {has: {field: right, kind: assignment}}
+                - has: {field: left, kind: identifier, pattern: $NAME}
+            - kind: named_expression
+              all: [{not: {inside: {kind: lambda, stopBy: end}}}, {has: {field: name, pattern: $NAME}}]
+            - kind: identifier
+              all:
+                - not: {pattern: _}
+                - any:
+                    - matches: target
+                    - inside:
+                        any:
+                            - {kind: dotted_name, not: {has: {nthChild: 2}}, inside: {kind: 'case_pattern, keyword_pattern'}}
+                            - {kind: splat_pattern}
+                            - {kind: as_pattern, inside: {kind: case_pattern}}
+                            - {kind: as_pattern_target, inside: {kind: as_pattern, inside: {kind: with_item}}}
+                            - {kind: 'tuple, list, parenthesized_expression, list_splat', inside: {kind: as_pattern_target, stopBy: {not: {kind: 'as_pattern_target, tuple, list, parenthesized_expression, list_splat'}}, inside: {kind: as_pattern, inside: {kind: with_item}}}}
+                - pattern: $NAME
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
         - matches: checked
-rewriters:
-    - {id: typed, rule: {kind: identifier, inside: {kind: assignment, field: left, has: {field: type, pattern: $TYPE}}}, fix: '$CLAUSE $GUARD: $NAME: $TYPE'}
-    - {id: valued, rule: {kind: identifier, inside: {kind: assignment, field: left, all: [{has: {field: right, pattern: $_}}, {has: {field: type, pattern: $TYPE}}]}}, fix: '$CLAUSE $GUARD: $NAME: $TYPE = …'}
-    - {id: bare, rule: {kind: identifier}, fix: '$CLAUSE $GUARD: $NAME'}
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [valued, typed, bare]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {any: [{all: [{not: {matches: hidden-name}}, {not: {matches: declared}}]}, {matches: listed}]}
 ---
 id: python-error
-language: pythonlang
 role: item
 symbolType: 'null'
-utils:
-    opening: {nthChild: {position: 1, ofRule: {not: {any: [{kind: 'class_definition, decorated_definition, function_definition, import_statement, import_from_statement, future_import_statement, type_alias_statement, assignment, named_expression, for_statement, with_statement, match_statement, ERROR'}, {kind: expression_statement, has: {kind: 'assignment, named_expression'}}]}}}}
 rule:
     any:
         - {kind: ERROR, not: {has: {stopBy: end, kind: 'class_definition, decorated_definition, function_definition, import_statement, import_from_statement, future_import_statement, type_alias_statement, assignment, named_expression, for_statement, with_statement, match_statement'}}}
@@ -506,80 +337,44 @@ isImport: false
 isExported: false
 ---
 id: python-member-type-alias
-language: pythonlang
 role: member
 symbolType: struct
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
-utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    alias-type: {any: [{pattern: TypeAlias}, {kind: attribute, has: {field: attribute, pattern: TypeAlias}}]}
-    alias-call: {kind: call, has: {field: function, any: [{kind: identifier, regex: '^(?:NewType|TypeAliasType)$'}, {kind: attribute, has: {field: attribute, regex: '^(?:NewType|TypeAliasType)$'}}]}}
-    scope: {inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: 'class_definition, function_definition'}]}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
+variants: [nested-scope, statement]
 rule:
     all:
         - any:
-              - {kind: type_alias_statement, has: {field: left, has: {any: [{kind: identifier, pattern: $NAME}, {kind: generic_type, has: {kind: identifier, pattern: $NAME}}]}}}
-              - kind: assignment
-                inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition}}}
-                all:
-                    - any: [{has: {field: type, has: {matches: alias-type}}}, {has: {field: right, matches: alias-call}}]
-                    - has: {field: left, kind: identifier, pattern: $NAME}
+            - {kind: type_alias_statement, has: {field: left, has: {any: [{kind: identifier, pattern: $NAME}, {kind: generic_type, has: {kind: identifier, pattern: $NAME}}]}}}
+            - kind: assignment
+              inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition}}}
+              all:
+                - any: [{has: {field: type, has: {matches: alias-type}}}, {has: {field: right, matches: alias-call}}]
+                - has: {field: left, kind: identifier, pattern: $NAME}
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
         - matches: scope
         - matches: checked
-rewriters:
-    - {id: statement, rule: {kind: identifier, inside: {stopBy: end, kind: 'type_alias_statement, assignment', pattern: $STATEMENT}}, transform: {TEXT: {rewrite: {source: $STATEMENT, rewriters: [comment]}}}, fix: '$CLAUSE $GUARD: $TEXT'}
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [statement]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {any: [{has: {field: left, matches: private}}, {matches: hidden}]}}
 ---
 id: python-member-enum-member
-language: pythonlang
 role: member
 symbolType: enumMember
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
 utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    base: {regex: '^(?:Enum|IntEnum|StrEnum|ReprEnum|Flag|IntFlag)$'}
-    metaclass: {regex: '^(?:EnumType|EnumMeta)$'}
-    enumeration: {kind: class_definition, has: {field: superclasses, has: {any: [{kind: identifier, matches: base}, {kind: attribute, has: {field: attribute, matches: base}}, {kind: keyword_argument, all: [{has: {field: name, pattern: metaclass}}, {has: {field: value, any: [{kind: identifier, matches: metaclass}, {kind: attribute, has: {field: attribute, matches: metaclass}}]}}]}]}}}
-    target: {inside: {kind: assignment, field: left, stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
     scope: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, matches: enumeration, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: class_definition}]}}
 rule:
     all:
         - any:
-              - kind: assignment
-                all:
-                    - has: {field: right, not: {kind: assignment}}
-                    - matches: scope
-                    - has: {field: left, kind: identifier, pattern: $NAME}
-              - {kind: identifier, all: [{matches: target}, {matches: scope}, {pattern: $NAME}]}
+            - kind: assignment
+              all:
+                - has: {field: right, not: {kind: assignment}}
+                - matches: scope
+                - has: {field: left, kind: identifier, pattern: $NAME}
+            - {kind: identifier, all: [{matches: target}, {matches: scope}, {pattern: $NAME}]}
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
         - matches: checked
-rewriters:
-    - {id: bare, rule: {kind: identifier}, fix: '$CLAUSE $GUARD: $NAME'}
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
 transform:
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
     HEADER: {rewrite: {source: $NAME, rewriters: [bare]}}
 constraints:
     NAME: {not: {regex: '^_(?:_|.*_$)'}}
@@ -588,620 +383,235 @@ signature: $SIGNATURE
 isPublic: {not: {any: [{kind: identifier, matches: private}, {has: {field: left, matches: private}}, {matches: hidden}]}}
 ---
 id: python-member-constructor
-language: pythonlang
 role: member
 symbolType: constructor
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
+variants: [function]
 utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
-    scope: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: class_definition}]}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
     receiver: {kind: attribute, has: {field: object, regex: '^self$'}}
     named: {has: {field: name, pattern: $NAME, regex: '^__(?:init|new|post_init|del)__$'}}
     leaf: {kind: function_definition, all: [{matches: named}, {not: {has: {stopBy: end, any: [{kind: 'function_definition, class_definition, type_alias_statement, ERROR'}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}, {kind: assignment, has: {field: left, any: [{matches: receiver}, {kind: 'pattern_list, tuple_pattern, list_pattern', has: {stopBy: end, matches: receiver}}]}}]}}}]}
 rule:
     all:
         - any:
-              - {kind: function_definition, all: [{matches: leaf}, {matches: scope}]}
-              - {kind: decorated_definition, all: [{has: {field: definition, matches: leaf}}, {matches: scope}, {not: {has: {any: [{kind: ERROR}, {kind: decorator, has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}]}}}]}
-              - kind: parameters
-                all:
-                    - inside: {kind: function_definition, field: parameters, all: [{matches: named}, {matches: scope}]}
-                    - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
-        - matches: checked
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: identifier
-          inside:
-              kind: function_definition
-              field: name
+            - {kind: function_definition, all: [{matches: leaf}, {matches: scope}]}
+            - {kind: decorated_definition, all: [{has: {field: definition, matches: leaf}}, {matches: scope}, {not: {has: {any: [{kind: ERROR}, {kind: decorator, has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}]}}}]}
+            - kind: parameters
               all:
-                  - has: {field: parameters, pattern: $PARAMETERS}
-                  - any: [{regex: '^async', has: {regex: '^async$', pattern: $$ASYNC}}, {kind: function_definition}]
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: function_definition}]
-                  - any: [{has: {field: return_type, pattern: $RETURN}}, {kind: function_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: function_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [default, typed, comment]}}
-          RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATED$ASYNC def $NAME$GENERIC$ARGUMENTS -> $RESULT:'
-    - {id: default, rule: {kind: default_parameter, has: {field: name, pattern: $PARAMETER}}, fix: '$PARAMETER=…'}
-    - {id: typed, rule: {kind: typed_default_parameter, all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: type, pattern: $TYPE}}]}, fix: '$PARAMETER: $TYPE = …'}
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+                - inside: {kind: function_definition, field: parameters, all: [{matches: named}, {matches: scope}]}
+                - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
+        - matches: checked
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {matches: hidden}}
 ---
 id: python-member-property
-language: pythonlang
 role: member
 symbolType: property
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
+variants: [function]
 utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
-    leaf: {kind: function_definition, all: [{not: {has: {stopBy: end, any: [{kind: 'function_definition, class_definition, type_alias_statement, ERROR'}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: name, pattern: $NAME}}]}
-    scope: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: class_definition}]}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
     accessor: {kind: decorated_definition, has: {kind: decorator, has: {any: [{kind: identifier, regex: '^(?:cached_)?property$'}, {kind: attribute, has: {field: attribute, regex: '^(?:(?:cached_)?property|getter|setter|deleter)$'}}]}}}
 rule:
     all:
         - any:
-              - {kind: decorated_definition, all: [{matches: accessor}, {has: {field: definition, matches: leaf}}, {matches: scope}, {not: {has: {any: [{kind: ERROR}, {kind: decorator, has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}]}}}]}
-              - kind: parameters
-                all:
-                    - inside: {kind: function_definition, field: parameters, all: [{inside: {kind: decorated_definition, matches: accessor}}, {matches: scope}, {has: {field: name, pattern: $NAME}}]}
-                    - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
-        - matches: checked
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: identifier
-          inside:
-              kind: function_definition
-              field: name
+            - {kind: decorated_definition, all: [{matches: accessor}, {has: {field: definition, matches: leaf}}, {matches: scope}, {not: {has: {any: [{kind: ERROR}, {kind: decorator, has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}]}}}]}
+            - kind: parameters
               all:
-                  - has: {field: parameters, pattern: $PARAMETERS}
-                  - any: [{regex: '^async', has: {regex: '^async$', pattern: $$ASYNC}}, {kind: function_definition}]
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: function_definition}]
-                  - any: [{has: {field: return_type, pattern: $RETURN}}, {kind: function_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: function_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [default, typed, comment]}}
-          RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATED$ASYNC def $NAME$GENERIC$ARGUMENTS -> $RESULT:'
-    - {id: default, rule: {kind: default_parameter, has: {field: name, pattern: $PARAMETER}}, fix: '$PARAMETER=…'}
-    - {id: typed, rule: {kind: typed_default_parameter, all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: type, pattern: $TYPE}}]}, fix: '$PARAMETER: $TYPE = …'}
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+                - inside: {kind: function_definition, field: parameters, all: [{inside: {kind: decorated_definition, matches: accessor}}, {matches: scope}, {has: {field: name, pattern: $NAME}}]}
+                - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
+        - matches: checked
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {any: [{matches: hidden}, {has: {field: definition, has: {field: name, matches: private}}}]}}
 ---
 id: python-member-method
-language: pythonlang
 role: member
 symbolType: method
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
+variants: [function, lambda, defined]
 utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
-    scope: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: class_definition}]}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
     leaf: {kind: function_definition, all: [{not: {has: {stopBy: end, any: [{kind: 'function_definition, class_definition, type_alias_statement, ERROR'}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: name, pattern: $NAME, not: {regex: '^__(?:init|new|post_init|del)__$'}}}]}
 rule:
     all:
         - any:
-              - {kind: function_definition, all: [{matches: leaf}, {matches: scope}]}
-              - {kind: decorated_definition, all: [{has: {field: definition, matches: leaf}}, {matches: scope}, {not: {has: {any: [{kind: ERROR}, {kind: decorator, has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}]}}}]}
-              - kind: parameters
-                all:
-                    - inside: {kind: function_definition, field: parameters, all: [{matches: scope}, {has: {field: name, pattern: $NAME}}]}
-                    - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
-              - kind: assignment
-                all:
-                    - has: {field: right, kind: lambda}
-                    - matches: scope
-                    - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
-                    - has: {field: left, kind: identifier, pattern: $NAME}
-        - matches: checked
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: identifier
-          inside:
-              kind: function_definition
-              field: name
+            - {kind: function_definition, all: [{matches: leaf}, {matches: scope}]}
+            - {kind: decorated_definition, all: [{has: {field: definition, matches: leaf}}, {matches: scope}, {not: {has: {any: [{kind: ERROR}, {kind: decorator, has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}]}}}]}
+            - kind: parameters
               all:
-                  - has: {field: parameters, pattern: $PARAMETERS}
-                  - any: [{regex: '^async', has: {regex: '^async$', pattern: $$ASYNC}}, {kind: function_definition}]
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: function_definition}]
-                  - any: [{has: {field: return_type, pattern: $RETURN}}, {kind: function_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: function_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [default, typed, comment]}}
-          RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATED$ASYNC def $NAME$GENERIC$ARGUMENTS -> $RESULT:'
-    - {id: assigned, rule: {kind: identifier, inside: {kind: assignment, field: left, pattern: $ASSIGNMENT}}, transform: {TEXT: {rewrite: {source: $ASSIGNMENT, rewriters: [lambda, thunk, comment]}}}, fix: '$CLAUSE $GUARD: $TEXT'}
-    - {id: default, rule: {kind: default_parameter, has: {field: name, pattern: $PARAMETER}}, fix: '$PARAMETER=…'}
-    - {id: typed, rule: {kind: typed_default_parameter, all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: type, pattern: $TYPE}}]}, fix: '$PARAMETER: $TYPE = …'}
-    - {id: lambda, rule: {kind: lambda, inside: {kind: assignment, field: right}, has: {field: parameters, pattern: $PARAMETERS}}, transform: {ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [default]}}}, fix: 'lambda $ARGUMENTS:'}
-    - {id: thunk, rule: {kind: lambda, inside: {kind: assignment, field: right}}, fix: 'lambda:'}
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header, assigned]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+                - inside: {kind: function_definition, field: parameters, all: [{matches: scope}, {has: {field: name, pattern: $NAME}}]}
+                - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
+            - kind: assignment
+              all:
+                - has: {field: right, kind: lambda}
+                - matches: scope
+                - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
+                - has: {field: left, kind: identifier, pattern: $NAME}
+        - matches: checked
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {any: [{matches: hidden}, {has: {field: name, matches: private}}, {has: {field: definition, has: {field: name, matches: private}}}, {has: {field: left, matches: private}}]}}
 ---
 id: python-member-function
-language: pythonlang
 role: member
 symbolType: function
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
+variants: [function]
 utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
-    leaf: {kind: function_definition, all: [{not: {has: {stopBy: end, any: [{kind: 'function_definition, class_definition, type_alias_statement, ERROR'}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}}, {has: {field: name, pattern: $NAME}}]}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
     scope: {inside: {kind: function_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: function_definition}]}}
 rule:
     all:
         - any:
-              - {kind: function_definition, all: [{matches: leaf}, {matches: scope}]}
-              - {kind: decorated_definition, all: [{has: {field: definition, matches: leaf}}, {matches: scope}, {not: {has: {any: [{kind: ERROR}, {kind: decorator, has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}]}}}]}
-              - kind: parameters
-                all:
-                    - inside: {kind: function_definition, field: parameters, all: [{matches: scope}, {has: {field: name, pattern: $NAME}}]}
-                    - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
-        - matches: checked
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: identifier
-          inside:
-              kind: function_definition
-              field: name
+            - {kind: function_definition, all: [{matches: leaf}, {matches: scope}]}
+            - {kind: decorated_definition, all: [{has: {field: definition, matches: leaf}}, {matches: scope}, {not: {has: {any: [{kind: ERROR}, {kind: decorator, has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}]}}}]}
+            - kind: parameters
               all:
-                  - has: {field: parameters, pattern: $PARAMETERS}
-                  - any: [{regex: '^async', has: {regex: '^async$', pattern: $$ASYNC}}, {kind: function_definition}]
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: function_definition}]
-                  - any: [{has: {field: return_type, pattern: $RETURN}}, {kind: function_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: function_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [default, typed, comment]}}
-          RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATED$ASYNC def $NAME$GENERIC$ARGUMENTS -> $RESULT:'
-    - {id: default, rule: {kind: default_parameter, has: {field: name, pattern: $PARAMETER}}, fix: '$PARAMETER=…'}
-    - {id: typed, rule: {kind: typed_default_parameter, all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: type, pattern: $TYPE}}]}, fix: '$PARAMETER: $TYPE = …'}
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+                - inside: {kind: function_definition, field: parameters, all: [{matches: scope}, {has: {field: name, pattern: $NAME}}]}
+                - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
+        - matches: checked
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {any: [{matches: hidden}, {has: {field: name, matches: private}}, {has: {field: definition, has: {field: name, matches: private}}}]}}
 ---
 id: python-member-constant
-language: pythonlang
 role: member
 symbolType: constant
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
-utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    capitals: {regex: '^_*[^\p{Ll}\p{Nd}_][^\p{Ll}]*$'}
-    target: {inside: {kind: assignment, field: left, stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}}}
-    scope: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: class_definition}]}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
+variants: [annotated, valued]
 rule:
     all:
         - any:
-              - kind: assignment
-                all:
-                    - not: {has: {field: right, kind: assignment}}
-                    - any: [{has: {field: left, matches: capitals}}, {has: {field: type, has: {stopBy: end, regex: '^Final$'}}}]
-                    - matches: scope
-                    - has: {field: left, kind: identifier, pattern: $NAME}
-              - {kind: identifier, all: [{matches: capitals}, {matches: target}, {matches: scope}, {pattern: $NAME}]}
+            - kind: assignment
+              all:
+                - not: {has: {field: right, kind: assignment}}
+                - any: [{has: {field: left, matches: capitals}}, {has: {field: type, has: {stopBy: end, regex: '^Final$'}}}]
+                - matches: scope
+                - has: {field: left, kind: identifier, pattern: $NAME}
+            - {kind: identifier, all: [{matches: capitals}, {matches: target}, {matches: scope}, {pattern: $NAME}]}
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
         - matches: checked
-rewriters:
-    - {id: typed, rule: {kind: identifier, inside: {kind: assignment, field: left, has: {field: type, pattern: $TYPE}}}, fix: '$CLAUSE $GUARD: $NAME: $TYPE'}
-    - {id: valued, rule: {kind: identifier, inside: {kind: assignment, field: left, all: [{has: {field: right, pattern: $_}}, {has: {field: type, pattern: $TYPE}}]}}, fix: '$CLAUSE $GUARD: $NAME: $TYPE = …'}
-    - {id: bare, rule: {kind: identifier}, fix: '$CLAUSE $GUARD: $NAME'}
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [valued, typed, bare]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {any: [{kind: identifier, matches: private}, {has: {field: left, matches: private}}, {matches: hidden}]}}
 ---
 id: python-member-field
-language: pythonlang
 role: member
 symbolType: field
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
+variants: [bound-target, annotated]
 utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    target: {inside: {kind: 'assignment, for_statement', field: left, stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}}}
-    scope: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: class_definition}]}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
     constructed: {inside: {kind: function_definition, stopBy: {kind: 'class_definition, function_definition'}, has: {field: name, regex: '^__(?:init|new|post_init)__$'}, matches: scope}}
     instance: {kind: attribute, all: [{has: {field: object, regex: '^self$'}}, {has: {field: attribute, pattern: $NAME}}]}
 rule:
     all:
         - any:
-              - kind: assignment
-                all:
-                    - not: {has: {field: right, kind: assignment}}
-                    - matches: scope
-                    - has: {field: left, kind: identifier, pattern: $NAME}
-              - kind: assignment
-                all:
-                    - not: {has: {field: right, kind: assignment}}
-                    - matches: constructed
-                    - has: {field: left, matches: instance}
-              - {kind: attribute, all: [{any: [{inside: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}, {inside: {kind: assignment, field: left, has: {field: right, kind: assignment}}}]}, {inside: {kind: assignment, field: left, stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}}}, {matches: constructed}, {matches: instance}]}
-              - kind: named_expression
-                all: [{not: {inside: {kind: lambda, stopBy: end}}}, {matches: scope}, {has: {field: name, pattern: $NAME}}]
-              - kind: identifier
-                all:
-                    - not: {pattern: _}
-                    - any:
-                          - matches: target
-                          - inside:
-                                any:
-                                    - {kind: dotted_name, not: {has: {nthChild: 2}}, inside: {kind: 'case_pattern, keyword_pattern'}}
-                                    - {kind: splat_pattern}
-                                    - {kind: as_pattern, inside: {kind: case_pattern}}
-                                    - {kind: as_pattern_target, inside: {kind: as_pattern, inside: {kind: with_item}}}
-                                    - {kind: 'tuple, list, parenthesized_expression, list_splat', inside: {kind: as_pattern_target, stopBy: {not: {kind: 'as_pattern_target, tuple, list, parenthesized_expression, list_splat'}}, inside: {kind: as_pattern, inside: {kind: with_item}}}}
-                    - matches: scope
-                    - pattern: $NAME
+            - kind: assignment
+              all:
+                - not: {has: {field: right, kind: assignment}}
+                - matches: scope
+                - has: {field: left, kind: identifier, pattern: $NAME}
+            - kind: assignment
+              all:
+                - not: {has: {field: right, kind: assignment}}
+                - matches: constructed
+                - has: {field: left, matches: instance}
+            - {kind: attribute, all: [{any: [{inside: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}, {inside: {kind: assignment, field: left, has: {field: right, kind: assignment}}}]}, {inside: {kind: assignment, field: left, stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}}}, {matches: constructed}, {matches: instance}]}
+            - kind: named_expression
+              all: [{not: {inside: {kind: lambda, stopBy: end}}}, {matches: scope}, {has: {field: name, pattern: $NAME}}]
+            - kind: identifier
+              all:
+                - not: {pattern: _}
+                - any:
+                    - matches: target
+                    - inside:
+                        any:
+                            - {kind: dotted_name, not: {has: {nthChild: 2}}, inside: {kind: 'case_pattern, keyword_pattern'}}
+                            - {kind: splat_pattern}
+                            - {kind: as_pattern, inside: {kind: case_pattern}}
+                            - {kind: as_pattern_target, inside: {kind: as_pattern, inside: {kind: with_item}}}
+                            - {kind: 'tuple, list, parenthesized_expression, list_splat', inside: {kind: as_pattern_target, stopBy: {not: {kind: 'as_pattern_target, tuple, list, parenthesized_expression, list_splat'}}, inside: {kind: as_pattern, inside: {kind: with_item}}}}
+                - matches: scope
+                - pattern: $NAME
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
         - matches: checked
 rewriters:
-    - {id: typed, rule: {kind: identifier, inside: {kind: assignment, field: left, has: {field: type, pattern: $TYPE}}}, fix: '$CLAUSE $GUARD: $NAME: $TYPE'}
-    - {id: valued, rule: {kind: identifier, inside: {kind: assignment, field: left, all: [{has: {field: right, pattern: $_}}, {has: {field: type, pattern: $TYPE}}]}}, fix: '$CLAUSE $GUARD: $NAME: $TYPE = …'}
-    - {id: bare, rule: {kind: identifier}, fix: '$CLAUSE $GUARD: $NAME'}
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
     - {id: owned-typed, rule: {kind: identifier, inside: {kind: attribute, field: attribute, inside: {kind: assignment, field: left, has: {field: type, pattern: $TYPE}}}}, fix: '$CLAUSE $GUARD: self.$NAME: $TYPE'}
     - {id: owned, rule: {kind: identifier, inside: {kind: attribute, field: attribute}}, fix: '$CLAUSE $GUARD: self.$NAME'}
 transform:
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
     HEADER: {rewrite: {source: $NAME, rewriters: [owned-typed, owned, valued, typed, bare]}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {any: [{kind: identifier, matches: private}, {has: {field: left, any: [{matches: private}, {kind: attribute, has: {field: attribute, matches: private}}]}}, {has: {field: name, matches: private}}, {kind: attribute, has: {field: attribute, matches: private}}, {matches: hidden}]}}
 ---
 id: python-member-enum
-language: pythonlang
 role: member
 symbolType: enum
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
-utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
-    base: {regex: '^(?:Enum|IntEnum|StrEnum|ReprEnum|Flag|IntFlag)$'}
-    metaclass: {regex: '^(?:EnumType|EnumMeta)$'}
-    enumeration: {kind: class_definition, has: {field: superclasses, has: {any: [{kind: identifier, matches: base}, {kind: attribute, has: {field: attribute, matches: base}}, {kind: keyword_argument, all: [{has: {field: name, pattern: metaclass}}, {has: {field: value, any: [{kind: identifier, matches: metaclass}, {kind: attribute, has: {field: attribute, matches: metaclass}}]}}]}]}}}
-    scope: {inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: 'class_definition, function_definition'}]}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
+variants: [nested-scope]
 rule:
     kind: type_identifier
     all:
         - inside: {kind: class_definition, all: [{matches: enumeration}, {matches: scope}]}
         - matches: checked
         - pattern: $NAME
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: type_identifier
-          inside:
-              kind: class_definition
-              field: name
-              all:
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: class_definition}]
-                  - any: [{has: {field: superclasses, pattern: $SUPERS}}, {kind: class_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: class_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          BASES: {rewrite: {source: $SUPERS, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATEDclass $NAME$GENERIC$BASES:'
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {matches: hidden}}
 ---
 id: python-member-interface
-language: pythonlang
 role: member
 symbolType: interface
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
-utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
-    protocol-name: {regex: '^Protocol$'}
-    protocol: {any: [{kind: identifier, matches: protocol-name}, {kind: attribute, has: {field: attribute, matches: protocol-name}}]}
-    structural: {kind: class_definition, has: {field: superclasses, has: {any: [{matches: protocol}, {kind: subscript, has: {field: value, matches: protocol}}]}}}
-    scope: {inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: 'class_definition, function_definition'}]}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
+variants: [nested-scope]
 rule:
     kind: type_identifier
     all:
         - inside: {kind: class_definition, all: [{matches: structural}, {matches: scope}]}
         - matches: checked
         - pattern: $NAME
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: type_identifier
-          inside:
-              kind: class_definition
-              field: name
-              all:
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: class_definition}]
-                  - any: [{has: {field: superclasses, pattern: $SUPERS}}, {kind: class_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: class_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          BASES: {rewrite: {source: $SUPERS, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATEDclass $NAME$GENERIC$BASES:'
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {matches: hidden}}
 ---
 id: python-member-class
-language: pythonlang
 role: member
 symbolType: class
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
-utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    dotted: {any: [{kind: identifier}, {kind: attribute, not: {has: {stopBy: end, pattern: $_, not: {kind: 'identifier, attribute'}}}}]}
-    scalar: {any: [{kind: 'integer, float, true, false, none, ellipsis'}, {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: interpolation}}}, {kind: unary_operator, has: {field: argument, kind: 'integer, float'}}, {kind: 'list_splat, dictionary_splat', has: {matches: dotted}}]}
-    literal: {any: [{matches: dotted}, {matches: scalar}, {kind: 'list, tuple, set', not: {has: {pattern: $_, not: {matches: dotted}}}}]}
-    scope: {inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: 'class_definition, function_definition'}]}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
+variants: [nested-scope]
 rule:
     kind: type_identifier
     all:
         - inside: {kind: class_definition, all: [{matches: scope}]}
         - matches: checked
         - pattern: $NAME
-rewriters:
-    - {id: comment, rule: {kind: comment}, fix: ''}
-    - {id: tool, rule: {kind: decorator, regex: '^@(?:(?:typing|typing_extensions)\.)?(?:type_check_only|no_type_check|disjoint_base)$'}, fix: ''}
-    - {id: argument, rule: {any: [{inside: {kind: argument_list}, all: [{pattern: $_}, {not: {kind: 'keyword_argument, comment'}}, {not: {matches: literal}}]}, {inside: {kind: keyword_argument, field: value}, not: {matches: literal}}]}, fix: '…'}
-    - {id: decorator, rule: {kind: decorator, has: {kind: call, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}}, transform: {OPTIONS: {rewrite: {source: $ARGUMENTS, rewriters: [comment, argument]}}}, fix: '@$CALLEE$OPTIONS'}
-    - id: decorators
-      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {stopBy: {not: {kind: comment}}, kind: decorator, pattern: $NEXT}}, {kind: decorator}]}
-      transform:
-          ONE: {rewrite: {source: $DECORATOR, rewriters: [tool, decorator, comment]}}
-          REST: {rewrite: {source: $NEXT, rewriters: [decorators], joinBy: ''}}
-      fix: '$ONE $REST'
-    - id: header
-      rule:
-          kind: type_identifier
-          inside:
-              kind: class_definition
-              field: name
-              all:
-                  - any: [{has: {field: type_parameters, pattern: $TYPES}}, {kind: class_definition}]
-                  - any: [{has: {field: superclasses, pattern: $SUPERS}}, {kind: class_definition}]
-                  - any: [{inside: {kind: decorated_definition, has: {kind: decorator, nthChild: 1, pattern: $FIRST}}}, {kind: class_definition}]
-      transform:
-          DECORATED: {rewrite: {source: $FIRST, rewriters: [decorators], joinBy: ''}}
-          GENERIC: {rewrite: {source: $TYPES, rewriters: [comment]}}
-          BASES: {rewrite: {source: $SUPERS, rewriters: [comment]}}
-      fix: '$CLAUSE $GUARD: $DECORATEDclass $NAME$GENERIC$BASES:'
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
-transform:
-    HEADER: {rewrite: {source: $NAME, rewriters: [header]}}
-    LINE: {replace: {source: $HEADER, replace: '\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {matches: hidden}}
 ---
 id: python-member-import
-language: pythonlang
 role: member
 symbolType: module
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
-utils:
-    private: {regex: '^_(?:$|[^_]|_.*[^_]_?$)'}
-    checked: {any: [{inside: {kind: block, stopBy: {kind: block}, any: [{inside: {kind: 'if_statement, elif_clause', field: consequence, all: [{has: {regex: '^(?:el)?if$', pattern: $$CLAUSE}}, {has: {field: condition, pattern: $GUARD}}]}}, {inside: {kind: else_clause, field: body, has: {regex: '^else$', pattern: $$CLAUSE}}}]}}, {not: {kind: ERROR}}]}
-    scope: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $OWNER}}, {kind: class_definition}]}}
-    hidden: {inside: {kind: 'class_definition, function_definition', stopBy: end, has: {field: name, matches: private}}}
+variants: [import]
 rule:
     kind: 'import_statement, import_from_statement, future_import_statement'
     all:
         - not: {has: {stopBy: end, any: [{kind: ERROR}, {kind: identifier, regex: '^$'}, {kind: 'argument_list, parameters, parenthesized_expression, tuple, generator_expression, parenthesized_list_splat, tuple_pattern, class_pattern', not: {regex: '\)$'}}, {kind: 'type_parameter, subscript, list, list_comprehension, list_pattern', not: {regex: '\]$'}}, {kind: 'set, dictionary, set_comprehension, dictionary_comprehension, dict_pattern, interpolation', not: {regex: '\}$'}}]}}
         - matches: scope
         - any:
-              - {kind: import_statement, pattern: $LIST}
-              - has: {field: module_name, pattern: $MODULE}
-              - has: {regex: '^__future__$', pattern: $$FUTURE}
+            - {kind: import_statement, pattern: $LIST}
+            - has: {field: module_name, pattern: $MODULE}
+            - has: {regex: '^__future__$', pattern: $$FUTURE}
         - matches: checked
         - pattern: $DECLARATION
-rewriters:
-    - {id: statement, rule: {kind: 'import_statement, import_from_statement, future_import_statement'}, fix: '$CLAUSE $GUARD: $DECLARATION'}
-    - {id: root, rule: {kind: dotted_name, has: {nthChild: 1, pattern: $ROOT}}, fix: $ROOT}
-    - {id: prefix, rule: {kind: import_prefix, pattern: $PREFIX}, fix: $PREFIX}
-    - id: lineage
-      rule: {kind: 'identifier, type_identifier', pattern: $SELF, any: [{inside: {kind: 'class_definition, function_definition', field: name, inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, inside: {kind: 'class_definition, function_definition', stopBy: end}, has: {field: name, pattern: $UP}}}}, {kind: 'identifier, type_identifier'}]}
-      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
-      fix: $ABOVE$SELF.
-transform:
-    MODULES: {rewrite: {source: $LIST, rewriters: [root], joinBy: ', '}}
-    ROOT: {rewrite: {source: $MODULE, rewriters: [prefix, root], joinBy: ''}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [statement]}}
-    LINE: {replace: {source: $HEADER, replace: '(?:\\?[\t-\r \x{200B}\x{2060}\x{FEFF}]|#[^\n]*)+', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ',? ([)\]}])|([(\[{]) |^(?: :)? +|^(else) (:)| -> (:)$| +$', by: $1$2$3$4$5}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
 name: $QUALIFIER$MODULES$ROOT$FUTURE
 signature: $SIGNATURE
 isPublic: {not: {matches: hidden}}
 ---
 id: python-member-error
-language: pythonlang
 role: member
 parentRuleIds: [python-class, python-interface, python-enum, python-function-owner]
 symbolType: 'null'
-utils:
-    opening: {nthChild: {position: 1, ofRule: {not: {any: [{kind: 'class_definition, decorated_definition, function_definition, import_statement, import_from_statement, future_import_statement, type_alias_statement, assignment, named_expression, for_statement, with_statement, match_statement, ERROR'}, {kind: expression_statement, has: {kind: 'assignment, named_expression'}}]}}}}
 rule:
     any:
         - {kind: ERROR, not: {has: {stopBy: end, kind: 'class_definition, decorated_definition, function_definition, import_statement, import_from_statement, future_import_statement, type_alias_statement, assignment, named_expression, for_statement, with_statement, match_statement'}}}

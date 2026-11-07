@@ -215,7 +215,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return tuple(
             (stem, name, description, held if isinstance(held, int) else icon(stem), number)
             for stem, name, description, held, number in preset.entries(
-                sources, prefix=((_UNPICKED, "None", "Head stack as it stands, no preset written over it", Icons.value(identity, "X").default_value(0), 0),)
+                sources, prefix=((_UNPICKED, "None", "Head stack as it stands, no preset written over it", Icons.value(identity, Some("X")).default_value(Nothing).default_value(0), 0),)
             )
         )
 

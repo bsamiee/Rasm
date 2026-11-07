@@ -1,7 +1,9 @@
 #![feature(duration_millis_float, error_reporter, exit_status_error)]
 
-use core::{error, fmt, num::NonZero, pin::pin, time::Duration};
-use std::{ffi::OsString, io, path::Path, process::ExitStatus};
+#[cfg(unix)]
+use core::mem::DropGuard;
+use core::{error, fmt, iter, num::NonZero, pin::pin, time::Duration};
+use std::{error::Report, ffi::OsString, io, path::Path, process::ExitStatus};
 
 #[cfg(target_os = "macos")]
 use libproc::{
@@ -10,25 +12,38 @@ use libproc::{
     processes::{ProcFilter, pids_by_type},
 };
 use nonempty_collections::NEVec;
+use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 #[cfg(windows)]
 use process_wrap::tokio::{CommandWrap, JobObject, KillOnDrop};
 #[cfg(unix)]
 use rustix::{
-    io::Errno,
+    io::{Errno, retry_on_intr},
     process::{Pid, Signal, WaitId, WaitIdOptions, kill_process_group, waitid},
 };
 use thiserror::Error;
 #[cfg(unix)]
-use tokio::signal::unix::{self, SignalKind, signal};
+use tokio::task;
 use tokio::{
     process::{ChildStderr, ChildStdout, Command},
     time::{Instant, error::Elapsed, sleep_until, timeout_at},
 };
 use tokio_util::sync::CancellationToken;
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-const RELEASE: Duration = Duration::from_secs(5);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
+pub enum Operation {
+    #[display("start the process")]
+    Start,
+    #[display("observe the process exit")]
+    Wait,
+    #[display("capture process output")]
+    Capture,
+    #[display("record process evidence")]
+    Observe,
+    #[display("release the process group or job")]
+    Release,
+}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -42,22 +57,10 @@ pub enum Stop {
 
 #[derive(Debug, Error)]
 pub enum Failure {
-    #[error("cannot start process: {0}")]
-    Start(#[source] io::Error),
-    #[error("cannot observe process exit: {0}")]
-    Wait(#[source] io::Error),
-    #[error("cannot capture process output: {0}")]
-    Capture(#[source] io::Error),
-    #[error("cannot record process evidence: {0}")]
-    Observe(#[source] io::Error),
-    #[error("cannot release the process group or job: {0}")]
-    Release(#[source] io::Error),
-    #[error("terminal process evidence exceeded its deadline")]
-    ObservationDeadline(#[source] Elapsed),
-    #[error("the process did not reap before the release deadline")]
-    ReapDeadline(#[source] Elapsed),
-    #[error("process output did not drain before the release deadline")]
-    DrainDeadline(#[source] Elapsed),
+    #[error("cannot {operation}")]
+    Io { operation: Operation, source: io::Error },
+    #[error("cannot {operation} before the release deadline")]
+    Expired { operation: Operation, source: Elapsed },
     #[error(transparent)]
     Stopped(Stop),
 }
@@ -78,8 +81,9 @@ impl fmt::Display for ProcessError {
                 write!(f, ", {status}")?;
             }
         }
-        f.write_str(" failed")?;
-        self.failures.iter().try_for_each(|failure| write!(f, ": {failure}"))
+        let (first, rest) = self.failures.split_first();
+        write!(f, " failed: {first}")?;
+        rest.iter().try_for_each(|failure| write!(f, "; {}", Report::new(failure)))
     }
 }
 
@@ -87,60 +91,8 @@ impl error::Error for ProcessError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> { Some(self.failures.first()) }
 }
 
-// --- [SERVICES] ------------------------------------------------------------------------
-
-#[cfg(unix)]
-struct Group(Option<Pid>);
-
-#[cfg(unix)]
-impl Drop for Group {
-    fn drop(&mut self) {
-        if let Some(pid) = self.0 {
-            drop(terminate(pid));
-        }
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [UNIX]
-#[cfg(unix)]
-fn terminate(pid: Pid) -> io::Result<()> {
-    match kill_process_group(pid, Signal::KILL) {
-        Ok(()) | Err(Errno::SRCH) => Ok(()),
-        #[cfg(target_os = "macos")]
-        Err(Errno::PERM) if no_live_group_members(pid.as_raw_nonzero().get().cast_unsigned()) => Ok(()),
-        Err(error) => Err(error.into()),
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn no_live_group_members(pgrpid: u32) -> bool {
-    const INCLUDE_ZOMBIES: u64 = 1;
-    pids_by_type(ProcFilter::ByProgramGroup { pgrpid }).is_ok_and(|members| {
-        members
-            .into_iter()
-            .all(|pid| i32::try_from(pid).ok().and_then(|pid| pidinfo::<BSDInfo>(pid, INCLUDE_ZOMBIES).ok()).is_some_and(|info| info.pbi_pgid != pgrpid || info.pbi_status == libc::SZOMB))
-    })
-}
-
-#[cfg(unix)]
-async fn exited(changes: &mut unix::Signal, pid: Pid) -> io::Result<()> {
-    let options = WaitIdOptions::EXITED | WaitIdOptions::NOHANG | WaitIdOptions::NOWAIT;
-    loop {
-        match waitid(WaitId::Pid(pid), options) {
-            Ok(Some(_)) => return Ok(()),
-            Ok(None) =>
-                if changes.recv().await.is_none() {
-                    return Err(io::Error::other("SIGCHLD observation ended"));
-                },
-            Err(Errno::INTR) => (),
-            Err(error) => return Err(error.into()),
-        }
-    }
-}
-
-// --- [SUPERVISION]
 pub async fn run(
     command: Command,
     deadline: Instant,
@@ -148,6 +100,9 @@ pub async fn run(
     capture: impl AsyncFnOnce(NonZero<u32>, Option<ChildStdout>, Option<ChildStderr>) -> io::Result<()>,
     mut observe: impl AsyncFnMut(NonZero<u32>, Result<ExitStatus, Stop>) -> io::Result<()>,
 ) -> Result<(NonZero<u32>, ExitStatus), ProcessError> {
+    const RELEASE: Duration = Duration::from_secs(5);
+    let io_failure = |operation| move |source| Failure::Io { operation, source };
+    let expired = |operation| move |source| Failure::Expired { operation, source };
     let started = Instant::now();
     let program = command.as_std().get_program().to_owned();
     let failed = |failure| ProcessError { program: program.clone(), process: None, failures: NEVec::new(failure) };
@@ -158,21 +113,45 @@ pub async fn run(
         return Err(failed(Failure::Stopped(Stop::Cancelled)));
     }
 
+    #[cfg_attr(unix, expect(clippy::disallowed_methods, reason = "Group signals before the leader PID can be reused and on drop"))]
+    let child = cfg_select! {
+        unix => {{
+            let mut command = command;
+            command.process_group(0).kill_on_drop(true).spawn()
+        }}
+        windows => CommandWrap::from(command).wrap(KillOnDrop).wrap(JobObject).spawn(),
+    };
+    let mut child = child.map_err(|source| failed(io_failure(Operation::Start)(source)))?;
+    let pid = child.id().and_then(NonZero::new).ok_or_else(|| failed(io_failure(Operation::Start)(io::Error::other("spawned process has no PID"))))?;
     #[cfg(unix)]
-    let mut changes = signal(SignalKind::child()).map_err(|error| failed(Failure::Wait(error)))?;
+    let group_id = Pid::from_raw(pid.get().cast_signed()).ok_or_else(|| failed(io_failure(Operation::Start)(io::Error::other("process ID does not fit pid_t"))))?;
     #[cfg(unix)]
-    let mut command = command;
+    let terminate = |group: Pid| {
+        #[cfg(target_os = "macos")]
+        let vacated = |pgrpid: u32| {
+            const INCLUDE_ZOMBIES: u64 = 1;
+            let live = pids_by_type(ProcFilter::ByProgramGroup { pgrpid })?.into_iter().any(|member| match pidinfo::<BSDInfo>(member.cast_signed(), INCLUDE_ZOMBIES) {
+                Ok(info) => info.pbi_pgid == pgrpid && info.pbi_status != libc::SZOMB,
+                Err(reason) => {
+                    tracing::debug!(member, reason, "process group member unreadable");
+                    true
+                }
+            });
+            (!live).ok_or(io::Error::from(Errno::PERM))
+        };
+        match kill_process_group(group, Signal::KILL) {
+            Ok(()) | Err(Errno::SRCH) => Ok(()),
+            #[cfg(target_os = "macos")]
+            Err(Errno::PERM) => vacated(group.as_raw_nonzero().get().cast_unsigned()),
+            Err(error) => Err(io::Error::from(error)),
+        }
+    };
     #[cfg(unix)]
-    #[expect(clippy::disallowed_methods, reason = "Group signals before the leader PID can be reused and on drop")]
-    let child = command.process_group(0).kill_on_drop(true).spawn();
-    #[cfg(windows)]
-    let child = CommandWrap::from(command).wrap(KillOnDrop).wrap(JobObject).spawn();
-    let mut child = child.map_err(|error| failed(Failure::Start(error)))?;
-    let pid = child.id().and_then(NonZero::new).ok_or_else(|| failed(Failure::Start(io::Error::other("spawned process has no PID"))))?;
-    #[cfg(unix)]
-    let group_id = i32::try_from(pid.get()).ok().and_then(Pid::from_raw).ok_or_else(|| failed(Failure::Start(io::Error::other("process ID does not fit pid_t"))))?;
-    #[cfg(unix)]
-    let mut group = Group(Some(group_id));
+    let group = DropGuard::new(group_id, move |group| {
+        if let Err(error) = terminate(group) {
+            tracing::warn!(%pid, { EXCEPTION_MESSAGE } = %Report::new(error), "process group release failed");
+        }
+    });
     let (stdin, stdout, stderr) = cfg_select! {
         unix => (child.stdin.take(), child.stdout.take(), child.stderr.take()),
         windows => (child.stdin().take(), child.stdout().take(), child.stderr().take()),
@@ -184,15 +163,21 @@ pub async fn run(
     let mut captured = false;
     let outcome = {
         let native = cfg_select! {
-            unix => exited(&mut changes, group_id),
+            unix =>
+                async move {
+                    task::spawn_blocking(move || retry_on_intr(|| waitid(WaitId::Pid(group_id), WaitIdOptions::EXITED | WaitIdOptions::NOWAIT)).map(drop))
+                        .await
+                        .map_err(io::Error::other)?
+                        .map_err(io::Error::from)
+                },
             windows => async { child.inner_mut().wait().await.map(drop) },
         };
         let mut ending = pin!(async {
             tokio::select! {
                 biased;
-                status = native => status.map_err(Failure::Wait),
-                () = sleep_until(deadline) => Err(Failure::Stopped(Stop::Deadline)),
-                () = stopping.cancelled() => Err(Failure::Stopped(Stop::Cancelled)),
+                status = native => status.map(|()| None).map_err(io_failure(Operation::Wait)),
+                () = sleep_until(deadline) => Ok(Some(Stop::Deadline)),
+                () = stopping.cancelled() => Ok(Some(Stop::Cancelled)),
             }
         });
         tokio::select! {
@@ -202,7 +187,7 @@ pub async fn run(
                 captured = true;
                 match result {
                     Ok(()) => ending.await,
-                    Err(error) => Err(Failure::Capture(error)),
+                    Err(source) => Err(io_failure(Operation::Capture)(source)),
                 }
             }
         }
@@ -211,29 +196,23 @@ pub async fn run(
     let release = Instant::now().checked_add(RELEASE).ok_or_else(|| ProcessError {
         program: program.clone(),
         process: Some((pid, None)),
-        failures: NEVec::new(Failure::Release(io::Error::other("release deadline exceeds the monotonic clock range"))),
+        failures: NEVec::new(io_failure(Operation::Release)(io::Error::other("release deadline exceeds the monotonic clock range"))),
     })?;
-    #[cfg(unix)]
-    let terminated = {
-        group.0 = None;
-        terminate(group_id)
+    let terminated = cfg_select! {
+        unix => terminate(DropGuard::dismiss(group)),
+        windows => child.start_kill(),
     };
-    #[cfg(windows)]
-    let terminated = child.start_kill();
-    let stopping = match &outcome {
-        Err(Failure::Stopped(reason)) => Some(*reason),
-        _ => None,
-    };
+    let (stopped, failure) = outcome.map_or_else(|failure| (None, Some(failure)), |stopped| (stopped, None));
     let captured = async {
         if captured {
             return Ok(());
         }
-        timeout_at(release, capture).await.map_err(Failure::DrainDeadline)?.map_err(Failure::Capture)
+        timeout_at(release, capture).await.map_err(expired(Operation::Capture))?.map_err(io_failure(Operation::Capture))
     };
     let released = async {
         let stopped = async {
-            match stopping {
-                Some(reason) => timeout_at(release, observe(pid, Err(reason))).await.map_err(Failure::ObservationDeadline)?.map_err(Failure::Observe),
+            match stopped {
+                Some(reason) => timeout_at(release, observe(pid, Err(reason))).await.map_err(expired(Operation::Observe))?.map_err(io_failure(Operation::Observe)),
                 None => Ok(()),
             }
         };
@@ -242,17 +221,17 @@ pub async fn run(
             windows => child.inner_mut().wait(),
         };
         let (stopped, reaped) = tokio::join!(biased; stopped, timeout_at(release, wait));
-        let reaped = reaped.map_err(Failure::ReapDeadline).and_then(|result| result.map_err(Failure::Wait));
+        let reaped = reaped.map_err(expired(Operation::Wait)).and_then(|result| result.map_err(io_failure(Operation::Wait)));
         let observed = async {
             match reaped {
-                Ok(status) => timeout_at(release, observe(pid, Ok(status))).await.map_err(Failure::ObservationDeadline)?.map_err(Failure::Observe),
+                Ok(status) => timeout_at(release, observe(pid, Ok(status))).await.map_err(expired(Operation::Observe))?.map_err(io_failure(Operation::Observe)),
                 Err(_) => Ok(()),
             }
         };
         #[cfg(windows)]
         let (observed, job) = tokio::join!(biased; observed, timeout_at(release, child.wait()));
         #[cfg(windows)]
-        let job = job.map_err(Failure::ReapDeadline).and_then(|result| result.map(drop).map_err(Failure::Wait));
+        let job = job.map_err(expired(Operation::Wait)).and_then(|result| result.map(drop).map_err(io_failure(Operation::Wait)));
         #[cfg(unix)]
         let observed = observed.await;
         (
@@ -266,7 +245,9 @@ pub async fn run(
         )
     };
     let ((status, observed), captured) = tokio::join!(biased; released, captured);
-    let failures = outcome.err().into_iter().chain(terminated.err().map(Failure::Release)).chain(observed.into_iter().filter_map(Result::err)).chain(captured.err()).collect();
+    let failures = iter::chain([stopped.map(Failure::Stopped), failure, terminated.err().map(io_failure(Operation::Release))].into_iter().flatten(), observed.into_iter().filter_map(Result::err))
+        .chain(captured.err())
+        .collect();
     tracing::debug!(%pid, ?status, elapsed = ?started.elapsed(), "process released");
     let failed = |status, failures| ProcessError { program, process: Some((pid, status)), failures };
     match (status, NEVec::try_from_vec(failures)) {

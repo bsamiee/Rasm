@@ -1,9 +1,8 @@
-import type { Tree } from '@nx/devkit';
-import { Array, Effect, Match, Option, Path, pipe, Record, String } from 'effect';
-import { Document, type Node, Pair, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
-import { Sgconfig } from '#/eng/typescript/manifest';
-import { decodeTree, syncGenerator, treeText, yamlDocuments } from '#/tools/nx/sync/tree';
-import { WorkspaceError } from '#/tools/nx/workspace';
+import process from 'node:process';
+import { runMain } from '@effect/platform-node/NodeRuntime';
+import { layer } from '@effect/platform-node/NodeServices';
+import { Array, Cause, Effect, FileSystem, Match, Option, Record, Schema, String, Struct } from 'effect';
+import { Document, type Node, Pair, parseAllDocuments, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,13 +15,16 @@ interface Shared {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const LAYOUT = { indent: 4, lineWidth: 0, flowCollectionPadding: false, singleQuote: true } as const;
 const KINDS = { utils: ['rule'], rewriters: ['transform', 'name'], transform: ['name'] } as const satisfies Record.ReadonlyRecord<string, readonly string[]>;
 const VARIABLE = /\$+(?<name>[A-Z_][A-Z0-9_]*)/gu;
 const LISTED = /rewriters=\[(?<names>[^\]]*)\]/gu;
 const READS = ['name', 'signature', 'transform'];
 const CAPTURES = ['rule', 'constraints', 'utils'];
 const SELECTOR = 'variants';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Arguments = Schema.Tuple([Schema.String, Schema.String, Schema.String]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -138,43 +140,31 @@ const gathered = (kind: Kind, schema: YAMLMap['schema'], items: readonly Pair[])
 const written = Effect.fnUntraced(function* (catalog: Shared, language: string, source: string, doc: Document, index: number) {
     const map = yield* Effect.fromOption(
         Option.liftPredicate(doc.value, (value) => value instanceof YAMLMap),
-        () => WorkspaceError.missing(source, `mapping at document ${index + 1}`),
+        () => new Cause.IllegalArgumentError(`${source} document ${index + 1} holds no mapping`),
     );
     const selector = map.get(SELECTOR);
-    const variants = yield* Effect.forEach(selector instanceof YAMLSeq ? [...selector].map(named) : [], (name) => Effect.fromOption(Record.get(catalog.variants, name), () => WorkspaceError.missing(source, `${SELECTOR} entry ${name}`)));
+    const variants = yield* Effect.forEach(selector instanceof YAMLSeq ? [...selector].map(named) : [], (name) => Effect.fromOption(Record.get(catalog.variants, name), () => new Cause.IllegalArgumentError(`${source} ${SELECTOR} holds no ${name}`)));
     const definitions = variants.reduce(merged, catalog.table);
     const local = table(map);
     const pairs = [...map.pairs()].filter((pair) => named(pair.key) !== SELECTOR);
     const kept = closure(definitions, local, pairs, new Set());
     const kinds = Record.collect(KINDS, (kind, before) => ({ kind, before, items: [...definitions[kind].entries()].filter(([name]) => kept[kind].has(name)) }));
     const assembled = kinds.reduce((held, { kind, before, items }) => placed(held, kind, gathered(kind, map.schema, [...items.map(([, pair]) => pair), ...local[kind].values()]), before), placed(pairs, 'language', Option.some(new Scalar(language)), ['role']));
-    return new Document(new YAMLMap(map.schema, assembled)).toString(LAYOUT);
-});
-const generated = Effect.fnUntraced(function* (tree: Tree, language: string, file: string, source: string) {
-    const text = yield* treeText(tree, source).pipe(Effect.mapError(() => WorkspaceError.missing(file, `catalog source ${source}`)));
-    const docs = yield* yamlDocuments(text, source);
-    const header = Option.filter(Array.head(docs), ({ value }) => !(value instanceof YAMLMap && value.has('id')));
-    const rules = Option.isSome(header) ? docs.slice(1) : docs;
-    if (Array.isReadonlyArrayEmpty(rules)) {
-        return yield* WorkspaceError.missing(source, 'outline rules');
-    }
-    const catalog = shared(Option.getOrUndefined(Option.map(header, unanchored)));
-    const texts = yield* Effect.forEach(rules, (doc, index) => written(catalog, language, source, doc, index + Number(Option.isSome(header))));
-    return { file, next: texts.join('---\n') };
-});
-const rows = Effect.fnUntraced(function* (tree: Tree) {
-    const [path, { customLanguages }] = yield* Effect.all([Path.Path, decodeTree(tree, Sgconfig.schema, Sgconfig.file)]);
-    return yield* pipe(
-        Sgconfig.outlineCatalogs(path, customLanguages),
-        Effect.validate(({ language, file, source }) => generated(tree, language, file, source), { concurrency: 4 }),
-        Effect.mapError((errors) => new AggregateError(errors, errors.map(({ message }) => message).join('\n'))),
-    );
+    return new Document(new YAMLMap(map.schema, assembled)).toString({ lineWidth: 0 });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const outlineCatalogs = syncGenerator('Outline catalogs differ from their sources and the shared utils, rewriters, and transforms each document calls', rows);
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-
-export { outlineCatalogs };
+const build = Effect.gen(function* () {
+    const [language, source, output] = yield* Schema.decodeUnknownEffect(Arguments)(process.argv.slice(2));
+    const fs = yield* FileSystem.FileSystem;
+    const parsed = parseAllDocuments(yield* fs.readFileString(source));
+    const docs = Array.isArray(parsed) ? parsed : [];
+    const failures = docs.flatMap(Struct.get('errors')).map(({ message }) => `${source}: ${message}`);
+    yield* Array.match(failures, { onEmpty: () => Effect.void, onNonEmpty: (held) => Effect.fail(new Cause.IllegalArgumentError(held.join('\n'))) });
+    const header = Option.filter(Array.head(docs), ({ value }) => !(value instanceof YAMLMap && value.has('id')));
+    const common = shared(Option.getOrUndefined(Option.map(header, unanchored)));
+    const texts = yield* Effect.forEach(Option.isSome(header) ? docs.slice(1) : docs, (doc, index) => written(common, language, source, doc, index + Number(Option.isSome(header))));
+    yield* fs.writeFileString(output, texts.join('---\n'));
+});
+build.pipe(Effect.provide(layer), runMain);

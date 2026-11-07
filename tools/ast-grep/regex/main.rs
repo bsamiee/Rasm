@@ -1,22 +1,16 @@
 #![feature(error_reporter, iterator_try_collect, type_alias_impl_trait)]
 
-use core::{iter::successors, time::Duration};
+use core::iter::successors;
 use std::{
     collections::{BTreeSet, HashMap},
     error::Report,
     fs, io,
     path::{Path, PathBuf},
-    time::Instant,
 };
 
 use ast_grep_config::{SelectorError, Transformation, parse_selector};
-use ast_grep_core::{
-    AstGrep, Language as _, Matcher as _, PatternError,
-    matcher::{Pattern, PatternNode, RegexMatcher, RegexMatcherError},
-    tree_sitter::LanguageExt as _,
-};
+use ast_grep_core::{AstGrep, Language as _, Matcher as _, PatternError, matcher::PatternNode, tree_sitter::LanguageExt as _};
 use ast_grep_dynamic::{CustomLang, DynamicLang, DynamicLangError};
-use regex_automata::meta;
 use regex_syntax::{
     ast::{self, Ast, ClassSetItem, Flag, Visitor, parse::Parser, visit},
     hir::{
@@ -141,9 +135,6 @@ enum Node {
 #[derive(Serialize)]
 struct Literal {
     kind: String,
-    size: usize,
-    regex: u128,
-    pattern: u128,
     text: String,
 }
 
@@ -170,8 +161,6 @@ enum Failure {
     Request(#[source] serde_path_to_error::Error<serde_json::Error>),
     #[error("cannot read pattern {pattern}")]
     Pattern { pattern: String, source: Box<regex_syntax::Error> },
-    #[error("cannot compile pattern {pattern}")]
-    Program { pattern: String, source: Box<meta::BuildError> },
     #[error("cannot read {document}")]
     Document { document: Value, source: serde_path_to_error::Error<serde_json::Error> },
     #[error("cannot parse transform {transform}")]
@@ -186,8 +175,6 @@ enum Failure {
     Json(#[from] serde_json::Error),
     #[error("cannot compile kind selector {selector}")]
     Selector { selector: String, source: Box<SelectorError> },
-    #[error("cannot compile regex matcher {pattern}")]
-    RegexMatcher { pattern: String, source: Box<RegexMatcherError> },
     #[error("cannot inspect the literal as a pattern")]
     LiteralPattern(#[from] PatternError),
 }
@@ -294,18 +281,6 @@ impl Table {
     }
 
     fn literal(&self, regex: &str, tree: &Ast, subject: &Subject) -> Result<Option<Literal>, Failure> {
-        #[expect(clippy::disallowed_methods, reason = "Synchronous compilation measures actual elapsed time")]
-        fn cost<T, E>(compile: impl Fn() -> Result<T, E>) -> Result<u128, E> {
-            const SAMPLES: usize = 16;
-            (0..SAMPLES)
-                .try_fold(Duration::MAX, |least, _| {
-                    let start = Instant::now();
-                    compile()?;
-                    Ok(least.min(start.elapsed()))
-                })
-                .map(|elapsed| elapsed.as_nanos())
-        }
-
         let hir = Translator::new().translate(regex, tree).map_err(Failure::pattern(regex))?;
         let properties = hir.properties();
         let whole =
@@ -318,17 +293,7 @@ impl Table {
         let Some((id, kind)) = self.leaf(&text)? else {
             return Ok(None);
         };
-        (self.tested(subject)? == Some(BTreeSet::from([id])))
-            .then(|| {
-                Ok(Literal {
-                    kind,
-                    size: meta::Regex::builder().build_from_hir(&hir).map_err(|source| Failure::Program { pattern: regex.to_owned(), source: Box::new(source) })?.memory_usage(),
-                    regex: cost(|| RegexMatcher::try_new(regex)).map_err(|source| Failure::RegexMatcher { pattern: regex.to_owned(), source: Box::new(source) })?,
-                    pattern: cost(|| Pattern::try_new(&text, self.language))?,
-                    text,
-                })
-            })
-            .transpose()
+        Ok((self.tested(subject)? == Some(BTreeSet::from([id]))).then_some(Literal { kind, text }))
     }
 }
 
@@ -438,7 +403,7 @@ impl Visitor for Collector<'_> {
         if let ClassSetItem::Perl(_) = item
             && let Scope([_, true]) = self.scope
             && let Some(class) = self.classes.last_mut()
-            && let Class::Characters { source, .. } = class
+            && let Class::Characters { source, polarity: _, ranges: _ } = class
         {
             *class = Class::UnicodePerl { source: core::mem::take(source) };
         }

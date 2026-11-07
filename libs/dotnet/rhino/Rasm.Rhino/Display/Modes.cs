@@ -138,7 +138,7 @@ public static class DisplayModes {
         let retired = owned.Somes()
         from moves in Products.Each(retired.Map(static mode => mode.Successor.Match(
             Some: successor => IO.pure((mode.Id, successor)),
-            None: () => Keys(mode.Id).Bind(table => IO.lift(() => Conversions.Required(table.Find(("", DerivedFrom)).Bind(parseGuid)).Map(source => (mode.Id, source)))))))
+            None: Keys(mode.Id).Bind(table => IO.lift(Conversions.Required(table.Find(("", DerivedFrom)).Bind(parseGuid)).Map(source => (mode.Id, source)))))))
         from moved in Reassigned(toHashMap(written.Map(static id => (id, id))).AddOrUpdateRange(moves))
         from deleted in Products.Each(retired.Map(static mode =>
             from removed in Products.Accepted(() => DisplayModeDescription.DeleteDisplayMode(mode.Id))

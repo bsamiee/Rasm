@@ -7,8 +7,14 @@ lazy from contextlib import nullcontext
 lazy from io import BytesIO, StringIO
 lazy from itertools import groupby
 
-from refurb.checks.builtin import no_ignored_enumerate, no_slice_copy
-from refurb.checks.readability import no_len_cmp
+from refurb.checks.builtin import no_ignored_enumerate, no_slice_copy, writelines
+from refurb.checks.flow import no_with_assign
+from refurb.checks.iterable import implicit_readlines
+from refurb.checks.readability import no_copy_with_merge, no_len_cmp, no_or_default, no_temp_class_object, use_isinstance_bool
+from refurb.checks.secrets import simplify_token_function
+from refurb.checks.shlex import use_join
+from refurb.checks.string import no_multiline_lstrip, simplify_strip, startswith
+from refurb.checks.third_party.fastapi import simplify_query
 from refurb.visitor import RefurbVisitor
 lazy from mypy.nodes import (
     ArgKind,
@@ -57,15 +63,7 @@ lazy from mypy.nodes import (
     WithStmt,
 )
 lazy from mypy.types import flatten_nested_unions, get_proper_type, Instance, LiteralType, NoneType, Type
-lazy from refurb.checks.builtin import writelines
 lazy from refurb.checks.common import extract_binary_oper, get_mypy_type, is_same_type, stringify
-lazy from refurb.checks.flow import no_with_assign
-lazy from refurb.checks.iterable import implicit_readlines
-lazy from refurb.checks.readability import no_copy_with_merge, no_or_default, no_temp_class_object, use_isinstance_bool
-lazy from refurb.checks.secrets import simplify_token_function
-lazy from refurb.checks.shlex import use_join
-lazy from refurb.checks.string import no_multiline_lstrip, simplify_strip, startswith
-lazy from refurb.checks.third_party.fastapi import simplify_query
 lazy from refurb.error import Error
 lazy from refurb.settings import Settings
 lazy from refurb.types import Check, Checks
@@ -130,8 +128,8 @@ class RewriteVisitor(RefurbVisitor, Traverser):
         self._operations = registered.pop(OpExpr, [])
         self._comprehensions = registered.pop(DictionaryComprehension, [])
         super().__init__(registered, settings)
-        self._lengths = _Lengths(self.errors)
-        self._defaults = default_check
+        self.lengths = _Lengths(self.errors)
+        self.default_check = default_check
 
     @override
     def visit_op_expr(self, o: OpExpr) -> None:
@@ -150,204 +148,273 @@ class RewriteVisitor(RefurbVisitor, Traverser):
 
     @override
     def run_check(self, node: Node, check: Check) -> None:
-        match check.__module__, node:
-            case defaults.__name__, MypyFile():
-                self._defaults(node, self.errors)
-                return
-            case startswith.__name__, OpExpr():
-                match extract_binary_oper(node.op, node):
-                    case (UnaryExpr(op="not", expr=first), UnaryExpr(op="not", expr=second)):
-                        calls = first, second
-                    case (first, second):
-                        calls = first, second
-                    case _:
-                        return
-                match calls:
-                    case (
-                        CallExpr(callee=MemberExpr(expr=receiver), args=[prefix], arg_kinds=[ArgKind.ARG_POS]),
-                        CallExpr(callee=MemberExpr(expr=other), args=[suffix], arg_kinds=[ArgKind.ARG_POS]),
-                    ) if (
-                        _exact(receiver, str, bytes)
-                        and all(map(_independent, (receiver, other, prefix)))
-                        and (_primitive(suffix) or (isinstance(suffix, TupleExpr) and all(map(_primitive, suffix.items))))
-                    ):
-                        pass
-                    case _:
-                        return
-            case no_len_cmp.__name__, AssertStmt() | ConditionalExpr() | DictionaryComprehension() | GeneratorExpr() | IfStmt() | MatchStmt() | WhileStmt():
-                no_len_cmp.check_condition_like(self._lengths, node)
-                return
-            case no_with_assign.__name__, Block() | MypyFile():
-                for allowed, statements in groupby(
-                    node.body if isinstance(node, Block) else node.defs,
-                    lambda statement: (
-                        _independent(statement.rvalue)
-                        if isinstance(statement, AssignmentStmt)
-                        else (
-                            not isinstance(statement, WithStmt)
-                            or (
-                                all(
-                                    isinstance(manager, CallExpr)
-                                    and isinstance(manager.callee, RefExpr)
-                                    and manager.callee.fullname == fullname(nullcontext)
-                                    and not any(map(ArgKind.is_star, manager.arg_kinds))
-                                    and all(map(_independent, manager.args))
-                                    for manager in statement.expr
-                                )
-                                and all(_inert(item) for item in statement.body.body)
-                                and (owned := self.references.within.get(statement)) is not None
-                                and all(count == 1 for count in owned.values())
-                            )
-                        )
-                    ),
-                ):
-                    if allowed:
-                        no_with_assign.check_stmts(list(statements), self.errors)
-                return
-            case writelines.__name__, WithStmt(
-                expr=[manager],
-                body=Block(body=[ForStmt(index=NameExpr(node=Var() as written, kind=kind), body=Block(body=[ExpressionStmt(expr=CallExpr(args=[argument], arg_kinds=[ArgKind.ARG_POS]))])) as loop]),
-            ) if kind == LDEF and _primitive_sequence(loop.expr) and _independent(argument) and _exact(manager, StringIO, BytesIO):
-                if self.references.counts[written] != self.references.within[loop][written]:
-                    return
-            case writelines.__name__, _:
-                return
-            case implicit_readlines.__name__, ForStmt(expr=CallExpr(callee=MemberExpr(expr=receiver, name="readlines"))):
-                if not _exact(receiver, StringIO, BytesIO):
-                    return
-                if not all(_inert(statement) for statement in node.body.body):
-                    return
-            case implicit_readlines.__name__, _:
-                return
-            case no_or_default.__name__, OpExpr():
-                match extract_binary_oper("or", node):
-                    case (defaulted, _) if is_same_type(get_mypy_type(defaulted), bool):
-                        pass
-                    case (IntExpr(value=constant) | FloatExpr(value=constant) | ComplexExpr(value=constant) | StrExpr(value=constant) | BytesExpr(value=constant), _) if constant:
-                        pass
-                    case (UnaryExpr(op="+" | "-", expr=IntExpr(value=number) | FloatExpr(value=number) | ComplexExpr(value=number)), _) if number:
-                        pass
-                    case _:
-                        return
-            case no_ignored_enumerate.__name__, MypyFile():
-                for loop in (owner for owner in self.references.within if isinstance(owner, ForStmt)):
-                    self._enumerate(loop)
-                return
-            case no_ignored_enumerate.__name__, GeneratorExpr() | DictionaryComprehension():
-                self._enumerate(node)
-                return
-            case no_ignored_enumerate.__name__, _:
-                return
-            case no_temp_class_object.__name__, CallExpr(callee=MemberExpr(name=method, expr=CallExpr(callee=NameExpr(node=TypeInfo() as owner), args=[]))):
-                if (
-                    (owner.metaclass_type is not None and owner.metaclass_type.type.fullname != fullname(type))
-                    or owner.get("__del__") is not None
-                    or any(isinstance(member, Decorator) and member.func.name == method and member.decorators for member in owner.defn.defs.body)
-                    or not all(
-                        (defined := owner.get_containing_type_info(member)) is not None and defined.fullname == fullname(object)
-                        for member in (object.__init__.__name__, object.__new__.__name__, object.__getattribute__.__name__)
-                    )
-                ):
-                    return
-            case no_temp_class_object.__name__, _:
-                return
-            case no_slice_copy.__name__, MypyFile():
-                _Copies(self.errors).accept(node)
-                return
-            case no_copy_with_merge.__name__, OpExpr(op="|", left=union_left, right=union_right):
-                self.errors.extend(
-                    no_copy_with_merge.ErrorInfo.from_node(operand, f"Replace `{rendered}.copy()` with `{rendered}`")
-                    for operand in (union_left, union_right)
-                    if isinstance(operand, CallExpr)
-                    and isinstance(operand.callee, MemberExpr)
-                    and operand.callee.name == "copy"
-                    and not operand.args
-                    and _exact(merged_receiver := operand.callee.expr, dict, set)
-                    and (operand is union_right or _independent(union_right))
-                    for rendered in (stringify(merged_receiver),)
-                )
-                return
-            case no_copy_with_merge.__name__, _:
-                return
-            case no_multiline_lstrip.__name__, CallExpr(callee=MemberExpr(expr=StrExpr(value=text), name="lstrip" | "rstrip" | "strip" as method), args=[] | [StrExpr(value="\n")] as passed):
-                leading = text.startswith("\n") and len(text) > 1 and not text[1].isspace() and method != "rstrip"
-                trailing = text.endswith("\n") and len(text) > 1 and not text[-2].isspace() and method != "lstrip"
-                if _STRIP[method](text, "\n" if passed else None) != text[int(leading) : len(text) - int(trailing)]:
-                    return
-            case simplify_strip.__name__, CallExpr(
-                callee=MemberExpr(expr=CallExpr(callee=MemberExpr(expr=receiver, name=first_method), args=[StrExpr(value=before)], arg_kinds=[ArgKind.ARG_POS]), name=second_method),
-                args=[StrExpr(value=after)],
-                arg_kinds=[ArgKind.ARG_POS],
-            ) if _exact(receiver, str, bytes):
-                before_chars, after_chars = frozenset(before), frozenset(after)
-                if first_method == second_method and not (before_chars <= after_chars or after_chars <= before_chars):
-                    return
-            case simplify_strip.__name__, CallExpr(callee=MemberExpr(expr=CallExpr(callee=MemberExpr(expr=receiver)) as inner)):
-                if not _exact(receiver, str, bytes) or any(kind is not ArgKind.ARG_POS for kind in (*inner.arg_kinds, *node.arg_kinds)):
-                    return
-            case simplify_token_function.__name__, IndexExpr():
-                return
-            case use_join.__name__, CallExpr(args=[(GeneratorExpr() as generator) | ListComprehension(generator=generator)]):
-                match generator.left_expr, generator.condlists, generator.indices:
-                    case CallExpr(args=[NameExpr(node=Var() as quoted)]), [[]], [NameExpr(node=Var() as index)] if quoted is index:
-                        pass
-                    case CallExpr(args=[NameExpr()]), [[]], _:
-                        return
-                    case _:
-                        pass
-            case use_isinstance_bool.__name__, ComparisonExpr(operands=[value, _]):
-                if not is_same_type(get_mypy_type(value), bool):
-                    return
-            case use_isinstance_bool.__name__, OpExpr():
-                match extract_binary_oper("or", node):
-                    case (ComparisonExpr(operators=["is"], operands=[NameExpr(node=Var()), _]), ComparisonExpr(operators=["is"])):
-                        pass
-                    case (ComparisonExpr(operands=[NameExpr(node=Var()) as value, _]), _) if is_same_type(get_mypy_type(value), bool):
-                        pass
-                    case _:
-                        return
-            case simplify_query.__name__, FuncDef():
-                if not (
-                    arguments := [
-                        argument
-                        for argument in node.arguments
-                        if isinstance(initializer := argument.initializer, CallExpr)
-                        and isinstance(initializer.callee, NameExpr)
-                        and initializer.callee.fullname == "fastapi.param_functions.Query"
-                        and not any(map(ArgKind.is_star, initializer.arg_kinds))
-                        and (annotation := argument.variable.type) is not None
-                        and all(
-                            isinstance(part := get_proper_type(item), NoneType | LiteralType)
-                            or (isinstance(part, Instance) and (part.type.is_enum or any(part.type.has_base(owner) for owner in _SCALARS)))
-                            for item in flatten_nested_unions([annotation], handle_recursive=False)
-                        )
-                    ]
-                ):
-                    return
-                node = FuncDef(node.name, arguments, node.body)
-            case _:
-                pass
-        super().run_check(node, check)
-
-    def _enumerate(self, node: ForStmt | GeneratorExpr | DictionaryComprehension) -> None:
-        match node:
-            case ForStmt(index=target, expr=sequence) | GeneratorExpr(indices=[target], sequences=[sequence]) | DictionaryComprehension(indices=[target], sequences=[sequence]):
-                pass
-            case _:
-                return
-        match target, sequence:
-            case TupleExpr(items=[NameExpr(node=Var() as index_var) as index, NameExpr(node=Var() as value_var) as value]), CallExpr(
-                callee=NameExpr(fullname="builtins.enumerate"), args=[source], arg_kinds=[ArgKind.ARG_POS]
-            ):
-                if index.kind == LDEF and self.references.counts[index_var] == 1 and (not isinstance(node, ForStmt) or _primitive_sequence(source)):
-                    self.errors.append(no_ignored_enumerate.ErrorInfo.from_node(index, f"Index is unused, use `for {stringify(value)} in {stringify(source)}` instead"))
-                if value.kind == LDEF and self.references.counts[value_var] == 1 and _primitive_sequence(source):
-                    self.errors.append(no_ignored_enumerate.ErrorInfo.from_node(value, f"Value is unused, use `for {stringify(index)} in range(len({stringify(source)}))` instead"))
-            case _:
-                pass
+        if (forwarded := node if (run := _RUNS.get(check.__module__)) is None else run(self, node)) is not None:
+            super().run_check(forwarded, check)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _defaults(visitor: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case MypyFile():
+            visitor.default_check(node, visitor.errors)
+            return None
+        case _:
+            return node
+
+
+def _startswith(_: RewriteVisitor, node: Node, /) -> Node | None:
+    if not isinstance(node, OpExpr):
+        return node
+    match extract_binary_oper(node.op, node):
+        case (UnaryExpr(op="not", expr=first), UnaryExpr(op="not", expr=second)) | (first, second):
+            operands: tuple[Expression, ...] = (first, second)
+        case _:
+            operands = ()
+    match operands:
+        case (CallExpr(callee=MemberExpr(expr=receiver), args=[prefix], arg_kinds=[ArgKind.ARG_POS]), CallExpr(callee=MemberExpr(expr=other), args=[suffix], arg_kinds=[ArgKind.ARG_POS])) if (
+            _exact(receiver, str, bytes) and all(map(_independent, (receiver, other, prefix))) and (_primitive(suffix) or (isinstance(suffix, TupleExpr) and all(map(_primitive, suffix.items))))
+        ):
+            return node
+        case _:
+            return None
+
+
+def _length_conditions(visitor: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case AssertStmt() | ConditionalExpr() | DictionaryComprehension() | GeneratorExpr() | IfStmt() | MatchStmt() | WhileStmt():
+            no_len_cmp.check_condition_like(visitor.lengths, node)
+            return None
+        case _:
+            return node
+
+
+def _with_assign(visitor: RewriteVisitor, node: Node, /) -> Node | None:
+    def allowed(statement: Statement) -> bool:
+        match statement:
+            case AssignmentStmt(rvalue=value):
+                return _independent(value)
+            case WithStmt(expr=managers, body=Block(body=body)):
+                return (
+                    all(
+                        isinstance(manager, CallExpr)
+                        and isinstance(manager.callee, RefExpr)
+                        and manager.callee.fullname == fullname(nullcontext)
+                        and not any(map(ArgKind.is_star, manager.arg_kinds))
+                        and all(map(_independent, manager.args))
+                        for manager in managers
+                    )
+                    and all(map(_inert, body))
+                    and (owned := visitor.references.within.get(statement)) is not None
+                    and all(count == 1 for count in owned.values())
+                )
+            case _:
+                return True
+
+    match node:
+        case Block(body=statements) | MypyFile(defs=statements):
+            for grouped in (list(run) for kept, run in groupby(statements, allowed) if kept):
+                no_with_assign.check_stmts(grouped, visitor.errors)
+            return None
+        case _:
+            return node
+
+
+def _writelines(visitor: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case WithStmt(
+            expr=[manager],
+            body=Block(body=[ForStmt(index=NameExpr(node=Var() as written, kind=kind), body=Block(body=[ExpressionStmt(expr=CallExpr(args=[argument], arg_kinds=[ArgKind.ARG_POS]))])) as loop]),
+        ) if (
+            kind == LDEF
+            and _primitive_sequence(loop.expr)
+            and _independent(argument)
+            and _exact(manager, StringIO, BytesIO)
+            and visitor.references.counts[written] == visitor.references.within[loop][written]
+        ):
+            return node
+        case _:
+            return None
+
+
+def _readlines(_: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case ForStmt(expr=CallExpr(callee=MemberExpr(expr=receiver, name="readlines")), body=Block(body=body)) if _exact(receiver, StringIO, BytesIO) and all(map(_inert, body)):
+            return node
+        case _:
+            return None
+
+
+def _or_default(_: RewriteVisitor, node: Node, /) -> Node | None:
+    match node, (extract_binary_oper("or", node) if isinstance(node, OpExpr) else None):
+        case OpExpr(), (defaulted, _) if is_same_type(get_mypy_type(defaulted), bool):
+            return node
+        case OpExpr(), (IntExpr(value=constant) | FloatExpr(value=constant) | ComplexExpr(value=constant) | StrExpr(value=constant) | BytesExpr(value=constant), _) if constant:
+            return node
+        case OpExpr(), (UnaryExpr(op="+" | "-", expr=IntExpr(value=number) | FloatExpr(value=number) | ComplexExpr(value=number)), _) if number:
+            return node
+        case OpExpr(), _:
+            return None
+        case _:
+            return node
+
+
+def _ignored_enumerate(visitor: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case MypyFile():
+            for loop in (owner for owner in visitor.references.within if isinstance(owner, ForStmt)):
+                _enumerate(visitor, loop)
+        case GeneratorExpr() | DictionaryComprehension():
+            _enumerate(visitor, node)
+        case _:
+            pass
+    return None
+
+
+def _enumerate(visitor: RewriteVisitor, node: ForStmt | GeneratorExpr | DictionaryComprehension, /) -> None:
+    match node:
+        case ForStmt(index=target, expr=sequence) | GeneratorExpr(indices=[target], sequences=[sequence]) | DictionaryComprehension(indices=[target], sequences=[sequence]):
+            pass
+        case _:
+            return
+    match target, sequence:
+        case TupleExpr(items=[NameExpr(node=Var() as index_var) as index, NameExpr(node=Var() as value_var) as value]), CallExpr(
+            callee=NameExpr(fullname="builtins.enumerate"), args=[source], arg_kinds=[ArgKind.ARG_POS]
+        ):
+            if index.kind == LDEF and visitor.references.counts[index_var] == 1 and (not isinstance(node, ForStmt) or _primitive_sequence(source)):
+                visitor.errors.append(no_ignored_enumerate.ErrorInfo.from_node(index, f"Index is unused, use `for {stringify(value)} in {stringify(source)}` instead"))
+            if value.kind == LDEF and visitor.references.counts[value_var] == 1 and _primitive_sequence(source):
+                visitor.errors.append(no_ignored_enumerate.ErrorInfo.from_node(value, f"Value is unused, use `for {stringify(index)} in range(len({stringify(source)}))` instead"))
+        case _:
+            pass
+
+
+def _temporary_object(_: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case CallExpr(callee=MemberExpr(name=method, expr=CallExpr(callee=NameExpr(node=TypeInfo() as owner), args=[]))) if not (
+            (owner.metaclass_type is not None and owner.metaclass_type.type.fullname != fullname(type))
+            or owner.get("__del__") is not None
+            or any(isinstance(member, Decorator) and member.func.name == method and member.decorators for member in owner.defn.defs.body)
+            or not all(
+                (defined := owner.get_containing_type_info(member)) is not None and defined.fullname == fullname(object)
+                for member in (object.__init__.__name__, object.__new__.__name__, object.__getattribute__.__name__)
+            )
+        ):
+            return node
+        case _:
+            return None
+
+
+def _slice_copies(visitor: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case MypyFile():
+            _Copies(visitor.errors).accept(node)
+            return None
+        case _:
+            return node
+
+
+def _merged_copies(visitor: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case OpExpr(op="|", left=union_left, right=union_right):
+            visitor.errors.extend(
+                no_copy_with_merge.ErrorInfo.from_node(operand, f"Replace `{rendered}.copy()` with `{rendered}`")
+                for operand in (union_left, union_right)
+                if isinstance(operand, CallExpr)
+                and isinstance(operand.callee, MemberExpr)
+                and operand.callee.name == "copy"
+                and not operand.args
+                and _exact(merged_receiver := operand.callee.expr, dict, set)
+                and (operand is union_right or _independent(union_right))
+                for rendered in (stringify(merged_receiver),)
+            )
+        case _:
+            pass
+    return None
+
+
+def _multiline_strip(_: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case CallExpr(callee=MemberExpr(expr=StrExpr(value=text), name="lstrip" | "rstrip" | "strip" as method), args=[] | [StrExpr(value="\n")] as passed):
+            leading = text.startswith("\n") and len(text) > 1 and not text[1].isspace() and method != "rstrip"
+            trailing = text.endswith("\n") and len(text) > 1 and not text[-2].isspace() and method != "lstrip"
+            return node if _STRIP[method](text, "\n" if passed else None) == text[int(leading) : len(text) - int(trailing)] else None
+        case _:
+            return node
+
+
+def _chained_strip(_: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case CallExpr(
+            callee=MemberExpr(expr=CallExpr(callee=MemberExpr(expr=receiver, name=first_method), args=[StrExpr(value=before)], arg_kinds=[ArgKind.ARG_POS]), name=second_method),
+            args=[StrExpr(value=after)],
+            arg_kinds=[ArgKind.ARG_POS],
+        ) if _exact(receiver, str, bytes):
+            before_chars, after_chars = frozenset(before), frozenset(after)
+            return None if first_method == second_method and not (before_chars <= after_chars or after_chars <= before_chars) else node
+        case CallExpr(callee=MemberExpr(expr=CallExpr(callee=MemberExpr(expr=receiver)) as inner)):
+            return node if _exact(receiver, str, bytes) and all(kind is ArgKind.ARG_POS for kind in (*inner.arg_kinds, *node.arg_kinds)) else None
+        case _:
+            return node
+
+
+def _token_function(_: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case IndexExpr():
+            return None
+        case _:
+            return node
+
+
+def _join(_: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case CallExpr(args=[(GeneratorExpr() as generator) | ListComprehension(generator=generator)]):
+            shape = generator.left_expr, generator.condlists, generator.indices
+        case _:
+            return node
+    match shape:
+        case CallExpr(args=[NameExpr(node=Var() as quoted)]), [[]], [NameExpr(node=Var() as index)] if quoted is index:
+            return node
+        case CallExpr(args=[NameExpr()]), [[]], _:
+            return None
+        case _:
+            return node
+
+
+def _isinstance_bool(_: RewriteVisitor, node: Node, /) -> Node | None:
+    match node, (extract_binary_oper("or", node) if isinstance(node, OpExpr) else None):
+        case ComparisonExpr(operands=[value, _]), _:
+            return node if is_same_type(get_mypy_type(value), bool) else None
+        case OpExpr(), (ComparisonExpr(operators=["is"], operands=[NameExpr(node=Var()), _]), ComparisonExpr(operators=["is"])):
+            return node
+        case OpExpr(), (ComparisonExpr(operands=[NameExpr(node=Var()) as value, _]), _) if is_same_type(get_mypy_type(value), bool):
+            return node
+        case OpExpr(), _:
+            return None
+        case _:
+            return node
+
+
+def _query(_: RewriteVisitor, node: Node, /) -> Node | None:
+    match node:
+        case FuncDef():
+            arguments = [
+                argument
+                for argument in node.arguments
+                if isinstance(initializer := argument.initializer, CallExpr)
+                and isinstance(initializer.callee, NameExpr)
+                and initializer.callee.fullname == "fastapi.param_functions.Query"
+                and not any(map(ArgKind.is_star, initializer.arg_kinds))
+                and (annotation := argument.variable.type) is not None
+                and all(
+                    isinstance(part := get_proper_type(item), NoneType | LiteralType) or (isinstance(part, Instance) and (part.type.is_enum or any(part.type.has_base(owner) for owner in _SCALARS)))
+                    for item in flatten_nested_unions([annotation], handle_recursive=False)
+                )
+            ]
+            return FuncDef(node.name, arguments, node.body) if arguments else None
+        case _:
+            return node
 
 
 def _exact(expression: Expression, *owners: Declared) -> bool:
@@ -433,6 +500,28 @@ def _inert(statement: Statement) -> bool:
         case _:
             return False
 
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+_RUNS: frozendict[str, Callable[[RewriteVisitor, Node], Node | None]] = frozendict({
+    defaults.__name__: _defaults,
+    startswith.__name__: _startswith,
+    no_len_cmp.__name__: _length_conditions,
+    no_with_assign.__name__: _with_assign,
+    writelines.__name__: _writelines,
+    implicit_readlines.__name__: _readlines,
+    no_or_default.__name__: _or_default,
+    no_ignored_enumerate.__name__: _ignored_enumerate,
+    no_temp_class_object.__name__: _temporary_object,
+    no_slice_copy.__name__: _slice_copies,
+    no_copy_with_merge.__name__: _merged_copies,
+    no_multiline_lstrip.__name__: _multiline_strip,
+    simplify_strip.__name__: _chained_strip,
+    simplify_token_function.__name__: _token_function,
+    use_join.__name__: _join,
+    use_isinstance_bool.__name__: _isinstance_bool,
+    simplify_query.__name__: _query,
+})
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

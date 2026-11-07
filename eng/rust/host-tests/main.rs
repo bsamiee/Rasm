@@ -5,6 +5,7 @@ use std::{io, path::PathBuf, process::ExitCode};
 
 use clap::{Parser, Subcommand};
 use futures::{FutureExt as _, StreamExt as _};
+use jiff::fmt::friendly::SpanParser;
 use rasm_command::{CommandError, Process};
 use rasm_process::report::Run;
 use rasm_telemetry::Defaults;
@@ -24,6 +25,8 @@ mod rhino;
 #[command(about)]
 struct Tests {
     output: PathBuf,
+    #[arg(long, value_name = "DURATION", value_parser = |text: &str| SpanParser::new().parse_unsigned_duration(text), help = "Time the run takes before its processes stop")]
+    budget: Duration,
     #[command(subcommand)]
     host: Host,
 }
@@ -40,15 +43,8 @@ enum Host {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() -> ExitCode {
-    rasm_command::run(Defaults { .. }, io::stderr, Identity::new(), async |Process { args: Tests { output, host }, mut signals, .. }| {
-        let minutes = match &host {
-            Host::Blender(_) => 4,
-            #[cfg(target_os = "macos")]
-            Host::Rhino(_) => 2,
-            #[cfg(target_os = "macos")]
-            Host::Adobe(_) => 15,
-        };
-        Run::execute(&output, Duration::from_mins(minutes), signals.next().map(drop), async |run| {
+    rasm_command::run(Defaults { .. }, io::stderr, Identity::new(), async |Process { args: Tests { output, budget, host }, styles: _, mut signals, filter: _, level: _ }| {
+        Run::execute(&output, budget, signals.next().map(drop), async |run| {
             match host {
                 Host::Blender(suite) => blender::test(suite, run).await,
                 #[cfg(target_os = "macos")]

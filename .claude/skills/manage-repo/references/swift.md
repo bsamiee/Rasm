@@ -23,7 +23,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - `sourcekit-lsp` reads `swiftPM.scratchPath` and its `swift build` preparation reads `SWIFTPM_BUILD_DIR`, each client sets both to one folder
 - SwiftPM locks its scratch path from workspace load to exit, `--skip-build` included, targets that compile take `parallelism: false`
 - Nx runs `swift package describe` and `dump-package` under `.cache/swiftpm/nx-manifest` to keep manifest reads independent of builds
-- `typecheck:swift` writes the index store Periphery reads.
+- `typecheck:swift` builds test targets too, Periphery reads a test unit older than its source as a stale reference and reports live declarations unused
 - Executables outside `tests/` `install` from SwiftPM's `release` path with `install -C`, mise adds `$XDG_CONFIG_HOME/swiftpm/bin` to `PATH`
 - Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
 
@@ -63,6 +63,11 @@ Project and target settings override root `Xcode.xcconfig`:
 - `build-settings` writes `Xcode.xcconfig` and `Directory.Build.props` identity rows from root `package.json`
 - `build-settings` writes the `dump-package` macOS floor to `Xcode.xcconfig`, SwiftLint, pixi platform, and mise for rustc, clang, CMake and maturin
 - `registerAgents` in `CurrentProcess` re-registers every plist in `Contents/Library/LaunchAgents` on each launch, launchd otherwise keeps the job and environment of the version first registered
+- The `helper` Vite plugin builds an embedded Node helper from its app's `project.xcproj`: the SEA binary, `sea.entitlements` as the app's `CODE_SIGN_ENTITLEMENTS` plus the JIT exception V8 needs, and its launchd plist
+- Helper launchd plists hold `ProcessType` `Interactive`, an unset type throttles CPU and I/O, and a `SpawnConstraint` on the root `DEVELOPMENT_TEAM` and the helper's signing identifier, an in-bundle agent needs no `AssociatedBundleIdentifiers`
+- Xcode's copy re-sign preserves identifier, entitlements, and flags alone, so an embedded helper's launch constraints live in its launchd plist and never in its signature
+- launchd derives a job's code requirement (signing identifier, team, validation category) from the helper at submission and keeps it while the job is loaded, so `install` boots each agent of the bundle it replaces out before the new bundle registers
+- `ENABLE_POINTER_AUTHENTICATION` stays `NO` while Sparkle ships no `arm64e` slice
 - Imageset SVGs are Git symlinks, `<Mark>Symbol` into `AppIcon.icon/Assets` and a third-party mark into a catalog package under `node_modules`
 - Master roots hold the 16-point size `Image` reads, `actool` refuses a symlinked `.icon` layer
 - Automatic signing under the root team gives an Apple Development designated requirement keeping TCC grants, ad hoc signing prompts again
@@ -77,7 +82,7 @@ Project and target settings override root `Xcode.xcconfig`:
 - Root `LD_RUNPATH_SEARCH_PATHS` holds `@executable_path/../Frameworks` for apps embedding a package framework, the app template row `target add` omits
 - CI-only settings join `build` configuration `ci`, which keeps the index store `lint:periphery` reads
 - Each project holds one derived data folder under `.cache/xcode/<root>`, `archive` writes `ArchiveIntermediates` and no index store beside the `build` state in it
-- `build` writes `.artifacts/xcode/build/<Name>.xcresult`, macOS CI keeps these result bundles on failure
+- `build` writes `.artifacts/xcode/build/<Name>.xcresult`
 - `COMPILATION_CACHE_ENABLE_CACHING` stays unset, derived data already holds incremental work and the store filled half of `.cache/xcode` with results a rebuild alone reuses
 - Release builds `dwarf-with-dsym`, `pack` zips the archive's dSYMs and `publish` uploads them to the versioned release alone
 - `xcodebuild` walks every folder under the package root except `.git` on each project load and ignores dot prefixes, the hidden flag, and `.gitignore`

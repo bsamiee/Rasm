@@ -5,6 +5,6 @@ rule:
     kind: 'string_literal, verbatim_string_literal, raw_string_literal, interpolated_string_expression'
     all:
         - pattern: $PATH
-        - regex: '(^[$@]*"+|[[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]=:;,]|file://)(~/|/(Applications|Users|home|root|Volumes|opt|nix/store|Library|System/Volumes|private|tmp|mnt|media|snap)(/|"|$)|/usr/local/|/var/folders/|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData|Windows)([\\/]|"|$))'
+        - regex: '(^[$@]*"+|[[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]=:;,]|file://)(~/|/(Applications|Users|home|root|Volumes|opt|nix/store|Library|System/Volumes|private|tmp|mnt|media|snap)(/|"|$)|/usr/local/|/var/folders/|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData|Windows)([\\/]|"|$))|\$\{?(HOME|USERPROFILE)\}?[\\/]'
 message: '`$PATH` names a location in one machine''s install, user, or volume folders'
 note: 'Read the location at run time from its owner (host API, bundle id, package resolver, `Environment.GetFolderPath`) or a parameter'

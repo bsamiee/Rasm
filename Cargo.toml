@@ -698,6 +698,7 @@ single_use_lifetimes          = "warn"                                          
 unconditional_panic           = "forbid"                                                           # Operations rustc proves will panic
 unexpected_cfgs               = { level = "warn", check-cfg = ["cfg(dylint_lib, values(any()))"] } # Native Dylint library selection
 unnameable_types              = "warn"                                                             # Types and traits public signatures expose but consumers cannot name
+unreachable_pub               = "warn"                                                             # `pub` items unreachable from the crate root, visibility states the reach consumers have
 unsafe_code                   = "forbid"                                                           # Unsafe code and unsafe attributes with no override, unsafe operations stay inside owning crates
 unused_import_braces          = "warn"                                                             # `use a::{b}` braces around one import, code keeps the direct form
 unused_lifetimes              = "warn"                                                             # Lifetime parameters nothing reads, removals delete every mention
@@ -812,7 +813,7 @@ missing_errors_doc                  = "allow" # Names and types state each contr
 missing_panics_doc                  = "allow" # Names and types state each contract in place of doc comments
 option_if_let_else                  = "allow" # Rewrites `match` and `if let` over `Option` into `map_or` or `map_or_else`, control flow selects by pattern matching result cases
 redundant_field_names               = "allow" # Flags `field: field` literals derive_more `Constructor` writes, rustfmt `use_field_init_shorthand` owns written ones
-redundant_pub_crate                 = "allow" # Demands `pub` on items in private modules where dylint `unreachable_public_item` demands `pub(crate)`
+redundant_pub_crate                 = "allow" # Demands `pub` on items in private modules where rustc `unreachable_pub` demands `pub(crate)`
 significant_drop_tightening         = "allow" # Demands `drop` of lock guards before scope end, acquisition and release pair in one resource scope
 too_many_lines                      = "allow" # Caps functions at 100 lines, data dependency decides composition in place of line count
 

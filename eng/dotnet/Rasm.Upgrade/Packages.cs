@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -27,7 +26,7 @@ namespace Rasm.Upgrade;
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed record Row(string Id, VersionRange Range, Group Attribute);
 internal sealed record Move(Row Row, NuGetVersion Version);
-internal sealed record Feed(string Source, PackageMetadataResource Metadata, FindPackageByIdResource Downloads);
+internal sealed record Feed(string Source, PackageMetadataResource Metadata, DownloadResource Downloads);
 internal sealed record Host(HashMap<EqStringOrdinalIgnoreCase, string, NuGetVersion> Library, HashMap<EqStringOrdinalIgnoreCase, string, string> Assembly) {
     public static Host Read(string resources) {
         using FileStream dependencies = File.OpenRead(Directory.GetFiles(resources, "dotnetstart.*.deps.json").Single());
@@ -81,8 +80,11 @@ internal static partial class Packages {
     // --- [PROJECTS]
     public static IO<Seq<Project>> Projects(string root, Seq<string> fileApps) =>
         IO.liftAsync(env => File.ReadAllTextAsync(Path.Join(root, "Workspace.slnx"), env.Token))
-            .Bind(solution => Collect(toSeq(Located(solution).Descendants("Project").Attributes("Path"))
-                .Map(static path => path.Value).Concat(fileApps).Map(path => Evaluate(Path.GetFullPath(path, root)))))
+            .Bind(solution => toSeq(toSeq(Located(solution).Descendants("Project").Attributes("Path"))
+                    .Map(static path => path.Value).Concat(fileApps).Map(path => Evaluate(Path.GetFullPath(path, root))).Chunk(Environment.ProcessorCount))
+                .TraverseM(static batch => Collect(toSeq(batch)))
+                .As())
+            .Map(static batches => batches.Flatten())
             .Bind(static evaluated => IO.lift(() => {
                 HashMap<EqStringOrdinal, string, Host> hosts = toHashMap<EqStringOrdinal, string, Host>(evaluated.Map(static result => result.Resources)
                     .Filter(static resources => resources.Length > 0).Distinct().Map(static resources => (resources, Host.Read(resources))));
@@ -103,13 +105,16 @@ internal static partial class Packages {
 
     private static Seq<Project> ReadProjects(string assets, Option<Host> host) {
         LockFile restored = new LockFileFormat().Read(assets);
-        return toSeq(restored.PackageSpec.TargetFrameworks).Map(framework => new Project(
-            framework.FrameworkName,
-            toHashMap<EqStringOrdinalIgnoreCase, string, VersionRange>(framework.Dependencies.Where(static reference => reference.VersionCentrallyManaged)
-                .Concat(restored.CentralTransitiveDependencyGroups.Where(group => NuGetFramework.Parse(group.FrameworkName).Equals(framework.FrameworkName))
-                    .SelectMany(static group => group.TransitiveDependencies))
-                .Select(reference => (reference.Name, framework.CentralPackageVersions[reference.Name].VersionRange))),
-            host));
+        return toSeq(restored.PackageSpec.TargetFrameworks.GroupJoin(
+            restored.CentralTransitiveDependencyGroups,
+            static framework => framework.FrameworkName,
+            static group => NuGetFramework.Parse(group.FrameworkName),
+            (framework, groups) => new Project(
+                framework.FrameworkName,
+                toHashMap<EqStringOrdinalIgnoreCase, string, VersionRange>(framework.Dependencies.Where(static reference => reference.VersionCentrallyManaged)
+                    .Concat(groups.SelectMany(static group => group.TransitiveDependencies))
+                    .Select(reference => (reference.Name, framework.CentralPackageVersions[reference.Name].VersionRange))),
+                host)));
     }
 
     // --- [RELEASES]
@@ -120,7 +125,7 @@ internal static partial class Packages {
              select required).Try();
 
         return Collect(sources.Map(static source =>
-            (Resource<PackageMetadataResource>(source), Resource<FindPackageByIdResource>(source))
+            (Resource<PackageMetadataResource>(source), Resource<DownloadResource>(source))
                 .Apply((metadata, downloads) => new Feed(source.PackageSource.Name, metadata, downloads))
                 .Run()
                 .As()
@@ -128,12 +133,14 @@ internal static partial class Packages {
     }
 
     public static IO<Seq<T>> Collect<T>(Seq<IO<T>> effects) =>
-        toSeq(effects.Chunk(Environment.ProcessorCount))
-            .TraverseM(static batch => awaitAll(toSeq(batch).Map(static effect => effect.Try().Run().As())))
+        toSeq(effects.Chunk(Math.Max(1, (int)Math.Sqrt(effects.Count))))
+            .Traverse(static batch => toSeq(batch).Traverse(static effect => effect.Try()))
             .As()
-            .Bind(static batches => IO.lift(batches.Flatten().Traverse(static result => result).As()));
+            .Run()
+            .As()
+            .Bind(static batches => IO.lift(batches.Map(static batch => batch.Flatten())));
 
-    public static IO<Option<Move>> Newest(Seq<Project> projects, SourceCacheContext cache, PackageSourceMapping mapping, Seq<Feed> feeds, Row row) {
+    public static IO<Option<Move>> Newest(Seq<Project> projects, PackageDownloadContext download, string packages, PackageSourceMapping mapping, Seq<Feed> feeds, Row row) {
         NuGetVersion current = row.Range.MinVersion!;
         Seq<Project> consumers = projects.Filter(project => project.Consumes(row));
         Seq<NuGetFramework> frameworks = consumers.Map(static consumer => consumer.TargetFramework).Distinct();
@@ -146,7 +153,7 @@ internal static partial class Packages {
         return host.Find(row.Id).Match(
                 Some: static version => IO.pure(Some(version)),
                 None: () => Collect(Serving(row.Id).Map(feed =>
-                        IO.liftAsync(env => feed.Metadata.GetMetadataAsync(row.Id, includePrerelease: true, includeUnlisted: false, cache, NullLogger.Instance, env.Token))
+                        IO.liftAsync(env => feed.Metadata.GetMetadataAsync(row.Id, includePrerelease: true, includeUnlisted: false, download.SourceCacheContext, NullLogger.Instance, env.Token))
                             .Map(releases => toSeq(releases).Map(metadata => (Metadata: metadata, feed.Downloads)))))
                     .Bind(published => IO.liftAsync(async env =>
                         await published.Flatten()
@@ -181,19 +188,15 @@ internal static partial class Packages {
                     .AllAsync((dependency, next) => Serving(dependency.Id)
                         .ToAsyncEnumerable()
                         .AnyAsync(async (feed, inner) =>
-                            await feed.Metadata.GetMetadataAsync(new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion), cache, NullLogger.Instance, inner).ConfigureAwait(false) is { } resolved
+                            await feed.Metadata.GetMetadataAsync(new PackageIdentity(dependency.Id, dependency.VersionRange.MinVersion), download.SourceCacheContext, NullLogger.Instance, inner).ConfigureAwait(false) is { } resolved
                             && await AdmittedAsync(resolved, inner).ConfigureAwait(false), next), token)
                     .ConfigureAwait(false));
         }
 
-        async ValueTask<bool> SupportedAsync((IPackageSearchMetadata Metadata, FindPackageByIdResource Downloads) release, CancellationToken token) {
-            FileStream nupkg = new(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()),
-                new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.ReadWrite, Options = FileOptions.Asynchronous | FileOptions.DeleteOnClose });
-            await using ConfiguredAsyncDisposable disposal = nupkg.ConfigureAwait(false);
-            PackageIdentity listed = release.Metadata.Identity;
-            if (!await release.Downloads.CopyNupkgToStreamAsync(listed.Id, listed.Version, nupkg, cache, NullLogger.Instance, token).ConfigureAwait(false))
+        async ValueTask<bool> SupportedAsync((IPackageSearchMetadata Metadata, DownloadResource Downloads) release, CancellationToken token) {
+            using DownloadResourceResult resolved = await release.Downloads.GetDownloadResourceResultAsync(release.Metadata.Identity, download, packages, NullLogger.Instance, token).ConfigureAwait(false);
+            if (resolved is not { Status: DownloadResourceResultStatus.Available, PackageReader: { } package })
                 return false;
-            using PackageArchiveReader package = new(nupkg, leaveStreamOpen: true);
             Seq<string> files = toSeq(await package.GetFilesAsync(token).ConfigureAwait(false));
             return !package.NuspecReader.GetPackageTypes().Any(static type => type == PackageType.DotnetTool || type == PackageType.DotnetPlatform)
                 && frameworks.ForAll(framework => Compatible(framework, files, package.NuspecReader));
@@ -264,10 +267,12 @@ internal static class Program {
         let root = Path.GetDirectoryName(path)
         from projects in Packages.Projects(root, toSeq(args.Skip(1)))
         from cache in use(static () => new SourceCacheContext())
+        let download = new PackageDownloadContext(cache)
         let settings = Settings.LoadDefaultSettings(root)
+        let packages = SettingsUtility.GetGlobalPackagesFolder(settings)
         let mapping = PackageSourceMapping.GetPackageSourceMapping(settings)
         from feeds in Packages.Feeds(toSeq(SettingsUtility.GetEnabledSources(settings)).Map(static source => Repository.Factory.GetCoreV3(source)))
-        from moves in Packages.Collect(rows.Map(row => Packages.Newest(projects, cache, mapping, feeds, row))).Map(static releases => releases.Somes())
+        from moves in Packages.Collect(rows.Map(row => Packages.Newest(projects, download, packages, mapping, feeds, row))).Map(static releases => releases.Somes())
         from written in when(write && !moves.IsEmpty, IO.liftAsync(env => File.WriteAllTextAsync(path, Packages.Rewrite(text, moves), env.Token).ToUnit())).As()
         select moves;
 

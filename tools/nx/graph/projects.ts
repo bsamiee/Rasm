@@ -1,11 +1,11 @@
 import { createRequire, isBuiltin } from 'node:module';
 import { matchesGlob } from 'node:path';
 import type { CreateNodesResult, Optional, ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
-import { interpolate } from '@nx/devkit/internal';
+import { findMatchingProjects, interpolate } from '@nx/devkit/internal';
 import { Array, Effect, Equal, Filter, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parseSync } from 'rolldown/utils';
-import { ClaudeHooks, decodeFile, suitePath, VITEST_INTEGRATION_TESTS, XcodeProject } from '#/eng/typescript/manifest';
+import { ClaudeHooks, decodeFile, suitePath, VITEST_INTEGRATION_TESTS, Xcconfig, XcodeProject } from '#/eng/typescript/manifest';
 import { TextFormat } from '#/eng/typescript/text-format';
 import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, suiteParents, type Workspace, WorkspaceError } from '#/tools/nx/workspace';
 
@@ -54,19 +54,10 @@ const imports = (workspaceRoot: string) =>
         const [files, specifiers] = Array.partition(requests.filter(Predicate.not(isBuiltin)), (request) => (request.startsWith('.') || request.startsWith('#') ? Result.succeed(located(request)) : Result.fromOption(source(request), () => request)));
         return { files, specifiers };
     });
-const reach = Effect.fnUntraced(function* (read: ReturnType<typeof imports>, frontier: readonly string[], known: Readonly<Record<string, Effect.Success<ReturnType<typeof read>>>> = {}) {
-    const graph = new Map(Object.entries(known));
-    let pending = Array.dedupe(frontier.filter((file) => !graph.has(file)));
-    yield* Effect.whileLoop({
-        while: () => pending.length > 0,
-        body: () => Effect.forEach(pending, read, { concurrency: 'unbounded' }),
-        step: (found) => {
-            for (const [file, imports] of Array.zip(pending, found)) graph.set(file, imports);
-            pending = Array.dedupe(found.flatMap(Struct.get('files')).filter((file) => !graph.has(file)));
-        },
-    });
-    return Object.fromEntries(graph);
-});
+const reach = <A extends Effect.Success<ReturnType<ReturnType<typeof imports>>>, E, R>(read: (file: string) => Effect.Effect<A, E, R>, frontier: readonly string[], known: Readonly<Record<string, A>> = {}): Effect.Effect<Readonly<Record<string, A>>, E, R> => {
+    const pending = Array.dedupe(frontier.filter((file) => !Object.hasOwn(known, file)));
+    return pending.length === 0 ? Effect.succeed(known) : Effect.flatMap(Effect.forEach(pending, read, { concurrency: 'unbounded' }), (found) => reach(read, found.flatMap(Struct.get('files')), { ...known, ...Object.fromEntries(Array.zip(pending, found)) }));
+};
 const owning = Effect.fnUntraced(function* ({ packages }: Workspace, dir: string) {
     const [path, manifests] = yield* Effect.all([Path.Path, packages]);
     const lineage = Array.unfold(dir, (at) => (at === path.dirname(at) ? Option.none() : Option.some([at, path.dirname(at)] as const)));
@@ -95,11 +86,13 @@ const pytest = (args: readonly string[], coverage?: string): TargetConfiguration
 });
 
 // --- [PROJECTS]
-const tagPrefix = Effect.fnUntraced(function* ({ release }: Workspace, tags: readonly string[], name: string | undefined) {
-    const { releaseTag, groups } = yield* release;
-    const selectors = new Set(tags.map((tag) => `tag:${tag}`));
-    return Option.map(Option.all([Option.fromUndefinedOr(name), Record.findFirst(groups, ({ projects }) => !selectors.isDisjointFrom(new Set(projects)))]), ([projectName, [releaseGroupName]]) => interpolate(releaseTag.pattern, { projectName, releaseGroupName }).replace('{version}', ''));
-});
+const tagPrefix = ({ release }: Workspace, root: string, tags: readonly string[], name: string | undefined) =>
+    Option.flatMap(Option.fromUndefinedOr(name), (projectName) =>
+        Option.flatMap(
+            Record.findFirst(release?.groups ?? {}, ({ projects }) => findMatchingProjects(Array.ensure(projects), { [projectName]: { data: { root, tags: [...tags] } } }).length > 0),
+            ([releaseGroupName, group]) => Option.map(Option.fromNullishOr(group.releaseTag?.pattern ?? release?.releaseTag?.pattern), (pattern) => interpolate(pattern, { projectName, releaseGroupName }).replace('{version}', '')),
+        ),
+    );
 const pythonTargets = Effect.fnUntraced(function* (dir: string, { workspaceRoot, pyproject, hosts, configFiles }: Inference) {
     const [path, { pythonFiles, testPaths, dataFile }, folders] = yield* Effect.all([Path.Path, pyproject, hosts]);
     const suites = yield* Effect.filter(
@@ -142,9 +135,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             debug: { args: ['--no-restore', '--configuration', 'Debug'] },
             release: { args: ['--no-restore', '--configuration', 'Release'] },
         };
-        const build = product
-            ? Record.map({ build: ['--no-restore'], 'build:release': configurations.release.args }, (args, target) => ({ dependsOn: [], options: { args, ...logged(workspaceRoot, target) }, configurations, parallelism: false }))
-            : logs(['build', 'build:release']);
+        const build = product ? Record.map({ build: ['--no-restore'], 'build:release': configurations.release.args }, (args, target) => ({ dependsOn: [], options: { args, ...logged(workspaceRoot, target) }, configurations, parallelism: false })) : logs(['build', 'build:release']);
         const packaged = {
             ...(product ? windowsPack : {}),
             ...(plugin ? logs(['pack', 'install', 'publish']) : {}),
@@ -286,10 +277,9 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         const named = owner === dir ? {} : { name: path.join(manifest.name, path.relative(owner, dir)) };
         const sourceRoots = [dir, suite];
         const parent = `..${path.sep}`;
-        const externalSources = fileNames
-            .map((candidate) => path.relative(workspaceRoot, candidate))
-            .filter((candidate) => !(path.isAbsolute(candidate) || candidate.startsWith(parent)) && sourceRoots.every((root) => path.relative(root, candidate).startsWith(parent)))
-            .map((candidate) => `{workspaceRoot}/${candidate}`);
+        const sources = fileNames.map((candidate) => path.relative(workspaceRoot, candidate));
+        const loaded = owner === dir ? sources : Object.keys(yield* reach(imports(workspaceRoot), sources));
+        const externalSources = loaded.filter((candidate) => !(path.isAbsolute(candidate) || candidate.startsWith(parent)) && sourceRoots.every((root) => path.relative(root, candidate).startsWith(parent))).map((candidate) => `{workspaceRoot}/${candidate}`);
         const compilerInputs = files.map((held) => ({ fileset: `{workspaceRoot}/${held}`, includeIgnored: true }));
         const [containers, portable] = Array.partition(
             tests.filter((candidate) => matchesGlob(candidate, '**/*.test.{ts,tsx}')),
@@ -302,7 +292,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             }),
         });
         return {
-            ...defaultInputs([...externalSources, ...(tests.length === 0 || suite === dir ? [] : [folderInput(suite)]), ...(configFiles.has(path.join(dir, 'sea.config.ts')) ? ['{workspaceRoot}/.config/Node.entitlements'] : [])]),
+            ...defaultInputs([...externalSources, ...(tests.length === 0 || suite === dir ? [] : [folderInput(suite)])]),
             ...named,
             tags: ['language:typescript'],
             targets: {
@@ -337,7 +327,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         Effect.map(Path.Path, (path) => {
             const output = `.artifacts/fonts/${name}`;
             const action = (verb: string) => `foundry ${verb} ${path.join(dir, base)} --output ${output}`;
-            const closure = [folderInput('libs/python/typography'), folderInput('tools/foundry'), { externalDependencies: [] }, { runtime: 'uv tree --frozen --package typography' }, { runtime: 'python --version' }];
+            const closure = [{ input: 'production', projects: ['foundry'] }, { input: 'production', projects: ['foundry'], dependencies: true }, { externalDependencies: [] }, { runtime: 'uv tree --frozen --package foundry' }, { runtime: 'python --version' }];
             return {
                 root: '.',
                 targets: {
@@ -347,12 +337,18 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
                 },
             };
         }),
-    'sea.config.ts': Effect.fnUntraced(function* ({ dir }, { configFiles }) {
+    'sea.config.ts': Effect.fnUntraced(function* ({ dir }, { configFiles, workspaceRoot }) {
         const path = yield* Path.Path;
         const projects = [...configFiles].filter((file) => path.basename(file) === XcodeProject.file && !path.relative(dir, file).startsWith('..'));
+        const decoded = yield* Effect.forEach(projects, (file) => decodeFile(XcodeProject.schema, workspaceRoot, file));
+        const settings = Array.flatten(Array.zipWith(projects, decoded, (file, { targets }) => targets.map(({ settings: held }) => [file, held.CODE_SIGN_ENTITLEMENTS] as const)));
+        const entitlements = Array.filterMap(settings, ([file, held]) => Result.map(Result.fromNullishOr(held, Function.constVoid), (found) => path.join(path.dirname(path.dirname(file)), found)));
         const output = `{workspaceRoot}/.artifacts/${dir}`;
         const name = path.basename(dir);
-        return { tags: ['output:sea'], targets: { pack: { inputs: ['...', ...projects.map((file) => `{workspaceRoot}/${file}`)], outputs: [`${output}/{${name},${name}.mjs,sea.json,LaunchAgents}`] } } };
+        return {
+            tags: ['output:sea'],
+            targets: { pack: { inputs: ['...', ...[...projects, Xcconfig.file, ...entitlements].map((file) => `{workspaceRoot}/${file}`)], outputs: [`${output}/{${name},${name}.mjs,sea.json,sea.entitlements,LaunchAgents}`] } },
+        };
     }),
     [CLOUDFLARE_CONFIG]: { targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } },
     [ClaudeHooks.file]: Effect.fnUntraced(function* (_, { file, workspaceRoot }) {
@@ -367,7 +363,7 @@ const infer = Effect.fnUntraced(function* (file: string, workspace: Inference) {
     const [marker, configure] = yield* Effect.fromOption(Array.findFirst([parsed.base, path.join(path.basename(parsed.dir), parsed.base), `*${parsed.ext}`], marked));
     const { root = marker.split('/').reduce((at) => path.dirname(at), file), tags = [], targets = {}, ...configuration } = typeof configure === 'function' ? yield* configure(parsed, { ...workspace, file }) : configure;
     const hosted = Array.intersection(root.split('/'), yield* workspace.hosts).map((host) => `host:${host}`);
-    const released = Option.match(yield* tagPrefix(workspace, tags, configuration.name), {
+    const released = Option.match(tagPrefix(workspace, root, tags, configuration.name), {
         onNone: () => targets,
         onSome: (MinVerTagPrefix) => Record.map(targets, (target) => ({ ...target, options: { ...target.options, env: { ...target.options?.env, MinVerTagPrefix } } })),
     });
@@ -376,4 +372,4 @@ const infer = Effect.fnUntraced(function* (file: string, workspace: Inference) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { attachedSuites, defaultInputs, folderInput, type Inference, imports, infer, logged, markers, moduleRequests, owning, packageName, reach, rootTargets, swiftProject, TESTS };
+export { attachedSuites, folderInput, imports, infer, logged, markers, moduleRequests, owning, packageName, reach, rootTargets, swiftProject, TESTS };

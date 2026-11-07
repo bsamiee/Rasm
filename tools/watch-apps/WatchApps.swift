@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServer
 import Applications
 import ArgumentParser
+import AsyncAlgorithms
 import Carbon.HIToolbox
 import CasePaths
 import CurrentProcess
@@ -74,15 +75,17 @@ struct Outline: Encodable {
 
     func fitted(measuring length: (Self) throws -> Int) rethrows -> Self {
         var cut: Self = self
-        while case let excess = try length(cut) - lineLimit, excess > 0 {
-            if let row: Int = cut.asking.lastIndex(where: { row in !row.text.isEmpty }) {
-                let last: String = cut.asking[row].text.removeLast()
-                if last.count > excess { cut.asking[row].text.append(String(last.dropLast(excess))) }
-            } else if let row: Int = cut.asking.lastIndex(where: { row in !row.options.isEmpty }) {
-                cut.asking[row].options.removeLast()
-            } else if cut.windows.popLast() == nil {
-                break
+        var excess: Int = try length(cut) - lineLimit
+        while excess > 0 {
+            switch (cut.asking.lastIndex { row in !row.text.isEmpty }, cut.asking.lastIndex { row in !row.options.isEmpty }, cut.windows.isEmpty) {
+                case (nil, nil, true): return cut
+                case (let row?, _, _):
+                    let last: String = cut.asking[row].text.removeLast()
+                    cut.asking[row].text += last.count > excess ? [String(last.dropLast(excess))] : []
+                case (nil, let row?, _): cut.asking[row].options.removeLast()
+                case (nil, nil, false): cut.windows.removeLast()
             }
+            excess = try length(cut) - lineLimit
         }
         return cut
     }
@@ -93,9 +96,11 @@ struct Outline: Encodable {
 private final class Run: Sendable {
     private let output: FileDescriptor?
     private let log: FileDescriptor?
-    private let held: Mutex<(status: ExitCode, shown: [pid_t: Data])> = Mutex((.success, [:]))
+    private let held: Mutex<(status: ExitCode, shown: [pid_t: Data])>
+    private let closed: (stream: AsyncStream<Int32?>, continuation: AsyncStream<Int32?>.Continuation) = AsyncStream.makeStream()
+    private let claims: (stream: AsyncStream<NSRunningApplication?>, continuation: AsyncStream<NSRunningApplication?>.Continuation)?
 
-    init(output: FileDescriptor? = .standardOutput) {
+    init(output: FileDescriptor? = .standardOutput, waiting: Bool = false) {
         let opening: Result<FileDescriptor, ApplicationFailure>? = variables[logVariable].map { path in
             Result { () throws(ApplicationFailure) in
                 do { return try FileDescriptor.open(FilePath(path), .writeOnly, options: [.append, .create], permissions: [.ownerReadWrite, .groupRead, .otherRead]) } catch {
@@ -105,6 +110,8 @@ private final class Run: Sendable {
         }
         self.output = output
         log = opening?[case: \.success]
+        held = Mutex((waiting ? .failure : .success, [:]))
+        claims = waiting ? AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1)) : nil
         append(Record<JSONValue>(argv: CommandLine.arguments))
         if case .failure(let failure) = opening { fail(program, failure) }
     }
@@ -129,7 +136,7 @@ private final class Run: Sendable {
                 WatchApps.exit(withError: error)
             }
         }
-        if !open { finish() }
+        if !open { closed.continuation.yield(nil) }
     }
 
     func emit(_ key: String, _ value: some Encodable) { write(encoded([key: value]), logging: [key: value]) }
@@ -143,12 +150,69 @@ private final class Run: Sendable {
 
     func set(_ status: ExitCode) { held.withLock { held in held.status = status } }
 
-    func launched(_ launched: Launched, as key: String) { emit(key, [String(launched.pid): ["launched": ["created": launched.created]]]) }
+    func show(_ step: Launching, as key: String) {
+        switch step {
+            case .launched(let launched): emit(key, [String(launched.pid): ["launched": ["created": launched.created]]])
+            case .state(let row): show(row.instance, row.state)
+            case .prompts(let rows): for row: RunningInstance in rows { show(row.instance, row.state) }
+            case .failed(let failure): fail(key, failure)
+        }
+    }
+
+    func follow(_ feed: some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable) async {
+        _ = await feed.reduce(OrderedDictionary<NSRunningApplication, InstanceState>()) { last, next in
+            for (instance, state): (NSRunningApplication, InstanceState) in next { show(instance, state) }
+            for (instance, state): (NSRunningApplication, InstanceState) in last where next[instance] == nil && !state.is(\.exited) { emit(instance.key, [String: String]()) }
+            return next
+        }
+    }
+
+    func follow(launching steps: some AsyncSequence<Launching, Never> & Sendable, as key: String) async {
+        for await step: Launching in steps {
+            show(step, as: key)
+            switch step {
+                case .launched(let launched): claims?.continuation.yield(launched.created ? NSRunningApplication(processIdentifier: launched.pid) : nil)
+                case .failed: claims?.continuation.yield(nil)
+                case .state(let row) where claims != nil: settle(row.state)
+                case .state, .prompts: break
+            }
+        }
+    }
+
+    func settle(_ state: InstanceState) {
+        guard case .exited(let ended, _) = state else { return }
+        claims?.continuation.yield(nil)
+        switch ended.map(\.status) {
+            case .success(.exited(let code)): set(ExitCode(code))
+            case .success(.signaled(let signal)): set(ExitCode(128 + signal))
+            case .failure: break
+        }
+    }
+
+    func quit(_ instance: NSRunningApplication, _ steps: some AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable) async -> InstanceState? {
+        await steps.reduce(InstanceState?.none) { last, step in
+            switch step {
+                case .success(let state):
+                    show(instance, state)
+                    return state
+                case .failure(let failure):
+                    fail(instance.key, failure)
+                    return last
+            }
+        }
+    }
+
+    func release() async {
+        guard case .some(.some(let instance)) = await claims?.stream.first(where: { _ in true }) else { return }
+        let saved: InstanceState? = await quit(instance, instance.quit(saving: true))
+        let ended: InstanceState? = saved?.is(\.exited) == true ? saved : await quit(instance, instance.quitting(force: true))
+        if let ended { settle(ended) }
+    }
 
     func recording(_ steps: some AsyncSequence<any Encodable & Sendable, Never> & Sendable) -> some AsyncSequence<any Encodable & Sendable, Never> & Sendable {
         steps.map { step in
             if case .launched(let launched)? = step as? Launching {
-                self.launched(launched, as: NSRunningApplication(processIdentifier: launched.pid)?.key ?? String(launched.pid))
+                self.show(.launched(launched), as: NSRunningApplication(processIdentifier: launched.pid)?.key ?? String(launched.pid))
             }
             return step
         }
@@ -191,8 +255,9 @@ private final class Run: Sendable {
         WatchApps.exit(withError: status)
     }
 
-    static func execute(serving: Bool = false, _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void) async {
-        let run: Run = Run(output: serving ? nil : .standardOutput)
+    static func execute(serving: Bool = false, waiting: Bool = false, _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void) async {
+        let run: Run = Run(output: serving ? nil : .standardOutput, waiting: waiting)
+        let endings: AsyncMerge2Sequence<AsyncStream<Int32?>, AsyncStream<Int32?>> = merge(processEndings(), run.closed.stream)
         await withDiscardingTaskGroup { group in
             group.addTask {
                 do throws(ApplicationFailure) {
@@ -203,7 +268,10 @@ private final class Run: Sendable {
                 }
                 run.finish()
             }
-            for await ending: Int32? in processEndings() { run.finish(signal: ending) }
+            for await ending: Int32? in endings {
+                await run.release()
+                run.finish(signal: ending)
+            }
         }
     }
 }
@@ -214,10 +282,14 @@ extension NSRunningApplication {
     fileprivate var key: String { bundleIdentifier ?? String(processIdentifier) }
 }
 
-private func installed(_ names: [String], _ run: Run, _ use: (String, [Installation]) throws(ApplicationFailure) -> Void) async {
-    for name: String in OrderedSet(names) {
-        do throws(ApplicationFailure) { try use(name, await Installation.installed(named: name)) } catch { run.fail(name, error) }
+private func installed(_ names: [String], _ run: Run) async -> [(name: String, installations: [Installation])] {
+    await OrderedSet(names).async.compactMap { name -> (name: String, installations: [Installation])? in
+        do throws(ApplicationFailure) { return (name, try await Installation.installed(named: name)) } catch {
+            run.fail(name, error)
+            return nil
+        }
     }
+    .reduce(into: []) { found, entry in found.append(entry) }
 }
 
 private func act(_ action: ElementAction, key: String) async {
@@ -245,7 +317,7 @@ struct WatchApps: AsyncParsableCommand {
         do {
             var command: any ParsableCommand = try parseAsRoot()
             if var command: any AsyncParsableCommand = command as? any AsyncParsableCommand { try await command.run() } else { try command.run() }
-        } catch let error as CleanExit {
+        } catch  where exitCode(for: error).isSuccess {
             exit(withError: error)
         } catch {
             let run: Run = Run()
@@ -267,19 +339,14 @@ private struct Running: ParsableArguments {
     }
 
     func each(_ run: Run, _ body: @escaping @Sendable (NSRunningApplication) async throws(ApplicationFailure) -> Void) async {
-        var instances: OrderedSet<NSRunningApplication> = []
-        if let pid {
-            guard let instance: NSRunningApplication = NSRunningApplication(processIdentifier: pid) else {
-                run.fail(String(pid), ApplicationFailure(subject: String(pid), reason: .noProcess))
-                return
-            }
-            instances.append(instance)
+        let picked: [NSRunningApplication] = [pid.flatMap(NSRunningApplication.init(processIdentifier:))].compactMap(\.self)
+        if let pid, picked.isEmpty {
+            run.fail(String(pid), ApplicationFailure(subject: String(pid), reason: .noProcess))
+            return
         }
-        for name: String in names {
-            let found: [NSRunningApplication] = NSWorkspace.shared.instances(named: name)
-            if found.isEmpty { run.emit(name, [String: String]()) }
-            instances.formUnion(found)
-        }
+        let named: [[NSRunningApplication]] = names.map(NSWorkspace.shared.instances(named:))
+        for (name, found): (String, [NSRunningApplication]) in zip(names, named) where found.isEmpty { run.emit(name, [String: String]()) }
+        let instances: OrderedSet<NSRunningApplication> = OrderedSet(picked + named.joined())
         await withDiscardingTaskGroup { group in
             for instance: NSRunningApplication in instances {
                 group.addTask {
@@ -298,16 +365,12 @@ private struct Watch: AsyncParsableCommand {
 
     func run() async {
         await Run.execute { run in
-            var applications: [Installation] = []
-            await installed(names, run) { _, found in applications += found }
+            let applications: [Installation] = await installed(names, run).flatMap(\.installations)
             guard !applications.isEmpty else { return }
             for identifier: String in OrderedSet(applications.map(\.identifier)) where NSWorkspace.shared.instances(of: { instance in instance.bundleIdentifier == identifier }).isEmpty {
                 run.emit(identifier, [String: String]())
             }
             let matching: @Sendable (NSRunningApplication) -> Bool = { [applications] instance in applications.contains { installation in installation.runs(instance) } }
-            let feeds: [any AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable] = [
-                NSWorkspace.shared.instanceStates(of: matching), NSWorkspace.shared.systemPrompts(naming: applications.map(\.name)),
-            ]
             await withDiscardingTaskGroup { group in
                 group.addTask {
                     var calm: Bool = true
@@ -322,16 +385,8 @@ private struct Watch: AsyncParsableCommand {
                         }
                     }
                 }
-                for feed in feeds {
-                    group.addTask {
-                        var last: OrderedDictionary<NSRunningApplication, InstanceState> = [:]
-                        for await next: OrderedDictionary<NSRunningApplication, InstanceState> in feed {
-                            for (instance, state): (NSRunningApplication, InstanceState) in next { run.show(instance, state) }
-                            for (instance, state): (NSRunningApplication, InstanceState) in last where next[instance] == nil && !state.is(\.exited) { run.emit(instance.key, [String: String]()) }
-                            last = next
-                        }
-                    }
-                }
+                group.addTask { await run.follow(NSWorkspace.shared.instanceStates(of: matching)) }
+                group.addTask { await run.follow(NSWorkspace.shared.systemPrompts(naming: applications.map(\.name))) }
             }
         }
     }
@@ -348,7 +403,7 @@ private struct Launch: AsyncParsableCommand {
     @Flag(help: "Opens another instance when one runs, for applications that support several")
     var new: Bool = false
 
-    @Flag(help: "Observes one named application until it exits and returns its exit status, or 128 plus its signal")
+    @Flag(help: "Observes one named application until it exits and returns its exit status, or 128 plus its signal. Quits an instance it created when the run ends first")
     var wait: Bool = false
 
     @Option(help: ArgumentHelp("File to open, one per flag", valueName: "path"), transform: { path in URL(filePath: path) })
@@ -381,40 +436,27 @@ private struct Launch: AsyncParsableCommand {
             "com.mcneel.rhinoceros": ("-nosplash", ["-nosplash"]),
             "org.blenderfoundation.blender": ("--no-window-focus", ["--no-window-focus", "-b", "--background"]),
         ]
-        await Run.execute { run in
-            if wait { run.set(.failure) }
-            var applications: OrderedDictionary<Installation, [URL]> = [:]
-            for file: URL in names.isEmpty ? document : [] {
-                do throws(ApplicationFailure) { applications[try Installation(opening: file), default: []].append(file) } catch { run.fail(file.path(percentEncoded: false), error) }
+        await Run.execute(waiting: wait) { run in
+            let resolved: [(key: String, outcome: Result<(Installation, [URL]), ApplicationFailure>)] =
+                if names.isEmpty {
+                    document.map { file in (file.path(percentEncoded: false), Result { () throws(ApplicationFailure) in (try Installation(opening: file), [file]) }) }
+                } else {
+                    await installed(names, run).map { name, found in (name, Result { () throws(ApplicationFailure) in (try Installation.newest(of: name, among: found), document) }) }
+                }
+            for case (let key, .failure(let failure)) in resolved { run.fail(key, failure) }
+            let applications: OrderedDictionary<Installation, [URL]> = OrderedDictionary(
+                resolved.compactMap { entry -> (Installation, [URL])? in if case .success(let application) = entry.outcome { application } else { nil } }
+            ) { first, next in
+                names.isEmpty ? first + next : first
             }
-            await installed(names, run) { name, found throws(ApplicationFailure) in applications[try Installation.newest(of: name, among: found)] = document }
             await withDiscardingTaskGroup { group in
                 for (installation, documents): (Installation, [URL]) in applications {
                     let added: [String] = switches.compactMap { prefix, row in installation.identifier.hasPrefix(prefix) && row.excluded.isDisjoint(with: host) ? row.added : nil }
                     group.addTask {
-                        var last: InstanceState?
-                        for await step: Launching in NSWorkspace.shared.launching(
-                            installation,
-                            opening: documents,
-                            arguments: added + arguments,
-                            environment: variables,
-                            newInstance: new,
-                            waiting: wait,
-                        ) {
-                            switch step {
-                                case .launched(let launched): run.launched(launched, as: installation.identifier)
-                                case .state(let row):
-                                    run.show(row.instance, row.state)
-                                    last = row.state
-                                case .prompts(let rows): for row: RunningInstance in rows { run.show(row.instance, row.state) }
-                                case .failed(let failure): run.fail(installation.identifier, failure)
-                            }
-                        }
-                        guard wait, case .exited(.success(let exit), _)? = last else { return }
-                        switch exit.status {
-                            case .exited(let code): run.set(ExitCode(code))
-                            case .signaled(let signal): run.set(ExitCode(128 + signal))
-                        }
+                        await run.follow(
+                            launching: NSWorkspace.shared.launching(installation, opening: documents, arguments: added + arguments, environment: variables, newInstance: new, waiting: wait),
+                            as: installation.identifier,
+                        )
                     }
                 }
             }
@@ -529,14 +571,8 @@ private struct Quit: AsyncParsableCommand {
 
     func run() async {
         await Run.execute { run in
-            await running.each(run) { instance throws(ApplicationFailure) in
-                var exited: Bool = false
-                for await step: Result<InstanceState, ApplicationFailure> in instance.quitting(force: force) {
-                    let state: InstanceState = try step.get()
-                    exited = state.is(\.exited)
-                    run.show(instance, state)
-                }
-                if !exited { run.fail() }
+            await running.each(run) { instance in
+                if await run.quit(instance, instance.quitting(force: force))?.is(\.exited) != true { run.fail() }
             }
         }
     }
@@ -563,18 +599,20 @@ private struct Log: ParsableCommand {
                 for index: Int in start..<end where records[index].pid == pid { try FileDescriptor.standardOutput.writeAll(lines[index] + [UInt8(ascii: "\n")]) }
                 return
             }
-            var runs: [Record<[String: JSONValue]>] = []
-            var active: [pid_t: Int] = [:]
-            for record: Record<[String: JSONValue]> in records {
-                if record.argv != nil {
-                    active[record.pid] = record.session == variables[sessionVariable] ? runs.endIndex : nil
-                    if active[record.pid] != nil { runs.append(record) }
-                } else if let index: Int = active[record.pid] {
-                    runs[index].line = (runs[index].line ?? [:]).merging(record.line ?? [:]) { _, next in next }
-                    runs[index].exit = record.exit
-                    if record.exit != nil { active[record.pid] = nil }
+            let runs: [Record<[String: JSONValue]>] = records.reduce(into: (runs: [Record<[String: JSONValue]>](), active: [pid_t: Int]())) { folded, record in
+                switch (record.argv, folded.active[record.pid]) {
+                    case (.some, _) where record.session == variables[sessionVariable]:
+                        folded.active[record.pid] = folded.runs.endIndex
+                        folded.runs.append(record)
+                    case (.some, _): folded.active[record.pid] = nil
+                    case (.none, .some(let index)):
+                        folded.runs[index].line = (folded.runs[index].line ?? [:]).merging(record.line ?? [:]) { _, next in next }
+                        folded.runs[index].exit = record.exit
+                        folded.active[record.pid] = record.exit == nil ? index : nil
+                    case (.none, .none): break
                 }
             }
+            .runs
             for run: Record<[String: JSONValue]> in runs { try FileDescriptor.standardOutput.writeAll(encoder.encodeLine(run)) }
         } catch {
             let failure: ApplicationFailure = error as? ApplicationFailure ?? ApplicationFailure(subject: logVariable, reason: .host(error as NSError))
@@ -601,8 +639,7 @@ private struct Serve: AsyncParsableCommand {
                     let response: Response = try await withTaskExecutorPreference(calls) {
                         try await request.perform(admitting: { NSPredicate(value: true) }, refusing: { _ in [] }, definitions: definitions)
                     }
-                    guard case .launch = request, case .stream(let steps) = response else { return response }
-                    return .stream(run.recording(steps))
+                    return if case .launch = request, case .stream(let steps) = response { .stream(run.recording(steps)) } else { response }
                 }
             } catch {
                 throw ApplicationFailure(subject: "connection", reason: .host(error as NSError))

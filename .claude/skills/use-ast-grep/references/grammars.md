@@ -21,7 +21,6 @@ Parser choice follows the syntax the language's own parser accepts, fidelity out
 - Dialect flags over one parser mix syntaxes, rules hold one `language` and kinds differ across dialects
 - `LANGUAGE_VERSION` in `src/parser.c` fixes a parser's ABI, tree-sitter loads 13 through 15 and generates 14 or 15, a fork built for its own runtime loads in no stock runtime
 - Facts only scope decides (C# `field` inside an accessor) stay out of grammars, a separate kind duplicates every production reaching it
-
 - Sets try each new literal at every identifier position
 
 ## [02]-[PIPELINE]
@@ -395,8 +394,9 @@ Extension scanners wrap one upstream scanner by including its source:
 - Each upstream function it wraps renames to `<name>_upstream_<fn>` before the include, the rest keep their ABI names
 - Renames go through `push_macro`/`pop_macro` or function-like macros, an `#undef` erases a command-line rename
 - Function-like renames need parentheses at each own definition (`bool (tree_sitter_<name>_external_scanner_scan)(…)`), an unparenthesized form re-expands into the rename
+- Upstream `deserialize` reading `const char *` sign-extends bytes above `0x7f`, a wrapper storing high bits renames it and reads `const unsigned char *`
 - Appended externals continue upstream's token enum after its last member, order and counts derived from `externals` in the generated `src/grammar.json`
-- `isw*` follows the process locale, the include sees tests over code point spans the build writes from `word` (XML `word.h` from `_word_start`, `_word_character`)
+- `isw*` follows the process locale, the include sees tests over code point spans the build writes from `word` (XML `WORD_START` and `WORD_CHARACTER` in `grammar.h`)
 - Stateless upstream scanners need no added allocation or serialized state
 - Continuation keywords of a Swift newline scan sit in the scanner's tables, a new one enters there
 
@@ -426,7 +426,7 @@ export default grammar(base, {
     conflicts: ($, original) => [...original, [$.substitution]],
     rules: {
         substitution: ($) => prec.dynamic(1, repeat1(seq($._hole, $._hole_end))),
-        _hole_forms: () => seq(...forms.flatMap(({opening, closing}) => [opening, closing])),
+        _constants: () => constants({HOLE_FORMS: forms.map(({opening, closing}) => `{${JSON.stringify(opening)}, '${closing}'}`).join(', ')}),
         source_file: ($, original) => choice(original, seq('`', choice(base.grammar.rules.source_file, $._statement, $._expression), '`')),
         _name: ($, original) => choice(original, prec(1, $.substitution)),
     },
@@ -455,7 +455,7 @@ Grammar side:
 - Hosts declare `documents` of string or regex `opening` and `closing`, and one `hole` of string delimiters
 - Hole scans count the opening's last character against a one-character `closing`
 - Hidden `_hole` and `_hole_end` are the last externals, the dialect's token enum and `valid_symbols` stay as upstream states them, `substitution` is the one visible kind
-- Host forms reach C through a hidden rule no other rule reaches, generation drops it, `src/grammar.json` keeps it for the build's generated header
+- Host forms reach C through the hidden `_constants` rule of name and value pairs, `constants()` writes it, generation drops it, `src/grammar.json` keeps it for the build's `grammar.h`
 - `source_file` takes one arm opening on any host's document opener and closing on any closer around the dialect's `source_file` and fragment arms
 - Fragment arms name upstream rules and open behind a host's delimiter, restated fragments lose upstream forms
 - Fragments led by another fragment alias their rule with the leading optional mandatory
@@ -606,12 +606,12 @@ Native builds take grammar sources, scanner implementations, and their imports a
 Task hashes hold global files (runner config, ignore files) no grammar reads, expensive steps key on content below the task:
 - `tree-sitter generate --no-parser` writes `grammar.json` and `node-types.json` with no table
 - Generator version and `grammar.json` key `parser.c`, `tree-sitter generate <grammar.json>` fills a missing key with no second evaluation
-- Parser key, build file, compiler identity, options, the scanner's `cc -E` text, and a composite's wrapper source key the library
-- New parser keys delete the language's older parsers with their libraries, new library keys that parser's older libraries
-- Each process works in its own directory and renames into the store and onto published paths, equal keys race to equal content with no lock
+- Libraries compile in each task from the stored parser, a few seconds against generation's minute for C# and Postgres
+- Each process works in its own directory and renames into the store and onto published paths, equal keys race to equal content with no lock, a rename onto a held key fails and the held parser serves
+- Stored parsers stay until a language's `parser/` folder is removed, no build deletes a key another process may read
 - Overwriting a mapped library can crash running scans, a rename leaves the old inode to its mappers
 - Libraries compile with hidden visibility and export `tree_sitter_<name>` alone
-- Compatibility flags follow the compiler frontend and scope to affected scanner units, GNU `-fno-strict-aliasing` for `tree_sitter/array.h` casts, `-funsigned-char` or `/J` for scanners widening `char`
+- Compatibility flags follow the compiler frontend and scope to affected scanner units, GNU `-fno-strict-aliasing` for `tree_sitter/array.h` casts
 - Package links resolve to versioned source and include paths, a path change invalidates cached native objects
 
 ## [12]-[NODE_SHAPES]

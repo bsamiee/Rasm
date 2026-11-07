@@ -31,7 +31,7 @@ public abstract partial record QueueTarget {
     public string Name => Switch(local: static _ => nameof(Local), packaged: static held => held.Use.Key, flamenco: static _ => nameof(Flamenco));
     public bool RendersHere => this is Local || Quits;
     public bool Quits => this is Packaged { Use.Quits: true };
-    public Option<(OutputFolder Folder, Stem Stem)> Package => Switch<Option<(OutputFolder Folder, Stem Stem)>>(
+    public Option<(OutputFolder Folder, Stem Stem)> Package => Switch(
         local: static _ => None,
         packaged: static held => Some((held.Folder, held.Stem)),
         flamenco: static held => Some((held.Folder, held.Stem)));
@@ -141,10 +141,10 @@ public static partial class Dispatch {
                       from verdict in IO.lift(check.Verdict)
                       select target.Switch(
                           (Context: context, Doc: doc, Plan: plan, Stamp: stamp, Resumed: resumed, Scope: scope),
-                          local: static (state, _) => IO.lift(() => Session.Start((
+                          local: static (state, _) => (
                               from batch in state.Plan.Resolved(state.Doc, state.Resumed).OnUiThread()
                               from ran in QueueRuns.Run(state.Context, state.Doc, batch, None, state.Resumed)
-                              select ran).Bracket().Scoped(state.Scope.Resources), owned: state.Scope)).Map(unit),
+                              select ran).Bracket().Scoped(state.Scope.Resources) switch { var run => IO.lift(() => Session.Start(run, owned: state.Scope)), },
                           packaged: static (state, packaged) => Completed(packaged.Use.Quits
                               ? Handed(state.Context, state.Doc, state.Plan, state.Stamp, state.Resumed, packaged.Folder, packaged.Stem)
                               : Packed(state.Doc, state.Plan, state.Resumed, packaged.Folder, packaged.Stem, state.Stamp).OnUiThread().Map(static _ => unit), state.Scope),

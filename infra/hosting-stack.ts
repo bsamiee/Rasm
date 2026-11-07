@@ -16,7 +16,6 @@ import { nodeBundle } from '@rasm/hosting/node-bundle';
 import { Array, Cause, Config, Effect, Function, Match, Option, Path, Predicate, Record, Redacted, String, Struct } from 'effect';
 import { quote } from 'shell-quote';
 import type { ResolvedConfig } from 'vite';
-import { Postgres } from '#/eng/typescript/manifest';
 import { postgresRoles } from '#/infra/postgres-roles';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -117,7 +116,7 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
     const store = Option.map(Option.liftPredicate(declared, Predicate.not(Record.isEmptyRecord)), (buckets) => {
         const [user, key, region] = [password(`${name}-store-access`).result, password(`${name}-store-secret`).result, 'us-east-1'];
         const listen = 9000;
-        const { address, endpoint } = reachable(`${name}-store`, 'rustfs/rustfs:latest', {
+        const { address, endpoint } = reachable(`${name}-store`, nodeBundle.services.store.image, {
             listen,
             probe: ['curl', '-fsS', `http://${loopback}:${listen}/health/ready`],
             envs: [interpolate`RUSTFS_ACCESS_KEY=${user}`, interpolate`RUSTFS_SECRET_KEY=${key}`, `RUSTFS_REGION=${region}`, 'RUSTFS_CONSOLE_ENABLE=false'],
@@ -141,11 +140,11 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
                     const database = provisioned(name, variable);
                     const { result } = password(database);
                     const listen = 5432;
-                    const { address, endpoint } = reachable(database, Postgres.image, {
+                    const { address, endpoint } = reachable(database, nodeBundle.services.database.image, {
                         listen,
                         probe: ['pg_isready', '-h', loopback, '-p', `${listen}`, '-U', 'postgres'],
-                        command: Postgres.command,
-                        envs: [interpolate`POSTGRES_PASSWORD=${result}`, ...Record.collect(Postgres.environment, (key, value) => `${key}=${value}`)],
+                        command: nodeBundle.services.database.command,
+                        envs: [interpolate`POSTGRES_PASSWORD=${result}`, ...Record.collect(nodeBundle.services.database.environment, (key, value) => `${key}=${value}`)],
                         volumes: [volume(database, '/var/lib/postgresql')],
                     });
                     return Effect.succeed({ envs: postgresRoles(database, variable, { ...address, password: result }, endpoint, production), volumes: [] });
@@ -177,7 +176,7 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
         },
     );
     const owner = password(`${name}-owner`);
-    const identity = container(`${name}-identity`, pull(`${name}-identity`, 'authelia/authelia:latest'), {
+    const identity = container(`${name}-identity`, pull(`${name}-identity`, nodeBundle.services.identity.image), {
         uploads: Record.collect(
             {
                 '/config/configuration.yml': {
@@ -240,7 +239,7 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
         },
     ];
     const config = { file: '/etc/caddy/caddy.json', content: jsonStringify({ admin: { disabled: true }, apps: { http: { servers: { [name]: { listen: [':443'], routes } } } } }) };
-    const proxy = container(`${name}-proxy`, pull(`${name}-proxy`, 'caddy:latest'), {
+    const proxy = container(`${name}-proxy`, pull(`${name}-proxy`, nodeBundle.services.proxy.image), {
         command: ['caddy', 'run', '--config', config.file],
         uploads: [config],
         volumes: [volume(`${name}-proxy`, '/data')],
@@ -276,10 +275,7 @@ const hostingStack = Effect.fn('hostingStack')(function* (directory: string, tar
         stackName: `${name}.${target}`,
         program: Effect.gen(function* () {
             const { build, resolved } = yield* compiled;
-            const { name: built, domains = [] } = build.workers.default.config;
-            if (built !== configured.name) {
-                return yield* new Cause.IllegalArgumentError(`Worker ${built} in ${build.root} does not match ${configured.name} from ${file}`);
-            }
+            const { domains = [] } = build.workers.default.config;
             yield* Effect.forEach([...Record.keys(Record.remove(build.workers, 'default')).map((worker) => `worker ${worker}`), ...build.containers.map(({ configPath }) => `container at ${configPath}`)], refuse, { concurrency: 'unbounded' });
             const hostnames = Array.filterMap(
                 domains,

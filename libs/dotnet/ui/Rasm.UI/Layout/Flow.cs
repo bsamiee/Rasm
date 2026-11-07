@@ -336,16 +336,16 @@ internal static partial class Layouts {
     // --- [DISTRIBUTE]
     internal static Seq<float> Distribute(Seq<(Sizing Sizing, float Basis, float Floor)> items, float space) {
         double[] extents = [.. items.Map(static item => (double)item.Basis)];
-        double free = space - TensorPrimitives.Sum<double>(extents);
+        double free = space - TensorPrimitives.Sum(extents);
         return !float.IsFinite(space) ? items.Map(static item => item.Basis).Strict()
             : free >= 0d ? Grown(items, extents, free)
             : toSeq(toSeq(items.Map(static item => item.Sizing.ShrinkTier).Somes().Distinct().Order())
-                .Fold(extents, (held, tier) => Shrunk(items, held, TensorPrimitives.Sum<double>(held) - space, tier))).Map(static extent => (float)extent).Strict();
+                .Fold(extents, (held, tier) => Shrunk(items, held, TensorPrimitives.Sum(held) - space, tier))).Map(static extent => (float)extent).Strict();
     }
 
     private static double[] Shrunk(Seq<(Sizing Sizing, float Basis, float Floor)> items, double[] extents, double deficit, int tier) {
         double[] room = [.. items.Map((item, index) => item.Sizing.ShrinkTier == Some(tier) ? double.Max(0d, extents[index] - item.Floor) : 0d)];
-        double total = TensorPrimitives.Sum<double>(room);
+        double total = TensorPrimitives.Sum(room);
         if (total > 0d) TensorPrimitives.MultiplyAdd(room, -double.Clamp(deficit, 0d, total) / total, extents, extents);
         return extents;
     }

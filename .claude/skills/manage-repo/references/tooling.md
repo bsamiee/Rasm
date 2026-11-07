@@ -18,8 +18,7 @@
 - Install side effects sit in their tool row's `postinstall`, a failing command fails the install
 - Row `postinstall` reads `[env]` without `tools = true` rows, `[hooks] postinstall` renders `[env]` from the tools one install names
 - Tools a target calls keep their row and read settings from repository files alone, machine setup installs tools and configures none
-- The CI setup action selects tools through `MISE_ENABLE_TOOLS`
-- `pnpm install --frozen-lockfile` validates every workspace manifest. Locked uv sync uses Pixi locally and installs the `dev` group in CI.
+- `pnpm install --frozen-lockfile` validates every workspace manifest, `CI` alone leaves pnpm resolving against a stale lock
 - Registry rows resolving to `conda:` (`imagemagick`) install a closure in their own `@rpath` prefix, linking no Homebrew, Nix, or Pixi library
 
 ## [02]-[ENVIRONMENT]
@@ -28,6 +27,7 @@
 - Rows render in file order, later rows read a shared value from one earlier `[env]` row as `{{ env.<NAME> }}`
 - Configuration `exec()` templates need their command on `PATH`, URL templates using `version` render during installation
 - `[env]` holds values shells and repository programs read, a value one daemon alone reads sits in its `[daemons]` row `env`
+- macOS-only `[env]` rows and tasks sit in `.config/mise.macos.toml`, which `auto_env` in `.config/miserc.toml` loads, an `os()` branch rendering empty exports an empty string where the platform file leaves the variable unset
 
 ## [03]-[SERVICES]
 
@@ -47,7 +47,7 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names socket inside the engine's host, Ryuk mounts it and fails on Colima's client socket path
 - PostgreSQL services with persisted data follow one major tag until an upgrade migrates their data.
 - Harness rows hold service URLs and read no `[env]` value into MCP config
-- Servers speaking stdio alone run as `rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- <command>`, `--grace` above the bridge's 3s stdin close and below the 5s stop timeout ends the upstream on every stop
+- Servers speaking stdio alone run as `rasm-mcp-bridge -- <command>`, listening on `127.0.0.1` at the `PORT` the row exports, its `4s` default grace above the upstream's 3s stdin close and below the 5s stop timeout ending the upstream on every stop
 - Bridge rows use `ready_http` with status `406` and a `5m` timeout to wait for the upstream handshake
 - `doppler run` rows take `--forward-signals=false`, the group's SIGTERM reaches the bridge once and a forwarded second signal abandons its drain
 - `roslyn-codelens` starts from `/` without a solution and gets `30s` to stop
@@ -68,12 +68,15 @@ Daemon operations:
 
 ## [04]-[MAINTENANCE]
 
-- `mise prune --yes` alone deletes old mise installations
-- Orphan removal runs outside Nx, a running Nx process loads modules from the version an upgrade orphans
+- `mise run update` moves tools before Nx starts, a locked row puts its exact version folder on `PATH` and a started process keeps the old one
+- Tools move by `mise lock --bump` then `mise install`, `mise upgrade` corrupts a growing `conda:` closure and drops `pypi:` environments on a Python move
+- `.config/mise.lock` holds its platforms, `mise lock --platform` sets them once and later runs keep them
+- `pypi:ast-grep/ast-grep-mcp` has no release or tag, mise holds such a GitHub source at the literal `latest` and `mise install --force` moves it
+- `build-settings` writes `.config/hk.pkl` package URLs from the `hk` row of `.config/mise.lock`, Pkl takes no interpolation in a module URI
+- `rasm:upgrade` ends with `nx sync` and a restart of each `boot_start` row onto installed tools, the supervisor keeps its binary until next login
+- `mise prune --yes` ends the update, a version a running process started from stays until that process exits
 - `upgrade:docker` runs `docker:update` on macOS. The update waits for Colima's VM, then restarts it and checks the upgraded Docker engine.
 - `mise run clean` keeps native prefixes, task caches, and installed tools
-- `maintain.sh` restores Pitchfork on exit and leaves Nx's task cache in place
-- `maintain.sh` quits VS Code before reopening it, the `code` CLI otherwise reuses a running instance and its old environment
 
 ## [05]-[TOML]
 

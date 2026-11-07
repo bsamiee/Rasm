@@ -38,24 +38,22 @@ const upgrade = Effect.gen(function* () {
         [
             [
                 ['catalog', 'typescript'],
-                () =>
-                    Effect.gen(function* () {
-                        const { value: tsgo } = yield* scalar(document, ['catalog', '@effect/tsgo']);
-                        const response = yield* HttpClient.get(`https://raw.githubusercontent.com/Effect-TS/tsgo/@effect/tsgo@${tsgo}/_packages/tsgo/upstream.json`).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk));
-                        const { tags } = yield* HttpClientResponse.schemaBodyJson(Upstream)(response);
-                        return tags.typescript.next;
-                    }),
+                Effect.fnUntraced(function* () {
+                    const { value: tsgo } = yield* scalar(document, ['catalog', '@effect/tsgo']);
+                    const response = yield* HttpClient.get(`https://raw.githubusercontent.com/Effect-TS/tsgo/@effect/tsgo@${tsgo}/_packages/tsgo/upstream.json`).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk));
+                    const { tags } = yield* HttpClientResponse.schemaBodyJson(Upstream)(response);
+                    return tags.typescript.next;
+                }),
             ],
             [
                 ['catalogs', 'docgen', 'typescript'],
-                (current: string) =>
-                    Effect.gen(function* () {
-                        const [, installed] = yield* Schema.decodeUnknownEffect(Docgen)(current);
-                        const range = `^${installed}`;
-                        const versions = yield* runCommand('pnpm', ['view', 'typescript', 'versions', '--json']).pipe(Effect.flatMap(Schema.decodeEffect(Versions)));
-                        const version = yield* Effect.fromNullishOr(findMaxSatisfying(versions, range)).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`npm typescript ${range} lists no release`)));
-                        return `npm:typescript@${version}`;
-                    }),
+                Effect.fnUntraced(function* (current: string) {
+                    const [, installed] = yield* Schema.decodeUnknownEffect(Docgen)(current);
+                    const range = `^${installed}`;
+                    const versions = yield* runCommand('pnpm', ['view', 'typescript', 'versions', '--json']).pipe(Effect.flatMap(Schema.decodeEffect(Versions)));
+                    const version = yield* Effect.fromNullishOr(findMaxSatisfying(versions, range)).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`npm typescript ${range} lists no release`)));
+                    return `npm:typescript@${version}`;
+                }),
             ],
         ] as const,
         Effect.fnUntraced(function* ([keys, release]) {
@@ -75,11 +73,8 @@ const upgrade = Effect.gen(function* () {
             CST.setScalarValue(token, version);
             return `${source.slice(0, start)}${token.source}${source.slice(end)}`;
         }, text);
-    const [temporary, stat] = yield* Effect.all([fs.makeTempFileScoped({ directory: path.dirname(file) }), fs.stat(file)]);
-    yield* fs.writeFileString(temporary, next);
-    yield* fs.chmod(temporary, stat.mode);
-    yield* fs.rename(temporary, file);
-}).pipe(Effect.scoped, Effect.provide(Layer.merge(layer, layerUndici)));
+    yield* fs.writeFileString(file, next);
+}).pipe(Effect.provide(Layer.merge(layer, layerUndici)));
 
 if (import.meta.main) {
     runMain(upgrade);

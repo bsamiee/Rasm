@@ -3,19 +3,17 @@ import { TextFormat } from '#/eng/typescript/text-format';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const Postgres = {
-    image: 'postgres:19rc1',
-    environment: { POSTGRES_INITDB_ARGS: '--locale-provider=builtin --builtin-locale=PG_UNICODE_FAST' },
-    command: ['postgres', '-c', 'shared_preload_libraries=pg_stat_statements'],
-};
 const VITEST_INTEGRATION_TESTS = '**/*.integration.test.{ts,tsx}';
 const XCODE_REQUIREMENT = 'up-to-next-major-version';
+const XCCONFIG_ASSIGNMENT = ' = ';
+const XCCONFIG_ROW = new RegExp(`^[A-Z_][A-Z0-9_]*${XCCONFIG_ASSIGNMENT}.*$`, 'gmu');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Strings = Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Daemon = Schema.Struct({ run: Schema.OptionFromOptionalKey(Schema.String), boot: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))) }).pipe(Schema.encodeKeys({ boot: 'boot_start' }));
 const XcodeRemote = Schema.Struct({ kind: Schema.Literal('remote'), repository: Schema.String, version: Schema.StructWithRest(Schema.Struct({ [XCODE_REQUIREMENT]: Schema.optionalKey(Schema.String) }), [Schema.Record(Schema.String, Schema.Json)]) });
+const XcodeLocal = Schema.Struct({ kind: Schema.Literal('local'), path: Schema.String });
 const AstGrepLanguage = Schema.Struct({ libraryPath: Schema.String, extensions: Schema.Array(Schema.String), languageSymbol: Schema.optionalKey(Schema.String), expandoChar: Schema.optionalKey(Schema.String), outlineRules: Schema.OptionFromOptionalKey(Schema.String) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -40,7 +38,8 @@ const Package = manifest(
     Schema.fromJsonString(
         Schema.Struct({
             name: Schema.String,
-            description: Schema.String,
+            author: Schema.optionalKey(Schema.String),
+            repository: Schema.optionalKey(Schema.String),
             dependencies: Strings,
             devDependencies: Strings,
             exports: Strings,
@@ -50,18 +49,27 @@ const Package = manifest(
         }),
     ),
 );
-const Identity = manifest(Package.file, Schema.fromJsonString(Schema.Struct({ author: Schema.String, repository: Schema.String })));
 const Installed = manifest(Package.file, Schema.fromJsonString(Schema.Struct({ name: Schema.String, dependencies: Strings, optionalDependencies: Strings, peerDependencies: Strings, napi: Schema.OptionFromOptionalKey(Schema.Unknown) })));
 const ClaudeHooks = manifest('hooks/hooks.json', Schema.fromJsonString(Schema.Struct({ modules: Schema.NonEmptyArray(Schema.String) })));
 const Mise = manifest('.config/mise.toml', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ daemons: Schema.Record(Schema.String, Schema.Union([Schema.String, Daemon])) }))));
+const MiseLock = manifest('.config/mise.lock', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ tools: Schema.Struct({ hk: Schema.NonEmptyArray(Schema.Struct({ version: Schema.String })) }) }))));
 const Workspace = manifest('pnpm-workspace.yaml', TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.String) }))));
+const Xcconfig = manifest(
+    'Xcode.xcconfig',
+    TextFormat('xcconfig', (text) =>
+        Record.fromIterableWith([...text.matchAll(XCCONFIG_ROW)], ([row]) => {
+            const [key, value] = Array.splitAt(row.split(XCCONFIG_ASSIGNMENT), 1);
+            return [key.join(XCCONFIG_ASSIGNMENT), value.join(XCCONFIG_ASSIGNMENT)];
+        }),
+    ).pipe(Schema.decodeTo(Schema.Struct({ DEVELOPMENT_TEAM: Schema.String }))),
+);
 const Xcode = manifest(
     'project.xcproj',
     TextFormat.Json5.pipe(
         Schema.decodeTo(
             Schema.Struct({
                 files: Schema.Array(Schema.Struct({ path: Schema.OptionFromOptionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-                packages: Schema.Array(Schema.Union([XcodeRemote, Schema.Struct({ kind: Schema.Literal('local'), path: Schema.String })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+                packages: Schema.Array(Schema.Union([XcodeRemote, XcodeLocal])).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
                 targets: Schema.Array(
                     Schema.Struct({
                         name: Schema.String,
@@ -75,35 +83,37 @@ const Xcode = manifest(
 );
 const XcodeProject = {
     ...Xcode,
-    bundleIdentifier: Effect.fnUntraced(function* (directory: string) {
-        const [{ targets }, path] = yield* Effect.all([Xcode.read(directory), Path.Path]);
-        const target = path.parse(directory).name;
-        return yield* Effect.fromOption(
-            Option.flatMap(
-                Array.findFirst(targets, ({ name }) => name === target),
-                ({ settings }) => settings.PRODUCT_BUNDLE_IDENTIFIER,
-            ),
-            () => new Cause.IllegalArgumentError(`${directory} target ${target} has no PRODUCT_BUNDLE_IDENTIFIER`),
+    signing: Effect.fnUntraced(function* (directory: string) {
+        const [{ targets, packages }, path] = yield* Effect.all([Xcode.read(directory), Path.Path]);
+        const [root, target] = [path.dirname(directory), path.parse(directory).name];
+        const missing = (setting: string) => () => new Cause.IllegalArgumentError(`${directory} target ${target} has no ${setting}`);
+        const { settings } = yield* Effect.fromOption(
+            Array.findFirst(targets, ({ name }) => name === target),
+            () => new Cause.IllegalArgumentError(`${directory} has no ${target} target`),
         );
+        const [identifier, entitlements, local] = yield* Effect.all([
+            Effect.fromOption(settings.PRODUCT_BUNDLE_IDENTIFIER, missing('PRODUCT_BUNDLE_IDENTIFIER')),
+            Effect.fromOption(Option.fromNullishOr(settings.CODE_SIGN_ENTITLEMENTS), missing('CODE_SIGN_ENTITLEMENTS')),
+            Effect.fromOption(Array.findFirst(packages, Schema.is(XcodeLocal)), () => new Cause.IllegalArgumentError(`${directory} names no local package`)),
+        ]);
+        const { DEVELOPMENT_TEAM } = yield* Xcconfig.read(path.join(root, local.path));
+        return { identifier, entitlements: path.join(root, entitlements), team: DEVELOPMENT_TEAM };
     }),
 };
-const Sgconfig = {
-    ...manifest(
-        'sgconfig.yml',
-        TextFormat.Yaml.pipe(
-            Schema.decodeTo(
-                Schema.Struct({
-                    ruleDirs: Schema.Array(Schema.String),
-                    utilDirs: Schema.Array(Schema.String),
-                    customLanguages: Schema.Record(Schema.String, AstGrepLanguage),
-                    languageGlobs: Schema.Record(Schema.String, Schema.Array(Schema.String)),
-                }),
-            ),
+const Sgconfig = manifest(
+    'sgconfig.yml',
+    TextFormat.Yaml.pipe(
+        Schema.decodeTo(
+            Schema.Struct({
+                ruleDirs: Schema.Array(Schema.String),
+                utilDirs: Schema.Array(Schema.String),
+                customLanguages: Schema.Record(Schema.String, AstGrepLanguage),
+                languageGlobs: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+            }),
         ),
     ),
-    outlineCatalogs: (path: Path.Path, languages: Readonly<Record<string, typeof AstGrepLanguage.Type>>) => Array.getSomes(Record.collect(languages, (language, { outlineRules }) => Option.map(outlineRules, (file) => ({ language, file, source: path.join(path.dirname(file), 'sources', path.basename(file)) })))),
-};
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ClaudeHooks, decodeFile, extendScriptEntry, Identity, Installed, libraryRoot, Mise, members, Package, Postgres, Sgconfig, suitePath, VITEST_INTEGRATION_TESTS, Workspace, XCODE_REQUIREMENT, XcodeProject, XcodeRemote };
+export { ClaudeHooks, decodeFile, extendScriptEntry, Installed, libraryRoot, Mise, MiseLock, members, Package, Sgconfig, suitePath, VITEST_INTEGRATION_TESTS, Workspace, XCODE_REQUIREMENT, Xcconfig, XcodeProject, XcodeRemote };

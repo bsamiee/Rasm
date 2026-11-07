@@ -218,7 +218,8 @@ const classes = ({ identifier, whitespace }, parse) => {
         whitespace: refa.CharSet.empty(MAXIMUM).union(...whitespace.map(spacing(parse))),
     };
 };
-const spans = ({ ranges }) => seq(...ranges.flatMap(({ min, max }) => [String(min), String(max)]));
+const spans = ({ ranges }) => ranges.map(({ min, max }) => `{${min}, ${max}}`).join(', ');
+const constants = (rows) => seq(...Object.entries(rows).flatMap(([name, value]) => [name, String(value)]));
 const outermost = (rule) => (lexical(rule) ? [rule] : children(rule).flatMap(outermost));
 const folded = (set) => set.map((characters) => [...new Set(characters.ranges.flatMap(({ min, max }) => Array.from({ length: max - min + 1 }, (_, at) => String.fromCodePoint(min + at).toLowerCase())))]).reduce((held, letters) => held.flatMap((prefix) => letters.map((letter) => prefix + letter)), ['']);
 const spellings = (grammar) => {
@@ -281,4 +282,41 @@ const extend = (base, { transforms = [], rules = {}, ...options } = {}) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { after, any, automaton, before, chain, children, choiceOf, classes, closure, collected, drop, extend, leading, lexemes, lexical, located, MAXIMUM, mandatory, NON_ASCII, named, optionalOf, outermost, pattern, reaches, rebuild, replace, rewrite, spans, spellings, states, string, symbol, unicode, widen, without };
+export {
+    after,
+    any,
+    automaton,
+    before,
+    chain,
+    children,
+    choiceOf,
+    classes,
+    closure,
+    collected,
+    constants,
+    drop,
+    extend,
+    leading,
+    lexemes,
+    lexical,
+    located,
+    MAXIMUM,
+    mandatory,
+    NON_ASCII,
+    named,
+    optionalOf,
+    outermost,
+    pattern,
+    reaches,
+    rebuild,
+    replace,
+    rewrite,
+    spans,
+    spellings,
+    states,
+    string,
+    symbol,
+    unicode,
+    widen,
+    without,
+};

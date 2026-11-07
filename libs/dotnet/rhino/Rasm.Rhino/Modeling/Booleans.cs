@@ -92,7 +92,7 @@ public static class Booleans {
                 at.Operation.First,
                 at.Operation.Second,
                 () => Keyed(() => (Curve.CreateBooleanUnion(at.Operation.Second, at.Absolute, out int[] key), key))
-                    .Bind(static regions => IO.lift(() => Products.Each(regions, static (region, index) => RhinoFault.Unless(!region.From.IsEmpty, RhinoReason.Missing, region.From, index).Map(_ => region.Value)))),
+                    .Bind(static regions => IO.lift(Products.Each(regions, static (region, index) => RhinoFault.Unless(!region.From.IsEmpty, RhinoReason.Missing, region.From, index).Map(_ => region.Value)))),
                 (first, outer) => Products.Many(() => Curve.CreateBooleanIntersection(first, outer, at.Absolute), required: false)),
             difference: static at => PerFirst(at.Operation.First, first => Products.Many(() => Curve.CreateBooleanDifference(first, at.Operation.Second, at.Absolute), required: false)));
 

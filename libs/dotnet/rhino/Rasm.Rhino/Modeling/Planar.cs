@@ -97,7 +97,7 @@ public static class Planar {
     // --- [DIAGRAMS]
     public static IO<Seq<(Point3d Site, Polyline Cell)>> Voronoi(Tolerances tolerances, Rectangle3d frame, Seq<Point3d> sites) =>
         from envelope in IO.lift(() => RhinoFault.Unless(frame.IsValid && frame.Width > 0 && frame.Height > 0, RhinoReason.Invalid, frame).Map(_ => new Envelope(frame.X.Min, frame.X.Max, frame.Y.Min, frame.Y.Max)))
-        from coordinates in IO.lift(() => Products.Each(sites, (site, index) =>
+        from coordinates in IO.lift(Products.Each(sites, (site, index) =>
             from at in Local(tolerances, frame.Plane, site, index)
             from covered in RhinoFault.Unless(envelope.Covers(at), RhinoReason.Outside, site, index)
             select at))

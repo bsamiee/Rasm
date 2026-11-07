@@ -122,10 +122,7 @@ public static class Products {
                 Transfer(static () => new CancellationTokenSource(), closing =>
                     Transfer(static () => EnvIO.New(token: CancellationToken.None), scope =>
                         from token in IO.lift(() => closing.Token)
-                        from opened in open(body =>
-                            (from entered in Acquired(IO.liftAsync(() => gate.EnterAsync(token)))
-                             from value in body.Scoped(scope.Resources)
-                             select value).Bracket()).Scoped(scope)
+                        from opened in open(body => Acquired(IO.liftAsync(() => gate.EnterAsync(token))).Bind(_ => body.Scoped(scope.Resources)).Bracket()).Scoped(scope)
                         select (opened.Value, opened.Close, Scope: scope, Gate: gate, Closing: closing)))),
                 static held => IO.liftAsync(() => held.Closing.CancelAsync().ToUnit()).Finally(
                     (from entered in Acquired(IO.liftAsync(() => held.Gate.EnterAsync(CancellationToken.None)))
@@ -135,9 +132,6 @@ public static class Products {
                         .Finally(IO.lift(held.Gate.Dispose))
                         .Finally(IO.lift(held.Closing.Dispose))).Uninterruptible())
             .Map(static held => held.Value).Uninterruptible();
-
-    public static IO<TOut> Transfer<T, TOut>(T value, Func<T, IO<TOut>> to) where T : IDisposable =>
-        use(() => value).Bind(to).BracketFail();
 
     public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to, [CallerArgumentExpression(nameof(make))] string member = "") where T : class, IDisposable =>
         use(IO.lift(() => Conversions.Required(make(), call: member))).Bind(to).BracketFail();

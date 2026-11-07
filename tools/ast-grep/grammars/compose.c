@@ -5,7 +5,7 @@
 
 #include "tree_sitter/parser.h"
 
-#include "holes.h"
+#include "grammar.h"
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

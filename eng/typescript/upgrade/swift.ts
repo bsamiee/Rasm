@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { Array, Cause, Effect, FileSystem, flow, Match, Option, Path, Record, Result, Schema, Stream, Struct, Tuple } from 'effect';
+import { Array, Cause, Effect, FileSystem, flow, Match, Option, Record, Result, Schema, Stream, Struct, Tuple } from 'effect';
 import { applyEdits, type Edit, modify } from 'jsonc-parser';
 import { compare, normalizeFull } from 'verkit';
 import { stringify } from 'yaml';
@@ -115,13 +115,6 @@ const prepare = Effect.fnUntraced(function* ({ file, text, requirements }: Effec
     const next = applyEdits(text, edits);
     return Option.some({ file, text: file.endsWith(MANIFEST) ? next : yield* runCommand('xcrun', ['xcprojformatter'], { stdin: Stream.encodeText(Stream.make(next)) }) });
 });
-const stage = Effect.fnUntraced(function* ({ file, text }: { readonly file: string; readonly text: string }) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const [temporary, stat] = yield* Effect.all([fs.makeTempFileScoped({ directory: path.dirname(path.resolve(file)) }), fs.stat(file)]);
-    yield* fs.writeFileString(temporary, text);
-    yield* fs.chmod(temporary, stat.mode);
-    return { temporary, file };
-});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -133,10 +126,9 @@ const upgrade = Effect.gen(function* () {
     const repositories = Array.dedupe(documents.flatMap(({ requirements }) => requirements.map(Struct.get('repository'))));
     const releases = Record.fromEntries(Array.zip(repositories, yield* Effect.validate(repositories, newest, parallel)));
     const prepared = Array.getSomes(yield* Effect.validate(documents, (document) => prepare(document, releases), parallel));
-    const staged = yield* Effect.validate(prepared, stage, parallel);
-    yield* accumulate(staged, ({ temporary, file }) => fs.rename(temporary, file));
+    yield* accumulate(prepared, ({ file, text }) => fs.writeFileString(file, text));
 });
 
 if (import.meta.main) {
-    upgrade.pipe(Effect.scoped, Effect.provide(layer), runMain);
+    upgrade.pipe(Effect.provide(layer), runMain);
 }

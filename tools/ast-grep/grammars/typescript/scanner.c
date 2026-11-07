@@ -3,8 +3,7 @@
 #include <string.h>
 #include <wctype.h>
 
-#include "constants.h"
-#include "space.h"
+#include "grammar.h"
 
 static inline bool is_space(int32_t character);
 

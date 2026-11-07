@@ -168,9 +168,9 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
                 if key not in current:
                     layers.add().key = key
             ordered_items((row.key for row in layers), desired, layers.move)
-            return accumulated(
-                assigned(row, {("name",): layer.name, ("visible",): layer.visible, ("solo",): layer.solo, ("matte",): layer.matte}) for row, layer in zip(layers, desired.values())
-            ).map(lambda _: None)
+            return accumulated(assigned(row, {("name",): layer.name, ("visible",): layer.visible, ("solo",): layer.solo, ("matte",): layer.matte}) for row, layer in zip(layers, desired.values())).map(
+                lambda _: None
+            )
 
         return self.store.write(tree, {key: StoredLayer(source=layer.source, effects=layer.effects, blend=layer.blend) for key, layer in desired.items()}).bind(ordered)
 

@@ -46,15 +46,12 @@ const stamp = Effect.gen(function* () {
         .join(' ');
 });
 
-const decidesProbe = Host.use(({ run, path }) => Effect.map(run(['node', '--import', path.join(import.meta.dirname, 'instances.ts'), path.join(import.meta.dirname, 'codex.ts')], { stdin: '{"cwd":"/","tool_input":{"command":"echo ok"}}' }), ({ code, stdout }) => code === 0 && stdout.trim() === ''));
-
 const untilStale = Effect.gen(function* () {
     const host = process.ppid;
     const seen = yield* Ref.make(yield* stamp);
     const stale = Effect.gen(function* () {
         const now = yield* stamp;
-        const changed = now !== (yield* Ref.getAndSet(seen, now));
-        return process.ppid !== host || (changed && (yield* decidesProbe));
+        return process.ppid !== host || now !== (yield* Ref.getAndSet(seen, now));
     });
     yield* Effect.repeat(stale, { schedule: Schedule.spaced('2 seconds'), until: Predicate.isTruthy });
 });

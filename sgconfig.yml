@@ -10,19 +10,19 @@ languageGlobs:
 # --- [LANGUAGES] ------------------------------------------------------------------------
 
 customLanguages:
-    bashlang: {libraryPath: .cache/ast-grep/bash.so, languageSymbol: tree_sitter_bash, extensions: [bash, bats, cgi, command, env, fcgi, ksh, sh, tmux, tool, zsh], expandoChar: q, outlineRules: tools/ast-grep/outline/bash.yml}
-    csharplang: {libraryPath: .cache/ast-grep/csharp.so, languageSymbol: tree_sitter_c_sharp, extensions: [cs], expandoChar: µ, outlineRules: tools/ast-grep/outline/csharp.yml}
-    javalang: {libraryPath: .cache/ast-grep/java.so, languageSymbol: tree_sitter_java, extensions: [java], outlineRules: tools/ast-grep/outline/java.yml}
-    pgsql: {libraryPath: .cache/ast-grep/pgsql.so, extensions: [pgsql], expandoChar: µ, outlineRules: tools/ast-grep/outline/pgsql.yml}
-    plpgsql: {libraryPath: .cache/ast-grep/plpgsql.so, extensions: [plpgsql], expandoChar: µ, outlineRules: tools/ast-grep/outline/plpgsql.yml}
-    pythonlang: {libraryPath: .cache/ast-grep/python.so, languageSymbol: tree_sitter_python, extensions: [py, py3, pyi, bzl, bazel], expandoChar: µ, outlineRules: tools/ast-grep/outline/python.yml}
-    rustlang: {libraryPath: .cache/ast-grep/rust.so, languageSymbol: tree_sitter_rust, extensions: [rs], expandoChar: µ, outlineRules: tools/ast-grep/outline/rust.yml}
-    sql: {libraryPath: .cache/ast-grep/sql.so, extensions: [sql], expandoChar: µ, outlineRules: tools/ast-grep/outline/sql.yml}
-    swiftlang: {libraryPath: .cache/ast-grep/swift.so, languageSymbol: tree_sitter_swift, extensions: [swift, swiftinterface], expandoChar: µ, outlineRules: tools/ast-grep/outline/swift.yml}
-    toml: {libraryPath: .cache/ast-grep/toml.so, extensions: [toml], expandoChar: '-', outlineRules: tools/ast-grep/outline/toml.yml}
-    tsxlang: {libraryPath: .cache/ast-grep/typescript.so, languageSymbol: tree_sitter_tsx, extensions: [ts, tsx, mts, cts, js, jsx, mjs, cjs, jxa], outlineRules: tools/ast-grep/outline/typescript.yml}
-    xml: {libraryPath: .cache/ast-grep/xml.so, extensions: [xml, csproj, proj, props, targets, slnx, svg, plist, entitlements, xcscheme], expandoChar: À, outlineRules: tools/ast-grep/outline/xml.yml}
-    yamllang: {libraryPath: .cache/ast-grep/yaml.so, languageSymbol: tree_sitter_yaml, extensions: [yml, yaml], outlineRules: tools/ast-grep/outline/yaml.yml}
+    bashlang: {libraryPath: .cache/ast-grep/bash.so, languageSymbol: tree_sitter_bash, extensions: [bash, bats, cgi, command, env, fcgi, ksh, sh, tmux, tool, zsh], expandoChar: q, outlineRules: .cache/ast-grep/outline/bash.yml}
+    csharplang: {libraryPath: .cache/ast-grep/csharp.so, languageSymbol: tree_sitter_c_sharp, extensions: [cs], expandoChar: µ, outlineRules: .cache/ast-grep/outline/csharp.yml}
+    javalang: {libraryPath: .cache/ast-grep/java.so, languageSymbol: tree_sitter_java, extensions: [java], outlineRules: .cache/ast-grep/outline/java.yml}
+    pgsql: {libraryPath: .cache/ast-grep/pgsql.so, extensions: [pgsql], expandoChar: µ, outlineRules: .cache/ast-grep/outline/pgsql.yml}
+    plpgsql: {libraryPath: .cache/ast-grep/plpgsql.so, extensions: [plpgsql], expandoChar: µ, outlineRules: .cache/ast-grep/outline/plpgsql.yml}
+    pythonlang: {libraryPath: .cache/ast-grep/python.so, languageSymbol: tree_sitter_python, extensions: [py, py3, pyi, bzl, bazel], expandoChar: µ, outlineRules: .cache/ast-grep/outline/python.yml}
+    rustlang: {libraryPath: .cache/ast-grep/rust.so, languageSymbol: tree_sitter_rust, extensions: [rs], expandoChar: µ, outlineRules: .cache/ast-grep/outline/rust.yml}
+    sql: {libraryPath: .cache/ast-grep/sql.so, extensions: [sql], expandoChar: µ, outlineRules: .cache/ast-grep/outline/sql.yml}
+    swiftlang: {libraryPath: .cache/ast-grep/swift.so, languageSymbol: tree_sitter_swift, extensions: [swift, swiftinterface], expandoChar: µ, outlineRules: .cache/ast-grep/outline/swift.yml}
+    toml: {libraryPath: .cache/ast-grep/toml.so, extensions: [toml], expandoChar: '-', outlineRules: .cache/ast-grep/outline/toml.yml}
+    tsxlang: {libraryPath: .cache/ast-grep/typescript.so, languageSymbol: tree_sitter_tsx, extensions: [ts, tsx, mts, cts, js, jsx, mjs, cjs, jxa], outlineRules: .cache/ast-grep/outline/typescript.yml}
+    xml: {libraryPath: .cache/ast-grep/xml.so, extensions: [xml, csproj, proj, props, targets, slnx, svg, plist, entitlements, xcscheme], expandoChar: À, outlineRules: .cache/ast-grep/outline/xml.yml}
+    yamllang: {libraryPath: .cache/ast-grep/yaml.so, languageSymbol: tree_sitter_yaml, extensions: [yml, yaml], outlineRules: .cache/ast-grep/outline/yaml.yml}
 
 # --- [INJECTIONS] -----------------------------------------------------------------------
 

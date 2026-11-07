@@ -7,10 +7,8 @@ lazy from pathlib import Path
 lazy import shutil
 lazy import subprocess
 lazy import sys
-lazy from typing import Annotated
 
 from expression.extra.result import catch
-lazy from cyclopts import Parameter
 lazy import pathvalidate
 
 lazy from blender.records.faults import Fault, Outcome, paired, Reason
@@ -55,7 +53,7 @@ def _launched(log: Path, blender: Path, arguments: tuple[str, ...], variables: d
 # --- [COMMANDS]
 
 
-def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")], package: str | None = None, groups: tuple[str, ...] = ()) -> Outcome[int]:
+def run(name: str, /, *arguments: str, blender: Blender, package: str | None = None, groups: tuple[str, ...] = ()) -> Outcome[int]:
     """Runs Blender in a fresh profile; a background flag before `--` selects headless mode.
 
     Blender resolves every user folder under `BLENDER_USER_RESOURCES`, lookups failing with no profile fallback.
@@ -65,7 +63,6 @@ def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path
         name: Folder under `.artifacts/blender/evaluate/`.
         arguments: Blender arguments, after `--` when one opens with `-`.
         blender: Blender executable.
-        pycache: Bytecode cache folder.
         package: Workspace member selecting locked runtime requirements, workspace root when omitted.
         groups: Additional uv dependency group selectors.
 
@@ -74,7 +71,9 @@ def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path
     """
 
     def launched(folder: Path, userbase: Path) -> Outcome[int]:
-        variables = {"BLENDER_USER_RESOURCES": str(folder), "TMPDIR": str(folder), "PYTHONPYCACHEPREFIX": str(pycache), "PYTHONUSERBASE": str(userbase)}
+        variables = {"BLENDER_USER_RESOURCES": str(folder), "TMPDIR": str(folder), "PYTHONUSERBASE": str(userbase)} | (
+            {"PYTHONPYCACHEPREFIX": sys.pycache_prefix} if sys.pycache_prefix is not None else {}
+        )
         return _launched(folder / "blender.log", blender, arguments, variables).map_error(partial(Fault.of, Reason.FAILED, str(blender)))
 
     return (

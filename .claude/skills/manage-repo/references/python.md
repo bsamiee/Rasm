@@ -36,7 +36,6 @@ uv resolves projects, workspace members, and dependency groups through native me
 - Keep versioned soname series in Pixi requirements; use `*` for libraries opened by name or linked without a version
 - `LDFLAGS` supplies C and C++ link paths, `LIBRARY_PATH` also reaches Rust links that record no `LC_RPATH`
 - Keep uv's cache outside the checkout, where Cargo can build Rust distributions outside the root workspace
-- CI syncs the `dev` group on Python 3.15 without Pixi
 - Host checks restore `host-checks` on the embedded interpreter version.
 - `exclude-dependencies` selects one provider when distributions compete for one installed module
 

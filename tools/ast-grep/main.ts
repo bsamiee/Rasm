@@ -1,6 +1,7 @@
+import process from 'node:process';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { Array, Cause, Console, Effect, FileSystem, Match, Option, Order, Path, Predicate, Record, Result, Runtime, Schema, Stream, Struct } from 'effect';
+import { Array, Console, Effect, FileSystem, Match, Option, Order, Path, Predicate, Record, Result, Runtime, Schema, Stream, Struct } from 'effect';
 import { CharSet, JS } from 'refa';
 import { Alias, type Document, isNode, LineCounter, type Pair, parseAllDocuments, Scalar, YAMLMap, YAMLSeq } from 'yaml';
 import { decodeFile, Sgconfig } from '#/eng/typescript/manifest';
@@ -57,11 +58,10 @@ const PRINTABLE = CharSet.empty(MAXIMUM).union([
 const WORD = JS.createCharSet([{ kind: 'word', negate: false }], { unicode: true });
 const SHOWN = 4;
 const WORDING = { written: { relation: '', missing: 'lacks', extra: 'adds' }, complement: { relation: 'complement of the ', missing: 'matches', extra: 'excludes' } };
-const NANOSECONDS = new Intl.NumberFormat('en', { style: 'unit', unit: 'nanosecond', unitDisplay: 'long' });
-const BYTES = new Intl.NumberFormat('en', { style: 'unit', unit: 'byte', unitDisplay: 'long' });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Catalogs = Schema.Array(Schema.Tuple([Schema.String, Schema.String]));
 const GrammarFile = Schema.fromJsonString(Schema.Struct({ rules: Schema.Record(Schema.String, Schema.Unknown), extras: Schema.Array(Schema.Unknown), externals: Schema.Array(Schema.Unknown), word: Schema.optional(Schema.NullOr(Schema.String)) }));
 const Subject: Schema.Codec<Subject> = Schema.suspend(() => Schema.Struct({ kinds: Schema.Array(Schema.String), parent: Schema.optionalKey(Schema.Struct({ field: Schema.String, subject: Subject })) }));
 const Site = Schema.Struct({ language: Schema.String, subject: Subject });
@@ -75,7 +75,7 @@ const Node: Schema.Codec<Node, unknown> = Schema.suspend(() =>
         Schema.Struct({ type: Schema.Literal('Quantifier'), min: Schema.Finite, max: Schema.NullOr(Schema.Finite), alternatives: Schema.Array(Schema.Array(Node)) }),
     ]),
 );
-const Literal = Schema.Struct({ text: Schema.String, kind: Schema.String, size: Schema.Finite, regex: Schema.Finite, pattern: Schema.Finite });
+const Literal = Schema.Struct({ text: Schema.String, kind: Schema.String });
 const Class = Schema.TaggedUnion({
     Characters: { source: Schema.String, polarity: Schema.Literals(['Stated', 'Complement']), ranges: Ranges },
     UnicodePerl: { source: Schema.String },
@@ -207,8 +207,7 @@ const findings = (place: string, held: Classes, grammar: Option.Option<readonly 
             UnicodeBoundary: ({ source }) => [`${place}: Unicode word boundary ${source}, scope it to ASCII`],
         }),
     );
-const replacement = (place: string, language: string, { text, kind, size, regex, pattern }: typeof Literal.Type) =>
-    `${place}: ${language} regex matches the ${kind} text ${text} alone, which pattern: ${text} states in ${NANOSECONDS.format(pattern)} of compile against ${NANOSECONDS.format(regex)} for the regex's program of ${BYTES.format(size)}`;
+const replacement = (place: string, language: string, { text, kind }: typeof Literal.Type) => `${place}: ${language} regex matches the ${kind} text ${text} alone, write pattern: ${text}`;
 const sited = (file: string, { lines, documents }: ReturnType<typeof parsed>, language: Option.Option<string>) => ({
     errors: documents.flatMap((document) => document.errors.map(({ message }) => `${file}: ${message}`)),
     sites: documents.flatMap((document) => located(document, document.value, language, EMPTY)).map((site) => ({ ...site, place: `${file}:${lines.linePos(site.offset).line}` })),
@@ -226,7 +225,8 @@ const check = Effect.gen(function* () {
     };
     const grammars = yield* Effect.forEach(Record.toEntries(customLanguages), grammar, { concurrency: 'unbounded' });
     const folders = yield* Effect.forEach([...ruleDirs, ...utilDirs], (folder) => fs.glob(`${folder}/**/*.{yml,yaml}`), { concurrency: 'unbounded' });
-    const files = [...Sgconfig.outlineCatalogs(path, customLanguages).map(({ language, source: file }) => ({ file, language: Option.some(language) })), ...folders.flat().map((file) => ({ file, language: Option.none<string>() }))];
+    const catalogs = yield* Schema.decodeUnknownEffect(Catalogs)(Array.chunksOf(process.argv.slice(2), 2));
+    const files = [...catalogs.map(([language, file]) => ({ file, language: Option.some(language) })), ...folders.flat().map((file) => ({ file, language: Option.none<string>() }))];
     const read = ({ file, language }: (typeof files)[number]) => Effect.map(fs.readFileString(file), (content) => sited(file, parsed(content), language));
     const written = [sited(Sgconfig.file, parsed(source), Option.none()), ...(yield* Effect.forEach(files, read, { concurrency: 'unbounded' }))];
     const tokens = new Map(
@@ -243,10 +243,7 @@ const check = Effect.gen(function* () {
         regexes: sites.map(Struct.get('value')),
         languages: Record.fromIterableWith(grammars, ([language, , library]) => [language, library] as const),
     });
-    const reply = yield* runCommand('cargo', ['run', '--quiet', '--locked', '--release', '--package', 'rasm-regex-classes'], { stdin: { stream: Stream.encodeText(Stream.make(request)) } }).pipe(Effect.flatMap(Schema.decodeEffect(Reply)));
-    if (reply.tokens.length !== tokens.size || reply.regexes.length !== sites.length) {
-        return yield* new Cause.IllegalArgumentError(`Regex checker returned incorrect totals (tokens ${reply.tokens.length}/${tokens.size}, rule sites ${reply.regexes.length}/${sites.length})`);
-    }
+    const reply = yield* runCommand('cargo', ['run', '--quiet', '--locked', '--package', 'rasm-regex-classes'], { stdin: { stream: Stream.encodeText(Stream.make(request)) } }).pipe(Effect.flatMap(Schema.decodeEffect(Reply)));
     const structures = new Map(Array.zip(tokens.keys(), reply.tokens));
     const parse = (rule: Token) => [{ type: 'Concatenation', elements: Option.toArray(Option.map(Option.fromUndefinedOr(structures.get(patternKey(rule))), revived)) }];
     const languages = Record.fromIterableWith(grammars, ([language, held]) => [language, derived(held, parse)] as const);

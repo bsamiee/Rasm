@@ -12,13 +12,6 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
     // --- [RULES]
     private const string Category = "Microsoft.Extensions.Logging";
 
-    public static readonly DiagnosticDescriptor Defined = Rule(
-        "RASM1201",
-        Category,
-        "Log message defined by hand, declare a `[LoggerMessage]` method",
-        "`LoggerMessage.{0}` defines a log message by hand, declare a `partial void` method under `[LoggerMessage]`",
-        "Declare `[LoggerMessage]` partial methods in place of `LoggerMessage.Define` calls outside generated code");
-
     public static readonly DiagnosticDescriptor Called = Rule(
         "RASM1202",
         Category,
@@ -34,16 +27,31 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
         "`IfFail`, `Catch`, and `|` fallbacks report through `ILogger`, `[LoggerMessage]`, or `HostUtils.ExceptionReport` on receiver or handler side alone",
         WellKnownDiagnosticTags.CompilationEnd);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Defined, Called, Twice];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Called, Twice];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         LoggingSymbols symbols = new(context.Compilation);
-        if (symbols.Define is { IsEmpty: false } defines)
-            Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, _) =>
-                Among(invocation.TargetMethod, defines) ? [Diagnostic.Create(Defined, Named(invocation), invocation.TargetMethod.Name)] : []);
         if (symbols.Logger is { } logger) Calls(context, logger, symbols.Calls);
         LanguageExtSymbols languageExt = new(context.Compilation);
-        if (languageExt.IO?.ContainingAssembly is { } assembly) Fallbacks(new SemanticModels(context), ControlFlow.For(context.Compilation), symbols, new RhinoCommonSymbols(context.Compilation).ExceptionReport, assembly, languageExt.Lifts);
+        if (languageExt.IO?.ContainingAssembly is { } assembly) Fallbacks(new SemanticModels(context), ControlFlow.For(context.Compilation), symbols, Members(context.Compilation.GetTypeByMetadataName("Rhino.Runtime.HostUtils"), "ExceptionReport"), assembly, languageExt.Lifts);
+    }
+
+    // --- [SYMBOLS]
+    private sealed class LoggingSymbols {
+        public LoggingSymbols(Compilation compilation) {
+            Logger = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.ILogger");
+            Extensions = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerExtensions");
+            Calls = Members(Logger, "Log", "BeginScope");
+            Message = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessageAttribute");
+        }
+
+        public INamedTypeSymbol? Logger { get; }
+
+        public INamedTypeSymbol? Extensions { get; }
+
+        public ImmutableArray<IMethodSymbol> Calls { get; }
+
+        public INamedTypeSymbol? Message { get; }
     }
 
     // --- [CALLS]

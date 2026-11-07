@@ -4,7 +4,7 @@ severity: error
 utils:
     machine-text:
         kind: 'string_literal, raw_string_literal'
-        regex: '(^[rbc]*#*"|[\p{Pattern_White_Space}"''=:(,]|file://)(~/|(/(Applications|Users/[^/\p{Pattern_White_Space}"'']+|home/[^/\p{Pattern_White_Space}"'']+|root|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData))([\\/]|"|$))|\$\{?(HOME|USERPROFILE)\}?[\\/]'
+        regex: '(^[rbc]*#*"|[\p{Pattern_White_Space}"''=:(,]|file://)(~/|(/(Applications|Users/[^/\p{Pattern_White_Space}"'']+|home/[^/\p{Pattern_White_Space}"'']+|root|Volumes|opt|nix/store|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData|Windows))([\\/]|"|$))|\$\{?(HOME|USERPROFILE)\}?[\\/]'
     route-text:
         inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(route|nest|route_service|nest_service)$'}}}}
     embedding-macro:

@@ -5,7 +5,7 @@ description: "Use when mapping, auditing, or reviewing the repository or one are
 
 # [REVIEW_REPO]
 
-Reviews find facts stated away from their owner, capabilities rebuilt by hand, and rows nothing reads, each proven against live tree, installed dependency, and recorded decision.
+Reviews find facts stated away from their owner, capabilities rebuilt by hand, variants enumerated by hand, rows nothing reads, and entry points an agent cannot use in one call, each proven against live tree, installed dependency, and recorded decision.
 
 Arguments name a subject and a depth, a missing depth means `review`:
 
@@ -48,6 +48,13 @@ Each fact gets one trace, declaration to effect:
 - Consumers: every reader of a value, followed to its effect, a value no consumer reads is a row nothing reads
 - Live state: what a declaration claims to produce, read from its tool or service, drift between them is a finding
 - History: `git log -S '<literal>'` and `git show <commit>` for why a form exists, read both ways (a flag arriving with a file serves it)
+- Members: each list, name suffix, path set, or flag value traces to the declaration stating its members, a list owning nothing is a finding
+- Additions: adding one project, package, version, or platform edits its own declaration alone, every other file the addition needs names a finding
+
+Entry points trace as one inventory before any finding: every target with configurations and forwarded arguments (`nx show project <project> --json`), every task (`mise tasks ls`), and every tool subcommand and flag (its `--help`):
+- Group names by operation, a name per subject or mode is a variant the tool's own axis replaces
+- Run each operation once, a derivable flag, a result missing its state, a causeless failure, or a wrong exit status is a finding
+- Concerns reached through more than one entry system (target, task, script) are one finding
 
 Behavior claims follow every edge out of a file before concluding:
 - Includes, imports, `extends`, `Import`, `#include`, and path sources lead to code a single-file search misses
@@ -88,6 +95,8 @@ Real findings break a repository standard or an owner rule with consequence:
 |  [08]   | Hidden cause    | Wrapper, fallback, flag, or retry covering a defect at its root         |
 |  [09]   | Self-check      | Code proving its own code, config, or output                            |
 |  [10]   | Parallel script | Script or one-off flag doing what an owning target or tool option does  |
+|  [11]   | Enumerated      | Name, row, file, or list per subject or mode a declaration derives      |
+|  [12]   | Agent interface | Entry point breaking a `manage-repo` entry point rule                   |
 
 Owner rules decide what never becomes a finding:
 - Package and dependency rows stay, a row with no importer goes in an observed-not-proposed list
@@ -103,6 +112,8 @@ Recorded decisions are challenged openly:
 Fixes pass the same standards as code:
 - Fixes remove files, rows, members, or lines, a fix adding a service, bucket, script, or root file states why no smaller owner exists
 - Fixes move a fact to its owner, a wrapper over a wrapper is a second defect
+- Fixes for an enumerated variant take the tool mechanism `manage-repo` derivation lists, else code in the layer `manage-repo` names
+- Fixes follow the tool's cost model: a forced split keeps its runs and derives them, a split a parameter covers becomes one name
 - Fixes touching a secret keep its value out of logs and uploaded artifacts
 
 ## [05]-[REPORT]

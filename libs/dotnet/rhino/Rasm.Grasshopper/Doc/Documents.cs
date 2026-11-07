@@ -87,18 +87,17 @@ public static class Documents {
         from roots in IO.lift(() => toSeq(bag.All).Map(static stack => stack.Root).Strict())
         from document in roots.Find(root => entry.Kind is SessionEntryKind.Named && string.Equals(root.File.Path, entry.OriginalPath, StringComparison.OrdinalIgnoreCase)).Match(
             Some: static open => IO.pure(open),
-            None: () =>
+            None:
                 from changed in IO.lift(() => entry.Kind is SessionEntryKind.Named && entry.OriginalLastWriteUtc != default && File.Exists(entry.OriginalPath)
                     && File.GetLastWriteTimeUtc(entry.OriginalPath) > entry.OriginalLastWriteUtc.AddSeconds(1))
                 from loaded in changed
                     ? Load(entry.OriginalPath, trackFiles: true, blocking: roots)
-                    : from recovered in Load(entry.AutoSavePath, blocking: roots)
-                      from restored in IO.lift(() => {
-                          recovered.File.Path = entry.Kind is SessionEntryKind.Named ? entry.OriginalPath : null;
-                          recovered.File.FileOverwriteWarning = null;
-                          recovered.Modify();
-                      })
-                      select recovered
+                    : Load(entry.AutoSavePath, blocking: roots).Map(recovered => {
+                        recovered.File.Path = entry.Kind is SessionEntryKind.Named ? entry.OriginalPath : null;
+                        recovered.File.FileOverwriteWarning = null;
+                        recovered.Modify();
+                        return recovered;
+                    })
                 from pushed in IO.lift(() => ignore(bag.Push(loaded)))
                 select loaded)
         select document;

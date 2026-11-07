@@ -498,10 +498,12 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     // --- [AWAITABLES]
     private static void Awaitables(CompilationStartAnalysisContext context) {
         static bool Awaitable(IOperation value, OperationAnalysisContext analysis) {
-            if (value.Syntax is not ExpressionSyntax expression) return false;
+            if (value.Type is not { } type || analysis.Operation.SemanticModel is not { } source) return false;
+            int position = analysis.Operation.Syntax.SpanStart;
             SyntaxAnnotation mark = new();
-            ExpressionStatementSyntax statement = SyntaxFactory.ExpressionStatement(SyntaxFactory.AwaitExpression(SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia())).WithAdditionalAnnotations(mark));
-            return analysis.Operation.SemanticModel.TryGetSpeculativeSemanticModel(analysis.Operation.Syntax.SpanStart, statement, out SemanticModel? model)
+            ExpressionStatementSyntax statement = SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AwaitExpression(SyntaxFactory.DefaultExpression(SyntaxFactory.ParseTypeName(type.ToMinimalDisplayString(source, position)))).WithAdditionalAnnotations(mark));
+            return source.TryGetSpeculativeSemanticModel(position, statement, out SemanticModel? model)
                 && model.GetAwaitExpressionInfo(model.SyntaxTree.GetRoot(analysis.CancellationToken).GetAnnotatedNodes(mark).OfType<AwaitExpressionSyntax>().Single())
                     is { GetAwaiterMethod: not null, IsCompletedProperty: not null, GetResultMethod: not null };
         }
@@ -605,13 +607,10 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 CancellationToken token = node.CancellationToken;
                 SemanticModel model = node.SemanticModel;
                 ISymbol? owner = model.GetSymbolInfo(left, token).Symbol;
-                if (owner is not (INamespaceSymbol or INamedTypeSymbol) || Sourced(owner) || model.GetSymbolInfo(right, token).Symbol is not { } target || target is INamespaceSymbol) return;
+                if (owner is not (INamespaceSymbol or INamedTypeSymbol) || Sourced(owner)) return;
                 ImmutableArray<ISymbol> scopes = [.. model.GetImportScopes(node.Node.SpanStart, token).SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType)];
-                bool imported = Among(owner, scopes);
-                if (owner is INamedTypeSymbol ? !imported : imported) return;
-                string name = right.Identifier.ValueText;
-                ImmutableArray<ISymbol> available = model.LookupSymbols(node.Node.SpanStart);
-                ImmutableArray<ISymbol> visible = [.. available.Where(found => string.Equals(found.Name, name, StringComparison.Ordinal) && !Same(found, target))];
+                if ((owner is INamedTypeSymbol) != Among(owner, scopes) || model.GetSymbolInfo(right, token).Symbol is not { } target || target is INamespaceSymbol) return;
+                ImmutableArray<ISymbol> visible = [.. model.LookupSymbols(node.Node.SpanStart, name: right.Identifier.ValueText).Where(found => !Same(found, target))];
                 ILookup<string, SimpleNameSyntax> used = unqualified.GetOrAdd(
                     node.Node.SyntaxTree,
                     tree => tree.GetRoot(token).DescendantNodes().OfType<SimpleNameSyntax>().Where(Looked).ToLookup(static held => held.Identifier.ValueText, StringComparer.Ordinal));
@@ -621,7 +620,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 if (visible.FirstOrDefault(Sourced) is { } shadowing)
                     node.ReportDiagnostic(Diagnostic.Create(Shadowed, node.Node.GetLocation(), node.Node, shadowing.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), owner.ToDisplayString()));
                 else if (visible.IsEmpty && owner is INamespaceSymbol space) {
-                    ImmutableHashSet<string> sourceNames = [.. available.Where(Sourced).Select(static symbol => symbol.Name)];
+                    ImmutableHashSet<string> sourceNames = [.. model.LookupSymbols(node.Node.SpanStart).Where(Sourced).Select(static symbol => symbol.Name)];
                     ConcurrentDictionary<INamespaceSymbol, bool> imports = ambiguous.GetOrAdd(node.Node.SyntaxTree, static _ => new(SymbolEqualityComparer.Default));
                     if (!space.GetTypeMembers().Any(member => sourceNames.Contains(member.Name))
                         && !imports.GetOrAdd(space, importedSpace => importedSpace.GetTypeMembers().Any(Ambiguous)))

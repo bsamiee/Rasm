@@ -15,10 +15,23 @@ export const meta = {
 
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const DIR = '/Users/bardiasamiee/.claude/rasm/workflows/guidance'
-const STANDARD = `${REPO}/.claude/skills/agent-builder/references/folder-guidance.md`
 const EXISTING = `${DIR}/EXISTING.md`
 const SELECTION = `${DIR}/SELECTION.md`
-const BASIS = `Load Skill(clean-prose) and read the folder CLAUDE.md standard ${STANDARD} first.`
+const BASIS = `Load Skill(clean-prose) first. Folder CLAUDE.md standard, for files under the repository root and their AGENTS.md links:
+Loading decides which facts a folder file can hold:
+- Sessions load CLAUDE.md from the working directory and every directory above it at launch, subagents other than Explore and Plan included
+- Subdirectory files load once Claude reads, writes, or edits a file there, a fact needed before the first file read sits a level above
+- Loaded files concatenate from root to leaf with no override, and Claude follows either side of a contradiction
+- Lines are context and Claude decides whether to follow them, a rule without exceptions becomes a check
+- AGENTS.md beside each folder CLAUDE.md is the relative symlink AGENTS.md -> CLAUDE.md, Edit and Write refuse a path through it, edits go to CLAUDE.md
+Lines hold what an agent cannot find by reading the folder's code, or rediscovers every task:
+- Holds: the folder's role and boundaries against its neighbors; the shape its code takes and the reason, where code alone misleads; a principle preventing a mistake its fix and revert commits repeat; a decision absent from the code that reads as arbitrary; a command confirming work where the folder's targets differ; an old pattern still present that new code takes no form from
+- Omits: facts root CLAUDE.md, README.md, a skill, or a level above states; layout, architecture, and conventions the code shows; narration of one fix or commit; member, file, and count enumerations that drift with the code; a multi-step procedure a skill holds; emphasis, and instructions for a limit current models lack
+- Each line changes what an agent writes in the folder, a line no task under it acts on goes
+Levels hold a file only for facts the level above cannot state:
+- Facts sit once, at the highest level holding them whole, sibling folders sharing a fact take one file at their common parent
+- Files a level above covers go with their AGENTS.md link
+Files hold at most 125 lines, every line read on every task under the folder, open with the folder's role in one sentence, and state one concrete, checkable fact per line (command, path, form).`
 const PLURALS = new Intl.PluralRules('en')
 const NOUNS = { file: { one: 'folder file', other: 'folder files' } }
 

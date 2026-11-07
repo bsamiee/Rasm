@@ -4,18 +4,20 @@ import { Array, Cache, Effect, Equal, Option, Order, Path, Predicate, Record, Sc
 import { quote } from 'shell-quote';
 import { decodeFile, extendScriptEntry, libraryRoot, type Package, Sgconfig } from '#/eng/typescript/manifest';
 import { attachedSuites, folderInput, imports, packageName, reach, rootTargets, swiftProject, TESTS } from '#/tools/nx/graph/projects';
-import { APPS, glob, PYPROJECT, SWIFT_MANIFEST, type Workspace, WorkspaceError } from '#/tools/nx/workspace';
+import { APPS, glob, PYPROJECT, SWIFT_MANIFEST, type Workspace } from '#/tools/nx/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 interface GrammarBuild {
     readonly library: string;
     readonly binary: string;
+    readonly catalogs: readonly { readonly language: string; readonly file: string; readonly source: string }[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const GRAMMARS = 'tools/ast-grep/grammars';
+const OUTLINE = 'tools/ast-grep/outline/main.ts';
 const GRAMMAR = 'grammar.js';
 const AST_GREP_BUILT_INS: Readonly<Record<string, readonly string[]>> = { json: ['json'] };
 
@@ -137,6 +139,7 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
             ...Object.fromEntries(modules),
             '.': {
                 root: '.',
+                tags: Array.intersection(platformed, folders).map(String.concat.bind(null, 'host:')),
                 targets: {
                     'typecheck:swift': { inputs: ['swift', ...sources.map(Struct.get('path')).map(folderInput)] },
                     'lint:periphery': { ...excluded, inputs: ['swift', 'periphery', ...production.map(Struct.get('path')).map(folderInput)] },
@@ -156,7 +159,7 @@ const upstreamScanners = Effect.fnUntraced(function* (workspaceRoot: string, fil
     const bases = new Set(Array.getSomes(upstreams.map(Struct.get('inherits'))));
     return upstreams.filter(({ name, externals }) => externals.length > 0 && !bases.has(name)).map(({ dir }) => path.join(dir, 'src', 'scanner.c'));
 });
-const grammarTarget = Effect.fnUntraced(function* (workspaceRoot: string, read: ReturnType<typeof imports>, scanned: readonly string[], [stem, { library, binary }]: readonly [string, GrammarBuild]) {
+const grammarTarget = Effect.fnUntraced(function* (workspaceRoot: string, read: ReturnType<typeof imports>, scanned: readonly string[], outliner: Effect.Success<ReturnType<typeof reach>>, [stem, { library, binary, catalogs }]: readonly [string, GrammarBuild]) {
     const path = yield* Path.Path;
     const entry = path.join(GRAMMARS, stem, GRAMMAR);
     const owned = path.join(GRAMMARS, stem, 'scanner.c');
@@ -170,13 +173,17 @@ const grammarTarget = Effect.fnUntraced(function* (workspaceRoot: string, read: 
             options: {
                 commands: [
                     {
-                        command: `trap "cmake -E rm -rf ${work}" EXIT; trap "exit 1" HUP INT TERM; cmake -DBINARY_DIR:PATH=${work} -DGRAMMAR_SOURCE:FILEPATH="${path.relative(GRAMMARS, entry)}" -DNODE_MODULES:PATH="${path.relative(GRAMMARS, 'node_modules')}" -DSCANNER="${held.map((scanner) => path.relative(GRAMMARS, scanner)).join(';')}" {args.cmakeArguments} -P ${GRAMMARS}/CMakeLists.txt`,
+                        command: `trap "cmake -E rm -rf ${work}" EXIT; trap "exit 1" HUP INT TERM; cmake -DBINARY_DIR:PATH=${work} -DGRAMMAR_SOURCE:FILEPATH="${path.relative(GRAMMARS, entry)}" -DNODE_MODULES:PATH="${path.relative(GRAMMARS, 'node_modules')}" -DSCANNER="${held.map((scanner) => path.relative(GRAMMARS, scanner)).join(';')}" -P ${GRAMMARS}/CMakeLists.txt${catalogs.map(({ language, file, source }) => ` && node ${OUTLINE} ${language} ${source} ${path.join(work, path.basename(file))} && cmake -E make_directory ${path.dirname(file)} && cmake -E rename ${path.join(work, path.basename(file))} ${file}`).join('')}`,
                         forwardAllArgs: false,
                     },
                 ],
             },
-            inputs: [...importInputs(graph), ...[...held.filter((scanner) => scanner === owned), ...(Record.has(graph, path.join(GRAMMARS, 'compose.js')) ? [path.join(GRAMMARS, 'compose.c')] : [])].map((file) => `{workspaceRoot}/${file}`)],
-            outputs: [`{workspaceRoot}/${library}`, `{workspaceRoot}/${binary}/src/{grammar.json,node-types.json}`],
+            inputs: [
+                ...importInputs(graph),
+                ...(Array.isReadonlyArrayEmpty(catalogs) ? [] : importInputs(outliner)),
+                ...[...held.filter((scanner) => scanner === owned), ...(Record.has(graph, path.join(GRAMMARS, 'compose.js')) ? [path.join(GRAMMARS, 'compose.c')] : []), ...catalogs.map(Struct.get('source'))].map((file) => `{workspaceRoot}/${file}`),
+            ],
+            outputs: [`{workspaceRoot}/${library}`, `{workspaceRoot}/${binary}/src/{grammar.json,node-types.json}`, ...catalogs.map(({ file }) => `{workspaceRoot}/${file}`)],
         },
     ] as const satisfies readonly [string, TargetConfiguration];
 });
@@ -184,17 +191,19 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, scanExclusions }: 
     const classes = 'tools/ast-grep/main.ts';
     const parsed = yield* Cache.make({ capacity: Number.POSITIVE_INFINITY, lookup: imports(workspaceRoot) });
     const read = (file: string) => Cache.get(parsed, file);
-    const [path, { ruleDirs, utilDirs, customLanguages, languageGlobs }, exclusions, scanned, classGraph] = yield* Effect.all([Path.Path, Sgconfig.read(workspaceRoot), scanExclusions, glob(workspaceRoot, [`${GRAMMARS}/*/scanner.c`]), reach(read, [classes])], { concurrency: 'unbounded' });
-    const libraries = Object.values(customLanguages).map(({ libraryPath }) => ({ library: libraryPath, ...path.parse(libraryPath) }));
-    const builds = Record.fromIterableWith(libraries, ({ library, dir, name }) => [name, { library, binary: path.join(dir, name) }] as const);
-    const store = yield* Effect.fromOption(Array.head(libraries), () => WorkspaceError.missing(Sgconfig.file, 'customLanguages libraryPath'));
-    const grammars = yield* Effect.forEach(Record.toEntries(builds), (language) => grammarTarget(workspaceRoot, read, scanned, language), { concurrency: 'unbounded' });
+    const [path, { ruleDirs, utilDirs, customLanguages, languageGlobs }, exclusions, scanned, classGraph, outliner] = yield* Effect.all([Path.Path, Sgconfig.read(workspaceRoot), scanExclusions, glob(workspaceRoot, [`${GRAMMARS}/*/scanner.c`]), reach(read, [classes]), reach(read, [OUTLINE])], {
+        concurrency: 'unbounded',
+    });
+    const rows = Record.collect(customLanguages, (language, { libraryPath, outlineRules }) => ({ ...path.parse(libraryPath), library: libraryPath, catalog: Option.map(outlineRules, (file) => ({ language, file, source: path.join(path.dirname(OUTLINE), path.basename(file)) })) }));
+    const builds = Record.map(Array.groupBy(rows, Struct.get('name')), (held) => ({ library: held[0].library, binary: path.join(held[0].dir, held[0].name), catalogs: Array.getSomes(held.map(Struct.get('catalog'))) }));
+    const catalogs = Object.values(builds).flatMap(Struct.get('catalogs'));
+    const grammars = yield* Effect.forEach(Record.toEntries(builds), (build) => grammarTarget(workspaceRoot, read, scanned, outliner, build), { concurrency: 'unbounded' });
     const scan = ['ast-grep scan --custom-languages allow', quote(exclusions.flatMap((pattern) => ['--globs', `!${pattern}`]))].join(' ');
     const sources = Object.values({ ...Record.map(customLanguages, Struct.get('extensions')), ...AST_GREP_BUILT_INS }).map(extensionInput);
     const rules = (directories: readonly string[]) => directories.map((dir) => `{workspaceRoot}/${dir}/**/*.{yml,yaml}`);
     const ruleInputs = rules([...ruleDirs, ...utilDirs]);
     const skipped = exclusions.map((pattern) => `!{workspaceRoot}/${pattern}`);
-    const lock = `flock ${quote([path.join(store.dir, 'rewrite.lock')])}`;
+    const built = [{ projects: [path.basename(GRAMMARS)], target: 'grammar:*' }];
     return {
         projects: {
             [GRAMMARS]: { root: GRAMMARS, name: path.basename(GRAMMARS), targets: Object.fromEntries(grammars) },
@@ -203,25 +212,17 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, scanExclusions }: 
                 targets: {
                     'lint:nx': { inputs: rules(ruleDirs) },
                     'lint:ast-grep': {
+                        dependsOn: built,
                         command: `${scan} --error=no-suppress-all`,
-                        syncGenerators: ['injection-utils', 'outline-catalogs'].map((generator) => `./tools/nx/sync/generators.json:${generator}`),
+                        syncGenerators: ['./tools/nx/sync/generators.json:injection-utils'],
                         inputs: [...sources, ...Object.values(languageGlobs).flatMap(Array.map((pattern) => `{workspaceRoot}/**/${pattern}`)), ...skipped, ...ruleInputs, 'astGrep'],
                     },
                     'lint:ast-grep:classes': {
-                        command: `node ${classes}`,
-                        inputs: [
-                            'typescript',
-                            `{workspaceRoot}/${Sgconfig.file}`,
-                            ...ruleInputs,
-                            ...Sgconfig.outlineCatalogs(path, customLanguages).map(({ source }) => `{workspaceRoot}/${source}`),
-                            ...importInputs(classGraph),
-                            '{workspaceRoot}/tools/ast-grep/regex/**/*',
-                            'rust',
-                            { dependentTasksOutputFiles: '**/src/{grammar,node-types}.json', transitive: true },
-                            { dependentTasksOutputFiles: '**/*.so', transitive: true },
-                        ],
+                        dependsOn: built,
+                        command: `node ${classes} ${quote(catalogs.flatMap(({ language, source }) => [language, source]))}`,
+                        inputs: ['typescript', `{workspaceRoot}/${Sgconfig.file}`, ...ruleInputs, ...catalogs.map(({ source }) => `{workspaceRoot}/${source}`), ...importInputs(classGraph), '{workspaceRoot}/tools/ast-grep/regex/**/*', 'rust', { dependentTasksOutputFiles: '**/*.{so,json}', transitive: true }],
                     },
-                    'rewrite:tree': { command: `${lock} ${scan} --update-all` },
+                    'rewrite:tree': { command: `${scan} --update-all`, dependsOn: built, parallelism: false },
                 },
             },
         },
@@ -246,4 +247,4 @@ const roots = { [PYPROJECT]: pythonChecks, [SWIFT_MANIFEST]: swiftModules, [Sgco
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { GRAMMARS, neutrality, roots };
+export { neutrality, roots };

@@ -91,7 +91,7 @@ public static class Definitions {
                     from cached in IO.lift(() => Previews.Value.Find(key))
                     from bitmap in cached.Match(
                         Some: IO.pure,
-                        None: () =>
+                        None:
                             from fresh in IO.lift(() => Conversions.Required(definition.CreatePreviewBitmap(displayMode, projection, camera, decorations, pixels, applyDpiScaling: true)))
                             from stored in atomicIO(() => Previews.Value.Find(key).Match(
                                 Some: held => (Kept: held, Spare: Some(fresh)),

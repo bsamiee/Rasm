@@ -7,17 +7,15 @@
 - Workspace plugin markers match a base name, an extension, or `<directory>/<base>` for a generic name
 - Projects with a `tsconfig.json` and no `package.json` take the nearest package's name joined to their relative path, their source imports giving edges
 - `analyzeSourceFiles` stays off, Nx resolves `#/` imports through a TypeScript API 7.1 lacks
-- Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
 - Plugins infer each target and tag from project files, `targetDefaults` configure them, `package.json` files hold no `nx` field
 - Workspace plugin `root` option holds root targets under root `package.json` `name`, Nx infers a root project from an `nx` field alone
-- Workspace plugin `grammars` option holds rows of project `grammars`, a project apart keeps root rows out of grammar hashes
 - `analytics: false` disables telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
 - `useDaemonProcess: false` avoids graph rebuilds on every file batch, concurrent processes share one build through `project-graph.lock`
 - Sync generators take one `tools/nx/sync/<written kind>/<name>.ts` and one `tools/nx/sync/generators.json` row, in `syncGenerators` of the target reading what they write, else in `sync.globalGenerators`
-- `lint:nx` reports generator drift. The workspace `format` target runs `nx sync` before `hk fix`. Target `inputs` name files the generators read or write, and the plugin adds their imports
+- `lint:nx` reports generator drift. The workspace `format` target runs `nx sync` before `hk fix`. Target `inputs` name files the generators read or write, the plugin adds rule folders, and the `**/*.{ts,tsx}` input covers generator imports
 - Generators on a target rerun `createNodes` per run and off a TTY refuse the task over another writer's drift
-- `outline-catalogs` writes `tools/ast-grep/outline/<lang>.yml` from `sources/<lang>.yml`, edits go to the source
+- Each `grammar:<lang>` target builds `.cache/ast-grep/outline/<lang>.yml` from `tools/ast-grep/outline/<lang>.yml` as a cached output, edits go to the source
 - Catalog sources open with an idless document, each row receiving `roles` key defaults and the `utils`, `rewriters`, `transform`, and `variants` it calls
 
 ## [02]-[DISCOVERY]
@@ -54,8 +52,7 @@ Use JSON discovery from workspace root:
 - Commands with `cwd` at their project read the workspace root through `$NX_WORKSPACE_ROOT`
 - Targets with `options` and no `executor`, `command`, or `targetDefaults` executor resolve to `nx:noop` with a `dependsOn` and drop without one
 - Pipes, loops, conditionals, and variables in a command entry make it a script
-- Tools walking ignored trees (`yamllint`) take file paths selected by `fd --hidden --extension <ext>`
-- `fd --exec-batch` runs no process without a match
+- File checkers run `hk check --glob='**/*' --step=<step>`, `--all` refuses paths, and forwarded paths replace the step's file set
 - Target names in `dependsOn` match as minimatch globs, `!(<name>)` excludes a target the glob matches
 - Targets reach a target they need through `dependsOn` in place of a command running `nx`
 - Configurations differing in arguments alone set `args` over one `command`
@@ -90,7 +87,7 @@ Use JSON discovery from workspace root:
 - `nx show projects --affected` selects affected projects. With `--with-target` and without `--projects`, Nx selects affected tasks
 - Files belong to the nearest containing project root, a plugin file `nx.json` names to every project
 - `affected` runs each selected target's command unchanged, a root target over its whole file set
-- CI on macOS includes the workspace `check` alongside selected host checks because workspace checkers read files in nested project roots
+- Root check takes inputs over the whole workspace, task-level affected selects it on files its checkers read in nested project roots
 
 ## [06]-[RELEASE]
 

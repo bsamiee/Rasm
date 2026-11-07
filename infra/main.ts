@@ -11,10 +11,7 @@ import { repositoryStack } from '#/infra/repository-stack';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const stackOperation = { operation: Argument.Literals('operation', ['preview', 'up', 'refresh', 'destroy']) };
-const operateStack = Effect.fn('operateStack')(function* <E, R extends NodeServices>(
-    { program, ...args }: Readonly<Omit<InlineProgramArgs, 'program'> & { program: Effect.Effect<Record<string, unknown>, E, R> }>,
-    operation: Command.Command.Config.Infer<typeof stackOperation>['operation'],
-) {
+const operateStack = Effect.fn('operateStack')(function* <E, R extends NodeServices>({ program, ...args }: Readonly<Omit<InlineProgramArgs, 'program'> & { program: Effect.Effect<Record<string, unknown>, E, R> }>, operation: Command.Command.Config.Infer<typeof stackOperation>['operation']) {
     const [fs, path, home, context] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('PULUMI_HOME'), Effect.context<R>()]);
     const workDir = path.join(home, args.projectName);
     yield* fs.makeDirectory(workDir, { recursive: true });

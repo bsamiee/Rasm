@@ -6,9 +6,12 @@ lazy import os
 lazy from pathlib import Path
 lazy import subprocess
 lazy import sys
+lazy import tomllib
 lazy from typing import Annotated
+lazy from zipfile import BadZipFile, ZipFile
 
 import msgspec
+from pydantic import AliasChoices, AliasPath, BaseModel, Field, ValidationError
 lazy import anyio
 lazy from cyclopts import Parameter
 lazy from cyclopts.types import ResolvedExistingDirectory
@@ -17,10 +20,9 @@ lazy import httpx2
 lazy from mcp import Client, MCPError
 lazy from mcp.types import TextContent
 lazy import psutil
-lazy from pydantic import ValidationError
 
 lazy from blender.records.faults import Error, Fault, Ok, Outcome, paired, Reason
-lazy from eng.python.blender.host import archived, Blender, headless, Host, probed, ran, root
+lazy from eng.python.blender.host import Blender, headless, Host, probed, ran, root
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -37,7 +39,33 @@ class _Failed(_Answer, frozen=True, kw_only=True, tag="error"):
     message: str
 
 
+class _ArchiveManifest(BaseModel, frozen=True, defer_build=True):
+    """The platform restriction Blender gives generated archives or their source manifest."""
+
+    platforms: tuple[str, ...] = Field((), validation_alias=AliasChoices(AliasPath("build", "generated", "platforms"), "platforms"))
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _archived(directory: Path, platform: str, /) -> Outcome[Path]:
+    """Selects the one archive whose Blender manifest admits the host platform."""
+    matches: list[Path] = []
+    try:
+        for path in directory.glob("*.zip"):
+            with ZipFile(path) as packed:
+                manifest = _ArchiveManifest.model_validate(tomllib.loads(packed.read("blender_manifest.toml").decode()))
+            if not manifest.platforms or platform in manifest.platforms:
+                matches.append(path)
+    except (OSError, BadZipFile, KeyError, UnicodeError, tomllib.TOMLDecodeError, ValidationError) as error:
+        return Error(Fault.of(Reason.UNREADABLE, str(directory), error))
+    match matches:
+        case [archive]:
+            return Ok(archive)
+        case []:
+            return Error(Fault.of(Reason.ABSENT, str(directory), member=f"{platform} extension archive"))
+        case _:
+            return Error(Fault.of(Reason.INVALID, str(directory), f"Multiple extension archives admit {platform}: {', '.join(path.name for path in sorted(matches))}"))
 
 
 def _sessions(blender: Path, /) -> tuple[int, ...]:
@@ -108,7 +136,7 @@ def install(directory: ResolvedExistingDirectory, /, *, endpoint: Annotated[str,
         root()
         .bind(lambda base: probed(base, blender))
         .bind(
-            lambda host: paired(archived(directory, host.platform), catch(_sessions, exception=OSError)(blender).map_error(lambda error: Fault.of(Reason.FAILED, str(blender), error))).bind(
+            lambda host: paired(_archived(directory, host.platform), catch(_sessions, exception=OSError)(blender).map_error(lambda error: Fault.of(Reason.FAILED, str(blender), error))).bind(
                 lambda held: installed(host, *held)
             )
         )

@@ -256,7 +256,7 @@ public static partial class QueueRuns {
         from started in IO.lift(scope.Context.Clock.GetTimestamp)
         from lit in entry.Moment(frame).Traverse(moment => RenderSettingsSources.Edit(new RenderSettingsSource.Live(scope.Doc), held =>
             (from sun in use(() => held.Settings.Sun)
-             from site in IO.lift(() => SunSite.Read(sun))
+             from site in IO.lift(SunSite.Read(sun))
              from set in site.SetDateTime(sun, moment)
              select set).Bracket())).As()
         from framing in ChainScene.Sourced(scope.Doc, rendered.Padded, entry.Frames.Time(frame))

@@ -27,7 +27,7 @@ public static class Showing {
             Some: static found => IO.lift(found.BringToFront).Map(_ => (Form)found),
             None: () =>
                 from window in IO.lift(() => new HostedWindow(row, doc))
-                from prepared in Products.Transfer(window, held => Opened(held, doc).Scoped(held.Hosted.Scope))
+                from prepared in Products.Transfer(() => window, held => Opened(held, doc).Scoped(held.Hosted.Scope))
                 from shown in IO.lift(() => window.Show(doc))
                 select (Form)window));
 

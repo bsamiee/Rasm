@@ -4,7 +4,7 @@ import { Array, Effect, Function, Option, Path, Predicate, Record, Schema, Strin
 import { Package } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
 import { infer, logged, markers, moduleRequests, owning, packageName, rootTargets } from '#/tools/nx/graph/projects';
-import { GRAMMARS, neutrality, roots } from '#/tools/nx/graph/root-project';
+import { neutrality, roots } from '#/tools/nx/graph/root-project';
 import { JsonListRecord, openWorkspace, runPlugin, type Workspace } from '#/tools/nx/workspace';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -71,7 +71,7 @@ const pythonImports = Effect.fnUntraced(function* ({ fileMap, filesToProcess, wo
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfiguration>; readonly grammars: Record<string, TargetConfiguration> }> = [
+const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfiguration> }> = [
     `{${Object.keys(roots).join(',')},*/**/{${Object.keys(markers).join(',')}}}`,
     Effect.fnUntraced(function* (files, options, context) {
         const [path, workspace] = yield* Effect.all([Path.Path, openWorkspace(context)]);
@@ -94,13 +94,12 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
             options: { args: ['Directory.Packages.props', ...dotnetScripts.map(Struct.get('file'))] },
         };
         const { name } = yield* Effect.flatMap(workspace.packages, (manifests) => Effect.fromOption(Record.get(manifests, '.')));
-        const configuredCrates = Array.bind(yield* workspace.crates, 'nx', ({ metadata }) => Option.toArray(Option.flatMap(metadata, Struct.get('nx'))));
+        const { daemons } = yield* workspace.mise;
         return [
             ...inferred,
-            ['nx.json', rootTargets({ restore: { options: logged(context.workspaceRoot, 'restore') }, 'upgrade:dotnet': dotnetUpgrade, ...(yield* neutrality(workspace)) })] as const,
+            ['nx.json', rootTargets({ restore: { options: logged(context.workspaceRoot, 'restore') }, upgrade: { options: { args: Record.keys(Record.filter(daemons, (row) => typeof row !== 'string' && row.boot)) } }, 'upgrade:dotnet': dotnetUpgrade, ...(yield* neutrality(workspace)) })] as const,
             ...(yield* components(workspace, projects)),
-            ...configuredCrates.map(({ manifest, nx }) => [manifest, { projects: { [path.dirname(manifest)]: nx } }] as const),
-            ...Option.toArray(Option.fromUndefinedOr(options)).map(({ root, grammars }) => ['nx.json', { projects: { '.': { root: '.', name, targets: root }, [GRAMMARS]: { root: GRAMMARS, targets: grammars } } }] as const),
+            ...Option.toArray(Option.fromUndefinedOr(options)).map(({ root }) => ['nx.json', { projects: { '.': { root: '.', name, targets: root } } }] as const),
         ];
     }, runPlugin),
 ];

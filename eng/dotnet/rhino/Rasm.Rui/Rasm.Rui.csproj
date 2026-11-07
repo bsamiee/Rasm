@@ -16,18 +16,9 @@
         <PackageReference Include="Krafs.Publicizer" PrivateAssets="all" />
         <Publicize Include="Rhino.UI:Rhino.Resources.Internal" />
         <Publicize Include="Rhino.UI:Rhino.Resources.ResourceFile" />
-        <_PublicizerSource Include="@(Compile->WithMetadataValue('NuGetPackageId', 'Krafs.Publicizer'))" />
-        <_PublicizerGenerated Include="@(_PublicizerSource->'$(IntermediateOutputPath)%(Filename).g.cs')" />
-        <Compile Remove="@(_PublicizerSource)" />
-        <Compile Include="@(_PublicizerGenerated)" />
-        <FileWrites Include="@(_PublicizerGenerated)" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
-
-    <Target Name="PreparePublicizerSource" BeforeTargets="CoreCompile" Inputs="@(_PublicizerSource)" Outputs="@(_PublicizerGenerated)">
-        <Copy SourceFiles="@(_PublicizerSource)" DestinationFiles="@(_PublicizerGenerated)" />
-    </Target>
 </Project>

@@ -1,7 +1,7 @@
 import { Array, Record } from 'effect';
 import javascript from 'tree-sitter-javascript/grammar.js';
 import tsx from 'tree-sitter-typescript/tsx/grammar.js';
-import { after, chain, choiceOf, classes, collected, drop, extend, lexical, named, optionalOf, reaches, rewrite, spans, string, symbol, widen } from '../derive.js';
+import { after, chain, choiceOf, classes, collected, constants, drop, extend, lexical, named, optionalOf, reaches, rewrite, spans, string, symbol, widen } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -96,8 +96,7 @@ export default extend(tsx, {
         expression: ($, original) => choice(original, $.type_assertion),
         using_declaration: () => javascript.grammar.rules.using_declaration,
         html_character_reference: () => CHARACTER_REFERENCE,
-        _constants: () => seq(...Object.entries(REFERENCE_LIMITS).flatMap(([name, value]) => [name, String(value)])),
-        _space: () => spans(classes({ identifier: [], whitespace: tsx.grammar.extras.filter(lexical) }).whitespace),
+        _constants: () => constants({ ...REFERENCE_LIMITS, SPACE: spans(classes({ identifier: [], whitespace: tsx.grammar.extras.filter(lexical) }).whitespace) }),
         _import_identifier: ($, original) => choice(original, ...[...Object.keys(PHASES), 'as'].map((word) => alias(word, $.identifier))),
         _module_export_name: ($, original) => choice(original, alias('as', $.identifier), alias('type', $.identifier)),
         import_statement: ($, original) => {

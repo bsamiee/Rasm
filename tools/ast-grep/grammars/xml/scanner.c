@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <wctype.h>
 
-#include "word.h"
+#include "grammar.h"
 
 #define tree_sitter_xml_external_scanner_scan(...) xml_upstream_scan(__VA_ARGS__)
 

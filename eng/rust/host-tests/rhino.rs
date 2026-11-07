@@ -1,46 +1,70 @@
-use core::{num::NonZero, pin::pin, time::Duration};
+use core::{iter, num::NonZero, pin::pin, time::Duration};
 use std::{
-    env,
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     io,
     path::{Path, PathBuf},
 };
 
 use aws_lc_rs::digest::{SHA256, digest};
 use camino::Utf8Path;
+use clap::ValueHint;
 use data_encoding::HEXLOWER;
-use fs_err::{self as fs, tokio as async_fs};
 use futures::{
     StreamExt as _,
     future::{Either, select},
 };
+use itertools::Itertools as _;
+use nix::unistd::{User, getuid};
 use notify::{RecursiveMode, Watcher as _};
 use rasm_process::{macos::Launch, report::Run};
-use rmcp::model::{CallToolRequest, CallToolRequestParams, ClientJsonRpcMessage, ClientRequest, JsonRpcMessage, NumberOrString, ServerJsonRpcMessage, ServerResult};
-use serde::{Deserialize, de::DeserializeOwned};
-use serde_json::{Value, json};
+use rmcp::model::{
+    CallToolRequest, CallToolRequestParams, ClientJsonRpcMessage, ClientRequest, ContentBlock, JsonRpcError, JsonRpcMessage, JsonRpcResponse, NumberOrString, ServerJsonRpcMessage, ServerResult,
+    object,
+};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::value::RawValue;
 use tokio::{
     io::AsyncWriteExt as _,
     net::UnixStream,
     process::Command,
     sync::mpsc,
+    task,
     time::{Instant, timeout},
 };
 use tokio_util::codec::{FramedRead, LinesCodec};
+use walkdir::WalkDir;
 
-use crate::desktop::{login_home, socket, with_app};
+use crate::desktop::{socket, with_app};
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-const DISPATCH: Duration = Duration::from_secs(30);
+#[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum Kind {
+    TestStarting,
+    TestFinished,
+    TestAssemblyFinished,
+    TestOutput,
+    TestFailed,
+    #[serde(other)]
+    Other,
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(clap::Args)]
 pub(crate) struct Suite {
+    #[arg(long, env = "RHINO_TEST_PROFILE", value_hint = ValueHint::DirPath, help = "Home folder of a dedicated, activated Rhino profile")]
+    profile: PathBuf,
     project: PathBuf,
     #[arg(long)]
     filter: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct Resolution {
+    properties: Build,
 }
 
 #[derive(Deserialize)]
@@ -51,7 +75,7 @@ struct Build {
     rhino_target_framework: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct Listener {
     #[serde(rename = "v")]
     protocol_version: u32,
@@ -60,10 +84,49 @@ struct Listener {
     version: String,
 }
 
+#[derive(Serialize)]
+struct Script {
+    script: String,
+}
+
+#[derive(Deserialize)]
+struct Reply {
+    stdout: String,
+}
+
+#[derive(Deserialize)]
+struct Summary {
+    #[serde(rename = "TestsTotal")]
+    total: u64,
+    #[serde(rename = "TestsFailed")]
+    failed: u64,
+    #[serde(rename = "TestsSkipped")]
+    skipped: u64,
+    #[serde(rename = "TestsNotRun")]
+    not_run: u64,
+}
+
+#[derive(Deserialize)]
+struct Tagged {
+    #[serde(rename = "$type")]
+    kind: Option<Kind>,
+}
+
 #[derive(Deserialize)]
 struct Completion {
     status: i32,
     error: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(untagged, rename_all_fields = "camelCase")]
+enum Evidence<'evidence> {
+    Assembly { path: &'evidence Path, sha256: &'evidence str, framework: &'evidence str, filter: Option<&'evidence str> },
+    Sent { pid: NonZero<u32>, port: NonZero<u16>, deadline_ms: u128 },
+    Replied { pid: NonZero<u32>, document: NonZero<u32> },
+    Event { pid: NonZero<u32>, event: &'evidence RawValue },
+    Results { pid: NonZero<u32>, status: i32, summary: &'evidence RawValue },
+    Ended { pid: NonZero<u32>, test: Option<&'evidence RawValue> },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -76,68 +139,129 @@ where T: DeserializeOwned {
     Ok(value)
 }
 
-fn profile() -> io::Result<PathBuf> {
-    let selected = env::var_os("RHINO_TEST_PROFILE")
-        .map(PathBuf::from)
-        .filter(|path| path.is_absolute())
-        .ok_or_else(|| io::Error::other("RHINO_TEST_PROFILE must name the absolute path of a dedicated, activated Rhino profile"))?;
-    let home = fs::canonicalize(selected)?;
-    if fs::canonicalize(login_home()?)?.starts_with(&home) {
-        return Err(io::Error::other(format!("RHINO_TEST_PROFILE resolves to the login home or an ancestor ({})", home.display())));
-    }
-    let support = home.join("Library/Application Support");
-    let rhino = support.join("McNeel/Rhinoceros");
-    let grasshopper = support.join("Grasshopper2");
-    let owned = |path: &Path| match fs::symlink_metadata(path) {
-        Ok(_) if !fs::canonicalize(path)?.starts_with(&home) => Err(io::Error::other(format!("{} resolves outside the test profile", path.display()))),
-        Ok(_) => Ok(true),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
-        Err(error) => Err(error),
-    };
-    for path in [&support, &rhino, &grasshopper, &grasshopper.join("Settings"), &grasshopper.join("Resources"), &grasshopper.join("Diagnostics")] {
-        owned(path)?;
-    }
-    fs::read_dir(&rhino)?.try_for_each(|entry| {
-        let entry = entry?;
-        let name = entry.file_name();
-        if !name.to_str().and_then(|name| name.split_once('.')).is_some_and(|(major, minor)| major.parse::<u32>().is_ok() && minor.parse::<u32>().is_ok()) {
-            return Ok(());
-        }
-        let version = entry.path();
-        let manager = version.join("License Manager");
-        let licenses = manager.join("Licenses");
-        owned(&version)?;
-        owned(&manager)?;
-        if owned(&licenses)? {
-            for license in fs::read_dir(licenses)? {
-                let license = license?;
-                if license.file_type()?.is_symlink() {
-                    return Err(io::Error::other(format!("Linked Rhino license file: {}", license.path().display())));
-                }
+async fn listener(directory: &Path, pid: NonZero<u32>, events: &mut mpsc::UnboundedReceiver<notify::Result<notify::Event>>) -> io::Result<Listener> {
+    loop {
+        let mut entries = fs_err::tokio::read_dir(directory).await?;
+        let mut announced = None;
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path.extension() == Some(OsStr::new("json"))
+                && let listener = decode::<Listener>(&fs_err::tokio::read(&path).await?)?
+                && listener.pid == pid
+                && announced.replace(listener).is_some()
+            {
+                return Err(io::Error::other(format!("Multiple RhinoAI announcements for process {pid}")));
             }
         }
-        Ok(())
-    })?;
-    let ledger = grasshopper.join("Settings/FleetingPackages.txt");
-    if owned(&ledger)? && fs::metadata(&ledger)?.len() != 0 {
-        return Err(io::Error::other(format!("The Grasshopper profile contains pending package removals in {}", ledger.display())));
+        if let Some(listener) = announced {
+            return (listener.protocol_version == 1).ok_or_else(|| io::Error::other(format!("RhinoAI announced protocol {} for process {pid}", listener.protocol_version))).map(|()| listener);
+        }
+        events.recv().await.ok_or_else(|| io::Error::other("Rhino listener observation ended"))?.map_err(io::Error::other)?;
     }
-    Ok(home)
 }
 
-async fn dispatch(run: &Run, pid: NonZero<u32>, port: NonZero<u16>, fixture: &Path, sha256: &str, socket: &Path, filter: Option<&str>) -> io::Result<()> {
-    let remaining = run
-        .deadline()
-        .checked_duration_since(Instant::now())
-        .and_then(|budget| budget.checked_sub(DISPATCH))
-        .filter(|budget| !budget.is_zero())
-        .ok_or_else(|| io::Error::other("No time remains for the Rhino test assembly"))?;
-    let arguments = [serde_json::to_string(run.directory())?, serde_json::to_string(sha256)?, serde_json::to_string(&remaining.as_millis().to_string())?, serde_json::to_string(socket)?];
-    let filters = filter.map(|filter| serde_json::to_string(filter).map(|filter| [r#""-filterVSTest""#.to_owned(), filter])).transpose()?;
-    let arguments = arguments.into_iter().chain(filters.into_iter().flatten()).collect::<Vec<_>>().join(", ");
-    let fixture = serde_json::to_string(fixture)?;
-    let script = format!(
-        r#"
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+pub(crate) async fn test(Suite { profile, project, filter }: Suite, run: &Run) -> io::Result<()> {
+    async fn results(run: &Run, pid: NonZero<u32>, socket: UnixStream) -> io::Result<()> {
+        (socket.peer_cred()?.pid() == Some(pid.get().cast_signed())).ok_or_else(|| io::Error::other(format!("Rhino test socket is not connected to process {pid}")))?;
+        let report = run.directory().join("xunit.jsonl");
+        let mut file = fs_err::tokio::File::create_new(&report).await?;
+        let mut frames = FramedRead::new(socket, LinesCodec::new_with_max_length(8 << 20));
+        let mut summary = None;
+        let mut active = None;
+        while let Some(line) = frames.next().await.transpose().map_err(io::Error::other)? {
+            let Tagged { kind: Some(kind) } = decode(line.as_bytes())? else {
+                let Completion { status, error } = decode(line.as_bytes())?;
+                fs_err::tokio::write(run.directory().join("exit.json"), &line).await?;
+                error.map(io::Error::other).map_or(Ok(()), Err)?;
+                let (summary, raw): (Summary, Box<RawValue>) = summary
+                    .filter(|(summary, _): &(Summary, Box<RawValue>)| summary.total > 0)
+                    .ok_or_else(|| io::Error::other(format!("xUnit did not complete a matching test assembly. See {}", report.display())))?;
+                run.record("Rhino xUnit results", Evidence::Results { pid, status, summary: &raw }).await?;
+                return (status == 0 && summary.failed == 0 && summary.skipped == 0 && summary.not_run == 0)
+                    .ok_or_else(|| io::Error::other(format!("Rhino tests failed (exit {status}). See {}", report.display())));
+            };
+            file.write_all(format!("{line}\n").as_bytes()).await?;
+            file.flush().await?;
+            let raw = RawValue::from_string(line)?;
+            let recorded = match kind {
+                Kind::TestStarting => {
+                    active = Some(raw.clone());
+                    Some(raw)
+                }
+                Kind::TestFinished => {
+                    active = None;
+                    Some(raw)
+                }
+                Kind::TestOutput | Kind::TestFailed => Some(raw),
+                Kind::TestAssemblyFinished if summary.is_none() => {
+                    summary = Some((decode::<Summary>(raw.get().as_bytes())?, raw));
+                    None
+                }
+                Kind::TestAssemblyFinished => return Err(io::Error::other("xUnit reported more than one test assembly")),
+                Kind::Other => None,
+            };
+            if let Some(event) = recorded {
+                run.record("Rhino xUnit event", Evidence::Event { pid, event: &event }).await?;
+            }
+        }
+        let error = io::Error::other(format!("Rhino test output ended before completion. See {}", report.display()));
+        run.fault("Rhino test output ended", Evidence::Ended { pid, test: active.as_deref() }, &error.to_string()).await?;
+        Err(error)
+    }
+    const DISPATCH: Duration = Duration::from_secs(30);
+    let home = task::spawn_blocking(move || {
+        let home = fs_err::canonicalize(profile)?;
+        let login = User::from_uid(getuid()).map_err(io::Error::other)?.ok_or_else(|| io::Error::other("No desktop user home directory"))?.dir;
+        (!fs_err::canonicalize(login)?.starts_with(&home)).ok_or_else(|| io::Error::other(format!("The Rhino test profile {} holds the login home", home.display())))?;
+        WalkDir::new(&home).into_iter().try_for_each(|entry| {
+            let entry = entry?;
+            let escaped = entry.path_is_symlink() && !fs_err::canonicalize(entry.path())?.starts_with(&home);
+            let pending = entry.file_name() == "FleetingPackages.txt" && entry.metadata()?.len() != 0;
+            match (escaped, pending) {
+                (false, false) => Ok(()),
+                (true, _) => Err(io::Error::other(format!("{} resolves outside the test profile", entry.path().display()))),
+                (false, true) => Err(io::Error::other(format!("The Grasshopper profile holds pending package removals in {}", entry.path().display()))),
+            }
+        })?;
+        Ok::<_, io::Error>(home)
+    })
+    .await
+    .map_err(io::Error::other)??;
+    run.record("Rhino test profile", &home).await?;
+    let resolved = run.directory().join("msbuild.json");
+    let mut command = Command::new("dotnet");
+    command
+        .arg("msbuild")
+        .arg(&project)
+        .args(["-t:ResolveRhinoInstallation", "-getProperty:TargetPath,RhinoInstallPath,RhinoTargetFramework"])
+        .arg([OsStr::new("-getResultOutputFile:"), resolved.as_os_str()].into_iter().collect::<OsString>());
+    run.command(command, None).await?;
+    let Resolution { properties: Build { target_path, rhino_install_path, rhino_target_framework } } = decode(&fs_err::tokio::read(&resolved).await?)?;
+    let sha256 = HEXLOWER.encode(digest(&SHA256, &fs_err::tokio::read(&target_path).await?).as_ref());
+    run.record("Rhino test assembly", Evidence::Assembly { path: &target_path, sha256: &sha256, framework: &rhino_target_framework, filter: filter.as_deref() }).await?;
+    let listeners = run.scratch().join("ai/listeners");
+    fs_err::tokio::create_dir_all(&listeners).await?;
+    let (notifications, mut events) = mpsc::unbounded_channel();
+    let mut watcher = notify::recommended_watcher(notifications).map_err(io::Error::other)?;
+    watcher.watch(&listeners, RecursiveMode::NonRecursive).map_err(io::Error::other)?;
+    let (socket_path, output) = socket(run)?;
+    let (home, scratch) = Utf8Path::from_path(&home).zip(Utf8Path::from_path(run.scratch())).ok_or_else(|| io::Error::other("Rhino requires UTF-8 profile and scratch paths"))?;
+    let environment = [("CFFIXED_USER_HOME", home.as_str()), ("HOME", home.as_str()), ("RHINO_MCP_HOME", scratch.as_str()), ("RHINO_MCP_AUTOSTART_PORT", "1")];
+    let dispatch = async |pid: NonZero<u32>, port: NonZero<u16>| {
+        let remaining = run
+            .deadline()
+            .checked_duration_since(Instant::now())
+            .and_then(|budget| budget.checked_sub(DISPATCH))
+            .filter(|budget| !budget.is_zero())
+            .ok_or_else(|| io::Error::other("No time remains for the Rhino test assembly"))?;
+        let filters = filter.as_deref().map(|filter| serde_json::to_string(filter).map(|filter| [r#""-filterVSTest""#.to_owned(), filter])).transpose()?;
+        let fixed = [serde_json::to_string(run.directory())?, serde_json::to_string(&sha256)?, serde_json::to_string(&remaining.as_millis().to_string())?, serde_json::to_string(&socket_path)?];
+        let arguments = iter::chain(fixed, filters.into_iter().flatten()).join(", ");
+        let fixture = serde_json::to_string(&target_path)?;
+        let script = format!(
+            r#"
 if (Environment.ProcessId != {pid}) throw new InvalidOperationException("Unexpected Rhino process.");
 var fixture = {fixture};
 var main = new TestAssemblyContext(fixture).LoadFromAssemblyPath(fixture).EntryPoint
@@ -154,129 +278,28 @@ sealed class TestAssemblyContext(string assembly) : System.Runtime.Loader.Assemb
         dependencies.ResolveUnmanagedDllToPath(name) is string path ? LoadUnmanagedDllFromPath(path) : IntPtr.Zero;
 }}
 "#
-    );
-    let id = NumberOrString::Number(NonZero::<i64>::from(pid).get());
-    let tool = CallToolRequestParams::new("run_csharp").with_arguments(serde_json::Map::from_iter([("script".to_owned(), Value::String(script))]));
-    let request = ClientJsonRpcMessage::request(ClientRequest::CallToolRequest(CallToolRequest::new(tool)), id.clone());
-    let client = reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).timeout(DISPATCH).build().map_err(io::Error::other)?;
-    run.record("Rhino command sent", json!({ "pid": pid, "port": port, "deadlineMs": remaining.as_millis() })).await?;
-    let response = client.post(format!("http://localhost:{port}/")).json(&request).send().await.and_then(reqwest::Response::error_for_status).map_err(io::Error::other)?;
-    let result = match response.json::<ServerJsonRpcMessage>().await.map_err(io::Error::other)? {
-        JsonRpcMessage::Response(response) if response.id == id => match response.result {
-            ServerResult::CallToolResult(result) => result,
-            _ => return Err(io::Error::other("RhinoAI returned a different result type")),
-        },
-        JsonRpcMessage::Error(response) if response.id.as_ref() == Some(&id) => return Err(io::Error::other(response.error)),
-        _ => return Err(io::Error::other("RhinoAI returned a different request ID")),
+        );
+        let id = NumberOrString::Number(NonZero::<i64>::from(pid).get());
+        let tool = CallToolRequestParams::new("run_csharp").with_arguments(object(serde_json::to_value(Script { script })?));
+        let request = ClientJsonRpcMessage::request(ClientRequest::CallToolRequest(CallToolRequest::new(tool)), id.clone());
+        let client = reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).timeout(DISPATCH).build().map_err(io::Error::other)?;
+        run.record("Rhino command sent", Evidence::Sent { pid, port, deadline_ms: remaining.as_millis() }).await?;
+        let response = client.post(format!("http://localhost:{port}/")).json(&request).send().await.and_then(reqwest::Response::error_for_status).map_err(io::Error::other)?;
+        let result = match response.json::<ServerJsonRpcMessage>().await.map_err(io::Error::other)? {
+            JsonRpcMessage::Response(JsonRpcResponse { jsonrpc: _, id: answered, result: ServerResult::CallToolResult(result) }) if answered == id => Ok(result),
+            JsonRpcMessage::Error(JsonRpcError { jsonrpc: _, id: Some(answered), error }) if answered == id => Err(io::Error::other(error)),
+            _ => Err(io::Error::other("RhinoAI returned a different response")),
+        }?;
+        let texts = || result.content.iter().filter_map(ContentBlock::as_text).map(|part| part.text.as_str());
+        (result.is_error != Some(true)).ok_or_else(|| io::Error::other(texts().join("\n")))?;
+        let Reply { stdout } = decode(texts().next_back().ok_or_else(|| io::Error::other("RhinoAI returned no result"))?.as_bytes())?;
+        let document = stdout.trim().parse::<NonZero<u32>>().map_err(|source| io::Error::new(io::ErrorKind::InvalidData, source))?;
+        run.record("Rhino command replied", Evidence::Replied { pid, document }).await
     };
-    let output = result.content.iter().filter_map(rmcp::model::ContentBlock::as_text).map(|part| part.text.as_str()).collect::<Vec<_>>();
-    if result.is_error == Some(true) {
-        return Err(io::Error::other(output.join("\n")));
-    }
-    let reply: Value = decode(output.last().ok_or_else(|| io::Error::other("RhinoAI returned no result"))?.as_bytes())?;
-    let document = reply["stdout"].as_str().and_then(|serial| serial.trim().parse::<NonZero<u32>>().ok()).ok_or_else(|| io::Error::other("RhinoAI did not confirm the test document"))?;
-    run.record("Rhino command replied", json!({ "pid": pid, "document": document })).await
-}
-
-async fn results(run: &Run, pid: NonZero<u32>, socket: UnixStream) -> io::Result<()> {
-    if socket.peer_cred()?.pid() != Some(i32::try_from(pid.get()).map_err(io::Error::other)?) {
-        return Err(io::Error::other(format!("Rhino test socket is not connected to process {pid}")));
-    }
-    let report = run.directory().join("xunit.jsonl");
-    let mut file = async_fs::File::create_new(&report).await?;
-    let mut frames = FramedRead::new(socket, LinesCodec::new_with_max_length(8 * 1024 * 1024));
-    let mut summary = None;
-    let mut active = None;
-    while let Some(mut line) = frames.next().await.transpose().map_err(io::Error::other)? {
-        let event: Value = decode(line.as_bytes())?;
-        let Some(kind) = event["$type"].as_str() else {
-            let Completion { status, error } = serde_path_to_error::deserialize(event).map_err(io::Error::other)?;
-            async_fs::write(run.directory().join("exit.json"), line).await?;
-            if let Some(error) = error {
-                return Err(io::Error::other(error));
-            }
-            let summary = summary
-                .filter(|event: &Value| event["TestsTotal"].as_u64().is_some_and(|count| count > 0))
-                .ok_or_else(|| io::Error::other(format!("xUnit did not complete a matching test assembly. See {}", report.display())))?;
-            run.record("Rhino xUnit results", json!({ "pid": pid, "status": status, "summary": summary })).await?;
-            return if status == 0 && ["TestsFailed", "TestsSkipped", "TestsNotRun"].into_iter().all(|key| summary[key].as_u64() == Some(0)) {
-                Ok(())
-            } else {
-                Err(io::Error::other(format!("Rhino tests failed (exit {status}). See {}", report.display())))
-            };
-        };
-        line.push('\n');
-        file.write_all(line.as_bytes()).await?;
-        file.flush().await?;
-        match kind {
-            "test-starting" => active = Some(event.clone()),
-            "test-finished" => active = None,
-            "test-assembly-finished" if summary.is_none() => {
-                summary = Some(event);
-                continue;
-            }
-            "test-assembly-finished" => return Err(io::Error::other("xUnit reported more than one test assembly")),
-            "test-output" | "test-failed" => (),
-            _ => continue,
-        }
-        run.record("Rhino xUnit event", json!({ "pid": pid, "event": event })).await?;
-    }
-    let error = format!("Rhino test output ended before completion. See {}", report.display());
-    run.fault("Rhino test output ended", json!({ "pid": pid, "test": active }), &error).await?;
-    Err(io::Error::other(error))
-}
-
-async fn listener(directory: &Path, pid: NonZero<u32>, events: &mut mpsc::UnboundedReceiver<notify::Result<notify::Event>>) -> io::Result<Listener> {
-    let prefix = format!("{pid}-");
-    loop {
-        let mut entries = async_fs::read_dir(directory).await?;
-        let mut matching = None;
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            let named = path.file_name().and_then(OsStr::to_str).is_some_and(|name| name.starts_with(&prefix));
-            if named && path.extension() == Some(OsStr::new("json")) && matching.replace(path).is_some() {
-                return Err(io::Error::other(format!("Multiple RhinoAI announcements for process {pid}")));
-            }
-        }
-        let Some(path) = matching else {
-            events.recv().await.ok_or_else(|| io::Error::other("Rhino listener observation ended"))?.map_err(io::Error::other)?;
-            continue;
-        };
-        let listener: Listener = decode(&async_fs::read(&path).await?)?;
-        let name = format!("{pid}-{}.json", listener.port);
-        if listener.protocol_version != 1 || listener.pid != pid || path.file_name() != Some(OsStr::new(&name)) {
-            return Err(io::Error::other(format!("RhinoAI announced a different listener in {}", path.display())));
-        }
-        return Ok(listener);
-    }
-}
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-pub(crate) async fn test(suite: Suite, run: &Run) -> io::Result<()> {
-    let home = tokio::task::spawn_blocking(profile).await.map_err(io::Error::other)??;
-    run.record("Rhino test profile", &home).await?;
-    let mut command = Command::new("dotnet");
-    command.arg("msbuild").arg(&suite.project).args(["-t:ResolveRhinoInstallation", "-getProperty:TargetPath,RhinoInstallPath,RhinoTargetFramework"]);
-    run.command(command, "msbuild", None).await?;
-    let resolved: Value = decode(&async_fs::read(run.directory().join("msbuild.log")).await?)?;
-    let Build { target_path, rhino_install_path, rhino_target_framework } = serde_path_to_error::deserialize(&resolved["Properties"]).map_err(io::Error::other)?;
-    let sha256 = HEXLOWER.encode(digest(&SHA256, &async_fs::read(&target_path).await?).as_ref());
-    run.record("Rhino test assembly", json!({ "path": target_path, "sha256": sha256, "framework": rhino_target_framework, "filter": suite.filter })).await?;
-    let listeners = run.scratch().join("ai/listeners");
-    async_fs::create_dir_all(&listeners).await?;
-    let (notifications, mut events) = mpsc::unbounded_channel();
-    let mut watcher = notify::recommended_watcher(notifications).map_err(io::Error::other)?;
-    watcher.watch(&listeners, RecursiveMode::NonRecursive).map_err(io::Error::other)?;
-    let (_socket, socket_path, output) = socket(run.scratch())?;
-    let Some((home, scratch)) = Utf8Path::from_path(&home).zip(Utf8Path::from_path(run.scratch())) else {
-        return Err(io::Error::other("Rhino requires UTF-8 profile and scratch paths"));
-    };
-    let environment = [("CFFIXED_USER_HOME", home.as_str()), ("HOME", home.as_str()), ("RHINO_MCP_HOME", scratch.as_str()), ("RHINO_MCP_AUTOSTART_PORT", "1")];
     with_app(run, Launch { bundle: &rhino_install_path, documents: &[], arguments: &[], environment: &environment }, async |pid| {
         let listener = timeout(Duration::from_secs(45), listener(&listeners, pid, &mut events)).await.map_err(io::Error::other)??;
-        run.record("RhinoAI listener ready", json!({ "pid": pid, "port": listener.port, "version": listener.version })).await?;
-        let sent = pin!(dispatch(run, pid, listener.port, &target_path, &sha256, &socket_path, suite.filter.as_deref()));
+        run.record("RhinoAI listener ready", &listener).await?;
+        let sent = pin!(dispatch(pid, listener.port));
         let received = pin!(async { results(run, pid, output.accept().await?.0).await });
         match select(sent, received).await {
             Either::Left((reply, received)) => {

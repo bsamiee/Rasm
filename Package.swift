@@ -74,7 +74,8 @@ let executables: [Target] = [
         name: "watch-apps",
         dependencies: [
             "ApplicationServer", "Applications", "CurrentProcess", "Encoding", "JSONRPC", "Processes", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
+            .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
+            .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "tools/watch-apps",
     )
@@ -96,14 +97,15 @@ let suites: [Target] = [
     // --- [TOOLS]
     .testTarget(
         name: "watch-appsTests",
-        dependencies: ["Encoding", "TestSupport", "watch-apps", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "Subprocess", package: "swift-subprocess")],
+        dependencies: ["Encoding", "Processes", "TestSupport", "watch-apps", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "Subprocess", package: "swift-subprocess")],
         path: "tests/swift/tools/watch-apps",
         exclude: ["Integration"],
     ),
     .testTarget(
         name: "watch-appsIntegrationTests",
         dependencies: [
-            "AppKitFixture", "Encoding", "TestSupport", "watch-apps", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "Subprocess", package: "swift-subprocess"),
+            "AppKitFixture", "Encoding", "Processes", "TestSupport", "watch-apps", .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "tests/swift/tools/watch-apps/Integration",
     ),

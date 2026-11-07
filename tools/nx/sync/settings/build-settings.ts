@@ -1,12 +1,13 @@
 import { parse, patch } from '@decimalturn/toml-patch';
 import type { Tree } from '@nx/devkit';
 import { readNxJsonFromDisk } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Optic, Schema } from 'effect';
+import { Array, Cause, Effect, Function, Optic, Option, Schema } from 'effect';
 import XMLBuilder from 'fast-xml-builder';
 import { applyEdits } from 'jsonc-parser';
-import { Identity, Mise } from '#/eng/typescript/manifest';
-import { decodeTree, syncGenerator } from '#/tools/nx/sync/tree';
-import { openWorkspace, SWIFT_MANIFEST } from '#/tools/nx/workspace';
+import { parseDocument, YAMLMap } from 'yaml';
+import { Mise, MiseLock, Package, Xcconfig } from '#/eng/typescript/manifest';
+import { decodeTree, syncGenerator, YAML_LAYOUT } from '#/tools/nx/sync/tree';
+import { openWorkspace, PYPROJECT, SWIFT_MANIFEST } from '#/tools/nx/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -20,7 +21,6 @@ interface PixiWorkspace {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TOOLS_MINOR = /\..*$/u;
-const PIXI_PLATFORM = 'osx-arm64';
 const XML = new XMLBuilder();
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -58,16 +58,28 @@ const written =
     (anchor: (key: string) => RegExp, content: (key: string, value: string) => string = (_, value) => value) =>
     (values: Readonly<Record<string, string>>) =>
     (text: string, file: string) =>
-        Effect.validate(Object.entries(values), ([key, value]) => {
-            const matches = [...text.matchAll(anchor(RegExp.escape(key)))];
-            const [row] = matches;
-            return matches.length === 1 && row !== undefined ? Effect.succeed({ offset: row.index, length: row[0].length, content: content(key, value) }) : Effect.fail(new Cause.IllegalArgumentError(`${file}: expected one ${key} setting, found ${matches.length}`));
-        }).pipe(Effect.map((edits) => applyEdits(text, edits)));
+        Effect.validate(Object.entries(values), ([key, value]) =>
+            Effect.succeed([...text.matchAll(anchor(RegExp.escape(key)))]).pipe(
+                Effect.filterOrFail(Array.isArrayNonEmpty, () => new Cause.IllegalArgumentError(`${file}: found no ${key} setting`)),
+                Effect.map(Array.map((row) => ({ offset: row.index, length: row[0].length, content: content(key, value) }))),
+            ),
+        ).pipe(Effect.map((edits) => applyEdits(text, edits.flat())));
 const xcconfigRows = written((key) => new RegExp(`(?<=^${key} = ).*$`, 'gmu'));
-const yamlRows = written((key) => new RegExp(`(?<=^ *${key}: ).*$`, 'gmu'));
+const yamlRow = (parent: string, key: string, value: string) => (text: string, file: string) => {
+    const document = parseDocument(text);
+    return Option.fromNullishOr(document.value instanceof YAMLMap ? document.value.get(parent) : undefined).pipe(
+        Option.filter((node) => node instanceof YAMLMap),
+        Effect.fromOption,
+        Effect.mapBoth({ onFailure: () => new Cause.IllegalArgumentError(`${file}: found no ${parent} mapping`), onSuccess: (mapping) => mapping.set(key, value) && document.toString(YAML_LAYOUT) }),
+    );
+};
 const propertyRows = written(
     (tag) => new RegExp(`<${tag}>[^<]*</${tag}>`, 'gu'),
     (tag, value) => XML.build({ [tag]: value }),
+);
+const packageRows = written(
+    (name) => new RegExp(`(?<=releases/download/v)[^/]+/${name}@[^#]+(?=#)`, 'gu'),
+    (name, value) => `${value}/${name}@${value}`,
 );
 const tomlRows =
     <A>(update: (held: A) => A) =>
@@ -75,8 +87,8 @@ const tomlRows =
         Effect.sync(() => patch(text, update(parse(text))));
 const rows = Effect.fnUntraced(function* (tree: Tree) {
     const workspace = yield* openWorkspace({ workspaceRoot: tree.root, nxJsonConfiguration: readNxJsonFromDisk(tree.root) });
-    const [{ author, repository }, { tools, platforms, targets }] = yield* Effect.all([decodeTree(tree, Identity.schema, Identity.file), workspace.swiftManifest(SwiftManifest, 'dump-package')]);
-    const { version } = yield* Effect.fromNullishOr(platforms.find(({ name }) => name === 'macos'));
+    const [manifest, { tools, platforms, targets }, locked] = yield* Effect.all([decodeTree(tree, Package.schema, Package.file), workspace.swiftManifest(SwiftManifest, 'dump-package'), decodeTree(tree, MiseLock.schema, MiseLock.file)]);
+    const [author, repository, { version }] = yield* Effect.all([Effect.fromNullishOr(manifest.author), Effect.fromNullishOr(manifest.repository), Effect.fromNullishOr(platforms.find(({ name }) => name === 'macos'))]);
     const [first] = targets;
     yield* Effect.validate(targets, ({ name, settings }) => {
         const unsupported = settings.filter(({ tool, kind, condition }) => (tool === 'swift' || tool === 'linker') && (condition !== undefined || !Object.keys(kind).every(Object.hasOwn.bind(null, SwiftFlags.fields))));
@@ -89,7 +101,7 @@ const rows = Effect.fnUntraced(function* (tree: Tree) {
     }
     return yield* Effect.validate(
         Object.entries({
-            'Xcode.xcconfig': xcconfigRows({
+            [Xcconfig.file]: xcconfigRows({
                 COPYRIGHT_HOLDER: author,
                 MACOSX_DEPLOYMENT_TARGET: version,
                 OTHER_LDFLAGS: linker,
@@ -97,7 +109,7 @@ const rows = Effect.fnUntraced(function* (tree: Tree) {
                 SPARKLE_FEED_URL: `${repository.replace('//', '/$()/')}/releases/download/$(PRODUCT_NAME)-updates/appcast.xml`,
                 SWIFT_VERSION: tools.version.replace(TOOLS_MINOR, '.0'),
             }),
-            '.swiftlint.yml': yamlRows({ macOS_deployment_target: `'${version}'` }),
+            '.swiftlint.yml': yamlRow('deployment_target', 'macOS_deployment_target', version),
             'Directory.Build.props': propertyRows({ Authors: author, PackageProjectUrl: repository }),
             [Mise.file]: tomlRows(
                 Optic.id<MiseEnvironment>()
@@ -105,13 +117,14 @@ const rows = Effect.fnUntraced(function* (tree: Tree) {
                     .key('MACOSX_DEPLOYMENT_TARGET')
                     .modify(() => version),
             ),
-            'pyproject.toml': tomlRows(
+            '.config/hk.pkl': packageRows({ hk: Array.headNonEmpty(locked.tools.hk).version }),
+            [PYPROJECT]: tomlRows(
                 Optic.id<PixiWorkspace>()
                     .key('tool')
                     .key('pixi')
                     .key('workspace')
                     .key('platforms')
-                    .modify(Array.map((row) => ((typeof row === 'string' ? row : row.platform) === PIXI_PLATFORM ? { platform: PIXI_PLATFORM, macos: version } : row))),
+                    .modify(Array.map((row) => Function.pipe(typeof row === 'string' ? row : row.platform, (platform) => (platform.startsWith('osx-') ? { platform, macos: version } : row)))),
             ),
         }),
         Effect.fnUntraced(function* ([file, update]) {
@@ -122,7 +135,7 @@ const rows = Effect.fnUntraced(function* (tree: Tree) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const buildSettings = syncGenerator(`Build settings differ from package.json or ${SWIFT_MANIFEST}`, rows);
+const buildSettings = syncGenerator(`Build settings differ from package.json, ${SWIFT_MANIFEST}, or ${MiseLock.file}`, rows);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

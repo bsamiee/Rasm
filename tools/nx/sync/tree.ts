@@ -5,6 +5,10 @@ import { parseAllDocuments } from 'yaml';
 import { runCommand } from '#/eng/typescript/run-command';
 import { type PluginServices, runPlugin, WorkspaceError } from '#/tools/nx/workspace';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const YAML_LAYOUT = { indent: 4, lineWidth: 0, flowCollectionPadding: false, singleQuote: true } as const;
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const treeText = (tree: Tree, file: string) => Effect.fromNullishOr(tree.read(file, 'utf-8'));
@@ -37,4 +41,4 @@ const syncGenerator =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { decodeTree, formatted, patched, syncGenerator, treeText, yamlDocuments };
+export { decodeTree, formatted, patched, syncGenerator, treeText, YAML_LAYOUT, yamlDocuments };

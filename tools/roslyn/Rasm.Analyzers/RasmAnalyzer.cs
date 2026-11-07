@@ -552,26 +552,6 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
         public ISymbol? Message { get; }
     }
 
-    private protected sealed class LoggingSymbols {
-        public LoggingSymbols(Compilation compilation) {
-            Define = Members(compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessage"), "Define");
-            Logger = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.ILogger");
-            Extensions = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerExtensions");
-            Calls = Members(Logger, "Log", "BeginScope");
-            Message = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessageAttribute");
-        }
-
-        public ImmutableArray<IMethodSymbol> Define { get; }
-
-        public INamedTypeSymbol? Logger { get; }
-
-        public INamedTypeSymbol? Extensions { get; }
-
-        public ImmutableArray<IMethodSymbol> Calls { get; }
-
-        public INamedTypeSymbol? Message { get; }
-    }
-
     private protected sealed class RhinoCommonSymbols {
         private static readonly ImmutableArray<(string Owner, string Member)> Counts = [
             ("Rhino.DocObjects.Tables.ObjectTable", "Delete"),
@@ -616,7 +596,6 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
             Duplicates = [.. Members(compilation.GetTypeByMetadataName("Rhino.Geometry.GeometryBase"), "Duplicate", "DuplicateShallow")];
             Floating = Declared(compilation, "P:Rhino.Display.RhinoView.Floating").FirstOrDefault();
             ConduitEnabled = Declared(compilation, "P:Rhino.Display.DisplayConduit.Enabled").FirstOrDefault();
-            ExceptionReport = Members(compilation.GetTypeByMetadataName("Rhino.Runtime.HostUtils"), "ExceptionReport");
         }
 
         public INamedTypeSymbol? Document { get; }
@@ -658,8 +637,6 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
         public ISymbol? Floating { get; }
 
         public ISymbol? ConduitEnabled { get; }
-
-        public ImmutableArray<IMethodSymbol> ExceptionReport { get; }
     }
 
     private protected sealed class EtoSymbols(Compilation compilation) {

@@ -67,16 +67,19 @@ enum Operation {
 #[group(skip)]
 #[command(next_help_heading = "Daemon")]
 struct Options {
-    #[arg(long, env, required = true, value_delimiter = ',', value_name = "HOST:PORT", help = "Host and port serving HTTP on each address the host resolves to, port 0 for one the system assigns")]
+    #[arg(long, env, value_delimiter = ',', default_value = "127.0.0.1", value_name = "HOST[:PORT]", help = "Host serving HTTP on each address it resolves to, on its own port or `--port`")]
     listen: Vec<Authority>,
+    #[arg(long, env, default_value_t = 0, help = "Port of each `--listen` host naming none, 0 for one the system assigns")]
+    port: u16,
     #[arg(
         long,
         env,
         value_name = "DURATION",
+        default_value = "4s",
         value_parser = |text: &str| SpanParser::new().parse_unsigned_duration(text),
-        help = "Drain time after shutdown starts before the process abandons it, unbounded when unset"
+        help = "Drain time after shutdown starts before the process abandons it"
     )]
-    grace: Option<Duration>,
+    grace: Duration,
 }
 
 #[derive(Debug, Clone, Copy, derive_more::Display)]
@@ -129,10 +132,13 @@ where
     L: Layer,
     D: Daemon,
 {
-    rasm_command::run(defaults, io::stderr, layer, async |Process { args: Augmented { options: Options { listen, grace }, args }, styles: _, mut signals, filter, level: _ }| {
+    rasm_command::run(defaults, io::stderr, layer, async |Process { args: Augmented { options: Options { listen, port, grace }, args }, styles: _, mut signals, filter, level: _ }| {
         let failed = |operation: Operation, address: SocketAddr| move |source: io::Error| DaemonError::<D::Error>::Io { operation, address, source };
         let resolved = future::join_all(listen.into_iter().map(async |authority| {
-            let found = net::lookup_host(authority.as_str()).await.map_err(Some).and_then(|found| found.try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).ok_or(None));
+            let found = net::lookup_host(format!("{}:{}", authority.host(), authority.port_u16().unwrap_or(port)))
+                .await
+                .map_err(Some)
+                .and_then(|found| found.try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).ok_or(None));
             found.map_err(|source| DaemonError::<D::Error>::Resolve { authority: authority.clone(), source }).map(|found| (authority, found))
         }))
         .await
@@ -196,7 +202,7 @@ where
             biased;
             ((), (), ()) = future::join3(drain.as_mut(), lifetime.as_mut(), server.as_mut()) => None,
             _ = signals.skip(match trigger { Trigger::Signal => 0, Trigger::Lifetime | Trigger::Server => 1 }).into_future() => Some(Abandonment::Signal),
-            Some(()) = future::OptionFuture::from(grace.map(time::sleep)) => grace.map(Abandonment::Deadline),
+            () = time::sleep(grace) => Some(Abandonment::Deadline(grace)),
         };
         let (drained, ended, closed) = (drain.as_mut().take_output(), lifetime.as_mut().take_output(), server.as_mut().take_output());
         let pending = [drained.is_none().then_some(Stage::Drain), ended.is_none().then_some(Stage::Lifetime), closed.is_none().then_some(Stage::Server)].into_iter().flatten().collect::<Vec<_>>();

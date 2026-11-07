@@ -42,11 +42,11 @@ lint! {
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
         Self {
-            collections: paths(
-                tcx,
-                PathNS::Type,
-                &["std::collections::HashMap", "std::collections::BTreeMap", "std::collections::HashSet", "std::collections::BTreeSet", "indexmap::IndexMap", "indexmap::IndexSet"],
-            ),
+            collections: [sym::HashMap, sym::BTreeMap, sym::HashSet, sym::BTreeSet]
+                .into_iter()
+                .filter_map(|collection| tcx.get_diagnostic_item(collection))
+                .chain(paths(tcx, PathNS::Type, &["indexmap::IndexMap", "indexmap::IndexSet"]))
+                .collect(),
             branches: FxIndexMap::default(),
             written: FxIndexMap::default(),
             keyed: FxIndexMap::default(),

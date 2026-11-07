@@ -1,5 +1,5 @@
 import xml from '@tree-sitter-grammars/tree-sitter-xml/xml/grammar.js';
-import { automaton, chain, choiceOf, classes, drop, extend, located, named, optionalOf, pattern, reaches, replace, rewrite, spans, string, symbol, without } from '../derive.js';
+import { automaton, chain, choiceOf, classes, constants, drop, extend, located, named, optionalOf, pattern, reaches, replace, rewrite, spans, string, symbol, without } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -22,8 +22,7 @@ export default extend(xml, {
     rules: {
         Name: () => NAME,
         Nmtoken: () => ({ type: 'PATTERN', value: `[${NAME_CHARACTER}]+`, flags: 'u' }),
-        _word_start: () => spans(WORD['identifier start']),
-        _word_character: () => spans(WORD.identifier),
+        _constants: () => constants({ WORD_START: spans(WORD['identifier start']), WORD_CHARACTER: spans(WORD.identifier) }),
         AttValue: quoted('AttText'),
         Attribute: replace(symbol('AttValue'), ($) => quoted('AttText')($, RULES.AttValue)),
         PseudoAtt: replace(symbol('PseudoAttValue'), ($) => quoted('AttText')($, RULES.PseudoAttValue)),

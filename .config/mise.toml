@@ -20,45 +20,39 @@ use_versions_host_track             = false
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-_.path                                = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
-ATELIER_PATH                          = "{% if os() == 'macos' %}/Applications/Atelier.app/Contents/MacOS/Atelier{% endif %}"
-BLENDER_MCP_URL                       = "http://127.0.0.1:{{ env.BLENDER_LAB_PORT }}/"
-BLENDER_PATH                          = """{% if env.BLENDER_PATH | default(value="") %}{{ env.BLENDER_PATH }}{% elif os() == "macos" %}{{ exec(command=`mdfind "kMDItemCFBundleIdentifier == 'org.blenderfoundation.blender'" | sed -n '1s|$|/Contents/MacOS/Blender|p'`, cache_key="blender-path", cache_duration="1d") }}{% elif os() == "windows" %}{{ exec(command=`cmd /d /c "where.exe blender 2>NUL & exit /b 0"`, cache_key="blender-path", cache_duration="1d") | split(pat="\\n") | first | trim }}{% else %}{{ exec(command="if command -v blender; then :; fi") }}{% endif %}"""
-CARGO_LLVM_COV_DENY_WARNINGS          = "1"
-CLOUDFLARE_DEV_REGISTRY_PATH          = "{{config_root}}/.cache/cloudflare/registry"
-COLIMA_HOME                           = "{% if os() == 'macos' %}{{ xdg_data_home }}/rasm/colima{% endif %}"
-DOCKER_CONFIG                         = "{% if os() == 'macos' %}{{ xdg_data_home }}/rasm/docker{% else %}{{ env.DOCKER_CONFIG | default(value='') }}{% endif %}"
-DOCKER_HOST                           = "{% if os() == 'macos' %}unix://{{ env.COLIMA_HOME }}/default/docker.sock{% else %}{{ env.DOCKER_HOST | default(value='') }}{% endif %}"
-DOPPLER_CONFIG                        = "dev"
-DOPPLER_PROJECT                       = "agent-runtime"
-DOTNET_NOLOGO                         = "1"
-DOTNET_ROLL_FORWARD                   = "Major"
-GHIDRA_INSTALL_DIR                    = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
-GHIDRA_JAVA_OPTIONS                   = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
-GHIDRA_PROJECT_DIR                    = "{{ xdg_cache_home }}/rasm/ghidra/projects"
-HK_LOG_FILE                           = "{{config_root}}/.artifacts/logs/hk.log"
-HYPOTHESIS_STORAGE_DIRECTORY          = "{{config_root}}/.cache/hypothesis"
-MACOSX_DEPLOYMENT_TARGET              = "27.0"
-NODE_COMPILE_CACHE                    = "{{config_root}}/.cache/node"
-NX_ISOLATE_PLUGINS                    = "false"
-NX_WORKSPACE_DATA_DIRECTORY           = "{{config_root}}/.cache/nx/workspace-data"
-OMIT_DYNAMIC_TEST_SUPPORT             = "1"
-PITCHFORK_LOG_TIME_RETENTION          = "7d"
-PITCHFORK_SUPERVISOR_AUTO_START       = "{% if os() == 'macos' %}false{% else %}true{% endif %}"
-PLAYWRIGHT_MCP_CONFIG                 = "{{config_root}}/.playwright/cli.config.json"
-PLAYWRIGHT_MCP_OUTPUT_DIR             = "{{config_root}}/.artifacts/playwright"
-PULUMI_HOME                           = "{{config_root}}/.cache/pulumi"
-PYTHONPYCACHEPREFIX                   = "{{config_root}}/.cache/pycache"
-RASM_PYTHON_INSTALL_DIR               = { tools = true, value = "{% if tools.python is defined %}{{ tools.python?.path or tools.python[0].path }}{% endif %}" }
-RHINO_MCP_URL                         = "http://127.0.0.1:{{ env.RHINO_MCP_PLATFORM_PORT }}/"
-RUSTUP_AUTO_INSTALL                   = "0"
-RUSTUP_TOOLCHAIN                      = false
-STORYBOOK_DISABLE_TELEMETRY           = "1"
-SWIFTPM_BUILD_DIR                     = "{{config_root}}/.cache/swiftpm/build"
-TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = "{% if os() == 'macos' %}/var/run/docker.sock{% else %}{{ env.TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE | default(value='') }}{% endif %}"
-TOMBI_CACHE_HOME                      = "{{config_root}}/.cache/tombi"
-WATCH_APPS_LOG                        = "{{config_root}}/.artifacts/logs/watch-apps.log"
-XDG_CONFIG_HOME                       = "{{ xdg_config_home }}"
+_.path                       = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
+BLENDER_MCP_URL              = "http://127.0.0.1:{{ env.BLENDER_LAB_PORT }}/"
+BLENDER_PATH                 = """{% if env.BLENDER_PATH | default(value="") %}{{ env.BLENDER_PATH }}{% elif os() == "windows" %}{{ exec(command=`cmd /d /c "where.exe blender 2>NUL & exit /b 0"`, cache_key="blender-path", cache_duration="1d") | split(pat="\\n") | first | trim }}{% elif os() == "linux" %}{{ exec(command="if command -v blender; then :; fi", cache_key="blender-path", cache_duration="1d") }}{% endif %}"""
+CARGO_LLVM_COV_DENY_WARNINGS = "1"
+CLOUDFLARE_DEV_REGISTRY_PATH = "{{config_root}}/.cache/cloudflare/registry"
+DOPPLER_CONFIG               = "dev"
+DOPPLER_PROJECT              = "agent-runtime"
+DOTNET_NOLOGO                = "1"
+DOTNET_ROLL_FORWARD          = "Major"
+GHIDRA_INSTALL_DIR           = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
+GHIDRA_JAVA_OPTIONS          = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
+GHIDRA_PROJECT_DIR           = "{{ xdg_cache_home }}/rasm/ghidra/projects"
+HK_LOG_FILE                  = "{{config_root}}/.artifacts/logs/hk.log"
+HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
+MACOSX_DEPLOYMENT_TARGET     = "27.0"
+NODE_COMPILE_CACHE           = "{{config_root}}/.cache/node"
+NX_ISOLATE_PLUGINS           = "false"
+NX_WORKSPACE_DATA_DIRECTORY  = "{{config_root}}/.cache/nx/workspace-data"
+OMIT_DYNAMIC_TEST_SUPPORT    = "1"
+PITCHFORK_LOG_TIME_RETENTION = "7d"
+PLAYWRIGHT_MCP_CONFIG        = "{{config_root}}/.playwright/cli.config.json"
+PLAYWRIGHT_MCP_OUTPUT_DIR    = "{{config_root}}/.artifacts/playwright"
+PULUMI_HOME                  = "{{config_root}}/.cache/pulumi"
+PYTHONPYCACHEPREFIX          = "{{config_root}}/.cache/pycache"
+RHINO_MCP_URL                = "http://127.0.0.1:{{ env.RHINO_MCP_PLATFORM_PORT }}/"
+RUSTUP_AUTO_INSTALL          = "0"
+RUSTUP_TOOLCHAIN             = false
+STORYBOOK_DISABLE_TELEMETRY  = "1"
+SWIFTPM_BUILD_DIR            = "{{config_root}}/.cache/swiftpm/build"
+TOMBI_CACHE_HOME             = "{{config_root}}/.cache/tombi"
+UV_PYTHON                    = { tools = true, value = "{{ tools.python[0].path }}" }
+WATCH_APPS_LOG               = "{{config_root}}/.artifacts/logs/watch-apps.log"
+XDG_CONFIG_HOME              = "{{ xdg_config_home }}"
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 
@@ -150,6 +144,7 @@ version_prefix   = "Ghidra_"
 asset_pattern  = "pmd-dist-*-bin.zip"
 version        = "latest"
 version_prefix = "pmd_releases/"
+version_regex  = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$'
 
 [tools."http:jdtls"]
 url              = 'https://download.eclipse.org/jdtls/milestones/{{ version }}/{{ exec(command="curl -fsSL https://download.eclipse.org/jdtls/milestones/" ~ version ~ "/latest.txt") }}'
@@ -200,12 +195,11 @@ run        = "exec node plugins/argus/main.ts --listen 127.0.0.1:$PORT"
 
 [daemons.ast-grep]
 boot_start = true
-env        = { AST_GREP_PATH = "sh -c 'c=$1; shift; exec ast-grep \"$c\" --custom-languages allow \"$@\"' ast-grep" }
 port       = 7404
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7404/" }
 retry      = true
-run        = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- ast-grep-server --config sgconfig.yml"
+run        = "exec rasm-mcp-bridge -- ast-grep-server --config sgconfig.yml"
 
 [daemons.binlog]
 boot_start = true
@@ -214,7 +208,7 @@ port       = 7403
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7403/" }
 retry      = true
-run        = 'exec env XDG_CACHE_HOME="$PWD/.cache" rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- binlog-mcp'
+run        = 'exec env XDG_CACHE_HOME="$PWD/.cache" rasm-mcp-bridge -- binlog-mcp'
 
 [daemons.blender-lab]
 boot_start = true
@@ -223,12 +217,7 @@ port       = 7407
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7407/" }
 retry      = true
-run        = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- blender-mcp"
-
-[daemons.docker]
-ready_cmd   = { run = ["docker", "version"], timeout = "5m" }
-run         = 'exec env -C "$COLIMA_HOME" colima start --foreground --activate=false --ssh-config=false --mount none --cpus 4 --memory 4'
-stop_signal = { signal = "SIGTERM", timeout = "120s" }
+run        = "exec rasm-mcp-bridge -- blender-mcp"
 
 [daemons.mcp-for-blender]
 boot_start = true
@@ -237,7 +226,7 @@ port       = 7408
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7408/" }
 retry      = true
-run        = "exec doppler run --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 --forward-signals=false -- rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- mcp-for-blender"
+run        = "exec doppler run --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 --forward-signals=false -- rasm-mcp-bridge -- mcp-for-blender"
 
 [daemons.nuget]
 boot_start = true
@@ -246,7 +235,7 @@ port       = 7402
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7402/" }
 retry      = true
-run        = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- nuget-mcp-server"
+run        = "exec rasm-mcp-bridge -- nuget-mcp-server"
 
 [daemons.playwright-test]
 boot_start = true
@@ -263,7 +252,7 @@ port       = 7406
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7406/" }
 retry      = true
-run        = 'exec rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"'
+run        = 'exec rasm-mcp-bridge -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"'
 
 [daemons.roslyn-codelens]
 boot_start  = true
@@ -284,7 +273,7 @@ set -euo pipefail
 if [[ -d .cache ]]; then
     fd --no-ignore --hidden --max-depth 1 --exclude ast-grep --exclude binlog-mcp --exclude fetched --exclude ghidra --exclude jdtls --exclude nx --exclude pulumi --exclude swiftpm --exclude typescript --exclude xcode . .cache --exec-batch rm -rf
 fi
-rm -rf .cache/swiftpm/build .cache/swiftpm/index .build .swiftpm .playwright-cli
+rm -rf .cache/swiftpm/build .cache/swiftpm/index .cache/swiftpm/vscode .cache/ast-grep/*/parser .build .swiftpm .playwright-cli
 if [[ -d .artifacts ]]; then
     fd --no-ignore --hidden --max-depth 1 --exclude logs --exclude search --exclude workflows . .artifacts --exec-batch rm -rf
 fi
@@ -310,12 +299,13 @@ pnpm cache prune
 '''
 shell       = "bash -c"
 
-[tasks."docker:update"]
-description = "Update and restart Colima's VM on macOS"
-run         = '''
-{% if os() == "macos" %}
-mise daemons start docker
-colima update
-mise daemons restart docker
-{% endif %}
-'''
+[tasks.update]
+description = "Move tools, catalogs, and locks to newest releases"
+run         = [
+    "mise lock --bump",
+    "mise install",
+    "mise install --force pypi:ast-grep/ast-grep-mcp",
+    "mise exec -- nx run rasm:upgrade",
+    "mise exec -- nx run-many --targets=install --projects='directory:tools/**'",
+    "mise prune --yes",
+]

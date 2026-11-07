@@ -13,8 +13,6 @@ const LAST_SEGMENT = /\/[^/]*$/u;
 const ERROR_LINE = /Error\b/u;
 const SPACES = /\s+/u;
 const REASON_WORDS = 9;
-const WORKTREE_ISOLATION = /isolation\s*:\s*['"`]worktree['"`]/u;
-const SECOND_CHECKOUT = 'makes a second checkout, work in place';
 const KINDS = { Bash: 'foreground', Monitor: 'monitor' } as const;
 const ENDED: ReadonlySet<AgentStatus> = new Set(['completed', 'failed', 'killed']);
 const APP_SERVERS = [
@@ -173,8 +171,6 @@ const quitSession = async ($: EngineInterface, session: string): Promise<void> =
     await Promise.all((await rowKeysOf($, session)).map((key) => $.store.delete(key)));
 };
 
-const workflowText = async ($: EngineInterface, file: string, script: string | undefined): Promise<string> => ((await $.fs.exists(file)) ? await $.fs.read(file) : (script ?? ''));
-
 const failClosed = <E, A>(_$: unknown, e: E, next: { (e: E): Promise<A>; readonly called: boolean; readonly error: { readonly message?: string; readonly kind: string } }) =>
     next.called ? next(e) : { deny: `function-hooks failed, ${next.error.message ?? next.error.kind}`.split(SPACES).slice(0, REASON_WORDS).join(' ') };
 
@@ -194,12 +190,7 @@ const register: Register = (on) => {
         driven($, sockets, watches, e.tool, e.agentId).catch((cause: unknown) => watchFailed($, cause));
         return next(e);
     }).catch(failClosed);
-    on('tool.call', { tool: 'EnterWorktree' }, (_$, e) => ({ deny: `${e.tool} ${SECOND_CHECKOUT}` })).catch(failClosed);
-    on('tool.call', { tool: 'Agent', isolation: 'worktree' }, async (_$, { isolation: _isolation, ...e }, next) => {
-        const answer = await next(e);
-        return answer.deny === undefined ? { ...answer, context: [...(answer.context ?? []), 'Agent isolation removed, work in the main checkout'] } : answer;
-    }).catch(failClosed);
-    on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (WORKTREE_ISOLATION.test(await workflowText($, e.scriptPath ?? `${await $.session.root()}/.claude/workflows/${e.name}.js`, e.script)) ? { deny: `${e.tool} worktree ${SECOND_CHECKOUT}` } : next(e))).catch(failClosed);
+    on('classic.WorktreeCreate', () => ({ block: 'A worktree makes a second checkout, work in place' }));
     on('tool.call', { tool: 'mcp__computer-use__request_access' }, (_$, e, next) => (e.agentId === undefined ? next(e) : { deny: 'request_access waits on a person, report back and stop' })).catch(failClosed);
     on('tool.call', { tool: ['mcp__atelier__launch', 'mcp__atelier__open'] }, async ($, e, next) => {
         const answer = await next(e);

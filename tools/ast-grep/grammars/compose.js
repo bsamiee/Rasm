@@ -1,5 +1,5 @@
 import { Record } from 'effect';
-import { any, children, classes, closure, lexemes, lexical, mandatory, named, reaches, rewrite, spans, spellings, symbol, widen } from './derive.js';
+import { any, children, classes, closure, constants, lexemes, lexical, mandatory, named, reaches, rewrite, spans, spellings, symbol, widen } from './derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -60,9 +60,15 @@ const compose = (base, { name, fragments, slots, rules, conflicts }) => {
         conflicts: ($, original) => [...original, [$.substitution], ...conflicts($)],
         rules: {
             substitution: ($) => prec.dynamic(1, repeat1(seq($._hole, $._hole_end))),
-            _hole_forms: () => seq(...hosts.flatMap(({ hole: { opening, closing } }) => [opening, closing])),
-            _hole_tail: () => spans(classes(lexemes(dialect)).identifier),
-            _hole_words: () => seq(...spellings(dialect)),
+            _constants: () => {
+                const words = spellings(dialect);
+                return constants({
+                    HOLE_FORMS: hosts.map(({ hole: { opening, closing } }) => `{${JSON.stringify(opening)}, '${closing}'}`).join(', '),
+                    HOLE_TAIL: spans(classes(lexemes(dialect)).identifier),
+                    HOLE_WORDS: words.map((word) => JSON.stringify(word)).join(', '),
+                    HOLE_WORD_SIZE: Math.max(0, ...words.map(({ length }) => length)) + 1,
+                });
+            },
             source_file: ($, original) => {
                 const led = (fragment) => fragments.some((other) => other !== fragment && symbol(other)(head(dialect.rules[fragment])));
                 const filled = choice(dialect.rules.source_file, ...fragments.map((fragment) => (led(fragment) ? alias(mandatory(dialect.rules[fragment]), $[fragment]) : $[fragment])));

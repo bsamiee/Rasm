@@ -2,13 +2,12 @@ import { globAsync, type Tree } from '@nx/devkit';
 import { Array, Effect, Equal, Option, Predicate, String } from 'effect';
 import { type Document, isNode, type Node, Pair, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 import { Sgconfig } from '#/eng/typescript/manifest';
-import { decodeTree, syncGenerator, treeText, yamlDocuments } from '#/tools/nx/sync/tree';
+import { decodeTree, syncGenerator, treeText, YAML_LAYOUT, yamlDocuments } from '#/tools/nx/sync/tree';
 import { WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MIRROR = 'injection-utils';
-const LAYOUT = { indent: 4, lineWidth: 0, flowCollectionPadding: false, singleQuote: true } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -78,7 +77,7 @@ const mirror = (doc: Document, root: YAMLMap, entry: YAMLMap) => {
     const at = placed.findIndex((pair) => named(pair) === 'rule');
     const next = doc.clone();
     next.value = new YAMLMap(root.schema, utils.size === 0 ? placed : [...placed.slice(0, at), new Pair(new Scalar('utils'), utils), ...placed.slice(at)]);
-    return next.toString(LAYOUT);
+    return next.toString(YAML_LAYOUT);
 };
 const mirrored = (entries: readonly YAMLMap[], file: string) => (doc: Document) => {
     const language = Option.flatMap(field(doc.value, 'language'), scalar);
@@ -90,7 +89,7 @@ const mirrored = (entries: readonly YAMLMap[], file: string) => (doc: Document) 
         Predicate.isString,
     );
     return Option.match(Option.all({ root: Option.liftPredicate(doc.value, isMap), wanted: injected }), {
-        onNone: () => Effect.succeed(doc.toString(LAYOUT)),
+        onNone: () => Effect.succeed(doc.toString(YAML_LAYOUT)),
         onSome: ({ root, wanted }) =>
             Effect.map(
                 Effect.fromOption(

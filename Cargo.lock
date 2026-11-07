@@ -10131,6 +10131,8 @@ dependencies = [
  "data-encoding",
  "fs-err",
  "futures",
+ "itertools 0.15.0",
+ "jiff",
  "nix",
  "notify",
  "rasm-command",
@@ -10142,10 +10144,12 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "tempfile",
+ "thiserror 2.0.21",
  "tokio",
  "tokio-util",
  "tracing-subscriber",
  "url",
+ "walkdir",
 ]
 
 [[package]]
@@ -10449,23 +10453,26 @@ dependencies = [
 name = "rasm-process"
 version = "0.0.0"
 dependencies = [
+ "derive_more",
  "fs-err",
+ "itertools 0.15.0",
  "jiff",
  "libc",
  "libproc",
  "nonempty-collections",
+ "opentelemetry-semantic-conventions",
  "process-wrap",
  "rustix",
  "serde",
  "serde_json",
  "serde_path_to_error",
+ "serde_with",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "tokio-stream",
  "tokio-util",
  "tracing",
- "url",
  "walkdir",
 ]
 

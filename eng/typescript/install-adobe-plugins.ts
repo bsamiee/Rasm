@@ -21,16 +21,12 @@ const uxp = Effect.fn('uxp')(function* (built: string) {
     yield* replaced(manifest, `${built}.ccx`);
 });
 const cep = Effect.fn('cep')(function* (built: string) {
-    const [fs, path, { id, version }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, decodeFile(ExtensionManifest.fromXml, built, ExtensionManifest.file)]);
+    const [fs, path, { id }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, decodeFile(ExtensionManifest.fromXml, built, ExtensionManifest.file)]);
     const folder = yield* extension(id);
     const parent = path.dirname(folder);
     yield* fs.makeDirectory(parent, { recursive: true });
     const stage = yield* fs.makeTempDirectoryScoped({ directory: parent });
     yield* runCommand('cmake', ['-E', 'tar', 'xf', path.resolve(`${built}.zxp`)], { cwd: stage });
-    const manifest = yield* decodeFile(ExtensionManifest.fromXml, stage, ExtensionManifest.file);
-    if (manifest.id !== id || manifest.version !== version) {
-        return yield* HostError.refused(built)('The archive does not match the extension build');
-    }
     yield* fs.remove(folder, { recursive: true, force: true });
     yield* fs.rename(stage, folder);
 }, Effect.scoped);

@@ -199,6 +199,6 @@ public static class Grips {
     public static IO<Unit> Register<TGrips>(Func<RhinoObject, Option<TGrips>> grips) where TGrips : DefinedObjectGrips =>
         IO.lift(() => CustomObjectGrips.RegisterGripsEnabler(target => Session.Run(
             (from candidate in IO.lift(() => grips(target))
-             from attached in candidate.Traverse(built => Products.Transfer(built, held => Products.Accepted(() => target.EnableCustomGrips(held)))).As()
+             from attached in candidate.Traverse(built => Products.Transfer(() => built, held => Products.Accepted(() => target.EnableCustomGrips(held)))).As()
              select unit).Uninterruptible()), typeof(TGrips)));
 }

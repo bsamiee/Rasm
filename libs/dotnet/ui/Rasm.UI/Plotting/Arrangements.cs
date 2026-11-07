@@ -119,7 +119,7 @@ public static class Arrangements {
     }
 
     private static Seq<(Hierarchy Node, SKRect Rect)> Squarified(Seq<Hierarchy> items, SKRect rect) =>
-        toSeq(LanguageExt.List.unfold<Seq<Hierarchy>, SKRect, Seq<(Hierarchy Node, SKRect Rect)>>((items, rect), static (pending, space) => {
+        toSeq(LanguageExt.List.unfold((items, rect), static (pending, space) => {
             if (pending.IsEmpty || space.Width <= 0f || space.Height <= 0f) return None;
             float total = pending.Sum(static held => held.Weight);
             Seq<float> areas = pending.Map(item => item.Weight * space.Width * space.Height / total);

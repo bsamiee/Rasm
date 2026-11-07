@@ -1,18 +1,7 @@
 name: Setup
 description: Installs toolchain and dependencies, restores the task cache
 
-inputs:
-    image-license:
-        description: License for projects that compile against ImageSharp
-        required: false
-
 outputs:
-    image-license:
-        description: Whether the job can build licensed image projects
-        value: ${{ steps.license.outputs.available }}
-    no-previous-build:
-        description: Whether Nx found no recent successful CI run
-        value: ${{ steps.shas.outputs.noPreviousBuild }}
     task-paths:
         description: Paths the job saves into the task cache after its checks
         value: ${{ steps.tasks.outputs.paths }}
@@ -23,15 +12,12 @@ outputs:
 runs:
     using: composite
     steps:
-        - id: shas
-          uses: nrwl/nx-set-shas@v5
-          with:
-            workflow-id: ci.yml
-        - id: license
-          run: bash eng/scripts/ci.sh license
-          env:
-            KEY: ${{ inputs.image-license }}
+        - id: tree
+          run: printf 'sha=%s\n' "$(git hash-object -t tree /dev/null)" >> "$GITHUB_OUTPUT"
           shell: bash
+        - uses: nrwl/nx-set-shas@v5
+          with:
+            fallback-sha: ${{ steps.tree.outputs.sha }}
         - uses: maxim-lobanov/setup-xcode@v1.7.0
           if: runner.os == 'macOS'
         - id: rustup
@@ -43,8 +29,8 @@ runs:
           env:
             MISE_PYTHON_UV_VENV_AUTO: create|source
             MISE_ENABLE_TOOLS: >-
-                aqua:nextest-rs/nextest/cargo-nextest,cmake,docker-cli,dotnet,dotnet:minver-cli,fd,github:fonttools/fontspector,github:linebender/resvg,github:sbdchd/squawk,github:trailofbits/dylint,hk,jq,node,pnpm,python,resvg,ripgrep,rust,uv
-                ${{ runner.os == 'macOS' && ',ast-grep,github:NationalSecurityAgency/ghidra,github:pmd/pmd,google-java-format,http:xcode-build-server,imagemagick,jactionlint,java,periphery,pitchfork,shellcheck,shfmt,swiftlint,tombi,tree-sitter' || '' }}
+                aqua:nextest-rs/nextest/cargo-nextest,cmake,docker-cli,dotnet,dotnet:minver-cli,fd,github:fonttools/fontspector,github:linebender/resvg,github:sbdchd/squawk,github:trailofbits/dylint,jq,node,pnpm,python,resvg,ripgrep,rust,uv
+                ${{ runner.os == 'macOS' && ',ast-grep,github:NationalSecurityAgency/ghidra,github:pmd/pmd,google-java-format,hk,imagemagick,jactionlint,java,periphery,shellcheck,shfmt,swiftlint,tombi,tree-sitter' || '' }}
           with:
             auto_update: true
             minimum_release_age: 0s
@@ -54,30 +40,13 @@ runs:
           with:
             path: ~/.rustup/toolchains
             key: ${{ steps.rustup.outputs.cache-primary-key }}
-        - id: stores
-          run: printf 'uv=%s\n' "$(uv cache dir)" >> "$GITHUB_OUTPUT"
-          shell: bash
-        - id: uv
-          uses: actions/cache/restore@v6
-          with:
-            path: ${{ steps.stores.outputs.uv }}
-            key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock') }}
-            restore-keys: uv-${{ runner.os }}-${{ runner.arch }}-
         - run: pnpm install --frozen-lockfile
           shell: bash
-        - run: uv sync --locked --no-default-groups --group dev --python "$RASM_PYTHON_INSTALL_DIR"
+        - run: uv sync --locked --no-default-groups --group dev
           shell: bash
         - run: playwright install --with-deps --only-shell chromium
           if: runner.os == 'Linux'
           shell: bash
-        - run: uv cache prune --ci
-          if: github.event_name == 'push' && steps.uv.outputs.cache-hit != 'true'
-          shell: bash
-        - uses: actions/cache/save@v6
-          if: github.event_name == 'push' && steps.uv.outputs.cache-hit != 'true'
-          with:
-            path: ${{ steps.stores.outputs.uv }}
-            key: ${{ steps.uv.outputs.cache-primary-key }}
         - id: cargo
           run: printf 'build=%s\n' "$(node -p "require('node:path').relative('.', process.argv[1])" "$(cargo metadata --format-version 1 --no-deps | jq -r .build_directory)")" >> "$GITHUB_OUTPUT"
           shell: bash
@@ -88,7 +57,7 @@ runs:
             cache-on-failure: true
             save-if: ${{ github.event_name == 'push' }}
         - id: tasks
-          run: bash eng/scripts/ci.sh cache-paths
+          run: nx show projects > /dev/null && database=$(basename "$NX_WORKSPACE_DATA_DIRECTORY"/*.db) && prefix="tasks-$RUNNER_OS-$RUNNER_ARCH-${database##*-}-" && printf 'database=%s\nprefix=%s\nkey=%s%s-%s\npaths<<PATHS\n%s\n%s/*-%s\nPATHS\n' "$database" "$prefix" "$prefix" "$GITHUB_SHA" "$GITHUB_RUN_ATTEMPT" "$(jq -r .cacheDirectory nx.json)" "$NX_WORKSPACE_DATA_DIRECTORY" "${database##*-}" >> "$GITHUB_OUTPUT"
           shell: bash
         - id: restored
           uses: actions/cache/restore@v6
@@ -97,7 +66,7 @@ runs:
             key: ${{ steps.tasks.outputs.key }}
             restore-keys: ${{ steps.tasks.outputs.prefix }}
         - if: steps.restored.outputs.cache-matched-key != ''
-          run: bash eng/scripts/ci.sh restore-cache
+          run: find "$NX_WORKSPACE_DATA_DIRECTORY" -maxdepth 1 -name "*-${DATABASE##*-}" ! -name "$DATABASE" -exec mv {} "$NX_WORKSPACE_DATA_DIRECTORY/$DATABASE" \;
           env:
-            NX_CACHE_DATABASE: ${{ steps.tasks.outputs.database }}
+            DATABASE: ${{ steps.tasks.outputs.database }}
           shell: bash

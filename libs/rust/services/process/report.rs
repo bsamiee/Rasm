@@ -1,20 +1,26 @@
-use core::{num::NonZero, pin::pin, time::Duration};
+use core::{
+    iter,
+    num::NonZero,
+    pin::{Pin, pin},
+    time::Duration,
+};
 #[cfg(unix)]
 use std::os::unix::process::ExitStatusExt as _;
 use std::{
     error,
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     io::{self, Write as _},
     path::{self, Path, PathBuf},
     process::ExitStatus,
     sync::Arc,
 };
 
-use fs_err::{File, PathExt as _, create_dir_all};
+use fs_err::{File, create_dir_all};
+use itertools::Itertools as _;
 use jiff::Timestamp;
 use nonempty_collections::NEVec;
+use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use serde::Serialize;
-use serde_json::{Map, json};
 use tempfile::{Builder, NamedTempFile, TempDir};
 use tokio::{
     process::Command,
@@ -25,7 +31,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use walkdir::WalkDir;
 
-use crate::{Failure, Stop};
+use crate::{Failure, Operation, Stop};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -36,10 +42,10 @@ const REPORT: &str = "execution.json";
 
 #[derive(Serialize)]
 #[serde(tag = "status", content = "error", rename_all = "lowercase")]
-enum Verdict<Message> {
+enum Verdict {
     Passed,
-    Failed(Message),
-    Interrupted(Message),
+    Failed(String),
+    Interrupted(String),
 }
 
 #[derive(Serialize)]
@@ -53,14 +59,48 @@ struct Evidence<'event, Details> {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Exit {
+    code: Option<i32>,
+    #[cfg(unix)]
+    signal: Option<i32>,
+    #[cfg(unix)]
+    core_dumped: bool,
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum Subject<'subject> {
+    Process {
+        pid: Option<NonZero<u32>>,
+        program: &'subject Path,
+        log: &'subject Path,
+        stderr: &'subject Path,
+        #[serde(flatten)]
+        exit: Option<Exit>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        case: Option<String>,
+    },
+    Application {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pid: Option<NonZero<u32>>,
+        bundle: &'subject Path,
+        log: &'subject Path,
+    },
+    Scratch {
+        directory: &'subject Path,
+    },
+}
+
+#[derive(Serialize)]
 #[serde(untagged, rename_all_fields = "camelCase")]
-enum State<'report> {
+enum State {
     Running {
         status: &'static str,
     },
     Finished {
         #[serde(flatten)]
-        verdict: Verdict<&'report str>,
+        verdict: Verdict,
         elapsed_ms: f64,
         attachments: Vec<PathBuf>,
     },
@@ -68,12 +108,12 @@ enum State<'report> {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Report<'report> {
+struct Report {
     started: Timestamp,
     deadline_ms: f64,
     journal: &'static str,
     #[serde(flatten)]
-    state: State<'report>,
+    state: State,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -100,49 +140,38 @@ impl Run {
     where
         Failure: error::Error + From<io::Error>,
     {
-        let run = Self::open(output_root, budget).await.map_err(|source| NEVec::new(Failure::from(source)))?;
-        let (result, stopped, reported) = {
-            let active = Instant::now() < run.deadline;
-            let mut work = pin!(work(&run));
-            let selected = if active {
-                tokio::select! {
-                    biased;
-                    result = &mut work => Ok(result),
-                    () = sleep_until(run.deadline) => Err(Stop::Deadline),
-                    () = interrupt => Err(Stop::Cancelled),
-                }
-            } else {
-                Err(Stop::Deadline)
+        async fn stopped<Work, Output, Failure>(run: &Run, reason: Stop, work: Pin<&mut Work>) -> (Result<Output, Failure>, Verdict, io::Result<()>)
+        where
+            Work: Future<Output = Result<Output, Failure>>,
+            Failure: error::Error + From<io::Error>,
+        {
+            let (name, kind, verdict): (_, _, fn(String) -> Verdict) = match reason {
+                Stop::Cancelled => ("run interrupted", io::ErrorKind::Interrupted, Verdict::Interrupted),
+                Stop::Deadline => ("run deadline expired", io::ErrorKind::TimedOut, Verdict::Failed),
             };
-            match selected {
-                Ok(result) => (result, None, Ok(())),
-                Err(reason) => {
-                    let (name, kind) = match reason {
-                        Stop::Cancelled => ("run interrupted", io::ErrorKind::Interrupted),
-                        Stop::Deadline => ("run deadline expired", io::ErrorKind::TimedOut),
-                    };
-                    run.stopping.cancel();
-                    let source = io::Error::from(kind);
-                    let error = source.to_string();
-                    let fault = run.fault(name, (), &error);
-                    let (reported, work_error) = if active {
-                        let (reported, result) = tokio::join!(fault, work);
-                        (reported, result.err())
-                    } else {
-                        (fault.await, None)
-                    };
-                    (Err(work_error.unwrap_or_else(|| source.into())), Some(reason), reported)
+            run.stopping.cancel();
+            let source = io::Error::from(kind);
+            let message = source.to_string();
+            let (reported, result) = tokio::join!(run.fault(name, (), &message), work);
+            let error = result.err().unwrap_or_else(|| source.into());
+            let verdict = verdict(error::Report::new(&error).to_string());
+            (Err(error), verdict, reported)
+        }
+        let run = Self::open(output_root, budget).await.map_err(|source| NEVec::new(Failure::from(source)))?;
+        let (result, verdict, reported) = {
+            let mut work = pin!(work(&run));
+            tokio::select! {
+                biased;
+                result = &mut work => {
+                    let verdict = result.as_ref().map_or_else(|error| Verdict::Failed(error::Report::new(error).to_string()), |_| Verdict::Passed);
+                    (result, verdict, Ok(()))
                 }
+                () = sleep_until(run.deadline) => stopped(&run, Stop::Deadline, work).await,
+                () = interrupt => stopped(&run, Stop::Cancelled, work).await,
             }
         };
-        let error = result.as_ref().err().map(|source| error::Report::new(source).to_string());
-        let verdict = match (error, stopped) {
-            (None, _) => Verdict::Passed,
-            (Some(error), Some(Stop::Cancelled)) => Verdict::Interrupted(error),
-            (Some(error), None | Some(Stop::Deadline)) => Verdict::Failed(error),
-        };
         let finished = run.finish(verdict).await;
-        let later = reported.err().into_iter().chain(finished.err()).map(Failure::from).collect::<Vec<_>>();
+        let later = iter::chain(reported.err(), finished.err().into_iter().flatten()).map(Failure::from).collect::<Vec<_>>();
         match result {
             Ok(value) => NEVec::try_from_vec(later).map_or(Ok(value), Err),
             Err(error) => Err(NEVec::from((error, later))),
@@ -159,10 +188,8 @@ impl Run {
             let directory = Builder::new().prefix("run-").tempdir_in(&output_root)?;
             let scratch = Builder::new().prefix("scratch-").tempdir_in(output_root)?;
             let mut journal = File::create_new(directory.path().join(JOURNAL))?;
-            let deadline_ms = budget.as_millis_f64();
-            write_report(directory.path(), &Report { started, deadline_ms, journal: JOURNAL, state: State::Running { status: "running" } })?;
-            let line = encoded(&Evidence { name: "run started", elapsed_ms: start.elapsed().as_millis_f64(), details: json!({ "deadlineMs": deadline_ms }), error: None })?;
-            write_line(&mut journal, line)?;
+            write_report(directory.path(), &Report { started, deadline_ms: budget.as_millis_f64(), journal: JOURNAL, state: State::Running { status: "running" } })?;
+            write_line(&mut journal, encoded(&Evidence { name: "run started", elapsed_ms: start.elapsed().as_millis_f64(), details: (), error: None })?)?;
             Ok::<_, io::Error>(Self { directory: directory.keep(), scratch, start, started, deadline, stopping: CancellationToken::new(), journal: Arc::new(Mutex::new(journal)) })
         })
         .await
@@ -171,48 +198,47 @@ impl Run {
         Ok(run)
     }
 
-    async fn finish(self, verdict: Verdict<String>) -> io::Result<()> {
+    async fn finish(self, verdict: Verdict) -> Result<(), NEVec<io::Error>> {
         let Self { directory, scratch, start, started, deadline, stopping: _, journal } = self;
         let mut journal = journal.lock_owned().await;
         task::spawn_blocking(move || {
             let scratch_path = scratch.path().to_owned();
-            let released = scratch.close().or_else(|error| if error.kind() == io::ErrorKind::NotFound { Ok(()) } else { Err(error) }).and_then(|()| match scratch_path.fs_err_symlink_metadata() {
-                Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-                Err(error) => Err(error),
-                Ok(_) => Err(io::Error::other(format!("Scratch directory {} still exists", scratch_path.display()))),
-            });
-            let release_error = released.as_ref().err().map(ToString::to_string);
-            let (name, details) = match &release_error {
-                None => ("run scratch released", serde_json::json!({ "directory": scratch_path, "absent": true })),
-                Some(_) => ("run scratch cleanup failed", serde_json::json!({ "directory": scratch_path })),
-            };
-            let recorded = encoded(&Evidence { name, elapsed_ms: start.elapsed().as_millis_f64(), details, error: release_error.as_deref() }).and_then(|line| write_line(&mut journal, line));
-            let listed = attachments(&directory);
-            let errors = release_error
-                .map(|error| format!("Cannot remove scratch {}: {error}", scratch_path.display()))
+            let released =
+                scratch.close().or_else(|error| (error.kind() == io::ErrorKind::NotFound).ok_or(error)).err().map(|error| format!("Cannot remove scratch {}: {error}", scratch_path.display()));
+            let details = Subject::Scratch { directory: &scratch_path };
+            let recorded = encoded(&Evidence { name: "run scratch released", elapsed_ms: start.elapsed().as_millis_f64(), details, error: released.as_deref() })
+                .and_then(|line| write_line(&mut journal, line))
+                .err()
+                .map(|error| format!("Cannot record scratch release: {error}"));
+            let listed = WalkDir::new(&directory)
+                .min_depth(1)
+                .sort_by_file_name()
                 .into_iter()
-                .chain(recorded.err().map(|error| format!("Cannot record scratch release: {error}")))
-                .chain(listed.as_ref().err().map(|error| format!("Cannot list run attachments: {error}")))
-                .collect::<Vec<_>>();
-            let combined = (!errors.is_empty()).then(|| {
-                let work_error = match &verdict {
-                    Verdict::Passed => None,
-                    Verdict::Failed(error) | Verdict::Interrupted(error) => Some(error),
-                };
-                work_error.into_iter().chain(&errors).map(String::as_str).collect::<Vec<_>>().join("\n")
-            });
-            let verdict = match (&combined, &verdict) {
-                (Some(error), _) | (None, Verdict::Failed(error)) => Verdict::Failed(error.as_str()),
-                (None, Verdict::Interrupted(error)) => Verdict::Interrupted(error.as_str()),
-                (None, Verdict::Passed) => Verdict::Passed,
+                .filter_map(|entry| match entry {
+                    Ok(entry) if entry.file_type().is_file() => Some(entry.into_path().strip_prefix(&directory).map(Path::to_owned).map_err(io::Error::other)),
+                    Ok(_) => None,
+                    Err(error) => Some(Err(error.into())),
+                })
+                .filter(|entry| !matches!(entry, Ok(path) if path == Path::new(REPORT) || path == Path::new(JOURNAL)))
+                .collect::<io::Result<Vec<_>>>();
+            let (attachments, unlisted) = match listed {
+                Ok(attachments) => (attachments, None),
+                Err(error) => (Vec::new(), Some(format!("Cannot list run attachments: {error}"))),
             };
-            let state = State::Finished { verdict, elapsed_ms: start.elapsed().as_millis_f64(), attachments: listed.unwrap_or_default() };
+            let failures = [released, recorded, unlisted].into_iter().flatten().collect::<Vec<_>>();
+            let verdict = match (verdict, failures.is_empty()) {
+                (Verdict::Passed, true) => Verdict::Passed,
+                (Verdict::Interrupted(error), true) => Verdict::Interrupted(error),
+                (Verdict::Passed, false) => Verdict::Failed(failures.iter().join("\n")),
+                (Verdict::Failed(error), _) | (Verdict::Interrupted(error), false) => Verdict::Failed(iter::chain([&error], &failures).join("\n")),
+            };
+            let state = State::Finished { verdict, elapsed_ms: start.elapsed().as_millis_f64(), attachments };
             let published = write_report(&directory, &Report { started, deadline_ms: deadline.duration_since(start).as_millis_f64(), journal: JOURNAL, state });
-            let errors = errors.into_iter().chain(published.err().map(|error| format!("Cannot publish final run report: {error}"))).collect::<Vec<_>>();
-            if errors.is_empty() { Ok(()) } else { Err(io::Error::other(errors.join("\n"))) }
+            let failures = iter::chain(failures, published.err().map(|error| format!("Cannot publish final run report: {error}"))).map(io::Error::other).collect();
+            NEVec::try_from_vec(failures).map_or(Ok(()), Err)
         })
         .await
-        .map_err(io::Error::other)?
+        .map_err(|error| NEVec::new(io::Error::other(error)))?
     }
 
     // --- [PATHS_AND_TIME]
@@ -228,47 +254,44 @@ impl Run {
     pub async fn cancelled(&self) { self.stopping.cancelled().await; }
 
     // --- [PROCESSES]
-    pub async fn command(&self, mut command: Command, stem: &str, active_case: Option<&Path>) -> io::Result<NonZero<u32>> {
-        if Path::new(stem).file_name() != Some(OsStr::new(stem)) {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "log name must be a single path component"));
-        }
-        let log = self.directory.join(format!("{stem}.log"));
-        let stderr = self.directory.join(format!("{stem}-stderr.log"));
+    pub async fn command(&self, mut command: Command, active_case: Option<&Path>) -> io::Result<NonZero<u32>> {
         let program = PathBuf::from(command.as_std().get_program());
+        let stem = program.file_stem().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "program has no file name"))?;
+        let named = |suffix: &str| self.directory.join([stem, OsStr::new(suffix)].into_iter().collect::<OsString>());
+        let (log, stderr) = (named(".log"), named("-stderr.log"));
         let open = async |path: &Path| Ok::<_, io::Error>(fs_err::tokio::File::create_new(path).await?.into_std().await.into_file());
         command.stdout(open(&log).await?).stderr(open(&stderr).await?);
-        let process = |pid: Option<NonZero<u32>>| {
-            [("pid".into(), json!(pid)), ("program".into(), json!(program)), ("log".into(), json!(log)), ("stderr".into(), json!(stderr))].into_iter().collect::<Map<_, _>>()
-        };
-        let started = async |pid, _, _| self.record("process started", process(Some(pid))).await;
+        let process = |pid, exit, case| Subject::Process { pid, program: &program, log: &log, stderr: &stderr, exit, case };
+        let started = async |pid, _, _| self.record("process started", process(Some(pid), None, None)).await;
         let exited = async |pid, outcome: Result<ExitStatus, Stop>| {
-            let mut details = process(Some(pid));
-            let (name, error) = match outcome {
-                Ok(status) => {
-                    details.extend([("code".into(), json!(status.code()))]);
-                    #[cfg(unix)]
-                    details.extend([("signal".into(), json!(status.signal())), ("coreDumped".into(), json!(status.core_dumped()))]);
-                    ("process exited", status.exit_ok().err().map(|source| source.to_string()))
-                }
-                Err(reason) => ("process interrupted", Some(reason.to_string())),
+            let (name, exit, error) = match outcome {
+                Ok(status) => (
+                    "process exited",
+                    Some(Exit {
+                        code: status.code(),
+                        #[cfg(unix)]
+                        signal: status.signal(),
+                        #[cfg(unix)]
+                        core_dumped: status.core_dumped(),
+                    }),
+                    status.exit_ok().err().map(|source| source.to_string()),
+                ),
+                Err(reason) => ("process interrupted", None, Some(reason.to_string())),
             };
-            let Some(error) = error else { return self.record(name, details).await };
-            if let Some(path) = active_case {
-                match fs_err::tokio::read_to_string(path).await {
-                    Ok(case) => drop(details.insert("case".into(), json!(case))),
-                    Err(source) if source.kind() == io::ErrorKind::NotFound => (),
-                    Err(source) => drop(details.insert("caseError".into(), json!(source.to_string()))),
-                }
-            }
-            self.fault(name, details, &error).await
+            let Some(error) = error else { return self.record(name, process(Some(pid), exit, None)).await };
+            let case = match active_case {
+                Some(path) => fs_err::tokio::read_to_string(path).await.map(Some).or_else(|source| (source.kind() == io::ErrorKind::NotFound).ok_or(source).map(|()| None))?,
+                None => None,
+            };
+            self.fault(name, process(Some(pid), exit, case), &error).await
         };
         let (pid, status) = match crate::run(command, self.deadline, &self.stopping, started, exited).await {
             Ok(process) => process,
             Err(mut failure) => {
                 if failure.process.is_none()
-                    && let Err(error) = self.fault("process did not start", process(None), &failure.to_string()).await
+                    && let Err(source) = self.fault("process did not start", process(None, None, None), &failure.to_string()).await
                 {
-                    failure.failures.push(Failure::Observe(error));
+                    failure.failures.push(Failure::Io { operation: Operation::Observe, source });
                 }
                 return Err(io::Error::other(failure));
             }
@@ -281,7 +304,8 @@ impl Run {
         let log = self.directory.join("watch-apps.jsonl");
         let frames = Arc::new(Mutex::new(fs_err::tokio::OpenOptions::new().create(true).append(true).open(&log).await?.into_std().await));
         let bundle = launch.bundle;
-        self.record("application selected", json!({ "bundle": bundle, "log": log })).await?;
+        let application = |pid| Subject::Application { pid, bundle, log: &log };
+        self.record("application selected", application(None)).await?;
         crate::macos::launch(
             watcher,
             launch,
@@ -294,7 +318,7 @@ impl Run {
                 task::spawn_blocking(move || frames.blocking_lock().write_all(&row)).await.map_err(io::Error::other)?
             },
             async |pid| {
-                self.record("application ready", json!({ "pid": pid, "bundle": bundle })).await?;
+                self.record("application ready", application(Some(pid))).await?;
                 work(pid).await
             },
         )
@@ -305,7 +329,7 @@ impl Run {
     pub async fn record(&self, name: &str, details: impl Serialize) -> io::Result<()> { self.append(name, details, None).await }
 
     pub async fn fault(&self, name: &str, details: impl Serialize, error: &str) -> io::Result<()> {
-        tracing::error!(directory = %self.directory.display(), %error, "{name}");
+        tracing::error!(directory = %self.directory.display(), name, { EXCEPTION_MESSAGE } = error, "run fault");
         self.append(name, details, Some(error)).await
     }
 
@@ -318,7 +342,6 @@ impl Run {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [JOURNAL]
 fn encoded(evidence: &Evidence<'_, impl Serialize>) -> io::Result<(Vec<u8>, bool)> {
     let mut line = serde_json::to_vec(evidence)?;
     line.push(b'\n');
@@ -330,23 +353,7 @@ fn write_line(journal: &mut File, (line, durable): (Vec<u8>, bool)) -> io::Resul
     if durable { journal.sync_data() } else { Ok(()) }
 }
 
-// --- [REPORT]
-fn attachments(directory: &Path) -> io::Result<Vec<PathBuf>> {
-    let mut files = WalkDir::new(directory)
-        .min_depth(1)
-        .into_iter()
-        .filter_map(|entry| match entry {
-            Ok(entry) if entry.file_type().is_file() => Some(entry.into_path().strip_prefix(directory).map(Path::to_owned).map_err(io::Error::other)),
-            Ok(_) => None,
-            Err(error) => Some(Err(error.into())),
-        })
-        .filter(|entry| !matches!(entry, Ok(path) if path == Path::new(REPORT) || path == Path::new(JOURNAL)))
-        .collect::<io::Result<Vec<_>>>()?;
-    files.sort_unstable();
-    Ok(files)
-}
-
-fn write_report(directory: &Path, report: &Report<'_>) -> io::Result<()> {
+fn write_report(directory: &Path, report: &Report) -> io::Result<()> {
     let mut temporary = NamedTempFile::new_in(directory)?;
     temporary.write_all(&serde_json::to_vec_pretty(report)?)?;
     temporary.as_file().sync_data()?;

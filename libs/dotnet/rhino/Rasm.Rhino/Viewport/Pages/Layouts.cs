@@ -163,7 +163,7 @@ public static class Layouts {
             GeometryPair.WithAttributes(doc.CreateDefaultAttributes, None, attributes => IO.lift(() => {
                 (attributes.LayerIndex, attributes.Space, attributes.ViewportId) = (layer.Index, ActiveSpace.PageSpace, page.MainViewport.Id);
                 return RhinoFault.Unless(attributes.SetUserString(FrameKey, name), RhinoReason.Declined, name)
-                    .Bind(_ => Conversions.Required(Conversions.Present(doc.Objects.AddInstanceObject(definition, Transform.Identity, attributes))));
+                    .Map(_ => Conversions.Required(Conversions.Present(doc.Objects.AddInstanceObject(definition, Transform.Identity, attributes)))).Flatten();
             })).Map(unit)).As()
         from purged in Products.Each(stale.Map(static mark => mark.Key).Distinct().Map(key => IO.lift(() => Optional(doc.InstanceDefinitions.Find(key))
             .Filter(static unused => unused.GetReferences(0).Length is 0)
@@ -173,15 +173,15 @@ public static class Layouts {
     private static IO<int> Defined(RhinoDoc doc, string name, int layer, Seq<(Func<XxHash128, XxHash128> Fields, Option<double> PlotWeight, Func<Fin<GeometryBase>> Shape)> marks) =>
         Optional(doc.InstanceDefinitions.Find(name)).Match(
             Some: static held => IO.pure(held.Index),
-            None: () => (from shapes in marks.TraverseM(static mark => IO.lift(mark.Shape).Bind(static made => use(() => made))).As()
-                         from index in GeometryPair.WithAttributes(doc.CreateDefaultAttributes, shapes.Map(static shape => new GeometryPair(shape, None)), (geometry, attributes) => IO.lift(() => {
-                             _ = attributes.Zip(marks).Iter(row => {
-                                 row.First.LayerIndex = layer;
-                                 _ = row.Second.PlotWeight.Iter(stroke => (row.First.PlotWeightSource, row.First.PlotWeight) = (ObjectPlotWeightSource.PlotWeightFromObject, stroke));
-                             });
-                             return Conversions.Required(Conversions.Present(doc.InstanceDefinitions.Add(name, FrameKey, Point3d.Origin, geometry, attributes)));
-                         }))
-                         select index).Bracket());
+            None: (from shapes in marks.TraverseM(static mark => IO.lift(mark.Shape).Bind(static made => use(() => made))).As()
+                   from index in GeometryPair.WithAttributes(doc.CreateDefaultAttributes, shapes.Map(static shape => new GeometryPair(shape, None)), (geometry, attributes) => IO.lift(() => {
+                       _ = attributes.Zip(marks).Iter(row => {
+                           row.First.LayerIndex = layer;
+                           _ = row.Second.PlotWeight.Iter(stroke => (row.First.PlotWeightSource, row.First.PlotWeight) = (ObjectPlotWeightSource.PlotWeightFromObject, stroke));
+                       });
+                       return Conversions.Required(Conversions.Present(doc.InstanceDefinitions.Add(name, FrameKey, Point3d.Origin, geometry, attributes)));
+                   }))
+                   select index).Bracket());
 
     private static Seq<(Func<XxHash128, XxHash128> Fields, Option<double> PlotWeight, Func<Fin<GeometryBase>> Shape)> Marks(RhinoDoc doc, FrameStyle style, DimensionStyle lettering, Sheet sheet) =>
         sheet.Frame.Map(mark => mark.Switch(

@@ -3,7 +3,7 @@ import { layerPosix } from '@effect/platform-node/NodePath';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateNodesContext, hashArray } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Path, Predicate, Record, Schema, Scope, String, Struct } from 'effect';
+import { Array, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Order, Path, Predicate, Record, Schema, Scope, String, Struct } from 'effect';
 import { escape } from 'minimatch';
 import { serverFS } from 'typescript/fs';
 import { API } from 'typescript/sync';
@@ -68,7 +68,6 @@ const CargoMetadata = Schema.Struct({
             manifest: Schema.String,
             targets: Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.NonEmptyArray(Schema.String), types: Schema.Array(Schema.String), source: Schema.String, test: Schema.Boolean }).pipe(Schema.encodeKeys({ types: 'crate_types', source: 'src_path' }))),
             dependencies: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.OptionFromOptionalKey(Schema.String) })),
-            metadata: Schema.OptionFromNullOr(Schema.Struct({ nx: Schema.OptionFromOptionalKey(Schema.Record(Schema.String, Schema.Unknown)) })),
         }).pipe(Schema.encodeKeys({ manifest: 'manifest_path' })),
     ),
 });
@@ -81,7 +80,6 @@ const SwiftPackage = Schema.Struct({
     products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String) })),
     platforms: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.String })),
 });
-const NxReleaseConfiguration = Schema.Struct({ releaseTag: Schema.Struct({ pattern: Schema.String }), groups: Schema.Record(Schema.String, Schema.Struct({ projects: Schema.ArrayEnsure(Schema.String) })) });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -148,14 +146,13 @@ const readScopes = Effect.fnUntraced(function* (workspaceRoot: string, folders: 
         ],
         { concurrency: 'unbounded' },
     );
-    const fixtures = new Set(sources);
     return yield* Effect.validate(
         files,
         Effect.fnUntraced(function* (file: string) {
             const scope = path.dirname(file);
             const { project } = yield* decodeFile(HostPyproject, workspaceRoot, file);
-            const suites = testPaths.map((base) => suitePath(path, base, scope)).filter((suite) => sources.some((source) => source.startsWith(`${suite}${path.sep}`)));
-            return { scope, version: project.minimum[1], suites, fixtures: suites.length === 0 ? [] : [conftest('.'), ...suiteParents(path, suites).map(conftest)].filter((file) => fixtures.has(file)).sort() };
+            const suites = testPaths.map((base) => suitePath(path, base, scope)).filter((suite) => sources.some(String.startsWith(`${suite}${path.sep}`)));
+            return { scope, version: project.minimum[1], suites, fixtures: suites.length === 0 ? [] : Array.sort(Array.intersection([conftest('.'), ...suiteParents(path, suites).map(conftest)], sources), Order.String) };
         }),
         { concurrency: 'unbounded' },
     );
@@ -205,6 +202,7 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         hosts,
         pyproject,
         swiftManifest,
+        release: nxJsonConfiguration.release,
         scanExclusions: Effect.map(
             crates,
             Function.flow(
@@ -221,7 +219,6 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
             mise: Effect.cached(Mise.read(workspaceRoot)),
             packages: Effect.cached(readPackages(workspaceRoot)),
             pythonScopes: Effect.cached(Effect.flatMap(Effect.all([hosts, pyproject]), ([folders, { testPaths }]) => readScopes(workspaceRoot, folders, testPaths))),
-            release: Effect.cached(Schema.decodeUnknownEffect(NxReleaseConfiguration)(nxJsonConfiguration.release)),
             configs: Effect.cached(
                 Effect.acquireRelease(
                     Effect.sync(
@@ -270,4 +267,4 @@ const runPlugin = <A, E>(effect: Effect.Effect<A, E, Scope.Scope | PluginService
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, pluginRuntime, runPlugin, SWIFT_MANIFEST, suiteParents, type Workspace, WorkspaceError };
+export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, runPlugin, SWIFT_MANIFEST, suiteParents, type Workspace, WorkspaceError };

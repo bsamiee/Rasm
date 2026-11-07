@@ -269,7 +269,7 @@ extension NSRunningApplication {
         }
     }
 
-    public func quit(clock: some Clock<Duration> & Sendable = ContinuousClock()) -> some AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
+    public func quit(saving: Bool = false, clock: some Clock<Duration> & Sendable = ContinuousClock()) -> some AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
         AsyncStream { output in
             let states: some AsyncSequence<InstanceState, Never> & Sendable = states(clock: clock)
             let following: Task<Void, Never> = Task {
@@ -283,7 +283,7 @@ extension NSRunningApplication {
                             if sending == nil { reply.finish() }
                         case .success(.running(let running)) where running.asking.isEmpty && !running.status.is(\.unresponsive):
                             guard sending == nil else { continue }
-                            sending = Task { await requestQuit(answering: reply, clock: clock) }
+                            sending = Task { await requestQuit(saving: saving, answering: reply, clock: clock) }
                         case .failure, .success(.running), .success(.failed):
                             return output.finish()
                     }
@@ -294,7 +294,7 @@ extension NSRunningApplication {
         }
     }
 
-    private func requestQuit(answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
+    private func requestQuit(saving: Bool, answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
         defer { reply.finish() }
         let request: NSAppleEventDescriptor = NSAppleEventDescriptor(
             eventClass: AEEventClass(kCoreEventClass),
@@ -303,6 +303,7 @@ extension NSRunningApplication {
             returnID: AEReturnID(kAutoGenerateReturnID),
             transactionID: AETransactionID(kAnyTransactionID),
         )
+        if saving { request.setParam(NSAppleEventDescriptor(enumCode: kAEYes), forKeyword: keyAESaveOptions) }
         let subject: String = String(processIdentifier)
         do {
             _ = try await request.sent(timeout: NSAppleEventTimeOutDefault)

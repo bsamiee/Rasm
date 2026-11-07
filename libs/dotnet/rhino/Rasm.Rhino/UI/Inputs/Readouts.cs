@@ -95,16 +95,18 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
         select (new RowCells(frame, run(
             from row in latest
             from fresh in atomicIO(() => !held.Value.Exists(current => EqualityComparer<TRequest>.Default.Equals(current.Request, row.Request)))
-            from forked in when(fresh,
+            let forking = when(fresh,
                 from id in IO.lift(Guid.NewGuid)
                 from pending in atomicIO(() => held.Value = Some((row.Request, id, (Loading<TValue>)new Loading<TValue>.Pending(None))))
                 from stopped in (IO.lift(() => { frame.Content = null; }) >> Products.Clear(body).Scoped(owned))
                     .Finally(Products.Clear(working).Scoped(owned))
-                from started in Products.Replace(working, Products.Forked(
+                let worker = Products.Forked(
                     (Products.Acquired(row.Compute(row.Request), row.Release).Map(static value => (Loading<TValue>)new Loading<TValue>.Ready(value))
                         | @catch(static error => !Session.Cancellation(error), static error => IO.lift(() => Session.Failed(error, nameof(ComputedRow<,>))).Map(_ => (Loading<TValue>)new Loading<TValue>.Failed(error))))
-                    .Bind(content => received(id, content)))).Scoped(owned)
+                    .Bind(content => received(id, content)))
+                from started in Products.Replace(working, worker).Scoped(owned)
                 select unit).As()
+            from forked in forking
             from redrawn in shown
             select unit)),
             (atomicIO(() => { held.Value = None; }) >> IO.lift(() => { frame.Content = null; }) >> Products.Clear(body))

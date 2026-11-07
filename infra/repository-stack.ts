@@ -1,9 +1,9 @@
 import { readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
 import { findMatchingProjects, readNxJsonFromDisk } from '@nx/devkit/internal';
-import { ActionsRepositoryPermissions, ActionsSecret, IssueLabel, type IssueLabelArgs, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
+import { ActionsRepositoryPermissions, ActionsSecret, IssueLabels, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { secret } from '@pulumi/pulumi';
 import { Config, Effect, FileSystem, Path, Record, Redacted } from 'effect';
-import { Identity } from '#/eng/typescript/manifest';
+import { Package } from '#/eng/typescript/manifest';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -12,8 +12,8 @@ const repositoryStack = {
     stackName: 'rasm',
     program: Effect.gen(function* () {
         const [fs, path, license] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.Redacted('SIXLABORSLICENSEKEY')]);
-        const [{ repository: url }, readme, graph, nx] = yield* Effect.all([Identity.read(workspaceRoot), fs.readFileString(path.join(workspaceRoot, 'README.md')), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)], { concurrency: 'unbounded' });
-        const [pattern, paragraph] = yield* Effect.all([Effect.fromNullishOr(nx.release?.releaseTag?.pattern), Effect.fromNullishOr(readme.split('\n\n').find((block) => !block.startsWith('#')))]);
+        const [manifest, readme, graph, nx] = yield* Effect.all([Package.read(workspaceRoot), fs.readFileString(path.join(workspaceRoot, 'README.md')), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)], { concurrency: 'unbounded' });
+        const [url, pattern, paragraph] = yield* Effect.all([Effect.fromNullishOr(manifest.repository), Effect.fromNullishOr(nx.release?.releaseTag?.pattern), Effect.fromNullishOr(readme.split('\n\n').find((block) => !block.startsWith('#')))]);
         const feeds = findMatchingProjects(['tag:output:appcast', 'tag:output:extension'], graph.nodes);
         const name = path.basename(url, '.git');
         const { name: repository, fullName } = new Repository(
@@ -38,10 +38,13 @@ const repositoryStack = {
             securityUpdates: new RepositoryDependabotSecurityUpdates(`${name}-security-updates`, { repository: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository }).repository, enabled: false }).enabled,
             allowedActions: new ActionsRepositoryPermissions(`${name}-actions-permissions`, { repository, allowedActions: 'all' }).allowedActions,
             workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'read' }).defaultWorkflowPermissions,
-            labels: Record.map(
-                { bug: { color: 'd73a4a', description: 'Broken behavior' }, enhancement: { color: 'a2eeef', description: 'Feature request' } } satisfies Record.ReadonlyRecord<string, Omit<IssueLabelArgs, 'name' | 'repository'>>,
-                (args, label) => new IssueLabel(`${name}-${label}`, { ...args, name: label, repository }).name,
-            ),
+            labels: new IssueLabels(`${name}-labels`, {
+                repository,
+                labels: [
+                    { name: 'bug', color: 'd73a4a', description: 'Broken behavior' },
+                    { name: 'enhancement', color: 'a2eeef', description: 'Feature request' },
+                ],
+            }).labels,
             releaseTags: new RepositoryRuleset(`${name}-release-tags`, {
                 repository,
                 name: 'release tags',

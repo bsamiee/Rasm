@@ -3,13 +3,13 @@ import { PgClient } from '@effect/sql-pg';
 import { assert, inject, it } from '@effect/vitest';
 import { Catalog, type Column, Relation } from '@rasm/database';
 import { pgClient } from '@rasm/database/pg';
+import { nodeBundle } from '@rasm/hosting/node-bundle';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { Context, Effect, FileSystem, Layer, Option, Path, Redacted, Schema, String, Struct } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlClient, type SqlError } from 'effect/sql';
 import { PullPolicy } from 'testcontainers';
 import { afterAll } from 'vitest';
-import { Postgres } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
 import { cases } from '#/tests/typescript/libs/data/database/cases';
 
@@ -44,7 +44,7 @@ it.layer(
             const folder = path.join(...plans);
             yield* fs.remove(folder, { recursive: true, force: true });
             yield* fs.makeDirectory(folder, { recursive: true });
-            const started = yield* Effect.acquireDisposable(Effect.tryPromise(() => new PostgreSqlContainer(Postgres.image).withPullPolicy(PullPolicy.alwaysPull()).withEnvironment(Postgres.environment).withCommand(Postgres.command).start()));
+            const started = yield* Effect.acquireDisposable(Effect.tryPromise(() => new PostgreSqlContainer(nodeBundle.services.database.image).withPullPolicy(PullPolicy.alwaysPull()).withEnvironment(nodeBundle.services.database.environment).withCommand(nodeBundle.services.database.command).start()));
             const url = Redacted.make(started.getConnectionUri());
             const admin = yield* PgClient.makeClient({ url, database: 'postgres', connectTimeout: '5 seconds', startupParameters: { statement_timeout: '5000' } }).pipe(Effect.provide(Reactivity.layer));
             const database = admin(started.getDatabase());

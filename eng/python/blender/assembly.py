@@ -243,7 +243,9 @@ def upgrade(*, blender: Blender) -> Outcome[int]:
         try:
             document = tomlkit.parse(manifest.read_text())
             document["tool"]["uv"]["constraint-dependencies"] = tomlkit.item([
-                f"{name}=={release}; python_full_version < '3.15'" for name, release in sorted(host.bundled.items(), key=lambda row: canonicalize_name(row[0]))
+                f"{name}=={release}; python_version == '{python.major}.{python.minor}'"
+                for python in (Version(host.python),)
+                for name, release in sorted(host.bundled.items(), key=lambda row: canonicalize_name(row[0]))
             ]).multiline(multiline=True)
             manifest.write_text(tomlkit.dumps(document))
         except OSError as error:

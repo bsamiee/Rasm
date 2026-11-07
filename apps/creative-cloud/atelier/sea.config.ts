@@ -21,11 +21,11 @@ const encodeJsonString = Schema.encodeEffect(Schema.fromJsonString(Schema.String
 export default Effect.fnUntraced(
     function* () {
         const directory = import.meta.dirname;
-        const [code, identifier] = yield* Effect.all([script(createRequire(join(directory, 'package.json')).resolve('@rasm/extendscript'), { name: 'runtime', target: ExtensionManifest.target }), XcodeProject.bundleIdentifier(join(directory, 'macos', 'Atelier.xcodeproj'))], { concurrency: 2 });
+        const [code, signing] = yield* Effect.all([script(createRequire(join(directory, 'package.json')).resolve('@rasm/extendscript'), { name: 'runtime', target: ExtensionManifest.target }), XcodeProject.signing(join(directory, 'macos', 'Atelier.xcodeproj'))], { concurrency: 2 });
         return bundle({
             ...atelierBuild(directory).config,
             define: { 'import.meta.env.EXTENDSCRIPT_RUNTIME': yield* encodeJsonString(code) },
-            plugins: [helper(join(directory, 'main.ts'), identifier, 'server', { KeepAlive: true, EnvironmentVariables: { MCP_LISTEN: NetAddress.formatInet(atelierLink.listen) } })],
+            plugins: [helper(join(directory, 'main.ts'), signing, 'server', { KeepAlive: true, EnvironmentVariables: { MCP_LISTEN: NetAddress.formatInet(atelierLink.listen) } })],
         });
     },
     Effect.provide(layer),
