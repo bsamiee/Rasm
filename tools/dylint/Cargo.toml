@@ -84,7 +84,6 @@ dunce          = { workspace = true }
 dylint_linting = { workspace = true }
 fs-err         = { workspace = true }
 itertools      = { workspace = true }
-litrs          = { workspace = true }
 strum          = { workspace = true }
 
 # --- [TESTING]

@@ -19,7 +19,7 @@ const EditorSettings = TextFormat.Json5.pipe(Schema.decodeTo(Section));
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const shared = (section: (typeof SECTIONS)[number]) => (key: string) => `${PREFIX}.${section}.${key}`;
-const derived = (key: string) => SECTIONS.some((section) => key.startsWith(shared(section)('')));
+const derived = (key: string) => key !== shared('check')('command') && SECTIONS.some((section) => key.startsWith(shared(section)('')));
 const rows = Effect.fnUntraced(function* (tree: Tree) {
     const [
         {
@@ -31,7 +31,7 @@ const rows = Effect.fnUntraced(function* (tree: Tree) {
         Record.filter(current, (_, key) => derived(key)),
         () => undefined,
     );
-    return [yield* patched(tree, EDITOR, current, { ...stale, ...Record.mapKeys(initializationOptions.check, shared('check')), ...Record.mapKeys(initializationOptions.rustc, shared('rustc')) })];
+    return [yield* patched(tree, EDITOR, current, { ...stale, ...Record.mapKeys(Record.remove(initializationOptions.check, 'command'), shared('check')), ...Record.mapKeys(initializationOptions.rustc, shared('rustc')) })];
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

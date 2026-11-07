@@ -188,7 +188,7 @@ Runtime `RT` supplies the connection through `Has<Eff<RT>, IConnection>`, the ru
 
 ## [05]-[COMPOSITION_ROOT]
 
-Function dependencies decouple the consumer from the implementation, take a deterministic function in a test, need no single-method interface or mock, and enforce interface segregation: a consumer that only saves receives `T -> IO<Unit>` and not a repository abstraction with lookup beside saving, independent behaviors stay separate functions. Objects and interfaces remain compatible, functional behavior can sit behind a framework controller that handles requests and responses.
+Function dependencies decouple the consumer from the implementation, need no single-method interface or mock, and enforce interface segregation: a consumer that only saves receives `T -> IO<Unit>` and not a repository abstraction with lookup beside saving, independent behaviors stay separate functions. Objects and interfaces remain compatible, functional behavior can sit behind a framework controller that handles requests and responses.
 
 Runtime record holds the configuration and implements one `Has` trait per capability, the workflow is generic over `RT` and builds an `Eff<RT, A>` from its function dependencies, `Eff<RT, A>.Lift(Func<Fin<A>>)` lifts a `Fin` into the query, a `from` clause binds the `IO<Unit>` dependency, and the host runs the effect once with `Run(rt)`, which returns `Fin<A>`:
 

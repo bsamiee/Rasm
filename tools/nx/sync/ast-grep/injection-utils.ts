@@ -1,10 +1,9 @@
-import type { Tree } from '@nx/devkit';
-import { Array, Effect, Equal, Match, Option, Predicate, Stream, String } from 'effect';
-import { type Document, isNode, Pair, parseAllDocuments, parseDocument, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
+import { globAsync, type Tree } from '@nx/devkit';
+import { Array, Effect, Equal, Option, Predicate, String } from 'effect';
+import { type Document, isNode, type Node, Pair, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 import { Sgconfig } from '#/eng/typescript/manifest';
-import { runCommand } from '#/eng/typescript/run-command';
-import { decodeTree, syncGenerator, treeText } from '#/tools/nx/sync/tree';
-import { glob, WorkspaceError } from '#/tools/nx/workspace';
+import { decodeTree, syncGenerator, treeText, yamlDocuments } from '#/tools/nx/sync/tree';
+import { WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -22,32 +21,39 @@ const scalar = (node: unknown) =>
 const field = (node: unknown, key: string) => Option.flatMap(Option.liftPredicate(node, isMap), (map) => Option.fromNullishOr(map.get(key)));
 const pairsOf = (node: unknown) => Option.match(Option.filter(field(node, 'utils'), isMap), { onNone: () => [], onSome: (map) => [...map.pairs()] });
 const named = ({ key }: Pair) => Option.match(scalar(key), { onNone: () => '', onSome: (value) => globalThis.String(value) });
-const descend = (node: unknown): readonly unknown[] =>
-    Match.value(node).pipe(
-        Match.when(Match.instanceOf(YAMLMap), (map) => [...map.pairs()].flatMap((pair) => [pair, pair.key, pair.value, ...descend(pair.key), ...descend(pair.value)])),
-        Match.when(Match.instanceOf(YAMLSeq), (seq) => [...seq].flatMap((item) => [item, ...descend(item)])),
-        Match.orElse(() => []),
-    );
-const calls = (nodes: readonly unknown[]) =>
-    Array.getSomes(
-        nodes
-            .flatMap((node) => [node, ...descend(node)])
-            .filter((node): node is Pair => node instanceof Pair && Option.contains(scalar(node.key), 'matches'))
-            .map(({ value }) => Option.filter(scalar(value), Predicate.isString)),
-    );
-const closure = (shared: ReadonlyMap<string, Pair>, held: ReadonlySet<string>, frontier: readonly string[]): ReadonlySet<string> =>
-    Array.match(Array.dedupe(frontier.filter((name) => shared.has(name) && !held.has(name))), {
-        onEmpty: () => held,
-        onNonEmpty: (fresh) => closure(shared, new Set([...held, ...fresh]), calls(fresh.map((name) => shared.get(name)?.value))),
+const calls = (nodes: readonly unknown[]) => {
+    const names = new Set<string>();
+    nodes.filter(isNode).forEach((node) => {
+        visit(node, {
+            Pair: (_, { key, value }) => {
+                if (Option.contains(scalar(key), 'matches') && value instanceof Scalar && typeof value.value === 'string') {
+                    names.add(value.value);
+                }
+            },
+        });
     });
+    return names;
+};
+const closure = (shared: ReadonlyMap<string, Pair>, names: Set<string>) => {
+    const held = new Set<string>();
+    names.forEach((name) => {
+        const entry = shared.get(name);
+        if (entry !== undefined) {
+            held.add(name);
+            calls([entry.value]).forEach(names.add.bind(names));
+        }
+    });
+    return held;
+};
 const anchored = (entry: YAMLMap, pairs: readonly Pair[]) => {
-    const source = new Map(
-        Array.getSomes(
-            descend(entry)
-                .filter(isNode)
-                .map((node) => Option.map(Option.fromNullishOr(node.anchor), (anchor) => [anchor, node] as const)),
-        ),
-    );
+    const source = new Map<string, Node>();
+    visit(entry, {
+        Node: (_, node) => {
+            if (node.anchor !== undefined) {
+                source.set(node.anchor, node);
+            }
+        },
+    });
     const defined = new Set<string>();
     const map = new YAMLMap(
         entry.schema,
@@ -67,7 +73,7 @@ const mirror = (doc: Document, root: YAMLMap, entry: YAMLMap) => {
     const shared = new Map([new Pair(new Scalar('injection'), entry.get('rule')), ...pairsOf(entry)].map((pair) => [named(pair), pair] as const));
     const own = pairsOf(root).filter((pair) => !shared.has(named(pair)));
     const placed = [...root.pairs()].filter((pair) => named(pair) !== 'utils');
-    const held = closure(shared, new Set(), calls([...placed, ...own].map(({ value }) => value)));
+    const held = closure(shared, calls([...placed, ...own].map(({ value }) => value)));
     const utils = anchored(entry, [...[...shared.values()].filter((pair) => held.has(named(pair))), ...own]);
     const at = placed.findIndex((pair) => named(pair) === 'rule');
     const next = doc.clone();
@@ -96,23 +102,22 @@ const mirrored = (entries: readonly YAMLMap[], file: string) => (doc: Document) 
     });
 };
 const rows = Effect.fnUntraced(function* (tree: Tree) {
-    const [{ ruleDirs }, text] = yield* Effect.all([decodeTree(tree, Sgconfig.schema, Sgconfig.file), treeText(tree, Sgconfig.file)]);
+    const text = yield* treeText(tree, Sgconfig.file);
+    const [config] = yield* yamlDocuments(text, Sgconfig.file);
+    const { ruleDirs } = yield* decodeTree(tree, Sgconfig.schema, Sgconfig.file);
     const entries = Option.match(
-        Option.filter(field(parseDocument(text).value, 'languageInjections'), (held): held is YAMLSeq => held instanceof YAMLSeq),
+        Option.filter(field(config?.value, 'languageInjections'), (held): held is YAMLSeq => held instanceof YAMLSeq),
         { onNone: () => [], onSome: (listed) => [...listed].filter(isMap) },
     );
-    const files = yield* glob(
-        tree.root,
-        ruleDirs.map((dir) => `${dir}/**/*.{yml,yaml}`),
-    );
-    const written = yield* Effect.forEach(
+    const patterns = ruleDirs.map((dir) => `${dir}/**/*.{yml,yaml}`);
+    const files = yield* Effect.tryPromise(() => globAsync(tree, patterns));
+    const written = yield* Effect.validate(
         files,
         Effect.fnUntraced(function* (file) {
             const current = yield* treeText(tree, file);
-            const docs: readonly Document[] = String.includes(MIRROR)(current) ? parseAllDocuments(current) : [];
-            const texts = yield* Effect.forEach(docs, mirrored(entries, file));
-            const stdin = Stream.encodeText(Stream.make(texts.join('')));
-            return Array.isReadonlyArrayNonEmpty(texts) ? Option.some({ file, next: yield* runCommand('yamlfmt', ['-conf', '.config/yamlfmt.yaml', '-in'], { cwd: tree.root, stdin }) }) : Option.none();
+            const docs = String.includes(MIRROR)(current) ? yield* yamlDocuments(current, file) : [];
+            const texts = yield* Effect.validate(docs, mirrored(entries, file));
+            return Array.isReadonlyArrayNonEmpty(texts) ? Option.some({ file, next: texts.join('') }) : Option.none();
         }),
     );
     return Array.getSomes(written);

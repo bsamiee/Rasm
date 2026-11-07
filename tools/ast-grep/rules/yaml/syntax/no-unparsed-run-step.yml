@@ -39,12 +39,12 @@ utils:
             - matches: literal-map
               not: {has: {matches: shell}}
               inside:
-                matches: job-map
-                stopBy: end
-                any:
-                    - has: {matches: bash-defaults}
-                    - {matches: shell-free-map, inside: {matches: root-map, stopBy: end, has: {matches: bash-defaults}}}
-                    - {matches: shell-free-map, all: [{matches: bash-runner}, {inside: {stopBy: end, all: [{matches: root-map}, {matches: shell-free-map}]}}]}
+                  matches: job-map
+                  stopBy: end
+                  any:
+                      - has: {matches: bash-defaults}
+                      - {matches: shell-free-map, inside: {matches: root-map, stopBy: end, has: {matches: bash-defaults}}}
+                      - {matches: shell-free-map, all: [{matches: bash-runner}, {inside: {stopBy: end, all: [{matches: root-map}, {matches: shell-free-map}]}}]}
     foreign-shell:
         matches: shell
         not: {matches: bash-shell}
@@ -57,11 +57,11 @@ utils:
             - matches: literal-map
               not: {has: {matches: shell}}
               inside:
-                matches: job-map
-                stopBy: end
-                any:
-                    - has: {matches: foreign-defaults}
-                    - {matches: shell-free-map, inside: {matches: root-map, stopBy: end, has: {matches: foreign-defaults}}}
+                  matches: job-map
+                  stopBy: end
+                  any:
+                      - has: {matches: foreign-defaults}
+                      - {matches: shell-free-map, inside: {matches: root-map, stopBy: end, has: {matches: foreign-defaults}}}
 rule:
     all:
         - matches: {yaml-resolved-pair: {key: {regex: '^["'']?run["'']?$'}, value: {kind: 'block_node, flow_node'}}}

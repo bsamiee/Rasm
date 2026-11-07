@@ -1,7 +1,4 @@
 {
     "extends": "../../../../tsconfig.web.json",
-    "compilerOptions": {
-        "types": [ "@rasm/test-support/vitest" ]
-    },
     "include": [ "**/*", ".storybook/*.stories.tsx", "../../../../tests/typescript/libs/web/ui" ]
 }

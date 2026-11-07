@@ -11,7 +11,7 @@ dependencies = ["blender", "typography; python_version >= '3.15'", "foundry; pyt
 # --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
 
 [dependency-groups]
-workspace = [
+workspace   = [
     # --- [CORE]
     "beartype",                                                                   # Runtime type checks over annotations
     "pydantic-settings",                                                          # Settings models read from environment and files
@@ -321,33 +321,39 @@ workspace = [
     "segno",                                                                      # QR and Micro-QR vector codes
     "zxing-cpp",                                                                  # 2D matrix code encode and decode
 ]
-test      = [
+host-checks = [
+    "deptry",                                                                     # Import-to-requirement checker for host packages
+    "fake-bpy-module-latest",                                                     # Stubs for bpy, bmesh, mathutils, and gpu
+    "scipy-stubs",
+    "types-networkx",
+    "types-opencolorio",                                                          # Stubs for PyOpenColorIO
+]
+test        = [
     "anyio",                                                                      # Structured concurrency over asyncio and trio, a required pytest plugin
     "coverage",                                                                   # Coverage engine pytest-cov drives
     "fastapi",                                                                    # Native field declarations in typed checker integration tests
     "hypothesis",                                                                 # Property-based tests, a required pytest plugin
     "msgspec[toml]",                                                              # Struct types and JSON, MessagePack, and TOML test codecs
-    "pytest",                                                                     # Test runner of every Python test target
-    "pytest-benchmark",                                                           # Benchmark fixture, a required pytest plugin
+    "pytest",                                                                     # Test collection, assertions, and fixtures
     "pytest-cov",                                                                 # Coverage collection, a required pytest plugin
     "pytest-randomly",                                                            # Random test order and seeds, a required pytest plugin
-    "pytest-reportlog",                                                           # Flushed native pytest reports preserve completed failures across host crashes
-    "pytest-socket",                                                              # Socket blocking, a required pytest plugin
-    "pytest-timeout",                                                             # Per-test timeout, a required pytest plugin
+    "pytest-reportlog",                                                           # JSON Lines test reports
+    "pytest-socket",                                                              # Block unrequested network connections
+    "pytest-timeout",                                                             # Per-test deadline
     "pytest-xdist",                                                               # Parallel test workers, a required pytest plugin
-    "sysexits",                                                                   # Portable process exit codes in CLI tests
+    "sysexits",                                                                   # Portable process exit codes
     "trio",                                                                       # AnyIO Trio backend and virtual-time clocks
 ]
-icons     = [
+icons       = [
     "coloraide",                                                                  # Color parsing, conversion, and sRGB gamut fitting
     "picosvg",                                                                    # SVG geometry normalization and path operations
 ]
-dev       = [
+dev         = [
     { include-group = "test" },
     { include-group = "icons" },
+    { include-group = "host-checks" },
 
     # --- [CHECKERS]
-    "deptry",                                                                     # Import-to-requirement checker for host packages
     "fawltydeps",                                                                 # Native AST import-to-requirement checker for modern packages
     "mypy",                                                                       # Type checker rasm:check runs
     "refurb",                                                                     # Modernization checker over a mypy build rasm:check runs
@@ -380,13 +386,9 @@ dev       = [
 
     # --- [STUBS]
     "brotli-stubs",
-    "fake-bpy-module-latest",                                                     # Stubs for bpy, bmesh, mathutils, and gpu
     "pandas-stubs",
-    "scipy-stubs",
     "types-geopandas",
     "types-lxml",
-    "types-networkx",
-    "types-opencolorio",                                                          # Stubs for PyOpenColorIO
     "types-openpyxl",
     "types-protobuf",
     "types-psutil",
@@ -400,7 +402,7 @@ dev       = [
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-default-groups           = "all"
+default-groups           = ["workspace", "dev"]
 python-preference        = "only-system"
 python-downloads         = "never"
 environments             = [
@@ -446,6 +448,7 @@ typography = { path = "libs/python/typography", editable = true }
 foundry    = { path = "tools/foundry", editable = true }
 
 [tool.uv.dependency-groups]
+dev       = { requires-python = ">=3.15" }
 workspace = { requires-python = ">=3.15" }
 
 [tool.uv.config-settings-package.manifold3d]
@@ -485,11 +488,12 @@ python = { cmd = "python", env = { DYLD_FALLBACK_LIBRARY_PATH = "$CONDA_PREFIX/l
 python = { cmd = "python", env = { LD_LIBRARY_PATH = "$CONDA_PREFIX/lib" } } # An activation row reaches every `pixi run` child ahead of system libraries, sdist builds included
 
 [tool.pixi.environments.default.target.win.activation.env]
-ICU_VERSION       = "78"
-CMAKE_PREFIX_PATH = "%CONDA_PREFIX%\\Library"
-HDF5_DIR          = "%CONDA_PREFIX%\\Library"
-INCLUDE           = "%CONDA_PREFIX%\\Library\\include;%INCLUDE%"
-LIB               = "%CONDA_PREFIX%\\Library\\lib;%LIB%"
+ICU_VERSION                = "78"
+CMAKE_PREFIX_PATH          = "%CONDA_PREFIX%\\Library"
+HDF5_DIR                   = "%CONDA_PREFIX%\\Library"
+INCLUDE                    = "%CONDA_PREFIX%\\Library\\include;%INCLUDE%"
+LIB                        = "%CONDA_PREFIX%\\Library\\lib;%LIB%"
+WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
@@ -675,7 +679,7 @@ require-lazy = [
 [tool.ty]
 environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python"] }
 rules       = { all = "error" }
-src         = { include = ["**", ".claude"], exclude = ["apps/blender/darkroom", "libs/python/blender"] }
+src         = { include = ["**", ".claude"] }
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
@@ -778,8 +782,7 @@ strict                   = true
 cache_dir                = ".cache/pytest"
 testpaths                = ["tests/python"]
 pythonpath               = ["."]
-python_files             = ["test_*.py", "*_test.py", "bench_*.py"]
-python_functions         = ["test_*", "bench_*"]
+python_files             = ["test_*.py", "*_test.py"]
 collect_imported_tests   = false
 empty_parameter_set_mark = "fail_at_collect"
 addopts                  = [
@@ -790,17 +793,14 @@ addopts                  = [
     "-x",
     "--tb=short",
     "--import-mode=importlib",
-    "--benchmark-disable",
     "--disable-socket",
     "--allow-unix-socket",
-    "--benchmark-storage=file://.artifacts/python/benchmarks",
 ]
 filterwarnings           = ["error"]
 timeout                  = "30"
 required_plugins         = [
     "anyio",
     "hypothesis",
-    "pytest-benchmark",
     "pytest-cov",
     "pytest-randomly",
     "pytest-reportlog",
@@ -821,7 +821,7 @@ report = { show_missing = true, skip_covered = true, exclude_also = ["assert_nev
 # --- [TOMBI] ----------------------------------------------------------------------------
 
 [tool.tombi.files]
-exclude = [".mise/**", "assets/**"]
+exclude = ["assets/**"]
 
 [tool.tombi.format.rules]
 indent-width                    = 4

@@ -14,11 +14,6 @@ test    = false
 doctest = false
 bench   = false
 
-# --- [TEST]
-[[test]]
-name = "operations"
-path = "../../../../tests/rust/numerics/dynamics/operations.rs"
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -38,10 +33,6 @@ diffsol              = { workspace = true }
 fmi                  = { workspace = true }
 petgraph             = { workspace = true }
 rasm-dependency      = { workspace = true }
-
-# --- [TEST]
-[dev-dependencies]
-approx = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

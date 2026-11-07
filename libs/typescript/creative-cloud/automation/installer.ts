@@ -36,7 +36,14 @@ const PLATFORMS = {
         flag: '--',
         home: 'HOME',
         support: 'Library/Application Support/Adobe',
-        hosts: { ID: ['com.adobe.InDesign'], PS: ['com.adobe.Photoshop'], premierepro: ['com.adobe.PremierePro', 'com.adobe.PremiereProBeta.27'], ame: ['com.adobe.ame.application', 'com.adobe.amebeta.application.27'], aftereffects: ['com.adobe.AfterEffects', 'com.adobe.AfterEffectsBeta.application'] },
+        hosts: {
+            ID: ['com.adobe.InDesign'],
+            PS: ['com.adobe.Photoshop'],
+            premierepro: ['com.adobe.PremierePro', 'com.adobe.PremiereProBeta.27'],
+            ame: ['com.adobe.ame.application', 'com.adobe.amebeta.application.27'],
+            aftereffects: ['com.adobe.AfterEffects', 'com.adobe.AfterEffectsBeta.application'],
+            illustrator: ['com.adobe.illustrator'],
+        },
         running: Effect.fnUntraced(
             function* (identifiers: readonly string[], _server: ChildProcess.Command) {
                 const { instances } = yield* Automation;
@@ -51,7 +58,7 @@ const PLATFORMS = {
         flag: '/',
         home: 'APPDATA',
         support: 'Adobe',
-        hosts: { ID: ['InDesign.exe'], PS: ['Photoshop.exe'], premierepro: ['Adobe Premiere Pro.exe'], ame: ['Adobe Media Encoder.exe'], aftereffects: ['AfterFX.exe'] },
+        hosts: { ID: ['InDesign.exe'], PS: ['Photoshop.exe'], premierepro: ['Adobe Premiere Pro.exe'], ame: ['Adobe Media Encoder.exe'], aftereffects: ['AfterFX.exe'], illustrator: ['Illustrator.exe'] },
         running: (names: readonly string[]) =>
             Effect.map(
                 Effect.forEach(names, (name) => output('tasklist', ['/fi', `imagename eq ${name}`, '/fo', 'csv', '/nh'])),
@@ -73,6 +80,13 @@ const registered = Effect.fnUntraced(function* ({ id, host: { app } }: Pick<Plug
     const { plugins } = (yield* fs.exists(file)) ? yield* Effect.flatMap(fs.readFileString(file), Schema.decodeEffect(Registry)) : { plugins: [] };
     return Array.findFirst(plugins, ({ pluginId }) => pluginId === id);
 });
+const installed = Effect.fnUntraced(function* (manifest: Plugin & { readonly version: string }) {
+    const [path, folder, entry] = yield* Effect.all([Path.Path, adobe, registered(manifest)]);
+    if (!Option.exists(entry, ({ versionString }) => versionString === manifest.version)) {
+        return yield* HostError.refused(manifest.name)(`Install the candidate version ${manifest.version} before testing`);
+    }
+    return path.join(folder, 'UXP', 'Plugins', 'External', `${manifest.id}_${manifest.version}`);
+});
 const replaced = Effect.fnUntraced(function* (plugin: Plugin, archive: string) {
     const [fs, { agent, flag }, held, superseded] = yield* Effect.all([FileSystem.FileSystem, platform, registered(plugin), extension(plugin.id)]);
     const refused = HostError.refused(`${agent} over ${plugin.name}`);
@@ -87,4 +101,4 @@ const replaced = Effect.fnUntraced(function* (plugin: Plugin, archive: string) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { extension, hosts, registered, replaced, running };
+export { extension, hosts, installed, registered, replaced, running };

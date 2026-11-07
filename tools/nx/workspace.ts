@@ -1,13 +1,13 @@
 import { matchesGlob } from 'node:path';
 import { layerPosix } from '@effect/platform-node/NodePath';
 import { layer } from '@effect/platform-node/NodeServices';
-import type { CreateNodesContext } from '@nx/devkit';
+import { type CreateNodesContext, hashArray } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Path, Predicate, Record, Schema, Scope, String, Struct } from 'effect';
 import { escape } from 'minimatch';
 import { serverFS } from 'typescript/fs';
 import { API } from 'typescript/sync';
-import { decodeFile, Mise, Package } from '#/eng/typescript/manifest';
+import { decodeFile, Mise, Package, suitePath } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
 import { TextFormat } from '#/eng/typescript/text-format';
 
@@ -26,7 +26,6 @@ const APPS = 'apps';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const JsonDocument = Schema.fromJsonString(Schema.Unknown);
 const JsonListRecord = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.String)));
 const Release = Schema.String.check(Schema.isPattern(/^\d+\.\d+$/u));
 const PythonRequirement = Schema.Struct({ minimum: Schema.TemplateLiteralParser(['>=', Schema.Trim.pipe(Schema.decodeTo(Release))]) }).pipe(Schema.encodeKeys({ minimum: 'requires-python' }));
@@ -38,8 +37,7 @@ const WorkspacePyproject = TextFormat.Toml.pipe(
                 uv: Schema.Struct({
                     workspace: Schema.Struct({ members: Schema.Array(Schema.String) }),
                     sources: Schema.Record(Schema.String, Schema.Struct({ path: Schema.OptionFromOptionalKey(Schema.String) })),
-                    requirements: Schema.Record(Schema.String, PythonRequirement),
-                }).pipe(Schema.encodeKeys({ requirements: 'dependency-groups' })),
+                }),
                 pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String), testPaths: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files', testPaths: 'testpaths' })),
                 coverage: Schema.Struct({ run: Schema.Struct({ dataFile: Schema.String }).pipe(Schema.encodeKeys({ dataFile: 'data_file' })) }),
             }),
@@ -101,7 +99,7 @@ class WorkspaceError extends Schema.TaggedError<WorkspaceError, { readonly brand
             Missing: ({ value }) => `${this.subject} has no ${value}`,
             Shadowed: ({ folder }) => `${this.subject} shares its name with folder ${folder}, move it into the folder`,
             Single: ({ module }) => `${this.subject} re-exports only ${module}, point its exports entry at that module`,
-            Unparsed: ({ error }) => `${this.subject} does not parse, its barrel names no export: ${error}`,
+            Unparsed: ({ error }) => `${this.subject} does not parse: ${error}`,
         });
     }
 }
@@ -110,6 +108,7 @@ class WorkspaceError extends Schema.TaggedError<WorkspaceError, { readonly brand
 
 // --- [READS]
 const glob = (workspaceRoot: string, patterns: string[], exclude?: string[]) => Effect.tryPromise(() => globWithWorkspaceContext(workspaceRoot, patterns, exclude));
+const suiteParents = (path: Path.Path, suites: readonly string[]) => Array.dedupe(suites.flatMap((suite) => Array.unfold(path.dirname(suite), (parent) => (parent === '.' ? Option.none() : Option.some([parent, path.dirname(parent)])))));
 const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string) {
     const [path, { tool }] = yield* Effect.all([Path.Path, decodeFile(WorkspacePyproject, workspaceRoot, PYPROJECT)]);
     const directories = Array.getSomes(Object.values(tool.uv.sources).map(Struct.get('path')));
@@ -125,7 +124,6 @@ const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string) {
         });
     const mapping = Record.map(Array.groupBy(providers, Struct.get('distribution')), Function.flow(Array.map(Struct.get('importRoot')), Array.dedupe));
     return {
-        members: Record.fromIterableWith(members, ({ member, project }) => [member, project.name]),
         moduleRoots: Array.dedupe(Array.bind(members, 'folder', ({ tool: { hatch } }) => hatch.build.devModeDirs).map(({ member, folder }) => path.join(member, folder))),
         commands: members.filter(({ project }) => !Record.isEmptyRecord(project.scripts)).map(Struct.get('member')),
         deptry: members.filter(({ tool: { deptry } }) => Option.isSome(deptry)),
@@ -133,22 +131,31 @@ const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string) {
             members: members.filter(({ tool: { fawltydeps } }) => Option.isSome(fawltydeps)),
             mapping: yield* Schema.encodeEffect(JsonListRecord)(mapping).pipe(Effect.orDie),
         },
-        requirements: tool.uv.requirements,
         dataFile: tool.coverage.run.dataFile,
         ...tool.pytest,
     };
 });
-const readScopes = Effect.fnUntraced(function* (workspaceRoot: string, folders: readonly string[]) {
+const readScopes = Effect.fnUntraced(function* (workspaceRoot: string, folders: readonly string[], testPaths: readonly string[]) {
     const path = yield* Path.Path;
-    const files = yield* glob(
-        workspaceRoot,
-        folders.map((host) => `**/${host}/**/${PYPROJECT}`),
+    const conftest = (directory: string) => path.join(directory, 'conftest.py');
+    const [files, sources] = yield* Effect.all(
+        [
+            glob(
+                workspaceRoot,
+                folders.map((host) => `**/${host}/**/${PYPROJECT}`),
+            ),
+            glob(workspaceRoot, [conftest('.'), ...suiteParents(path, testPaths).map(conftest), ...testPaths.map((directory) => `${directory}/**/*.{py,pyi}`)]),
+        ],
+        { concurrency: 'unbounded' },
     );
+    const fixtures = new Set(sources);
     return yield* Effect.validate(
         files,
         Effect.fnUntraced(function* (file: string) {
+            const scope = path.dirname(file);
             const { project } = yield* decodeFile(HostPyproject, workspaceRoot, file);
-            return { scope: path.dirname(file), version: project.minimum[1] };
+            const suites = testPaths.map((base) => suitePath(path, base, scope)).filter((suite) => sources.some((source) => source.startsWith(`${suite}${path.sep}`)));
+            return { scope, version: project.minimum[1], suites, fixtures: suites.length === 0 ? [] : [conftest('.'), ...suiteParents(path, suites).map(conftest)].filter((file) => fixtures.has(file)).sort() };
         }),
         { concurrency: 'unbounded' },
     );
@@ -163,35 +170,41 @@ const readPackages = Effect.fnUntraced(function* (workspaceRoot: string) {
 // --- [WORKSPACE]
 const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfiguration }: Pick<CreateNodesContext, 'workspaceRoot' | 'nxJsonConfiguration'>) {
     const [fs, path, scope] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.scope]);
+    const pyproject = yield* Effect.cached(readPyproject(workspaceRoot));
     const configReads = new Set<string>();
+    let cacheChanged = false;
     const cache = yield* Effect.acquireRelease(
         Effect.sync(() => new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.cache'))),
-        (held) => Effect.sync(held.writeToDisk.bind(held)),
+        (held) => (cacheChanged ? Effect.sync(held.writeToDisk.bind(held)) : Effect.void),
     );
-    const memoized = <A, I, E, R>(key: string, schema: Schema.Codec<A, I>, inputs: string[], produce: Effect.Effect<A, E, R>) => {
-        const held = Schema.fromJsonString(schema);
-        const fresh = (hash: string) =>
-            produce.pipe(
-                Effect.bindTo('value'),
-                Effect.bind('output', ({ value }) => Schema.encodeEffect(held)(value)),
-                Effect.tap(({ output }) => Effect.sync(cache.set.bind(cache, key, { hash, output }))),
-                Effect.map(Struct.get('value')),
-            );
-        return Effect.flatMap(
-            Effect.tryPromise(() => hashWithWorkspaceContext(workspaceRoot, inputs)),
-            (hash) => Option.fromUndefinedOr(cache.get(key)).pipe(Option.filter(Predicate.Struct({ hash: Equal.equals(hash) })), Option.match({ onSome: ({ output }) => Schema.decodeEffect(held)(output), onNone: () => fresh(hash) })),
-        );
-    };
-    const cached = <A, I>(schema: Schema.Codec<A, I>, inputs: string[], [command, ...args]: readonly [string, ...string[]], document: Schema.Codec<unknown, string> = JsonDocument) =>
-        memoized([command, ...args].join(' '), schema, inputs, Effect.flatMap(runCommand(command, args, { cwd: workspaceRoot }), Schema.decodeEffect(document.pipe(Schema.decodeTo(schema)))));
-    const crates = yield* Effect.cached(Effect.map(cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, '**/*.rs'], ['cargo', 'metadata', '--format-version', '1', '--no-deps']), Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) })))));
+    const cached = Effect.fnUntraced(function* <A, I>(schema: Schema.Codec<A, I>, inputs: string[], [command, ...args]: readonly [string, ...string[]], { env, pathInputs = [] }: { readonly env?: Readonly<Record<string, string>>; readonly pathInputs?: string[] } = {}) {
+        const key = [command, ...args, ...Object.values(env ?? {})].join(' ');
+        const [content, paths] = yield* Effect.all([Effect.tryPromise(() => hashWithWorkspaceContext(workspaceRoot, [...inputs, path.relative(workspaceRoot, import.meta.filename)])), pathInputs.length === 0 ? Effect.succeed([]) : glob(workspaceRoot, pathInputs)]);
+        const hash = paths.length === 0 ? content : hashArray([content, ...paths.toSorted()]);
+        const prior = cache.get(key);
+        const output = prior?.hash === hash ? prior.output : yield* runCommand(command, args, { cwd: workspaceRoot, env, extendEnv: true });
+        const value = yield* Schema.decodeEffect(Schema.fromJsonString(schema))(output);
+        if (prior?.hash !== hash) {
+            cache.set(key, { hash, output });
+            cacheChanged = true;
+        }
+        return value;
+    });
+    const swiftManifest = <A, I>(schema: Schema.Codec<A, I>, ...args: readonly string[]) => cached(schema, [SWIFT_MANIFEST], ['swift', 'package', ...args], { env: { SWIFTPM_BUILD_DIR: path.join(workspaceRoot, '.cache/swiftpm/nx-manifest') } });
+    const crates = yield* Effect.cached(
+        Effect.map(
+            cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, 'rust-toolchain.toml', '.cargo/config.toml'], ['cargo', 'metadata', '--format-version', '1', '--no-deps'], { pathInputs: ['**/*.rs'] }),
+            Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) }))),
+        ),
+    );
     const patterns = ['pnpm-lock.yaml', 'tools/*/examples/**'];
     const hosts = yield* Effect.cached(fs.readDirectory(path.join(workspaceRoot, APPS)));
     return {
         workspaceRoot,
-        cached,
         crates,
         hosts,
+        pyproject,
+        swiftManifest,
         scanExclusions: Effect.map(
             crates,
             Function.flow(
@@ -205,10 +218,9 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
             ),
         ),
         ...(yield* Effect.all({
-            pyproject: Effect.cached(readPyproject(workspaceRoot)),
             mise: Effect.cached(Mise.read(workspaceRoot)),
             packages: Effect.cached(readPackages(workspaceRoot)),
-            pythonScopes: Effect.cached(Effect.flatMap(hosts, (folders) => readScopes(workspaceRoot, folders))),
+            pythonScopes: Effect.cached(Effect.flatMap(Effect.all([hosts, pyproject]), ([folders, { testPaths }]) => readScopes(workspaceRoot, folders, testPaths))),
             release: Effect.cached(Schema.decodeUnknownEffect(NxReleaseConfiguration)(nxJsonConfiguration.release)),
             configs: Effect.cached(
                 Effect.acquireRelease(
@@ -242,7 +254,7 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
                 ),
             ),
             swift: Effect.cached(
-                Effect.map(cached(SwiftPackage, [SWIFT_MANIFEST], ['swift', 'package', '--scratch-path', path.join(workspaceRoot, '.cache/swiftpm/build'), 'describe', '--type', 'json']), (described) => ({
+                Effect.map(swiftManifest(SwiftPackage, 'describe', '--type', 'json'), (described) => ({
                     ...described,
                     tests: Array.partition(described.targets, Filter.fromPredicate<(typeof described.targets)[number]>(Predicate.Struct({ type: Equal.equals('test') }))),
                 })),
@@ -258,4 +270,4 @@ const runPlugin = <A, E>(effect: Effect.Effect<A, E, Scope.Scope | PluginService
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, pluginRuntime, runPlugin, SWIFT_MANIFEST, type Workspace, WorkspaceError };
+export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, pluginRuntime, runPlugin, SWIFT_MANIFEST, suiteParents, type Workspace, WorkspaceError };

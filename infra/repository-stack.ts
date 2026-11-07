@@ -3,7 +3,7 @@ import { findMatchingProjects, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { ActionsRepositoryPermissions, ActionsSecret, IssueLabel, type IssueLabelArgs, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { secret } from '@pulumi/pulumi';
 import { Config, Effect, FileSystem, Path, Record, Redacted } from 'effect';
-import { runCommand } from '#/eng/typescript/run-command';
+import { Identity } from '#/eng/typescript/manifest';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -12,10 +12,10 @@ const repositoryStack = {
     stackName: 'rasm',
     program: Effect.gen(function* () {
         const [fs, path, license] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.Redacted('SIXLABORSLICENSEKEY')]);
-        const [url, readme, graph, nx] = yield* Effect.all([runCommand('git', ['remote', 'get-url', 'origin'], { cwd: workspaceRoot }), fs.readFileString(path.join(workspaceRoot, 'README.md')), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)], { concurrency: 'unbounded' });
+        const [{ repository: url }, readme, graph, nx] = yield* Effect.all([Identity.read(workspaceRoot), fs.readFileString(path.join(workspaceRoot, 'README.md')), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)], { concurrency: 'unbounded' });
         const [pattern, paragraph] = yield* Effect.all([Effect.fromNullishOr(nx.release?.releaseTag?.pattern), Effect.fromNullishOr(readme.split('\n\n').find((block) => !block.startsWith('#')))]);
         const feeds = findMatchingProjects(['tag:output:appcast', 'tag:output:extension'], graph.nodes);
-        const name = path.basename(url.trim(), '.git');
+        const name = path.basename(url, '.git');
         const { name: repository, fullName } = new Repository(
             name,
             {

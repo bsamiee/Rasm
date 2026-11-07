@@ -31,12 +31,13 @@ uv resolves projects, workspace members, and dependency groups through native me
 - Inherited process variables and linked library contents alone do not invalidate cached wheels
 - `uv cache clean <package>` then `uv sync --reinstall-package <package>` rebuilds an unkeyed native ABI change
 - Native environment constraints and consuming build settings change together when a library's soname series changes
-- `pixi run --locked uv sync` builds against one native prefix without installing a second Python interpreter
+- Local uv sync builds against one Pixi prefix with the interpreter mise resolves
 - Native libraries stay in Pixi when a consumer has no wheel for a declared platform or opens a library by name
 - Keep versioned soname series in Pixi requirements; use `*` for libraries opened by name or linked without a version
 - `LDFLAGS` supplies C and C++ link paths, `LIBRARY_PATH` also reaches Rust links that record no `LC_RPATH`
 - Keep uv's cache outside the checkout, where Cargo can build Rust distributions outside the root workspace
-- CI syncs the `dev` group without Pixi; dependency markers keep Blender-only packages on its interpreter
+- CI syncs the `dev` group on Python 3.15 without Pixi
+- Host checks restore `host-checks` on the embedded interpreter version.
 - `exclude-dependencies` selects one provider when distributions compete for one installed module
 
 ## [04]-[ENVIRONMENT]
@@ -55,7 +56,7 @@ uv resolves projects, workspace members, and dependency groups through native me
 
 - Tools supporting per-file runtimes run once, tools accepting one version per process split by project `requires-python`
 - Checker cache inputs include implementation, imported source, settings, resolved dependencies, and the resolver-selected interpreter
-- Ruff, mypy, and pytest read cache paths from `pyproject.toml`, commands bypassing it use their own defaults
+- Ruff and mypy read cache paths from `pyproject.toml`, commands bypassing it use their own defaults
 - `mypy` skips dot-prefixed children during directory discovery, hidden source trees take explicit inputs
 - Ruff discovers nested interpreter requirements before an extended `target-version`
 - Compiler option snapshots decide interface cache compatibility

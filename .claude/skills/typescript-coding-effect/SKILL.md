@@ -1,6 +1,6 @@
 ---
 name: typescript-coding-effect
-description: "Use when calling an Effect module family, covering HTTP and HttpApi, SQL, AI and MCP, RPC and atoms, processes, CLI, crypto, encoding, tests, and telemetry"
+description: "Use when calling an Effect module family, covering HTTP and HttpApi, SQL, AI and MCP, RPC and atoms, processes, CLI, crypto, encoding, and telemetry"
 ---
 
 # [TYPESCRIPT_CODING_EFFECT]
@@ -29,32 +29,7 @@ Each runtime supplies the platform services a program reads through published la
 - `HttpRouter.serve` builds its routes in a fork of the memo map, and services sibling layers share are provided outside it
 - `HttpRouter.serve` and `toWebHandler` log each request unless `disableLogger`, and `serve` logs listen address unless `disableListenLog`
 
-## [02]-[TESTS]
-
-`@effect/vitest` runs each case as an effect: `it.effect` with `TestClock` and `TestConsole`, `it.live` with the real clock, and `layer(L)(name, (it) => ...)` with one build of `L` for the block:
-
-```ts
-layer(Layer.mock(Store, { read: (key) => StoreError.make({ reason: { _tag: 'Unavailable' }, subject: key }) }))('Store', (it) => {
-    it.effect('fails with Unavailable once the backoff runs out', () => {
-        const base = Duration.millis(100);
-        const retries = 3;
-        return Effect.all([Effect.flip(retrying('order', base, retries)), TestClock.adjust(Duration.times(base, 2 ** retries - 1))], { concurrency: 'unbounded' }).pipe(Effect.map(([error]) => assert.strictEqual(error.reason._tag, 'Unavailable')));
-    });
-});
-```
-
-`Store` is a service with `read(key)` failing with `StoreError`, and `retrying(key, base, retries)` reads through it under `Schedule.exponential(base)` for `retries` retries. `Layer.mock` implements the members a case reads, and an omitted member dies when called:
-- `TestClock` starts at epoch 0, a sleeping fiber resumes after `TestClock.adjust` or `setTime`, and a case runs the effect beside the adjustment
-- `it.effect(name, ({ task }) => ...)` receives Vitest's `TestContext`, and `task.name` names what a case writes
-- Shared suites take `Vitest.MethodsNonLive<R>`, and test files call `it.effect` per case so lint rules see each assertion
-- `layer(L, { buildPerTest: true })` builds `L` per case in a fork of the block's memo map, and `it.layer(nested)` adds services over the parent's
-- `it.effect.prop(name, [Schema.Int], fn)` and `it.prop` take schemas or `Arbitrary` values, `Arbitrary.schema(S)` deriving generators from checks
-- `assertSome`, `assertNone`, `assertSuccess`, `assertFailure`, and `assertExitSuccess` in `@effect/vitest/utils` read `Option`, `Result`, and `Exit`
-- `TestConsole.logLines` returns what a case printed, and `excludeTestServices: true` keeps the live `Clock` and `Console` for a block
-- Vitest configs hand values to cases through `provide`, cases read `inject('<key>')`, and one `ProvidedContext` augmentation types both
-- Fixtures given a `use` continuation hold the scope acquiring `value` open across `Effect.promise(() => use(value))`
-
-## [03]-[TELEMETRY]
+## [02]-[TELEMETRY]
 
 Logs, spans, and metrics leave the process through one layer at the root:
 

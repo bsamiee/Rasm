@@ -3,7 +3,7 @@
         "build-settings": {
             "factory": "./settings/build-settings.ts#buildSettings",
             "schema": "./schema.json",
-            "description": "Writes Xcode.xcconfig, .swiftlint.yml, Directory.Build.props, mise.toml and pixi platform rows from root package.json and Package.swift"
+            "description": "Writes Xcode.xcconfig, .swiftlint.yml, Directory.Build.props, .config/mise.toml and Pixi platform rows from package.json and Package.swift"
         },
         "barrels": {
             "factory": "./packages/barrels.ts#barrels",
@@ -23,7 +23,7 @@
         "rust-analyzer": {
             "factory": "./settings/rust-analyzer.ts#rustAnalyzer",
             "schema": "./schema.json",
-            "description": "Writes .vscode/settings.json rust-analyzer check and rustc rows from the argus .lsp.json rust row"
+            "description": "Writes shared rust-analyzer check options and compiler source settings for VS Code"
         },
         "hosting-bindings": {
             "factory": "./settings/hosting-bindings.ts#hostingBindings",

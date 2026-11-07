@@ -34,7 +34,7 @@ def test_restated_function_and_field_defaults_report(findings: Findings) -> None
 
         ObservedFrame(width=80)
     """)
-    assert [error.line for error in findings(ErrorRestatedDefaultError, source)] == [11, 12]
+    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [11, 12]
 
 
 def test_other_module_defaults_and_new_values_pass(findings: Findings) -> None:
@@ -48,7 +48,7 @@ def test_other_module_defaults_and_new_values_pass(findings: Findings) -> None:
         framed("title", width=60)
         textwrap.shorten("title text", 5, placeholder=" [...]")
     """)
-    assert findings(ErrorRestatedDefaultError, source) == ()
+    assert findings(source, ErrorRestatedDefaultError) == ()
 
 
 def test_aliased_function_method_and_struct_defaults_report(findings: Findings) -> None:
@@ -73,7 +73,7 @@ def test_aliased_function_method_and_struct_defaults_report(findings: Findings) 
         method(width=80)
         Other(width=80)
     """)
-    assert [error.line for error in findings(ErrorRestatedDefaultError, source)] == [17, 19]
+    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [17, 19]
 
 
 def test_positional_only_names_in_keywords_pass(findings: Findings) -> None:
@@ -84,7 +84,7 @@ def test_positional_only_names_in_keywords_pass(findings: Findings) -> None:
 
         framed(width=80)
     """)
-    assert findings(ErrorRestatedDefaultError, source) == ()
+    assert findings(source, ErrorRestatedDefaultError) == ()
 
 
 def test_struct_overrides_replace_inherited_defaults(findings: Findings) -> None:
@@ -110,7 +110,7 @@ def test_struct_overrides_replace_inherited_defaults(findings: Findings) -> None
         Changed(width=80)
         Changed(width=60, title="Title")
     """)
-    assert [(error.line, error.column) for error in findings(ErrorRestatedDefaultError, source)] == [(20, 14), (20, 24)]
+    assert [(error.line, error.column) for error in findings(source, ErrorRestatedDefaultError)] == [(20, 14), (20, 24)]
 
 
 def test_overloads_use_implementation_defaults(findings: Findings) -> None:
@@ -128,7 +128,7 @@ def test_overloads_use_implementation_defaults(findings: Findings) -> None:
         framed(1, width=80)
         framed("title", width=90)
     """)
-    assert [error.line for error in findings(ErrorRestatedDefaultError, source)] == [12]
+    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [12]
 
 
 def test_generic_struct_constructor_defaults_report(findings: Findings) -> None:
@@ -142,7 +142,7 @@ def test_generic_struct_constructor_defaults_report(findings: Findings) -> None:
 
         Frame[int](value=1, width=80)
     """)
-    assert [error.line for error in findings(ErrorRestatedDefaultError, source)] == [8]
+    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [8]
 
 
 def test_wrappers_keep_observable_keyword_presence(findings: Findings) -> None:
@@ -187,7 +187,7 @@ def test_wrappers_keep_observable_keyword_presence(findings: Findings) -> None:
             alias = observer
             return alias(width=80)
     """)
-    assert [error.line for error in findings(ErrorRestatedDefaultError, source)] == [11]
+    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [11]
 
 
 def test_native_final_facts_bound_method_default_replacements(findings: Findings) -> None:
@@ -241,4 +241,4 @@ def test_native_final_facts_bound_method_default_replacements(findings: Findings
 
         observed = invoked(Child())
     """)
-    assert [error.line for error in findings(ErrorRestatedDefaultError, source)] == [39, 40, 41, 42, 43, 45]
+    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [39, 40, 41, 42, 43, 45]

@@ -1,21 +1,32 @@
 * text=auto eol=lf
 
 # --- [DIFF] -----------------------------------------------------------------------------
+
+*.c diff=cpp
 *.cs diff=csharp
 *.rs diff=rust
 *.py diff=python
 *.java diff=java
 *.sh diff=bash
+*.swift diff=swift
 *.md diff=markdown
 *.css diff=css
 *.html diff=html
 
+# --- [LINGUIST] -------------------------------------------------------------------------
+
+*.globalconfig linguist-language=EditorConfig
+*.entitlements linguist-language=XML-Property-List
+*.xcscheme linguist-language=XML
+**/*.xcodeproj/project.xcproj linguist-language=JSON-with-Comments
+
 # --- [LOCK] -----------------------------------------------------------------------------
+
 pixi.lock merge=binary linguist-language=YAML linguist-generated=true -diff
 uv.lock linguist-language=TOML linguist-generated=true -diff
 pnpm-lock.yaml linguist-generated=true -diff
 Cargo.lock linguist-generated=true -diff
-mise.lock linguist-generated=true -diff
 
 # --- [IMAGE] ----------------------------------------------------------------------------
-*.tif filter=lfs diff=lfs merge=lfs -text
+
+*.tif filter=lfs diff=lfs merge=binary -text

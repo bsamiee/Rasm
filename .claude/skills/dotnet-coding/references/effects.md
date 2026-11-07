@@ -65,7 +65,7 @@ internal static class Dates {
 }
 ```
 
-Where a consumer reads many capabilities, a runtime record holds them with one `Has<Eff<RT>, T>` trait per capability, the consumer is an `Eff<RT, A>` generic over `RT` that reads the capability through `RT.Ask` and passes the snapshot to the validator, and a test runtime holds a fixed value:
+When a consumer reads several capabilities, a runtime record holds them with one `Has<Eff<RT>, T>` trait per capability. The consumer reads each capability through `RT.Ask` and passes the value to the validator.
 
 ```csharp
 internal sealed record Clock(LocalDate Today);

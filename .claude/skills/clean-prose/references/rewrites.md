@@ -162,10 +162,6 @@ Identifier and file renames update every reference:
 - AFTER: `` When provisioning mutates shared directories, set `cache: false` and `parallelism: false` `` (reason becomes condition for later targets)
 - WRONG: `Set cache: false and parallelism: false on the target, because provisioning mutates shared directories` (reason bolted on after instruction)
 
-- BEFORE: `Confidence comes from tests, not from inspecting the implementation`
-- AFTER: `Confidence comes from tests`
-- WRONG: `Confidence comes from tests, inspecting the implementation shows nothing` (one negative swapped for another)
-
 - BEFORE: `` Read a `.binlog` only through the `binlog` MCP tools, never directly ``
 - AFTER: `` Read a `.binlog` through `binlog` MCP tools `` (direct read goes in anti-pattern table)
 - WRONG: `` Read a `.binlog` through the `binlog` MCP tools, not directly `` (negative kept as tail)
@@ -236,19 +232,7 @@ Identifier and file renames update every reference:
 - BEFORE: `| Roslyn analyzers detecting common correctness and performance coding issues. |`
 - AFTER: `| Correctness and performance analyzers |`
 
-- BEFORE: `` | Python `network`/`subprocess`; language-specific integration run. | ``
-- AFTER: `` | Python `network`/`subprocess` markers, per-language integration run | `` (longer, marker noun was missing)
-
 ## [12]-[COMMENTS]
-
-```python
-# BEFORE
-# Test support routes the <tool> database to .cache/<tool>; this catches
-# runs that were started without that configuration in place.
-
-# AFTER
-# Catches runs started without .cache/<tool> database path
-```
 
 ```csharp
 // BEFORE

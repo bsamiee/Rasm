@@ -2,26 +2,26 @@
     <PropertyGroup>
         <Description>Snapshot tests of analyzer rules and their code fixes</Description>
         <OutputType>Exe</OutputType>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+        <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
+        <Verify_SponsorshipExemptionUntil>2027-10</Verify_SponsorshipExemptionUntil>
         <SolutionDir>$([MSBuild]::EnsureTrailingSlash($([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'Workspace.slnx'))))</SolutionDir>
     </PropertyGroup>
 
-    <ItemGroup Label="Rhino">
-        <PackageReference Include="RhinoCommon" />
-        <PackageReference Include="System.Drawing.Common" />
-    </ItemGroup>
-
-    <ItemGroup Label="Application Hosting">
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <ItemGroup Label="Compiler Fixtures">
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" IncludeAssets="compile" FixtureReference="true" />
+        <PackageReference Include="RhinoCommon" IncludeAssets="compile" FixtureReference="true" />
+        <PackageReference Include="System.Drawing.Common" IncludeAssets="compile" FixtureReference="true" />
+        <PackageReference Update="LanguageExt.Core;Thinktecture.Runtime.Extensions" FixtureReference="true" />
     </ItemGroup>
 
     <ItemGroup Label="Testing">
-        <PackageReference Include="CsCheck" />
         <PackageReference Include="Microsoft.CodeAnalysis.Common" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
         <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.SourceGenerator" GeneratePathProperty="true" PrivateAssets="all" />
-        <Reference Include="Thinktecture.Runtime.Extensions.SourceGenerator" HintPath="$(PkgThinktecture_Runtime_Extensions_SourceGenerator)/analyzers/dotnet/cs/Thinktecture.Runtime.Extensions.SourceGenerator.dll" />
+        <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.SourceGenerator" PrivateAssets="all" FixtureGenerator="true" />
         <PackageReference Include="Verify.XunitV3" />
         <PackageReference Include="xunit.v3.mtp-v2" />
     </ItemGroup>
@@ -35,11 +35,18 @@
         <ProjectReference Include="../../../../../tools/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
     </ItemGroup>
 
-    <Target Name="AddTargetingPackMetadata" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="ProcessFrameworkReferences">
+    <Target Name="ResolveFixtureReferences" BeforeTargets="ResolveAssemblyReferences;GetAssemblyAttributes" DependsOnTargets="ResolvePackageAssets">
+        <JoinItems Left="@(ResolvedCompileFileDefinitions)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('FixtureReference', 'true'))" ItemSpecToUse="Left">
+            <Output TaskParameter="JoinResult" ItemName="_FixtureReference" />
+        </JoinItems>
+        <JoinItems Left="@(ResolvedAnalyzers)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('FixtureGenerator', 'true'))" ItemSpecToUse="Left">
+            <Output TaskParameter="JoinResult" ItemName="Reference" />
+        </JoinItems>
         <ItemGroup>
             <AssemblyMetadata Include="TargetingPackId" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(NuGetPackageId)')" />
             <AssemblyMetadata Include="TargetingPackVersion" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(NuGetPackageVersion)')" />
             <AssemblyMetadata Include="TargetingPackFramework" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(TargetFramework)')" />
+            <AssemblyMetadata Include="FixtureReference.%(_FixtureReference.Filename)" Value="%(_FixtureReference.FullPath)" />
         </ItemGroup>
     </Target>
 </Project>

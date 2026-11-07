@@ -4,7 +4,8 @@ import AsyncAlgorithms
 import CasePaths
 import CasePathsCore
 import OrderedCollections
-public import ScreenCaptureKit
+import ScreenCaptureKit
+import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -59,6 +60,7 @@ extension NSWorkspace {
         arguments: [String] = [],
         environment: [String: String] = [:],
         newInstance: Bool = false,
+        waiting: Bool = false,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<Launching, Never> & Sendable {
         AsyncStream { output in
@@ -85,10 +87,9 @@ extension NSWorkspace {
                     for await state: InstanceState in instance.states(clock: clock) {
                         if let running: RunningInstance = RunningInstance(instance, state: state) { output.yield(.state(running)) }
                         switch state {
-                            case .running(let running):
-                                if !created || running.status.settled || !running.asking.isEmpty { return }
-                            case .failed: return
-                            case .exited: continue
+                            case .running(let running) where !waiting && (!created || running.status.settled || !running.asking.isEmpty): return
+                            case .failed where !waiting: return
+                            case .running, .failed, .exited: continue
                         }
                     }
                 } catch {
@@ -110,13 +111,6 @@ extension NSRunningApplication {
         return await state { element in element.id == id }
     }
 
-    public func performing(_ action: ElementAction, clock: some Clock<Duration> & Sendable = ContinuousClock()) async throws(ApplicationFailure) -> InstanceState {
-        if case .perform(_, kAXRaiseAction) = action {
-            throw ApplicationFailure(subject: "\(action), raising a window takes focus from the frontmost application,", reason: .refused(nil))
-        }
-        return try await action.perform(in: processIdentifier, clock: clock)
-    }
-
     public func quitting(force: Bool = false, clock: some Clock<Duration> & Sendable = ContinuousClock()) -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
         guard force else { return quit(clock: clock) }
         let states: some AsyncSequence<InstanceState, Never> & Sendable = states(clock: clock)
@@ -127,18 +121,26 @@ extension NSRunningApplication {
         }
     }
 
-    public func capturing(window: CGWindowID? = nil, longestSide: Int? = nil) async throws(ApplicationFailure) -> [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] {
-        if let window { return try await screenshots(of: [window], longestSide: longestSide) }
-        let presented: [CGWindowID] =
+    public func capturing(into directory: URL, window: CGWindowID? = nil, longestSide: Int? = nil) async throws(ApplicationFailure) -> [CGWindowID: Result<URL, ApplicationFailure>] {
+        let windows: [CGWindowID]
+        if let window {
+            windows = [window]
+        } else {
             switch await state() {
-                case .running(let running): running.windows.filter(\.presented).map(\.number)
+                case .running(let running): windows = running.windows.filter(\.presented).map(\.number)
                 case .failed(let failure): throw failure
                 case .exited: throw ApplicationFailure(subject: String(processIdentifier), reason: .noProcess)
             }
-        return try await screenshots(of: presented, longestSide: longestSide).filter { _, shot in
-            switch shot {
-                case .success(let output): output.sdrImage.map(transparent) != true
-                case .failure: true
+        }
+        return try await screenshots(of: windows, longestSide: longestSide).reduce(into: [:]) { files, shot in
+            let (number, output): (CGWindowID, Result<SCScreenshotOutput, ApplicationFailure>) = shot
+            if window == nil, case .success(let image) = output, image.sdrImage.map(transparent) == true { return }
+            files[number] = output.flatMap { image in
+                Result { () throws(ApplicationFailure) in
+                    let path: URL = directory.appending(component: String(number)).appendingPathExtension(for: .png)
+                    try image.write(to: path)
+                    return path
+                }
             }
         }
     }

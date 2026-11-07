@@ -1,11 +1,11 @@
 import { Extension, Grant, Provider, type ProviderArgs, Role, type RoleArgs, Schema } from '@pulumi/postgresql';
-import { type CustomResourceOptions, type Input, interpolate, type Output } from '@pulumi/pulumi';
+import { type Input, interpolate, type Output } from '@pulumi/pulumi';
 import { RandomPassword } from '@pulumi/random';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const postgresRoles = (database: string, variable: string, server: ProviderArgs, endpoint: Input<string>, protect: boolean, options: CustomResourceOptions): Readonly<Record<string, Output<string>>> => {
-    const provider = new Provider(database, { ...server, database: 'postgres', username: 'postgres', sslmode: 'disable' }, options);
+const postgresRoles = (database: string, variable: string, server: Required<Pick<ProviderArgs, 'host' | 'port' | 'password'>>, endpoint: Input<string>, protect: boolean): Readonly<Record<string, Output<string>>> => {
+    const provider = new Provider(database, { ...server, database: 'postgres', username: 'postgres', sslmode: 'disable' });
     const login = (role: string, settings: RoleArgs) => {
         const key = new RandomPassword(`${database}-${role}`, { length: 40, special: false }).result;
         return { name: new Role(`${database}-${role}`, { name: `${database}-${role}`, login: true, password: key, ...settings }, { provider }).name, key };

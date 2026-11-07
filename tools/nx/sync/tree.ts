@@ -1,17 +1,20 @@
 import type { Tree } from '@nx/devkit';
 import { Array, Effect, Equal, Record, Schema, type Scope, Stream, String, Struct } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
+import { parseAllDocuments } from 'yaml';
 import { runCommand } from '#/eng/typescript/run-command';
-import { type PluginServices, runPlugin } from '#/tools/nx/workspace';
+import { type PluginServices, runPlugin, WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const treeText = (tree: Tree, file: string) => Effect.fromNullishOr(tree.read(file, 'utf-8'));
 const decodeTree = <A>(tree: Tree, schema: Schema.Codec<A, string>, file: string) => Effect.flatMap(treeText(tree, file), Schema.decodeEffect(schema));
-const formatted = (tree: Tree, file: string, text: string) => {
-    const [command, ...args] = file.endsWith('.toml') ? ['tombi', 'format', '-', '--quiet', `--stdin-filename=${file}`] : ['biome', 'check', '--write', `--stdin-file-path=${file}`];
-    return runCommand(command, args, { cwd: tree.root, stdin: Stream.encodeText(Stream.make(text)) });
+const yamlDocuments = (text: string, file: string) => {
+    const documents = parseAllDocuments(text);
+    const errors = 'errors' in documents ? documents.errors : documents.flatMap((document) => document.errors);
+    return Array.match(errors, { onEmpty: () => Effect.succeed(documents), onNonEmpty: (failures) => Effect.fail(WorkspaceError.unparsed(file, failures.map(({ message }) => message).join('\n'))) });
 };
+const formatted = (tree: Tree, file: string, text: string) => runCommand('biome', ['check', '--write', `--stdin-file-path=${file}`], { cwd: tree.root, stdin: Stream.encodeText(Stream.make(text)) });
 const patched = Effect.fnUntraced(function* (tree: Tree, file: string, current: Readonly<Record<string, unknown>>, rows: Readonly<Record<string, unknown>>) {
     const text = yield* treeText(tree, file);
     const moved = Record.toEntries(rows).filter(([key, value]) => !Equal.equals(current[key], value));
@@ -34,4 +37,4 @@ const syncGenerator =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { decodeTree, formatted, patched, syncGenerator, treeText };
+export { decodeTree, formatted, patched, syncGenerator, treeText, yamlDocuments };

@@ -108,6 +108,6 @@ extension Installation {
     }
 
     public func runs(_ instance: NSRunningApplication) -> Bool {
-        instance.bundleURL?.resolvingSymlinksInPath().path(percentEncoded: false) == url.path(percentEncoded: false)
+        instance.bundleURL?.resolvingSymlinksInPath().pathComponents == url.pathComponents
     }
 }

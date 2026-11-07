@@ -2,7 +2,6 @@
 <ruleset name="rasm" xmlns="http://pmd.sourceforge.net/ruleset/2.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
     <description>Java rules</description>
 
-    <!-- [BEST_PRACTICES] -->
     <rule ref="category/java/bestpractices.xml">
         <exclude name="UnusedFormalParameter" />
     </rule>
@@ -12,7 +11,6 @@
         </properties>
     </rule>
 
-    <!-- [CODE_STYLE] -->
     <rule ref="category/java/codestyle.xml">
         <exclude name="AtLeastOneConstructor" />
         <exclude name="CommentDefaultAccessModifier" />
@@ -27,7 +25,6 @@
         <exclude name="ShortVariable" />
     </rule>
 
-    <!-- [DESIGN] -->
     <rule ref="category/java/design.xml">
         <exclude name="AvoidDeeplyNestedIfStmts" />
         <exclude name="CognitiveComplexity" />
@@ -46,7 +43,6 @@
         <exclude name="TooManyMethods" />
     </rule>
 
-    <!-- [ERROR_PRONE] -->
     <rule ref="category/java/errorprone.xml">
         <exclude name="AvoidAccessibilityAlteration" />
         <exclude name="AvoidCatchingGenericException" />
@@ -68,7 +64,6 @@
         </properties>
     </rule>
 
-    <!-- [GHIDRA] -->
     <rule name="UncheckedDecompilerOpen" language="java" message="Decompiler program open result unchecked" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
         <description>`DecompilerCallback` discards false from `DecompInterface.openProgram`, open program in configurer and fail with `getLastMessage`</description>
         <priority>1</priority>
@@ -84,10 +79,10 @@
         </properties>
     </rule>
 
-    <!-- [MULTITHREADING] -->
-    <rule ref="category/java/multithreading.xml" />
+    <rule ref="category/java/multithreading.xml">
+        <exclude name="DoNotUseThreads" />
+    </rule>
 
-    <!-- [PERFORMANCE] -->
     <rule ref="category/java/performance.xml" />
     <rule name="RecompiledConstantRegex" language="java" message="Constant regex recompiles on each evaluation" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
         <description>Reuse a static final Pattern for repeated matching and replacement</description>
@@ -116,6 +111,5 @@
         </properties>
     </rule>
 
-    <!-- [SECURITY] -->
     <rule ref="category/java/security.xml" />
 </ruleset>

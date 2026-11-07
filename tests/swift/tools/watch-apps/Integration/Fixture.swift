@@ -15,11 +15,12 @@ let product: String = "watch-apps"
 // --- [MODELS] --------------------------------------------------------------------------
 
 struct Fixture {
+    let bundle: URL
     let identifier: String
     let name: String
 
     init() throws {
-        let bundle: URL = try #require(TestApplication.current)
+        bundle = try #require(TestApplication.current)
         let info: Bundle = try #require(Bundle(url: bundle))
         identifier = try #require(info.bundleIdentifier)
         name = try #require(info.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String)

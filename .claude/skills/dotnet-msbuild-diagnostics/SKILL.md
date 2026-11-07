@@ -42,8 +42,6 @@ Targets running `dotnet build`, `restore`, `publish`, `msbuild`, `test`, or `for
 - `-f` and `-p:TargetFramework=` run restore as a separate invocation with its own log, a fixed name keeps the last one
 - `--no-restore` needs an assets file, `NETSDK1004` without one
 - Failed builds keep the log
-- `dotnet test` under Microsoft.Testing.Platform writes `<name>-dotnet-test.binlog` beside the build log `<name>.binlog`
-- `-dotnet-test` log holds the platform's project evaluation alone and reports `FAILED`
 - `MSBuildDebugEngine` covers a build a tool starts without `-bl`
 - `MSBuildDebugEngine` and `MSBUILDDEBUGPATH` are case-sensitive on macOS
 - Without `MSBUILDDEBUGPATH`, logs go under `.MSBuild_Logs/` in the current directory

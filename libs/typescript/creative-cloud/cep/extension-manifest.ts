@@ -89,7 +89,7 @@ class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand
         return BUILDER.build({
             '?xml': PROLOG,
             ExtensionManifest: {
-                '@_Version': ExtensionManifest.runtime,
+                '@_Version': '7.0',
                 '@_ExtensionBundleId': this.id,
                 '@_ExtensionBundleVersion': this.version,
                 '@_ExtensionBundleName': this.name,

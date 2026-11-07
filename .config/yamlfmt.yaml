@@ -1,6 +1,0 @@
-# --- [YAMLFMT] --------------------------------------------------------------------------
-formatter:
-    indent: 4
-    retain_line_breaks: true
-exclude:
-    - pnpm-lock.yaml

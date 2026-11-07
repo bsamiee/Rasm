@@ -46,15 +46,7 @@ Consumers import neither namespaces nor aliases, so public names qualify themsel
 - Packages declare one error class in the module named for it, its `reason` cases in the same module
 - Names unique within a package can clash in a consumer importing another package, the owner renaming each for what its value is
 
-## [04]-[TESTS]
-
-Tests consume a package through its entries:
-- Files sit under `tests/typescript/<source path without the language folder>` as `<module>.test.ts`
-- Backends and runtimes share one `cases.ts`, each running it from a `<backend>.test.ts`
-- Modules no entry lists are reached through their root `#/` path
-- Programs are tested through their command or app value with test layers, never through `main.ts`
-
-## [05]-[PROGRAMS]
+## [04]-[PROGRAMS]
 
 Program files compose and run:
 
@@ -74,6 +66,7 @@ Command.run(cli, { version: manifest.version }).pipe(Effect.provide(Store.layer.
 
 `cli` declares flags and handlers, `Store` is the program's service, and `layer` is the Node platform layer:
 - `main.ts` holds platform layers, configuration, and one terminal run, and exports nothing
+- An importable Node module can own CLI startup with a top-level `if (import.meta.main)` around `runMain`
 - Arguments and handlers sit in an importable module, domain logic in concept modules
 - Programs started per call import only what their verdict reads, heavy subsystems behind `import()`
 - Program packages point `bin` at `main.ts`, their `exports` listing only contracts a second runtime imports

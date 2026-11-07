@@ -143,7 +143,7 @@ def _rendering(scene: bpy.types.Scene, layer: Option[bpy.types.ViewLayer]) -> Ge
 
 def native(identity: Identity, scene: bpy.types.Scene, call: RenderCall, *, files: Option[Receipt] = Nothing) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
     """Renders under the native lock with explicit receipts or paths of the native write mode."""
-    receipts: Outcome[Option[Receipt]] = Ok(files.or_else(Some(animation_files) if call.animation else Some(still_files) if call.write_still else Nothing))
+    receipts = files.or_else(Some(animation_files) if call.animation else Some(still_files) if call.write_still else Nothing)
 
     def rendered(layer: Option[bpy.types.ViewLayer]) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
         with _rendering(scene, layer), RENDER_ORIGINS[identity].requested(scene, call.layer, receipts, animation=call.animation):

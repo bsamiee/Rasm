@@ -44,19 +44,18 @@ extension NSWorkspace {
             )
             configuration.appleEvent?.setParam(NSAppleEventDescriptor(enumCode: kAENo), forKeyword: keyAERestoreAppState)
         }
+        let opened: NSRunningApplication
         do {
-            let opened: NSRunningApplication =
-                try await documents.isEmpty
-                ? openApplication(at: url, configuration: configuration) : open(documents, withApplicationAt: url, configuration: configuration)
-            guard opened.processIdentifier == -1, let executable else { return (opened, !running.contains(opened)) }
-            let after: Set<pid_t> = processes(executing: executable)
-            let started: pid_t? = after.subtracting(before).first
-            guard let instance: NSRunningApplication = (started ?? after.first).flatMap(NSRunningApplication.init(processIdentifier:)) else {
-                throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .noProcess)
-            }
-            return (instance, started != nil)
+            opened = try await documents.isEmpty ? openApplication(at: url, configuration: configuration) : open(documents, withApplicationAt: url, configuration: configuration)
         } catch {
             throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .host(error as NSError))
         }
+        guard opened.processIdentifier == -1, let executable else { return (opened, !running.contains(opened)) }
+        let after: Set<pid_t> = processes(executing: executable)
+        let started: pid_t? = after.subtracting(before).first
+        guard let instance: NSRunningApplication = (started ?? after.first).flatMap(NSRunningApplication.init(processIdentifier:)) else {
+            throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .noProcess)
+        }
+        return (instance, started != nil)
     }
 }

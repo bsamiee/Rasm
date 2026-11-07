@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: swiftlang
 severity: error
-ignores: ['tests/swift/support/**', 'tests/swift/fixtures/**']
+ignores: ['tests/swift/support/**']
 rule:
     kind: simple_identifier
     regex: '^(file(Read)?NoSuchFile|noSuchFileOrDirectory|ENOENT|NSFile(Read)?NoSuchFileError|fileDoesNotExist|(kCF|NS)URLErrorFileDoesNotExist)$'

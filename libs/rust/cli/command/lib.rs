@@ -151,7 +151,7 @@ pub enum CommandError {
     #[error("cannot {operation}")]
     Io { operation: Operation, source: io::Error },
     #[error(transparent)]
-    File(io::Error),
+    File(#[from] io::Error),
     #[error("cannot open log directory {directory}")]
     Appender { directory: Utf8PathBuf, source: InitError },
     #[error("{}", fmt::from_fn(|formatter| match phase {

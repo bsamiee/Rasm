@@ -137,11 +137,11 @@ rule:
 rewriters:
     - id: item-top
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
       fix: '[$LABEL]'
 transform:
     NAME: {rewrite: {source: $ENTRY, rewriters: [item-top], joinBy: ''}}
@@ -188,30 +188,30 @@ rewriters:
     - id: key
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: $ABOVE.$SEGMENT
     - id: top
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, matches: rooted}}
       transform:
-        QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
+          QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
       fix: $QUALIFIER$SEGMENT
     - id: item
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: '$ABOVE[$LABEL]'
     - id: item-top
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
       fix: '[$LABEL]'
 transform:
     PATH: {rewrite: {source: $OWNER, rewriters: [key, top, item, item-top], joinBy: ''}}
@@ -244,30 +244,30 @@ rewriters:
     - id: key
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: $ABOVE.$SEGMENT
     - id: top
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, matches: rooted}}
       transform:
-        QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
+          QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
       fix: $QUALIFIER$SEGMENT
     - id: item
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: '$ABOVE[$LABEL]'
     - id: item-top
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
       fix: '[$LABEL]'
 transform:
     PATH: {rewrite: {source: $OWNER, rewriters: [key, top, item, item-top], joinBy: ''}}
@@ -296,30 +296,30 @@ rewriters:
     - id: key
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: $ABOVE.$SEGMENT
     - id: top
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, matches: rooted}}
       transform:
-        QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
+          QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
       fix: $QUALIFIER$SEGMENT
     - id: item
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: '$ABOVE[$LABEL]'
     - id: item-top
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
       fix: '[$LABEL]'
 transform:
     PATH: {rewrite: {source: $OWNER, rewriters: [key, top, item, item-top], joinBy: ''}}
@@ -348,30 +348,30 @@ rewriters:
     - id: key
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: $ABOVE.$SEGMENT
     - id: top
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, matches: rooted}}
       transform:
-        QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
+          QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
       fix: $QUALIFIER$SEGMENT
     - id: item
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: '$ABOVE[$LABEL]'
     - id: item-top
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
       fix: '[$LABEL]'
 transform:
     PATH: {rewrite: {source: $OWNER, rewriters: [key, top, item, item-top], joinBy: ''}}
@@ -400,30 +400,30 @@ rewriters:
     - id: key
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: $ABOVE.$SEGMENT
     - id: top
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, matches: rooted}}
       transform:
-        QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
+          QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
       fix: $QUALIFIER$SEGMENT
     - id: item
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: '$ABOVE[$LABEL]'
     - id: item-top
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
       fix: '[$LABEL]'
 transform:
     PATH: {rewrite: {source: $OWNER, rewriters: [key, top, item, item-top], joinBy: ''}}
@@ -452,30 +452,30 @@ rewriters:
     - id: key
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: $ABOVE.$SEGMENT
     - id: top
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, matches: rooted}}
       transform:
-        QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
+          QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
       fix: $QUALIFIER$SEGMENT
     - id: item
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: '$ABOVE[$LABEL]'
     - id: item-top
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
       fix: '[$LABEL]'
 transform:
     PATH: {rewrite: {source: $OWNER, rewriters: [key, top, item, item-top], joinBy: ''}}
@@ -504,30 +504,30 @@ rewriters:
     - id: key
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: $ABOVE.$SEGMENT
     - id: top
       rule: {kind: 'block_node, flow_node', pattern: $SEGMENT, inside: {kind: 'block_mapping_pair, flow_pair', field: key, matches: rooted}}
       transform:
-        QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
+          QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
       fix: $QUALIFIER$SEGMENT
     - id: item
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', matches: nested}}}}
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
       fix: '$ABOVE[$LABEL]'
     - id: item-top
       rule:
-        regex: '^[-{]$'
-        pattern: $$SEGMENT
-        any:
-            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
-            - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
+          regex: '^[-{]$'
+          pattern: $$SEGMENT
+          any:
+              - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {matches: labeled}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
+              - inside: {kind: flow_mapping, has: {matches: labeled}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
       fix: '[$LABEL]'
 transform:
     PATH: {rewrite: {source: $OWNER, rewriters: [key, top, item, item-top], joinBy: ''}}

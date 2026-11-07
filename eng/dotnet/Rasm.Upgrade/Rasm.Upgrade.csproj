@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Central package versions kept at newest releases every consuming project can restore, exact host rows at the installed host</Description>
+        <Description>Central package upgrades constrained by the projects and Rhino runtime that use them</Description>
         <OutputType>Exe</OutputType>
     </PropertyGroup>
 
@@ -17,6 +17,7 @@
         <PackageReference Include="NuGet.Configuration" />
         <PackageReference Include="NuGet.Frameworks" />
         <PackageReference Include="NuGet.Packaging" />
+        <PackageReference Include="NuGet.ProjectModel" />
         <PackageReference Include="NuGet.Protocol" />
         <PackageReference Include="NuGet.Versioning" />
     </ItemGroup>

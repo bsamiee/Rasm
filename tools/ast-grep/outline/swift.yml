@@ -194,18 +194,18 @@ rule:
           pattern: $DECLARATION
           inside: {kind: 'source_file, ERROR'}
           all:
-            - has: {kind: value_binding_pattern, regex: let}
-            - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
-            - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
+              - has: {kind: value_binding_pattern, regex: let}
+              - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
+              - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
         - kind: pattern
           pattern: $BINDER
           has: {kind: simple_identifier, pattern: $NAME}
           any: [{precedes: {kind: type_annotation, pattern: $DECLARATION, stopBy: {not: {any: [{kind: pattern}, {regex: '^,$'}]}}}}, {kind: pattern}]
           inside:
-            kind: property_declaration
-            stopBy: {kind: 'property_declaration, statements'}
-            inside: {kind: 'source_file, ERROR'}
-            all: [{has: {kind: value_binding_pattern, regex: let, pattern: $BINDING}}, {any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]}]
+              kind: property_declaration
+              stopBy: {kind: 'property_declaration, statements'}
+              inside: {kind: 'source_file, ERROR'}
+              all: [{has: {kind: value_binding_pattern, regex: let, pattern: $BINDING}}, {any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]}]
 rewriters:
     - {id: closure, rule: {kind: lambda_literal}, fix: '{…}'}
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
@@ -234,18 +234,18 @@ rule:
           pattern: $DECLARATION
           inside: {kind: 'source_file, ERROR'}
           all:
-            - has: {kind: value_binding_pattern, regex: var}
-            - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
-            - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
+              - has: {kind: value_binding_pattern, regex: var}
+              - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
+              - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
         - kind: pattern
           pattern: $BINDER
           has: {kind: simple_identifier, pattern: $NAME}
           any: [{precedes: {kind: type_annotation, pattern: $DECLARATION, stopBy: {not: {any: [{kind: pattern}, {regex: '^,$'}]}}}}, {kind: pattern}]
           inside:
-            kind: property_declaration
-            stopBy: {kind: 'property_declaration, statements'}
-            inside: {kind: 'source_file, ERROR'}
-            all: [{has: {kind: value_binding_pattern, regex: var, pattern: $BINDING}}, {any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]}]
+              kind: property_declaration
+              stopBy: {kind: 'property_declaration, statements'}
+              inside: {kind: 'source_file, ERROR'}
+              all: [{has: {kind: value_binding_pattern, regex: var, pattern: $BINDING}}, {any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]}]
 rewriters:
     - {id: closure, rule: {kind: lambda_literal}, fix: '{…}'}
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
@@ -336,11 +336,11 @@ utils:
             kind: statements
             any:
                 - inside:
-                    stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    any:
-                        - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
-                        - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
-                        - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
+                      stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                      any:
+                          - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
+                          - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
+                          - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
                 - kind: statements
     nested: {any: [{matches: owned}, {matches: local}]}
     hollow: {all: [{not: {has: {field: body, has: {pattern: $_, not: {kind: 'comment, multiline_comment, directive'}}}}}, {not: {has: {stopBy: end, kind: ERROR}}}]}
@@ -355,18 +355,18 @@ rewriters:
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
@@ -394,11 +394,11 @@ utils:
             kind: statements
             any:
                 - inside:
-                    stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    any:
-                        - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
-                        - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
-                        - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
+                      stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                      any:
+                          - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
+                          - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
+                          - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
                 - kind: statements
     nested: {any: [{matches: owned}, {matches: local}]}
     hollow: {all: [{not: {has: {field: body, has: {pattern: $_, not: {kind: 'comment, multiline_comment, directive'}}}}}, {not: {has: {stopBy: end, kind: ERROR}}}]}
@@ -413,18 +413,18 @@ rewriters:
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
@@ -452,11 +452,11 @@ utils:
             kind: statements
             any:
                 - inside:
-                    stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    any:
-                        - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
-                        - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
-                        - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
+                      stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                      any:
+                          - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
+                          - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
+                          - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
                 - kind: statements
     nested: {any: [{matches: owned}, {matches: local}]}
     hollow: {all: [{not: {has: {field: body, has: {pattern: $_, not: {kind: 'comment, multiline_comment, directive'}}}}}, {not: {has: {stopBy: end, kind: ERROR}}}]}
@@ -471,18 +471,18 @@ rewriters:
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
@@ -510,11 +510,11 @@ utils:
             kind: statements
             any:
                 - inside:
-                    stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    any:
-                        - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
-                        - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
-                        - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
+                      stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                      any:
+                          - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
+                          - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
+                          - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
                 - kind: statements
     nested: {any: [{matches: owned}, {matches: local}]}
     hollow: {all: [{not: {has: {field: body, has: {pattern: $_, not: {kind: 'comment, multiline_comment, directive'}}}}}, {not: {has: {stopBy: end, kind: ERROR}}}]}
@@ -529,18 +529,18 @@ rewriters:
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
@@ -568,11 +568,11 @@ utils:
             kind: statements
             any:
                 - inside:
-                    stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    any:
-                        - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
-                        - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
-                        - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
+                      stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                      any:
+                          - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
+                          - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
+                          - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
                 - kind: statements
     nested: {any: [{matches: owned}, {matches: local}]}
     hollow: {all: [{not: {has: {field: body, has: {pattern: $_, not: {kind: 'comment, multiline_comment, directive'}}}}}, {not: {has: {stopBy: end, kind: ERROR}}}]}
@@ -586,18 +586,18 @@ rewriters:
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
@@ -627,18 +627,18 @@ rule:
         - kind: property_declaration
           pattern: $DECLARATION
           all:
-            - matches: static
-            - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
-            - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
-            - matches: leaf
+              - matches: static
+              - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
+              - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
+              - matches: leaf
         - kind: pattern
           pattern: $BINDER
           has: {kind: simple_identifier, pattern: $NAME}
           any: [{precedes: {kind: type_annotation, pattern: $DECLARATION, stopBy: {not: {any: [{kind: pattern}, {regex: '^,$'}]}}}}, {kind: pattern}]
           inside:
-            kind: property_declaration
-            stopBy: {kind: 'property_declaration, statements'}
-            all: [{matches: static}, {has: {kind: value_binding_pattern, pattern: $BINDING}}, {has: {kind: modifiers, pattern: $MODIFIERS}}]
+              kind: property_declaration
+              stopBy: {kind: 'property_declaration, statements'}
+              all: [{matches: static}, {has: {kind: value_binding_pattern, pattern: $BINDING}}, {has: {kind: modifiers, pattern: $MODIFIERS}}]
 rewriters:
     - {id: closure, rule: {kind: lambda_literal}, fix: '{…}'}
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
@@ -646,18 +646,18 @@ rewriters:
     - {id: observer, rule: {kind: willset_didset_block}, fix: "\n"}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, observer, closure, comment]}}
@@ -700,18 +700,18 @@ rewriters:
     - {id: implicit, rule: {kind: computed_property, has: {kind: statements}}, fix: '{ get }'}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
     - {id: value, rule: {kind: 'pattern, type_annotation', pattern: $BOUND, precedes: {regex: '^=$'}}, fix: {template: '$BOUND', expandEnd: {not: {regex: '^=$'}, stopBy: end}}}
 transform:
@@ -742,18 +742,18 @@ rule:
         - kind: property_declaration
           pattern: $DECLARATION
           all:
-            - matches: stored
-            - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
-            - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
-            - matches: leaf
+              - matches: stored
+              - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
+              - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
+              - matches: leaf
         - kind: pattern
           pattern: $BINDER
           has: {kind: simple_identifier, pattern: $NAME}
           any: [{precedes: {kind: type_annotation, pattern: $DECLARATION, stopBy: {not: {any: [{kind: pattern}, {regex: '^,$'}]}}}}, {kind: pattern}]
           inside:
-            kind: property_declaration
-            stopBy: {kind: 'property_declaration, statements'}
-            all: [{matches: stored}, {has: {kind: value_binding_pattern, pattern: $BINDING}}, {any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]}]
+              kind: property_declaration
+              stopBy: {kind: 'property_declaration, statements'}
+              all: [{matches: stored}, {has: {kind: value_binding_pattern, pattern: $BINDING}}, {any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]}]
 rewriters:
     - {id: closure, rule: {kind: lambda_literal}, fix: '{…}'}
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
@@ -761,18 +761,18 @@ rewriters:
     - {id: observer, rule: {kind: willset_didset_block}, fix: "\n"}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, observer, closure, comment]}}
@@ -815,18 +815,18 @@ rewriters:
     - {id: implicit, rule: {kind: computed_property, has: {kind: statements}}, fix: '{ get }'}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     LINES: {replace: {source: $HEADER, replace: '[\t-\r ]+$|[\t-\r ]*\n[\t-\r ]*', by: "\n"}}
@@ -863,18 +863,18 @@ rewriters:
     - {id: attributes, rule: {kind: precedence_group_attributes, inside: {kind: precedence_group_declaration}}, fix: {template: "\n", expandStart: {regex: '\{'}, expandEnd: {regex: '\}'}}}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     LINES: {replace: {source: $HEADER, replace: '[\t-\r ]+$|[\t-\r ]*\n[\t-\r ]*', by: "\n"}}
@@ -913,18 +913,18 @@ rewriters:
     - {id: default, rule: {kind: parameter, pattern: $PARAMETER, precedes: {regex: '^=$'}}, fix: {template: '$PARAMETER = …', expandEnd: {not: {regex: '^=$'}, stopBy: end}}}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, default, closure, comment]}}
@@ -953,18 +953,18 @@ rewriters:
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [closure, comment]}}
@@ -991,18 +991,18 @@ rule:
 rewriters:
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
@@ -1029,18 +1029,18 @@ rewriters:
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     LINES: {replace: {source: $HEADER, replace: '[\t-\r ]+$|[\t-\r ]*\n[\t-\r ]*', by: "\n"}}
@@ -1071,34 +1071,34 @@ rule:
     any:
         - kind: enum_entry
           all:
-            - matches: entry
-            - has: {field: name, pattern: $NAME}
-            - not: {has: {kind: case_name, nthChild: {position: 2, ofRule: {kind: case_name}}}}
-            - any: [{has: {field: data_contents, pattern: $TAIL}}, {kind: enum_entry}]
-            - matches: leaf
+              - matches: entry
+              - has: {field: name, pattern: $NAME}
+              - not: {has: {kind: case_name, nthChild: {position: 2, ofRule: {kind: case_name}}}}
+              - any: [{has: {field: data_contents, pattern: $TAIL}}, {kind: enum_entry}]
+              - matches: leaf
         - kind: case_name
           pattern: $NAME
           inside: {kind: enum_entry, matches: entry}
           any:
-            - precedes: {kind: enum_type_parameters, pattern: $TAIL, stopBy: {not: {kind: 'comment, multiline_comment'}}}
-            - pattern: $NAME
+              - precedes: {kind: enum_type_parameters, pattern: $TAIL, stopBy: {not: {kind: 'comment, multiline_comment'}}}
+              - pattern: $NAME
 rewriters:
     - {id: closure, rule: {kind: lambda_literal}, fix: '{…}'}
     - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
     - {id: default, rule: {follows: {regex: '^=$'}, inside: {kind: enum_type_parameters}}, fix: …}
 transform:
@@ -1124,11 +1124,11 @@ utils:
             kind: statements
             any:
                 - inside:
-                    stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    any:
-                        - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
-                        - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
-                        - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
+                      stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                      any:
+                          - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
+                          - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
+                          - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
                 - kind: statements
     leaf: {not: {has: {stopBy: end, any: [{kind: 'function_declaration, class_declaration, typealias_declaration', inside: {kind: statements}}, {kind: ERROR}]}}}
 rule:
@@ -1146,18 +1146,18 @@ rewriters:
     - {id: default, rule: {kind: parameter, pattern: $PARAMETER, precedes: {regex: '^=$'}}, fix: {template: '$PARAMETER = …', expandEnd: {not: {regex: '^=$'}, stopBy: end}}}
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
+                        not: {inside: {kind: 'source_file, ERROR'}}
+                        has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$LEVEL.
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, default, closure, comment]}}

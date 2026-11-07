@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Encoding
 public import Foundation
 import Results
@@ -36,26 +37,42 @@ extension AggregateError where Element == Reason {
 
 actor Calls {
     private var running: [JSONValue: (task: Task<Void, Never>, acks: AsyncStream<Void>.Continuation)] = [:]
+    private var closed: Bool = false
 
     func start(_ id: JSONValue, _ call: @escaping @concurrent @Sendable (AsyncStream<Void>) async -> Void) {
-        let (acks, ack): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream()
+        guard !closed, running[id] == nil else { return }
+        let (acks, ack): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
         running[id] = (Task { await call(acks) }, ack)
     }
 
-    func interrupt(_ id: JSONValue) { running.removeValue(forKey: id)?.task.cancel() }
+    func interrupt(_ id: JSONValue) {
+        running[id]?.acks.finish()
+        running[id]?.task.cancel()
+    }
 
     func acknowledge(_ id: JSONValue) { running[id]?.acks.yield() }
+
+    func finished(_ id: JSONValue) { running[id] = nil }
+
+    func close() async {
+        closed = true
+        let pending: [Task<Void, Never>] = running.keys.compactMap { id in
+            interrupt(id)
+            return running[id]?.task
+        }
+        for task: Task<Void, Never> in pending { await task.value }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public func serve<Request: Decodable & Sendable, Failure: Error>(
-    reading lines: some AsyncSequence<Data, any Error>,
+    reading lines: @autoclosure @escaping @Sendable () -> any AsyncSequence<Data, any Error>,
     writing write: @escaping @Sendable (Data) async throws -> Void,
     dropped: @escaping @Sendable (JSONRPCFailure) -> Void,
     _ perform: @escaping @Sendable (Request) async throws(Failure) -> Response,
 ) async throws(JSONRPCFailure) {
-    let (output, sink): (AsyncStream<Result<Data, JSONRPCFailure>>, AsyncStream<Result<Data, JSONRPCFailure>>.Continuation) = AsyncStream.makeStream()
+    let output: AsyncChannel<Data> = AsyncChannel()
     let calls: Calls = Calls()
     let decoder: JSONDecoder = JSONDecoder()
     let encoder: JSONEncoder = JSONEncoder()
@@ -67,8 +84,10 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
             ? encoder.encodeLine(Envelope<_, Never>(jsonrpc: nil, id: id, chunk: true, result: [value]))
             : encoder.encodeLine(Envelope<_, Never>(jsonrpc: nil, id: id, result: value))
     }
-    @Sendable func send(_ id: JSONValue, answering method: String, _ line: () throws -> Data) {
-        sink.yield(Result(catching: line).flatMapError { error in Result { try exit(id, [.die(error)]) } }.mapError { error in JSONRPCFailure(subject: method, reason: .unencodable(error)) })
+    @Sendable func send(_ id: JSONValue, answering method: String, _ line: () throws -> Data) async {
+        do { await output.send(try line()) } catch {
+            do { await output.send(try exit(id, [.die(error)])) } catch { dropped(JSONRPCFailure(subject: method, reason: .unencodable(error))) }
+        }
     }
     @concurrent @Sendable func answer(_ id: JSONValue, _ method: String, _ params: JSONValue?, acknowledged acks: AsyncStream<Void>) async {
         let outcome: Result<Response, AggregateError<Reason>> = await Result { () async throws(AggregateError<Reason>) -> Response in
@@ -77,44 +96,46 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
             do throws(Failure) { return try await perform(request) } catch { throw AggregateError(failing: error) }
         }
         switch outcome {
-            case .success(.value(let value?)): send(id, answering: method) { try result(id, value) }
-            case .success(.value(nil)): send(id, answering: method) { try result(id, JSONValue.null) }
+            case .success(.value(let value?)): await send(id, answering: method) { try result(id, value) }
+            case .success(.value(nil)): await send(id, answering: method) { try result(id, JSONValue.null) }
             case .success(.stream(let chunks)):
                 var acknowledgements: AsyncStream<Void>.Iterator = acks.makeAsyncIterator()
                 for await chunk: any Encodable & Sendable in chunks {
-                    send(id, answering: method) { try result(id, chunk, chunk: true) }
-                    await acknowledgements.next()
+                    await send(id, answering: method) { try result(id, chunk, chunk: true) }
+                    _ = await acknowledgements.next()
                 }
-                send(id, answering: method) { try result(id, JSONValue.null) }
-            case .failure(let cause): send(id, answering: method) { try exit(id, cause.errors) }
+                if !Task.isCancelled { await send(id, answering: method) { try result(id, JSONValue.null) } }
+            case .failure(let cause): await send(id, answering: method) { try exit(id, cause.errors) }
         }
-        await calls.interrupt(id)
+        await calls.finished(id)
     }
-    func receive(_ line: Data) async {
-        switch Result(catching: { try decoder.decode(Envelope<JSONValue, JSONValue>.self, from: line) }) {
-            case .failure(let error): sink.yield(.failure(JSONRPCFailure(subject: "connection", reason: .unreadable(error))))
-            case .success(let envelope):
-                let target: JSONValue? = if case .object(let fields)? = envelope.params { fields["requestId"] } else { nil }
-                switch (envelope.id, envelope.method, envelope.method.flatMap(Control.init(rawValue:)), target) {
-                    case (_, _, .interrupt, .some(let target)): await calls.interrupt(target)
-                    case (_, _, .ack, .some(let target)): await calls.acknowledge(target)
-                    case (.some(let id), .some(let method), .none, _): await calls.start(id) { acks in await answer(id, method, envelope.params, acknowledged: acks) }
-                    case (_, _, .some, .none), (.none, _, .none, _), (.some, .none, .none, _): break
-                }
+    @concurrent @Sendable func receive(_ line: Data) async throws(JSONRPCFailure) {
+        let envelope: Envelope<JSONValue, JSONValue>
+        do { envelope = try decoder.decode(Envelope<JSONValue, JSONValue>.self, from: line) } catch { throw JSONRPCFailure(subject: "connection", reason: .unreadable(error)) }
+        let target: JSONValue? = if case .object(let fields)? = envelope.params { fields["requestId"] } else { nil }
+        switch (envelope.id, envelope.method, envelope.method.flatMap(Control.init(rawValue:)), target) {
+            case (_, _, .interrupt, .some(let target)): await calls.interrupt(target)
+            case (_, _, .ack, .some(let target)): await calls.acknowledge(target)
+            case (.some(let id), .some(let method), .none, _): await calls.start(id) { acks in await answer(id, method, envelope.params, acknowledged: acks) }
+            case (_, _, .some, .none), (.none, _, .none, _), (.some, .none, .none, _): break
         }
     }
     do {
-        try await withThrowingDiscardingTaskGroup { group in
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            defer {
+                group.cancelAll()
+                output.finish()
+                await calls.close()
+            }
             group.addTask {
-                for await line: Result<Data, JSONRPCFailure> in output {
-                    switch line {
-                        case .success(let data): try await write(data)
-                        case .failure(let failure): dropped(failure)
-                    }
+                for await line: Data in output { try await write(line) }
+            }
+            group.addTask {
+                for try await line: Data in lines() {
+                    do throws(JSONRPCFailure) { try await receive(line) } catch { dropped(error) }
                 }
             }
-            for try await line: Data in lines { await receive(line) }
-            sink.finish()
+            _ = try await group.next()
         }
     } catch {
         throw JSONRPCFailure(subject: "connection", transport: error)

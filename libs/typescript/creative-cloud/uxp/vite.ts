@@ -50,7 +50,7 @@ const panelEntry = (directory: string) =>
         const rendered = (yield* fs.exists(glyph)) ? yield* icons(glyph, 'toolbar', id) : { icons: [], files: [] };
         return { entry: { ...row, type: 'panel' as const, id, ...(rendered.icons.length === 0 ? {} : { icons: rendered.icons }) }, files: rendered.files };
     });
-const uxpScript = (directory: string, extension: string, config: UserConfig = {}): UserConfig => {
+const uxpScript = (directory: string, config: UserConfig): UserConfig => {
     const encoding = fileURLToPath(import.meta.resolve('@exodus/bytes/encoding-lite.js'));
     return mergeConfig(
         bundle({
@@ -66,7 +66,7 @@ const uxpScript = (directory: string, extension: string, config: UserConfig = {}
                             (name) => [name, [encoding, name] satisfies [string, string]],
                         ),
                     },
-                    output: { format: 'cjs', entryFileNames: `[name].${extension}`, paths: String.replace(HOSTED, '') },
+                    output: { format: 'cjs', entryFileNames: '[name].js', paths: String.replace(HOSTED, '') },
                 },
             },
             environments: { ssr: { resolve: { noExternal: true, builtins: [HOSTED], conditions: Array.intersection(defaultServerConditions, defaultClientConditions) } } },
@@ -109,7 +109,6 @@ const uxp = (directory: string, { link, mark, panels = {}, commands = {}, config
             const emitted = [...plugin.files, ...Array.flatMap(panelled, Struct.get('files'))];
             return uxpScript(
                 directory,
-                'js',
                 mergeConfig(
                     {
                         ...(dial === undefined ? {} : { define: dial.define }),
@@ -133,4 +132,4 @@ const uxp = (directory: string, { link, mark, panels = {}, commands = {}, config
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { uxp, uxpScript };
+export { uxp };

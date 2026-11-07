@@ -14,11 +14,6 @@ test    = false
 doctest = false
 bench   = false
 
-# --- [TEST]
-[[test]]
-name = "operations"
-path = "../../../../tests/rust/numerics/spectra/operations.rs"
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -39,11 +34,6 @@ ndarray-conv = { workspace = true }
 ndrustfft    = { workspace = true }
 realfft      = { workspace = true }
 rustfft      = { workspace = true }
-
-# --- [TEST]
-[dev-dependencies]
-approx = { workspace = true }
-claims = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

@@ -16,6 +16,7 @@ Run commands from a terminal or harness with Accessibility access, each prints t
 ```bash
 watch-apps launch [<app>...] [--new] [--wait] \
     [--document <path>]... [--arguments <argument>]... [--environment NAME=VALUE]...
+watch-apps launch <absolute-app-path> --owned [--document <path>]... [--arguments <argument>]... [--environment NAME=VALUE]...
 watch-apps quit (<app>... | --pid <pid>) [--force]
 ```
 
@@ -36,6 +37,10 @@ Monitor {"command": "watch-apps watch <app> [<helper>]...",
 - `launch` prints `{"<bundle>":{"<pid>":{"launched":{"created":<bool>}}}}` first, false for a reused instance
 - `launch` prints lines until `status` settles or a row asks, or until exit with `--wait`, then exits leaving the app running
 - `launch --wait` returns the app's exit status, or 128 plus its signal
+- `launch --owned` opens one exact bundle and keeps its new PID until stdin closes or a shutdown signal arrives
+- Owned launch prints `launched`, `state`, `prompts`, and `failed` values from `ApplicationServer`, including terminal state after a graceful quit
+- An existing instance yields `created: false` and exit 1
+- With `--document`, owned launch sends files to the responsive background process and waits for its reply. A missing Automation grant fails without a prompt
 - `quit` prints lines until the instance exits, a row asks (a save sheet), it stops answering, a read fails, or it answers reads while its quit event goes unanswered past the Apple Event default timeout, and exits 1 unless each instance exited
 - `quit --force` kills the instance, for one no answer or quit frees, and the killed app asks about its previous session at the next launch
 - `watch-apps` quits, kills, closes a document, presses a button, or writes a preference only on an agent's command
@@ -68,7 +73,7 @@ watch-apps serve
 ```
 
 - `read` prints the whole state with element ids, `--window` walks one row, so answering a dialog costs a fraction of a whole `read`
-- `capture` writes one PNG per presented window with no activation to `$TMPDIR/watch-apps/<bundle id>-<pid>-<number>.png`, printing one `captured` line per file
+- `capture` writes one PNG per presented window with no activation to `$TMPDIR/watch-apps/<number>.png`, printing one `captured` line per file
 - `capture` reads every window with a window-server number, inactive, covered, minimized, and on another unmanaged Space included, and needs the Screen Recording grant
 - `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item
 - `AXRaise` is listed in `actions` as the host states it and refused, since it takes focus

@@ -224,10 +224,16 @@ languageInjections:
       constraints:
         CONTENT: {not: {inside: &block-scope {stopBy: end, kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^#block$'}}}}}}
       utils:
-        own: {regex: '^[\["''`]*(?i-u:sqlite)(?-u:\b)'}
+        own:
+            any:
+                - regex: '^[\["''`]*(?i-u:sqlite)(?-u:\b)'
+                - has: {field: function, regex: '^it\.effect\.(?:runIf\(sqlite\)|skipIf\(postgres\))$'}
         own-import: &sqlite-import {regex: '^["''](?:@effect/sql-(?:sqlite-[a-z-]+|libsql)|sqlite-vec|node:sqlite|bun:sqlite)["''/]'}
-        other-import: &pg-import {regex: '^["''](?:@effect/sql-pg(?:lite)?|@electric-sql/pglite(?:-tools)?|@pgsql/[a-z]+|pgsql-parser)["''/]'}
-        dialect-entry: &tsx-dialect-entry {kind: 'pair, method_definition', inside: {kind: object, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^onDialect(?:OrElse)?$'}}}}}}
+        other-import: &pg-import {regex: '^["''](?:@effect/sql-pg|@pgsql/[a-z]+|pgsql-parser)["''/]'}
+        dialect-entry: &tsx-dialect-entry
+            any:
+                - {kind: 'pair, method_definition', inside: {kind: object, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^onDialect(?:OrElse)?$'}}}}}}
+                - {kind: call_expression, has: {field: function, regex: '^it\.effect\.(?:runIf|skipIf)\((?:postgres|sqlite)\)$'}}
         sql-site: &sql-site
             kind: call_expression
             any:
@@ -287,7 +293,10 @@ languageInjections:
       constraints:
         CONTENT: {not: &plpgsql-site {inside: *block-scope, regex: '^`?(?:\t|\n|\v|\f|\r| |--[^\n]*\n|/\*[^*]*\*+(?:[^/*][^*]*\*+)*/)*(?:<<|(?i-u:ASSERT|BEGIN|CASE|CONTINUE|DECLARE|EXECUTE|EXIT|FETCH|FOR|FOREACH|GET|IF|LOOP|NULL|OPEN|PERFORM|RAISE|RETURN|WHILE)(?-u:\b)|(?:[$0-9A-Z_a-z\x80-\x{10FFFF}]|\.|"|\[[^\]]*\])+(?:\t|\n|\v|\f|\r| )*:?=)'}}
       utils:
-        own: {regex: '^[\["''`]*(?i-u:pg)(?-u:\b)'}
+        own:
+            any:
+                - regex: '^[\["''`]*(?i-u:pg)(?-u:\b)'
+                - has: {field: function, regex: '^it\.effect\.(?:runIf\(postgres\)|skipIf\(sqlite\))$'}
         own-import: *pg-import
         other-import: *sqlite-import
         dialect-entry: *tsx-dialect-entry

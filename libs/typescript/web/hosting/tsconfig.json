@@ -1,7 +1,8 @@
 {
     "extends": "../../../../tsconfig.web.json",
     "compilerOptions": {
-        "types": [ "node", "vite/client", "./.cloudflare/types", "@cloudflare/vitest-plugin/types", "@rasm/test-support/vitest" ]
+        "types": [ "node", "vite/client", "@cloudflare/vitest-plugin/types" ]
     },
+    "files": [ ".cloudflare/types/index.d.ts" ],
     "include": [ "**/*", "../../../../tests/typescript/libs/web/hosting" ]
 }

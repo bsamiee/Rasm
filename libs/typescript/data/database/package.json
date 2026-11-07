@@ -14,7 +14,6 @@
     "dependencies": {
         "@effect/sql-d1": "catalog:",
         "@effect/sql-pg": "catalog:",
-        "@effect/sql-pglite": "catalog:",
         "@pgsql/traverse": "catalog:",
         "@pgsql/types": "catalog:",
         "effect": "catalog:",
@@ -25,9 +24,7 @@
         "@effect/platform-node": "catalog:",
         "@effect/sql-sqlite-node": "catalog:",
         "@effect/vitest": "catalog:",
-        "@electric-sql/pglite": "catalog:",
         "@rasm/hosting": "workspace:*",
-        "@rasm/test-support": "workspace:*",
         "@testcontainers/postgresql": "catalog:",
         "@types/node": "catalog:",
         "cf": "catalog:",

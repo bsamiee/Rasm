@@ -2,7 +2,8 @@
 
 import sys
 lazy from collections.abc import Sequence
-lazy from functools import cache
+lazy from dataclasses import replace
+lazy from os import devnull
 lazy import re
 lazy from time import perf_counter
 
@@ -30,21 +31,28 @@ from tools.refurb.rewrites import RewriteVisitor
 
 
 def checked(settings: Settings) -> Sequence[Error | str]:
-    """Type-checks each source module from its text in this process with cached imports and runs checks over its typed tree."""
+    """Runs mypy diagnostics and Refurb checks over fresh typed source trees."""
     filesystem = FileSystemCache()
 
-    @cache
     def content(path: str) -> str:
         return decode_python_encoding(filesystem.read(path))
 
-    sources, options = process_options([*settings.files, *settings.mypy_args], fscache=filesystem)
+    version = ["--python-version", ".".join(map(str, settings.python_version))] if settings.python_version is not None else []
+    sources, options = process_options([*settings.files, *version, *settings.mypy_args], fscache=filesystem)
+    settings = replace(settings, python_version=options.python_version)
     checks = load_checks(settings)
     options.preserve_asts = True
     options.export_types = defaults.check in checks[MypyFile]
     options.num_workers = 0
-    options.python_version = settings.get_python_version()
-    options.timing_stats = str(settings.timing_stats) if settings.timing_stats is not None else None
-    read = [BuildSource(source.path, source.module, content(source.path), source.base_dir) if source.path is not None else source for source in sources]
+    if settings.timing_stats is not None:
+        options.timing_stats = str(settings.timing_stats)
+    if options.shadow_file is not None:
+        options.cache_dir = devnull
+    read = (
+        [BuildSource(source.path, source.module, content(source.path), source.base_dir) if source.path is not None else source for source in sources]
+        if options.incremental and options.cache_dir != devnull
+        else sources
+    )
     started = perf_counter()
     match catch(build, exception=CompileError)(read, options=options, fscache=filesystem):
         case Result(tag="ok", ok=result):
@@ -62,7 +70,7 @@ def checked(settings: Settings) -> Sequence[Error | str]:
                 started = perf_counter()
                 visitor.accept(tree)
                 timings[source.module] = int((perf_counter() - started) * 1000)
-                lines = (source.text if source.text is not None else content(state.xpath)).splitlines() if visitor.errors else ()
+                lines = (source.text if source.text is not None else content(result.manager.maybe_swap_for_shadow_path(state.xpath))).splitlines() if visitor.errors else ()
                 for finding in visitor.errors:
                     finding.filename = state.xpath
                 errors.extend(

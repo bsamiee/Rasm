@@ -7,6 +7,10 @@
             <RhinoInstallPath Condition="'$(RhinoInstallPath)' == ''">$([MSBuild]::GetRegistryValue('HKEY_LOCAL_MACHINE\SOFTWARE\McNeel\Rhinoceros\$(RhinoMajorVersion).0\Install', 'InstallPath'))</RhinoInstallPath>
         </PropertyGroup>
         <Error Condition="'$(RhinoInstallPath)' == ''" Text="Rhino $(RhinoMajorVersion) install not found, install Rhino $(RhinoMajorVersion) or set RhinoInstallPath" />
+        <XmlPeek XmlInputPath="$(RhinoInstallPath)/Contents/Info.plist" Query="/plist/dict/key[.='CFBundleShortVersionString']/following-sibling::*[1]/text()" ProhibitDtd="false" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+            <Output TaskParameter="Result" PropertyName="_RhinoVersion" />
+        </XmlPeek>
+        <Error Condition="$([MSBuild]::IsOSPlatform('OSX')) and !$([System.String]::Copy('$(_RhinoVersion)').StartsWith('$(RhinoMajorVersion).'))" Text="$(RhinoInstallPath) contains Rhino $(_RhinoVersion); Rhino $(RhinoMajorVersion) is required." />
         <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
             <_ResourcesDir>$([MSBuild]::NormalizeDirectory('$(RhinoInstallPath)', 'Contents', 'Frameworks', 'RhCore.framework', 'Versions', 'Current', 'Resources'))</_ResourcesDir>
             <_YakExecutable>$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'Contents', 'Resources', 'bin', 'yak'))</_YakExecutable>

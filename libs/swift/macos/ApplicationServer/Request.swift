@@ -7,7 +7,6 @@ public import JSONRPC
 import OrderedCollections
 import Processes
 import Results
-import ScreenCaptureKit
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -85,12 +84,12 @@ extension Request {
             case .launch(let url, let documents, let arguments, let environment, let new):
                 return try .stream(
                     NSWorkspace.shared.launching(installation(at: url, admitting: admitting), opening: documents, arguments: arguments, environment: environment, newInstance: new)
-                        .map { launching -> any Encodable & Sendable in launching as any Encodable & Sendable }
+                        .map(\.self)
                 )
             case .perform(let pid, let actions):
                 let instance: NSRunningApplication = try running(pid, admitting: admitting)
                 var next: InstanceState?
-                for action: ElementAction in actions { next = try await instance.performing(action) }
+                for action: ElementAction in actions { next = try await action.perform(in: pid).state }
                 let settled: InstanceState = if let next { next } else { await instance.state() }
                 return .value(settled)
             case .quit(let pid, let force):
@@ -114,24 +113,8 @@ extension Request {
                 )
                 return try await .value(Executed(reply: AppleEventValue(event.sent(), in: dictionary), reading: artifacts))
             case .screenshot(let pid, let window, let longestSide, let directory):
-                let shots: [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] = try await running(pid, admitting: admitting).capturing(window: window, longestSide: longestSide)
-                let written: [String: Outcome<URL>] = Dictionary(
-                    uniqueKeysWithValues: shots.map { number, shot in
-                        let file: URL = directory.appending(component: "\(number).png")
-                        return (
-                            String(number),
-                            Outcome(
-                                shot.flatMap { output in
-                                    Result { () throws(ApplicationFailure) in
-                                        try output.write(to: file)
-                                        return file
-                                    }
-                                }
-                            ),
-                        )
-                    }
-                )
-                return .value(written)
+                let shots: [CGWindowID: Result<URL, ApplicationFailure>] = try await running(pid, admitting: admitting).capturing(into: directory, window: window, longestSide: longestSide)
+                return .value(Dictionary(uniqueKeysWithValues: shots.map { number, shot in (String(number), Outcome(shot)) }))
         }
     }
 }

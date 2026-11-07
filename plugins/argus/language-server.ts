@@ -4,7 +4,7 @@ import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { fromReadable, toReadableNever } from '@effect/platform-node/NodeStream';
 import type { Event } from '@parcel/watcher';
-import { Array, type Cause, Config, Duration, Effect, Fiber, FileSystem, Function, flow, HashMap, HashSet, Iterable, Match, Number, Option, Predicate, Queue, Record, Result, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, type Cause, Config, Duration, Effect, Exit, Fiber, FileSystem, Function, flow, HashMap, HashSet, Iterable, Match, Number, Option, Predicate, Queue, Record, Result, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { escape, minimatch } from 'minimatch';
 import {
@@ -70,6 +70,7 @@ const INITIAL = {
     published: HashMap.empty<string, PublishDiagnosticsParams>(),
 };
 const REFERENCE = /\$\{(?<name>\w+)\}/gu;
+const SHUTDOWN_GRACE_SECONDS = 3;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -96,7 +97,7 @@ class LanguageServer {
         settings: Schema.OptionFromOptionalKey(Schema.Json),
         workspaceFolder: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed('.'))),
         startupTimeout: Timeout(Duration.infinity),
-        shutdownTimeout: Timeout(Duration.infinity),
+        shutdownTimeout: Timeout(Duration.seconds(SHUTDOWN_GRACE_SECONDS)),
         requestTimeout: Timeout(Duration.minutes(1)),
     });
 
@@ -108,7 +109,13 @@ class LanguageServer {
         const fs = yield* FileSystem.FileSystem;
         const folder = resolve(root, config.workspaceFolder);
         const input = new PassThrough();
-        const child = yield* ChildProcess.make(config.command, config.args, { cwd: folder, env: config.env, extendEnv: true, stdin: fromReadable({ evaluate: () => input }).pipe(Stream.orDie) });
+        const child = yield* ChildProcess.make(config.command, config.args, {
+            cwd: folder,
+            env: config.env,
+            extendEnv: true,
+            stdin: fromReadable({ evaluate: () => input }).pipe(Stream.orDie),
+            forceKillAfter: config.shutdownTimeout,
+        });
         yield* child.stderr.pipe(Stream.decodeText(), Stream.splitLines, Stream.runForEach(Effect.logInfo), Effect.ignore({ log: 'Warn', message: 'stderr read failed' }), Effect.forkScoped);
         const connection = yield* Effect.acquireRelease(
             Effect.sync(() => createMessageConnection(toReadableNever(child.stdout), input)),
@@ -202,11 +209,15 @@ class LanguageServer {
         yield* SubscriptionRef.update(state, Struct.evolve({ registrations: HashMap.setMany<string, Registration>(Record.toEntries(declared)) }));
         yield* this.#notify(InitializedNotification.type, {});
         yield* Option.match(config.settings, { onNone: () => Effect.void, onSome: (settings) => this.#notify(DidChangeConfigurationNotification.type, { settings }) });
+        const exited = Effect.asVoid(child.exitCode);
         const shutdown = Effect.tryPromise(() => connection.sendRequest(ShutdownRequest.type)).pipe(
             Effect.andThen(Effect.tryPromise(() => connection.sendNotification(ExitNotification.type))),
-            Effect.andThen(child.exitCode),
+            Effect.as(exited),
+            Effect.raceFirst(Effect.as(exited, Effect.void)),
+            Effect.flatten,
             Effect.timeout(config.shutdownTimeout),
             Effect.ignore({ log: 'Warn', message: 'shutdown failed' }),
+            Effect.annotateLogs({ pid: child.pid }),
         );
         yield* Effect.addFinalizer(Function.constant(shutdown));
     });
@@ -214,15 +225,18 @@ class LanguageServer {
     // --- [REQUESTS]
 
     ask<P, R>(type: RequestType<P, R, unknown>, params: RequestParam<P>, timeout = this.#resources.config.requestTimeout) {
+        const { connection, stopped } = this.#resources;
         return Effect.acquireUseRelease(
             Effect.sync(() => new CancellationTokenSource()),
-            (source) => Effect.tryPromise(() => this.#resources.connection.sendRequest(type, params, source.token)),
-            (source) =>
+            (source) => Effect.tryPromise(() => connection.sendRequest(type, params, source.token)).pipe(Effect.catchTag('UnknownError', this.#classify), Effect.raceFirst(stopped)),
+            (source, exit) =>
                 Effect.sync(() => {
-                    source.cancel();
+                    if (Exit.hasInterrupts(exit)) {
+                        source.cancel();
+                    }
                     source.dispose();
                 }),
-        ).pipe(Effect.catchTag('UnknownError', this.#classify), Effect.retry({ while: (error) => error instanceof ResponseError && error.code === LSPErrorCodes.ContentModified, schedule: Schedule.spaced('100 millis') }), Effect.timeout(timeout), Effect.raceFirst(this.#resources.stopped));
+        ).pipe(Effect.retry({ while: (error) => error instanceof ResponseError && error.code === LSPErrorCodes.ContentModified, schedule: Schedule.spaced('100 millis') }), Effect.timeout(timeout));
     }
 
     readonly #classify = ({ cause }: Cause.UnknownError) =>

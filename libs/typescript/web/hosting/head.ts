@@ -6,9 +6,9 @@ import { generateManifestIconsEntry } from '@vite-pwa/assets-generator/api/gener
 import { instructions } from '@vite-pwa/assets-generator/api/instructions';
 import { minimal2023Preset } from '@vite-pwa/assets-generator/presets/minimal-2023';
 import { formatRgb } from 'culori';
-import { Array, Cause, Effect, FileSystem, Function, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Duration, Effect, FileSystem, Function, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type ChildNode, list, parse } from 'postcss';
-import type { HtmlTagDescriptor, Plugin, ResolvedConfig, Rolldown } from 'vite';
+import { type DevEnvironment, type HtmlTagDescriptor, normalizePath, type Plugin, type ResolvedConfig, type Rolldown } from 'vite';
 import type { WebAppManifest } from 'web-app-manifest';
 import { HostingError } from '#/hosting-error';
 
@@ -50,11 +50,12 @@ const cascade = (nodes: readonly ChildNode[], scheme: Scheme): readonly (readonl
             ),
         );
 const computed = (declared: ReadonlyMap<string, string>, scheme: Scheme, value: string): Option.Option<string> => {
-    const { call, parameters } = CSS_CALL.exec(value.trim())?.groups ?? {};
+    const token = value.trim();
+    const { call, parameters } = CSS_CALL.exec(token)?.groups ?? {};
     const [first, second] = parameters === undefined ? [] : list.comma(parameters);
     const schemed = scheme === 'dark' ? second : first;
     const referenced = call === 'var' ? (UndefinedOr.map(first, (name) => declared.get(name)) ?? second) : schemed;
-    return call === undefined ? Option.some(value) : Option.flatMap(Option.fromUndefinedOr(referenced), (next) => computed(declared, scheme, next));
+    return call === undefined ? Option.some(token) : Option.flatMap(Option.fromUndefinedOr(referenced), (next) => computed(declared, scheme, next));
 };
 const renderHead = Effect.fnUntraced(
     function* ({ root, base }: ResolvedConfig, { master, stylesheet, ink, surface, manifest }: Head) {
@@ -114,19 +115,34 @@ const renderHead = Effect.fnUntraced(
 
 const siteHead = (head: Head): Plugin => {
     let resolved: ResolvedConfig;
-    const rendered = Effect.runSync(Effect.cached(Effect.suspend(() => renderHead(resolved, head))));
+    const files = () => [head.master, head.stylesheet].map((file) => normalizePath(join(resolved.root, file)));
+    const [rendered, invalidate] = Effect.runSync(
+        Effect.cachedInvalidateWithTTL(
+            Effect.suspend(() => renderHead(resolved, head)),
+            Duration.infinity,
+        ),
+    );
     return {
         name: '@rasm/hosting/head',
         applyToEnvironment: ({ config }) => config.consumer === 'client',
         configResolved: (config) => {
             resolved = config;
         },
-        configureServer: ({ middlewares }) => {
+        configureServer: ({ middlewares, watcher }) => {
+            watcher.add(files());
             middlewares.use((request, response, next) => {
                 Effect.runPromise(rendered)
                     .then(({ assets }) => Option.match(Record.get(assets, request.url ?? ''), { onNone: () => next(), onSome: ({ mimeType, source }) => response.setHeader('Content-Type', mimeType).end(source) }))
                     .catch(next);
             });
+        },
+        hotUpdate(this: { readonly environment: DevEnvironment }, { file }) {
+            if (!files().includes(file)) {
+                return;
+            }
+            Effect.runSync(invalidate);
+            this.environment.hot.send({ type: 'full-reload', path: '*', triggeredBy: file });
+            return [];
         },
         generateBundle(this: Rolldown.PluginContext) {
             return Effect.runPromise(rendered).then(({ assets }) => {

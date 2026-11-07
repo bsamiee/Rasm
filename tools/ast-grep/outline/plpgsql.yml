@@ -61,10 +61,10 @@ utils:
             - has: {kind: any_identifier, pattern: $CONDITION}
             - all: [{has: {kind: kw_sqlstate, pattern: $KEYWORD}}, {has: {field: sqlstate, pattern: $STATE}}]
             - has:
-                kind: raise_option
-                pattern: $OPTION
-                has: {field: left, kind: kw_errcode}
-                any: [{has: {field: right, regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$", pattern: $ERRCODE}}, {has: {field: left, pattern: $ERRKEY}}]
+                  kind: raise_option
+                  pattern: $OPTION
+                  has: {field: left, kind: kw_errcode}
+                  any: [{has: {field: right, regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$", pattern: $ERRCODE}}, {has: {field: left, pattern: $ERRKEY}}]
         not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
 rewriters:
     - {id: value, rule: {kind: sql_expression, not: {regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$"}}, fix: …}
@@ -88,15 +88,15 @@ rule:
           any: [{kind: 'kw_end, kw_loop, identifier, sql_expression'}, {pattern: ';'}, {pattern: ')'}, {pattern: ']'}]
         - kind: ERROR
           not:
-            has:
-                stopBy: end
-                any:
-                    - kind: 'pl_block, comp_option'
-                    - {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}
-                    - {kind: for_variable, inside: {kind: stmt_for, field: for, has: {field: in, kind: 'for_integer_range, for_cursor'}}}
-                    - kind: stmt_raise
-                      any: [{has: {kind: any_identifier}}, {has: {kind: kw_sqlstate}}, {has: {kind: raise_option, has: {field: left, kind: kw_errcode}}}]
-                      not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+              has:
+                  stopBy: end
+                  any:
+                      - kind: 'pl_block, comp_option'
+                      - {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}
+                      - {kind: for_variable, inside: {kind: stmt_for, field: for, has: {field: in, kind: 'for_integer_range, for_cursor'}}}
+                      - kind: stmt_raise
+                        any: [{has: {kind: any_identifier}}, {has: {kind: kw_sqlstate}}, {has: {kind: raise_option, has: {field: left, kind: kw_errcode}}}]
+                        not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
 name: ERROR
 signature: ''
 isImport: false
@@ -128,15 +128,15 @@ utils:
 rewriters:
     - id: lineage
       rule:
-        kind: 'block_label, loop_label'
-        has: {pattern: $SEGMENT}
-        inside:
-            kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
-            any:
-                - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
-                - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$SEGMENT.
 transform:
     LABELED: replace($NAME, replace='(?s)^(.+)$', by='<<${1}>>')
@@ -161,15 +161,15 @@ rule:
 rewriters:
     - id: lineage
       rule:
-        kind: 'block_label, loop_label'
-        has: {pattern: $SEGMENT}
-        inside:
-            kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
-            any:
-                - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
-                - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$SEGMENT.
     - {id: strip, rule: {kind: comment}, fix: ''}
     - {id: query, rule: {kind: 'kw_for, kw_is, sql_expression', inside: {kind: decl_statement}}, fix: ''}
@@ -204,15 +204,15 @@ rewriters:
     - {id: value, rule: {kind: sql_expression, inside: {kind: decl_defval}}, fix: …}
     - id: lineage
       rule:
-        kind: 'block_label, loop_label'
-        has: {pattern: $SEGMENT}
-        inside:
-            kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
-            any:
-                - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
-                - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$SEGMENT.
     - {id: strip, rule: {kind: comment}, fix: ''}
 transform:
@@ -245,13 +245,13 @@ rule:
           has: {kind: dotted_name, pattern: $NAME}
           not: {has: {stopBy: end, matches: failed}}
           inside:
-            kind: stmt_for
-            field: for
-            has: {field: in, kind: 'for_integer_range, for_cursor'}
-            any:
-                - {has: {kind: loop_label, pattern: $OWNER}, matches: nested}
-                - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}
-                - kind: stmt_for
+              kind: stmt_for
+              field: for
+              has: {field: in, kind: 'for_integer_range, for_cursor'}
+              any:
+                  - {has: {kind: loop_label, pattern: $OWNER}, matches: nested}
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}
+                  - kind: stmt_for
 utils:
     nested: {inside: {stopBy: end, any: [{kind: pl_block}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}}
     owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: decl_statement}]}
@@ -260,15 +260,15 @@ utils:
 rewriters:
     - id: lineage
       rule:
-        kind: 'block_label, loop_label'
-        has: {pattern: $SEGMENT}
-        inside:
-            kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
-            any:
-                - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
-                - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$SEGMENT.
     - {id: strip, rule: {kind: comment}, fix: ''}
 transform:
@@ -302,15 +302,15 @@ rewriters:
     - {id: value, rule: {kind: sql_expression, inside: {kind: decl_defval}}, fix: …}
     - id: lineage
       rule:
-        kind: 'block_label, loop_label'
-        has: {pattern: $SEGMENT}
-        inside:
-            kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
-            any:
-                - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
-                - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$SEGMENT.
     - {id: strip, rule: {kind: comment}, fix: ''}
 transform:
@@ -346,15 +346,15 @@ utils:
 rewriters:
     - id: lineage
       rule:
-        kind: 'block_label, loop_label'
-        has: {pattern: $SEGMENT}
-        inside:
-            kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
-            any:
-                - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
-                - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$SEGMENT.
     - {id: strip, rule: {kind: comment}, fix: ''}
 transform:
@@ -384,10 +384,10 @@ utils:
             - has: {kind: any_identifier, pattern: $CONDITION}
             - all: [{has: {kind: kw_sqlstate, pattern: $KEYWORD}}, {has: {field: sqlstate, pattern: $STATE}}]
             - has:
-                kind: raise_option
-                pattern: $OPTION
-                has: {field: left, kind: kw_errcode}
-                any: [{has: {field: right, regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$", pattern: $ERRCODE}}, {has: {field: left, pattern: $ERRKEY}}]
+                  kind: raise_option
+                  pattern: $OPTION
+                  has: {field: left, kind: kw_errcode}
+                  any: [{has: {field: right, regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$", pattern: $ERRCODE}}, {has: {field: left, pattern: $ERRKEY}}]
         not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
         matches: owner
     owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: stmt_raise}]}
@@ -395,15 +395,15 @@ rewriters:
     - {id: value, rule: {kind: sql_expression, not: {regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$"}}, fix: …}
     - id: lineage
       rule:
-        kind: 'block_label, loop_label'
-        has: {pattern: $SEGMENT}
-        inside:
-            kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
-            any:
-                - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
-                - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
       fix: $ABOVE$SEGMENT.
 transform:
     CODE: replace($STATE, replace="^(?:[eE]|[uU]&)?'|'$", by='')
@@ -427,27 +427,27 @@ rule:
           any: [{kind: 'kw_end, kw_loop, identifier, sql_expression'}, {pattern: ';'}, {pattern: ')'}, {pattern: ']'}]
         - kind: ERROR
           not:
-            has:
-                stopBy: end
-                any:
-                    - {kind: decl_statement, inside: {stopBy: end, kind: pl_block}}
-                    - {kind: decl_cursor_arg, inside: {kind: decl_cursor_args, inside: {kind: decl_statement}}}
-                    - {kind: block_label, inside: {kind: pl_block}}
-                    - {kind: loop_label, inside: {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a'}}
-                    - {kind: for_variable, inside: {kind: stmt_for, field: for, has: {field: in, kind: 'for_integer_range, for_cursor'}}}
-                    - {kind: proc_condition, inside: {kind: proc_conditions, inside: {kind: proc_exception}}}
-                    - matches: condition-raise
+              has:
+                  stopBy: end
+                  any:
+                      - {kind: decl_statement, inside: {stopBy: end, kind: pl_block}}
+                      - {kind: decl_cursor_arg, inside: {kind: decl_cursor_args, inside: {kind: decl_statement}}}
+                      - {kind: block_label, inside: {kind: pl_block}}
+                      - {kind: loop_label, inside: {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a'}}
+                      - {kind: for_variable, inside: {kind: stmt_for, field: for, has: {field: in, kind: 'for_integer_range, for_cursor'}}}
+                      - {kind: proc_condition, inside: {kind: proc_conditions, inside: {kind: proc_exception}}}
+                      - matches: condition-raise
         - kind: kw_begin
           inside:
-            any:
-                - kind: ERROR
-                - {kind: pl_block, inside: {stopBy: {matches: boundary}, kind: ERROR}}
+              any:
+                  - kind: ERROR
+                  - {kind: pl_block, inside: {stopBy: {matches: boundary}, kind: ERROR}}
         - kind: 'kw_declare, kw_exception, kw_cursor'
           inside: {kind: ERROR}
         - kind: 'kw_option, kw_print_strict_params, kw_variable_conflict, loop_label, dotted_name'
           inside:
-            kind: 'comp_option, stmt_loop, stmt_while, stmt_for, stmt_foreach_a, for_variable'
-            inside: {stopBy: {matches: boundary}, kind: ERROR}
+              kind: 'comp_option, stmt_loop, stmt_while, stmt_for, stmt_foreach_a, for_variable'
+              inside: {stopBy: {matches: boundary}, kind: ERROR}
         - kind: kw_raise
           inside: {matches: condition-raise, inside: {stopBy: {matches: boundary}, kind: ERROR}}
 utils:

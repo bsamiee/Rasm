@@ -120,13 +120,29 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
         timeout,
     );
     it.effect(
-        'publishes one whole body from contending uploads to one key and refuses the rest with Conflict',
+        'refuses a torn body after receiving all declared bytes',
+        Effect.fnUntraced(function* () {
+            const [key, token] = ['media/torn', yield* Deferred.make<string>()];
+            const body = Stream.concat(chunked(content), Stream.fail(Multipart.MultipartError.fromReason('Parse')));
+            const error = yield* Effect.flip(put(key, content.length, body, (issued) => Deferred.succeed(token, issued)));
+            const uploadToken = yield* Deferred.await(token);
+            assert.deepStrictEqual([error._tag, yield* status(key), yield* discarded(uploadToken)], ['BadRequest', code.missing, true]);
+        }, Effect.provide(storage)),
+        timeout,
+    );
+    it.effect(
+        'keeps a whole successful body at a contended key and reports rejected writes as conflicts',
         Effect.fnUntraced(function* () {
             const contenders = 4;
             const bodies = Array.makeBy(contenders, (seed) => fill(part + chunk, seed + 1));
             const [published, refused] = yield* Effect.partition(bodies, (body) => Effect.as(put('media/contended', body.length, chunked(body)), body), { concurrency: 'unbounded' });
             const stored = yield* read('media/contended');
-            assert.deepStrictEqual([Array.isReadonlyArrayNonEmpty(published), Array.map(refused, ({ _tag }) => _tag), published.some((body) => Bytes.Equivalence(body, stored.body))], [true, Array.map(refused, Function.constant('Conflict')), true]);
+            assert.strictEqual(stored.status, code.ok);
+            assert.isTrue(published.some((body) => Bytes.Equivalence(body, stored.body)));
+            assert.deepStrictEqual(
+                Array.map(refused, ({ _tag }) => _tag),
+                Array.map(refused, Function.constant('Conflict')),
+            );
         }, Effect.provide(storage)),
         timeout,
     );

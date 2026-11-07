@@ -303,9 +303,6 @@ internal static class Prompts {
 }
 ```
 
-- `LanguageExt.Sys.Test.Runtime.New()` supplies a `MemoryConsole` and a file system rooted at a temporary directory under `Env.RootPath`
-- Disposing the test runtime deletes that directory
-- `WriteKeyLine` feeds console input, enumerating the console returns the written lines
 - `LanguageExt.Sys.Live.Runtime.New()` supplies the live host services
 
 ## [05]-[TRAITS_AND_TRANSFORMERS]

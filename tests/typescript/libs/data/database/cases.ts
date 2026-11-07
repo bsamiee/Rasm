@@ -64,8 +64,8 @@ const legacy = Relation.make('legacy', { id: Schema.String, count: Schema.Int, b
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>, record: (title: string, planned: Effect.Success<ReturnType<typeof Catalog.plan>>) => Effect.Effect<void, W, NoInfer<R>>) => {
-    const declared = (relations: Catalog['tables'], retiredTables: readonly string[] = []) => Catalog.make({ tables: relations, retired: retiredTables, excludedPrefixes: ['_cf_'], timeouts: { lock: '5 seconds', transaction: '2 minutes' } });
+const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>, { postgres = false, record }: { readonly postgres?: boolean; readonly record?: (title: string, planned: Effect.Success<ReturnType<typeof Catalog.plan>>) => Effect.Effect<void, W, NoInfer<R>> } = {}) => {
+    const declared = (relations: Catalog['tables'], retiredTables: readonly string[] = []) => Catalog.make({ tables: relations, retired: retiredTables, timeouts: { lock: '5 seconds', transaction: '2 minutes' } });
     const uuid = SecureRandom.SecureRandom.use(({ uuidV7 }) => uuidV7());
     const rows = (name: string) => SqlClient.SqlClient.use((sql) => sql`SELECT * FROM ${sql(name)} ORDER BY 1`);
     const tables = SqlClient.SqlClient.use((sql) =>
@@ -94,10 +94,12 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
     const reconciling =
         (title: string) =>
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) =>
-            Effect.andThen(
-                Effect.flatMap(Catalog.plan(catalog, runtime), (planned) => record(title, planned)),
-                Catalog.reconcile(catalog, runtime),
-            );
+            record === undefined
+                ? Catalog.reconcile(catalog, runtime)
+                : Effect.andThen(
+                      Effect.flatMap(Catalog.plan(catalog, runtime), (planned) => record(title, planned)),
+                      Catalog.reconcile(catalog, runtime),
+                  );
     const isolated = <Eff extends Effect.Effect<unknown, unknown, Layer.Success<ReturnType<typeof Catalog.client<never, F, R>>> | SecureRandom.SecureRandom | Scope.Scope | R>, A>(body: (reconcile: ReturnType<typeof reconciling>, sql: SqlClient.SqlClient) => Generator<Eff, A, never>) => {
         const execute = Effect.fnUntraced(body);
         return ({ task }: TestContext) => SqlClient.SqlClient.use((sql) => execute(reconciling(task.name), sql)).pipe(Effect.provide([Catalog.client(client), SecureRandom.layerWebCrypto]));
@@ -206,6 +208,37 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             assert.deepStrictEqual(yield* reconcile(declared([retired, kids])), { tables: [], columns: [{ table: 'parents', column: 'extra' }], indexes: [], references: [] });
             assert.deepStrictEqual(yield* reconcile(declared([extended, kids])), { tables: [], columns: [], indexes: [], references: [] });
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', title: 'Parent', state: 'open', extra: 7 }]);
+        }),
+    );
+    it.effect.skipIf(postgres)(
+        'preserves SQLite autoincrement on empty and previously used tables during rebuild',
+        isolated(function* (reconcile, sql) {
+            yield* sql`CREATE TABLE empty_legacy (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, amount INTEGER NOT NULL) STRICT`;
+            yield* sql`CREATE TABLE used_legacy (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, amount INTEGER NOT NULL) STRICT`;
+            yield* sql`CREATE TABLE outside (id INTEGER PRIMARY KEY AUTOINCREMENT)`;
+            yield* sql`CREATE TABLE outside__rebuild (id INTEGER PRIMARY KEY AUTOINCREMENT)`;
+            yield* sql`INSERT INTO used_legacy (id, amount) VALUES (7, 42), (90, 12)`;
+            yield* sql`DELETE FROM used_legacy WHERE id = 90`;
+            yield* sql`INSERT INTO outside (id) VALUES (70)`;
+            yield* sql`INSERT INTO outside__rebuild (id) VALUES (4)`;
+            const fields = { id: Schema.Int, amount: Schema.Finite };
+            const changed = { retype: ['amount'] } as const;
+            const catalog = declared([Relation.make('empty_legacy', fields, changed), Relation.make('used', fields, { ...changed, renamedFrom: 'used_legacy' })]);
+            yield* reconcile(catalog);
+            yield* sql`INSERT INTO empty_legacy (amount) VALUES (1.5)`;
+            yield* sql`DELETE FROM empty_legacy`;
+            yield* sql`INSERT INTO empty_legacy (amount) VALUES (2.5)`;
+            yield* sql`INSERT INTO used (amount) VALUES (3.5)`;
+            const sequence = sql`SELECT seq FROM sqlite_sequence WHERE name = 'outside__rebuild' ORDER BY seq`;
+            assert.deepStrictEqual(yield* Effect.all([rows('empty_legacy'), rows('used'), sequence, Effect.map(Catalog.plan(catalog), Struct.get('statements'))]), [
+                [{ id: 2, amount: 2.5 }],
+                [
+                    { id: 7, amount: 42 },
+                    { id: 91, amount: 3.5 },
+                ],
+                [{ seq: 4 }],
+                [],
+            ]);
         }),
     );
     it.effect(
@@ -350,9 +383,11 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             return yield* sql.onDialectOrElse({
                 pg: Effect.fnUntraced(function* () {
                     const [first, second] = yield* Effect.all([uuid, uuid]);
-                    const scoped = <A, E, Q>(id: string, effect: Effect.Effect<A, E, Q>) => Relation.withTenant(ledgers, id, Effect.andThen(sql`SET LOCAL ROLE rasm_runtime`, effect));
-                    yield* sql`DO $$ BEGIN CREATE ROLE rasm_runtime NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$`;
-                    yield* reconcile(declared([ledgers]), Option.some('rasm_runtime'));
+                    const role = `rasm-runtime-${first}`;
+                    const scoped = <A, E, Q>(id: string, effect: Effect.Effect<A, E, Q>) => Relation.withTenant(ledgers, id, Effect.andThen(sql`SET LOCAL ROLE ${sql(role)}`, effect));
+                    yield* sql`CREATE ROLE ${sql(role)} NOLOGIN`;
+                    yield* reconcile(declared([ledgers]), Option.some(role));
+                    assert.deepStrictEqual((yield* Catalog.plan(declared([ledgers]), Option.some(role))).statements, []);
                     yield* scoped(first, Relation.insert(ledgers, [{ id: yield* uuid, tenant: first, amount: 1 }]));
                     yield* scoped(second, Relation.insert(ledgers, [{ id: yield* uuid, tenant: second, amount: 2 }]));
                     assert.deepStrictEqual(yield* scoped(first, sql`SELECT amount FROM ledgers`), [{ amount: 1 }]);
@@ -362,47 +397,37 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             });
         }),
     );
-    it.effect(
+    it.effect.runIf(postgres)(
         'renames legacy PostgreSQL columns without changing literal, function, or type names in their checks',
         isolated(function* (reconcile, sql) {
-            return yield* sql.onDialectOrElse({
-                pg: Effect.fnUntraced(function* () {
-                    yield* Effect.all(
-                        [
-                            sql`CREATE TABLE legacy_function (id text NOT NULL PRIMARY KEY, lower text NOT NULL CHECK (lower(lower) = lower), CHECK (lower(legacy_function.lower) = legacy_function.lower))`,
-                            sql`CREATE TABLE legacy_type (id text NOT NULL PRIMARY KEY, text text NOT NULL CHECK (text IN ('text'::text)))`,
-                            sql`CREATE TABLE legacy_quoted (id text NOT NULL PRIMARY KEY, "with""quote" text NOT NULL CHECK ("with""quote" = 'with"quote'))`,
-                        ],
-                        { discard: true },
-                    );
-                    yield* reconcile(
-                        declared([
-                            Relation.make('legacy_function', { id: Schema.String, value: Schema.String.check(Schema.isLowercased()) }, { renamed: { value: 'lower' } }),
-                            Relation.make('legacy_type', { id: Schema.String, value: Schema.Literal('text') }, { renamed: { value: 'text' } }),
-                            Relation.make('legacy_quoted', { id: Schema.String, value: Schema.Literal('with"quote') }, { renamed: { value: 'with"quote' } }),
-                        ]),
-                    );
-                    assert.deepStrictEqual(yield* sql`SELECT table_name AS name, column_name AS field FROM information_schema.columns WHERE table_schema = current_schema() AND column_name <> 'id' ORDER BY table_name`, [
-                        { name: 'legacy_function', field: 'value' },
-                        { name: 'legacy_quoted', field: 'value' },
-                        { name: 'legacy_type', field: 'value' },
-                    ]);
-                }),
-                orElse: () => Effect.void,
-            });
+            yield* Effect.all(
+                [
+                    sql`CREATE TABLE legacy_function (id text NOT NULL PRIMARY KEY, lower text NOT NULL CHECK (lower(lower) = lower), CHECK (lower(legacy_function.lower) = legacy_function.lower))`,
+                    sql`CREATE TABLE legacy_type (id text NOT NULL PRIMARY KEY, text text NOT NULL CHECK (text IN ('text'::text)))`,
+                    sql`CREATE TABLE legacy_quoted (id text NOT NULL PRIMARY KEY, "with""quote" text NOT NULL CHECK ("with""quote" = 'with"quote'))`,
+                ],
+                { discard: true },
+            );
+            yield* reconcile(
+                declared([
+                    Relation.make('legacy_function', { id: Schema.String, value: Schema.String.check(Schema.isLowercased()) }, { renamed: { value: 'lower' } }),
+                    Relation.make('legacy_type', { id: Schema.String, value: Schema.Literal('text') }, { renamed: { value: 'text' } }),
+                    Relation.make('legacy_quoted', { id: Schema.String, value: Schema.Literal('with"quote') }, { renamed: { value: 'with"quote' } }),
+                ]),
+            );
+            assert.deepStrictEqual(yield* sql`SELECT table_name AS name, column_name AS field FROM information_schema.columns WHERE table_schema = current_schema() AND column_name <> 'id' ORDER BY table_name`, [
+                { name: 'legacy_function', field: 'value' },
+                { name: 'legacy_quoted', field: 'value' },
+                { name: 'legacy_type', field: 'value' },
+            ]);
         }),
     );
-    it.effect(
+    it.effect.runIf(postgres)(
         'refuses a changed PostgreSQL check literal that matches each column name',
         isolated(function* (_, sql) {
-            return yield* sql.onDialectOrElse({
-                pg: Effect.fnUntraced(function* () {
-                    yield* sql`CREATE TABLE legacy_literal (id text NOT NULL PRIMARY KEY, old text NOT NULL CHECK (old = 'old'))`;
-                    const changed = Relation.make('legacy_literal', { id: Schema.String, value: Schema.Literal('value') }, { renamed: { value: 'old' } });
-                    assert.deepStrictEqual(yield* findings(declared([changed])), [{ table: 'legacy_literal', columns: ['value'], reason: { _tag: 'Retype' } }]);
-                }),
-                orElse: () => Effect.void,
-            });
+            yield* sql`CREATE TABLE legacy_literal (id text NOT NULL PRIMARY KEY, old text NOT NULL CHECK (old = 'old'))`;
+            const changed = Relation.make('legacy_literal', { id: Schema.String, value: Schema.Literal('value') }, { renamed: { value: 'old' } });
+            assert.deepStrictEqual(yield* findings(declared([changed])), [{ table: 'legacy_literal', columns: ['value'], reason: { _tag: 'Retype' } }]);
         }),
     );
     it.effect(

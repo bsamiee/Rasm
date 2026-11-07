@@ -21,7 +21,7 @@ const nodeBundle = (entry: string, outDir: string): Plugin => ({
             ),
     },
 });
-nodeBundle.layout = { environment: 'node', entry: 'index', assets: 'assets', portVariable: 'PORT' } as const;
+nodeBundle.layout = { environment: 'node', entry: 'index', assets: 'assets', portVariable: 'PORT', readiness: '/readyz' } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

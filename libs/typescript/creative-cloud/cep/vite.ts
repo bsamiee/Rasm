@@ -7,8 +7,9 @@ import { bundle, dialed, type Link, release } from '@rasm/automation/vite';
 import { paint } from '@rasm/mark';
 import type { JscTarget } from '@swc/wasm';
 import { load } from 'cheerio';
-import { Array, Effect, FileSystem, flow, Record } from 'effect';
-import { build, type ConfigEnv, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
+import { Array, Effect, FileSystem, flow, Record, Struct } from 'effect';
+import { build, type Plugin } from 'rolldown';
+import { type ConfigEnv, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
 import { ExtensionManifest } from '#/extension-manifest';
 import { lower } from '#/lower';
 
@@ -32,25 +33,21 @@ const SCALES = [
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const extendscript = (target: JscTarget) => ({ name: 'extendscript', renderChunk: (code) => Effect.runPromise(lower(code, target)) }) satisfies Rolldown.Plugin;
+const extendscript = (target: JscTarget) => ({ name: 'extendscript', renderChunk: (code) => Effect.runPromise(lower(code, target)) }) satisfies Plugin;
 const script = Effect.fn('script')(function* (entry: string, { name, target }: { readonly name: string; readonly target: JscTarget }) {
     const refused = HostError.refused(`Build of ${entry}`);
     const built = yield* Effect.tryPromise({
         try: () =>
             build({
-                configFile: false,
-                logLevel: 'error',
-                build: {
-                    target: 'esnext',
-                    minify: false,
-                    write: false,
-                    sourcemap: 'hidden',
-                    rolldownOptions: { input: entry, platform: 'neutral', preserveEntrySignatures: 'exports-only', output: { format: 'iife', name, exports: 'named', esModule: false, strict: false, generatedCode: { symbols: false }, minify: false, codeSplitting: false, plugins: extendscript(target) } },
-                },
+                input: entry,
+                platform: 'neutral',
+                preserveEntrySignatures: 'exports-only',
+                write: false,
+                output: { format: 'iife', name, exports: 'named', esModule: false, strict: false, generatedCode: { symbols: false }, codeSplitting: false },
             }),
         catch: refused,
     });
-    return 'output' in built ? { code: built.output[0].code, map: built.output[0].map?.toString() } : yield* refused('build returned no single output');
+    return yield* Effect.map(lower(built.output[0].code, target), Struct.get('code'));
 });
 const faceIcons = Effect.fnUntraced(function* (glyph: string) {
     const folder = 'icons';

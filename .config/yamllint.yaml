@@ -1,13 +1,14 @@
 # --- [YAMLLINT] -------------------------------------------------------------------------
+
 extends: default
 
 ignore: [pnpm-lock.yaml]
 
 rules:
-    line-length: disable
-    indentation: disable
-    document-start: disable
-    truthy:
-        check-keys: false
     comments:
         min-spaces-from-content: 1
+    document-start: disable
+    indentation: disable
+    line-length: disable
+    truthy:
+        check-keys: false

@@ -26,7 +26,6 @@ Code uses each module's types wherever they state a value:
 - [06]-[STREAMS](references/streams.md): Async sequence sources, typed failure, operators, observation, back pressure, and sharing
 - [07]-[BOUNDARIES](references/boundaries.md): Decoding, paths, child processes, command lines, and logging
 - [08]-[GENERICS](references/generics.md): Constraints, opaque types, conditional conformances, packs, integer generic parameters, and macros
-- [09]-[TESTING](references/testing.md): Suites, assertions, generated inputs, scoped resources, and fixture applications
 
 ## [01]-[FUNCTIONS]
 

@@ -12,7 +12,7 @@ hide_full_access_warning = true
 # --- [AGENTS] ---------------------------------------------------------------------------
 
 [agents]
-max_concurrent_threads_per_session = 80
+max_concurrent_threads_per_session = 30
 
 # --- [MCP_SERVERS] ----------------------------------------------------------------------
 

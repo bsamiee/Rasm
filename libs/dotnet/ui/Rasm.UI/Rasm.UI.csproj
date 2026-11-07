@@ -39,15 +39,13 @@
     </ItemGroup>
 
     <ItemGroup Label="User Interface">
+        <PackageReference Include="IconPacks.Lucide" />
         <PackageReference Include="SkiaSharp" />
         <PackageReference Include="SkiaSharp.Resources" />
+        <PackageReference Include="SkiaSharp.SceneGraph" />
         <PackageReference Include="SkiaSharp.Skottie" />
         <PackageReference Include="Svg.Custom" />
         <PackageReference Include="Svg.Model" />
         <PackageReference Include="Svg.Skia" />
-    </ItemGroup>
-
-    <ItemGroup Label="Icons">
-        <PackageReference Include="IconPacks.Lucide" />
     </ItemGroup>
 </Project>

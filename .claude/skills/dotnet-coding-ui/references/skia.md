@@ -192,7 +192,7 @@ Scenes decide per subtree between picture replay, rasterization, and immediate d
 - `SKDrawable.NotifyDrawingChanged()` bumps `GenerationId` when the drawable would draw differently, `Bounds` covers every state
 - `DrawPicture(picture, in matrix, paint)` with a paint draws through a layer and changes non-associative blends inside, a `null` paint replays direct
 - `SKPicture.Playback(canvas)` re-executes every op
-- `ApproximateOperationCount` and `ApproximateBytesUsed` probe cost, images inside are held by reference and excluded from the bytes
+- `ApproximateOperationCount` and `ApproximateBytesUsed` estimate operation count and storage. Images are held by reference and excluded from the byte count
 - Pictures hold their own references to shaders, images, and typefaces, the recording scope disposes its handles after `EndRecording`
 - `SKImage.FromPicture(picture, dimensions, matrix, paint)` is a lazy image rasterized on first use and cached
 - Static content at one scale takes `FromPicture`, changing or rescaled content replays

@@ -1,4 +1,4 @@
-"""Runs Blender with an isolated profile and locked Python requirements."""
+"""Runs Blender with an isolated profile."""
 
 lazy from functools import partial
 lazy from itertools import chain
@@ -13,16 +13,18 @@ from expression.extra.result import catch
 lazy from cyclopts import Parameter
 lazy import pathvalidate
 
-lazy from blender.records.faults import Fault, Outcome, Reason
+lazy from blender.records.faults import Fault, Outcome, paired, Reason
 lazy from blender.records.stores import committed, folder_made
-lazy from eng.python.blender.host import Blender, headless, root, site
+lazy from eng.python.blender.host import Blender, headless, probed, root, site
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [PROCESSES]
 
 
 @catch(exception=OSError)
 def _launched(log: Path, blender: Path, arguments: tuple[str, ...], variables: dict[str, str], /) -> int:
-    """Runs Blender without activation, macOS windows through LaunchServices since no spawned process there starts unactivated, and returns its status with its log printed."""
+    """Runs Blender without activation and forwards its output."""
     windowless = headless(arguments)
     command: tuple[str | Path, ...]
     if sys.platform == "darwin" and not windowless:
@@ -40,12 +42,17 @@ def _launched(log: Path, blender: Path, arguments: tuple[str, ...], variables: d
             None,
         )
     else:
-        command, environment = (blender, "--python-use-system-env", *(() if windowless else ("--no-window-focus",)), *arguments), os.environ | variables
+        command = (blender, "--python-use-system-env", *(() if windowless else ("--no-window-focus",)), *arguments)
+        environment = os.environ | variables
     with log.open("a+b") as sink:
-        code = subprocess.run(command, env=environment, stdout=sink, stderr=subprocess.STDOUT, check=False).returncode
-        sink.seek(0)
-        shutil.copyfileobj(sink, sys.stdout.buffer)
-        return code
+        try:
+            return subprocess.run(command, env=environment, stdout=sink, stderr=subprocess.STDOUT, check=False).returncode
+        finally:
+            sink.seek(0)
+            shutil.copyfileobj(sink, sys.stdout.buffer)
+
+
+# --- [COMMANDS]
 
 
 def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")], package: str | None = None, groups: tuple[str, ...] = ()) -> Outcome[int]:
@@ -74,8 +81,8 @@ def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path
         catch(pathvalidate.validate_filename, exception=pathvalidate.ValidationError)(name, platform="auto", additional_reserved_names=(os.curdir, os.pardir), max_len=0)
         .map_error(partial(Fault.of, Reason.INVALID, name))
         .bind(lambda _: root())
-        .bind(lambda base: committed(base / ".artifacts/blender/evaluate" / name, folder_made))
-        .bind(lambda folder: site(blender=blender, package=package, groups=groups).bind(partial(launched, folder)))
+        .bind(lambda base: paired(committed(base / ".artifacts/blender/evaluate" / name, folder_made), probed(base, blender).bind(partial(site, base, package=package, groups=groups))))
+        .bind(lambda held: launched(*held))
     )
 
 

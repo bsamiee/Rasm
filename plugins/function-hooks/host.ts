@@ -28,11 +28,6 @@ class Host extends Context.Service<Host>()('@rasm/function-hooks/host', {
         const [fs, path, spawner, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner, Config.option(Config.String('HOME'))]);
         const root = path.resolve(import.meta.dirname, '../..');
         const environment = (name: string) => Effect.orElseSucceed(Config.option(Config.String(name)), Option.none);
-        const graphFile = path.resolve(
-            root,
-            Option.getOrElse(yield* environment('NX_WORKSPACE_DATA_DIRECTORY'), () => '.nx/workspace-data'),
-            'project-graph.json',
-        );
         const graphs = yield* Cache.make({
             capacity: 1,
             lookup: (_written: number) =>
@@ -70,7 +65,8 @@ class Host extends Context.Service<Host>()('@rasm/function-hooks/host', {
             exists: (file: string) => Effect.orElseSucceed(fs.exists(file), () => false),
             real: (file: string) => Effect.orElseSucceed(fs.realPath(file), () => file),
             installed: (program: string) => Effect.map(run(['which', program]), ({ code }) => code === 0),
-            graph: fs.stat(graphFile).pipe(
+            graph: Effect.promise(() => import('@nx/devkit/internal')).pipe(
+                Effect.flatMap(({ workspaceDataDirectory }) => fs.stat(path.join(workspaceDataDirectory, 'project-graph.json'))),
                 Effect.map(({ mtime }) => Option.match(mtime, { onNone: () => 0, onSome: (written) => written.getTime() })),
                 Effect.orElseSucceed(() => 0),
                 Effect.flatMap((written) => Cache.get(graphs, written)),

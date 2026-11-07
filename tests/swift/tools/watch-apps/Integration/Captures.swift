@@ -15,7 +15,7 @@ import UniformTypeIdentifiers
 private func image(of shot: JSONValue?, in fixture: Fixture, pid: String) throws -> CGImage {
     let file: URL = URL(filePath: try #require(shot?["file"]?.argument))
     let number: String = try #require(shot?["number"]?.argument)
-    let expected: URL = URL.temporaryDirectory.appending(components: product, "\(fixture.identifier)-\(pid)-\(number)").appendingPathExtension(for: .png)
+    let expected: URL = URL.temporaryDirectory.appending(components: product, number).appendingPathExtension(for: .png)
     let data: Data = try Data(contentsOf: file)
     try FileManager.default.removeItem(at: file)
     let source: CGImageSource = try #require(CGImageSourceCreateWithData(data as CFData, nil))

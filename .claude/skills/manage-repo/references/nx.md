@@ -4,7 +4,7 @@
 
 - Plugins export `createDependencies` beside `createNodes` for undeclared edges, a static edge names its `sourceFile`
 - Nx merges inferred projects sharing a root, each file of one directory adds its targets to one project
-- Workspace plugin markers match a base name, an extension, or `<directory>/<base>` for a generic name (`.storybook/main.ts`)
+- Workspace plugin markers match a base name, an extension, or `<directory>/<base>` for a generic name
 - Projects with a `tsconfig.json` and no `package.json` take the nearest package's name joined to their relative path, their source imports giving edges
 - `analyzeSourceFiles` stays off, Nx resolves `#/` imports through a TypeScript API 7.1 lacks
 - Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
@@ -15,7 +15,7 @@
 - `analytics: false` disables telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
 - `useDaemonProcess: false` avoids graph rebuilds on every file batch, concurrent processes share one build through `project-graph.lock`
 - Sync generators take one `tools/nx/sync/<written kind>/<name>.ts` and one `tools/nx/sync/generators.json` row, in `syncGenerators` of the target reading what they write, else in `sync.globalGenerators`
-- `lint:nx` reports generator drift and `format:nx` writes it, `nx.json` `inputs` name each file a generator reads or writes, the plugin adds imports
+- `lint:nx` reports generator drift. The workspace `format` target runs `nx sync` before `hk fix`. Target `inputs` name files the generators read or write, and the plugin adds their imports
 - Generators on a target rerun `createNodes` per run and off a TTY refuse the task over another writer's drift
 - `outline-catalogs` writes `tools/ast-grep/outline/<lang>.yml` from `sources/<lang>.yml`, edits go to the source
 - Catalog sources open with an idless document, each row receiving `roles` key defaults and the `utils`, `rewriters`, `transform`, and `variants` it calls
@@ -54,7 +54,7 @@ Use JSON discovery from workspace root:
 - Commands with `cwd` at their project read the workspace root through `$NX_WORKSPACE_ROOT`
 - Targets with `options` and no `executor`, `command`, or `targetDefaults` executor resolve to `nx:noop` with a `dependsOn` and drop without one
 - Pipes, loops, conditionals, and variables in a command entry make it a script
-- Tools taking no directory or walking ignored trees (`yamlfmt`, `yamllint`) run as `fd --hidden --extension <ext> --exec-batch <tool>`
+- Tools walking ignored trees (`yamllint`) take file paths selected by `fd --hidden --extension <ext>`
 - `fd --exec-batch` runs no process without a match
 - Target names in `dependsOn` match as minimatch globs, `!(<name>)` excludes a target the glob matches
 - Targets reach a target they need through `dependsOn` in place of a command running `nx`
@@ -62,8 +62,8 @@ Use JSON discovery from workspace root:
 - `cache: true` alone caches a target, `cache: false` overrides a `targetDefaults` entry setting it for the name
 - Container targets take `cache: false` and `parallelism: false`, no task input hashes container or service state
 - `parallelism: false` runs a target with no other task of its `nx` process
-- `NX_DEFAULT_OUTPUT_STYLE` in `mise.toml` overrides the `summary` style Nx picks for an agent
-- `static` and `static-failures-only` hold task output until the task exits, `stream-without-prefixes` streams it live
+- Nx uses `summary` for agents and gives the log path for each failed task
+- Use `--outputStyle=stream-without-prefixes` when you need task output as it happens
 - Nx reads an unknown `<project>:<target>:<config>` as target `<target>` and drops the configuration
 
 ## [04]-[INPUTS]
@@ -87,8 +87,10 @@ Use JSON discovery from workspace root:
 ## [05]-[SCOPE]
 
 - `affected` with a base and no head diffs against `HEAD` and adds uncommitted and untracked files
+- `nx show projects --affected` selects affected projects. With `--with-target` and without `--projects`, Nx selects affected tasks
 - Files belong to the nearest containing project root, a plugin file `nx.json` names to every project
 - `affected` runs each selected target's command unchanged, a root target over its whole file set
+- CI on macOS includes the workspace `check` alongside selected host checks because workspace checkers read files in nested project roots
 
 ## [06]-[RELEASE]
 

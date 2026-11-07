@@ -144,19 +144,31 @@ def _closure(build: _Build, stage: Path, work: Path, /) -> Outcome[dict[str, obj
 
 
 @catch(exception=OSError)
-def _stamped(build: _Build, stage: Path, rows: dict[str, object], /) -> dict[str, object]:
-    """Writes release metadata and the closure rows into the staged manifest, drops the project file from the stage, and removes earlier archives, returning the rows."""
+def _stamped(build: _Build, stage: Path, rows: dict[str, object], /) -> None:
+    """Writes release metadata and the locked closure into the staged manifest."""
     manifest = stage / "blender_manifest.toml"
     (stage / "pyproject.toml").unlink()
     document = tomlkit.parse(manifest.read_text())
     document.update({**build.stamp, **rows})
     manifest.write_text(tomlkit.dumps(document))
-    for archive in build.directory.glob("*.zip"):
-        archive.unlink()
-    return rows
 
 
-def _archived(build: _Build, work: Path, /) -> Outcome[object]:
+def _published(packed: Path, directory: Path, /) -> Outcome[None]:
+    """Replaces archives after Blender finishes the build, then removes older archives."""
+    try:
+        if not (archives := {archive.name: archive for archive in packed.glob("*.zip")}):
+            return Error(Fault.of(Reason.ABSENT, str(packed), member="Blender extension archive"))
+        for name, archive in sorted(archives.items()):
+            archive.replace(directory / name)
+        for archive in directory.glob("*.zip"):
+            if archive.name not in archives:
+                archive.unlink()
+    except OSError as error:
+        return Error(Fault.of(Reason.UNWRITABLE, str(directory), error))
+    return Ok(None)
+
+
+def _archived(build: _Build, work: Path, packed: Path, /) -> Outcome[object]:
     """Builds the archives of one stage: an add-on's per platform its closure names, every other kind one archive of its files."""
     stage = work / "stage"
     return (
@@ -165,19 +177,20 @@ def _archived(build: _Build, work: Path, /) -> Outcome[object]:
         .bind(lambda _: _closure(build, stage, work) if build.kind == "add-on" else Ok({}))
         .bind(lambda rows: _stamped(build, stage, rows).map_error(partial(Fault.of, Reason.UNWRITABLE, str(stage))))
         .bind(
-            lambda rows: ran(
-                build.blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-dir", build.directory, *(("--split-platforms",) if "platforms" in rows else ())
+            lambda _: ran(
+                build.blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-dir", packed, *(("--split-platforms",) if build.kind == "add-on" else ())
             )
         )
+        .bind(lambda _: _published(packed, build.directory / "archives"))
     )
 
 
 def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, maintainer: str, license: str, blender: Blender) -> Outcome[int]:  # ruff: ignore[builtin-argument-shadowing]
-    """Builds the archives of an extension into `directory`, its stage overlaid with the folder `assets` wrote there.
+    """Builds an extension into the `archives` directory using its sibling `assets`.
 
     Args:
         source: Extension directory with manifest and dependency rows.
-        directory: Folder holding `assets` and receiving the archives, its earlier archives removed.
+        directory: Parent of the generated assets and archives.
         version: Semantic version written to manifest.
         maintainer: Maintainer written to manifest.
         license: SPDX identifier written to manifest.
@@ -189,12 +202,13 @@ def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, versi
 
     def within(build: _Build, work: Path) -> Outcome[object]:
         try:
-            with tempfile.TemporaryDirectory(dir=work) as folder:
-                return _archived(build, Path(folder))
+            with tempfile.TemporaryDirectory(dir=work) as folder, tempfile.TemporaryDirectory(dir=build.directory) as archives:
+                return _archived(build, Path(folder), Path(archives))
         except OSError as error:
-            return Error(Fault.of(Reason.UNWRITABLE, str(work), error))
+            return Error(Fault.of(Reason.UNWRITABLE, str(error.filename or work), error))
 
-    def built(host: Host, base: Path, project: Pyproject, manifest: Manifest) -> Outcome[object]:
+    def built(workspace: tuple[Path, Host], project: Pyproject, manifest: Manifest) -> Outcome[object]:
+        base, host = workspace
         build = _Build(
             source=source,
             directory=directory,
@@ -205,9 +219,10 @@ def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, versi
             kind=manifest.type,
             stamp=frozendict(version=version, maintainer=maintainer, license=[f"SPDX:{license}"]),
         )
-        return folder_made(base / ".cache/blender/stage").bind(partial(within, build))
+        return paired(folder_made(base / ".cache/blender/stage"), folder_made(directory / "archives")).bind(lambda folders: within(build, folders[0]))
 
-    return paired(probed(blender), root(), declared(source / "pyproject.toml", Pyproject), declared(source / "blender_manifest.toml", Manifest)).bind(lambda held: built(*held)).map(lambda _: 0)
+    workspace = root().bind(lambda base: probed(base, blender).map(lambda host: (base, host)))
+    return paired(workspace, declared(source / "pyproject.toml", Pyproject), declared(source / "blender_manifest.toml", Manifest)).bind(lambda held: built(*held)).map(lambda _: 0)
 
 
 # --- [HOST]
@@ -235,7 +250,7 @@ def upgrade(*, blender: Blender) -> Outcome[int]:
             return Error(Fault.of(Reason.UNWRITABLE, str(manifest), error))
         return Ok(0)
 
-    return paired(root(), probed(blender)).bind(lambda held: rewritten(*held))
+    return root().bind(lambda base: probed(base, blender).bind(partial(rewritten, base)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -10,10 +10,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Module names avoid SDK module names, a target named `Accessibility`, `System`, or `ApplicationServices` cycles through AppKit
 - Products list library modules alone, SwiftPM synthesizes each executable's product
 - Manifest `support` targets hold test libraries and fixture executables
-- Modules take their suites' dependencies as Nx edges, a `support` target importing a package module cycles with each module whose suite uses it
-- Test targets take `<Module>Tests`, or `<Module>IntegrationTests` for cases needing a GUI session or TCC grant
-- Nx attaches each test target to its module's `test` or `test:integration` through `--test-product`, `--filter` builds every test target
-- `OMIT_DYNAMIC_TEST_SUPPORT` links `IssueReportingTestSupport` static for swift-custom-dump tests, the dynamic form prints linker version warnings
+- Suite paths and suite dependencies belong to their test inputs, SwiftPM production dependencies alone define module edges
 - Remote packages take `.package(url:from:)`, a package only an app imports takes an `up-to-next-major-version` row in that app instead, `upgrade:swift` moves both
 - Manifest `settings` own compiler and linker policy in typed forms, `unsafeFlags` where none exists
 - Checkers run from root tool rows, a SwiftLint or swift-format package plugin adds a second tool version
@@ -22,13 +19,12 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 
 - SwiftPM takes its scratch path from `SWIFTPM_BUILD_DIR` over `--scratch-path` and reads it from no file
 - SwiftPM writes `.build/` in the working folder when neither is set, `--help` included
-- `SWIFTPM_BUILD_DIR` holds an absolute path in `mise.toml` `[env]`, SwiftPM resolves a relative one against the working folder
+- `SWIFTPM_BUILD_DIR` holds an absolute path in `.config/mise.toml` `[env]`, SwiftPM resolves a relative one against the working folder
 - `sourcekit-lsp` reads `swiftPM.scratchPath` and its `swift build` preparation reads `SWIFTPM_BUILD_DIR`, each client sets both to one folder
 - SwiftPM locks its scratch path from workspace load to exit, `--skip-build` included, targets that compile take `parallelism: false`
-- `typecheck:swift` writes every product `test`, `test:integration`, and `lint:periphery` read, and runs uncached since a hit leaves them another checkout's binaries
-- `test` and `test:integration` pass `--skip-build --experimental-skip-acquiring-lock`, no running or hung case holds the scratch path every SwiftPM target shares
-- `swift test` stdout buffers until exit off a TTY, the `events.jsonl` beside attachments streams one flushed record per event for one test product
-- Executables outside `tests/` `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin`, mise `[env]` states that variable and puts the folder on `_.path`
+- Nx runs `swift package describe` and `dump-package` under `.cache/swiftpm/nx-manifest` to keep manifest reads independent of builds
+- `typecheck:swift` writes the index store Periphery reads.
+- Executables outside `tests/` `install` from SwiftPM's `release` path with `install -C`, mise adds `$XDG_CONFIG_HOME/swiftpm/bin` to `PATH`
 - Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
 
 ## [03]-[PROJECT_FILES]
@@ -49,7 +45,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - `xcprojformatter` drops `name` and `id` keys from a `packages` row
 - `package-product-members` holds one row per module the app imports, Nx draws app module edges from rows naming a root library product
 - `..` rows link a product of any package the root manifest depends on, an app lists a remote row only for a package the manifest omits
-- Requirement changes edit the package version in place and run `xcprojformatter --update` once per project
+- Format changed projects through `xcprojformatter` before replacing them
 - `pkg link` finds no `..` package while the synchronized folder holds a subdirectory, its rows join `package-product-members` by hand under `xcprojformatter`
 - Synchronized folders outside the project join through `group add --filesystem-path`, which writes a group-relative path
 - Info.plist keys with no `INFOPLIST_KEY_*` setting sit in `.config/Sparkle-Info.plist`, named by a `SRCROOT`-relative `INFOPLIST_FILE`
@@ -81,6 +77,7 @@ Project and target settings override root `Xcode.xcconfig`:
 - Root `LD_RUNPATH_SEARCH_PATHS` holds `@executable_path/../Frameworks` for apps embedding a package framework, the app template row `target add` omits
 - CI-only settings join `build` configuration `ci`, which keeps the index store `lint:periphery` reads
 - Each project holds one derived data folder under `.cache/xcode/<root>`, `archive` writes `ArchiveIntermediates` and no index store beside the `build` state in it
+- `build` writes `.artifacts/xcode/build/<Name>.xcresult`, macOS CI keeps these result bundles on failure
 - `COMPILATION_CACHE_ENABLE_CACHING` stays unset, derived data already holds incremental work and the store filled half of `.cache/xcode` with results a rebuild alone reuses
 - Release builds `dwarf-with-dsym`, `pack` zips the archive's dSYMs and `publish` uploads them to the versioned release alone
 - `xcodebuild` walks every folder under the package root except `.git` on each project load and ignores dot prefixes, the hidden flag, and `.gitignore`
@@ -96,12 +93,11 @@ Toolchain upgrades edit the `Package.swift` tools version and `settings`, `build
 - Warnings as errors covers on-by-default groups, `StrictLanguageFeatures` joins them to fail a misspelled feature the compiler accepts silently
 - `PerformanceHints` groups are off, `UntypedThrows` fails in `@Observable` expansions and `ExistentialType` on a `Codable` witness's `any Decoder`
 - Strict memory safety takes an `unsafe` marker on each expression using an API with no safe form
-- `-warn-long-expression-type-checking-scopes 200` covers test targets
 
 ## [06]-[LOCKS]
 
-- Apps resolve through their committed `xcshareddata/swiftpm/Package.resolved`, Xcode reads no local package lock
-- `upgrade:xcode` copies root `Package.resolved` into each app, Xcode keeps root pins and prunes packages no app product reaches
+- Each app commits its own `xcshareddata/swiftpm/Package.resolved`
+- `upgrade:xcode` resolves each app from its existing pins and updated package requirements
 - `xcodebuild` and `xcode-build-server config` pass `-project` and `-scheme`, `-derivedDataPath` holds `SourcePackages` and needs the scheme on a resolve
 - `-disableAutomaticPackageResolution` fails a stale lock on fresh derived data alone
 
@@ -133,7 +129,6 @@ Toolchain upgrades edit the `Package.swift` tools version and `settings`, `build
 ## [09]-[PERIPHERY]
 
 - `.config/periphery.yml` names a generic config, `--project` needs a `.pbxproj` no app holds, SwiftPM mode runs `swift package describe` under the scratch path lock
-- `rasm:lint:periphery` reads the one index store `typecheck:swift` writes, each test target's C99 name passes to `--exclude-targets`, a per-module scan rereads the same store
 - `index_exclude` adds `.cache/**`, its defaults name `SourcePackages/checkouts` alone and SwiftPM checkouts then report as unused code
 - Each app scans its own derived data store under `--report-include`, that store holds every package module the app links
 - `retain_unused_imported_modules` names `CurrentProcess`, the marker misses a reference to an initializer it declares on `Logger` and `MemberImportVisibility` requires the import

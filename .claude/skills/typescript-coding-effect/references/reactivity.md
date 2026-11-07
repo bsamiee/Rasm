@@ -2,7 +2,7 @@
 
 ## [01]-[RPC]
 
-One `RpcGroup` of schema-typed procedures derives server handlers, clients, protocols, and tests:
+One `RpcGroup` of schema-typed procedures derives server handlers, clients, and protocols:
 - `Rpc.make(tag, { payload, success, error, stream: true })` declares a procedure, `stream: true` returning a `Stream` with its error in the stream
 - Payload classes hold a `static readonly Result`, and one `request(tag, Payload)` over `Rpc.make` fixes a failure union every procedure shares
 - `RpcGroup.make(...rpcs)` composes procedures, and `.middleware(M)` reaches procedures added before it

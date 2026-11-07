@@ -1,32 +1,34 @@
-"""Native diagnostics from source compiled once per interpreter and sample."""
+"""Native diagnostics for selected rules over a source sample."""
 
-lazy from collections.abc import Callable
-lazy from functools import cache
+lazy from collections.abc import Callable, Mapping
+lazy from dataclasses import replace
 
 import pytest
-lazy from refurb.error import Error
+lazy from refurb.error import Error, ErrorCode
 lazy from refurb.settings import load_settings
 
 lazy from tools.refurb.__main__ import checked
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Findings = Callable[[type[Error], str], tuple[Error, ...]]
+type Findings = Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 @pytest.fixture(scope="session", params=["3.15"])
 def findings(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Findings:
-    """Returns native findings by class, sharing one compiled answer across queries and reporting compiler failures directly."""
-    path = tmp_path_factory.mktemp("refurb") / "sample.py"
+    """Runs selected Refurb rules over one typed build and reports compiler failures directly."""
+    directory = tmp_path_factory.mktemp("refurb")
+    settings = load_settings(["--python-version", request.param])
 
-    @cache
-    def analyzed(source: str) -> tuple[Error, ...]:
-        path.write_text(source, encoding="utf-8")
-        found = checked(load_settings([str(path), "--python-version", request.param]))
+    def analyzed(sources: str | Mapping[str, str], /, *rules: type[Error]) -> tuple[Error, ...]:
+        samples = {directory / f"{name}.py": source for name, source in ({"sample": sources} if isinstance(sources, str) else sources).items()}
+        for path, source in samples.items():
+            path.write_text(source, encoding="utf-8")
+        found = checked(replace(settings, files=list(map(str, samples)), enable_all=False, disable_all=True, enable={ErrorCode.from_error(rule) for rule in rules}))
         if messages := tuple(error for error in found if isinstance(error, str)):
             pytest.fail("\n".join(messages), pytrace=False)
         return tuple(error for error in found if isinstance(error, Error))
 
-    return lambda kind, source: tuple(error for error in analyzed(source) if isinstance(error, kind))
+    return analyzed

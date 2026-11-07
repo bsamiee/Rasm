@@ -1,25 +1,40 @@
 amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtins.pkl"
 
-// --- [HOOKS] ----------------------------------------------------------------------------
+// --- [STEPS] ---------------------------------------------------------------------------
+
+local swiftFiles = List("**/*.swift")
+local stepsByName = new Mapping<String, Step> {
+    ["shfmt"] = (Builtins.shfmt) { glob = "**/*.sh"; match_any = null }
+    ["tombi"] = (Builtins.tombi_format) { check_diff = null }
+    ["tombi-lint"] = (Builtins.tombi) {
+        check = (super.check!!.command!!) { argv = super.argv + List("--error-on-warnings") }
+    }
+    ["biome"] {
+        exclude = List(".claude/workflows/**", "**/*.{xcassets,icon}/**", "assets/**")
+        fix = "biome check --write --error-on-warnings --no-errors-on-unmatched {{files}}"
+        glob = List("**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,grit}")
+    }
+    ["google-java-format"] { glob = List("**/*.java"); fix = "google-java-format --aosp --replace {{files}}" }
+    ["ruff"] { glob = List("**/*.{py,pyi,pyw,ipynb}"); fix = "ruff check --fix {{files}} && ruff format {{files}}" }
+    ["rustfmt"] { glob = List("**/*.rs"); fix = "rustfmt --config skip_children=true {{files}}" }
+    ["swift-format"] {
+        depends = List("swiftlint")
+        fix = "xcrun swift-format format --in-place --parallel {{files}}"
+        glob = swiftFiles
+    }
+    ["swiftlint"] { glob = swiftFiles; fix = "swiftlint lint --fix --quiet {{files}}" }
+    ["xcprojformatter"] {
+        fix = "xcrun xcprojformatter --update {{workspace}}"
+        glob = List("**/\(workspace_indicator)")
+        workspace_indicator = "project.xcproj"
+    }
+}
+
+// --- [HOOKS] ---------------------------------------------------------------------------
+
 hooks {
-    ["fix"] {
-        steps {
-            ["ruff"] { glob = List("**/*.{py,pyi,pyw,ipynb}"); fix = "ruff check --fix {{files}} && ruff format {{files}}" }
-            ["biome"] { glob = List("**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}"); fix = "biome check --write --error-on-warnings --no-errors-on-unmatched {{files}}" }
-            ["tombi"] { glob = List("**/*.toml"); exclude = List(".mise/**"); fix = "tombi format {{files}}" }
-            ["yamlfmt"] { glob = List("**/*.{yml,yaml}"); fix = "yamlfmt -conf .config/yamlfmt.yaml {{files}}" }
-            ["shfmt"] { glob = List("**/*.sh"); fix = "shfmt -w -- {{files}}" }
-            ["rustfmt"] { glob = List("**/*.rs"); fix = "rustfmt --config skip_children=true {{files}}" }
-            ["swiftlint"] { glob = List("**/*.swift"); fix = "swiftlint lint --fix --quiet {{files}}" }
-            ["swift-format"] { glob = List("**/*.swift"); depends = List("swiftlint"); fix = "xcrun swift-format format --in-place --parallel {{files}}" }
-            ["google-java-format"] { glob = List("**/*.java"); fix = "google-java-format --aosp --replace {{files}}" }
-            ["xcprojformatter"] { glob = List("**/project.xcproj"); workspace_indicator = "project.xcproj"; fix = "xcrun xcprojformatter --update {{workspace}}" }
-        }
-    }
-    ["commit-msg"] {
-        steps {
-            ["conventional-commit"] = Builtins.check_conventional_commit
-        }
-    }
+    ["check"] { steps { ...(stepsByName.toMap().filter((_, step) -> step.check != null || step.check_diff != null)) } }
+    ["commit-msg"] { steps { ["conventional-commit"] = Builtins.check_conventional_commit } }
+    ["fix"] { steps { ...(stepsByName.toMap().filter((_, step) -> step.fix != null)) } }
 }

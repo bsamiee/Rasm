@@ -1,4 +1,4 @@
-import { HostError, Requests } from '@rasm/automation';
+import { HostError, HostUrl, Requests } from '@rasm/automation';
 import { Peer } from '@rasm/automation/peer';
 import { inkColor } from '@rasm/mark';
 import { wcagContrast } from 'culori';
@@ -84,7 +84,7 @@ const followed = <E>(cep: Cep, queue: Queue.Queue<string, E>) => {
         Function.constant(Effect.sync(() => cep.removeEventListener(themeChanged, listener))),
     );
 };
-const linked = (cep: Cep) => Peer.dial(Requests, Requests.toLayer(Struct.Record(Array.from(Requests.requests.values(), Struct.get('_tag')), served(cep))), Schema.decodeEffect(Schema.URLFromString)(cep.getSystemPath('hostApplication')))(cep.getExtensionId());
+const linked = (cep: Cep) => Peer.dial(Requests, Requests.toLayer(Struct.Record(Array.from(Requests.requests.values(), Struct.get('_tag')), served(cep))), Schema.decodeEffect(HostUrl)(cep.getSystemPath('hostApplication')))(cep.getExtensionId(), Schema.decodeEffect(HostUrl)(cep.getSystemPath('extension')));
 const skin = Stream.unwrap(Effect.map(cepHost, (cep) => Stream.callback<string>((queue) => followed(cep, queue)))).pipe(Stream.mapEffect((environment) => Schema.decodeEffect(Environment)(environment)));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

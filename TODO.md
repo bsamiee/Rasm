@@ -81,7 +81,7 @@ Numbers run in order; a number with a letter runs beside the number it shares.
   - Each change rebuilds only what it reaches; CLI takes no flag a question does not need; nothing is tied to old tooling or one font
   - Then `tune` over Python
 - 1d: Font files after 1c, every face in `assets/fonts` rebuilt through the library to world-class quality:
-  - One folder per family; set declaration `assets/fonts/rasm.toml`, corpus `assets/fonts/corpus.toml`
+  - One folder per family under its writing style or construction in `assets/fonts/perso-arabic/`, with `rasm.toml` and `corpus.toml` at the set root
   - Agents judge glyph renders (weight, proportion, joining, mark placement, spacing) by universal Perso-Arabic principles, not Urdu or Desi forms
   - Every face complete, none outline-only or partial: metrics, features and behavior stated in full, metadata with the set's own names and notices
 - 2: Extension after 1, in [02] order: research per note, then a plan per domain, then a build run per `TYPESCRIPT.md` row, tuned over its commits

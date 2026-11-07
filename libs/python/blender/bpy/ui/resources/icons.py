@@ -129,8 +129,9 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
             case bpy.types.ID():
                 return Ok(bpy.types.UILayout.icon(icon))
             case _:
-                item: bpy.types.EnumPropertyItem | None = _ICON.enum_items.get(icon)  # ty: ignore[unsound-assignment]
-                return Option.of_optional(item).map(lambda item: item.value).to_result_with(partial(Fault.of, Reason.ABSENT, bpy.types.UILayout.__name__, member=icon))
+                name = str(icon)
+                item: bpy.types.EnumPropertyItem | None = _ICON.enum_items.get(name)  # ty: ignore[unsound-assignment]
+                return Option.of_optional(item).map(lambda item: item.value).to_result_with(partial(Fault.of, Reason.ABSENT, bpy.types.UILayout.__name__, member=name))
 
     @staticmethod
     def path(identity: Identity, source: Path) -> str:

@@ -11,6 +11,7 @@ interface Program {
     readonly camelCase?: true;
     readonly stops?: true | readonly string[];
     readonly dump?: true;
+    readonly completer?: string;
     readonly leading?: number;
     readonly leadingUnless?: readonly string[];
     readonly informational?: readonly string[];
@@ -40,7 +41,7 @@ interface Program {
         readonly config?: string;
         readonly modes?: readonly string[];
         readonly ignores?: readonly string[];
-        readonly direct?: readonly string[];
+        readonly requires?: `--${string}`;
     };
     readonly headless?: readonly string[];
     readonly fixes?: readonly Fix[];
@@ -63,7 +64,8 @@ const PROGRAMS: Programs = {
     npm: { wraps: [['exec'], ['x']], reports: true },
     pnpm: { wraps: [[], ['exec'], ['dlx']], launcher: true, reports: true },
     'effect-tsgo': { flags: ['--completions=', '--log-level='], wraps: [[]], launcher: true },
-    dotnet: { aliases: ['swift', 'xcodebuild'], reports: true },
+    dotnet: { aliases: ['xcodebuild'], reports: true },
+    swift: { completer: 'swift@common', reports: true },
     uv: { wraps: [['run'], ['tool', 'run']], reports: true },
     poetry: { aliases: ['hatch'], wraps: [['run']] },
     pixi: { wraps: [['run'], ['exec']] },

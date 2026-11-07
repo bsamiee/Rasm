@@ -6,6 +6,7 @@ extern crate rustc_attr_ir;
 extern crate rustc_crate_store;
 extern crate rustc_data_structures;
 extern crate rustc_errors;
+extern crate rustc_expand;
 extern crate rustc_hir;
 extern crate rustc_hir_typeck;
 extern crate rustc_infer;
@@ -682,7 +683,9 @@ mod patterns;
 mod representation;
 
 dylint_linting::__maybe_mangle! {
-    pub extern "Rust" fn register_lints(_: &rustc_session::Session, store: &mut rustc_lint::LintStore) {
+    pub extern "Rust" fn register_lints(session: &rustc_session::Session, store: &mut rustc_lint::LintStore) {
+        let layout = "DYLINT_MODULE_LAYOUT";
+        session.env_depinfo.lock().insert((Symbol::intern(layout), std::env::var_os(layout).as_ref().and_then(|value| value.to_str()).map(Symbol::intern)));
         let format_args = FormatArgsStorage::default();
         let early = format_args.clone();
         store.register_early_lint_pass(Box::new(move || Box::new(FormatArgsCollector { format_args: FxHashMap::default(), storage: early.clone() })));
@@ -718,9 +721,8 @@ dylint_linting::__maybe_mangle! {
             expressions::wrapping_arithmetic,
             interior_mutability::interior_mutable_static,
             interior_mutability::needless_cell,
+            items::modules,
             items::needless_import_rename,
-            items::orphan_module,
-            items::single_reader,
             items::unreachable_public_item,
             macros::formatting(format_args.clone(), reported.clone()),
             macros::matching(format_args.clone()),

@@ -12,7 +12,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 ## [02]-[TOOLCHAIN]
 
-- `mise.toml` holds no `rust` row, a `rust` row outranks the `rust-toolchain.toml` mise reads
+- `.config/mise.toml` holds no `rust` row, a `rust` row outranks the `rust-toolchain.toml` mise reads
 - Channel is the dated nightly pinned `clippy_utils` builds against, `cargo dylint` strips `RUSTUP_TOOLCHAIN` and reads the file
 - Files pair the date with `profile = "minimal"`, a rolling `nightly` or an omitted profile resolves per machine and day
 - `[env]` `RUSTUP_TOOLCHAIN = false` stops mise's idiomatic export and leaves selection to the file, builds outside the tree take rustup's default
@@ -67,7 +67,6 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - `cargo dylint` builds its library into `dylint/libraries` and passes `--target-dir dylint/target` under the target directory, `build.build-dir` keeps units in one folder whatever target directory a run names
 - `build.fingerprint = "content"` marks a dep-info path holding no checksum (a directory) stale on every run
 - Cargo configs hold no `fine-grain-locking`, concurrent runs dirtying shared units deadlock on unit locks
-- Insta pending snapshots stay beside their test file, `INSTA_PENDING_DIR` panics on a test path holding `..` (`[[test]] path`)
 
 ## [06]-[MEMBERS]
 
@@ -76,18 +75,17 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Members inherit both and state no other package metadata, Cargo reads `version` as `0.0.0` and `cargo_common_metadata` skips an unpublished package
 - `description` sits on a member whose code reads it, `clap::command!()` and `#[command(about)]` take it as the command `about`
 - Executables state their version on their `clap` command, the commit describe string `install` compiles in as `RASM_VERSION`, else `0.0.0`, and libraries read `Command::get_version` for `service.version` and MCP identity
-- Untested members set `test` and `bench` false on `[lib]` and `[[bin]]`, `doctest` false on `[lib]`, and `clippy --tests` compiles no empty harness
 - Members name their crate root beside `Cargo.toml` through `[lib] path` or `[[bin]] path`, Cargo discovers targets under `src/` alone
 - Binary packages take their binary's name, the Nx project and installed command then share one name
 
 ## [07]-[CHECKERS]
 
-- Clippy is the workspace's type check over its library, binary, and test targets, a separate `cargo check` repeats its compile
+- Clippy is the workspace's type check over its library and binary targets, a separate `cargo check` repeats its compile
 - Clippy and Dylint run once at the root under `--workspace`, per-package runs repeat `cargo metadata` and hold the build folder lock in turn for units a workspace run answers fresh
-- `--lib --bins --tests` selects each member's targets, Cargo refuses a selection only when no selected package holds that kind, `test = false` leaves a target out of `--tests`
 - Joins stay on `futures::future::join` until a rust-analyzer release resolves the def-site helper macro of `core::future::join!`
 - `check.allTargets` and `check.extraArgs` check a saved example or binary alone by `--example` or `--bin`, an override runs one command per save
-- `cargo.extraEnv` points `CARGO_BUILD_TARGET_DIR` and `CARGO_BUILD_BUILD_DIR` at one folder per client that no Nx target or other client shares, Cargo locks a build folder per command and expands build-dir placeholders in the variable
+- VS Code sets `cargo.targetDir` and Argus sets `CARGO_BUILD_TARGET_DIR` to keep each client's outputs separate
+- Both clients set `CARGO_BUILD_BUILD_DIR` through `cargo.extraEnv` with Cargo's path template to keep build locks separate from Nx
 - Both clients read `.cargo/rustc-source/Cargo.toml` through an ignored symlink to mise's matching official compiler source archive
 - `cargo fmt` runs once at the virtual root, one invocation formats every member
 - `rustfmt.toml` holds keys the pinned nightly rustfmt applies, a nightly key needs no `unstable_features` row and stable rustfmt ignores it
@@ -100,10 +98,9 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 - `cargo upgrade` from cargo-edit moves each catalog row to its newest release, breaking releases included, Cargo itself moves no requirement
 - `channel` and `clippy_utils.rev` move by hand, Dylint's driver reads `sym.rs` at the first rust-clippy `Rustup` merge holding the channel
-- `clippy_utils.rev` is the newest first-parent rust-clippy commit before the next `sym.rs` change, a later one fails `lints` UI tests
+- `clippy_utils.rev` is the newest first-parent rust-clippy commit before the next `sym.rs` change
 - `cargo dylint upgrade` reads a `rust-toolchain` file in library package and moves to the first commit of a `clippy_utils` version
 - `mise install` installs the declared channel with its profile and components through rustup, and matching `http:rustc-source`
-- Refresh `mise.lock` after changing `rust-toolchain.toml` or `global.json`
 - `RUSTUP_AUTO_INSTALL = "0"` leaves toolchain installs to mise
 - Prereleases join by hand through a catalog row naming one, `cargo upgrade` then moves that row to newer releases and prereleases
 

@@ -1,9 +1,9 @@
 import process from 'node:process';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { type InlineProgramArgs, LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
+import { CommandError, type InlineProgramArgs, LocalWorkspace, StackNotFoundError } from '@pulumi/pulumi/automation/index.js';
 import { version } from '@pulumi/pulumi/version.js';
-import { Config, Effect, FileSystem, Path, Record } from 'effect';
+import { Cause, Config, Effect, FileSystem, Path, Record } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
 import { hostingStack, hostingTargets } from '#/infra/hosting-stack';
 import { repositoryStack } from '#/infra/repository-stack';
@@ -11,12 +11,22 @@ import { repositoryStack } from '#/infra/repository-stack';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const stackOperation = { operation: Argument.Literals('operation', ['preview', 'up', 'refresh', 'destroy']) };
-const operateStack = Effect.fn('operateStack')(function* <E, R extends NodeServices>({ program, ...args }: Readonly<Omit<InlineProgramArgs, 'program'> & { program: Effect.Effect<Record<string, unknown>, E, R> }>, operation: Command.Command.Config.Infer<typeof stackOperation>['operation']) {
+const operateStack = Effect.fn('operateStack')(function* <E, R extends NodeServices>(
+    { program, ...args }: Readonly<Omit<InlineProgramArgs, 'program'> & { program: Effect.Effect<Record<string, unknown>, E, R> }>,
+    operation: Command.Command.Config.Infer<typeof stackOperation>['operation'],
+) {
     const [fs, path, home, context] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('PULUMI_HOME'), Effect.context<R>()]);
     const workDir = path.join(home, args.projectName);
     yield* fs.makeDirectory(workDir, { recursive: true });
-    const stack = yield* Effect.tryPromise(() => LocalWorkspace.createOrSelectStack({ ...args, program: () => Effect.runPromiseWith(context)(program) }, { workDir }));
-    yield* Effect.tryPromise<unknown>((signal) => stack[operation]({ diff: true, signal, onOutput: process.stdout.write.bind(process.stdout), onError: process.stderr.write.bind(process.stderr) }));
+    const inline = { ...args, program: () => Effect.runPromiseWith(context)(program) };
+    const stack = yield* Effect.tryPromise({
+        try: () => (operation === 'refresh' || operation === 'destroy' ? LocalWorkspace.selectStack(inline, { workDir }) : LocalWorkspace.createOrSelectStack(inline, { workDir })),
+        catch: (cause) => (cause instanceof StackNotFoundError ? new Cause.NoSuchElementError(`Pulumi stack ${args.stackName} does not exist`) : new Cause.UnknownError(cause, `Cannot select ${args.stackName}`)),
+    });
+    yield* Effect.tryPromise<unknown, Cause.UnknownError>({
+        try: (signal) => stack[operation]({ diff: true, signal, onOutput: process.stdout.write.bind(process.stdout), onError: process.stderr.write.bind(process.stderr) }),
+        catch: (cause) => new Cause.UnknownError(cause instanceof CommandError ? undefined : cause, `Pulumi ${operation} failed for ${args.stackName}`),
+    });
 });
 
 Command.make('infra').pipe(

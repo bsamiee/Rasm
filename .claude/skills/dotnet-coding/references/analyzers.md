@@ -107,21 +107,9 @@ Analyzer project references can return runtime dependencies through `TargetPathW
 
 `DiagnosticAnalyzerAttribute` and `ExportCodeFixProviderAttribute` declare discovery metadata. Construction and instance lifetime belong to the consuming host. Composition attributes apply when that host uses their container; export metadata alone establishes no shared-instance behavior.
 
-## [07]-[TESTS]
+## [07]-[MEASUREMENT]
 
-Native analyzer-testing APIs own markup, reference assemblies, expected diagnostics, generator execution, code actions, and Fix All. Set compiler diagnostic policy explicitly: default error checking excludes compiler warnings. `CodeActionValidationMode.Full` compares produced syntax, including trivia, with parsing its output text. Binding and execution behavior require separate expectations. Expected results identify primary and related locations, severity, and message arguments; `DiagnosticVerifier` exposes additional property comparison.
-
-Use real dependency declarations and generators when generated members affect binding. `GetSourceGenerators` supplies generator types, including incremental generators, to the native driver. `GeneratedSources` states expected output; `SkipGeneratedSourcesCheck` omits output-text comparison while generated trees and diagnostics still participate. Copied generated constructors or dispatch methods substitute another implementation for the behavior under examination.
-
-Generator visibility follows output phases. Post-initialization and pre-compilation output enter the compilation before compilation-dependent generation. Ordinary source output is added after generation and does not become a peer generator's input in that pass. Analyze the compilation containing generated output when those declarations affect diagnostics; generated-code callback policy remains a separate choice.
-
-`TestState.AdditionalProjects` and native project references exercise cross-file and cross-project meaning. Cover supported Fix All scopes across independent documents and projects, overlapping sites, dependent removals, and distinct equivalence choices. Analyzer-only cases define test input; fixed states describe expected code-action changes.
-
-Positive cases establish diagnostic contracts. Negative cases differ in a deciding fact: overload selection, conversion, comparer, evaluation count, callback contract, or reaching definition. Generated cases derive variation from those contracts while preserving compilable source. Diagnostic multiplicity remains observable when locations coincide. Snapshots follow native diagnostic comparison and establish neither binding nor execution behavior by themselves.
-
-## [08]-[MEASUREMENT]
-
-Build duration, compiler startup, analyzer execution, and test-framework work measure different costs. Incremental builds can skip compilation; compiler servers retain JIT and metadata state outside the measured client process. Compare equal source, package resolution, target, worker settings, and compiler-server policy. Record wall time, CPU, and peak resident memory separately.
+Build duration, compiler startup, and analyzer execution measure different costs. Incremental builds can skip compilation; compiler servers retain JIT and metadata state outside the measured client process. Compare equal source, package resolution, target, worker settings, and compiler-server policy. Record wall time, CPU, and peak resident memory separately.
 
 Measure fresh analyzer drivers; repeated queries on one `CompilationWithAnalyzers` can return retained results. Prepare parsing, references, and generator output before timing. State whether compiler binding ran before driver creation; driver queries include orchestration and required binding. Inject elapsed-time measurement and retain one process-wide allocation interval across asynchronous work:
 

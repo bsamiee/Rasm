@@ -33,13 +33,11 @@
         "postcss": "catalog:",
         "react": "catalog:",
         "react-dom": "catalog:",
-        "rolldown": "catalog:",
         "vite": "catalog:"
     },
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
         "@effect/vitest": "catalog:",
-        "@rasm/test-support": "workspace:*",
         "@types/culori": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",

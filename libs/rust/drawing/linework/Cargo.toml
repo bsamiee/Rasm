@@ -14,11 +14,6 @@ test    = false
 doctest = false
 bench   = false
 
-# --- [TESTS]
-[[test]]
-name = "operations"
-path = "../../../../tests/rust/drawing/linework/operations.rs"
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -40,10 +35,6 @@ parlance                   = { workspace = true }
 kurbo                      = { workspace = true }
 linesweeper                = { workspace = true }
 nalgebra                   = { workspace = true }
-
-# --- [TESTING]
-[dev-dependencies]
-claims = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

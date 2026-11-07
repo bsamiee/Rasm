@@ -158,12 +158,12 @@ rewriters:
     - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART.}
     - id: lineage
       rule:
-        kind: 'bare_key, quoted_key, dotted_key'
-        pattern: $SEGMENT
-        any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
+          kind: 'bare_key, quoted_key, dotted_key'
+          pattern: $SEGMENT
+          any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
-        SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
       fix: $ABOVE$SEGMENT_PART
 transform:
     NAME: {replace: {source: $PATH, replace: '\.$', by: ''}}
@@ -185,12 +185,12 @@ rewriters:
     - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART.}
     - id: lineage
       rule:
-        kind: 'bare_key, quoted_key, dotted_key'
-        pattern: $SEGMENT
-        any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
+          kind: 'bare_key, quoted_key, dotted_key'
+          pattern: $SEGMENT
+          any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
-        SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
       fix: $ABOVE$SEGMENT_PART
 transform:
     NAME: {replace: {source: $PATH, replace: '\.$', by: ''}}
@@ -212,12 +212,12 @@ rewriters:
     - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART.}
     - id: lineage
       rule:
-        kind: 'bare_key, quoted_key, dotted_key'
-        pattern: $SEGMENT
-        any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
+          kind: 'bare_key, quoted_key, dotted_key'
+          pattern: $SEGMENT
+          any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
-        SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
       fix: $ABOVE$SEGMENT_PART
 transform:
     NAME: {replace: {source: $PATH, replace: '\.$', by: ''}}
@@ -245,12 +245,12 @@ rewriters:
     - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART.}
     - id: lineage
       rule:
-        kind: 'bare_key, quoted_key, dotted_key'
-        pattern: $SEGMENT
-        any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
+          kind: 'bare_key, quoted_key, dotted_key'
+          pattern: $SEGMENT
+          any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
-        SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
       fix: $ABOVE$SEGMENT_PART
 transform:
     NAME: {replace: {source: $PATH, replace: '\.$', by: ''}}
@@ -278,12 +278,12 @@ rewriters:
     - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART.}
     - id: lineage
       rule:
-        kind: 'bare_key, quoted_key, dotted_key'
-        pattern: $SEGMENT
-        any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
+          kind: 'bare_key, quoted_key, dotted_key'
+          pattern: $SEGMENT
+          any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
-        SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
       fix: $ABOVE$SEGMENT_PART
 transform:
     NAME: {replace: {source: $PATH, replace: '\.$', by: ''}}

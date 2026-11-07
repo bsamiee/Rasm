@@ -1,6 +1,6 @@
 import { traverse } from '@pgsql/traverse';
 import type { Node } from '@pgsql/types';
-import { Array, Duration, Effect, Equal, Equivalence, Filter, Function, flow, HashSet, Match, Option, Record, Result, Schema, Struct } from 'effect';
+import { Array, Duration, Effect, Equal, Equivalence, Exit, Filter, Function, flow, HashSet, Match, Option, Record, Result, Schema, Struct } from 'effect';
 import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
 import type { Catalog } from '#/catalog';
@@ -23,6 +23,7 @@ const Configurations = Schema.Struct({
     absent: Names,
     configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
 });
+const ExtensionSchema = Schema.Struct({ namespace: Schema.String });
 const PgTable = Schema.Struct({
     name: Schema.String,
     identity: Schema.NullOr(Schema.String),
@@ -74,28 +75,43 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const joined = sql.join(` || ' ' || `, false)(columns.map(({ name }) => sql`coalesce(${sql(name)}, '')`));
         return tokenizer === 'trigram' ? joined : sql`to_tsvector(${sql.literal(literal(Pg.configuration(tokenizer)))}, ${joined})`;
     };
-    static readonly search: Engine['Service']['search'] = ({ sql, owner, prefix, unqualified, keys, reads, flags }, searchable, text, pattern, marks, count) => {
-        const [body, rank] = [Pg.document(sql, searchable), sql(flags.rank)];
-        const { score, source, filter, mark } = Match.value(searchable.tokenizer).pipe(
-            Match.when('trigram', () => ({
-                score: sql`word_similarity(${text}, ${body})`,
-                source: owner,
-                filter: sql`(${body}) ILIKE ${pattern}`,
-                mark: (part: string, open: string, close: string) => sql`regexp_replace(${sql(part)}, ${`***=${text}`}, ${`${open.replaceAll('\\', '\\\\')}\\&${close.replaceAll('\\', '\\\\')}`}, 'gi')`,
-            })),
-            Match.orElse((tokenizer) => {
-                const dictionary = sql.literal(literal(Pg.configuration(tokenizer)));
-                return {
-                    score: sql`ts_rank(${body}, q)`,
-                    source: sql`${owner} CROSS JOIN plainto_tsquery(${dictionary}, ${text}) q`,
-                    filter: sql`${body} @@ q`,
-                    mark: (part: string, open: string, close: string) => sql`ts_headline(${dictionary}, ${sql(part)}, q, ${`StartSel="${open.replaceAll('"', '""')}", StopSel="${close.replaceAll('"', '""')}", HighlightAll=true`})`,
-                };
-            }),
+    static readonly forClient = (sql: SqlClient.SqlClient) => {
+        const namespace = SqlSchema.findOne({
+            Request: Schema.Void,
+            Result: ExtensionSchema,
+            execute: () => sql`SELECT quote_ident(n.nspname) AS namespace FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = ${trigram.extension}`,
+        })(undefined).pipe(Effect.map(Struct.get('namespace')));
+        return Effect.map(
+            Effect.cachedWithTTL(namespace, (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
+            (extension) => ({ ...Pg, search: Pg.#search(extension) }),
         );
-        const marked = Option.match(marks, { onNone: () => sql.literal('NULL'), onSome: ({ open, close }) => sql`jsonb_build_object(${sql.csv(searchable.columns.flatMap((entry) => [literal(entry.field), mark(entry.name, open, close)]))})` });
-        return sql`SELECT ${reads(unqualified)}, ${score} AS ${rank}, ${marked} AS ${sql(flags.highlight)} FROM ${source} WHERE ${filter} ORDER BY ${rank} DESC, ${keys(prefix)} LIMIT ${count}`;
     };
+    static readonly #search = (extension: Effect.Effect<string, Effect.Error<ReturnType<Engine['Service']['search']>>>): Engine['Service']['search'] =>
+        Effect.fnUntraced(function* (...[context, searchable, text, pattern, marks, count]: Parameters<Engine['Service']['search']>) {
+            const { sql, owner, prefix, unqualified, keys, reads, flags } = context;
+            const [body, rank] = [Pg.document(sql, searchable), sql(flags.rank)];
+            const { score, source, filter, mark } = yield* Match.value(searchable.tokenizer).pipe(
+                Match.when('trigram', () =>
+                    Effect.map(extension, (namespace) => ({
+                        score: sql`${sql.literal(namespace)}.word_similarity(${text}, ${body})`,
+                        source: owner,
+                        filter: sql`(${body}) ILIKE ${pattern}`,
+                        mark: (part: string, open: string, close: string) => sql`regexp_replace(${sql(part)}, ${`***=${text}`}, ${`${open.replaceAll('\\', '\\\\')}\\&${close.replaceAll('\\', '\\\\')}`}, 'gi')`,
+                    })),
+                ),
+                Match.orElse((tokenizer) => {
+                    const dictionary = sql.literal(literal(Pg.configuration(tokenizer)));
+                    return Effect.succeed({
+                        score: sql`ts_rank(${body}, q)`,
+                        source: sql`${owner} CROSS JOIN plainto_tsquery(${dictionary}, ${text}) q`,
+                        filter: sql`${body} @@ q`,
+                        mark: (part: string, open: string, close: string) => sql`ts_headline(${dictionary}, ${sql(part)}, q, ${`StartSel="${open.replaceAll('"', '""')}", StopSel="${close.replaceAll('"', '""')}", HighlightAll=true`})`,
+                    });
+                }),
+            );
+            const marked = Option.match(marks, { onNone: () => sql.literal('NULL'), onSome: ({ open, close }) => sql`jsonb_build_object(${sql.csv(searchable.columns.flatMap((entry) => [literal(entry.field), mark(entry.name, open, close)]))})` });
+            return yield* sql`SELECT ${reads(unqualified)}, ${score} AS ${rank}, ${marked} AS ${sql(flags.highlight)} FROM ${source} WHERE ${filter} ORDER BY ${rank} DESC, ${keys(prefix)} LIMIT ${count}`;
+        });
 
     // --- [DDL]
     static readonly constant: Engine['Service']['constant'] = (entry, value) => (entry.kind === 'boolean' ? `${value === 1}` : constant(entry, value));
@@ -212,15 +228,15 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             scratched.flatMap((table) => [sql`${table.create} ON COMMIT DROP`, ...table.indexes.filter(ready).map(Pg.#indexText), ...Option.toArray(table.policy).map(policyText)]),
         );
         const { observed: live } = yield* SqlSchema.findOne({
-            Request: Names,
+            Request: Schema.Void,
             Result: Observed,
-            execute: (prefixes) =>
-                sql`WITH relations AS (SELECT c.oid, c.relname, c.relowner, c.relacl, c.relrowsecurity, c.relforcerowsecurity, c.relnamespace = pg_my_temp_schema() AS scratch FROM pg_class c WHERE c.relnamespace IN (current_schema()::regnamespace, pg_my_temp_schema()) AND c.relkind = 'r' AND NOT EXISTS (SELECT 1 FROM unnest(${prefixes}::text[]) p(prefix) WHERE starts_with(c.relname::text, p.prefix))),
+            execute: () =>
+                sql`WITH relations AS (SELECT c.oid, c.relname, c.relowner, c.relacl, c.relrowsecurity, c.relforcerowsecurity, c.relnamespace = pg_my_temp_schema() AS scratch FROM pg_class c WHERE c.relnamespace IN (current_schema()::regnamespace, pg_my_temp_schema()) AND c.relkind = 'r'),
                     constraints AS (SELECT n.oid, n.conrelid, n.conname, n.contype, n.convalidated, n.confrelid, n.confdeltype,
                         array(SELECT a.attname::text FROM unnest(n.conkey) WITH ORDINALITY k(number, position) JOIN pg_attribute a ON (a.attrelid, a.attnum) = (n.conrelid, k.number) ORDER BY k.position) AS columns
                         FROM pg_constraint n JOIN relations r ON r.oid = n.conrelid),
                     described AS (SELECT r.scratch, json_build_object('name', r.relname, 'identity', obj_description(r.oid, 'pg_class'), 'rls', r.relrowsecurity, 'force', r.relforcerowsecurity,
-                        'grants', array(SELECT json_build_array(a.grantee::regrole::text, a.privilege_type) FROM aclexplode(r.relacl) a WHERE a.grantee <> r.relowner),
+                        'grants', array(SELECT json_build_array(g.rolname, a.privilege_type) FROM aclexplode(r.relacl) a JOIN pg_roles g ON g.oid = a.grantee WHERE a.grantee <> r.relowner),
                         'columns', array(SELECT json_build_object('name', a.attname, 'identity', col_description(a.attrelid, a.attnum), 'type', format_type(a.atttypid, a.atttypmod), 'expression', pg_get_expr(d.adbin, d.adrelid), 'generated', a.attgenerated::text,
                             'required', EXISTS (SELECT 1 FROM pg_constraint n WHERE n.conrelid = a.attrelid AND n.contype = 'n' AND n.conkey = ARRAY[a.attnum] AND n.convalidated),
                             'sources', array(SELECT s.attname::text FROM pg_depend p JOIN pg_attribute s ON (s.attrelid, s.attnum) = (p.refobjid, p.refobjsubid) WHERE p.classid = 'pg_attrdef'::regclass AND p.objid = d.oid AND p.refobjsubid > 0 AND s.attnum <> a.attnum))
@@ -237,7 +253,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                         'policies', array(SELECT json_build_object('name', p.polname, 'using', pg_get_expr(p.polqual, p.polrelid, true), 'check', pg_get_expr(p.polwithcheck, p.polrelid, true), 'roles', p.polroles::regrole[]::text[]) FROM pg_policy p WHERE p.polrelid = r.oid)) AS relation
                         FROM relations r)
                     SELECT json_build_object('tables', array(SELECT d.relation FROM described d WHERE NOT d.scratch), 'scratch', array(SELECT d.relation FROM described d WHERE d.scratch))::text AS observed`,
-        })(catalog.excludedPrefixes);
+        })();
         const resolved = diff(sql, catalog, rendered, live.tables);
         const populated = yield* resolved.populated;
         yield* Effect.promise(loadModule);

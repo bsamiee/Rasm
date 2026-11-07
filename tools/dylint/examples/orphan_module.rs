@@ -5,4 +5,14 @@ mod declared;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box(declared::counted()); }
+macro_rules! observed {
+    (module) => {
+        #[path = "orphan_module/undeclared.rs"]
+        mod unused;
+    };
+    () => {
+        declared::counted()
+    };
+}
+
+fn main() { black_box(observed!()); }

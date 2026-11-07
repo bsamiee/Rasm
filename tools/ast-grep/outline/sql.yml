@@ -12,20 +12,20 @@ rule:
           has: {field: source, pattern: $SOURCE}
         - kind: dot_command
           all:
-            - has: {field: name, regex: '^\.(?:import|load|open|read)$'}
-            - has: {field: arguments, pattern: $ARGUMENTS}
+              - has: {field: name, regex: '^\.(?:import|load|open|read)$'}
+              - has: {field: arguments, pattern: $ARGUMENTS}
         - kind: dot_command
           all:
-            - has: {field: name, regex: '^\.restore$'}
-            - has: {field: arguments, pattern: $RESTORED}
+              - has: {field: name, regex: '^\.restore$'}
+              - has: {field: arguments, pattern: $RESTORED}
 rewriters:
     - id: trivia
       rule: {kind: 'line_comment, block_comment'}
       fix: ' '
     - id: key
       rule:
-        pattern: $_
-        inside: {kind: attach_statement, field: key}
+          pattern: $_
+          inside: {kind: attach_statement, field: key}
       fix: …
 transform:
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
@@ -49,11 +49,11 @@ rule:
 rewriters:
     - id: body
       rule:
-        any:
-            - {kind: 'column_definition, table_constraint, vtab_module_arg', inside: {kind: 'create_table_statement, create_virtual_table_statement'}}
-            - {kind: 'select_clause, substitution', inside: {kind: create_table_statement}, not: {inside: {kind: create_table_statement, field: temporary}}}
-            - {kind: 'select_clause, substitution', inside: {kind: create_view_statement, field: body}}
-            - kind: line_comment, block_comment
+          any:
+              - {kind: 'column_definition, table_constraint, vtab_module_arg', inside: {kind: 'create_table_statement, create_virtual_table_statement'}}
+              - {kind: 'select_clause, substitution', inside: {kind: create_table_statement}, not: {inside: {kind: create_table_statement, field: temporary}}}
+              - {kind: 'select_clause, substitution', inside: {kind: create_view_statement, field: body}}
+              - kind: line_comment, block_comment
       fix: {template: ' ', expandStart: {regex: '(?i-u)^([(,]|as)$'}, expandEnd: {regex: '^\)$'}}
 transform:
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
@@ -91,15 +91,15 @@ rule:
         - not: {has: {stopBy: end, any: [{kind: 'ERROR, malformed_blob_literal, malformed_number_id'}, {regex: '^$', any: [{kind: identifier}, {pattern: ')'}, {pattern: ';'}, {pattern: END}]}]}}
         - has: {field: expression, pattern: $EXPRESSION, not: {kind: column_reference}}
         - any:
-            - {kind: indexed_column, inside: {kind: create_index_statement}, not: {has: {field: expression, kind: collate_expression, has: {field: operand, kind: column_reference}}}}
-            - kind: expression_result_column
-              not: {has: {field: alias, pattern: $_}}
-              inside:
-                kind: result_column_list
+              - {kind: indexed_column, inside: {kind: create_index_statement}, not: {has: {field: expression, kind: collate_expression, has: {field: operand, kind: column_reference}}}}
+              - kind: expression_result_column
+                not: {has: {field: alias, pattern: $_}}
                 inside:
-                    kind: select_clause
-                    field: columns
-                    inside: {kind: 'create_table_statement, create_view_statement', not: {has: {kind: 'identifier, quoted_identifier, string_literal, substitution', inside: {kind: create_view_statement}, not: {any: [{inside: {kind: create_view_statement, field: body}}, {inside: {kind: create_view_statement, field: temporary}}]}}}}
+                    kind: result_column_list
+                    inside:
+                        kind: select_clause
+                        field: columns
+                        inside: {kind: 'create_table_statement, create_view_statement', not: {has: {kind: 'identifier, quoted_identifier, string_literal, substitution', inside: {kind: create_view_statement}, not: {any: [{inside: {kind: create_view_statement, field: body}}, {inside: {kind: create_view_statement, field: temporary}}]}}}}
 rewriters:
     - id: trivia
       rule: {kind: 'line_comment, block_comment'}
@@ -136,24 +136,24 @@ rule:
         - {kind: 'identifier, quoted_identifier, string_literal, substitution', pattern: $NAME, matches: listed}
         - kind: star_result_column, qualified_star_result_column, expression_result_column
           any:
-            - has: {field: alias, pattern: $NAME}
-            - has: {field: expression, kind: column_reference, has: {field: name, pattern: $NAME}}
-            - pattern: $NAME
+              - has: {field: alias, pattern: $NAME}
+              - has: {field: expression, kind: column_reference, has: {field: name, pattern: $NAME}}
+              - pattern: $NAME
           inside:
-            kind: result_column_list
-            inside:
-                kind: select_clause
-                field: columns
-                inside: {kind: 'create_table_statement, create_view_statement', not: {has: {matches: listed}}}
+              kind: result_column_list
+              inside:
+                  kind: select_clause
+                  field: columns
+                  inside: {kind: 'create_table_statement, create_view_statement', not: {has: {matches: listed}}}
 rewriters:
     - id: trivia
       rule: {kind: 'line_comment, block_comment'}
       fix: ' '
     - id: value
       rule:
-        pattern: $_
-        inside: {kind: column_constraint, has: {regex: '(?i-u)^(?:default|as)$'}}
-        not: {inside: {kind: column_constraint, field: name}}
+          pattern: $_
+          inside: {kind: column_constraint, has: {regex: '(?i-u)^(?:default|as)$'}}
+          not: {inside: {kind: column_constraint, field: name}}
       fix: {template: …, expandStart: {regex: '^[+-]$'}}
     - id: elided
       rule: {kind: expression_result_column, all: [{has: {field: expression, regex: "\n"}}, {has: {field: alias, pattern: $ALIAS}}]}
@@ -281,11 +281,11 @@ rule:
 rewriters:
     - id: clause
       rule:
-        any:
-            - kind: where_clause, having_clause, order_by_clause, limit_clause, upsert_clause, with_clause, window_clause, group_by_clause
-              inside: {kind: 'select_statement, insert_statement, update_statement, delete_statement, select_statement > select_clause'}
-            - kind: line_comment, block_comment
-            - {kind: 'select_clause, values_clause, default_values_clause, substitution', inside: {kind: insert_statement, field: source}}
+          any:
+              - kind: where_clause, having_clause, order_by_clause, limit_clause, upsert_clause, with_clause, window_clause, group_by_clause
+                inside: {kind: 'select_statement, insert_statement, update_statement, delete_statement, select_statement > select_clause'}
+              - kind: line_comment, block_comment
+              - {kind: 'select_clause, values_clause, default_values_clause, substitution', inside: {kind: insert_statement, field: source}}
       fix: ' '
     - id: assignment
       rule: {kind: 'set_assignment, line_comment, block_comment', inside: {kind: update_statement}}
@@ -326,20 +326,20 @@ rule:
 rewriters:
     - id: clause
       rule:
-        any:
-            - kind: where_clause, having_clause, order_by_clause, limit_clause, upsert_clause, with_clause, window_clause, group_by_clause
-              inside: {kind: 'select_statement, insert_statement, update_statement, delete_statement, select_statement > select_clause'}
-            - kind: line_comment, block_comment
-            - {kind: 'select_clause, values_clause, default_values_clause, substitution', inside: {kind: insert_statement, field: source}}
+          any:
+              - kind: where_clause, having_clause, order_by_clause, limit_clause, upsert_clause, with_clause, window_clause, group_by_clause
+                inside: {kind: 'select_statement, insert_statement, update_statement, delete_statement, select_statement > select_clause'}
+              - kind: line_comment, block_comment
+              - {kind: 'select_clause, values_clause, default_values_clause, substitution', inside: {kind: insert_statement, field: source}}
       fix: ' '
     - id: assignment
       rule: {kind: 'set_assignment, line_comment, block_comment', inside: {kind: update_statement}}
       fix: {template: ' ', expandStart: {regex: '(?i-u)^(set|,)$'}}
     - id: enclosed
       rule:
-        any:
-            - {kind: 'normal_function_arguments, select_clause, column_name_list', regex: "\n"}
-            - kind: column_definition, table_constraint
+          any:
+              - {kind: 'normal_function_arguments, select_clause, column_name_list', regex: "\n"}
+              - kind: column_definition, table_constraint
       fix: …
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [assignment, clause, enclosed]}}
@@ -365,9 +365,9 @@ rewriters:
       fix: ' '
     - id: value
       rule:
-        pattern: $_
-        inside: {kind: column_constraint, has: {regex: '(?i-u)^(?:default|as)$'}}
-        not: {inside: {kind: column_constraint, field: name}}
+          pattern: $_
+          inside: {kind: column_constraint, has: {regex: '(?i-u)^(?:default|as)$'}}
+          not: {inside: {kind: column_constraint, field: name}}
       fix: {template: …, expandStart: {regex: '^[+-]$'}}
 transform:
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}

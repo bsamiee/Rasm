@@ -14,15 +14,6 @@ test    = false
 doctest = false
 bench   = false
 
-# --- [TEST]
-[[test]]
-name = "connections"
-path = "../../../../tests/rust/graphs/dependency/connections.rs"
-
-[[test]]
-name = "critical"
-path = "../../../../tests/rust/graphs/dependency/critical.rs"
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]

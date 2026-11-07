@@ -22,8 +22,6 @@ Parser choice follows the syntax the language's own parser accepts, fidelity out
 - `LANGUAGE_VERSION` in `src/parser.c` fixes a parser's ABI, tree-sitter loads 13 through 15 and generates 14 or 15, a fork built for its own runtime loads in no stock runtime
 - Facts only scope decides (C# `field` inside an accessor) stay out of grammars, a separate kind duplicates every production reaching it
 
-Test sets of valid forms that parse and invalid forms that must `ERROR`, checked against the language's own parser (`tsc`, `swiftc -parse`, `javac`, `bash -n`, libpg_query), decide a grammar change, error counts alone miss its main defect class:
-- Well-formed wrong trees count as clean under `tree-sitter parse -q -s` (``sql<T>`x` `` as `binary_expression`), proof diffs `tree-sitter parse --no-ranges --paths <list>` trees against the old library and `node-types.json` for the kind contract
 - Sets try each new literal at every identifier position
 
 ## [02]-[PIPELINE]

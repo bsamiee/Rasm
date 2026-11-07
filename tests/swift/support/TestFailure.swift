@@ -8,6 +8,8 @@ public struct TestFailure: LocalizedError, CustomNSError {
         case missing
         case refused(OSStatus)
         case exited(TerminationStatus, standardError: String)
+        case terminationRefused
+        case terminationTimedOut(Duration)
         case undecodable(DecodingError)
         case host(any Error)
     }
@@ -26,7 +28,7 @@ public struct TestFailure: LocalizedError, CustomNSError {
         switch reason {
             case .undecodable(let cause): [NSUnderlyingErrorKey: cause]
             case .host(let cause): [NSUnderlyingErrorKey: cause]
-            case .missing, .refused, .exited: [:]
+            case .missing, .refused, .exited, .terminationRefused, .terminationTimedOut: [:]
         }
     }
 }

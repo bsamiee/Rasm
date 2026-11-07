@@ -22,11 +22,11 @@ rule:
     kind: 'use_declaration, extern_crate_declaration'
     all:
         - any:
-            - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
-            - has: {field: argument, has: {field: path, matches: argument}}
-            - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
-            - has: {field: argument, matches: argument}
-            - has: {field: name, matches: argument}
+              - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
+              - has: {field: argument, has: {field: path, matches: argument}}
+              - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
+              - has: {field: argument, matches: argument}
+              - has: {field: name, matches: argument}
         - not: {matches: broken}
         - matches: attributed
         - matches: declaration
@@ -1818,16 +1818,16 @@ rule:
         - {kind: identifier, all: [{inside: {kind: mod_item, field: name, all: [{matches: holding}, {matches: declared}, {matches: enclosing}, {matches: declaration}]}}, {pattern: {context: 'mod $ARGUMENT;', selector: identifier}}]}
         - kind: 'use_declaration, extern_crate_declaration'
           all:
-            - matches: declared
-            - not: {matches: broken}
-            - matches: enclosing
-            - any:
-                - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
-                - has: {field: argument, has: {field: path, matches: argument}}
-                - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
-                - has: {field: argument, matches: argument}
-                - has: {field: name, matches: argument}
-            - matches: declaration
+              - matches: declared
+              - not: {matches: broken}
+              - matches: enclosing
+              - any:
+                    - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
+                    - has: {field: argument, has: {field: path, matches: argument}}
+                    - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
+                    - has: {field: argument, matches: argument}
+                    - has: {field: name, matches: argument}
+              - matches: declaration
     matches: attributed
 rewriters:
     - {id: annotation, rule: {any: [{kind: 'line_comment, block_comment'}, {matches: tool}]}, fix: ''}
@@ -1900,16 +1900,16 @@ rule:
         - {kind: identifier, all: [{inside: {kind: mod_item, field: name, all: [{matches: holding}, {matches: declared}, {matches: enclosing}, {inside: {stopBy: end, kind: mod_item}}, {matches: declaration}]}}, {pattern: {context: 'mod $ARGUMENT;', selector: identifier}}]}
         - kind: 'use_declaration, extern_crate_declaration'
           all:
-            - matches: declared
-            - not: {matches: broken}
-            - matches: enclosing
-            - any:
-                - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
-                - has: {field: argument, has: {field: path, matches: argument}}
-                - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
-                - has: {field: argument, matches: argument}
-                - has: {field: name, matches: argument}
-            - matches: declaration
+              - matches: declared
+              - not: {matches: broken}
+              - matches: enclosing
+              - any:
+                    - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
+                    - has: {field: argument, has: {field: path, matches: argument}}
+                    - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
+                    - has: {field: argument, matches: argument}
+                    - has: {field: name, matches: argument}
+              - matches: declaration
     matches: attributed
 rewriters:
     - {id: annotation, rule: {any: [{kind: 'line_comment, block_comment'}, {matches: tool}]}, fix: ''}

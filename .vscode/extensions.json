@@ -1,38 +1,46 @@
 {
+    // --- [RECOMMENDATIONS] -------------------------------------------------------------
+
     "recommendations": [
-        "hverlin.mise-vscode",
-        "biomejs.biome",
-        "typescriptteam.native-preview",
-        "charliermarsh.ruff",
         "astral-sh.ty",
-        "ms-python.mypy-type-checker",
+        "charliermarsh.ruff",
+        "ctcuff.font-preview",
+        "github.vscode-github-actions",
+        "hverlin.mise-vscode",
+        "mads-hartmann.bash-ide-vscode",
         "ms-dotnettools.csharp",
+        "ms-vscode.cmake-tools",
+        "ms-vscode.hexeditor",
+        "pkief.material-icon-theme",
+        "redhat.java",
+        "redhat.vscode-yaml",
+        "ricardofrantz.pdf-preview-next",
         "rust-lang.rust-analyzer",
         "swiftlang.swift-vscode",
-        "redhat.java",
-        "ms-vscode.cmake-tools",
         "tombi-toml.tombi",
-        "redhat.vscode-yaml",
-        "mads-hartmann.bash-ide-vscode",
-        "github.vscode-github-actions"
+        "typescriptteam.native-preview",
+        "xyqjay.vscode-xcconfig"
     ],
+
+    // --- [UNWANTED_RECOMMENDATIONS] ----------------------------------------------------
+
     "unwantedRecommendations": [
-        "vscjava.vscode-java-pack",
-        "vscjava.vscode-gradle",
-        "vscjava.vscode-maven",
-        "vscjava.vscode-java-test",
-        "vscjava.vscode-java-dependency",
-        "vscjava.vscode-java-debug",
-        "tamasfe.even-better-toml",
-        "ms-python.vscode-pylance",
-        "ms-python.debugpy",
-        "ms-python.vscode-python-envs",
-        "ms-playwright.playwright",
-        "mechatroner.rainbow-csv",
+        "christian-kohler.npm-intellisense",
         "davidanson.vscode-markdownlint",
         "dbaeumer.vscode-eslint",
         "firefox-devtools.vscode-firefox-debug",
+        "mechatroner.rainbow-csv",
         "ms-edgedevtools.vscode-edge-devtools",
-        "christian-kohler.npm-intellisense"
+        "ms-playwright.playwright",
+        "ms-python.debugpy",
+        "ms-python.vscode-pylance",
+        "ms-python.vscode-python-envs",
+        "tamasfe.even-better-toml",
+        "vscjava.vscode-gradle",
+        "vscjava.vscode-java-debug",
+        "vscjava.vscode-java-dependency",
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-java-test",
+        "vscjava.vscode-maven"
     ]
 }

@@ -109,7 +109,7 @@ Buffers hold code points before `Shape` and glyphs after. Protocol around one sh
 - Line breakers shape the paragraph once and split at cluster starts without `UnsafeToBreak`, reshaping lines broken at a flagged cluster alone
 - `GetGlyphInfoSpan()` and `GetGlyphPositionSpan()` read native memory until the next buffer write, `GlyphInfos` and `GlyphPositions` copy
 - `ReverseClusters()` turns right-to-left visual output back to logical order
-- `NormalizeGlyphs()` gives canonical in-cluster order for comparing output, `SerializeGlyphs(font)` prints a run for a test
+- `NormalizeGlyphs()` gives canonical in-cluster order for comparing output
 - `ReplacementCodepoint` (U+FFFD by default) replaces invalid input, `InvisibleGlyph` sets the glyph for hidden characters
 - `SetScale(UnitsPerEm, UnitsPerEm)` returns font units, pixel values are `value * Size / UnitsPerEm`
 - `SetScale(Size * 64, Size * 64)` returns 26.6 fixed point and `value / 64f` gives subpixel positions, `SetScale(Size, Size)` loses subpixel advances

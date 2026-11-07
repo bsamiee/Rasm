@@ -1,6 +1,7 @@
 import { LongestSide } from '@rasm/applications';
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Effect, Option, Schema, SchemaTransformation, String, Struct } from 'effect';
+import { Array, Cause, Context, Effect, Option, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, String, Struct } from 'effect';
+import { Url } from 'effect/http';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { HostError } from '#/host-error';
 
@@ -16,6 +17,12 @@ const BODY = 'function body() {';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Version = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,2}$/u)).annotate({ description: 'major[.minor[.patch]]' });
+const HostUrl = Schema.String.pipe(
+    Schema.decodeTo(Schema.URL, {
+        decode: SchemaGetter.transformEffect((text, options) => Effect.fromResult(Url.fromString(text)).pipe(Effect.mapError(() => new SchemaIssue.InvalidValue({ expected: 'a valid URL string' }, text, options)))),
+        encode: SchemaGetter.transform(({ href }) => href),
+    }),
+);
 const Member = Schema.Struct({
     name: Schema.String,
     type: Schema.OptionFromOptionalKey(Schema.String),
@@ -47,7 +54,7 @@ class ExecuteScript extends Schema.Class<ExecuteScript, { readonly brand: unique
         return `Run ${Option.getOrElse(Array.findFirst(Array.map(body.join(BODY).split('\n'), String.trim), String.isNonEmpty), () => EXECUTE_SCRIPT)}`;
     }
 }
-class Open extends Schema.Class<Open, { readonly brand: unique symbol }>('Open')({ file: Schema.URLFromString }) {
+class Open extends Schema.Class<Open, { readonly brand: unique symbol }>('Open')({ file: HostUrl }) {
     static readonly Result = Reference;
 
     get label(): string {
@@ -58,7 +65,7 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
     target: Schema.String.annotate({ description: 'Document, page, spread, artboard, layer, composition, or page item specifier' }),
     longestSide: LongestSide,
     options: Schema.OptionFromOptionalKey(Schema.Record(Schema.String, Schema.Json).annotate({ description: 'Option fields of the host exporter the target selects' })),
-    file: Schema.URLFromString,
+    file: HostUrl,
 }) {
     static readonly Result = Schema.Void;
 
@@ -111,4 +118,4 @@ const Requests = RpcGroup.make(request(EXECUTE_SCRIPT, ExecuteScript), request('
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ExecuteScript, ObjectModel, Open, Reference, Render, Requests, request, Version };
+export { ExecuteScript, HostUrl, ObjectModel, Open, Reference, Render, Requests, request, Version };

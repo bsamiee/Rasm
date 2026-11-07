@@ -178,13 +178,14 @@ const tokens = (rule) => {
 };
 const lexicalOf = (grammar, name) => tokens(expand(grammar, new Set())(grammar.rules[name]));
 const symbols = (rule) => collected(rule, ({ type }) => type === 'SYMBOL');
-const mostHeld = (grammar, held, admits) =>
-    [
-        ...Map.groupBy(
-            held.filter(({ name }) => name in grammar.rules && admits(name)),
-            ({ name }) => name,
-        ),
-    ].reduce(([chosen, most], [name, rows]) => (rows.length > most ? [name, rows.length] : [chosen, most]), [undefined, 0])[0];
+const mostHeld = (grammar, held, select) =>
+    [...Map.groupBy(held, ({ name }) => name)].reduce(
+        (best, [name, rows]) => {
+            const chosen = rows.length > best[1] && Object.hasOwn(grammar.rules, name) ? select(name) : undefined;
+            return chosen === undefined ? best : [chosen, rows.length];
+        },
+        [undefined, 0],
+    )[0];
 const spacing = (parse) => (rule) => {
     const dfa = minimal(automaton(rule, parse));
     const opening = reached(dfa, [dfa.initial]);
@@ -192,18 +193,22 @@ const spacing = (parse) => (rule) => {
 };
 const lexemes = (grammar) => {
     const rules = Object.values(grammar.rules);
-    const name =
-        grammar.word ??
-        mostHeld(
-            grammar,
-            rules.flatMap((rule) => collected(rule, named('name'))).flatMap(({ content }) => symbols(content)),
-            (held) => lexicalOf(grammar, held).length > 0,
-        );
+    const identifier =
+        typeof grammar.word === 'string'
+            ? lexicalOf(grammar, grammar.word)
+            : (mostHeld(
+                  grammar,
+                  rules.flatMap((rule) => collected(rule, named('name'))).flatMap(({ content }) => symbols(content)),
+                  (name) => {
+                      const forms = lexicalOf(grammar, name);
+                      return forms.length === 0 ? undefined : forms;
+                  },
+              ) ?? []);
     const stated = grammar.extras.map((extra) => (extra.type === 'SYMBOL' ? grammar.rules[extra.name] : extra)).filter((rule) => rule !== undefined && lexical(rule));
-    const spaced = stated.length > 0 ? undefined : mostHeld(grammar, rules.flatMap(symbols), (held) => lexical(grammar.rules[held]));
+    const spaced = stated.length > 0 ? undefined : mostHeld(grammar, rules.flatMap(symbols), (name) => (lexical(grammar.rules[name]) ? grammar.rules[name] : undefined));
     return {
-        identifier: name === undefined ? [] : lexicalOf(grammar, name),
-        whitespace: spaced === undefined ? stated : [grammar.rules[spaced]],
+        identifier,
+        whitespace: spaced === undefined ? stated : [spaced],
     };
 };
 const classes = ({ identifier, whitespace }, parse) => {

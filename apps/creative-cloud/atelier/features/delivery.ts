@@ -10,9 +10,9 @@ import { Adobe } from '#/adobe';
 
 const contents = Effect.map(Path.Path, (path) => path.join(path.dirname(process.execPath), '..'));
 const executable = Effect.gen(function* () {
-    const [folder, fs, path] = yield* Effect.all([contents, FileSystem.FileSystem, Path.Path]);
-    const held = path.join(folder, 'MacOS');
-    return path.join(held, yield* Effect.fromOption(Array.head(yield* fs.readDirectory(held))));
+    const [folder, path, spawner] = yield* Effect.all([contents, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+    const name = yield* spawner.string(ChildProcess.make('/usr/bin/plutil', ['-extract', 'CFBundleExecutable', 'raw', '-o', '-', path.join(folder, 'Info.plist')], { stdin: 'ignore', stderr: 'inherit' }));
+    return path.join(folder, 'MacOS', name.trim());
 });
 const reconciled = Effect.fnUntraced(
     function* (archive: string) {

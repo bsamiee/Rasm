@@ -1,7 +1,7 @@
 export const meta = {
   name: 'deepen',
-  description: 'Build, deepen or reduce code in any language: per file group a reader and an editor, or per unit of plan rows an editor per slice, disjoint slices at once and overlapping ones in order, then two adversaries and a verdict, cross-group sets, a lead, one check',
-  whenToUse: 'args.language a languages.js key; args.mode build, deepen (default) or reduce; one of args.path, args.paths or args.key (build: a companion [03] row [KEY]); args.base the base commit; args.exclude folders another run edits; args.inputs evidence paths every agent reads; args.oracle a behavior command the check runs; args.finished a workflow script path returning {label: result} for agents a fixed script must not run again; args.plan a plan whose rows for the paths, grouped into units by the package and files they own and sliced into what one editor lands, are the work in place of file-group readers (build: the architect reads it in place of brief readers and planner, and the writers land it)',
+  description: 'Build, deepen or reduce code in any language: per file group a reader and an editor, or per unit of plan rows an editor per slice, disjoint slices at once and overlapping ones in order, then two adversaries and a verdict, cross-group sets, and a lead',
+  whenToUse: 'args.language a languages.js key; args.mode build, deepen (default) or reduce; one of args.path, args.paths or args.key (build: a companion [03] row [KEY]); args.base the base commit; args.exclude folders another run edits; args.inputs evidence paths every agent reads; args.finished a workflow script path returning {label: result} for agents a fixed script must not run again; args.plan a plan whose rows for the paths, grouped into units by the package and files they own and sliced into what one editor lands, are the work in place of file-group readers (build: the architect reads it in place of brief readers and planner, and the writers land it)',
   phases: [
     { title: 'Plan', detail: 'build: two brief readers and a planner without args.plan, an adversarial architect returning the package graph', model: 'opus' },
     { title: 'Write', detail: 'build: one writer per package over disjoint files once the packages it reads are written' },
@@ -12,7 +12,6 @@ export const meta = {
     { title: 'Verdict', detail: 'per file group or unit, diff against base judged hunk by hunk in place' },
     { title: 'Cross-group', detail: 'one pass over the deduplicated spanning changes: per set over the same files an editor, moving the consumers its changes reach, then two adversaries and a verdict where it changed a file, disjoint sets at once and overlapping ones in order' },
     { title: 'Lead', detail: 'diff against base, unneeded growth reverted, report' },
-    { title: 'Check', detail: 'owning targets and args.oracle once over touched files, one fix pass at the cause, one rerun' },
   ],
 }
 
@@ -44,7 +43,7 @@ const MODES = {
   },
   reduce: {
     facets: [
-      ['derivation', 'values, kinds, keys and labels an owner states, strings or probes standing in for them, and values callers rebuild'],
+      ['derivation', 'values, kinds, keys and labels an owner states, strings standing in for them, and values callers rebuild'],
       ['shape', 'declarations and parameters one shape with a parameter or case replaces, fields one state alone reads, and relations restated'],
       ['indirection', 'wrappers, forwarders, aliases, adapters, error and validation layers no caller branches on, and nesting a reshape flattens'],
       ['packages', 'hand code a package, host or current language feature states, and prose past its facts'],
@@ -97,11 +96,11 @@ const named = !row ? [] : strings(args.paths) ? args.paths : text(args.path) ? [
 const scoped = [...new Set(named.map(trimmed))].filter((root) => !within(root, exclude))
 const roots = scoped.filter((root) => !scoped.some((other) => other !== root && within(root, [other])))
 const valid = row && ['build', ...Object.keys(MODES)].includes(MODE) && text(args.base) && given.length === 1 && roots.length > 0
-  && [args.exclude, args.inputs].every((value) => value === undefined || strings(value)) && [args.oracle, args.plan, args.finished].every((value) => value === undefined || text(value))
+  && [args.exclude, args.inputs].every((value) => value === undefined || strings(value)) && [args.plan, args.finished].every((value) => value === undefined || text(value))
   && (MODE !== 'build' || (text(args.key) && row.companion))
 if (!valid) throw new Error(`args take language (${Object.keys(languages).join(', ')}), mode (build, ${Object.keys(MODES).join(', ')}), base, `
   + `one of path, paths or key (key with build, for ${Object.keys(languages).filter((name) => languages[name].companion).join(', ')}), `
-  + `exclude and inputs as path lists, oracle a command, plan and finished paths, with a root outside exclude; got ${JSON.stringify(args ?? null)}`)
+  + `exclude and inputs as path lists, plan and finished paths, with a root outside exclude. Got ${JSON.stringify(args ?? null)}`)
 const mode = MODES[MODE === 'build' ? 'deepen' : MODE]
 const rowed = PLAN !== null && MODE !== 'build'
 const FINISHED = text(args.finished) ? await workflow({ scriptPath: args.finished }) : {}
@@ -234,20 +233,6 @@ const local = (group) => (found) => {
   return changes.length > 0 ? editor(state, changes, `edit:${group.tag}`, 'Edit') : state
 }
 
-// --- [CHECKS]
-const parts = (files) => row.blender ? [[row, files.filter((path) => !blender(path))], [row.blender, files.filter(blender)]] : [[row, files]]
-const commands = (files) => [...new Map([
-  ...row.format.map((command) => ['format', `${command} ${files.join(' ')}`]),
-  ['projects', `nx affected -t check --exclude=rasm --files=${files.join(',')}`],
-  ...parts(files).filter(([, owned]) => owned.length > 0).flatMap(([part, owned]) => [
-    ...part.lint.map(([name, command]) => [name, `${command} ${owned.join(' ')}`]),
-    ...part.whole.map((target) => [target, `nx run rasm:${target}`]),
-  ]),
-  ['ast-grep', `nx run rasm:lint:ast-grep:tree -- ${files.join(' ')}`],
-  ['prose', `python .claude/skills/clean-prose/scripts/prose.py check ${files.join(' ')}`],
-  ...(text(args.oracle) ? [['oracle', args.oracle]] : []),
-].map(([name, command]) => [command, [name, command]])).values()]
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 log(`${MODE} ${args.language} over ${roots.join(', ')}`)
@@ -284,7 +269,7 @@ Return (structured) the packages as a dependency graph: id, title, section (its 
 
 phase('Map')
 const maps = (await parallel((rowed ? [] : roots).map((root) => () => once(`Target: ${root} in ${REPO}, base commit ${args.base}.
-List every file under ${root} its language's tools read with its line count, and every outside file importing from it, tests included${apart}.
+List every file under ${root} its language's tools read with its line count, and every outside file importing from it${apart}.
 Group files into what one agent reads whole with its consumers and edits at full depth, counting outside files, a family folder with the file of its name, an outside file with the group it imports most that has room, else with other outside files.
 Edit nothing. Return (structured) groups as repository-relative paths.`,
   { label: `map:${root}`, phase: 'Map', schema: MAPPED }).then((result) => result && { ...result, root })))).filter(Boolean)
@@ -333,19 +318,10 @@ const lead = await once(`${brief(roots)}
 Lead. Read \`git diff --stat ${args.base} -- ${union(roots, edited).join(' ')}\` and \`git ls-files -z --others --exclude-standard -- ${union(roots, edited).join(' ')} | xargs -0 wc -l\`.
 ${mode.verdict} Read the diff of each file that grew, one file at a time.
 Return (structured) files you edited and at most 15 lines: ${mode.report} by file and line, reverts.`, { label: 'lead', phase: 'Lead', schema: REPORTED })
-const touched = union(edited, lead?.files ?? [])
-
-phase('Check')
-const check = touched.length === 0 ? null : await once(`${basis(touched)}
-Check over files the run touched, each command without deleted paths or paths its tool does not read. Run \`${row.install}\` first when a manifest among them changed, then each command once:
-${listed(commands(touched).map(([name, command]) => `${name}: \`${command}\``))}
-Fix each finding at its cause in one pass, then rerun the commands once.
-Return (structured) files you edited and at most 10 lines: findings fixed and any left with why.`, { label: 'check', phase: 'Check', schema: REPORTED })
 log(`${spent.agents} agents against about ${estimate} before cross-group sets, ${budget.spent()} output tokens this turn`)
 return {
   lead: lead?.report ?? 'lead returned nothing',
   left: left.map((finding) => `${finding.files.join(', ')}: ${finding.change}`),
-  check: touched.length === 0 ? 'no file touched' : check?.report ?? 'check agent returned nothing',
   agents: spent.agents,
   lost,
 }

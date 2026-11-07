@@ -1,13 +1,14 @@
 import { globSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
-import { Array, Config, Effect, Record } from 'effect';
+import { Array, Record } from 'effect';
 import { build, type PlistValue } from 'plist';
 import type { Plugin, Rolldown } from 'vite';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const helper = Effect.fnUntraced(function* (
+const helper = (
     entry: string,
+    identifier: string,
     service: string,
     agent: Readonly<
         Partial<
@@ -54,8 +55,7 @@ const helper = Effect.fnUntraced(function* (
             >
         >
     >,
-) {
-    const identifier = yield* Config.String('PRODUCT_BUNDLE_IDENTIFIER');
+) => {
     const name = basename(dirname(entry));
     const label = `${identifier}.${service}`;
     return {
@@ -73,7 +73,7 @@ const helper = Effect.fnUntraced(function* (
             this.emitFile({ type: 'asset', fileName: join('LaunchAgents', `${label}.plist`), source: build({ ...agent, Label: label, BundleProgram: `Contents/Helpers/${name}`, AssociatedBundleIdentifiers: [identifier] }) });
         },
     } satisfies Plugin;
-});
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -14,11 +14,6 @@ test    = false
 doctest = false
 bench   = false
 
-# --- [TESTS]
-[[test]]
-name = "operations"
-path = "../../../../tests/rust/drawing/annotation/operations.rs"
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]

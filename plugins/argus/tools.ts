@@ -3,11 +3,16 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { registerTool } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
-import { Array, type Duration, Effect, Equal, flow, Option, Order, RcMap, Record, Result, Schema, SchemaTransformation, Scope, Stream, Struct, Tuple } from 'effect';
+import { Array, Cause, type Duration, Effect, Equal, flow, Iterable, Option, Order, pipe, RcMap, Record, Result, Schema, SchemaTransformation, Scope, Stream, String, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/ai';
-import { type Definition, type DefinitionLink, DefinitionRequest, type Diagnostic, DiagnosticSeverity, type Hover, HoverRequest, type Location, LocationLink, type Range, ReferencesRequest, type TextDocumentItem } from 'vscode-languageserver-protocol/node';
+import { type Definition, type DefinitionLink, DefinitionRequest, type Diagnostic, DiagnosticSeverity, type Hover, HoverRequest, type Location, LocationLink, type Range, ReferencesRequest, RequestType, type TextDocumentIdentifier, type TextDocumentItem } from 'vscode-languageserver-protocol/node';
 import { LanguageServer } from '#/language-server';
 import { watchWorkspace } from '#/watch-workspace';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const ClassFileContents = new RequestType<TextDocumentIdentifier, string, void>('java/classFileContents');
+const DEFAULT_JAVA_LINES = 20;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,6 +20,11 @@ const File = Schema.Struct({ file: Schema.String.annotate({ description: 'Absolu
 const Coordinate = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)), SchemaTransformation.transform({ decode: (coordinate) => coordinate - 1, encode: (coordinate) => coordinate + 1 })));
 const Position = File.mapFields(Struct.assign({ line: Coordinate.pipe(Schema.annotateEncoded({ description: '1-based line' })), character: Coordinate.pipe(Schema.annotateEncoded({ description: '1-based UTF-16 column' })) })).pipe(Schema.encodeKeys({ character: 'column' }));
 const Lines = Schema.Struct({ lines: Schema.Array(Schema.String) });
+const JavaSource = Schema.Struct({
+    uri: Schema.String.check(Schema.isPattern(/^jdt:\/\/contents\//u)).annotate({ description: 'JDT definition URI including its query' }),
+    line: Coordinate.pipe(Schema.annotateEncoded({ description: '1-based first line' })),
+    count: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })).pipe(Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_JAVA_LINES))),
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -75,6 +85,20 @@ const registerLanguageServerTools = Effect.fn('registerLanguageServerTools')(fun
         ],
         { discard: true },
     );
+    const java = entries.find(([name]) => name === 'java');
+    if (java !== undefined) {
+        yield* registerTool(
+            Tool.make('java_source', { description: 'Read source lines attached to a Java class file definition', parameters: JavaSource, success: Lines }).annotate(Tool.Readonly, true).annotate(Tool.OpenWorld, false),
+            Effect.fnUntraced(function* ({ uri, line, count }: typeof JavaSource.Type) {
+                const server = yield* RcMap.get(running, java);
+                const source = yield* server.ask(ClassFileContents, { uri });
+                if (source === null || source === '') {
+                    return yield* new Cause.NoSuchElementError('JDT LS returned no class file source');
+                }
+                return { lines: pipe(source, String.linesIterator, Iterable.drop(line), Iterable.take(count), Array.fromIterable) };
+            }, Effect.scoped),
+        );
+    }
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

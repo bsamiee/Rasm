@@ -28,6 +28,7 @@
         <PackageVersion Include="NuGet.Configuration"                                     Version="7.9.0" />                             <!-- NuGet.config settings, package sources, and source mapping -->
         <PackageVersion Include="NuGet.Frameworks"                                        Version="7.9.0" />                             <!-- Target framework parsing, compatibility, and nearest-match reduction -->
         <PackageVersion Include="NuGet.Packaging"                                         Version="7.9.0" />                             <!-- NuGet package readers and PackageReference asset selection conventions -->
+        <PackageVersion Include="NuGet.ProjectModel"                                      Version="7.9.0" />                             <!-- NuGet restore inputs and resolved package assets -->
         <PackageVersion Include="NuGet.Protocol"                                          Version="7.9.0" />                             <!-- NuGet feed resources for package metadata, search, and downloads -->
         <PackageVersion Include="NuGet.Versioning"                                        Version="7.9.0" />                             <!-- Semantic version parsing, comparison, and range evaluation -->
     </ItemGroup>
@@ -823,7 +824,7 @@
         <PackageVersion Include="xunit.analyzers"                                         Version="2.2.0" />                             <!-- Roslyn analyzers for test correctness and style -->
         <PackageVersion Include="xunit.v3.assert"                                         Version="4.0.2" />                             <!-- Assertions for test support libraries without runner -->
         <PackageVersion Include="xunit.v3.extensibility.core"                             Version="4.0.2" />                             <!-- Attributes and TestContext for test support libraries without entry point or runner -->
-        <PackageVersion Include="xunit.v3.mtp-v2"                                         Version="4.0.2" />                             <!-- Microsoft Testing Platform v2 framework, only xunit package a test project references -->
+        <PackageVersion Include="xunit.v3.mtp-v2"                                         Version="4.0.2" />                             <!-- xUnit framework for Microsoft Testing Platform v2 -->
     </ItemGroup>
 
     <ItemGroup Label="Transitive Pinning">
@@ -966,6 +967,10 @@
         <PackageVersion Include="Xbim.Ifc"                                                Version="6.1.605" />                           <!-- Semantic loading, validation, and saving of IFC building models -->
         <PackageVersion Include="Xbim.Ifc4"                                               Version="6.1.605" />                           <!-- IFC4 schema implementation including addenda and alignment schemas -->
         <PackageVersion Include="Xbim.IO.Table"                                           Version="6.0.172" />                           <!-- Spreadsheet serialization of EXPRESS schema model data -->
+    </ItemGroup>
+
+    <ItemGroup Label="Roslyn Host" Condition="$(_RepoRelativeDir.Contains('/tools/roslyn/'))">
+        <PackageVersion Update="System.Collections.Immutable"                            Version="[10.0.14]" />                     <!-- Assembly version loaded by the .NET 10 editor runtime -->
     </ItemGroup>
 
     <ItemGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">

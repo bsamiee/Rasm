@@ -123,7 +123,7 @@ Paints are style objects built once, every effect on one is a reference-counted 
 - Blur takes sigma, `SKMaskFilter.ConvertRadiusToSigma` maps a radius and `SKMatrix.MapRadius` scales a sigma under the transform
 - Filters on a layer paint map sigma, offset, and morphology through the CTM, `SKImage.ApplyImageFilter` runs offline on the CPU with the CTM lost
 - `CreateDropShadowOnly` and `SKColorFilter.CreateBlendMode` quantize to `SKColor`, a float color enters `CreateColorMatrix` in its last column
-- `SKPaint.GetFastBounds` over the filter handle answers a filtered draw's reach, one probe per filter graph
+- `SKPaint.GetFastBounds` over the filter handle answers a filtered draw's reach
 - `ClipRoundRect` costs less than `ClipPath` over one shape, `antialias: true` buys a coverage mask, a device-snapped rect clips without one
 - `IsDither` removes 8-bit banding in gradients
 - Runtime effects compile once through `SKRuntimeEffect.BuildShader` into a static builder, each use binds its own uniforms and children into `Effect.ToShader`

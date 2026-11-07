@@ -1,6 +1,6 @@
 import process from 'node:process';
 import { isSea } from 'node:sea';
-import { Array, Effect, identity, Result, ScopedRef, Sink, Stream, SubscriptionRef } from 'effect';
+import { Array, Config, Effect, identity, Option, Result, ScopedRef, Sink, Stream, SubscriptionRef } from 'effect';
 import { Adobe } from '#/adobe';
 import { command, dictionaries } from '#/features/apple-events';
 import { applications, launch, perform, quit, read, screenshot } from '#/features/applications';
@@ -22,7 +22,8 @@ const registerAdobeTools = Effect.gen(function* () {
         Effect.andThen(Effect.sync(() => process.exit(1))),
         Effect.forkScoped,
     );
-    yield* isSea() ? Effect.forkScoped(delivered) : Effect.void;
+    const agentAddress = yield* Config.option(Config.String('MCP_LISTEN'));
+    yield* isSea() && Option.isSome(agentAddress) ? Effect.forkScoped(delivered) : Effect.void;
     yield* Effect.all([applications, faces], { discard: true });
     const round = Effect.flatMap(routes(dependencies, links), (routed) => Effect.all([dictionaries(routed), launch(routed, dependencies), read(routed), screenshot(routed), perform(routed, dependencies), quit(routed), command(routed), font(routed), typesetting(routed), plugins(routed, links)], { discard: true }));
     const discovered = SubscriptionRef.changes(adobe.installations).pipe(

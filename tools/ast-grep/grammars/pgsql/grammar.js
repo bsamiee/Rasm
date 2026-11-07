@@ -97,11 +97,11 @@ const refers = (rule, name) => Option.exists(referenced(rule), (held) => held ==
 
 const unlayered = (rules) => {
     const layer = (name) => `${name}_prec`;
-    const base = (name) => Object.keys(rules).find((held) => layer(held) === name) ?? name;
+    const layers = new Map(Object.keys(rules).map((name) => [layer(name), name]));
     const merged = (name, rule) => (layer(name) in rules ? alternatives([...arms(rules[layer(name)]), ...arms(rule).filter((arm) => !reaches(arm, symbol(layer(name))))]) : rule);
-    const renamed = (rule) => rewrite(rule, (part) => (part.type === 'SYMBOL' ? { ...part, name: base(part.name) } : part));
+    const renamed = (rule) => rewrite(rule, (part) => (part.type === 'SYMBOL' && layers.has(part.name) ? { ...part, name: layers.get(part.name) } : part));
     return Record.fromIterableWith(
-        Object.keys(rules).filter((name) => base(name) === name),
+        Object.keys(rules).filter((name) => !layers.has(name)),
         (name) => [name, renamed(merged(name, rules[name]))],
     );
 };
@@ -135,7 +135,7 @@ const category = (name) => arms(RULES[name]).every((arm) => Option.exists(refere
 const positional = (name) => bare(RULES[name]).type === 'CHOICE' && arms(RULES[name]).some((arm) => refers(arm, IDENT));
 const identifying = (name, arm) => positional(name) && Option.exists(referenced(arm), category);
 const chained = (name) => name !== 'source_file' && name !== ENTRY && !keyword(name) && arms(RULES[name]).every((arm) => Option.exists(referenced(arm), Predicate.not(keyword)) && !identifying(name, arm));
-const reachable = new Map(Object.keys(RULES).map((name) => [name, closure(BASE, name)]));
+const reachable = new Map();
 const chains = Object.keys(RULES).filter(chained);
 const stripped = (rule) => (rule.type.startsWith('PREC') ? stripped(rule.content) : rebuild(rule, children(rule).map(stripped)));
 const distinct = (name) => deduped(arms(RULES[name]).map(stripped)).length === arms(RULES[name]).length;
@@ -194,7 +194,7 @@ const identified = ($, name, rule) => (identifiers.includes(name) ? choice(...ar
 // --- [ROLES]
 
 const spoken = (part) => part.type === 'STRING' || (part.type === 'ALIAS' && !part.named) || (part.type === 'CHOICE' && part.members.every(spoken));
-const operator = (operand) => (part) => spoken(part) || Option.exists(referenced(part), (held) => !(identifiers.includes(held) || reachable.get(held).has(operand)));
+const operator = (operand) => (part) => spoken(part) || Option.exists(referenced(part), (held) => !(identifiers.includes(held) || reachable.getOrInsertComputed(held, (name) => closure(BASE, name)).has(operand)));
 const combining = (name) => arms(RULES[name]).some((arm) => sequence(arm).length > 2 && refers(sequence(arm)[0], name) && refers(sequence(arm).at(-1), name));
 const infix = (name, members) => {
     const middle = members.slice(1, -1);

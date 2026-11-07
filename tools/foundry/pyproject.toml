@@ -34,7 +34,8 @@ build-backend = "hatchling.build"
 dev-mode-dirs = [".."] # Editable installs expose the folder holding the import root
 
 [tool.hatch.build.targets.wheel]
-only-include = ["app.py", "py.typed"] # Modules under the `foundry` root, the manifest left out
+include = ["**"]
+exclude = ["/pyproject.toml"]
 
 [tool.hatch.build.targets.wheel.sources]
 "" = "foundry"

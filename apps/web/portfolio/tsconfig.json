@@ -1,7 +1,7 @@
 {
     "extends": "../../../tsconfig.web.json",
     "compilerOptions": {
-        "types": [ "vite/client", "./.cloudflare/types", "@rasm/test-support/vitest" ]
+        "types": [ "vite/client", "./.cloudflare/types" ]
     },
     "include": [ "**/*", ".storybook/*.stories.ts" ]
 }

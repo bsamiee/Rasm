@@ -27,7 +27,7 @@ from blender.bpy.nodes.desired import FrameNode, Graph, INPUTS, item_key, Member
 from blender.bpy.nodes.functions import lowered
 from blender.bpy.nodes.graphs import Expr, group_input, math, switched
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, NodeGroup
-from blender.bpy.nodes.trees import DATA_TYPES, new_group
+from blender.bpy.nodes.trees import DATA_TYPES, new_group, ordered_items
 from blender.bpy.render.compositor import masks
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT, with_alpha
 from blender.bpy.render.compositor.coordinates import FrameSpace
@@ -155,17 +155,24 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
         return self.store.read(tree).map(lambda held: joined(held.default_value({})))
 
     def written(self, tree: bpy.types.NodeTree, record: LayerStack) -> Outcome[None]:
-        """Splits a stack on write: each layer's structure to the store under its key, and its name, flags, and order to one layer row in stack order."""
-        layers = self.layer_rows.struct(tree).layers
-        for _ in range(len(layers), len(record.layers)):
-            layers.add()
-        for index in range(len(layers) - 1, len(record.layers) - 1, -1):
-            layers.remove(index)
-        rows = accumulated(
-            assigned(row, {("key",): layer.key, ("name",): layer.name, ("visible",): layer.visible, ("solo",): layer.solo, ("matte",): layer.matte}) for row, layer in zip(layers, record.layers)
-        )
-        stored = self.store.write(tree, {layer.key: StoredLayer(source=layer.source, effects=layer.effects, blend=layer.blend) for layer in record.layers})
-        return paired(stored, rows).map(lambda _: None)
+        """Stores layer structure by key and moves existing native rows without reassigning their keys."""
+        desired = {layer.key: layer for layer in record.layers}
+
+        def ordered(_: None) -> Outcome[None]:
+            layers = self.layer_rows.struct(tree).layers
+            current = tuple(row.key for row in layers)
+            for index, key in reversed(tuple(enumerate(current))):
+                if key not in desired:
+                    layers.remove(index)
+            for key in desired:
+                if key not in current:
+                    layers.add().key = key
+            ordered_items((row.key for row in layers), desired, layers.move)
+            return accumulated(
+                assigned(row, {("name",): layer.name, ("visible",): layer.visible, ("solo",): layer.solo, ("matte",): layer.matte}) for row, layer in zip(layers, desired.values())
+            ).map(lambda _: None)
+
+        return self.store.write(tree, {key: StoredLayer(source=layer.source, effects=layer.effects, blend=layer.blend) for key, layer in desired.items()}).bind(ordered)
 
     def rebuilt(self, scene: bpy.types.Scene, tree: bpy.types.NodeTree, record: LayerStack, context: bpy.types.Context) -> Outcome[None]:
         """Writes the stack, then rebuilds its graph."""

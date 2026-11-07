@@ -1,6 +1,5 @@
 # --- [SQUAWK] ---------------------------------------------------------------------------
 
-pg_version     = "18.0"
 excluded_rules = [
     "adding-field-with-default",
     "ban-drop-column",
@@ -15,3 +14,4 @@ excluded_rules = [
     "renaming-table",
     "require-statement-timeout",
 ]
+pg_version     = "19.0"

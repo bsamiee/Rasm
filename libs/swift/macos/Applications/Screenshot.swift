@@ -25,7 +25,9 @@ extension NSRunningApplication {
         do { content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false) } catch {
             throw ApplicationFailure(subject: String(processIdentifier), reason: .host(error as NSError))
         }
-        let listed: [CGWindowID: SCWindow] = Dictionary(content.windows.map { window in (window.windowID, window) }) { first, _ in first }
+        let listed: [CGWindowID: SCWindow] = Dictionary(
+            content.windows.filter { window in window.owningApplication?.processID == processIdentifier }.map { window in (window.windowID, window) }
+        ) { first, _ in first }
         var shots: [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] = [:]
         for number: CGWindowID in windows {
             shots[number] = await Result { () async throws(ApplicationFailure) in

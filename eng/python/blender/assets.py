@@ -1,6 +1,7 @@
 """Writes the one folder `pack` overlays on its stage, holding what an extension's declarations make: encoded icons, pinned upstream files, interface themes."""
 
 lazy from collections.abc import Iterable
+lazy from functools import partial
 lazy import os
 lazy from pathlib import Path
 
@@ -87,10 +88,8 @@ def assets(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, ble
     masters = source / "icons"
     pyproject = source / "pyproject.toml"
 
-    def themed(stage: Path) -> Outcome[object]:
-        return site(blender=blender, package="blender").bind(lambda folder: scripted(blender, Path(__file__).with_name("theme.py"), pyproject, stage, env=os.environ | {"PYTHONUSERBASE": str(folder)}))
-
-    def written(stage: Path, base: Path, host: Host, project: Pyproject) -> Outcome[object]:
+    def written(workspace: tuple[Path, Host], project: Pyproject, stage: Path) -> Outcome[object]:
+        base, host = workspace
         paint = Color("srgb", list(host.text)).to_string(hex=True)
         table = project.tool.blender
         rows = (
@@ -101,10 +100,13 @@ def assets(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, ble
             folder_made(stage),
             accumulated(_icon(stage, paint, name, master, turned=turn) for name, master, turn in rows),
             fetched(base, (Pin(f"{upstream.base}/{file}", sha256, stage / folder / file) for folder, upstream in table.fetch.items() for file, sha256 in upstream.files.items())),
-            themed(stage) if table.theme else Ok(None),
+            site(base, host, package="blender").bind(lambda folder: scripted(blender, Path(__file__).with_name("theme.py"), pyproject, stage, env=os.environ | {"PYTHONUSERBASE": str(folder)}))
+            if table.theme
+            else Ok(None),
         )
 
-    return paired(root(), probed(blender), declared(pyproject, Pyproject)).bind(lambda held: committed(directory, lambda stage: written(stage, *held))).map(lambda _: 0)
+    workspace = root().bind(lambda base: probed(base, blender).map(lambda host: (base, host)))
+    return paired(workspace, declared(pyproject, Pyproject)).bind(lambda held: committed(directory, partial(written, *held))).map(lambda _: 0)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

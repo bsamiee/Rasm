@@ -3,7 +3,7 @@
 # --- [MEMBERS]
 [workspace]
 resolver = "3"
-members  = ["libs/rust/*/*", "tools/ast-grep/regex", "tools/bridge", "tools/dylint"]
+members  = ["eng/rust/host-tests", "libs/rust/*/*", "tools/ast-grep/regex", "tools/bridge", "tools/dylint"]
 
 # --- [IDENTITY]
 [workspace.package]
@@ -23,7 +23,7 @@ futures          = "0.3.34"                                                     
 pin-project-lite = "0.2.17"                                                                                                                      # Pinned fields of hand-written futures and tower response types without unsafe
 tokio            = { version = "1.54.1", features = ["rt-multi-thread", "macros", "signal", "process", "net", "sync", "io-util", "time", "fs"] } # Async runtime every service, client, and store driver runs on
 tokio-stream     = { version = "0.1.19", features = ["sync", "signal", "io-util", "rt", "net", "fs"] }                                           # Stream adapters over tokio channels, watches, intervals, line readers, join sets, listeners, and directory reads
-tokio-util       = { version = "0.7.20", features = ["rt"] }                                                                                     # Cancellation tokens, task trackers, and drop guards that scope service lifetimes
+tokio-util       = { version = "0.7.20", features = ["codec", "rt"] }                                                                            # Stream framing, cancellation tokens, task trackers, and scoped drop guards
 
 # --- [CONCURRENCY]
 arc-swap = "1.9.3"                                           # Read-mostly snapshots replaced whole while readers keep their copy
@@ -36,6 +36,9 @@ foyer = { version = "0.22.6", features = ["tracing", "serde"] } # Hybrid memory 
 moka  = { version = "0.12.16", features = ["future", "sync"] }  # Bounded caches with per-entry expiry and coalesced async loads
 
 # --- [SYSTEM]
+libc            = "0.2.191"                                           # Native constants missing from higher-level process APIs
+libproc         = "0.15.0"                                            # Darwin process group membership and process information
+nix             = { version = "0.31.3", features = ["user"] }         # Account identity and home directories from the operating system
 process-wrap    = { version = "10.0.1", features = ["tokio1"] }       # Child processes in groups and job objects that die with their owner
 rustix          = { version = "1.1.6", features = ["fs", "process"] } # Typed POSIX calls returning errno values where std stops
 sd-notify       = "0.5.0"                                             # Readiness and watchdog signals to systemd
@@ -187,6 +190,7 @@ ignore                = "0.4.34"                                                
 notify                = { version = "9.0.0-rc.7", features = ["tokio"] }                                                                                                                                    # File system change events
 notify-debouncer-full = { version = "0.8.0-rc.2", features = ["tokio"] }                                                                                                                                    # Debounced, rename-aware change batches
 tempfile              = "3.27.0"                                                                                                                                                                            # Temporary files and atomic writes that keep occupied destinations
+walkdir               = "2.5.0"                                                                                                                                                                             # Recursive directory iteration without following symlinks
 typed-path            = { version = "0.13.0", default-features = false }                                                                                                                                    # Archive entry names normalized by Unix path rules on every host
 
 # --- [COMPRESSION]
@@ -645,6 +649,7 @@ rasm-output     = { path = "libs/rust/cli/output" }          # Line mode every R
 rasm-screen     = { path = "libs/rust/cli/screen" }          # Screen mode every Rasm executable drawing a terminal UI runs: terminal session with suspend, keymap rows, log pane, default view
 rasm-daemon     = { path = "libs/rust/services/daemon" }     # Served process every Rasm daemon runs: listen and grace rows, a listener on each address a host resolves to bound before start, axum serve over HTTP/1 and h2c with TCP_NODELAY and peer ConnectInfo under graceful shutdown, two-stage drain ending at the second signal or the grace deadline
 rasm-mcp        = { path = "libs/rust/services/mcp" }        # MCP host on `rasm-daemon`: endpoint sessions with telemetry and drain, routed app servers with tasks, elicitation and a cancelled-call ledger, and the upstream proxy `rasm-mcp-bridge` serves
+rasm-process    = { path = "libs/rust/services/process" }    # Owned child processes, native exit status, live output, and execution evidence
 rasm-mesh       = { path = "libs/rust/geometry/mesh" }       # Solids every Rasm geometry consumer composes: mesh import at a tolerance with winding repair, face and original provenance, extrusion, revolution, hulls of points and solids, affine placement, warps, cancellable CSG trees over placed instances and Minkowski sums, plane trims and sections, meshopt and kernel reduction of meshes and colored point clouds, refinement, parallel body decomposition and measures
 rasm-proximity  = { path = "libs/rust/geometry/proximity" }  # Proximity every Rasm geometry consumer composes: incremental placed-shape assemblies, clashes and separations under a pair rule, signed deviations, ray and swept-shape batches, containment, k-d tree neighbors and normals, weighted rigid fits and robust ICP registration
 rasm-planar     = { path = "libs/rust/geometry/planar" }     # Planar geometry every Rasm geometry and site consumer composes: line and arc polylines open or closed refused when non-finite, collapsed within the tolerance or self-intersecting, regions of line and arc polygons whose holes lie inside their exterior and whose rings overlap none, from and into geo_types polygons, similarity placement and mirroring, arc flattening, winding numbers and signed clearance, stations by length or nearest point with tangents, intersections, slices and region clipping of paths, parallel offsets, polyline booleans into regions, constrained Delaunay triangulation with refinement, Voronoi cells clipped to a region

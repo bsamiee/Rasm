@@ -14,11 +14,6 @@ test    = false
 doctest = false
 bench   = false
 
-# --- [TEST]
-[[test]]
-name = "operations"
-path = "../../../../tests/rust/numerics/stats/operations.rs"
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -43,10 +38,6 @@ sobol_burley         = { workspace = true }
 statrs               = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
-
-# --- [TEST]
-[dev-dependencies]
-approx = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

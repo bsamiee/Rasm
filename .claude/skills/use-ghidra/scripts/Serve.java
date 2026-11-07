@@ -1,3 +1,5 @@
+import db.Transaction;
+
 import ghidra.app.script.GhidraScript;
 import ghidra.app.script.GhidraState;
 import ghidra.framework.model.DomainFile;
@@ -5,15 +7,19 @@ import ghidra.framework.model.ProjectLocator;
 import ghidra.program.model.listing.Program;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.exception.VersionException;
+import ghidra.util.task.CancelledListener;
+
+import org.apache.commons.io.input.BoundedInputStream;
 
 import rasm.Arguments;
 import rasm.Report;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -25,9 +31,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
-import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
@@ -37,8 +50,13 @@ public class Serve extends GhidraScript {
     // --- [REQUESTS]
 
     private static final Pattern CELL = Pattern.compile("\t");
+    private static final int REQUEST_BYTES = 64 * 1024;
+    private static final int CONNECTIONS = 32;
+    private static final long TRANSFER_SECONDS = 5;
 
     private final Map<String, Program> programs = new ConcurrentHashMap<>();
+
+    private record Connection(SocketChannel channel, String line) {}
 
     record Request(String program, String script, List<String> arguments) {
         static Report.Result<Request> of(String line) {
@@ -78,16 +96,20 @@ public class Serve extends GhidraScript {
         BiFunction<Request, Program, Report.Result<Optional<DomainFile>>> execute =
                 (request, program) -> {
                     try {
-                        runScript(
-                                request.script(),
-                                request.arguments().toArray(String[]::new),
-                                new GhidraState(
-                                        state.getTool(),
-                                        state.getProject(),
-                                        program,
-                                        null,
-                                        null,
-                                        null));
+                        try (Transaction transaction = program.openTransaction(request.script())) {
+                            transaction.abortOnClose();
+                            runScript(
+                                    request.script(),
+                                    request.arguments().toArray(String[]::new),
+                                    new GhidraState(
+                                            state.getTool(),
+                                            state.getProject(),
+                                            program,
+                                            null,
+                                            null,
+                                            null));
+                            transaction.commit();
+                        }
                         if (!program.isChanged()) {
                             return new Report.Success<>(Optional.empty());
                         }
@@ -116,6 +138,95 @@ public class Serve extends GhidraScript {
         };
     }
 
+    // --- [CONNECTIONS]
+
+    private static Report.Result<String> read(SocketChannel channel) {
+        try (BoundedInputStream input =
+                        BoundedInputStream.builder()
+                                .setInputStream(Channels.newInputStream(channel))
+                                .setMaxCount(REQUEST_BYTES + 1L)
+                                .setPropagateClose(false)
+                                .get();
+                BufferedReader reader =
+                        new BufferedReader(
+                                Channels.newReader(
+                                        Channels.newChannel(input), StandardCharsets.UTF_8))) {
+            String line = reader.readLine();
+            return input.getCount() > REQUEST_BYTES
+                    ? new Report.Failure<>("Request exceeds %d bytes".formatted(REQUEST_BYTES))
+                    : new Report.Success<>(Objects.requireNonNullElse(line, "").strip());
+        } catch (IOException exception) {
+            return new Report.Failure<>(exception.toString());
+        }
+    }
+
+    private void disconnect(SocketChannel channel, Set<SocketChannel> clients) {
+        try {
+            channel.close();
+        } catch (IOException exception) {
+            printerr("Request connection did not close, %s".formatted(exception));
+        } finally {
+            clients.remove(channel);
+        }
+    }
+
+    @SuppressWarnings("PMD.CloseResource")
+    private void receive(
+            ServerSocketChannel server,
+            ExecutorService transfers,
+            Set<SocketChannel> clients,
+            BlockingQueue<Report.Result<Connection>> pending) {
+        try {
+            while (server.isOpen()) {
+                SocketChannel channel = server.accept();
+                if (clients.size() >= CONNECTIONS) {
+                    channel.close();
+                    continue;
+                }
+                clients.add(channel);
+                CompletableFuture.supplyAsync(() -> read(channel), transfers)
+                        .orTimeout(TRANSFER_SECONDS, TimeUnit.SECONDS)
+                        .whenComplete((result, failure) -> {
+                            if (result instanceof Report.Success<String>(String line)) {
+                                pending.add(new Report.Success<>(new Connection(channel, line)));
+                                return;
+                            }
+                            disconnect(channel, clients);
+                            String cause =
+                                    result instanceof Report.Failure<String>(String message)
+                                            ? message
+                                            : String.valueOf(failure);
+                            printerr("Request intake failed, %s".formatted(cause));
+                        });
+            }
+        } catch (IOException exception) {
+            pending.add(new Report.Failure<>(exception.toString()));
+        }
+    }
+
+    private void respond(
+            Connection request, ExecutorService transfers, Set<SocketChannel> clients) {
+        try {
+            byte[] reply = answer(request.line()).getBytes(StandardCharsets.UTF_8);
+            CompletableFuture.runAsync(
+                            () -> {
+                                try (OutputStream output =
+                                        Channels.newOutputStream(request.channel())) {
+                                    output.write(reply);
+                                } catch (IOException exception) {
+                                    throw new UncheckedIOException(exception);
+                                }
+                            },
+                            transfers)
+                    .orTimeout(TRANSFER_SECONDS, TimeUnit.SECONDS)
+                    .join();
+        } catch (CompletionException exception) {
+            printerr("Request reply failed, %s".formatted(exception.getCause()));
+        } finally {
+            disconnect(request.channel(), clients);
+        }
+    }
+
     // --- [RUN]
 
     @Override
@@ -132,32 +243,41 @@ public class Serve extends GhidraScript {
         end(true);
         programs.put(currentProgram.getDomainFile().getPathname(), currentProgram);
         Files.deleteIfExists(socket);
-        try (ServerSocketChannel server = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
-            server.bind(UnixDomainSocketAddress.of(socket));
-            BooleanSupplier session =
-                    () -> {
-                        try (SocketChannel client = server.accept();
-                                BufferedReader reader =
-                                        new BufferedReader(
-                                                Channels.newReader(
-                                                        client, StandardCharsets.UTF_8))) {
-                            String line = Objects.requireNonNullElse(reader.readLine(), "").strip();
-                            boolean serving = !"stop".equals(line);
-                            if (serving) {
-                                client.write(
-                                        ByteBuffer.wrap(
-                                                answer(line).getBytes(StandardCharsets.UTF_8)));
-                            }
-                            return serving;
-                        } catch (IOException exception) {
-                            printerr(
-                                    "Request connection closed, %s"
-                                            .formatted(exception.getMessage()));
-                            return server.isOpen();
-                        }
-                    };
-            while (session.getAsBoolean()) {
+        try (ServerSocketChannel server = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
+                ExecutorService transfers = Executors.newVirtualThreadPerTaskExecutor()) {
+            server.bind(UnixDomainSocketAddress.of(socket), CONNECTIONS);
+            println("Listening on %s, process %d".formatted(socket, ProcessHandle.current().pid()));
+            BlockingQueue<Report.Result<Connection>> pending = new LinkedBlockingQueue<>();
+            Set<SocketChannel> clients = ConcurrentHashMap.newKeySet();
+            CancelledListener cancelled =
+                    () -> pending.add(new Report.Failure<>("Ghidra cancelled the server"));
+            monitor.addCancelledListener(cancelled);
+            Thread listener =
+                    Thread.startVirtualThread(() -> receive(server, transfers, clients, pending));
+            try {
                 monitor.checkCancelled();
+                for (; ; ) {
+                    Report.Result<Connection> received = pending.take();
+                    monitor.checkCancelled();
+                    switch (received) {
+                        case Report.Success<Connection>(Connection request)
+                                when "stop".equals(request.line()) -> {
+                            return;
+                        }
+                        case Report.Success<Connection>(Connection request) ->
+                                respond(request, transfers, clients);
+                        case Report.Failure<Connection>(String cause) ->
+                                throw new IOException(cause);
+                    }
+                }
+            } finally {
+                monitor.removeCancelledListener(cancelled);
+                listener.interrupt();
+                try {
+                    listener.join();
+                } finally {
+                    clients.forEach(channel -> disconnect(channel, clients));
+                }
             }
         } finally {
             Files.deleteIfExists(socket);

@@ -39,7 +39,7 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 - Skills name the tools they drive, their scripts, and output paths, and hold no target or project row
 - Scripts join their subject's skill, a script an app, target, or workflow consumes joins the repository
 - Capabilities come from tool configuration and extension points, then another tool, then a script or `eng/` project for work no tool or package does
-- Root targets unify check, format, build, test, install, and release of the repository's own code
+- Root targets unify format, build, install, and release of the repository's own code
 - Wrappers over one mise tool are targets only as a prerequisite other targets name in `dependsOn`
 - Entry points derive their items from declarations, a configuration, script, or README line per item goes
 - Arguments after `--` select an operation's subject (path, app, filter) or pass a one-run switch, checker policy stays in target `options.args`
@@ -49,7 +49,7 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 
 [TARGETS]:
 - Projects with their own check hold one `check` target with no per-language name, dry-run variant, or script, a root-checked project holds none
-- `check` and its prerequisites start no container, a checker over files tests write depends on the in-process `test` writing them
+- `check` and its prerequisites start no container
 - Checkers and type checkers run as `lint:<tool>` and `typecheck:<tool>`, a project `lint` depends on its `lint:*`
 - `hk` holds writers, a writer needing a restore or generator holds `format:<tool>`
 - `<tool>` names the program implementing command: `dotnet format` is `dotnet-format`, `cargo fmt` is `rustfmt`, `cargo dylint` is `dylint`

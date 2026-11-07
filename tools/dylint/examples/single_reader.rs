@@ -169,7 +169,7 @@ fn escaped_visible(text: &str) -> usize { escaped_hidden(text).strict_add(1) }
 mod raw_reader;
 
 #[cfg(any())]
-#[path = "single_reader/esc\u{61}ped.rs"]
+#[cfg_attr(all(), cfg_attr(all(), path = "single_reader/esc\u{61}ped.rs"))]
 mod escaped_reader;
 
 fn outer(text: &str) -> usize {

@@ -1,9 +1,8 @@
 import type { Tree } from '@nx/devkit';
-import { Array, Effect, Match, Option, Path, Record, Stream, String } from 'effect';
-import { Document, type Node, Pair, parseAllDocuments, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
+import { Array, Effect, Match, Option, Path, pipe, Record, String } from 'effect';
+import { Document, type Node, Pair, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 import { Sgconfig } from '#/eng/typescript/manifest';
-import { runCommand } from '#/eng/typescript/run-command';
-import { decodeTree, syncGenerator, treeText } from '#/tools/nx/sync/tree';
+import { decodeTree, syncGenerator, treeText, yamlDocuments } from '#/tools/nx/sync/tree';
 import { WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -152,18 +151,23 @@ const written = Effect.fnUntraced(function* (catalog: Shared, language: string, 
     return new Document(new YAMLMap(map.schema, assembled)).toString(LAYOUT);
 });
 const generated = Effect.fnUntraced(function* (tree: Tree, language: string, file: string, source: string) {
-    const docs = parseAllDocuments(yield* treeText(tree, source));
+    const text = yield* treeText(tree, source).pipe(Effect.mapError(() => WorkspaceError.missing(file, `catalog source ${source}`)));
+    const docs = yield* yamlDocuments(text, source);
     const header = Option.filter(Array.head(docs), ({ value }) => !(value instanceof YAMLMap && value.has('id')));
+    const rules = Option.isSome(header) ? docs.slice(1) : docs;
+    if (Array.isReadonlyArrayEmpty(rules)) {
+        return yield* WorkspaceError.missing(source, 'outline rules');
+    }
     const catalog = shared(Option.getOrUndefined(Option.map(header, unanchored)));
-    const texts = yield* Effect.forEach(Option.isSome(header) ? docs.slice(1) : docs, (doc, index) => written(catalog, language, source, doc, index));
-    return { file, next: yield* runCommand('yamlfmt', ['-conf', '.config/yamlfmt.yaml', '-in'], { cwd: tree.root, stdin: Stream.encodeText(Stream.make(texts.join('---\n'))) }) };
+    const texts = yield* Effect.forEach(rules, (doc, index) => written(catalog, language, source, doc, index + Number(Option.isSome(header))));
+    return { file, next: texts.join('---\n') };
 });
 const rows = Effect.fnUntraced(function* (tree: Tree) {
     const [path, { customLanguages }] = yield* Effect.all([Path.Path, decodeTree(tree, Sgconfig.schema, Sgconfig.file)]);
-    const sourced = Record.collect(customLanguages, (language, { outlineRules }) => Option.map(outlineRules, (file) => ({ language, file, source: path.join(path.dirname(file), 'sources', path.basename(file)) })));
-    return yield* Effect.forEach(
-        Array.getSomes(sourced).filter(({ source }) => tree.exists(source)),
-        ({ language, file, source }) => generated(tree, language, file, source),
+    return yield* pipe(
+        Sgconfig.outlineCatalogs(path, customLanguages),
+        Effect.validate(({ language, file, source }) => generated(tree, language, file, source), { concurrency: 4 }),
+        Effect.mapError((errors) => new AggregateError(errors, errors.map(({ message }) => message).join('\n'))),
     );
 });
 

@@ -45,8 +45,8 @@ public struct CrashReport: Codable, Hashable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension CrashReport {
-    public static func reports(for identifier: String, in directory: URL = directory) -> (reports: [Self], failures: [ApplicationFailure]) {
-        let listed: (files: [URL], failures: [ApplicationFailure]) = listing(directory, since: .distantPast)
+    public static func reports(for identifier: String, since earliest: Date = .distantPast, in directory: URL = directory) -> (reports: [Self], failures: [ApplicationFailure]) {
+        let listed: (files: [URL], failures: [ApplicationFailure]) = listing(directory, since: earliest)
         let reads: [Result<Self?, ApplicationFailure>] = listed.files.map(read)
         return (
             reads.compactMap { read in read[case: \.success].flatMap(\.self) }.filter { report in report.bundleIdentifier == identifier },

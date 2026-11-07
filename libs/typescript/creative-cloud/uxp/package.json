@@ -1,7 +1,7 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "UXP manifest schema, the UXP plugin and script runtime, and the Vite builders of UXP plugins and scripts",
+    "description": "UXP manifests, plugin and script runtimes, and Vite plugin builds",
     "sideEffects": false,
     "type": "module",
     "imports": {

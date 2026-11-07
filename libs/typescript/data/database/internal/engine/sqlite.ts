@@ -26,7 +26,6 @@ const SqliteTable = Schema.Struct({
 class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sqlite')({
     tables: Schema.Array(SqliteTable),
     virtual: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
-    sequences: Schema.Array(Schema.Struct({ name: Schema.String, seq: Schema.Int })),
 }) {
     // --- [ROWS]
     static readonly types = { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', decimal: 'TEXT', real: 'REAL', boolean: 'INTEGER', blob: 'BLOB' } as const satisfies Engine['Service']['types'];
@@ -102,7 +101,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         ];
     };
     static readonly role: Engine['Service']['role'] = (sql) => Effect.fail(new Cause.IllegalArgumentError(`${sql.driver} has no role to migrate as`));
-    static readonly open: Engine['Service']['open'] = (sql) => sql`PRAGMA optimize = 0x10002`;
+    static readonly open: Engine['Service']['open'] = (sql) => (sql.driver === 'd1' ? Effect.void : sql`PRAGMA optimize = 0x10002`);
     static readonly identities = ({ columns, ...table }: typeof SqliteTable.Type) => {
         const tokens: readonly string[] = table.sql.match(lexemes) ?? [];
         const quotes: Readonly<Record<string, string>> = { '"': '"', '`': '`', '[': ']' };
@@ -133,6 +132,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const definitions = Record.fromIterableBy(defined, Struct.get('name'));
         return {
             ...table,
+            autoincrement: body.some(({ token }) => token.toUpperCase() === 'AUTOINCREMENT'),
             identity: Option.getOrNull(comment(Array.findFirst(Array.take(tokens, Math.max(opening, 0)), (token) => token.startsWith('/*')))),
             columns: columns.map((column) => {
                 const found = Record.get(definitions, column.name);
@@ -141,12 +141,11 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         };
     };
     static readonly plan: Engine['Service']['plan'] = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog) {
-        const listed = yield* sql`SELECT name FROM pragma_table_list WHERE schema = 'main' AND name = 'sqlite_sequence'`;
         const { observed: live } = yield* SqlSchema.findOne({
-            Request: Names,
+            Request: Schema.Void,
             Result: Observed,
-            execute: (prefixes) =>
-                sql`WITH relations AS (SELECT l.name, l.type, l.strict, l.wr, m.sql FROM pragma_table_list l JOIN sqlite_schema m ON m.name = l.name WHERE l.schema = 'main' AND l.name NOT GLOB 'sqlite_*' AND NOT EXISTS (SELECT 1 FROM json_each(${prefixes}) p WHERE instr(l.name, p.value) = 1))
+            execute: () =>
+                sql`WITH relations AS (SELECT l.name, l.type, l.strict, l.wr, m.sql FROM pragma_table_list l JOIN sqlite_schema m ON m.name = l.name WHERE l.schema = 'main' AND l.name NOT GLOB 'sqlite_*' AND (${sql.driver !== 'd1'} OR instr(l.name, '_cf_') <> 1))
                     SELECT json_object(
                         'tables', (SELECT json_group_array(json_object('name', r.name, 'strict', r.strict, 'withoutRowid', r.wr, 'sql', r.sql,
                             'columns', (SELECT json_group_array(json_object('name', x.name, 'type', x.type, 'required', x."notnull", 'default', x.dflt_value, 'hidden', x.hidden)) FROM pragma_table_xinfo(r.name) x),
@@ -156,10 +155,9 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                             'indexes', (SELECT json_group_array(json_object('name', i.name, 'sql', m.sql, 'unique', i."unique", 'partial', i.partial,
                                 'keys', (SELECT json_group_array(json_object('name', k.name, 'collation', k.coll, 'descending', k."desc")) FROM pragma_index_xinfo(i.name) k WHERE k."key" = 1))) FROM pragma_index_list(r.name) i JOIN sqlite_schema m ON m.name = i.name AND m.type = 'index' WHERE i.origin = 'c'),
                             'triggers', (SELECT json_group_array(json_object('name', m.name, 'sql', m.sql)) FROM sqlite_schema m WHERE m.type = 'trigger' AND m.tbl_name = r.name))) FROM relations r WHERE r.type = 'table'),
-                        'virtual', (SELECT json_group_array(json_object('name', r.name, 'sql', r.sql)) FROM relations r WHERE r.type = 'virtual'),
-                        'sequences', ${Array.isReadonlyArrayNonEmpty(listed) ? sql`(SELECT json_group_array(json_object('name', s.name, 'seq', s.seq)) FROM sqlite_sequence s)` : sql.literal('json_array()')}
+                        'virtual', (SELECT json_group_array(json_object('name', r.name, 'sql', r.sql)) FROM relations r WHERE r.type = 'virtual')
                     ) AS observed`,
-        })(catalog.excludedPrefixes);
+        })();
         const rendered = catalog.tables.map((declared) => ({ declared, rendered: render(sql, Sqlite, catalog, declared) }));
         const resolved = diff(sql, catalog, rendered, live.tables.map(Sqlite.identities));
         const populated = yield* resolved.populated;
@@ -234,7 +232,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const reached = new Set(Graph.values(Graph.dfs(graph, { start: Graph.findNodes(graph, Struct.get('rebuild')) })));
         const rebuilds = tables.filter((entry) => reached.has(entry));
         const rebuildingNames = new Set(rebuilds.map(({ declared }) => declared.name));
-        const temporary = (name: string) => quoted(rebuildingNames.has(name) ? `${name}__rebuild` : name);
+        const temporary = (name: string) => (rebuildingNames.has(name) ? `${name}__rebuild` : name);
         const virtualSql = Record.map(Record.fromIterableBy(this.virtual, Struct.get('name')), Struct.get('sql'));
         const searched = (entry: (typeof tables)[number], recreated: boolean) =>
             Option.match(entry.rendered.virtual, {
@@ -253,8 +251,6 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                     };
                 },
             });
-        const sequences = new Set(this.sequences.map(Struct.get('name')));
-        const sequenced = ({ name }: (typeof tables)[number]['live']) => sequences.has(name);
         const rebuilt = (entry: (typeof tables)[number]) => {
             const kept = entry.retained.filter(({ hidden }) => hidden === 0);
             const copied = sql.csv([...(entry.live.withoutRowid || entry.declared.withoutRowid ? [] : [quoted('rowid')]), ...[...entry.fields.filter(({ definition, found }) => Option.isNone(definition.projection) && Option.isSome(found)).map(({ definition }) => definition), ...kept].map(({ name }) => quoted(name))]);
@@ -262,16 +258,16 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             const elements = [
                 ...kept.map(({ name, type, required: needed, default: stored, identity }) => sql.join(' ', false)([sql`${sql(name)}${sql.literal(identity === null ? '' : ` /* ${identity} */`)}`, type === '' ? 'ANY' : type, ...(needed ? ['NOT NULL'] : []), ...Option.toArray(stored).map((value) => `DEFAULT ${value}`)])),
                 ...entry.unstated.map(({ columns, target, to, onDelete, onUpdate }) =>
-                    sql.join(' ', false)(['FOREIGN KEY', sql`(${sql.csv(columns.map(quoted))})`, 'REFERENCES', temporary(target), ...Array.match(to, { onEmpty: () => [], onNonEmpty: (keys) => [sql`(${sql.csv(keys.map(quoted))})`] }), `ON UPDATE ${onUpdate} ON DELETE ${onDelete}`]),
+                    sql.join(' ', false)(['FOREIGN KEY', sql`(${sql.csv(columns.map(quoted))})`, 'REFERENCES', quoted(temporary(target)), ...Array.match(to, { onEmpty: () => [], onNonEmpty: (keys) => [sql`(${sql.csv(keys.map(quoted))})`] }), `ON UPDATE ${onUpdate} ON DELETE ${onDelete}`]),
                 ),
             ];
             return {
                 ...entry,
                 search: searched(entry, true),
                 create: render(sql, Sqlite, catalog, entry.declared, {
-                    target: temporary,
+                    target: (name) => quoted(temporary(name)),
                     elements,
-                    autoincrement: sequenced(entry.live),
+                    autoincrement: entry.live.autoincrement,
                     identity: Option.some(entry.identity),
                     identities: (name) =>
                         Option.map(
@@ -279,11 +275,12 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                             Struct.get('identity'),
                         ),
                 }).create,
-                copy: sql`WITH live(${observed}) AS (SELECT ${sql.literal(entry.live.withoutRowid ? '*' : '"rowid", *')} FROM ${entry.rendered.relation}) INSERT INTO ${temporary(entry.declared.name)} (${copied}) SELECT ${copied} FROM live`,
+                copy: sql`WITH live(${observed}) AS (SELECT ${sql.literal(entry.live.withoutRowid ? '*' : '"rowid", *')} FROM ${entry.rendered.relation}) INSERT INTO ${quoted(temporary(entry.declared.name))} (${copied}) SELECT ${copied} FROM live`,
             };
         };
         const altered = Array.difference(tables, rebuilds).map((entry) => ({ ...entry, search: searched(entry, false) }));
         const rebuilding = rebuilds.map(rebuilt);
+        const sequences = rebuilding.filter(({ live }) => live.autoincrement).map(({ declared: { name } }) => [name, temporary(name)] as const);
         return resolved.plan({
             findings: rebuilds.flatMap((entry) => [...unsupported(entry.declared.name, 'generated', entry.retained, ({ hidden }) => hidden !== 0), ...unsupported(entry.declared.name, 'retained', entry.retained, ({ hidden, constrained }) => hidden === 0 && constrained)]),
             replaced: rebuilds.map(({ live: row }) => row.name),
@@ -307,10 +304,10 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                     ...entry.search.created,
                 ]),
                 ...rebuilding.map(({ create }) => create),
-                ...(rebuilding.some(({ live: row }) => sequenced(row)) ? [sql`INSERT INTO sqlite_sequence (name, seq) SELECT m.name, s.seq FROM sqlite_sequence s JOIN sqlite_schema m ON m.name = s.name || '__rebuild'`] : []),
+                ...(Array.isReadonlyArrayNonEmpty(sequences) ? [sql`INSERT INTO sqlite_sequence (name, seq) SELECT m.value, s.seq FROM sqlite_sequence s JOIN json_each(${JSON.stringify(Object.fromEntries(sequences))}) m ON m.key = s.name`] : []),
                 ...rebuilding.map(({ copy }) => copy),
                 ...rebuilding.map(({ rendered: table }) => sql`DROP TABLE ${table.relation}`),
-                ...rebuilding.map(({ declared, rendered: table }) => sql`ALTER TABLE ${temporary(declared.name)} RENAME TO ${table.relation}`),
+                ...rebuilding.map(({ declared, rendered: table }) => sql`ALTER TABLE ${quoted(temporary(declared.name))} RENAME TO ${table.relation}`),
                 ...rebuilding.flatMap((entry) => [
                     ...entry.indexes,
                     ...entry.undeclared.map((index) => sql`${sql.literal(index.sql)}`),
@@ -329,7 +326,6 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         });
     }
 }
-const Names = Schema.fromJsonString(Schema.Array(Schema.String));
 const Observed = Schema.Struct({ observed: Schema.fromJsonString(Sqlite) });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

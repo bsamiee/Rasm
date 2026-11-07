@@ -2,7 +2,8 @@
 
 @README.md
 
-- Audits, security scans, supply-chain pins, approval gates, tests, commits, and pushes happen on user request alone
+- Commits and pushes happen on user request alone
+- Create or run tests only when the user requests them
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but composition rules do not, when a language lacks a result type, adopt a dependency's, else define one
@@ -10,16 +11,15 @@
 - Code smells are fixed as found, existing code has no authority, a pattern that bends new code or a refactor out of shape is rebuilt from its root
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Run applications and hosts live as work needs them
-- Apps and windows a test, probe, or agent opens take no focus and stay behind the user's work, inside or outside the project
+- Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project
 - Tools agents run outside Nx targets answer in one command with no path or flag beyond the question, and log, observe, and clean up automatically
-- Checks, tests, and host probes run once when work is done, a loop that reruns them after each change is a defect
 - Changes to root files, `eng/`, `infra/`, and `tools/` extend the owning target, setting, or package, a parallel script or one-off flag is a defect
 
-## [01]-[LANGUAGE_STANDARDS]
+## [01]-[TOOLING]
 
 [TOOL_ROUTING]:
 - ALWAYS use `watch-apps` skill for opening, driving, observing, or quitting a desktop app
-- ALWAYS use `playwright:playwright-cli` skill for a browser session or Playwright test
+- ALWAYS use `playwright:playwright-cli` skill for a browser session
 - ALWAYS use `playwright:playwright-trace` skill for a Playwright trace
 - ALWAYS use `manage-repo` skill for a change to how the repository is structured, built, or checked
 - ALWAYS use `search-web` skill for a question the open web answers
@@ -77,7 +77,24 @@ Values derive from the declaration or host API that states them:
 - ALWAYS pin versions in lock files and version catalogs alone
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
 
-## [04]-[FILE_ORGANIZATION]
+## [04]-[CODE_QUALITY]
+
+Architecture: no one-folder-one-file combos, no flat folders, no mini files, no god files, no `.d.ts`, no src/. No coined terms in files, folders, members, messages (clean-prose). One import line per source, one export line per file, no aliases, no `{ Change, change }`:
+- All code is made as library shaped code, treated as a package a different project imports and creating API for non-coupled integration
+- Nothing existing is binding; consumers get rebuilt as splash never anchoring decisions, no aliasing, shims, or maintaing them, we do not tolerate soft refactoring
+- Rebuild code, never shuffle, alias, forward, wrap or extract helpers, must result in less code, objects, and surface level members
+- Reduce surface (internal and external), LoC, and logic, identifying how to remove content and integrate its capabiltiy in a smaller surface, the logic of it, not nesting
+
+- ALWAYS TREAT External packages as first class, use the newest release and fully integrate their capabilities, and have deep usage not surface level of them
+- ALWAYS derive from host, external libraries and sources, never handroll what can be used directly, and identifying where we are wrapping instead of deriving
+- NEVER hardcode values or logic, can ALWAYS use better logic to derive values
+- NEVER make "stringy" code, values and logic instead, types that are just strings or unions of strings are junk and can be removed (not soft replaced) and logic rebuilt proeprly
+- NEVER tolerate deep nesting code indendented more than 3 levels, rebuild through optimizing the logic chain fully to it, never with extraction, helpers, nesting or forwarding
+- Structs, enums, types, constants, strings are ALWAYS junk, and signs of handrolling/obscuring source capability, and creating unnecessary logic
+- Push for fewer, richer objects, one object can ALWAYS replace 2-4+ objects not as the same type, and rebuilding consumers to not anchor to a poor shape
+- Algebraic logic for values and logic flow, parametrized values and fields (replacing many naive fields/parameters)
+
+## [05]-[FILE_ORGANIZATION]
 
 Source files group declarations into sections and an owner's members into operation families, `<marker>` is the language's line comment:
 
@@ -125,20 +142,3 @@ Source files group declarations into sections and an owner's members into operat
 - Bash: `readonly` values are `[CONSTANTS]`, `declare -Ar` maps `[TABLES]`, `main` `[COMPOSITION]`
 - SQL: types and domains are `[TYPES]`, tables `[MODELS]`, functions `[OPERATIONS]`, indexes, triggers, and grants `[COMPOSITION]`
 - Configuration files: sections name the tool or table they configure (`[RUFF]`, `[TOOLS]`)
-
-## [05]-[CODE_QUALITY]
-
-Architecture: no one-folder-one-file combos, no flat folders, no mini files, no god files, no `.d.ts`, no src/. No coined terms in files, folders, members, messages (clean-prose). One import line per source, one export line per file, no aliases, no `{ Change, change }`:
-- All code is made as library shaped code, treated as a package a different project imports and creating API for non-coupled integration
-- Nothing existing is binding; consumers get rebuilt as splash never anchoring decisions, no aliasing, shims, or maintaing them, we do not tolerate soft refactoring
-- Rebuild code, never shuffle, alias, forward, wrap or extract helpers, must result in less code, objects, and surface level members
-- Reduce surface (internal and external), LoC, and logic, identifying how to remove content and integrate its capabiltiy in a smaller surface, the logic of it, not nesting
-
-- ALWAYS TREAT External packages as first class, use the newest release and fully integrate their capabilities, and have deep usage not surface level of them
-- ALWAYS derive from host, external libraries and sources, never handroll what can be used directly, and identifying where we are wrapping instead of deriving
-- NEVER hardcode values or logic, can ALWAYS use better logic to derive values
-- NEVER make "stringy" code, values and logic instead, types that are just strings or unions of strings are junk and can be removed (not soft replaced) and logic rebuilt proeprly
-- NEVER tolerate deep nesting code indendented more than 3 levels, rebuild through optimizing the logic chain fully to it, never with extraction, helpers, nesting or forwarding
-- Structs, enums, types, constants, strings are ALWAYS junk, and signs of handrolling/obscuring source capability, and creating unnecessary logic
-- Push for fewer, richer objects, one object can ALWAYS replace 2-4+ objects not as the same type, and rebuilding consumers to not anchor to a poor shape
-- Algebraic logic for values and logic flow, parametrized values and fields (replacing many naive fields/parameters)

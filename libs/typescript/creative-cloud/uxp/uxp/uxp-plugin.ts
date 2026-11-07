@@ -1,7 +1,8 @@
 import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
+import { HostError } from '@rasm/automation';
 import { inkColor } from '@rasm/mark';
-import { Cause, Context, Effect, Fiber, FiberHandle, FiberSet, Function, flow, Layer, ManagedRuntime, type Path, PlatformError, Predicate, Queue, Record, Schema, Scope, ScopedRef, Stream } from 'effect';
+import { Cause, Context, Effect, Fiber, FiberHandle, FiberSet, Function, flow, Layer, ManagedRuntime, Path, PlatformError, Predicate, Queue, Record, Schema, Scope, ScopedRef, Stream } from 'effect';
 import { Uxp } from '#/uxp/uxp';
 import { UxpManifest } from '#/uxp-manifest';
 
@@ -38,7 +39,7 @@ class UxpPlugin extends Context.Service<UxpPlugin, UxpManifest>()('@rasm/uxp/uxp
         commands = {},
         panels = {},
     }: {
-        readonly link?: (extension: string) => Layer.Layer<never, E, Uxp | UxpPlugin | Path.Path>;
+        readonly link?: (extension: string, root: Effect.Effect<URL, HostError, Path.Path>) => Layer.Layer<never, E, Uxp | UxpPlugin | Path.Path>;
         readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | UxpPlugin>>;
         readonly panels?: Record.ReadonlyRecord<string, Panel<F>>;
     }): void => {
@@ -48,7 +49,11 @@ class UxpPlugin extends Context.Service<UxpPlugin, UxpManifest>()('@rasm/uxp/uxp
                 Effect.try({ try: () => fs.readFileSync(MANIFEST, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: MANIFEST, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(UxpManifest.json))),
                 Schema.decodeEffect(Entrypoints)(entrypoints),
             ]);
-            const linked = link === undefined ? Layer.empty : Layer.launch(link(manifest.id)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
+            const root = Effect.all([Effect.tryPromise(() => uxp.storage.localFileSystem.getPluginFolder()), Path.Path]).pipe(
+                Effect.flatMap(([{ nativePath }, path]) => path.toFileUrl(nativePath)),
+                Effect.mapError(HostError.refused('UXP plugin folder')),
+            );
+            const linked = link === undefined ? Layer.empty : Layer.launch(link(manifest.id, root)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
             const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(UxpPlugin)(manifest)), Layer.provideMerge(hosted)));
             const [handled, shown] = yield* Effect.all([
                 Effect.all(

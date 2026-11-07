@@ -58,43 +58,46 @@ internal static class RuiFiles {
             }).Bracket(
                 Use: _ =>
                     from loaded in IO.lift(() => AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(plugIn)))
-                    from document in Document(loaded)
-                    from written in IO.lift(() => document.Match(
-                        Some: held => {
-                            using XmlWriter writer = XmlWriter.Create(rui, new XmlWriterSettings { Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), OmitXmlDeclaration = true, Indent = true });
-                            held.Save(writer);
-                        },
-                        None: () => File.Delete(rui)))
+                    from document in IO.lift(() => Document(loaded))
+                    from written in IO.lift(() => {
+                        string staged = Path.Join(Path.GetDirectoryName(rui), Path.GetRandomFileName());
+                        try {
+                            using (XmlWriter writer = XmlWriter.Create(staged, new XmlWriterSettings { Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), OmitXmlDeclaration = true, Indent = true })) document.Save(writer);
+                            File.Move(staged, rui, overwrite: true);
+                        } finally {
+                            File.Delete(staged);
+                        }
+                    })
                     select written,
                 Fin: static handler => IO.lift(() => AssemblyLoadContext.Default.Resolving -= handler)),
         };
 
     // --- [DOCUMENT]
-    private static IO<Option<XDocument>> Document(Assembly plugIn) =>
-        IO.lift(() => Toolbars.Declared(plugIn).Traverse(declared =>
-            from file in Toolbars.Identity(plugIn)
-            let text = Translations.Read(plugIn)
-            let groups = declared.Groups + declared.Groups.Bind(static toolbarGroup => toSeq(toolbarGroup.Tabs)).Choose(static tab => tab.Sidebar)
-            let toolbars = Reached(declared.Toolbars + groups.Bind(static toolbarGroup => toSeq(toolbarGroup.Tabs)).Map(static tab => tab.Toolbar))
-                .Map(toolbar => toolbar with { Face = toolbar.Face with { Icon = toolbar.Face.Icon | IconResource.PlugIn(plugIn) } })
-            let macros = Macros(toolbars.Bind(static toolbar => toolbar.Groups) + declared.Extensions.Bind(static menu => menu.Groups) + declared.Menus.Bind(static menu => menu.Groups))
-            let arts = toSeq((toolbars.Choose(static toolbar => toolbar.Face.Icon) + macros.Choose(static held => held.Face.Icon)).DistinctBy(art => IconId(file, art)))
-            from elements in (
-                    arts.Traverse(art => Icon(file, plugIn, art)).As(),
-                    toolbars.Traverse(toolbar => Bar(file, text, toolbar)).As().Bind(Unique),
-                    Unique(groups.Map(toolbarGroup => Group(file, text, toolbarGroup))),
-                    Unique(macros.Map(held => MacroItem(file, text, held.Macro, held.Face))))
-                .Apply(static (icons, bars, tabbed, scripts) => (Icons: icons, Bars: bars, Groups: tabbed, Macros: scripts)).As()
-            select new XDocument(new XElement("RhinoUI",
-                new XAttribute("major_ver", 5), new XAttribute("minor_ver", 0), new XAttribute("guid", file), new XAttribute("plug_in_guid", file),
-                new XAttribute("localize", bool.FalseString), new XAttribute("default_language_id", Translations.English),
-                new XElement("extend_rhino_menus", declared.Extensions.IsEmpty ? Seq<XElement>() : Seq(Extended(file, text, declared.Extensions))),
-                new XElement("menus", declared.Menus.Map(menu => Menu(file, text, menu))),
-                new XElement("tool_bar_groups", elements.Groups),
-                new XElement("tool_bars", elements.Bars),
-                new XElement("macros", elements.Macros),
-                new XElement("icons", elements.Icons),
-                new XElement("bitmaps")))).As());
+    private static Fin<XDocument> Document(Assembly plugIn) =>
+        from declared in Toolbars.Declared(plugIn).ToFin(new RhinoFault($"{plugIn.GetName().Name} {nameof(IRuiSource)} declaration", RhinoReason.Missing))
+        from file in Toolbars.Identity(plugIn)
+        let text = Translations.Read(plugIn)
+        let groups = declared.Groups + declared.Groups.Bind(static toolbarGroup => toSeq(toolbarGroup.Tabs)).Choose(static tab => tab.Sidebar)
+        let toolbars = Reached(declared.Toolbars + groups.Bind(static toolbarGroup => toSeq(toolbarGroup.Tabs)).Map(static tab => tab.Toolbar))
+            .Map(toolbar => toolbar with { Face = toolbar.Face with { Icon = toolbar.Face.Icon | IconResource.PlugIn(plugIn) } })
+        let macros = Macros(toolbars.Bind(static toolbar => toolbar.Groups) + declared.Extensions.Bind(static menu => menu.Groups) + declared.Menus.Bind(static menu => menu.Groups))
+        let arts = toSeq((toolbars.Choose(static toolbar => toolbar.Face.Icon) + macros.Choose(static held => held.Face.Icon)).DistinctBy(art => IconId(file, art)))
+        from elements in (
+                arts.Traverse(art => Icon(file, plugIn, art)).As(),
+                toolbars.Traverse(toolbar => Bar(file, text, toolbar)).As().Bind(Unique),
+                Unique(groups.Map(toolbarGroup => Group(file, text, toolbarGroup))),
+                Unique(macros.Map(held => MacroItem(file, text, held.Macro, held.Face))))
+            .Apply(static (icons, bars, tabbed, scripts) => (Icons: icons, Bars: bars, Groups: tabbed, Macros: scripts)).As()
+        select new XDocument(new XElement("RhinoUI",
+            new XAttribute("major_ver", 5), new XAttribute("minor_ver", 0), new XAttribute("guid", file), new XAttribute("plug_in_guid", file),
+            new XAttribute("localize", bool.FalseString), new XAttribute("default_language_id", Translations.English),
+            new XElement("extend_rhino_menus", declared.Extensions.IsEmpty ? Seq<XElement>() : Seq(Extended(file, text, declared.Extensions))),
+            new XElement("menus", declared.Menus.Map(menu => Menu(file, text, menu))),
+            new XElement("tool_bar_groups", elements.Groups),
+            new XElement("tool_bars", elements.Bars),
+            new XElement("macros", elements.Macros),
+            new XElement("icons", elements.Icons),
+            new XElement("bitmaps")));
 
     private static Fin<Seq<XElement>> Unique(Seq<XElement> elements) =>
         toSeq(elements.GroupBy(static element => element.Attribute("guid")?.Value, StringComparer.Ordinal)).Traverse(static held => held.Distinct<XElement>(XNode.EqualityComparer).ToArray() switch {

@@ -1,4 +1,4 @@
-import { Array, Cause, Context, Effect, Layer, Option, type Schema, Struct } from 'effect';
+import { Array, Cause, Context, Effect, Layer, Option, type Schema } from 'effect';
 import { SqlClient, type SqlConnection, type SqlError, type Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import type { Column, Kind, Projection } from '#/column';
@@ -20,7 +20,14 @@ interface Dialect {
     readonly read: (sql: SqlClient.SqlClient, entry: Column, scope: Statement.Fragment) => Statement.Fragment;
     readonly upsert: (parts: ReturnType<typeof Engine.fragments>, body: string, set: readonly Column[]) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError, SqlClient.SqlClient>;
     readonly ensure: (parts: ReturnType<typeof Engine.fragments>, body: string) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError, SqlClient.SqlClient>;
-    readonly search: (parts: ReturnType<typeof Engine.fragments>, searchable: Option.Option.Value<Relation['search']>, text: string, pattern: string, marks: Option.Option<{ readonly open: string; readonly close: string }>, count: number) => Statement.Statement<SqlConnection.Row>;
+    readonly search: (
+        parts: ReturnType<typeof Engine.fragments>,
+        searchable: Option.Option.Value<Relation['search']>,
+        text: string,
+        pattern: string,
+        marks: Option.Option<{ readonly open: string; readonly close: string }>,
+        count: number,
+    ) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError>;
     readonly constant: (entry: Column, value: string | number) => string;
     readonly codePoints: (sql: SqlClient.SqlClient, subject: Statement.Fragment) => Statement.Fragment;
     readonly text: (sql: SqlClient.SqlClient, subject: Statement.Fragment, kind: Kind) => Statement.Fragment;
@@ -64,9 +71,9 @@ class Engine extends Context.Service<Engine, Dialect>()('@rasm/database/internal
         sql.onDialectOrElse({
             sqlite: () => Effect.succeed<Dialect>(Sqlite),
             pg: () =>
-                Effect.map(
+                Effect.flatMap(
                     Effect.promise(() => import('#/internal/engine/pg')),
-                    Struct.get('Pg'),
+                    (module) => module.Pg.forClient(sql),
                 ),
             orElse: () => Effect.fail(new Cause.IllegalArgumentError(`${sql.driver} has no engine`)),
         }),

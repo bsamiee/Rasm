@@ -1,14 +1,13 @@
 public import AppKit
+import Applications
 public import Foundation
+import Processes
+import Results
 import Subprocess
 import System
 public import Testing
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-private struct ReportHeader: Decodable {
-    let bundleID: String?
-}
 
 public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
     @TaskLocal public static var current: URL?
@@ -23,6 +22,7 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
     public var isRecursive: Bool { true }
 
     public func provideScope(for test: Test, testCase: Test.Case?, performing function: @concurrent @Sendable () async throws -> Void) async throws {
+        let started: Date = .now
         let tag: String = UUID().uuidString
         let name: String = named ?? "\(product) \(tag.prefix(8))"
         let identifier: String = "\(product).\(tag)"
@@ -55,48 +55,21 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
             configuration.environment = environment
             return try await NSWorkspace.shared.openApplication(at: bundle, configuration: configuration)
         }
-        func stop() async {
-            for instance: NSRunningApplication in NSRunningApplication.runningApplications(withBundleIdentifier: identifier) {
-                instance.forceTerminate()
-                let (terminated, terminate): (AsyncStream<Never>, AsyncStream<Never>.Continuation) = AsyncStream.makeStream()
-                let observation: NSKeyValueObservation = instance.observe(\.isTerminated, options: [.initial]) { observed, _ in
-                    if observed.isTerminated { terminate.finish() }
-                }
-                for await _: Never in terminated {}
-                observation.invalidate()
-            }
-        }
-        func entries(of directory: URL) -> [URL] {
-            do { return try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) } catch {
-                Issue.record(error)
-                return []
-            }
-        }
-        func remove(_ owned: [URL]) {
-            for url: URL in owned {
-                do { try FileManager.default.removeItem(at: url) } catch { Issue.record(error) }
-            }
-        }
         let tested: Result<Void, any Error> = await Result {
             let launched: NSRunningApplication? = try await assemble()
             try await Self.$current.withValue(bundle) { try await Self.$instance.withValue(launched) { try await function() } }
         }
         await withTaskCancellationShield {
-            await stop()
-            let decoder: JSONDecoder = JSONDecoder()
-            let crashes: [URL] = entries(of: URL.libraryDirectory.appending(components: "Logs", "DiagnosticReports")).filter { file in
-                guard file.pathExtension == "ips", let report: Data = FileManager.default.contents(atPath: file.path(percentEncoded: false)) else { return false }
-                let header: ReportHeader? = try? decoder.decode(ReportHeader.self, from: report.prefix { byte in byte != UInt8(ascii: "\n") })
-                return header?.bundleID == identifier
+            let stopped: Bool = await Self.stop(identifier, at: bundle)
+            for report: CrashReport in CrashReport.reports(for: identifier, since: started).reports {
+                do {
+                    Attachment.record(try await Attachment(contentsOf: report.url))
+                    try FileManager.default.removeItem(at: report.url)
+                } catch { Issue.record(error) }
             }
-            remove(crashes)
+            guard stopped else { return }
             UserDefaults.standard.removePersistentDomain(forName: identifier)
-            let length: Int = confstr(_CS_DARWIN_USER_CACHE_DIR, nil, 0)
-            var cache: [CChar] = Array(repeating: 0, count: length)
-            let written: Int = unsafe confstr(_CS_DARWIN_USER_CACHE_DIR, &cache, length)
-            if written > 0, let caches: String = String(validating: cache.prefix { byte in byte != 0 }, as: UTF8.self) {
-                remove(entries(of: URL(filePath: caches)).filter { entry in entry.lastPathComponent == identifier })
-            }
+            Self.removeCache(identifier)
             do {
                 let launchServices: String = "com.apple.LaunchServices"
                 guard let services: Bundle = Bundle(identifier: launchServices) else { throw TestFailure(subject: launchServices, reason: .missing) }
@@ -104,9 +77,55 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
             } catch {
                 Issue.record(error)
             }
-            remove([folder])
+            do { try FileManager.default.removeItem(at: folder) } catch { Issue.record(error) }
         }
         try tested.get()
+    }
+
+    private static func stop(_ identifier: String, at bundle: URL) async -> Bool {
+        let instances: [NSRunningApplication] = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+        return await withTaskGroup(of: Bool.self) { group in
+            for instance: NSRunningApplication in instances {
+                group.addTask {
+                    do { try await stop(instance, at: bundle) } catch {
+                        Issue.record(error)
+                        return false
+                    }
+                    return true
+                }
+            }
+            return await group.allSatisfy(\.self)
+        }
+    }
+
+    private static func stop(_ instance: NSRunningApplication, at bundle: URL) async throws(TestFailure) {
+        let process: pid_t = instance.processIdentifier
+        let subject: String = "\(bundle.path(percentEncoded: false)) (PID \(process))"
+        let limit: Duration = .seconds(10)
+        let exited: AsyncStream<Result<ProcessExit, Errno>> = termination(of: process)
+        if !instance.forceTerminate(), !instance.isTerminated {
+            guard Result(catching: { () throws(Errno) in try ProcessStatus(of: process) }) == .failure(.noSuchProcess) else {
+                throw TestFailure(subject: subject, reason: .terminationRefused)
+            }
+        }
+        let expired: TestFailure = TestFailure(subject: subject, reason: .terminationTimedOut(limit))
+        try await withTimeout(limit, expired: expired) { () async throws(TestFailure) in
+            switch await exited.first(where: { _ in true }) {
+                case .some(.success), .some(.failure(.noSuchProcess)): return
+                case .some(.failure(let error)): throw TestFailure(subject: subject, reason: .host(error))
+                case .none: throw expired
+            }
+        }
+    }
+
+    private static func removeCache(_ identifier: String) {
+        let length: Int = confstr(_CS_DARWIN_USER_CACHE_DIR, nil, 0)
+        var cache: [CChar] = Array(repeating: 0, count: length)
+        let written: Int = unsafe confstr(_CS_DARWIN_USER_CACHE_DIR, &cache, length)
+        guard written > 0, let caches: String = String(validating: cache.prefix { byte in byte != 0 }, as: UTF8.self) else { return }
+        do { try FileManager.default.removeItem(at: URL(filePath: caches).appending(component: identifier)) } catch CocoaError.fileNoSuchFile {} catch {
+            Issue.record(error)
+        }
     }
 }
 

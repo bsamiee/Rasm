@@ -62,8 +62,10 @@ mod representation;
 #[test]
 fn ui() -> Result<(), NEVec<Failure>> {
     let package = env!("CARGO_PKG_NAME");
+    let inputs = std::env::var_os("NX_TASK_HASH").map(|hash| ("DYLINT_MODULE_LAYOUT", hash));
     let output = Command::new(env!("CARGO"))
         .args(["dylint", "--lib", package, "-p", package, "--fail-on-no-libraries", "--", "--locked", "--examples", "--test", package, "--message-format=json", "--config", "build.warnings='warn'"])
+        .envs(inputs)
         .stderr(Stdio::inherit())
         .output()
         .map_err(|source| Failure::Io { step: Step::Spawn, source })?;

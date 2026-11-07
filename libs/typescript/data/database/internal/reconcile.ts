@@ -63,7 +63,7 @@ const refusals = ({ name: owner, key, references, columns, indexes }: Relation) 
 // --- [RENDER]
 const render = (
     sql: SqlClient.SqlClient,
-    engine: Engine['Service'],
+    engine: Omit<Engine['Service'], 'search'>,
     catalog: Catalog,
     declared: Relation,
     {

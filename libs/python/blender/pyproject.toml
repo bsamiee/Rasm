@@ -57,7 +57,8 @@ build-backend = "hatchling.build"
 dev-mode-dirs = [".."] # Editable installs expose the folder holding the import root
 
 [tool.hatch.build.targets.wheel]
-only-include = ["bpy", "imaging", "records", "rendering"] # Import packages under the `blender` root, the manifest left out
+include = ["**"]
+exclude = ["/pyproject.toml", "/probe.py"]
 
 [tool.hatch.build.targets.wheel.sources]
 "" = "blender"

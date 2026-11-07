@@ -12,7 +12,6 @@
 - `ruleDirs` and `utilDirs` walkers skip hidden paths and honor `.ignore`, `noIgnore` never reaches them, a hidden folder named as the root loads
 - `noIgnore` governs source walks of `scan`, `run`, and `outline`, `noIgnore: [hidden]` includes dot directories, nonempty CLI `--no-ignore` lists replace it
 - Unknown keys load silently at the top level, in a language row, and on an injection entry, inside `rule:` they exit 8
-- `testConfigs: [tests]` exits 8, `testConfigs` entries hold `testDir` with `snapshotDir` resolving under it, a project with none prints `Running 0 tests` at exit 0
 
 Load runs in a fixed order, the first failure names its exit:
 

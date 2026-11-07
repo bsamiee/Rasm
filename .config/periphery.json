@@ -1,1 +1,8 @@
-{ "indexstores": [], "test_targets": [], "plists": [], "xibs": [], "xcdatamodels": [], "xcmappingmodels": [] }
+{
+    "indexstores": [],
+    "plists": [],
+    "test_targets": [],
+    "xcdatamodels": [],
+    "xcmappingmodels": [],
+    "xibs": []
+}

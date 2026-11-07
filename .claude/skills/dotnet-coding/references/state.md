@@ -67,7 +67,7 @@ internal static class EffectfulQuoteCache {
 
 ## [03]-[GENERATORS]
 
-Composable generators serve property-based testing, load testing, and simulation. Conventional pseudo-random generators are deterministic but hide their state: the seed is an implicit input to the next call and the updated seed an implicit output. `State<int, A>` makes both explicit as `int -> (A, int)`, generation becomes repeatable and testable, the host chooses the seed through `Run(seed)`, and seeding from the clock is impure and not testable. Primitive generator `NextInt` scrambles its input seed and returns the result as both the value and the next seed, and every derived generator reuses it:
+Composable generators serve simulation. Conventional pseudo-random generators are deterministic but hide their state: the seed is an implicit input to the next call and the updated seed an implicit output. `State<int, A>` makes both explicit as `int -> (A, int)`, generation becomes repeatable and testable, the host chooses the seed through `Run(seed)`, and seeding from the clock is impure and not testable. Primitive generator `NextInt` scrambles its input seed and returns the result as both the value and the next seed, and every derived generator reuses it:
 
 ```csharp
 internal static class Generator {

@@ -13,8 +13,8 @@ rule:
         - kind: alias_qualified_name, generic_name, identifier, qualified_name
           matches: named
           all:
-            - any: [{inside: {kind: using_directive, matches: failed, pattern: $DECLARATION}, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, ERROR'}}}}, {inside: {kind: extern_alias_directive, field: name, matches: failed, pattern: $DECLARATION}}]
-            - not: {matches: failed}
+              - any: [{inside: {kind: using_directive, matches: failed, pattern: $DECLARATION}, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, ERROR'}}}}, {inside: {kind: extern_alias_directive, field: name, matches: failed, pattern: $DECLARATION}}]
+              - not: {matches: failed}
 rewriters:
     - {id: broken, rule: {kind: ERROR}, fix: "\n"}
     - {id: trivia, rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}, fix: "\n"}
@@ -371,9 +371,9 @@ rewriters:
     - {id: default, rule: {not: {kind: ERROR}, inside: {kind: parameter, field: value}}, fix: …}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
     - id: parameters
@@ -410,14 +410,14 @@ utils:
         kind: method_declaration
         any:
             - inside:
-                kind: extension_body
-                stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
-                inside:
-                    kind: extension_declaration
-                    any:
-                        - not: {has: {kind: 'type_parameter_list, type_parameter_constraints_clause, attribute_list, preproc_if_in_attribute_list, comment'}}
-                          has: {kind: receiver_parameter, not: {regex: "\n"}, pattern: {context: 'static class C { extension($RECEIVER) {} }', selector: receiver_parameter}}
-                        - pattern: $EXTENDED
+                  kind: extension_body
+                  stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
+                  inside:
+                      kind: extension_declaration
+                      any:
+                          - not: {has: {kind: 'type_parameter_list, type_parameter_constraints_clause, attribute_list, preproc_if_in_attribute_list, comment'}}
+                            has: {kind: receiver_parameter, not: {regex: "\n"}, pattern: {context: 'static class C { extension($RECEIVER) {} }', selector: receiver_parameter}}
+                          - pattern: $EXTENDED
             - matches: owned
         all:
             - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
@@ -438,9 +438,9 @@ rewriters:
     - {id: default, rule: {not: {kind: ERROR}, inside: {kind: parameter, field: value}}, fix: …}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
     - {id: body, rule: {kind: 'block, arrow_expression_clause', inside: {kind: method_declaration, field: body}}, fix: ''}
@@ -481,16 +481,16 @@ utils:
             - {kind: parameter, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}, inside: {kind: parameter_list, inside: {kind: record_declaration}}}
         all:
             - any:
-                - inside:
-                    kind: extension_body
-                    stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
-                    inside:
-                        kind: extension_declaration
-                        any:
-                            - not: {has: {kind: 'type_parameter_list, type_parameter_constraints_clause, attribute_list, preproc_if_in_attribute_list, comment'}}
-                              has: {kind: receiver_parameter, not: {regex: "\n"}, pattern: {context: 'static class C { extension($RECEIVER) {} }', selector: receiver_parameter}}
-                            - pattern: $EXTENDED
-                - matches: owned
+                  - inside:
+                        kind: extension_body
+                        stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
+                        inside:
+                            kind: extension_declaration
+                            any:
+                                - not: {has: {kind: 'type_parameter_list, type_parameter_constraints_clause, attribute_list, preproc_if_in_attribute_list, comment'}}
+                                  has: {kind: receiver_parameter, not: {regex: "\n"}, pattern: {context: 'static class C { extension($RECEIVER) {} }', selector: receiver_parameter}}
+                                - pattern: $EXTENDED
+                  - matches: owned
             - any: [{has: {kind: explicit_interface_specifier, pattern: $EXPLICIT}}, {not: {kind: ERROR}}]
 rule:
     any:
@@ -507,9 +507,9 @@ rewriters:
     - {id: default, rule: {not: {kind: ERROR}, inside: {kind: parameter, field: value}}, fix: …}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
     - {id: accessor, rule: {kind: 'block, arrow_expression_clause', inside: {kind: accessor_declaration, field: body}}, fix: {template: "\n;", expandEnd: {regex: ';'}}}
@@ -556,9 +556,9 @@ rewriters:
     - {id: value, rule: {kind: variable_declarator, not: {has: {kind: bracketed_argument_list}}, has: {field: name, pattern: {context: 'class $DECLARED;', selector: identifier}}}, fix: $DECLARED}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
 transform:
@@ -601,9 +601,9 @@ rewriters:
     - {id: value, rule: {kind: variable_declarator, not: {has: {kind: bracketed_argument_list}}, has: {field: name, pattern: {context: 'class $DECLARED;', selector: identifier}}}, fix: $DECLARED}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
 transform:
@@ -635,16 +635,16 @@ utils:
             - {kind: conversion_operator_declaration, has: {field: type, matches: named}}
         all:
             - any:
-                - inside:
-                    kind: extension_body
-                    stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
-                    inside:
-                        kind: extension_declaration
-                        any:
-                            - not: {has: {kind: 'type_parameter_list, type_parameter_constraints_clause, attribute_list, preproc_if_in_attribute_list, comment'}}
-                              has: {kind: receiver_parameter, not: {regex: "\n"}, pattern: {context: 'static class C { extension($RECEIVER) {} }', selector: receiver_parameter}}
-                            - pattern: $EXTENDED
-                - matches: owned
+                  - inside:
+                        kind: extension_body
+                        stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
+                        inside:
+                            kind: extension_declaration
+                            any:
+                                - not: {has: {kind: 'type_parameter_list, type_parameter_constraints_clause, attribute_list, preproc_if_in_attribute_list, comment'}}
+                                  has: {kind: receiver_parameter, not: {regex: "\n"}, pattern: {context: 'static class C { extension($RECEIVER) {} }', selector: receiver_parameter}}
+                                - pattern: $EXTENDED
+                  - matches: owned
             - any: [{has: {kind: explicit_interface_specifier, pattern: $EXPLICIT}}, {not: {kind: ERROR}}]
             - any: [{matches: plain}, {pattern: $DECLARATION}]
 rule:
@@ -662,9 +662,9 @@ rewriters:
     - {id: default, rule: {not: {kind: ERROR}, inside: {kind: parameter, field: value}}, fix: …}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
     - {id: body, rule: {kind: 'block, arrow_expression_clause', inside: {kind: 'conversion_operator_declaration, operator_declaration', field: body}}, fix: ''}
@@ -719,9 +719,9 @@ rewriters:
     - {id: value, rule: {kind: variable_declarator, not: {has: {kind: bracketed_argument_list}}, has: {field: name, pattern: {context: 'class $DECLARED;', selector: identifier}}}, fix: $DECLARED}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
     - {id: accessor, rule: {kind: 'block, arrow_expression_clause', inside: {kind: accessor_declaration, field: body}}, fix: {template: "\n;", expandEnd: {regex: ';'}}}
@@ -748,9 +748,9 @@ utils:
 rule:
     all:
         - any:
-            - {kind: enum_member_declaration, pattern: $DECLARATION, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}, all: [{not: {matches: nesting}}]}
-            - {kind: attribute_list, nthChild: {position: 1, ofRule: {kind: attribute_list}}, inside: {kind: enum_member_declaration, pattern: $DECLARATION, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}, matches: nesting}}
-            - {kind: 'alias_qualified_name, array_type, function_pointer_type, generic_name, identifier, implicit_type, nullable_type, pointer_type, predefined_type, qualified_name, ref_type, scoped_type, tuple_type', pattern: $CASE, inside: {kind: union_case_list}}
+              - {kind: enum_member_declaration, pattern: $DECLARATION, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}, all: [{not: {matches: nesting}}]}
+              - {kind: attribute_list, nthChild: {position: 1, ofRule: {kind: attribute_list}}, inside: {kind: enum_member_declaration, pattern: $DECLARATION, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}, matches: nesting}}
+              - {kind: 'alias_qualified_name, array_type, function_pointer_type, generic_name, identifier, implicit_type, nullable_type, pointer_type, predefined_type, qualified_name, ref_type, scoped_type, tuple_type', pattern: $CASE, inside: {kind: union_case_list}}
         - matches: owned
 rewriters:
     - {id: broken, rule: {kind: ERROR}, fix: "\n"}
@@ -761,9 +761,9 @@ rewriters:
     - {id: branch, rule: {kind: 'preproc_else, preproc_elif'}, fix: ''}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
     - {id: value, rule: {not: {kind: ERROR}, inside: {kind: enum_member_declaration, field: value}}, fix: {template: "\n", expandStart: {regex: "^=$"}}}
@@ -809,9 +809,9 @@ rewriters:
     - {id: default, rule: {not: {kind: ERROR}, inside: {kind: parameter, field: value}}, fix: …}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
 transform:
@@ -862,9 +862,9 @@ rewriters:
     - {id: default, rule: {not: {kind: ERROR}, inside: {kind: parameter, field: value}}, fix: …}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
 transform:
@@ -905,9 +905,9 @@ rewriters:
     - {id: branch, rule: {kind: 'preproc_else, preproc_elif'}, fix: ''}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
 transform:
@@ -948,9 +948,9 @@ rewriters:
     - {id: branch, rule: {kind: 'preproc_else, preproc_elif'}, fix: ''}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
 transform:
@@ -1009,9 +1009,9 @@ rewriters:
     - {id: default, rule: {not: {kind: ERROR}, inside: {kind: parameter, field: value}}, fix: …}
     - id: lineage
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
       fix: $ABOVE$SELF.
     - id: unmaking
@@ -1019,9 +1019,9 @@ rewriters:
       fix: ~$SELF.
     - id: calling
       rule:
-        kind: identifier
-        pattern: {context: 'class $SELF;', selector: identifier}
-        inside: {field: name, matches: holder, any: [{inside: {stopBy: end, matches: holder, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}}}, {matches: holder}]}
+          kind: identifier
+          pattern: {context: 'class $SELF;', selector: identifier}
+          inside: {field: name, matches: holder, any: [{inside: {stopBy: end, matches: holder, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}}}, {matches: holder}]}
       transform: {ABOVE: {rewrite: {source: $UP, rewriters: [unmaking, calling], joinBy: ''}}}
       fix: $ABOVE$SELF.
 transform:

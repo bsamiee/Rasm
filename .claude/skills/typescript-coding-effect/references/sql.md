@@ -66,14 +66,14 @@ Driver layers provide the driver tag and `SqlClient` with their own `Reactivity`
 - `PgClient` takes `prepare: false` behind a transaction-mode pooler and `multiplex: true` to pipeline fibers on a pooled connection
 - `PgClient` reads `password` as an effect per connection
 - `PgClient` takes `types` from a `PgTypes.makeRegistry()` its layer builds, where `PgTypes.register` writes a process-wide registry at module load
-- One codec row per OID feeds `PgClient` binary `types.register(oid, { decode, encode })` and PGlite text `parsers` keyed by OID string
+- Register binary codecs by OID with `types.register(oid, { decode, encode })`
 - `PgTypes` parses binary `jsonb` to JSON, and a codec keeping its text for a schema decodes `bytes.subarray(1)` past the version byte as `OID.text`
 - `PgClient.listen(channel)` returns a scoped `Queue` of notifications, and `notify(channel, payload)` sends one
 - `D1Client` refuses over 100 parameters per query
 - `D1Client` runs no transactions, and `D1Client.batch([a, b])` writes statements atomically with a tuple typed per statement
 - `D1Client.batch` lists end in a `SELECT` of the written state, read through `Array.lastNonEmpty`
 - `sql.onDialect` takes the `sqlite` arm on D1 and SQLite, and `Effect.serviceOption(D1Client.D1Client)` selects `batch` or `sql.withTransaction`
-- `sql.driver` names the driver package without `@effect/sql-` (`pg`, `pglite`, `sqlite-node`, `d1`), telling drivers of one dialect apart
+- `sql.driver` names the driver package without `@effect/sql-` (`pg`, `sqlite-node`, `d1`)
 - Live schema reads `pragma_table_list`, `pragma_table_xinfo`, `pragma_index_list`, `sqlite_sequence`, `information_schema`, and `pg_catalog`
 - Facts a catalog states come from it, a match on stored DDL text restating it
 - Renamed tables and columns keep their identity on the object, a PostgreSQL `COMMENT ON` or a `/* */` comment in SQLite's stored `CREATE` text

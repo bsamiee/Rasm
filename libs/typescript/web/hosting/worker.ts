@@ -1,5 +1,15 @@
-import { ConfigProvider, Context, Function, Layer, Logger, Scheduler } from 'effect';
+import { ConfigProvider, Context, Effect, Function, Layer, Logger, Scheduler } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
+import { r2Store, r2UploadStore } from 'partial-content/r2';
+import { HostingError } from '#/hosting-error';
+import { ObjectStorage } from '#/server/object-storage';
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const r2Storage = (bucket: R2Bucket) => {
+    const uploads = r2UploadStore({ bucket });
+    return Layer.succeed(ObjectStorage, { objects: r2Store({ bucket, reservedPrefix: uploads.uploadPrefix }), uploads, delete: (key) => Effect.tryPromise({ try: () => bucket.delete(key), catch: HostingError.storage('delete', key) }) });
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -14,4 +24,4 @@ const serveWorker = <A, E>(env: object, layer: Layer.Layer<A, E, HttpRouter.Http
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { serveWorker };
+export { r2Storage, serveWorker };

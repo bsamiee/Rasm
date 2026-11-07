@@ -22,8 +22,7 @@ Snapshots hold the accessibility tree with roles, names, levels, and states:
 - `find --regex` lists headings, landmarks, or unnamed controls across the tree
 - `press Tab` with an `eval` of `document.activeElement` walks focus order
 - `set-forced-colors`, `set-contrast`, and `set-reduced-motion` with a `screenshot` show each media feature's rendering
-- `run-code` runs axe-core from `@axe-core/playwright`'s dependency through an init script and a reload, the reload drops page state
-- `realpath` resolves the axe source path through pnpm's sibling layout
+- `run-code` loads axe-core through an init script on reload, which resets page state
 
 ```bash
 playwright cli -s=<session> find --regex "heading .*\[level=[12]\]" --max-results=10
@@ -32,7 +31,7 @@ playwright cli -s=<session> --raw eval "(({ tagName, textContent }) => ({ tagNam
 playwright cli -s=<session> set-forced-colors active
 playwright cli -s=<session> screenshot --filename=$PLAYWRIGHT_MCP_OUTPUT_DIR/<name>-forced-colors.png
 playwright cli -s=<session> clear-forced-colors
-realpath node_modules/@axe-core/playwright/../../axe-core/axe.min.js
+realpath node_modules/axe-core/axe.min.js
 playwright cli -s=<session> --raw run-code "async page => {
     await page.addInitScript({ path: '<axe>' });
     await page.reload();

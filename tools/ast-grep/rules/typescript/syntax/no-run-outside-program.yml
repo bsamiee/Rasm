@@ -6,5 +6,12 @@ rule:
     any:
         - {pattern: runMain, not: {inside: {kind: import_specifier}}}
         - {kind: property_identifier, regex: '^runMain$', inside: {kind: member_expression, field: property}}
-message: '`runMain` runs a program outside its `main.ts`'
-note: 'Return the effect with its requirements unprovided, and provide platform layers and call `runMain` in program `main.ts`'
+    not:
+        inside:
+            stopBy: end
+            field: consequence
+            kind: if_statement
+            has: {field: condition, kind: parenthesized_expression, has: {pattern: import.meta.main}}
+            inside: {kind: program}
+message: '`runMain` runs outside a program entry point'
+note: 'Call `runMain` in `main.ts` or inside a top-level `if (import.meta.main)` block'

@@ -21,7 +21,7 @@ const assets = Relation.make(
     },
 );
 const owner = Relation.make('owner', { email: Schema.String, userId: Schema.String }, { key: ['email'], withoutRowid: true });
-const catalog = Catalog.make({ tables: [documents, assets, owner], retired: ['reconcile_revision'], excludedPrefixes: ['_cf_'] });
+const catalog = Catalog.make({ tables: [documents, assets, owner], retired: ['reconcile_revision'] });
 const projectedPaths = Statement.csv(assets.paths.map((path) => Statement.fragment([Statement.parameter(path)])));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

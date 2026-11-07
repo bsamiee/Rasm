@@ -173,7 +173,7 @@ internal static class Scales {
 - `SupportsCreateGraphics` gates `CreateGraphics()` outside `Paint`, `Graphics.IsRetained` reports drawn content kept between paints
 - `Bitmap(size, PixelFormat.Format32bppRgba)` holds alpha, `Format32bppRgb` and `Format24bppRgb` hold none
 - `Lock()` returns `BitmapData` with `Data` (pointer), `ScanWidth` (bytes per row), `BytesPerPixel`, `PremultipliedAlpha`, and `Flipped` (row order)
-- `TranslateArgbToData(argb)` maps one ARGB value into the platform byte order and premultiplies under `PremultipliedAlpha`, an opaque probe survives
+- `TranslateArgbToData(argb)` maps one ARGB value into the platform byte order and premultiplies under `PremultipliedAlpha`
 - `BitmapData` disposes before the bitmap draws or reads, platforms publish pixels on unlock and a draw during the lock shows stale pixels
 - `Graphics.DrawImage(image, RectangleF)` of a device-sized bitmap into logical bounds is the one resample, `ImageInterpolation.None` keeps it a copy
 - `Graphics.AntiAlias` and `ClipBounds` describe the context, `SaveTransformState()` scopes a transform

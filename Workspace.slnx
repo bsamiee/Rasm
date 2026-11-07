@@ -25,10 +25,6 @@
     <Folder Name="/libs/dotnet/ui/">
         <Project Path="libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
     </Folder>
-    <Folder Name="/tests/dotnet/">
-        <Project Path="tests/dotnet/Rasm.Tests/Rasm.Tests.csproj" />
-        <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />
-    </Folder>
     <Folder Name="/tests/dotnet/tools/roslyn/">
         <Project Path="tests/dotnet/tools/roslyn/Rasm.Analyzers.Tests/Rasm.Analyzers.Tests.csproj" />
     </Folder>

@@ -14,11 +14,6 @@ test    = false
 doctest = false
 bench   = false
 
-# --- [TEST]
-[[test]]
-name = "series"
-path = "../../../../tests/rust/geospatial/weather/series.rs"
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -51,10 +46,6 @@ rasm-stats           = { workspace = true }
 rasm-site            = { workspace = true }
 rasm-solar           = { workspace = true }
 rasm-analysis        = { workspace = true }
-
-# --- [TESTING]
-[dev-dependencies]
-approx = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

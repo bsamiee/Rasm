@@ -116,7 +116,7 @@ Api.pipe(Layer.provide(Store), Layer.provide([NodeHttpClient.layerUndici, Config
 - Host events pass their `AbortSignal` as `signal`, and a canceled event interrupts its run
 - Library entries taking app values are `Effect.fnUntraced(body, Effect.provide(layer), NodeRuntime.runMain({ teardown }))`, a call running the program
 - Host callbacks are one `Effect.fnUntraced(body, Effect.scoped, (effect) => runtime.runPromise(effect))` typed by the callback type
-- Hosts reading a callback's parameters from its source (Playwright fixtures and tests) take a literal arrow with an object-pattern first parameter
+- Hosts reading a callback's parameters from its source take a literal arrow with an object-pattern first parameter
 - Host thunks and synchronous callbacks run an exported `Effect` through `runPromiseWith` or `runSyncWith` over `yield* Effect.context<R>()`
 - `ManagedRuntime` builds its layer on the first run, later runs read the same services, and a failed build stays cached
 - One runtime serves one host process, created beside its entry point and disposed in its teardown hook

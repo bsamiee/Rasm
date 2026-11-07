@@ -14,11 +14,10 @@ class Catalog extends Data.Class<{
     readonly tables: Array.NonEmptyReadonlyArray<Relation>;
     readonly retired: readonly string[];
     readonly reader: Option.Option<string>;
-    readonly excludedPrefixes: readonly string[];
     readonly timeouts: Option.Option<{ readonly lock: Duration.Input; readonly transaction: Duration.Input }>;
 }> {
-    static readonly make = ({ tables, retired = [], reader, excludedPrefixes = [], timeouts }: Pick<Catalog, 'tables'> & Partial<Pick<Catalog, 'retired' | 'excludedPrefixes'>> & { readonly reader?: string; readonly timeouts?: Option.Option.Value<Catalog['timeouts']> }) =>
-        new Catalog({ tables, retired: retired.map(String.camelToSnake), reader: Option.fromUndefinedOr(reader), excludedPrefixes, timeouts: Option.fromUndefinedOr(timeouts) });
+    static readonly make = ({ tables, retired = [], reader, timeouts }: Pick<Catalog, 'tables'> & Partial<Pick<Catalog, 'retired'>> & { readonly reader?: string; readonly timeouts?: Option.Option.Value<Catalog['timeouts']> }) =>
+        new Catalog({ tables, retired: retired.map(String.camelToSnake), reader: Option.fromUndefinedOr(reader), timeouts: Option.fromUndefinedOr(timeouts) });
     static readonly plan = Effect.fn('Catalog.plan')(
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, () => Effect.void),
         Effect.map(({ preamble, statements, concurrent, undeclared }) => {

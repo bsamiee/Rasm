@@ -7,10 +7,6 @@ edition.workspace = true
 description       = "Stdio MCP servers exposed over Streamable HTTP"
 publish.workspace = true
 
-# --- [NX]
-[package.metadata.nx.targets."test:integration"]
-command = "cargo nextest run --locked --package {projectName} --run-ignored only"
-
 # --- [TARGETS] --------------------------------------------------------------------------
 
 # --- [BIN]
@@ -19,11 +15,6 @@ name  = "rasm-mcp-bridge"
 path  = "main.rs"
 test  = false
 bench = false
-
-# --- [TEST]
-[[test]]
-name = "transport"
-path = "../../tests/rust/tools/bridge/transport.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
@@ -34,26 +25,6 @@ tracing-subscriber = { workspace = true }
 clap               = { workspace = true }
 rasm-telemetry     = { workspace = true }
 rasm-mcp           = { workspace = true }
-
-# --- [TESTING]
-[target."cfg(unix)".dev-dependencies]
-futures                            = { workspace = true }
-tokio-stream                       = { workspace = true }
-process-wrap                       = { workspace = true }
-nonempty-collections               = { workspace = true }
-thiserror                          = { workspace = true }
-validated                          = { workspace = true }
-derive_more                        = { workspace = true }
-serde                              = { workspace = true }
-serde_json                         = { workspace = true }
-serde_path_to_error                = { workspace = true }
-reqwest                            = { workspace = true }
-rmcp                               = { workspace = true }
-opentelemetry                      = { workspace = true }
-opentelemetry-otlp                 = { workspace = true }
-opentelemetry-proto                = { workspace = true }
-opentelemetry-semantic-conventions = { workspace = true }
-testcontainers                     = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

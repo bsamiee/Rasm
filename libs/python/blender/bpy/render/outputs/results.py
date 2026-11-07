@@ -188,9 +188,9 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
     """Render image and target slot held until the native job completes."""
 
     target: Option[tuple[bpy.types.Image, bpy.types.RenderSlot]]
-    files: Outcome[Option[Receipt]]
-    layer: Option[str] = Nothing
-    animation: Option[bool] = Nothing
+    files: Option[Receipt]
+    layer: Option[str]
+    animation: bool
     frame: Outcome[Option[_Frame]] = Ok(Nothing)
     written: Option[tuple[Outcome[tuple[Written, ...]], Outcome[None]]] = Nothing
 
@@ -323,16 +323,16 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:
         """Registers finishing for native scene writes, owned preview exports, and routed File Output files."""
-        finishers = RENDER_ORIGINS[identity].finishers
+        service, intermediates = RENDER_ORIGINS[identity], INTERMEDIATES[identity]
         with ExitStack() as scope:
-            finishers.append(self)
-            scope.callback(finishers.remove, self)
+            service.finishers.append(self)
+            scope.callback(service.finishers.remove, self)
             yield (
                 Handler(
                     handlers=bpy.app.handlers.render_post,
                     body=lambda scene: (
-                        self.files(scene, scene.frame_current, identity, job.animation).bind(lambda files: self.windowed(scene, files, identity))
-                        if (job := RENDER_ORIGINS[identity].pending.get(scene.session_uid)) is not None
+                        self.files(scene, scene.frame_current, identity, Some(job.animation)).bind(lambda files: self.windowed(scene, files, identity))
+                        if scene.session_uid not in intermediates and (job := service.pending.get(scene.session_uid)) is not None
                         else Ok(None)
                     ),
                 ),
@@ -361,11 +361,11 @@ class RenderOrigins:
         return self
 
     @contextmanager
-    def requested(self, scene: bpy.types.Scene, layer: Option[str], files: Outcome[Option[Receipt]], *, animation: bool) -> Generator[None]:
+    def requested(self, scene: bpy.types.Scene, layer: Option[str], files: Option[Receipt], *, animation: bool) -> Generator[None]:
         """Borrows the pre-operator image and slot, which the caller keeps alive until completion."""
         key, prior = scene.session_uid, self.requests.get(scene.session_uid)
         target = built("RENDER_RESULT").to_option().bind(lambda image: Option.of_optional(image.render_slots.active).map(lambda slot: (image, slot)))
-        self.requests[key] = _Job(target=target, layer=layer, files=files, animation=Some(animation))
+        self.requests[key] = _Job(target=target, layer=layer, files=files, animation=animation)
         try:
             yield
         finally:
@@ -388,27 +388,21 @@ INTERMEDIATES: Final = Resource[set[int]](made=lambda _identity: nullcontext(set
 
 @contextmanager
 def _origins(identity: Identity) -> Generator[RenderOrigins]:
-    """Captures completed frames before native slots can be reused, then queues their prepared consumers."""
+    """Captures requested frames before native slots can be reused, then queues their prepared consumers."""
+    service, intermediates = RenderOrigins(), INTERMEDIATES[identity]
 
     def supported() -> bool:
         manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         return current_thread() is main_thread() or manager.is_interface_locked
 
     def opened(scene: bpy.types.Scene) -> Outcome[None]:
-        if scene.session_uid not in INTERMEDIATES[identity]:
-            service = RENDER_ORIGINS[identity]
-            service.pending[scene.session_uid] = Option.of_optional(service.requests.get(scene.session_uid)).default_with(
-                lambda: _Job(target=Nothing, files=Error(Fault.of(Reason.REQUIRED, repr(scene), member="owned native written receipt")))
-            )
+        if scene.session_uid not in intermediates and (job := service.requests.get(scene.session_uid)) is not None:
+            service.pending[scene.session_uid] = job
         return Ok(None)
 
     def captured(scene: bpy.types.Scene) -> Outcome[None]:
-        if scene.session_uid in INTERMEDIATES[identity]:
+        if scene.session_uid in intermediates or (job := service.pending.get(scene.session_uid)) is None or not (captures := tuple(service.consumers)):
             return Ok(None)
-        service = RENDER_ORIGINS[identity]
-        if not (captures := tuple(service.consumers)):
-            return Ok(None)
-        job = service.pending[scene.session_uid]
         if not supported():
             service.pending[scene.session_uid] = msgspec.structs.replace(job, frame=Error(Fault.of(Reason.REQUIRED, repr(scene), member="native interface lock for automatic render capture")))
             return Ok(None)
@@ -470,24 +464,20 @@ def _origins(identity: Identity) -> Generator[RenderOrigins]:
         return Ok(None)
 
     def written(scene: bpy.types.Scene) -> Outcome[None]:
-        if scene.session_uid in INTERMEDIATES[identity]:
+        if scene.session_uid in intermediates or (job := service.pending.get(scene.session_uid)) is None or not (service.consumers or service.finishers):
             return Ok(None)
-        if not ((service := RENDER_ORIGINS[identity]).consumers or service.finishers):
-            return Ok(None)
-        job = service.pending[scene.session_uid]
-        files = job.files.bind(lambda provider: provider.map(lambda read: read(scene)).default_value(Ok(())))
-        finished = files.bind(lambda receipts: service.finished(scene, receipts, identity)) if service.finishers else Ok(None)
+        files = job.files.to_result_with(lambda: Fault.of(Reason.REQUIRED, f"owned native write receipt for {scene!r}")).bind(lambda provider: provider(scene))
+        finished = files.bind(lambda receipts: service.finished(scene, receipts, identity))
         service.pending[scene.session_uid] = msgspec.structs.replace(job, written=Some((files, finished)))
         return finished
 
     def completed(scene: bpy.types.Scene) -> Outcome[None]:
-        if scene.session_uid in INTERMEDIATES[identity]:
+        if scene.session_uid in intermediates or (job := service.pending.pop(scene.session_uid, None)) is None:
             return Ok(None)
-        job = RENDER_ORIGINS[identity].pending.pop(scene.session_uid)
 
         def retained(frame: _Frame) -> Outcome[None]:
             scope = ExitStack()
-            files = RENDER_ORIGINS[identity].files
+            files = service.files
             files.add(scope)
             scope.callback(files.remove, scope)
 
@@ -507,8 +497,8 @@ def _origins(identity: Identity) -> Generator[RenderOrigins]:
         return job.frame.bind(lambda frames: accumulated(map(retained, frames.to_list())).map(lambda _: None))
 
     def cancelled(scene: bpy.types.Scene) -> Outcome[None]:
-        if scene.session_uid not in INTERMEDIATES[identity]:
-            del RENDER_ORIGINS[identity].pending[scene.session_uid]
+        if scene.session_uid not in intermediates:
+            service.pending.pop(scene.session_uid, None)
         return Ok(None)
 
     def consumed(completed: CompletedRender, prepared: tuple[Outcome[Consume], ...], scope: ExitStack) -> Outcome[Option[str]]:
@@ -516,7 +506,6 @@ def _origins(identity: Identity) -> Generator[RenderOrigins]:
             return accumulated(held.bind(lambda consume: consume(completed)) for held in prepared).map(lambda steps: Some(", ".join(step for named in steps for step in named.to_list())).filter(bool))
 
     with ExitStack() as lifetime:
-        service = RenderOrigins()
         lifetime.callback(service.renewed)
         deferred = lifetime.enter_context(identity.reports.deferred(consumed))
         for handlers, body in (

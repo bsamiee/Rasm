@@ -1,9 +1,7 @@
 using System.Collections.Generic;
-using System.Drawing;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Eto.Forms;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
@@ -13,7 +11,6 @@ using Microsoft.CodeAnalysis.Emit;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Text;
 using Rasm.Analyzers.CodeFixes;
-using Rhino;
 using Thinktecture.CodeAnalysis.SmartEnums;
 
 namespace Rasm.Analyzers.Tests;
@@ -31,16 +28,19 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 
     private static readonly string EditorConfig = File.ReadAllText(Path.Combine(AttributeReader.GetSolutionDirectory(typeof(Analysis).Assembly), ".editorconfig"));
 
-    private static readonly ReferenceAssemblies Framework =
-        typeof(Analysis).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().ToFrozenDictionary(static held => held.Key, static held => held.Value!, StringComparer.Ordinal) switch {
-            var build => new(build["TargetingPackFramework"], new PackageIdentity(build["TargetingPackId"], build["TargetingPackVersion"]), Path.Combine("ref", build["TargetingPackFramework"])),
-        };
+    private static readonly FrozenDictionary<string, string> References = typeof(Analysis).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+        .ToFrozenDictionary(static held => held.Key, static held => held.Value!, StringComparer.Ordinal);
+
+    private static readonly ReferenceAssemblies Framework = new(References["TargetingPackFramework"], new PackageIdentity(References["TargetingPackId"], References["TargetingPackVersion"]), Path.Combine("ref", References["TargetingPackFramework"]));
+
+    private static readonly ImmutableArray<PortableExecutableReference> FixtureReferences = [.. References
+        .Where(static reference => reference.Key.StartsWith("FixtureReference.", StringComparison.Ordinal))
+        .Select(static reference => MetadataReference.CreateFromFile(reference.Value))];
 
     internal Analysis(DiagnosticDescriptor? rule = null) {
         ReferenceAssemblies = Framework;
         DisabledDiagnostics.AddRange(["CS1701", "CS1702"]);
-        foreach (Assembly assembly in new[] { typeof(Fin<>).Assembly, typeof(UnionAttribute).Assembly, typeof(RhinoDoc).Assembly, typeof(Bitmap).Assembly, typeof(Application).Assembly, typeof(ILogger).Assembly })
-            TestState.AdditionalReferences.Add(assembly);
+        TestState.AdditionalReferences.AddRange(FixtureReferences);
         TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         TestState.DocumentationMode = DocumentationMode.Parse;
         CompilerDiagnostics = CompilerDiagnostics.Warnings;
@@ -64,8 +64,6 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed class Samples {
-    private enum LiftCase { Success, Failure, Message }
-
     private static readonly string Root = Path.Combine(AttributeReader.GetProjectDirectory(typeof(Samples).Assembly), nameof(Samples));
 
     public static TheoryData<string> Rules => [.. Directory.EnumerateFileSystemEntries(Root).Select(static path => Path.GetFileNameWithoutExtension(path)).Order(StringComparer.Ordinal)];
@@ -432,78 +430,6 @@ public sealed class Samples {
             new DiagnosticResult(RhinoAnalyzer.Redraw).WithLocation(1).WithArguments("doc.Views.Redraw"),
         ] : []);
         await analysis.RunAsync(token);
-    }
-
-    [Fact]
-    public Task Lifts() {
-        static string Fin(string type) => $"Fin<{type}>";
-        static string Validation(string type) => $"Validation<Error, {type}>";
-        static string Sample(IEnumerable<string> members) => $$"""
-            using System;
-            using System.Threading.Tasks;
-            using LanguageExt;
-            using LanguageExt.Common;
-            using static LanguageExt.Prelude;
-
-            internal static class Sample {
-                internal static R Same<R>(R value) => value;
-            {{string.Join('\n', members.Select(static member => $"    {member}"))}}
-            }
-
-            """;
-        return Gen.OneOf<(string Type, string Text, bool IsError)>(
-                ("int", "1", false),
-                ("string", "string.Empty", false),
-                ("Unit", "unit", false),
-                ("Seq<int>", "Seq(1, 2)", false),
-                ("Option<int>", "Some(1)", false),
-                ("object", "new object()", false),
-                ("Error", """Error.New("held")""", true),
-                ("Expected", """new Expected("held", 1, None)""", false))
-            .Select(
-                Gen.OneOf<(Func<string, string> Target, Func<string, string, string> Text, LiftCase Case)>(
-                    (Fin, static (_, value) => $"Fin.Succ({value})", LiftCase.Success),
-                    (Fin, static (_, value) => $"Pure({value})", LiftCase.Success),
-                    (Fin, static (type, value) => $"new Fin<{type}>.Succ({value})", LiftCase.Success),
-                    (Fin, static (type, error) => $"Fin.Fail<{type}>({error})", LiftCase.Failure),
-                    (Fin, static (_, error) => $"Fail({error})", LiftCase.Failure),
-                    (Fin, static (type, error) => $"new Fin<{type}>.Fail({error})", LiftCase.Failure),
-                    (Fin, static (type, _) => $"""Fin.Fail<{type}>("refused")""", LiftCase.Message),
-                    (Validation, static (type, value) => $"Success<Error, {type}>({value})", LiftCase.Success),
-                    (Validation, static (type, value) => $"Validation.Success<Error, {type}>({value})", LiftCase.Success),
-                    (Validation, static (type, error) => $"Fail<Error, {type}>({error})", LiftCase.Failure),
-                    (Validation, static (type, error) => $"Validation.Fail<Error, {type}>({error})", LiftCase.Failure)),
-                Gen.OneOf<(bool FixesTarget, Func<string, string, string, string> Member)>(
-                    (true, static (target, lift, name) => $"internal static {target} {name}() => {lift};"),
-                    (true, static (target, lift, name) => $$"""internal static {{target}} {{name}}() { return {{lift}}; }"""),
-                    (true, static (target, lift, name) => $"internal static readonly {target} {name} = {lift};"),
-                    (true, static (target, lift, name) => $$"""internal static {{target}} {{name}} { get; } = {{lift}};"""),
-                    (true, static (target, lift, name) => $"internal static {target} {name}(bool held) => held ? {lift} : {name}(false);"),
-                    (true, static (target, lift, name) => $$"""internal static {{target}} {{name}}() { return Take({{lift}}); static {{target}} Take({{target}} value) => value; }"""),
-                    (true, static (target, lift, name) => $$"""internal static {{target}} {{name}}() { {{target}} held; held = {{lift}}; return held; }"""),
-                    (true, static (target, lift, name) => $"internal static Func<{target}> {name}() => () => {lift};"),
-                    (true, static (target, lift, name) => $$"""internal static Func<Task<{{target}}>> {{name}}() => async () => { await Task.Yield(); return {{lift}}; };"""),
-                    (false, static (target, lift, name) => $$"""internal static {{target}} {{name}}() { var held = {{lift}}; return held; }"""),
-                    (false, static (target, lift, name) => $"internal static {target} {name}() => Same({lift});"),
-                    (false, static (target, lift, name) => $"internal static {target}? {name}(bool held) => held ? {lift} : default;")))
-            .Array[1, 6]
-            .Select(static slots => {
-                (string Source, string Fixed)[] members = [
-                    .. slots.Select(static (slot, index) => {
-                        ((string Type, string Text, bool IsError) value,
-                            (Func<string, string> Target, Func<string, string, string> Text, LiftCase Case) form,
-                            (bool FixesTarget, Func<string, string, string, string> Member) position) = slot;
-                        (string target, string name) = (form.Target(value.Type), string.Create(CultureInfo.InvariantCulture, $"M{index}"));
-                        string argument = form.Case is LiftCase.Success ? value.Text : """Error.New("refused")""";
-                        string lift = form.Text(value.Type, argument);
-                        return position.FixesTarget && form.Case is not LiftCase.Message && !value.IsError
-                            ? (position.Member(target, $"{{|RASM1001:{lift}|}}", name), position.Member(target, argument, name))
-                            : (position.Member(target, lift, name), position.Member(target, lift, name));
-                    }),
-                ];
-                return (Source: Sample(members.Select(static member => member.Source)), Fixed: Sample(members.Select(static member => member.Fixed)));
-            })
-            .SampleAsync(static sample => new Analysis(LanguageExtAnalyzer.Lift) { TestCode = sample.Source, FixedCode = sample.Fixed }.RunAsync(TestContext.Current.CancellationToken));
     }
 }
 

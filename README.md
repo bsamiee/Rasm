@@ -27,22 +27,17 @@ Rasm/
 │   ├── ast-grep/             # Per-language support ast-grep lacks for reading repository code and enforcing syntax-level standards
 │   ├── bridge/               # rasm-mcp-bridge binary serving a stdio MCP server over Streamable HTTP
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
-│   ├── foundry/              # CLI over the typography library, a declared font set reconciled, built, shaped, verified, published
+│   ├── foundry/              # CLI over the typography library, a declared font set reconciled, built, shaped, and published
 │   ├── nx/                   # Nx plugin inferring a project from each project file
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
 │   ├── roslyn/               # C# analyzers, code fixes, and BannedSymbols*.txt bans
 │   └── watch-apps/           # CLI for agents observing and driving desktop apps in the background
 ├── plugins/                  # Agent harness marketplace
-├── mise.toml                 # Tool binaries, process environment, and local daemons
-├── mise.lock                 # Tool versions, URLs, and digests per platform
-├── mise.ci.toml              # Tool rows no CI job calls
-├── .mise/                    # Native lockfiles for Python tools
 ├── nx.json                   # Task graph
 ├── package.json              # Packages root programs use
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
-├── vitest.config.ts          # Test and coverage options every project config imports
 ├── vite.shared.ts            # Bundling options every project config imports
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── pyproject.toml            # Python environment, dependency groups, and checker settings
@@ -90,46 +85,33 @@ flowchart LR
     defaults["Target defaults per tag"] --> targets["Project and root targets"]
     projects --> targets
     toolchain & processes & installed --> targets
-    targets --> checks["Check, lint, format, build, test"]
-    checks --> ci["CI per host runner"]
+    targets --> ci["CI per host runner"]
 ```
 
 ## [03]-[TASKS]
 
-Targets run tools with their arguments on the command, a pipeline or command list joins tools for work no single tool does.
-
-Before starting Claude Code or Codex:
-1. Run `mise install`, `pnpm install --frozen-lockfile`, and `pixi run --locked uv sync --locked`
-2. Run `nx run grammars:grammar` to build parsers direct `ast-grep` commands load
-3. On macOS, run `mise daemons register`, `mise bootstrap macos launchd-agents apply`, then `nx run rasm-mcp-bridge:install`
-4. For Codex, install `argus@rasm` and `playwright@rasm` with `codex plugin add`
-
-- `nx run rasm:check` runs every root checker and type checker, `nx run rasm:lint:<tool>` runs one checker
-- `nx run <project>:check` runs project checks and tests `rasm:check` leaves to each project
-- `nx run <project>:<target> -- <arguments>` appends to the command, paths in place of a root tool's default file set, switches to `dotnet build`
-- `nx:run-commands` targets use `--args='<shell fragment>'` for literal shell characters; the value replaces configured argument defaults
-- `nx run rasm:format` runs `nx sync`, `dotnet format` over the solution and file-based apps, then `hk fix --all`
-- `nx run rasm:format:files -- <paths>` runs `hk fix` over named paths, or modified files with no path
-- `nx run <project>:test:integration` runs cases `test` leaves out: Vitest and Rust `#[ignore]` after `rasm:docker`, Swift `<Module>IntegrationTests`
-- `nx run <project>:install` builds or packs a product and installs it into its host
-- `nx run rasm:release` on a clean tree tags and creates a GitHub release for each product Conventional Commits bump, then runs its `publish`
-- `nx run <project>:publish --tag=<tag>` pushes a released product to its host's channel
 - `git submodule update --init --checkout assets` fills `assets/` for font builds and publishing
-- With `assets/` checked out, `nx run rasm:fonts:<build|check>` runs `foundry` over `assets/fonts/rasm.toml` into `.artifacts/fonts/<set>`, a check failing on each finding
-- `nx run rasm:fonts:publish --destination=<folder> [<name>]` copies faces passing that check into a folder
-- `nx run rasm:infra:<preview|up|refresh>` runs a Pulumi operation on repository resources
-- `nx run <project>:hosting -- <cloudflare|docker> <preview|up|refresh|destroy> [--disposable] [--tag <tag>]` builds a web app and runs a Pulumi operation on its stack
-- `nx run rasm:upgrade` moves tool binaries, catalogs, locks, and action tags to newest releases
 - `mise run clean` removes build outputs and prunes tool caches
-- `nx run rasm:rewrite:tree -- --filter='^<id>$' <path>` applies one rule's fix across a path, `ast-grep outline <path>` lists its declarations
 - `pixi run --locked uv sync` builds Python distributions against Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
-- Projects with `.storybook/` run each story as a Chromium `test` case that fails on an axe violation
-- `nx run <project>:e2e` gives each Playwright worker its own app instance with empty stores
+
+- `nx:run-commands` targets use `--args='<shell fragment>'` for literal shell characters; the value replaces configured argument defaults
+- `nx run <project>:<target> -- <arguments>` appends to the command, paths in place of a root tool's default file set, switches to `dotnet build`
+- `nx run <project>:install` builds or packs a product and installs it into its host
+- `nx run <project>:publish --tag=<tag>` pushes a released product to its host's channel
+- `nx run <project>:hosting -- <cloudflare|docker> <preview|up|refresh|destroy> [--disposable] [--tag <tag>]` builds a web app and runs a Pulumi operation on its stack
+- `nx run rasm:release` on a clean tree tags and creates a GitHub release for each product Conventional Commits bump, then runs its `publish`
+- `nx run rasm:upgrade` moves tool binaries, catalogs, locks, and action tags to newest releases
+- `nx run rasm:check` runs every root checker and type checker, `nx run rasm:lint:<tool>` runs one checker
+- `nx run rasm:format` runs `nx sync`, `dotnet format` over the solution and file-based apps, then `hk fix --all`
+- `nx run rasm:format:files -- <paths>` runs `hk fix` over named paths, or modified files with no path
+- `nx run rasm:rewrite:tree -- --filter='^<id>$' <path>` applies one rule's fix across a path, `ast-grep outline <path>` lists its declarations
+- `nx run rasm:fonts:publish --destination=<folder> [<name>]` copies built faces into a folder
+- `nx run rasm:infra:<preview|up|refresh>` runs a Pulumi operation on repository resources
+
 - Xcode apps holding a UXP script build in a folder reference build that script first
 - Caches sit under root `.cache/` and a project's generated output under `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
-- Libraries name no log location: processes stream to stderr or stdout for pitchfork, a container, or the shell (Rust binaries take `LOG_DIRECTORY`), plug-ins write where their host states, and Swift writes to the unified log
-- Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, a tool with one partition per run or session holds a folder there, daemon and supervisor output sit in pitchfork's log store
+- Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, a tool with one partition per run or session holds a folder there
 
 ## [04]-[DELIVERY]
 
@@ -142,48 +124,37 @@ Products reach a person through separate levels:
 
 | [INDEX] | [CONCERN]                        | [OWNER]                                                                                              |
 | :-----: | :------------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | Tool binary                      | `mise.toml` `[tools]`, exact versions in `mise.lock`                                                   |
-|  [02]   | Process variable                 | `mise.toml` `[env]`                                                                                  |
+|  [01]   | Tool binary                      | `.config/mise.toml` `[tools]`, exact versions in `.config/mise.lock`                                 |
+|  [02]   | Process variable                 | `.config/mise.toml` `[env]`, macOS-only values in `.config/mise.macos.toml`                          |
 |  [03]   | SDK version                      | `global.json` for .NET, `xcode-select` for Swift, `rust-toolchain.toml` for Rust                     |
 |  [04]   | Package version                  | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row |
-|  [05]   | .NET tool package                | `mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name                      |
+|  [05]   | .NET tool package                | `.config/mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name              |
 |  [06]   | Task graph                       | `nx.json`, inference in `tools/nx`                                                                   |
 |  [07]   | Checker configuration            | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
-|  [08]   | Secret                           | `mise.toml` `DOPPLER_PROJECT` and `DOPPLER_CONFIG`, named in a target's `doppler run` prefix         |
-|  [09]   | Resource or repository setting   | Typed row of an `infra/` program, `rasm:infra:up` for the repository, `<project>:hosting` per app    |
+|  [08]   | Secret                           | `.config/mise.toml` `DOPPLER_PROJECT` and `DOPPLER_CONFIG`, named in a target's `doppler run` prefix |
+|  [09]   | Resource or repository setting   | Typed row of an `infra/` program, `rasm:infra` for the repository, `<project>:hosting` per app       |
 |  [10]   | Tool with no consumer            | Machine setup                                                                                        |
 |  [11]   | Ghidra install                   | Official distribution through mise                                                                   |
 |  [12]   | Xcode build setting              | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
 |  [13]   | Swift package version            | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports |
 |  [14]   | Rust package version             | `Cargo.toml` `[workspace.dependencies]` row                                                          |
 |  [15]   | Agent harness plugin             | `plugins/<name>`                                                                                     |
-|  [16]   | Persistent local process         | `mise.toml` `[daemons]` row                                                                          |
+|  [16]   | Persistent local process         | Mise `[daemons]` row, Colima in `.config/mise.macos.toml`                                            |
 |  [17]   | Python runtime                   | Mise defaults to 3.15, Blender declares 3.13 in its project manifests                                |
-|  [18]   | Native libraries for sdists      | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                            |
+|  [18]   | Native libraries for sdists      | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                          |
 |  [19]   | Container runtime                | Mise clients, `[daemons]` `docker` row for Colima on macOS, Docker Engine on Linux                   |
 |  [20]   | Shared Vite configuration        | `vite.shared.ts`                                                                                     |
-|  [21]   | Shared Vitest configuration      | `vitest.config.ts`, browser settings and the story project every package derives                     |
-|  [22]   | Shared Storybook settings        | `@rasm/test-support/main` and `@rasm/test-support/preview` entries                                   |
-|  [23]   | Playwright settings and suites   | `tests/typescript/playwright.config.ts`                                                              |
-|  [24]   | App fixture and axe matcher      | `@rasm/test-support/playwright` entry                                                                |
-|  [25]   | Agent browser options            | `.playwright/cli.config.json`                                                                        |
-|  [26]   | GitHub Action version            | Published tag on each `uses:` row under `.github/`                                                   |
-|  [27]   | Product version                  | Release tag `rasm:release` creates, MinVer reads it into builds and packages                         |
-|  [28]   | Reusable asset                   | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, `.gitattributes` row per source extension          |
-|  [29]   | Verify maintenance-fee exemption | `Directory.Build.props` `Verify_Sponsorship*` rows, the owner renews within Verify's 12-month term   |
+|  [21]   | Shared Storybook settings        | `@rasm/test-support/main` and `@rasm/test-support/preview` entries                                   |
+|  [22]   | Agent browser options            | `.playwright/cli.config.json`                                                                        |
+|  [23]   | GitHub Action version            | Published tag on each `uses:` row under `.github/`                                                   |
+|  [24]   | Product version                  | Release tag `rasm:release` creates, MinVer reads it into builds and packages                         |
+|  [25]   | Reusable asset                   | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                  |
 
 - Tool rows name a release where `latest` resolves a development build
 
-## [06]-[QUALITY]
-
-- Every compiler, analyzer, checker, and formatter a target runs stays at zero findings
-- Failing checks are fixed in the code or the rule, severity stays as configured
-- Mistakes no check reports become checks, held to the standards of the code they check
-
-## [07]-[STRUCTURE]
+## [06]-[STRUCTURE]
 
 - Libraries group under `libs/<language>/<group>/`
-- Tests sit under `tests/<language>/` at their source path without the language folder, Playwright suites in `tests/typescript/e2e-<app>/`
 - Task graph tags a project `host:<host>` for each `apps/<host>/` folder name in its path, a Swift module also for each `Package.swift` platform naming an `apps/` folder
 - .NET build takes Rhino hosts from the `rhino/` path folder
 - Installed Rhino supplies host assemblies at runtime, build output holds none

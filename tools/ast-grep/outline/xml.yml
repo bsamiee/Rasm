@@ -44,21 +44,21 @@ rule:
         - {kind: PEReference, inside: {kind: doctypedecl}, all: [{pattern: $TAG}, {pattern: $TARGET}]}
         - kind: element
           has:
-            kind: STag, EmptyElemTag
-            pattern: $TAG
-            all:
-                - has: {kind: Name, regex: '(?:^|:)(?:include|import|redefine|override|import-schema|use-package|externalRef)$'}
-                - has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: name}, {pattern: href}, {pattern: namespace}, {pattern: schemaLocation}, {pattern: schema-location}]}}, {has: {field: value, pattern: $TARGET}}]}
+              kind: STag, EmptyElemTag
+              pattern: $TAG
+              all:
+                  - has: {kind: Name, regex: '(?:^|:)(?:include|import|redefine|override|import-schema|use-package|externalRef)$'}
+                  - has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: name}, {pattern: href}, {pattern: namespace}, {pattern: schemaLocation}, {pattern: schema-location}]}}, {has: {field: value, pattern: $TARGET}}]}
         - kind: element
           has:
-            kind: STag, EmptyElemTag
-            pattern: $TAG
-            all:
-                - has: {kind: Name, any: [{pattern: Import}, {pattern: Sdk}]}
-                - has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: Project}, {pattern: Name}]}}, {has: {field: value, pattern: $TARGET}}]}
+              kind: STag, EmptyElemTag
+              pattern: $TAG
+              all:
+                  - has: {kind: Name, any: [{pattern: Import}, {pattern: Sdk}]}
+                  - has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: Project}, {pattern: Name}]}}, {has: {field: value, pattern: $TARGET}}]}
           any:
-            - inside: {kind: content, inside: {kind: element, matches: project-child, has: {kind: STag, pattern: $GROUP, has: {kind: Name, pattern: ImportGroup}}}}
-            - matches: project-child
+              - inside: {kind: content, inside: {kind: element, matches: project-child, has: {kind: STag, pattern: $GROUP, has: {kind: Name, pattern: ImportGroup}}}}
+              - matches: project-child
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
@@ -500,23 +500,23 @@ rewriters:
     - id: entry
       rule: {kind: content, pattern: $SEGMENT}
       transform:
-        BARE: rewrite($SEGMENT, rewriters=[comment])
+          BARE: rewrite($SEGMENT, rewriters=[comment])
       fix: $BARE/
     - id: lineage
       rule:
-        kind: STag
-        inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $UP}}}}
-        any:
-            - inside: {kind: element, follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $ENTRY}}]}}
-            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEYED}}]}
-            - all: [{has: {kind: Name, pattern: $KIND}}, {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $LABEL}}]}}]
-            - kind: STag
+          kind: STag
+          inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $UP}}}}
+          any:
+              - inside: {kind: element, follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $ENTRY}}]}}
+              - has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEYED}}]}
+              - all: [{has: {kind: Name, pattern: $KIND}}, {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $LABEL}}]}}]
+              - kind: STag
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
-        ENTRY_PART: {rewrite: {source: $ENTRY, rewriters: [entry], joinBy: ''}}
-        KEYED_PART: replace($KEYED, replace='$', by='/')
-        KIND_PART: replace($KIND, replace='$', by=' ')
-        LABEL_PART: replace($LABEL, replace='$', by='/')
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ENTRY_PART: {rewrite: {source: $ENTRY, rewriters: [entry], joinBy: ''}}
+          KEYED_PART: replace($KEYED, replace='$', by='/')
+          KIND_PART: replace($KIND, replace='$', by=' ')
+          LABEL_PART: replace($LABEL, replace='$', by='/')
       fix: $ABOVE$ENTRY_PART$KEYED_PART$KIND_PART$LABEL_PART
 transform:
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
@@ -550,19 +550,19 @@ rule:
         - kind: element
           has: {kind: 'STag, EmptyElemTag', pattern: $TAG, has: {kind: Name, pattern: $NAME}}
           inside:
-            kind: content
-            inside:
-                kind: element
-                has: {kind: STag, has: {kind: Name, pattern: $METADATA}, any: [{has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: Include}, {pattern: Update}, {pattern: Remove}]}}, {has: {field: value, pattern: $SPECIFICATION}}]}}, {kind: STag}]}
-                inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, any: [{pattern: ItemGroup}, {pattern: ItemDefinitionGroup}]}}}}
+              kind: content
+              inside:
+                  kind: element
+                  has: {kind: STag, has: {kind: Name, pattern: $METADATA}, any: [{has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: Include}, {pattern: Update}, {pattern: Remove}]}}, {has: {field: value, pattern: $SPECIFICATION}}]}}, {kind: STag}]}
+                  inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, any: [{pattern: ItemGroup}, {pattern: ItemDefinitionGroup}]}}}}
         - kind: element
           matches: owned
           not: {has: {kind: content, has: {kind: element}}}
           has:
-            kind: STag, EmptyElemTag
-            pattern: $TAG
-            has: {kind: Name, pattern: $NAME}
-            any: [{matches: identified}, {kind: EmptyElemTag, not: {has: {kind: Attribute}}}, {precedes: {kind: content, not: {any: [{regex: '^[\t\n\r ]*$'}, {has: {kind: 'CDSect, PI'}}]}}}]
+              kind: STag, EmptyElemTag
+              pattern: $TAG
+              has: {kind: Name, pattern: $NAME}
+              any: [{matches: identified}, {kind: EmptyElemTag, not: {has: {kind: Attribute}}}, {precedes: {kind: content, not: {any: [{regex: '^[\t\n\r ]*$'}, {has: {kind: 'CDSect, PI'}}]}}}]
         - {kind: STag, pattern: $TAG, has: {kind: Name, pattern: $NAME}, matches: identified, inside: {kind: element, matches: owned, has: {kind: content, has: {kind: element}}}}
     not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
 rewriters:
@@ -571,23 +571,23 @@ rewriters:
     - id: entry
       rule: {kind: content, pattern: $SEGMENT}
       transform:
-        BARE: rewrite($SEGMENT, rewriters=[comment])
+          BARE: rewrite($SEGMENT, rewriters=[comment])
       fix: $BARE/
     - id: lineage
       rule:
-        kind: STag
-        inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $UP}}}}
-        any:
-            - inside: {kind: element, follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $ENTRY}}]}}
-            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEYED}}]}
-            - all: [{has: {kind: Name, pattern: $KIND}}, {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $LABEL}}]}}]
-            - kind: STag
+          kind: STag
+          inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $UP}}}}
+          any:
+              - inside: {kind: element, follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $ENTRY}}]}}
+              - has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEYED}}]}
+              - all: [{has: {kind: Name, pattern: $KIND}}, {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $LABEL}}]}}]
+              - kind: STag
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
-        ENTRY_PART: {rewrite: {source: $ENTRY, rewriters: [entry], joinBy: ''}}
-        KEYED_PART: replace($KEYED, replace='$', by='/')
-        KIND_PART: replace($KIND, replace='$', by=' ')
-        LABEL_PART: replace($LABEL, replace='$', by='/')
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ENTRY_PART: {rewrite: {source: $ENTRY, rewriters: [entry], joinBy: ''}}
+          KEYED_PART: replace($KEYED, replace='$', by='/')
+          KIND_PART: replace($KIND, replace='$', by=' ')
+          LABEL_PART: replace($LABEL, replace='$', by='/')
       fix: $ABOVE$ENTRY_PART$KEYED_PART$KIND_PART$LABEL_PART
 transform:
     ELIDED: rewrite($TAG, rewriters=[elide])

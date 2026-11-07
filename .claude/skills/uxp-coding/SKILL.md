@@ -133,7 +133,6 @@ Object model facts come from the owner that states them for the installed build:
 - InDesign `show`, `reveal in system`, and `reveal in Bridge`, Acrobat `bring to front`, and Premiere Pro `editoriginal` dictionary commands activate their host
 - Typings can predate the installed build and rename parameters a host names by reserved words, and renamed parameters call correctly by position
 - Rejected calls complete each model: host errors name a parameter with its expected type and range, and whether a member applies now
-- Probes run as undoable units, return failures as data, and leave no host dialog, test plugin, registry row, or test document behind
 - `OSACopyScriptingDefinitionFromURL` returns XML that can contain XInclude references
 
 ## [05]-[HOST_ERRORS]

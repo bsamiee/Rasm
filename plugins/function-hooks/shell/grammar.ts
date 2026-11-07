@@ -122,8 +122,8 @@ const grammarOf = Effect.fnUntraced(function* (program: string, row: Program, pr
         return dumpedGrammar((yield* Effect.mapError(Schema.decodeEffect(Dump)(stdout), HookError.of(program))).command);
     }
     const exported = (name: string) => host.run(['carapace', name, 'export'], { env: { CARAPACE_BUILTINS: 'bash', CARAPACE_SHELL: 'bash', CARAPACE_BRIDGES: '', XDG_CONFIG_HOME: host.path.join(host.root, '.config') } });
-    const own = yield* exported(program);
-    const { stdout } = String.isEmpty(String.trim(own.stdout)) ? yield* exported(primary) : own;
+    const own = yield* exported(row.completer ?? program);
+    const { stdout } = row.completer === undefined && program !== primary && String.isEmpty(String.trim(own.stdout)) ? yield* exported(primary) : own;
     const overlay = new Map([...(row.flags ?? []), ...[...(row.walks?.names ?? []), ...(row.code ?? [])].map((name) => `${name}=`)].flatMap(notated));
     return String.isEmpty(String.trim(stdout)) ? { ...NO_GRAMMAR, options: overlay } : exportedGrammar(yield* Effect.mapError(Schema.decodeEffect(Export)(stdout), HookError.of('carapace')), new Map(), overlay);
 });

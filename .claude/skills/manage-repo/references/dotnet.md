@@ -33,7 +33,7 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 - Plug-ins and projects holding `Windows/` sources take `platform:windows` and a `check` prerequisite `build:windows` compiling them for `win-x64`
 - `Directory.Build.props` gives a foreign runtime its own `ArtifactsPath`, its restore rewrites `project.assets.json` for that runtime
 - `dotnet build` walks its own references, serial per Nx task and uncached: a restored output's new timestamp recompiles every consumer
-- Copy-local files hard link into the package folder, a test app with native packages takes `UseCurrentRuntimeIdentifier` or every `runtimes/<rid>` folder copies
+- Copy-local files hard link into the package folder
 - A runtime identifier turns on copy-local, a library holding one sets `CopyLocalLockFileAssemblies` false
 - `~/.nuget/packages` stays machine-wide, `mise run clean` clears the NuGet HTTP cache
 - Solution restores read `RestoreUseStaticGraphEvaluation` from `Directory.Solution.props`, no project evaluates that file
@@ -56,7 +56,7 @@ Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/rosl
 - Semantic formatting targets schedule analyzer builds
 - Analyzer references undefine `RhinoPlugIn` and `ArtifactsPivots`, plug-in library copies share one analyzer build
 - Code fix providers and `Microsoft.CodeAnalysis.CSharp.Workspaces` stay in the code fix project, RS1038 rejects Workspaces beside analyzer types
-- Tests check a reviewed Verify snapshot of each rule's diagnostics and fixed source
+- Analyzer fixtures compile with NuGet assets selected by MSBuild for the project's target framework
 - Diagnostics fail builds through the `.config/analyzers.globalconfig` severity floor, a descriptor's default severity sets no exemption
 - Global config `none` skips running an analyzer, an `.editorconfig` `none` still runs it
 - Rules a package disables by default and source generator diagnostics (Mapperly `RMG`) escape the floor and take their own rows
@@ -80,4 +80,6 @@ Installed Rhino owns the host assembly set, its target framework, and how each U
 - A live toolbar draws an icon's `<dark>` element in dark mode, and `Rasm.Rui` writes each `_darkmode` resource there, `ToolbarFile.GetSvg` returning `<light>` for both modes
 - Rhino opens `<plug-in>.rui` in place beside the registered `.rhp`, an installed package's from its version folder
 - `yak build` adds a `guid:` keyword for Grasshopper 2 plug-ins alone, `BuildYakPackage` sets it on every `yak spec` manifest
+- Yak packages contain the SDK's current publish files and generated manifest, and replace the platform archive after a successful build
+- Rhino's bundled Compat checks the macOS plug-in entry assembly against installed host and published dependencies before Yak builds the archive
 - `MinVerIgnoreHeight` keeps a plug-in's version folder between release tags, so a reinstall keeps its registered path

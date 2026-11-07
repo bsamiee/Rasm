@@ -24,7 +24,7 @@ let modules: [Target] = [
     // --- [CORE]
     .target(name: "Encoding", path: "libs/swift/core/Encoding"),
     .target(name: "Results", path: "libs/swift/core/Results"),
-    .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/core/JSONRPC"),
+    .target(name: "JSONRPC", dependencies: ["Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")], path: "libs/swift/core/JSONRPC"),
     // --- [MACOS]
     .target(name: "CurrentProcess", dependencies: ["Results"], path: "libs/swift/macos/CurrentProcess"),
     .target(
@@ -82,79 +82,17 @@ let executables: [Target] = [
 let support: [Target] = [
     .target(
         name: "TestSupport",
-        dependencies: ["Processes", .product(name: "Subprocess", package: "swift-subprocess")],
+        dependencies: ["Applications", "Processes", "Results", .product(name: "Subprocess", package: "swift-subprocess")],
         path: "tests/swift/support",
+        exclude: ["appkit"],
     ),
     .executableTarget(
         name: "AppKitFixture",
         dependencies: ["CurrentProcess", "Processes", .product(name: "Subprocess", package: "swift-subprocess")],
-        path: "tests/swift/fixtures/appkit",
+        path: "tests/swift/support/appkit",
     ),
 ]
 let suites: [Target] = [
-    // --- [CORE]
-    .testTarget(
-        name: "EncodingTests",
-        dependencies: ["Encoding", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based")],
-        path: "tests/swift/libs/core/Encoding",
-    ),
-    .testTarget(
-        name: "ResultsTests",
-        dependencies: [
-            "Encoding", "Results", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
-            .product(name: "PropertyBased", package: "swift-property-based"),
-        ],
-        path: "tests/swift/libs/core/Results",
-    ),
-    // --- [MACOS]
-    .testTarget(
-        name: "FilesTests",
-        dependencies: [
-            "Files", "TestSupport", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
-            .product(name: "PropertyBased", package: "swift-property-based"),
-        ],
-        path: "tests/swift/libs/macos/Files",
-    ),
-    .testTarget(
-        name: "ProcessesTests",
-        dependencies: [
-            "Encoding", "Processes", "TestSupport", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
-            .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "Subprocess", package: "swift-subprocess"),
-        ],
-        path: "tests/swift/libs/macos/Processes",
-    ),
-    .testTarget(
-        name: "ApplicationsTests",
-        dependencies: [
-            "Applications", "Encoding", "Processes", "Results", "TestSupport", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
-            .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "Subprocess", package: "swift-subprocess"),
-        ],
-        path: "tests/swift/libs/macos/Applications",
-        exclude: ["Integration", "fixtures"],
-    ),
-    .testTarget(
-        name: "ApplicationsIntegrationTests",
-        dependencies: [
-            "AppKitFixture", "Applications", "Encoding", "Processes", "TestSupport", .product(name: "CasePaths", package: "swift-case-paths"),
-            .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
-            .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
-        ],
-        path: "tests/swift/libs/macos/Applications/Integration",
-    ),
-    .testTarget(
-        name: "ApplicationServerTests",
-        dependencies: ["AppleEvents", "ApplicationServer", "Applications", "Encoding", .product(name: "CustomDump", package: "swift-custom-dump")],
-        path: "tests/swift/libs/macos/ApplicationServer",
-        exclude: ["Integration"],
-    ),
-    .testTarget(
-        name: "ApplicationServerIntegrationTests",
-        dependencies: [
-            "AppKitFixture", "ApplicationServer", "Applications", "TestSupport", .product(name: "CasePaths", package: "swift-case-paths"),
-            .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
-        ],
-        path: "tests/swift/libs/macos/ApplicationServer/Integration",
-    ),
     // --- [TOOLS]
     .testTarget(
         name: "watch-appsTests",

@@ -6,6 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../../../eng/dotnet/rhino/Rasm.Rui/Rasm.Rui.csproj" ReferenceOutputAssembly="false" Private="false" OutputItemType="_RuiWriter" UndefineProperties="RuntimeIdentifier" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 </Project>

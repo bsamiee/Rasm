@@ -12,7 +12,6 @@
     <PropertyGroup Label="Project Classification">
         <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\', '/').ToLowerInvariant())/</_RepoRelativeDir>
         <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/libs/'))">library</ProjectRole>
-        <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/tests/'))">tests</ProjectRole>
         <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/tools/roslyn/'))">analyzers</ProjectRole>
         <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">true</RhinoHost>
     </PropertyGroup>
@@ -43,7 +42,6 @@
         <TargetFramework Condition="$([MSBuild]::ValueOrDefault('$(RuntimeIdentifier)', '$(NETCoreSdkPortableRuntimeIdentifier)').StartsWith('win'))">$(RepoTargetFramework)-windows</TargetFramework>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
-        <CopyLocalLockFileAssemblies Condition="'$(ProjectRole)' == 'library'">false</CopyLocalLockFileAssemblies>
         <PlatformTarget>AnyCPU</PlatformTarget>
         <RhinoEnableWindowsFormsTargeting>false</RhinoEnableWindowsFormsTargeting>
         <PublishDocumentationFiles>false</PublishDocumentationFiles>
@@ -61,16 +59,6 @@
     <ItemDefinitionGroup Label="Roslyn Components" Condition="'$(ProjectRole)' == 'analyzers'">
         <PackageReference ExcludeAssets="runtime" PrivateAssets="all" />
     </ItemDefinitionGroup>
-
-    <PropertyGroup Label="Package Settings">
-        <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
-        <Verify_SponsorshipExemptionUntil>2027-10</Verify_SponsorshipExemptionUntil>
-        <MapperlyEnumMappingStrategy>ByName</MapperlyEnumMappingStrategy>
-        <MapperlyAutoUserMappings>false</MapperlyAutoUserMappings>
-        <MapperlyRequiredMappingStrategy>Target</MapperlyRequiredMappingStrategy>
-        <MapperlyThrowOnPropertyMappingNullMismatch>true</MapperlyThrowOnPropertyMappingNullMismatch>
-        <MapperlyEnabledConversions>Queryable, Enumerable, Dictionary, Span, Memory, EnumToEnum</MapperlyEnabledConversions>
-    </PropertyGroup>
 
     <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>

@@ -1,14 +1,4 @@
 <Project>
-    <PropertyGroup Label="Test Platform" Condition="'$(IsTestingPlatformApplication)' == 'true'">
-        <IsTestProject>true</IsTestProject>
-        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-        <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --results-directory &quot;$(ArtifactsPath)/TestResults/$(MSBuildProjectName)&quot;</TestingPlatformCommandLineArguments>
-    </PropertyGroup>
-
-    <ItemGroup Label="Test Analyzers" Condition="'$(ProjectRole)' == 'tests'">
-        <PackageReference Include="xunit.analyzers" PrivateAssets="all" />
-    </ItemGroup>
-
     <ItemGroup Label="Global Usings" Condition="'$(ProjectRole)' != 'analyzers'">
         <Using Remove="System.Collections.Generic" />
         <Using Include="System.Collections.Frozen;System.Collections.Immutable" />
@@ -22,8 +12,6 @@
         <Using Include="NodaTime.Duration" Alias="Duration" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'NodaTime'))" />
         <Using Include="UnitsNet.Length" Alias="Length" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'UnitsNet'))" />
         <Using Include="Microsoft.Extensions.Logging" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Logging')) or @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Logging.Abstractions'))" />
-        <Using Include="Xunit" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'xunit.v3.mtp-v2')) or @(PackageReference->AnyHaveMetadataValue('Identity', 'xunit.v3.assert'))" />
-        <Using Include="CsCheck" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'CsCheck'))" />
         <Using Include="Grasshopper2.Types.Numeric" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'Grasshopper2'))" />
     </ItemGroup>
 
@@ -37,23 +25,11 @@
         <AdditionalFiles Include="$(MSBuildThisFileDirectory)tools/roslyn/BannedSymbols.Library.txt" Condition="'$(ProjectRole)' == 'library'" />
     </ItemGroup>
 
-    <ItemGroup Label="Analyzer References" Condition="'$(ProjectRole)' != 'analyzers'">
+    <ItemGroup Label="Analyzer References" Condition="'$(ProjectRole)' != 'analyzers' and ('$(RhinoPlugIn)' == '' or '$(RunAnalyzers)' != 'false')">
         <_RoslynComponent Include="$(MSBuildThisFileDirectory)tools/roslyn/*/*.csproj" />
-        <ProjectReference Include="@(_RoslynComponent)" Exclude="@(ProjectReference)" ReferenceOutputAssembly="false" PrivateAssets="all" />
+        <ProjectReference Include="@(_RoslynComponent)" Exclude="@(ProjectReference->'%(FullPath)')" ReferenceOutputAssembly="false" PrivateAssets="all" />
         <ProjectReference Update="@(_RoslynComponent)" OutputItemType="Analyzer" UndefineProperties="RhinoPlugIn;ArtifactsPivots" />
     </ItemGroup>
-
-    <ItemGroup Label="Publicized References">
-        <PackageReference Update="Krafs.Publicizer" PrivateAssets="all" ExcludeAssets="contentfiles" GeneratePathProperty="true" />
-    </ItemGroup>
-
-    <Target Name="AddAccessChecksAttribute" BeforeTargets="CoreCompile" Condition="'@(Publicize)' != ''">
-        <Copy SourceFiles="$(PkgKrafs_Publicizer)/contentfiles/cs/any/Publicizer/IgnoresAccessChecksToAttribute.cs" DestinationFiles="$(IntermediateOutputPath)IgnoresAccessChecksToAttribute.g.cs" SkipUnchangedFiles="true" />
-        <ItemGroup>
-            <Compile Include="$(IntermediateOutputPath)IgnoresAccessChecksToAttribute.g.cs" />
-            <FileWrites Include="$(IntermediateOutputPath)IgnoresAccessChecksToAttribute.g.cs" />
-        </ItemGroup>
-    </Target>
 
     <PropertyGroup Label="Fetched Files">
         <_FetchedStore>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.cache', 'fetched'))</_FetchedStore>
@@ -68,6 +44,10 @@
         <DownloadFile SourceUrl="%(FetchedResource.Identity)" DestinationFolder="$(IntermediateOutputPath)" DestinationFileName="%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
         <VerifyFileHash File="$(IntermediateOutputPath)%(FetchedResource.Sha256)" Hash="%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
         <Move SourceFiles="$(IntermediateOutputPath)%(FetchedResource.Sha256)" DestinationFiles="$(_FetchedStore)%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+    </Target>
+
+    <Target Name="RestoreNativeProjectGraph" AfterTargets="Restore" Condition="'@(ProjectReference)' != '' and '$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != '$(NETCoreSdkPortableRuntimeIdentifier)'">
+        <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Restore" RemoveProperties="RuntimeIdentifier" />
     </Target>
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
@@ -96,7 +76,7 @@
         <FileWrites Include="@(_ThemedIcon)" />
     </ItemGroup>
 
-    <Target Name="PaintIcons" BeforeTargets="CoreCompile" Condition="'@(_ThemedIcon)' != '' and '$(DesignTimeBuild)' != 'true'" Inputs="@(_ThemedIcon->'%(Master)');$(IconLightStylesheet);$(IconDarkStylesheet);$(MSBuildAllProjects)" Outputs="@(_ThemedIcon)">
+    <Target Name="PaintIcons" BeforeTargets="CoreCompile" Condition="'@(_ThemedIcon)' != '' and '$(DesignTimeBuild)' != 'true'" Inputs="%(_ThemedIcon.Master);%(_ThemedIcon.Stylesheet);$(MSBuildAllProjects)" Outputs="%(_ThemedIcon.FullPath)">
         <MakeDir Directories="$(_IconDir)" />
         <Exec Command="usvg --stylesheet &quot;%(_ThemedIcon.Stylesheet)&quot; &quot;%(_ThemedIcon.Master)&quot; &quot;%(_ThemedIcon.FullPath)&quot;" LogStandardErrorAsError="true" />
     </Target>
@@ -161,7 +141,6 @@
         <_PlugInIconPngFrame>256</_PlugInIconPngFrame>
         <_PlugInRui>$(IntermediateOutputPath)$(TargetName).rui</_PlugInRui>
         <_PlugInRuiReferences>$(IntermediateOutputPath)$(TargetName).rui.rsp</_PlugInRuiReferences>
-        <_PlugInRuiStamp>$(IntermediateOutputPath)$(TargetName).rui.stamp</_PlugInRuiStamp>
         <_YakPackageDir>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet', 'yak', '$(MSBuildProjectName)'))</_YakPackageDir>
         <_YakPlatform>mac</_YakPlatform>
         <_YakPlatform Condition="'$(TargetPlatformIdentifier)' == 'Windows'">win</_YakPlatform>
@@ -170,16 +149,17 @@
     <ItemGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
         <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute"><_Parameter1>$(PlugInId)</_Parameter1></AssemblyAttribute>
         <_RhinoLibraryReference Include="@(ProjectReference->WithMetadataValue('Filename', 'Rasm.Rhino'))" />
-        <ProjectReference Include="$(MSBuildThisFileDirectory)eng/dotnet/rhino/Rasm.Rui/Rasm.Rui.csproj" ReferenceOutputAssembly="false" Private="false" OutputItemType="_RuiWriter" UndefineProperties="RuntimeIdentifier" Condition="'@(_RhinoLibraryReference)' != ''" />
+        <_RuiSource Include="@(ProjectReference->WithMetadataValue('OutputItemType', '_RuiWriter'))" />
+        <None Include="$(_PlugInRui)" TargetPath="$(TargetName).rui" CopyToOutputDirectory="PreserveNewest" Condition="'@(_RuiSource)' != '' and '$(DesignTimeBuild)' != 'true'" />
         <PlugInDescription Include="Organization" Exclude="@(PlugInDescription)" Value="$(Authors)" />
         <PlugInDescription Include="WebSite" Exclude="@(PlugInDescription)" Value="$(PackageProjectUrl)" />
         <_GrasshopperPackage Include="@(PackageReference->WithMetadataValue('Identity', 'Grasshopper2'))" />
     </ItemGroup>
 
     <ItemGroup Label="Grasshopper 2 Plug-In" Condition="'@(_GrasshopperPackage)' != ''">
-        <None Update="Documentation/**;Docs/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+        <None Update="Documentation/**;Docs/**" CopyToOutputDirectory="PreserveNewest" />
         <_GrasshopperOnlyMarker Include="$(IntermediateOutputPath)$(TargetName)$(TargetExt).grasshopper-only" Condition="'$(GrasshopperOnly)' == 'true' or ('$(GrasshopperOnly)' == '' and '@(_RhinoLibraryReference)' == '')" />
-        <None Include="@(_GrasshopperOnlyMarker)" TargetPath="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+        <None Include="@(_GrasshopperOnlyMarker)" TargetPath="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
         <FileWrites Include="@(_GrasshopperOnlyMarker)" />
     </ItemGroup>
 
@@ -219,8 +199,7 @@
 
     <Target Name="AssignPlugInLibraryCopies" BeforeTargets="AssignProjectConfiguration" DependsOnTargets="IncludeTransitiveProjectReferences" Condition="'$(RhinoProduct)' == 'true' and '$(DesignTimeBuild)' != 'true'">
         <ItemGroup>
-            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(MSBuildProjectName)_$(ArtifactsPivots)" />
-            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(MSBuildProjectName)_$(Configuration.ToLowerInvariant())" Condition="'%(OutputItemType)' == '_RuiWriter'" />
+            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(MSBuildProjectName)_$(Configuration.ToLowerInvariant())" />
         </ItemGroup>
     </Target>
 
@@ -257,36 +236,77 @@
         </ItemGroup>
     </Target>
 
-    <Target Name="BuildPlugInRui" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp' and '@(_RhinoLibraryReference)' != ''" Inputs="@(IntermediateAssembly);@(ReferenceCopyLocalPaths);@(_RuiWriter)" Outputs="$(_PlugInRuiStamp)">
+    <Target Name="BuildPlugInRui" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '@(_RuiSource)' != ''" Inputs="@(IntermediateAssembly);@(ReferenceCopyLocalPaths);@(ReferencePath);@(_RuiWriter);$(MSBuildAllProjects)" Outputs="$(_PlugInRui)">
         <WriteLinesToFile File="$(_PlugInRuiReferences)" Lines="@(ReferenceCopyLocalPaths->WithMetadataValue('Extension', '.dll')->'%(FullPath)');@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
         <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;@(_RuiWriter->'%(FullPath)')&quot; &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;$(_PlugInRui)&quot; &quot;@$(_PlugInRuiReferences)&quot;" StandardOutputImportance="low" LogStandardErrorAsError="true" />
-        <Touch Files="$(_PlugInRuiStamp)" AlwaysCreate="true" />
+        <Error Condition="!Exists('$(_PlugInRui)')" Text="$(MSBuildProjectName) did not produce its declared toolbar $(_PlugInRui)." />
         <ItemGroup>
-            <FileWrites Include="$(_PlugInRui);$(_PlugInRuiReferences);$(_PlugInRuiStamp)" />
+            <FileWrites Include="$(_PlugInRui);$(_PlugInRuiReferences)" />
         </ItemGroup>
     </Target>
 
-    <Target Name="ListPlugInRui" BeforeTargets="GetCopyToOutputDirectoryItems;GetCopyToPublishDirectoryItems" Condition="'$(TargetExt)' == '.rhp' and '@(_RhinoLibraryReference)' != '' and Exists('$(_PlugInRui)')">
-        <ItemGroup>
-            <ContentWithTargetPath Include="$(_PlugInRui)" TargetPath="$(TargetName).rui" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
-        </ItemGroup>
-    </Target>
-
-    <Target Name="BuildYakPackage" AfterTargets="Publish" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
-        <ItemGroup>
-            <_YakOutput Include="$(PublishDir)*.yak;$(PublishDir)manifest.yml;$(_YakPackageDir)*-$(_YakPlatform).yak" />
-        </ItemGroup>
-        <Delete Files="@(_YakOutput)" />
-        <Exec Command="&quot;$(_YakExecutable)&quot; spec --input &quot;$(TargetFileName)&quot;" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" LogStandardErrorAsError="true" />
+    <Target Name="PrepareYakPackage" AfterTargets="Publish" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
         <PropertyGroup>
+            <_YakPublishDir>$([MSBuild]::NormalizeDirectory('$(PublishDir)'))</_YakPublishDir>
+            <_YakArtifactsPublishDir>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', '$(ArtifactsPublishOutputName)', '$(ArtifactsProjectName)', '$(ArtifactsPivots)'))</_YakArtifactsPublishDir>
+            <_YakManifest>$(_YakPublishDir)manifest.yml</_YakManifest>
+            <_YakReceipt>$(IntermediateOutputPath)yak.txt</_YakReceipt>
             <_YakIcon Condition="Exists('$(PlugInIcon)')">$(_PlugInPackageIcon)</_YakIcon>
+            <_YakDotnet Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(RhinoResourcesDir)dotnet/$(NETCoreSdkPortableRuntimeIdentifier.Split('-')[1])/dotnet</_YakDotnet>
         </PropertyGroup>
+        <ItemGroup>
+            <_YakPublished Include="@(ResolvedFileToPublish->'$(_YakPublishDir)%(RelativePath)')" />
+            <_YakStaged Include="$(_YakPublishDir)*.yak" />
+            <_YakExtra Include="$(_YakPublishDir)**/*" Exclude="@(_YakPublished);$(_YakManifest);@(_YakStaged)" />
+            <_YakPrevious Include="$(_YakPackageDir)*-$(_YakPlatform).yak" />
+        </ItemGroup>
+        <Error Condition="'@(_YakPublished)' == ''" Text="No publish files for $(MSBuildProjectName). Run dotnet publish to build the Yak archive." />
+        <Error Condition="'$(_YakPublishDir)' != '$(_YakArtifactsPublishDir)' and '@(_YakExtra)' != ''" Text="Publish directory $(_YakPublishDir) contains files outside the current build: @(_YakExtra). Publish to an empty directory." />
+        <Delete Files="@(_YakStaged);@(_YakExtra)" />
+        <ItemGroup>
+            <_CompatReference Include="@(_RhinoSupplied->'%(HostFile)');@(_RhinoMacAssembly->'$(RhinoResourcesDir)%(Identity).dll');@(_YakPublished->WithMetadataValue('Extension', '.dll'))" Condition="'$(_YakPlatform)' == 'mac' and '$(_YakDotnet)' != ''" />
+            <_YakInput Include="@(_YakPublished);$(MSBuildThisFileFullPath);$(_YakExecutable);$(RhinoResourcesDir)dotnetstart.*.deps.json;$(RhinoResourcesDir)dotnetstart.*.runtimeconfig.json" />
+            <_YakInput Include="$(RhinoInstallPath)/Contents/Info.plist;$(RhinoResourcesDir)yak.dll;$(RhinoResourcesDir)yak.*.json;$(_YakDotnet)" Condition="'$(_YakDotnet)' != ''" />
+            <_YakInput Include="$(RhinoResourcesDir)Compat.dll;$(RhinoResourcesDir)Compat.*.json;@(_CompatReference)" Condition="'@(_CompatReference)' != ''" />
+        </ItemGroup>
+        <GetFileHash Files="@(_YakInput->DistinctWithCase())">
+            <Output TaskParameter="Items" ItemName="_YakInputHash" />
+        </GetFileHash>
+        <Exec Command="yq --version" ConsoleToMSBuild="true" StandardOutputImportance="low">
+            <Output TaskParameter="ConsoleOutput" ItemName="_YakYqVersion" />
+        </Exec>
+        <Hash ItemsToHash="$(_YakPlatform);$(PlugInId);$(PackageTags);$(_YakIcon);@(_YakYqVersion);@(_YakInputHash->'%(FullPath)=%(FileHash)')">
+            <Output TaskParameter="HashResult" PropertyName="_YakInputDigest" />
+        </Hash>
+        <ReadLinesFromFile File="$(_YakReceipt)" Condition="Exists('$(_YakReceipt)')">
+            <Output TaskParameter="Lines" ItemName="_YakRecorded" />
+        </ReadLinesFromFile>
+        <GetFileHash Files="@(_YakPrevious);$(_YakManifest)" Condition="'@(_YakRecorded)' != '' and '@(_YakPrevious->Count())' == '1' and Exists('$(_YakManifest)')">
+            <Output TaskParameter="Items" ItemName="_YakExistingHash" />
+        </GetFileHash>
+        <PropertyGroup>
+            <_YakUnchanged Condition="'@(_YakExistingHash->Count())' == '2' and '@(_YakRecorded)' == '$(_YakInputDigest);@(_YakExistingHash->'%(FullPath)=%(FileHash)')'">true</_YakUnchanged>
+        </PropertyGroup>
+    </Target>
+
+    <Target Name="BuildYakPackage" AfterTargets="PrepareYakPackage" Condition="'$(_YakInputDigest)' != '' and '$(_YakUnchanged)' != 'true'">
+        <Delete Files="$(_YakManifest)" />
+        <Exec Command="&quot;$(_YakDotnet)&quot; &quot;$(RhinoResourcesDir)Compat.dll&quot; -q --check-net10 --check-system-assemblies &quot;$(_YakPublishDir)$(TargetFileName)&quot; @(_CompatReference->'&quot;%(FullPath)&quot;', ' ')" Condition="'@(_CompatReference)' != ''" StandardOutputImportance="low" CustomErrorRegularExpression="^\s*✗ FAIL " EchoOff="true" />
+        <Exec Command="&quot;$(_YakExecutable)&quot; spec --input &quot;$(TargetFileName)&quot;" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" LogStandardErrorAsError="true" />
         <Exec Command="yq -i &quot;with(select(strenv(ICON) != \&quot;\&quot;); .icon = strenv(ICON)) | .keywords += ((strenv(TAGS) | split(\&quot;,\&quot;) | map(select(. != \&quot;\&quot;))) + [\&quot;guid:\&quot; + strenv(PLUGIN)])&quot; manifest.yml" EnvironmentVariables="ICON=$(_YakIcon);TAGS=$(PackageTags.Replace(';', ','));PLUGIN=$(PlugInId)" WorkingDirectory="$(PublishDir)" />
         <Exec Command="&quot;$(_YakExecutable)&quot; build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" LogStandardErrorAsError="true" />
         <ItemGroup>
-            <_YakBuilt Include="$(PublishDir)*.yak" />
+            <_YakBuilt Include="$(_YakPublishDir)*-$(_YakPlatform).yak" />
+            <_YakArchive Include="@(_YakBuilt->'$(_YakPackageDir)%(Filename)%(Extension)')" />
+            <_YakPrevious Remove="@(_YakArchive)" />
         </ItemGroup>
-        <Move SourceFiles="@(_YakBuilt)" DestinationFolder="$(_YakPackageDir)" />
+        <Error Condition="'@(_YakBuilt->Count())' != '1'" Text="Expected one $(_YakPlatform) Yak archive for $(MSBuildProjectName), found @(_YakBuilt->Count())." />
+        <Move SourceFiles="@(_YakBuilt)" DestinationFiles="@(_YakArchive)" />
+        <Delete Files="@(_YakPrevious)" />
+        <GetFileHash Files="@(_YakArchive);$(_YakManifest)">
+            <Output TaskParameter="Items" ItemName="_YakBuiltHash" />
+        </GetFileHash>
+        <WriteLinesToFile File="$(_YakReceipt)" Lines="$(_YakInputDigest);@(_YakBuiltHash->'%(FullPath)=%(FileHash)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
     </Target>
 
     <Target Name="InstallYakPackage" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">

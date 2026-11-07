@@ -1,6 +1,6 @@
 # [TYPESCRIPT]
 
-pnpm resolves versions through workspace catalog, `effect-tsgo tsc` checks projects, Biome lints and formats files.
+pnpm resolves catalog versions, the Effect compiler checks projects, and Biome lints and formats files.
 
 ## [01]-[CATALOG]
 
@@ -15,12 +15,12 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc` checks proje
 - `skills.dirs: []` disables agent skill links, pnpm offers no package skill for approval and removes links it created
 - `CI` set makes `pnpm install` frozen, a lock out of step with a `package.json` fails the install in place of a lock rewrite
 - `ncu --target newest` takes the latest publish, prereleases included, `greatest` takes abandoned prerelease lines with a higher number
-- `ncu --reject` names rows `ncu` cannot pick, `eng/typescript/upgrade/typescript/main.ts` moves them
+- `ncu --reject` leaves compiler versions for `eng/typescript/upgrade/typescript.ts` to resolve
 - `pnpm install` keeps orphans for `modulesCacheMaxAge`, `pnpm update` and `pnpm prune` remove them, then `playwright install` deletes unused browsers
 
 ## [02]-[COMPILER]
 
-- Native compiler runs as `effect-tsgo tsc`, editor SDK links to executable directory from `@effect/tsgo/lib/getExePath`
+- Nx and the editor use the compiler in `.cache/typescript`, which pnpm links to the SDK selected by `@effect/tsgo/lib/getExePath`
 - `nx run <project>:typecheck:tsc` checks one project incrementally into `.cache/tsc/<project>` and hashes its `extends` chain and ignored `typeRoots` declarations
 - Project `tsconfig.json` extends `tsconfig.base.json`, `tsconfig.web.json` for a web host, or host platform library `tsconfig.json` stating host `lib` and `types`
 - Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
@@ -45,11 +45,8 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc` checks proje
 
 - Node strips types from `.ts` files with no loader (`process.features.typescript` reads `strip`), `erasableSyntaxOnly` keeps every file strippable
 - Targets running a file name `node <file>.ts` with `cwd` at the project
-- Shared Vite and Vitest factories take the project directory through `import.meta.dirname`
-- Suites writing files another target reads join their path to `inject('artifacts')`, the `.artifacts/typescript/vitest/<project path>` folder `test` outputs
-- `@rasm/test-support/vitest` declares the `ProvidedContext` root `vitest.config.ts` provides, every test program and the root program list it in `types`
-- Suites importing `testcontainers` run in `test:integration`, `test` excludes them
-- Packages depending on `@effect/sql-pg` take `lint:squawk` over the SQL their suites write
+- Shared Vite factories take the project directory through `import.meta.dirname`
+- `test:integration` selects `*.integration.test.ts` and `*.integration.test.tsx`, and `test` excludes them
 - Bundle configs take `main.ts` beside them as entry
 - Claude Code plugins with a `hooks/hooks.json` listing `modules` take tag `host:claude`
 
@@ -57,9 +54,10 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc` checks proje
 
 [VITE]:
 - Browser projects run in current browsers alone, `cloudflareWorker` builds at `esnext` over Vite's `baseline-widely-available` default with `strictExecutionOrder`, chunks of a `lazyBarrel` client build otherwise run out of source order
-- Root `vite.shared.ts` `react` holds React Compiler options for apps, Vitest projects, and Storybook, `hostedLayout` the Node output, Worker state, and ephemeral mode each `cloudflareWorker` app spreads from its directory
-- App `vite.config.ts` is its one Vite config, Storybook finds it by default lookup and `vitestProject` from root `vitest.config.ts` merges it through `loadConfigFromFile`
+- Root `vite.shared.ts` `react` holds React Compiler options for apps and Storybook, `hostedLayout` the Node output, Worker state, and ephemeral mode each `cloudflareWorker` app spreads from its directory
+- Run `pnpm exec vite` from the app directory for the development server
 - Web builds keep project-local `dist`, where `sites()` copies `.openai/hosting.json` with no relocation setting
+- From the app directory, `ANALYZE=true pnpm exec vite build --configLoader native` writes the build and Rolldown reports under `node_modules/.rolldown/report`
 - Sync generator `hosting-bindings` in `tools/nx` writes `.openai/hosting.json` `d1` and `r2` members from `cloudflare.config.ts`
 - Vite caches stay in each project's `node_modules/.vite`, `isInNodeModules(importer)` warns on dynamic imports of a dependency optimized elsewhere
 - `@nx/vite` stays out, it infers `serve-static`, a deprecated `serve`, and a `typecheck` beside `typecheck:tsc`
@@ -68,19 +66,20 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc` checks proje
 - `cloudflare.config.ts` declares an app's Worker with `entrypoint` at its product module, or a library suite's test Worker with bindings alone
 - Worker declarations take `compatibilityDate` from `@rasm/hosting/cloudflare`, whose `hostedWorker` passes every `WorkerConfig` member through over the assets, owner, and access bindings and the `hostingMode` values, a `disposable` Worker holding no domain or fetch route
 - Cloudflare plugin hooks (`config`, `configResolved`, `configureServer`) take app type, output, and requests in every Vite server
-- `@rasm/hosting/vite` `cloudflareWorker({ plugins, hosts, head, nodeEntry, nodeOutDir, state })` drops every hosting plugin under Vitest's mode `test` and the `STORYBOOK` variable Storybook sets, its fixed mode stating no host
+- `@rasm/hosting/vite` `cloudflareWorker({ plugins, hosts, head, nodeEntry, nodeOutDir, state })` drops every hosting plugin when Storybook sets `STORYBOOK`
 - Cloudflare plugin keeps state at `hostedLayout` `state.path`, `.cache/cloudflare/<project path>`, its `state.ephemeralMode`, Playwright's `e2e`, keeping bindings in memory
 - Build Output stays in `.cloudflare/output` the specification fixes, `.cloudflare/types` stays where `cf workers types` takes no path setting
 - Target `types` writes `Cloudflare.Env` and runtime types for the compatibility date to ignored `.cloudflare/types`, `typecheck:tsc` depends on it
-- Project `tsconfig.json` `types` names `./.cloudflare/types` in place of `@cloudflare/workers-types`
+- Worker projects include their generated `.cloudflare/types/index.d.ts` declarations.
 
 [STORYBOOK]:
+- Run `pnpm exec storybook dev --ci` from the project directory to serve stories without opening a browser
 - `.storybook/main.ts` spreads `@rasm/test-support/main` `framework` and resolved `addons` beside its `stories`, a preset supplies no `framework`
 - `.storybook/preview` passes `@rasm/test-support/preview` `addons` to `definePreview`, Storybook reads `addons` and literal `tags` from its source
 - Library `viteFinal` adds `react()`, Storybook finds no `vite.config.ts` in a library
 - `@storybook/react-vite` importers declare `typescript` from `docgen` catalog for the compiler API
 - Storybook caches stay under each project's `node_modules/.cache/storybook`, a `CACHE_DIR` row merges every project's cache into one directory
-- `@nx/storybook` stays out, its `storybook` peer range ends below 11 and its `test-storybook` repeats `test`
+- `@nx/storybook` stays out, its `storybook` peer range ends below 11
 
 ## [05]-[BIOME]
 

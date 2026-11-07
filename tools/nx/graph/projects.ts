@@ -1,29 +1,35 @@
 import { createRequire, isBuiltin } from 'node:module';
+import { matchesGlob } from 'node:path';
 import type { CreateNodesResult, Optional, ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { interpolate } from '@nx/devkit/internal';
-import { Array, Boolean, Effect, Equal, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Effect, Equal, Filter, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parseSync } from 'rolldown/utils';
-import { quote } from 'shell-quote';
-import { ClaudeHooks, decodeFile, XcodeProject } from '#/eng/typescript/manifest';
+import { ClaudeHooks, decodeFile, suitePath, VITEST_INTEGRATION_TESTS, XcodeProject } from '#/eng/typescript/manifest';
 import { TextFormat } from '#/eng/typescript/text-format';
-import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, type Workspace, WorkspaceError } from '#/tools/nx/workspace';
+import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, suiteParents, type Workspace, WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Inference = Workspace & { readonly configFiles: readonly string[]; readonly dotnetRoots: readonly string[] };
+type Inference = Workspace & { readonly configFiles: ReadonlySet<string>; readonly windowsProjects: ReadonlySet<string> };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TESTS = 'tests';
 const MODULES = 'node_modules';
-const CONTAINERS = /^(?:testcontainers|@testcontainers\/.+)$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const BlenderManifest = TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ id: Schema.String })));
-const MSBuildProject = TextFormat('MSBuild XML', (text) => new XMLParser({ isArray: (name) => name === 'PropertyGroup' }).parse(text)).pipe(
-    Schema.decodeTo(Schema.Struct({ Project: Schema.Struct({ PropertyGroup: Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }) })),
+const MSBuildProject = TextFormat('MSBuild XML', (text) => new XMLParser({ ignoreAttributes: false, isArray: (name) => name === 'PropertyGroup' || name === 'ItemGroup' || name === 'PackageReference' }).parse(text)).pipe(
+    Schema.decodeTo(
+        Schema.Struct({
+            Project: Schema.Struct({
+                PropertyGroup: Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String), PlugInIcon: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+                ItemGroup: Schema.Array(Schema.Struct({ PackageReference: Schema.optionalKey(Schema.Array(Schema.Struct({ '@_Include': Schema.optionalKey(Schema.String) }))) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+            }),
+        }),
+    ),
 );
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -39,23 +45,28 @@ const moduleRequests = Effect.fnUntraced(function* (workspaceRoot: string, file:
     const reexported = staticExports.flatMap(Struct.get('entries')).map(({ moduleRequest }) => Option.fromNullishOr(moduleRequest));
     return Array.dedupe([...staticImports.map(Struct.get('moduleRequest')), ...Array.getSomes(reexported)].map(Struct.get('value')));
 });
-const imports = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
-    const [path, requests] = yield* Effect.all([Path.Path, moduleRequests(workspaceRoot, file)]);
-    const { resolve } = createRequire(path.join(workspaceRoot, file));
-    const located = (request: string) => path.relative(workspaceRoot, resolve(request));
-    const source = (request: string) => Option.filter(Option.liftThrowable(located)(request), (held) => !held.split(path.sep).includes(MODULES));
-    const [files, specifiers] = Array.partition(requests.filter(Predicate.not(isBuiltin)), (request) => (request.startsWith('.') || request.startsWith('#') ? Result.succeed(located(request)) : Result.fromOption(source(request), () => request)));
-    return { files, specifiers };
-});
-const reach = (workspaceRoot: string, frontier: readonly string[], graph: Readonly<Record<string, Effect.Success<ReturnType<typeof imports>>>>): Effect.Effect<Readonly<Record<string, Effect.Success<ReturnType<typeof imports>>>>, Effect.Error<ReturnType<typeof imports>>, Effect.Services<ReturnType<typeof imports>>> =>
-    Array.match(Array.dedupe(frontier.filter((file) => !Record.has(graph, file))), {
-        onEmpty: () => Effect.succeed(graph),
-        onNonEmpty: (pending) =>
-            Effect.flatMap(
-                Effect.forEach(pending, (file) => imports(workspaceRoot, file), { concurrency: 'unbounded' }),
-                (found) => reach(workspaceRoot, found.flatMap(Struct.get('files')), { ...graph, ...Object.fromEntries(Array.zip(pending, found)) }),
-            ),
+const imports = (workspaceRoot: string) =>
+    Effect.fnUntraced(function* (file: string) {
+        const [path, requests] = yield* Effect.all([Path.Path, moduleRequests(workspaceRoot, file)]);
+        const { resolve } = createRequire(path.join(workspaceRoot, file));
+        const located = (request: string) => path.relative(workspaceRoot, resolve(request));
+        const source = (request: string) => Option.filter(Option.liftThrowable(located)(request), (held) => !held.split(path.sep).includes(MODULES));
+        const [files, specifiers] = Array.partition(requests.filter(Predicate.not(isBuiltin)), (request) => (request.startsWith('.') || request.startsWith('#') ? Result.succeed(located(request)) : Result.fromOption(source(request), () => request)));
+        return { files, specifiers };
     });
+const reach = Effect.fnUntraced(function* (read: ReturnType<typeof imports>, frontier: readonly string[], known: Readonly<Record<string, Effect.Success<ReturnType<typeof read>>>> = {}) {
+    const graph = new Map(Object.entries(known));
+    let pending = Array.dedupe(frontier.filter((file) => !graph.has(file)));
+    yield* Effect.whileLoop({
+        while: () => pending.length > 0,
+        body: () => Effect.forEach(pending, read, { concurrency: 'unbounded' }),
+        step: (found) => {
+            for (const [file, imports] of Array.zip(pending, found)) graph.set(file, imports);
+            pending = Array.dedupe(found.flatMap(Struct.get('files')).filter((file) => !graph.has(file)));
+        },
+    });
+    return Object.fromEntries(graph);
+});
 const owning = Effect.fnUntraced(function* ({ packages }: Workspace, dir: string) {
     const [path, manifests] = yield* Effect.all([Path.Path, packages]);
     const lineage = Array.unfold(dir, (at) => (at === path.dirname(at) ? Option.none() : Option.some([at, path.dirname(at)] as const)));
@@ -65,20 +76,23 @@ const owning = Effect.fnUntraced(function* ({ packages }: Workspace, dir: string
 
 // --- [INPUTS]
 const folderInput = (folder: string) => `{workspaceRoot}/${folder}/**/*`;
-const suitePath = (path: Path.Path, base: string, dir: string) => path.join(base, ...dir.split(path.sep).filter((segment) => segment !== path.basename(base)));
-const suiteInput = (...suites: readonly string[]) => ({ namedInputs: { default: ['{projectRoot}/**/*', ...suites.map(folderInput)] } });
-const suiteInputs = Effect.fnUntraced(function* (language: string, dir: string, workspaceRoot: string) {
-    const path = yield* Path.Path;
-    const suite = suitePath(path, path.join(TESTS, language), dir);
-    return Array.match(yield* glob(workspaceRoot, [`${suite}/**/*`]), { onEmpty: () => ({}), onNonEmpty: () => suiteInput(suite) });
-});
-const containerTests = Effect.fnUntraced(function* (dir: string, workspaceRoot: string) {
-    const path = yield* Path.Path;
-    const suite = suitePath(path, path.join(TESTS, 'typescript'), dir);
-    const tests = yield* Effect.filter(yield* glob(workspaceRoot, [`${suite}/**/*.test.{ts,tsx}`]), (test) => Effect.map(moduleRequests(workspaceRoot, test), Array.some(CONTAINERS.test.bind(CONTAINERS))), { concurrency: 'unbounded' });
-    return tests.map((test) => path.relative(suite, test));
-});
+const defaultInputs = (files: readonly string[]) => (files.length === 0 ? {} : { namedInputs: { default: ['{projectRoot}/**/*', ...files] } });
+const externalInputs = (path: Path.Path, root: string, files: readonly (string | undefined)[]) =>
+    defaultInputs(
+        Array.dedupe(
+            files
+                .filter(Predicate.isString)
+                .map(path.normalize)
+                .filter((file) => file.startsWith('../'))
+                .map((file) => `{workspaceRoot}/${path.join(root, file)}`),
+        ),
+    );
 const rootTargets = (targets: Readonly<Record<string, TargetConfiguration>>): CreateNodesResult => ({ projects: { '.': { root: '.', targets } } });
+const pytest = (args: readonly string[], coverage?: string): TargetConfiguration => ({
+    command: 'pytest --report-log=.artifacts/python/test/{projectName}/events.jsonl',
+    options: { args, ...(coverage === undefined ? {} : { env: { COVERAGE_FILE: coverage } }) },
+    outputs: ['{workspaceRoot}/.artifacts/python/test/{projectName}', ...(coverage === undefined ? [] : [`{workspaceRoot}/${coverage}`])],
+});
 
 // --- [PROJECTS]
 const tagPrefix = Effect.fnUntraced(function* ({ release }: Workspace, tags: readonly string[], name: string | undefined) {
@@ -86,25 +100,21 @@ const tagPrefix = Effect.fnUntraced(function* ({ release }: Workspace, tags: rea
     const selectors = new Set(tags.map((tag) => `tag:${tag}`));
     return Option.map(Option.all([Option.fromUndefinedOr(name), Record.findFirst(groups, ({ projects }) => !selectors.isDisjointFrom(new Set(projects)))]), ([projectName, [releaseGroupName]]) => interpolate(releaseTag.pattern, { projectName, releaseGroupName }).replace('{version}', ''));
 });
-const pythonTargets = Effect.fnUntraced(function* (dir: string, { workspaceRoot, pyproject, hosts }: Workspace) {
-    const [path, { pythonFiles, testPaths, dataFile, members }, folders] = yield* Effect.all([Path.Path, pyproject, hosts]);
+const pythonTargets = Effect.fnUntraced(function* (dir: string, { workspaceRoot, pyproject, hosts, configFiles }: Inference) {
+    const [path, { pythonFiles, testPaths, dataFile }, folders] = yield* Effect.all([Path.Path, pyproject, hosts]);
     const suites = yield* Effect.filter(
         testPaths.map((testPath) => suitePath(path, testPath, dir)),
         (suite) => Effect.map(glob(workspaceRoot, [`${suite}/**/{${pythonFiles.join(',')}}`]), Array.isArrayNonEmpty),
     );
     const segments = dir.split(path.sep);
     const coverage = `${dataFile}.{projectName}`;
-    const command =
-        segments.includes('blender') && Array.isArrayNonEmpty(suites)
-            ? `python -m eng.python.blender run {projectName} --package ${quote([yield* Effect.fromOption(Record.get(members, Array.headNonEmpty(suites)), () => WorkspaceError.missing(Array.headNonEmpty(suites), 'workspace package'))])} --groups test -- --python-exit-code 1 --python ${quote([path.join(workspaceRoot, 'tests/python/libs/blender/bpy/background/session.py')])} -- -n0`
-            : 'pytest';
-    const pytest = folders.some((host) => segments.includes(host)) ? { options: { args: suites }, outputs: [] } : { options: { args: [...suites, '--cov'], env: { COVERAGE_FILE: coverage } }, outputs: [`{workspaceRoot}/${coverage}`] };
-    const parents = Array.dedupe(suites.flatMap((suite) => Array.unfold(path.dirname(suite), (parent) => (parent === '.' ? Option.none() : Option.some([parent, path.dirname(parent)])))));
+    const test = configFiles.has(path.join(dir, 'py.typed')) && !folders.some((host) => segments.includes(host)) ? pytest([...suites, '--cov'], coverage) : pytest(suites);
+    const parents = suiteParents(path, suites);
     return Array.match(suites, {
         onEmpty: () => ({ targets: {} }),
         onNonEmpty: (held) => ({
-            namedInputs: { default: [...suiteInput(...held).namedInputs.default, '{workspaceRoot}/conftest.py', ...parents.map((parent) => `{workspaceRoot}/${path.join(parent, '*.py')}`)] },
-            targets: { check: {}, test: { command, ...pytest } },
+            ...defaultInputs([...held.map(folderInput), '{workspaceRoot}/conftest.py', ...parents.map((parent) => `{workspaceRoot}/${path.join(parent, '*.py')}`)]),
+            targets: { test },
         }),
     });
 });
@@ -115,38 +125,48 @@ const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
 });
 const binlog = (workspaceRoot: string, target: string) => `-bl:${workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/${target.replaceAll(':', '-')}.binlog`;
 const logged = (workspaceRoot: string, target: string) => ({ env: { MSBUILD_LOGGING_ARGS: binlog(workspaceRoot, target) } });
-const markers = {
+const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | ((file: Path.Path.Parsed, workspace: Inference & { readonly file: string }) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, Error, PluginServices>)>> = {
     '*.csproj': Effect.fnUntraced(function* ({ dir, name }, workspace) {
-        const { file, workspaceRoot } = workspace;
-        const [{ Project }, sources] = yield* Effect.all([decodeFile(MSBuildProject, workspaceRoot, file), Effect.map(glob(workspaceRoot, [`${dir}/**/Windows/**/*.cs`]), Array.isArrayNonEmpty)]);
+        const { file, workspaceRoot, windowsProjects } = workspace;
+        const [path, { Project }] = yield* Effect.all([Path.Path, decodeFile(MSBuildProject, workspaceRoot, file)]);
         const plugin = Project.PropertyGroup.some(({ TargetExt }) => TargetExt === '.rhp');
         const skin = Project.PropertyGroup.some(({ TargetExt }) => TargetExt === '.rhs');
         const product = plugin || skin;
-        const windows = product || sources;
-        const tags = ['language:dotnet', ...(plugin ? ['output:rhp'] : []), ...(windows ? ['platform:windows'] : [])];
+        const windows = product || windowsProjects.has(dir);
+        const licensed = Project.ItemGroup.flatMap(({ PackageReference = [] }) => PackageReference).some((reference) => reference['@_Include'] === 'SixLabors.ImageSharp');
+        const tags = ['language:dotnet', ...(plugin ? ['output:rhp'] : []), ...(windows ? ['platform:windows'] : []), ...(licensed ? ['license:imagesharp'] : [])];
         const runtime = ['--runtime', 'win-x64'];
         const logs = Record.fromIterableWith((target: string) => [target, { options: logged(workspaceRoot, target) }]);
         const windowsPack = { 'pack:windows': { options: { args: runtime, ...logged(workspaceRoot, 'pack:windows') } } };
+        const configurations = {
+            debug: { args: ['--no-restore', '--configuration', 'Debug'] },
+            release: { args: ['--no-restore', '--configuration', 'Release'] },
+        };
+        const build = product
+            ? Record.map({ build: ['--no-restore'], 'build:release': configurations.release.args }, (args, target) => ({ dependsOn: [], options: { args, ...logged(workspaceRoot, target) }, configurations, parallelism: false }))
+            : logs(['build', 'build:release']);
         const packaged = {
             ...(product ? windowsPack : {}),
             ...(plugin ? logs(['pack', 'install', 'publish']) : {}),
             ...(skin ? { install: { command: 'dotnet msbuild -target:InstallRhinoSkin -property:Configuration=Release', options: { cwd: '{projectRoot}', ...logged(workspaceRoot, 'install') }, dependsOn: ['pack:windows'] } } : {}),
         };
         return {
+            ...externalInputs(
+                path,
+                dir,
+                Project.PropertyGroup.map(({ PlugInIcon }) => PlugInIcon),
+            ),
             ...(product ? { name } : {}),
             tags,
             targets: {
-                ...logs(['build']),
+                ...build,
                 ...packaged,
-                'build:release': { options: logged(workspaceRoot, 'build:release'), defaultConfiguration: 'release' },
-                ...(windows ? { 'build:windows': { options: { cwd: '{projectRoot}', args: [...runtime, ...(product ? ['--configuration', 'Release'] : [])], ...logged(workspaceRoot, 'build:windows') } } } : {}),
-                check: {},
+                ...(windows ? { 'build:windows': { options: { cwd: '{projectRoot}', args: [...runtime, ...(product ? ['--configuration', 'Release'] : [])], ...logged(workspaceRoot, 'build:windows') }, parallelism: false } } : {}),
+                ...(dir.split(path.sep, 1)[0] === TESTS ? {} : { check: {} }),
             },
         };
     }),
-    '*.cs': Effect.fnUntraced(function* ({ dir, base, ext }, { file, workspaceRoot, dotnetRoots }) {
-        const path = yield* Path.Path;
-        yield* Effect.filterOrFail(Effect.succeed(dotnetRoots.some((project) => !path.relative(project, dir).startsWith('..'))), Boolean.not);
+    '*.cs': Effect.fnUntraced(function* ({ dir, base, ext }, { file, workspaceRoot }) {
         yield* Effect.filterOrFail(decodeFile(Schema.String, workspaceRoot, file), (text) => text.startsWith('#!'));
         return {
             name: dir,
@@ -174,12 +194,14 @@ const markers = {
         const dylint = crate.dependencies.some(({ name }) => name === 'dylint_linting');
         const library = ({ kind, types }: (typeof crate.targets)[number]) => Array.intersection(Array.difference(kind, ['bin']), types).length > 0;
         const args = tests.flatMap((target) => (library(target) ? ['--lib'] : [`--${Array.headNonEmpty(target.kind)}`, target.name]));
+        const local = new Set(Array.getSomes(crate.dependencies.map(Struct.get('path'))));
         return {
-            ...(sources.length > 0 ? suiteInput(...sources) : {}),
+            ...defaultInputs(sources.map(folderInput)),
             name: crate.name,
             tags: ['language:rust', ...(dylint ? ['host:dylint'] : [])],
+            implicitDependencies: all.filter(({ manifest }) => local.has(path.resolve(workspaceRoot, path.dirname(manifest)))).map(Struct.get('name')),
             targets: {
-                ...(tested ? { check: {}, test: { options: { args } }, ...(dylint ? {} : { coverage: { options: { args } } }) } : {}),
+                ...(tested ? { test: { options: { args } } } : {}),
                 ...(bins.length > 0 ? { build: {} } : {}),
                 ...(launched.length > 0 ? { install: { options: { args: launched } } } : {}),
             },
@@ -190,7 +212,7 @@ const markers = {
         return {
             ...python,
             name: id,
-            tags: ['language:python', 'output:extension'],
+            tags: ['language:python', 'host:blender', 'output:extension'],
             targets: {
                 assets: {},
                 pack: {},
@@ -201,7 +223,7 @@ const markers = {
         };
     }),
     [XcodeProject.file]: Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [path, { files, targets }] = yield* Effect.all([Path.Path, decodeFile(XcodeProject.schema, workspace.workspaceRoot, workspace.file)]);
+        const [path, { files, targets }, { products }] = yield* Effect.all([Path.Path, decodeFile(XcodeProject.schema, workspace.workspaceRoot, workspace.file), workspace.swift]);
         const [root, name] = [path.dirname(dir), path.parse(dir).name];
         const identifier = yield* Effect.fromOption(
             Option.flatMap(
@@ -210,7 +232,9 @@ const markers = {
             ),
             () => WorkspaceError.missing(`${workspace.file} target ${name}`, 'PRODUCT_BUNDLE_IDENTIFIER'),
         );
-        const updated = targets.flatMap(Struct.get('members')).some(Predicate.Struct({ product: Equal.equals('Sparkle') }));
+        const members = targets.flatMap(Struct.get('members'));
+        const updated = members.some(Predicate.Struct({ product: Equal.equals('Sparkle') }));
+        const local = new Set(members.filter((member) => member.package === '..').map(Struct.get('product')));
         const owners = yield* Effect.forEach(
             Array.getSomes(files.map(Struct.get('path')))
                 .map((entry) => path.relative('.artifacts', path.join(root, entry)))
@@ -220,7 +244,18 @@ const markers = {
         const bundled = Array.match(Array.dedupe(owners), { onEmpty: () => [], onNonEmpty: (projects) => [{ projects, target: 'pack' }] });
         const xcode = swiftProject(['build:xcode', ...(updated ? ['output:appcast'] : [])], ['check', 'lint:periphery', 'pack', 'install', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
         const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root), PRODUCT_BUNDLE_IDENTIFIER: identifier } };
-        return { root, name, ...xcode, targets: { ...Record.map(xcode.targets, () => ({ options })), ...Record.fromIterableWith(['build', 'pack'], (step) => [step, { options, dependsOn: bundled }]) } };
+        return {
+            root,
+            name,
+            ...xcode,
+            ...externalInputs(
+                path,
+                root,
+                targets.flatMap(({ settings }) => [settings.CODE_SIGN_ENTITLEMENTS, settings.INFOPLIST_FILE]),
+            ),
+            implicitDependencies: products.filter((product) => local.has(product.name)).flatMap(Struct.get('targets')),
+            targets: { ...Record.map(xcode.targets, () => ({ options })), ...Record.fromIterableWith(['build', 'pack'], (step) => [step, { options, dependsOn: bundled }]) },
+        };
     }),
     'py.typed': Effect.fnUntraced(function* ({ dir }, workspace) {
         const [path, { moduleRoots, commands }, python] = yield* Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]);
@@ -228,35 +263,77 @@ const markers = {
         const command = commands.includes(dir);
         return { ...python, name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python', ...(command ? ['output:command'] : [])], targets: { ...python.targets, ...(command ? { install: {} } : {}) } };
     }),
+    '__main__.py': Effect.fnUntraced(function* ({ dir }, workspace) {
+        const path = yield* Path.Path;
+        yield* Effect.filterOrFail(Effect.succeed(dir), (root) => !['py.typed', 'blender_manifest.toml'].some((marker) => workspace.configFiles.has(path.join(root, marker))));
+        const python = yield* Effect.filterOrFail(pythonTargets(dir, workspace), ({ targets }) => 'test' in targets);
+        return { ...python, name: path.basename(dir), tags: ['language:python'] };
+    }),
     'tsconfig.json': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const { file, workspaceRoot, configs } = workspace;
+        const { file, workspaceRoot, configs, configFiles } = workspace;
         const [path, readConfig] = yield* Effect.all([Path.Path, configs]);
         const {
-            config: { options, errors },
+            config: { options, errors, fileNames },
             files,
         } = yield* Effect.try(() => readConfig(file));
-        yield* Array.match(errors, { onEmpty: () => Effect.void, onNonEmpty: Effect.fail });
-        const [suite, { owner, manifest }, containers] = yield* Effect.all([suiteInputs('typescript', dir, workspaceRoot), owning(workspace, dir), containerTests(dir, workspaceRoot)], { concurrency: 'unbounded' });
+        if (Array.isArrayNonEmpty(errors)) {
+            return yield* WorkspaceError.unparsed(file, errors.map(Struct.get('text')).join('\n'));
+        }
+        const suite = suitePath(path, path.join(TESTS, 'typescript'), dir);
+        const storybook = path.join(dir, '.storybook', 'main.ts');
+        const [suiteFiles, { owner, manifest }] = yield* Effect.all([glob(workspaceRoot, [`${suite}/**/*`, storybook]), owning(workspace, dir)], { concurrency: 'unbounded' });
+        const tests = suiteFiles.filter((candidate) => candidate !== storybook);
         const named = owner === dir ? {} : { name: path.join(manifest.name, path.relative(owner, dir)) };
-        const integration = Array.match(containers, { onEmpty: () => ({}), onNonEmpty: (tests) => ({ test: { options: { args: tests.map((test) => `--exclude='**/${test}'`) } }, 'test:integration': { options: { args: tests } } }) });
+        const sourceRoots = [dir, suite];
+        const parent = `..${path.sep}`;
+        const externalSources = fileNames
+            .map((candidate) => path.relative(workspaceRoot, candidate))
+            .filter((candidate) => !(path.isAbsolute(candidate) || candidate.startsWith(parent)) && sourceRoots.every((root) => path.relative(root, candidate).startsWith(parent)))
+            .map((candidate) => `{workspaceRoot}/${candidate}`);
+        const compilerInputs = files.map((held) => ({ fileset: `{workspaceRoot}/${held}`, includeIgnored: true }));
+        const [containers, portable] = Array.partition(
+            tests.filter((candidate) => matchesGlob(candidate, '**/*.test.{ts,tsx}')),
+            Filter.fromPredicate((candidate) => matchesGlob(candidate, VITEST_INTEGRATION_TESTS)),
+        );
+        const integration = Array.match(containers, {
+            onEmpty: () => ({}),
+            onNonEmpty: () => ({
+                'test:integration': { inputs: [...compilerInputs, folderInput(suite), ...portable.map((candidate) => `!{workspaceRoot}/${candidate}`)] },
+            }),
+        });
         return {
-            ...suite,
+            ...defaultInputs([...externalSources, ...(tests.length === 0 || suite === dir ? [] : [folderInput(suite)]), ...(configFiles.has(path.join(dir, 'sea.config.ts')) ? ['{workspaceRoot}/.config/Node.entitlements'] : [])]),
             ...named,
             tags: ['language:typescript'],
             targets: {
                 'typecheck:tsc': {
-                    inputs: [`{workspaceRoot}/${dir}/**/*`, ...files.map((held) => ({ fileset: `{workspaceRoot}/${held}`, includeIgnored: true })), ...(options.typeRoots ?? []).map((typeRoot) => ({ fileset: `{workspaceRoot}/${path.relative(workspaceRoot, typeRoot)}/**/*.d.ts`, includeIgnored: true }))],
+                    inputs: [
+                        `{workspaceRoot}/${dir}/**/*`,
+                        ...compilerInputs,
+                        ...(options.typeRoots ?? []).map((typeRoot) => ({ fileset: `{workspaceRoot}/${path.relative(workspaceRoot, typeRoot)}/**/*.d.ts`, includeIgnored: true })),
+                        ...(configFiles.has(path.join(dir, CLOUDFLARE_CONFIG)) ? [{ dependentTasksOutputFiles: '**/*.d.ts' }] : []),
+                    ],
                 },
                 check: {},
+                ...(configFiles.has(path.join(dir, 'vitest.config.ts')) && (portable.length > 0 || suiteFiles.includes(storybook)) ? { test: { inputs: [...compilerInputs, ...containers.map((candidate) => `!{workspaceRoot}/${candidate}`)] } } : {}),
                 ...integration,
-                ...(owner === dir && Record.has(manifest.dependencies, '@effect/sql-pg') ? { 'lint:squawk': {} } : {}),
             },
         };
     }),
-    'vite.config.ts': ({ dir }, { configFiles }) =>
-        Effect.map(Path.Path, (path) => configFiles.includes(path.join(dir, CLOUDFLARE_CONFIG))).pipe(Effect.map((hosted) => ({ tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {}, ...(hosted ? { hosting: {}, publish: {} } : {}) } }))),
+    'vitest.config.ts': {},
+    'vite.config.ts': Effect.fnUntraced(function* ({ dir }, { configFiles }) {
+        const path = yield* Path.Path;
+        const hosted = configFiles.has(path.join(dir, CLOUDFLARE_CONFIG));
+        return {
+            tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])],
+            targets: {
+                build: { command: 'vite build --configLoader native', options: { cwd: '{projectRoot}' } },
+                ...(hosted ? { hosting: {}, publish: {} } : {}),
+            },
+        };
+    }),
     ...Record.fromIterableWith(['uxp', 'cep'] as const, (host) => [`${host}.config.ts` as const, { tags: [`host:${host}`], targets: { build: {}, pack: {}, install: {} } }]),
-    'fonts/rasm.toml': ({ dir, base, name }) =>
+    'perso-arabic/rasm.toml': ({ dir, base, name }) =>
         Effect.map(Path.Path, (path) => {
             const output = `.artifacts/fonts/${name}`;
             const action = (verb: string) => `foundry ${verb} ${path.join(dir, base)} --output ${output}`;
@@ -270,32 +347,33 @@ const markers = {
                 },
             };
         }),
-    'sea.config.ts': { tags: ['output:sea'], targets: { pack: {} } },
+    'sea.config.ts': Effect.fnUntraced(function* ({ dir }, { configFiles }) {
+        const path = yield* Path.Path;
+        const projects = [...configFiles].filter((file) => path.basename(file) === XcodeProject.file && !path.relative(dir, file).startsWith('..'));
+        const output = `{workspaceRoot}/.artifacts/${dir}`;
+        const name = path.basename(dir);
+        return { tags: ['output:sea'], targets: { pack: { inputs: ['...', ...projects.map((file) => `{workspaceRoot}/${file}`)], outputs: [`${output}/{${name},${name}.mjs,sea.json,LaunchAgents}`] } } };
+    }),
     [CLOUDFLARE_CONFIG]: { targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } },
-    '.storybook/main.ts': { targets: { storybook: {} } },
     [ClaudeHooks.file]: Effect.fnUntraced(function* (_, { file, workspaceRoot }) {
         yield* Effect.fromOption(Schema.decodeOption(ClaudeHooks.schema)(yield* decodeFile(Schema.String, workspaceRoot, file)));
         return { tags: ['host:claude'], targets: { 'lint:claude': {}, 'typecheck:claude': {} } };
     }),
-} as const satisfies Record<string, Optional<ProjectConfiguration, 'root'> | ((file: Path.Path.Parsed, workspace: Inference & { readonly file: string }) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, unknown, PluginServices>)>;
+};
 const marked = (key: string) => Option.map(Record.get(markers, key), (configure) => [key, configure] as const);
-const infer = Effect.fnUntraced(
-    function* (file: string, workspace: Inference) {
-        const path = yield* Path.Path;
-        const parsed = path.parse(file);
-        const [marker, configure] = yield* Effect.fromOption(Array.findFirst([parsed.base, path.join(path.basename(parsed.dir), parsed.base), `*${parsed.ext}`], marked));
-        const { root = marker.split('/').reduce((at) => path.dirname(at), file), tags = [], targets = {}, ...configuration }: Optional<ProjectConfiguration, 'root'> = Predicate.isFunction(configure) ? yield* configure(parsed, { ...workspace, file }) : configure;
-        const hosted = Array.intersection(root.split('/'), yield* workspace.hosts).map((host) => `host:${host}`);
-        const released = Option.match(yield* tagPrefix(workspace, tags, configuration.name), {
-            onNone: () => targets,
-            onSome: (MinVerTagPrefix) => Record.map(targets, (target) => ({ ...target, options: { ...target.options, env: { ...target.options?.env, MinVerTagPrefix } } })),
-        });
-        return { projects: { [root]: { ...configuration, root, targets: released, tags: Array.union(tags, hosted) } } };
-    },
-    Effect.catchNoSuchElement,
-    Effect.map(Option.getOrElse(() => ({}))),
-);
+const infer = Effect.fnUntraced(function* (file: string, workspace: Inference) {
+    const path = yield* Path.Path;
+    const parsed = path.parse(file);
+    const [marker, configure] = yield* Effect.fromOption(Array.findFirst([parsed.base, path.join(path.basename(parsed.dir), parsed.base), `*${parsed.ext}`], marked));
+    const { root = marker.split('/').reduce((at) => path.dirname(at), file), tags = [], targets = {}, ...configuration } = typeof configure === 'function' ? yield* configure(parsed, { ...workspace, file }) : configure;
+    const hosted = Array.intersection(root.split('/'), yield* workspace.hosts).map((host) => `host:${host}`);
+    const released = Option.match(yield* tagPrefix(workspace, tags, configuration.name), {
+        onNone: () => targets,
+        onSome: (MinVerTagPrefix) => Record.map(targets, (target) => ({ ...target, options: { ...target.options, env: { ...target.options?.env, MinVerTagPrefix } } })),
+    });
+    return { projects: { [root]: { ...configuration, root, targets: released, tags: Array.union(tags, hosted) } } };
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { attachedSuites, folderInput, type Inference, imports, infer, logged, markers, moduleRequests, owning, packageName, reach, rootTargets, suiteInput, suitePath, swiftProject, TESTS };
+export { attachedSuites, defaultInputs, folderInput, type Inference, imports, infer, logged, markers, moduleRequests, owning, packageName, reach, rootTargets, swiftProject, TESTS };

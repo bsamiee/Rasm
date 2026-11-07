@@ -3,14 +3,13 @@
 ## [01]-[TOOLS]
 
 - Processes call tools by name, their shell or agent harness supplies mise's environment
-- `[tools]` rows name a registry short name or a backend (`github:`, `pypi:`, `npm:`, `cargo:`), `[tool_alias]` names a backend spec holding a URL
-- `cargo:` rows take a crate the registry lacks, a `cargo-binstall` row fetches its release binary before a source build
+- `[tools]` rows name a registry short name or a backend such as `github:`, `pypi:`, `npm:`, or `cargo:`
+- Dylint uses its published binaries. Cargo Edit builds from its crate.
 - `dotnet:<id>` rows install a .NET tool package's command, `dotnet dnx` resolves the feed on each launch and keeps a CLI parent process beside the tool
 - `http:<tool>` rows install a release source archive for a tool with no registry entry and no release asset
 - `http:` rows reading a releases API set `version_order = "semver"`, mise takes the last entry of a listing ordered newest first
 - `auto_install = false` prevents downloads and permits the next `PATH` copy, `status.missing_tools = "always"` reports the missing tool
 - `registry_floating = true` reads current mise and aqua registries, snapshots baked into the mise binary answer when no cached copy loads
-- `[settings]` holds no `lockfile` row, lock entries replay recorded versions and `conda:` closures in place of `latest`
 - Node stays on the supported major while dependency-cruiser rejects the next major's prereleases
 - .NET SDKs install into mise's one `dotnet-root`, a running process's `DOTNET_ROOT` reaches each SDK a later `global.json` names
 - Shared root holds runtimes of installed SDKs alone, `DOTNET_ROLL_FORWARD = "Major"` runs an older-major tool on it
@@ -19,9 +18,9 @@
 - Install side effects sit in their tool row's `postinstall`, a failing command fails the install
 - Row `postinstall` reads `[env]` without `tools = true` rows, `[hooks] postinstall` renders `[env]` from the tools one install names
 - Tools a target calls keep their row and read settings from repository files alone, machine setup installs tools and configures none
-- `mise.ci.toml` `disable_tools` drops rows no CI job calls, a `tools = true` reader of one guards with `?.path or ""`
+- The CI setup action selects tools through `MISE_ENABLE_TOOLS`
+- `pnpm install --frozen-lockfile` validates every workspace manifest. Locked uv sync uses Pixi locally and installs the `dev` group in CI.
 - Registry rows resolving to `conda:` (`imagemagick`) install a closure in their own `@rpath` prefix, linking no Homebrew, Nix, or Pixi library
-- `mise lock --bump` refreshes conda closures before `mise install`
 
 ## [02]-[ENVIRONMENT]
 
@@ -44,10 +43,9 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `boot_start = true` rows start under `pitchfork supervisor run --boot`
 - `COLIMA_HOME` and `DOCKER_CONFIG` keep VM and Docker state outside the checkout
 - Readiness without a timeout waits while the process runs, Docker times out when the VM boots without its engine
-- `docker` readiness runs `colima status` on macOS, a stop after `docker version` passes and before Colima persists its runtime orphans the VM
-- `docker` row takes no `boot_start`, and nothing stops the engine on idle
+- `rasm:docker` starts Colima on macOS and checks the Docker engine on Linux
 - `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names socket inside the engine's host, Ryuk mounts it and fails on Colima's client socket path
-- Container images name `latest` with an always-pull policy, each run starts the newest image
+- PostgreSQL services with persisted data follow one major tag until an upgrade migrates their data.
 - Harness rows hold service URLs and read no `[env]` value into MCP config
 - Servers speaking stdio alone run as `rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- <command>`, `--grace` above the bridge's 3s stdin close and below the 5s stop timeout ends the upstream on every stop
 - Bridge rows use `ready_http` with status `406` and a `5m` timeout to wait for the upstream handshake
@@ -72,11 +70,10 @@ Daemon operations:
 
 - `mise prune --yes` alone deletes old mise installations
 - Orphan removal runs outside Nx, a running Nx process loads modules from the version an upgrade orphans
-- `upgrade:docker` runs mise task `docker:update`, its VM restart on macOS starts the upgraded engine past systemd's `docker.service` start limit
+- `upgrade:docker` runs `docker:update` on macOS. The update waits for Colima's VM, then restarts it and checks the upgraded Docker engine.
 - `mise run clean` keeps native prefixes, task caches, and installed tools
 - `maintain.sh` restores Pitchfork on exit and leaves Nx's task cache in place
 - `maintain.sh` quits VS Code before reopening it, the `code` CLI otherwise reuses a running instance and its old environment
-- `upgrade:mise` refreshes tool locks and updates `.config/hk.pkl` to the installed hk version
 
 ## [05]-[TOML]
 

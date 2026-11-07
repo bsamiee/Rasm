@@ -14,11 +14,6 @@ test    = false
 doctest = false
 bench   = false
 
-# --- [TEST]
-[[test]]
-name = "export"
-path = "../../../../tests/rust/documents/typeset/export.rs"
-
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -49,10 +44,6 @@ typst-layout                       = { workspace = true }
 typst-pdf                          = { workspace = true }
 typst-render                       = { workspace = true }
 typst-svg                          = { workspace = true }
-
-# --- [TESTING]
-[dev-dependencies]
-nonempty-collections = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

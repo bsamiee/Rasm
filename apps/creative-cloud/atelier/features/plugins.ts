@@ -1,15 +1,15 @@
 /// <reference types="vite/client" />
 
-import { Launched } from '@rasm/applications';
+import { Launched, Pid } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
 import { ExecuteScript, HostError, ObjectModel, Reference, Render } from '@rasm/automation';
 import { Peer } from '@rasm/automation/peer';
 import { Completion, ExtensionManifest } from '@rasm/cep';
 import { lower, traced } from '@rasm/cep/lower';
-import { Route, registerRpcGroup, Server } from '@rasm/mcp';
+import { Resource, Route, registerRpcGroup, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
-import { Array, Context, Duration, Effect, flow, Number, Option, Path, Schema, Stream, Struct } from 'effect';
-import { Tool } from 'effect/ai';
+import { Array, Context, Duration, Effect, flow, Number, Option, Path, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { McpSchema, Tool } from 'effect/ai';
 import { AbsolutePath } from '#/absolute-path';
 import { Adobe } from '#/adobe';
 import { Capture } from '#/features/applications';
@@ -33,7 +33,10 @@ const BODY_LINE = Number.decrement;
 
 const Scripted = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Completion)));
 const ResultJson = Schema.toCodecJson(ExecuteScript.Result);
-const Body = Schema.Struct({ code: ExecuteScript.fields.code.annotate({ description: 'Function body, return gives result. Scope holds host classes, enumerations, and resolve(specifier), object_model lists members' }) });
+const Body = Schema.Struct({
+    code: ExecuteScript.fields.code.annotate({ description: 'Function body, return gives result. Scope holds host classes, enumerations, and resolve(specifier), object_model lists members' }),
+    requirePlugin: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Require a linked plugin and refuse when disconnected' })),
+});
 const Opening = Schema.Struct({ file: AbsolutePath.annotate({ description: 'Document path' }) });
 const Rendering = Schema.Struct(Struct.omit(Render.fields, ['file']));
 const Opened = Reference.mapFields(Struct.assign({ launched: Schema.OptionFromOptionalKey(Launched.annotate({ description: 'Instance open launched' })) }));
@@ -82,7 +85,17 @@ const opener = Effect.fnUntraced(function* (links: Effect.Success<typeof listeni
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success<ReturnType<typeof routes>>, links: Effect.Success<typeof listening>) {
-    const [automation, path] = yield* Effect.all([Automation, Path.Path]);
+    const [automation, path, adobe] = yield* Effect.all([Automation, Path.Path, Adobe]);
+    yield* Resource.template`plugin/${McpSchema.param('pid', Pid)}`({
+        name: 'plugin',
+        schema: Peer,
+        changes: links.changes,
+        content: Effect.fnUntraced(function* (_, pid) {
+            const [instances, peers] = yield* Effect.all([SubscriptionRef.get(adobe.instances), links.peers]);
+            const running = yield* Effect.fromNullishOr(instances.find((instance) => instance.pid === pid && !('exited' in instance.state)));
+            return yield* Unmatched.single(peers, 'linked plugin for the application', Option.some(running.url.href), (peer) => [peer.application.href]);
+        }),
+    });
     const [opened, rendered] = [serving('open'), serving('render')];
     const rendering = (client: Effect.Success<ReturnType<typeof links.call>>) => (request: typeof Rendering.Type & { readonly file: URL }) => client(rendered.tag, request);
     const scripted = Effect.fnUntraced(function* (code: string, { pid, installation: { url } }: { readonly pid: number; readonly installation: { readonly url: URL } }) {
@@ -112,11 +125,13 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
             `${script.tag} results encode InDesign enumerators by name and InDesign collections as {type, specifier, length}`,
             `${script.tag} results encode InDesign, Photoshop, and Illustrator objects as {type, specifier, name, valid}`,
         ]),
-        ({ code }, chosen) =>
-            Option.match(chosen.linked, {
-                onNone: () => scripted(code, chosen),
+        ({ code, requirePlugin }, chosen) => {
+            const withoutPlugin = requirePlugin === true ? Effect.fail(HostError.refused(chosen.installation.name)('Atelier plugin is not connected')) : scripted(code, chosen);
+            return Option.match(chosen.linked, {
+                onNone: () => withoutPlugin,
                 onSome: (linked) => linkedScript(code, linked),
-            }),
+            });
+        },
     );
     yield* Route(opened.optional('linked application Launch Services picks for file'))(
         Tool.make(opened.tag, {

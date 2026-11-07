@@ -1,10 +1,7 @@
-import { DeleteObjectCommand, S3Client, type S3ClientConfig } from '@aws-sdk/client-s3';
-import { ByteSize, Cause, Clock, Context, Effect, Layer, Match, Option, Stream } from 'effect';
+import { ByteSize, Cause, Clock, Context, Effect, Match, Option, Stream } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import type { ObjectStore } from 'partial-content';
-import { r2Store, r2UploadStore } from 'partial-content/r2';
-import { s3Store, s3UploadStore } from 'partial-content/s3';
 import { isUploadDestinationConflictError, isUploadOffsetConflictError, isUploadOverrunError, type PrefixedUploadStore } from 'partial-content/upload';
 import { type ServeContext, type ServeObjectOptions, serveObject } from 'partial-content/web';
 import { HostingError } from '#/hosting-error';
@@ -12,22 +9,6 @@ import { HostingError } from '#/hosting-error';
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: ObjectStore; readonly uploads: PrefixedUploadStore; readonly delete: (key: string) => Effect.Effect<void, HostingError> }>()('@rasm/hosting/server/object-storage/ObjectStorage') {
-    static readonly r2 = (bucket: R2Bucket) => {
-        const uploads = r2UploadStore({ bucket });
-        return Layer.succeed(ObjectStorage, { objects: r2Store({ bucket, reservedPrefix: uploads.uploadPrefix }), uploads, delete: (key) => Effect.tryPromise({ try: () => bucket.delete(key), catch: HostingError.storage('delete', key) }) });
-    };
-    static readonly s3 = Effect.fnUntraced(function* (bucket: string, client: S3ClientConfig = {}) {
-        const opened = yield* Effect.acquireRelease(
-            Effect.sync(() => new S3Client(client)),
-            (s3) => Effect.sync(s3.destroy.bind(s3)),
-        );
-        const uploads = s3UploadStore({ client: opened, bucket });
-        return {
-            objects: s3Store({ client: opened, bucket, reservedPrefix: uploads.uploadPrefix }),
-            uploads,
-            delete: (key: string) => Effect.asVoid(Effect.tryPromise({ try: (signal) => opened.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), { abortSignal: signal }), catch: HostingError.storage('delete', key) })),
-        };
-    }, Layer.effect(ObjectStorage));
     static readonly upload = Effect.fn('ObjectStorage.upload')(function* (object: { readonly key: string; readonly size: ByteSize.ByteSize }) {
         const [{ uploads }, created] = yield* Effect.all([ObjectStorage, Clock.currentTimeMillis]);
         const length = ByteSize.toNumberUnsafe(object.size);
@@ -41,7 +22,12 @@ class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: O
                 yield* Effect.tryPromise({
                     try: (signal) => uploads.appendChunk(uploadToken, 0, body, { now, maxBytes: length, maxBytesFatal: true, signal }),
                     catch: uploadFailure('upload write', object.key),
-                });
+                }).pipe(
+                    Effect.filterOrFail(
+                        ({ interrupted }) => !interrupted,
+                        () => HttpApiError.BadRequest.make(),
+                    ),
+                );
                 yield* Effect.tryPromise({
                     try: (signal) => uploads.completeUpload(uploadToken, { now, expectedLength: length, signal }),
                     catch: uploadFailure('upload completion', object.key),

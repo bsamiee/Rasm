@@ -6,7 +6,7 @@ export const meta = {
     { title: 'Map', detail: 'the diff packed into the units one reader reads whole and judges well, per unit a reader naming each improvement and regression its hunks show with its owner and the owner files it changes', model: 'opus' },
     { title: 'Checks', detail: 'per checker, and per rule folder for ast-grep, one writer holding every finding for it, disjoint writers at once and overlapping ones in order, rerouted findings in one later round' },
     { title: 'Skills', detail: 'per skill with findings a writer, an adversary over its diff, a clean-prose pass' },
-    { title: 'Close', detail: 'renamed ids, owning targets once, skill snippets, one fix pass at the cause, one rerun' },
+    { title: 'Close', detail: 'references to renamed and removed ids' },
   ],
 }
 
@@ -14,7 +14,6 @@ export const meta = {
 
 const { hosts, languages } = await workflow('languages')
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
-const PROSE = `python ${REPO}/.claude/skills/clean-prose/scripts/prose.py check`
 const PLURALS = new Intl.PluralRules('en')
 const NOUNS = {
   unit: { one: 'unit', other: 'units' },
@@ -132,26 +131,18 @@ Edit only ${scope}. Return (structured) the files you edited, added or deleted; 
     required: ['files', 'renamed', 'removed', 'changed', ...(reroutable ? ['reroutes'] : []), 'report'],
   },
 }).then((result) => result && { group, result })
-const close = (written, skills) => {
-  const touched = written.filter((done) => done.result.files.length > 0)
-  const owners = OWNERS.filter((owner) => touched.some((done) => done.group.owner === owner))
-  const renamed = [...new Set(touched.flatMap((done) => done.result.renamed).map((pair) => `\`${pair.from}\` to \`${pair.to}\``))]
-  const removed = [...new Set(touched.flatMap((done) => done.result.removed).map((id) => `\`${id}\``))]
-  const commands = [...new Set(owners.flatMap((owner) => owner.targets))].map((command) => `\`${command}\``)
-  const snippets = row.snippet && skills.length > 0 ? [`each snippet \`git diff HEAD -- ${skills.map((skill) => `.claude/skills/${skill}`).join(' ')}\` changes, piped through \`${row.snippet}\``] : []
-  return touched.length + snippets.length === 0 ? Promise.resolve('no check or snippet changed') : once(`Load ${loads([...owners.flatMap((owner) => owner.skills), row.skills[0]])}.
-Close over ${[...new Set(touched.flatMap((done) => done.result.files.map(relative)))].join(', ') || 'the skill snippets'}. Writer reports:
-${touched.map((done) => `## ${done.group.label}\n${done.result.report}`).join('\n\n') || 'no check changed'}
-${renamed.length + removed.length > 0 ? `Update every mention across the tree (skills, config reasons, per-line ignores, sgconfig.yml) of each id renamed (${renamed.join(', ') || 'none'}) or removed (${removed.join(', ') || 'none'}). ` : ''}Run each command once in the foreground, a command taking paths over the changed files it reads:
-${listed([...commands, ...snippets])}
-Fix each finding once at its cause (the code it names, or the check when it misfires)${exclude.length > 0 ? `, except findings under ${exclude.join(', ')}` : ''}, then rerun once each command that failed. Return at most 10 lines: findings fixed, any left.`, { label: 'close', phase: 'Close' })
+const close = (written) => {
+  const renamed = written.flatMap(({ result }) => result.renamed).map(({ from, to }) => `\`${from}\` to \`${to}\``)
+  const removed = written.flatMap(({ result }) => result.removed).map((id) => `\`${id}\``)
+  if (renamed.length + removed.length === 0) return 'no id changed'
+  return once(`Load Skill(clean-prose). Update references across the tree to renamed ids (${renamed.join(', ') || 'none'}) and remove references to deleted ids (${removed.join(', ') || 'none'}). Return the files you edited.`, { label: 'close', phase: 'Close' })
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 log(`tune ${args.language} over ${RANGE}${exclude.length > 0 ? `, except ${exclude.join(', ')}` : ''}`)
 phase('Map')
-const listing = await once(`Partition every file \`git diff --name-only ${RANGE} -- ${[...row.pathspec, ...exclude.map((path) => `':(exclude)${path}'`)].join(' ')}\` lists into units by \`git diff --numstat\` volume: related files join (the files under the ${row.unit} with the test files under ${row.tests} mirroring them, consumers beside what they consume), and units pack as much diff as one reader reads whole with its files and judges well, so small folders share a unit and a folder splits only where its diff alone exceeds one reader. Every file falls in one unit. Edit nothing. Return (structured) the units.`, {
+const listing = await once(`Partition every file \`git diff --name-only ${RANGE} -- ${[...row.pathspec, ...exclude.map((path) => `':(exclude)${path}'`)].join(' ')}\` lists into units by \`git diff --numstat\` volume: related files join (the files under the ${row.unit}, consumers beside what they consume), and units pack as much diff as one reader reads whole with its files and judges well, so small folders share a unit and a folder splits only where its diff alone exceeds one reader. Every file falls in one unit. Edit nothing. Return (structured) the units.`, {
   label: 'map:units',
   phase: 'Map',
   schema: { type: 'object', properties: { units: { type: 'array', items: { type: 'object', properties: { name: TEXT, paths: LIST }, required: ['name', 'paths'] } } }, required: ['units'] },
@@ -181,7 +172,7 @@ Read the files these findings name and the lines they touch. Replace, add or rem
   (_, skill) => once(`Load Skill(${skill}).
 Adversary for .claude/skills/${skill}. Read \`git diff HEAD -- .claude/skills/${skill}\` and ${untracked(`.claude/skills/${skill}`)} hunk by hunk, removals included, with the passage around each. Rebuild in place each passage, snippet and rule weaker than the code in the tree, wrong against the package sources under ${row.sources} at ${RELEASE}, or stating a fact another of ${skillSet.join(', ')} states. Edit only .claude/skills/${skill}. Return at most 6 lines: what you rebuilt.`, { label: `adversary:${skill}`, phase: 'Skills', model: 'opus' }),
   (_, skill) => once(`Load Skill(clean-prose) and read every file under its references whole.
-Apply it to each line \`git diff HEAD -- .claude/skills/${skill}\` and ${untracked(`.claude/skills/${skill}`)} change, with its passage, then run \`${PROSE} .claude/skills/${skill}\` once in the foreground and fix what it reports. Return at most 5 lines.`, { label: `prose:${skill}`, phase: 'Skills' }),
+Apply it to each line \`git diff HEAD -- .claude/skills/${skill}\` and ${untracked(`.claude/skills/${skill}`)} change, with its passage. Return at most 5 lines.`, { label: `prose:${skill}`, phase: 'Skills' }),
 )
 const checking = pumped(groups, (group) => write(group, true)).then((first) => {
   const rerouting = first.flatMap((done) => done.result.reroutes).map(normal)
@@ -193,7 +184,7 @@ const checking = pumped(groups, (group) => write(group, true)).then((first) => {
 const [shaped, written] = await parallel([() => skilling.catch(broke('skills')), () => checking.catch(broke('checks'))])
 
 phase('Close')
-const closed = await close(written ?? [], held)
+const closed = await close(written ?? [])
 return {
   checks: (written ?? []).map((done) => `${done.group.label}: ${done.result.report}`),
   skills: (shaped ?? []).filter(Boolean),

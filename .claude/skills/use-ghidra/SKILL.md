@@ -28,10 +28,10 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 - Run: Postscripts take the output path as their first argument after the script name
 - Run: Runs exit 0 after a script error, `REPORT SCRIPT ERROR` in output and a missing `<out>` mark failure
 - Run: Decompilers that cannot open the program fail `Decompile.java` and `CallSites.java` with their message, one function's failure stays a row
-- Install: `mise.toml` Ghidra row's `postinstall` builds the decompiler a release lacks for its platform and creates `$GHIDRA_PROJECT_DIR`
+- Install: The Ghidra row in `.config/mise.toml` builds the decompiler a release lacks for its platform
 - Install: `mise install --force github:NationalSecurityAgency/ghidra` reruns `postinstall`, imports abort on a missing project folder
 - Help: `$GHIDRA_INSTALL_DIR/support/analyzeHeadlessREADME.md` lists every headless flag
-- Project: `mise.toml` names `$GHIDRA_PROJECT_DIR` outside the repository, Ghidra rejects a project path with a dot-prefixed component
+- Project: `.config/mise.toml` names `$GHIDRA_PROJECT_DIR` outside the repository, Ghidra rejects a project path with a dot-prefixed component
 - Project: `<name>/<folder>` as the project argument places an import under `/<folder>`, one folder per slice or release
 - Project: `-deleteProject` on an `-import` deletes the project that run created with its analysis
 - Program: Repeated imports into one folder add `<file>.<n>`, `-process <file>` keeps reading the first
@@ -50,7 +50,7 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 - Time: Imports and `Serve.java` take Bash `run_in_background: true` and end with a task completion notice, `-process` script runs take the foreground
 - Bundle: `-scriptPath` compiles each listed directory as one bundle at the JDK `JAVA_HOME` names, subdirectories become packages
 - Bundle: Compile failures drop the failing file and every file referencing it
-- Parallel: Processes share the settings, cache, and temp folders `mise.toml` names
+- Parallel: Processes share the settings, cache, and temp folders `.config/mise.toml` names
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
 - Parallel: Each process pays a JVM start, bundle load, and project open, a worker runs one process over its whole share of inputs
 - Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<main>/docs/research/<area>/<subject>/decompiled/<program>/` alone
@@ -68,7 +68,7 @@ Numbered steps consume the step before. Bulleted cases are alternatives, one per
 Projects saved under `$GHIDRA_PROJECT_DIR`, a listed project takes no second import or copy, a binary without one takes an import:
 
 ```!
-find "$GHIDRA_PROJECT_DIR" -maxdepth 1 -name '*.gpr' -exec basename -s .gpr -a {} +
+mkdir -p "$GHIDRA_PROJECT_DIR" && find "$GHIDRA_PROJECT_DIR" -maxdepth 1 -name '*.gpr' -exec basename -s .gpr -a {} +
 ```
 
 `<headless>` opens project `<name>` with the scripts bundle:
@@ -157,7 +157,8 @@ echo stop | nc -U "$GHIDRA_PROJECT_DIR/<name>.sock"
 ```
 
 - Requests: `<program>` is a project path (`<file>` or `/<folder>/<file>`), `<script>` any script on `-scriptPath`, tab-split cells keep spaces
-- Requests: Run one at a time in arrival order, a script edited between requests rebuilds before its next run
+- Requests: Run complete lines one at a time, a script edited between requests rebuilds before its next run
+- Socket: Intake and reply each allow five seconds, a request line holds at most 64 KiB
 - Socket: `nc` exits 1 with no reply when no `Serve.java` runs on the project
 
 ## [03]-[LOCATE]

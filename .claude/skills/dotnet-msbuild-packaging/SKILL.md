@@ -322,17 +322,6 @@ dotnet test --solution Product.slnx --no-build --report-trx
 |  [05]   | `DOTNET_CLI_HOME=<dir>`                | Moves first-run sentinels, workloads, local tools, and packages folder   |
 |  [06]   | `MSBUILDDISABLENODEREUSE=1`            | `-nodeReuse:false` for every MSBuild process, one a tool starts included |
 
-`global.json` `test.runner: Microsoft.Testing.Platform` makes `dotnet test` run every test project as an MTP application and reject a VSTest project.
-
-- `--report-trx` needs package `Microsoft.Testing.Extensions.TrxReport` in each test project
-- `--project` and `--solution` exclude each other
-- Exit codes are `0` for success, `2` for a failed test, `8` for zero tests, `9` for fewer tests than `--minimum-expected-tests`, `5` for an invalid command line
-- `dotnet test --no-build` runs `ComputeRunArguments` per test project and starts the app host
-- `TestingPlatformCommandLineArguments` reaches the test run through `RunArguments`
-- `TestingPlatformDotnetTestSupport` belongs to VSTest mode, MTP-mode `dotnet test` fails when a project sets it
-- Extension options (`--report-trx`, `--coverage`, `--crashdump`) fail with exit code `5` in a project without the providing package
-- `coverlet.MTP` names each report by a timestamp under `--results-directory`
-
 ## [07]-[ANTIPATTERNS]
 
 | [INDEX] | [SMELL]                                                     | [CORRECT_FORM]                                                           |

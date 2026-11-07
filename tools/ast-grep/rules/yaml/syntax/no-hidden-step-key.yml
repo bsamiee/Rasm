@@ -15,14 +15,14 @@ rule:
     all:
         - has: {field: key, pattern: $KEY, has: {matches: hidden-key}}
         - any:
-            - matches: yaml-step-pair
-            - inside:
-                kind: block_mapping, flow_mapping
-                inside:
-                    kind: block_node, flow_node
+              - matches: yaml-step-pair
+              - inside:
+                    kind: block_mapping, flow_mapping
                     inside:
-                        any:
-                            - {matches: defaults, inside: {any: [{matches: job-map}, {matches: root-map}]}}
-                            - {matches: run, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {matches: defaults, inside: {any: [{matches: job-map}, {matches: root-map}]}}}}}
+                        kind: block_node, flow_node
+                        inside:
+                            any:
+                                - {matches: defaults, inside: {any: [{matches: job-map}, {matches: root-map}]}}
+                                - {matches: run, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {matches: defaults, inside: {any: [{matches: job-map}, {matches: root-map}]}}}}}
 message: '`$KEY` hides its name from the bash injection'
 note: Write the key as plain text

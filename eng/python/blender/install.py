@@ -2,9 +2,6 @@
 
 lazy import ast
 lazy from collections.abc import Mapping
-lazy from functools import partial
-lazy import glob
-lazy from itertools import chain
 lazy import os
 lazy from pathlib import Path
 lazy import subprocess
@@ -15,7 +12,6 @@ import msgspec
 lazy import anyio
 lazy from cyclopts import Parameter
 lazy from cyclopts.types import ResolvedExistingDirectory
-lazy from expression import Option
 lazy from expression.extra.result import catch
 lazy import httpx2
 lazy from mcp import Client, MCPError
@@ -24,7 +20,7 @@ lazy import psutil
 lazy from pydantic import ValidationError
 
 lazy from blender.records.faults import Error, Fault, Ok, Outcome, paired, Reason
-lazy from eng.python.blender.host import Blender, headless, Host, probed, ran
+lazy from eng.python.blender.host import archived, Blender, headless, Host, probed, ran, root
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -108,12 +104,14 @@ def install(directory: ResolvedExistingDirectory, /, *, endpoint: Annotated[str,
         call = ast.Expr(ast.Call(ast.Name("installed"), [ast.Constant(str(archive)), ast.Constant(host.repository), ast.Tuple([ast.Constant(session) for session in sessions])], []))
         return anyio.run(_in_session, endpoint, f"{Path(__file__).with_name('session.py').read_text()}\n{ast.unparse(call)}\n") if sessions else _background(blender, host.repository, archive)
 
-    def archived(host: Host) -> Outcome[Path]:
-        split = directory.glob(f"*-{glob.escape(host.platform.replace('-', '_'))}.zip")
-        return Option.of_optional(next(chain(split, directory.glob("*.zip")), None)).to_result_with(partial(Fault.of, Reason.ABSENT, str(directory), member=f"{host.platform} archive"))
-
-    return probed(blender).bind(
-        lambda host: paired(archived(host), catch(_sessions, exception=OSError)(blender).map_error(partial(Fault.of, Reason.FAILED, str(blender)))).bind(lambda held: installed(host, *held))
+    return (
+        root()
+        .bind(lambda base: probed(base, blender))
+        .bind(
+            lambda host: paired(archived(directory, host.platform), catch(_sessions, exception=OSError)(blender).map_error(lambda error: Fault.of(Reason.FAILED, str(blender), error))).bind(
+                lambda held: installed(host, *held)
+            )
+        )
     )
 
 

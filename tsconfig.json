@@ -1,6 +1,6 @@
 {
     "extends": "./tsconfig.base.json",
-    "compilerOptions": { "types": [ "node", "@rasm/test-support/vitest" ], "allowJs": true },
+    "compilerOptions": { "types": [ "node" ], "allowJs": true },
     "include": [ "eng/typescript/**/*.ts", "tools/ast-grep/main.ts", "**/*.config.ts", "**/.storybook/main.ts" ],
     "exclude": [ "docs" ]
 }

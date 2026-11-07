@@ -18,6 +18,20 @@ endfunction()
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
+if(CMAKE_SCRIPT_MODE_FILE)
+    cmake_path(GET BINARY_DIR PARENT_PATH published_dir)
+    file(MAKE_DIRECTORY "${published_dir}")
+    file(LOCK "${published_dir}/build.lock" GUARD PROCESS TIMEOUT 600)
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" -S "${CMAKE_CURRENT_LIST_DIR}" -B "${BINARY_DIR}" -DCMAKE_BUILD_TYPE=Release
+            "-DGRAMMAR_SOURCE:FILEPATH=${GRAMMAR_SOURCE}" "-DNODE_MODULES:PATH=${NODE_MODULES}"
+            "-DSCANNER=${SCANNER}" "-DSCANNER_COMPILE_OPTIONS:STRING=${SCANNER_COMPILE_OPTIONS}"
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+    execute_process(COMMAND "${CMAKE_COMMAND}" --build "${BINARY_DIR}" --config Release COMMAND_ERROR_IS_FATAL ANY)
+    return()
+endif()
+
 project(grammar LANGUAGES C)
 
 set(GRAMMAR_SOURCE "" CACHE FILEPATH "Grammar extension or composition")
@@ -32,25 +46,26 @@ cmake_path(GET published_dir FILENAME language)
 cmake_path(GET published_dir PARENT_PATH library_dir)
 set(library_suffix ".so")
 set(declared_dir "${CMAKE_CURRENT_BINARY_DIR}/declared")
+set(generator_options --abi=latest --js-runtime node)
 
-execute_process(COMMAND tree-sitter generate --no-parser --output "${declared_dir}" "${GRAMMAR_SOURCE}" COMMAND_ERROR_IS_FATAL ANY)
+execute_process(COMMAND tree-sitter generate ${generator_options} --no-parser --output "${declared_dir}" "${GRAMMAR_SOURCE}" COMMAND_ERROR_IS_FATAL ANY)
 execute_process(COMMAND tree-sitter --version OUTPUT_VARIABLE generator COMMAND_ERROR_IS_FATAL ANY)
 file(READ "${declared_dir}/grammar.json" grammar)
 string(JSON name GET "${grammar}" name)
-string(SHA256 parser_key "${generator}${grammar}")
+string(SHA256 parser_key "${generator}${generator_options}${grammar}")
 set(parser_dir "${published_dir}/parser/${parser_key}")
 file(MAKE_DIRECTORY "${published_dir}/src")
 
 if(NOT EXISTS "${parser_dir}/parser.c")
-    execute_process(COMMAND tree-sitter generate --output "${CMAKE_CURRENT_BINARY_DIR}/parser" "${declared_dir}/grammar.json" COMMAND_ERROR_IS_FATAL ANY)
+    execute_process(COMMAND tree-sitter generate ${generator_options} --output "${CMAKE_CURRENT_BINARY_DIR}/parser" "${declared_dir}/grammar.json" COMMAND_ERROR_IS_FATAL ANY)
     file(GLOB superseded LIST_DIRECTORIES true "${published_dir}/parser/*")
     file(REMOVE_RECURSE ${superseded})
     file(MAKE_DIRECTORY "${published_dir}/parser")
-    file(RENAME "${CMAKE_CURRENT_BINARY_DIR}/parser" "${parser_dir}" RESULT published)
+    file(RENAME "${CMAKE_CURRENT_BINARY_DIR}/parser" "${parser_dir}")
 endif()
 
 file(SHA256 "${CMAKE_CURRENT_LIST_FILE}" build_key)
-set(library_key "${parser_key}${build_key}${CMAKE_C_COMPILER_ID}${CMAKE_C_COMPILER_VERSION}${SCANNER_COMPILE_OPTIONS}")
+set(library_key "${parser_key};${build_key};${CMAKE_C_COMPILER_ID};${CMAKE_C_COMPILER_VERSION};${CMAKE_C_COMPILER_TARGET};${CMAKE_C_FLAGS};${CMAKE_C_FLAGS_RELEASE};${CMAKE_MODULE_LINKER_FLAGS};${CMAKE_MODULE_LINKER_FLAGS_RELEASE};${CMAKE_OSX_ARCHITECTURES};${CMAKE_OSX_SYSROOT};${CMAKE_OSX_DEPLOYMENT_TARGET};${SCANNER_COMPILE_OPTIONS}")
 string(JSON hole_forms ERROR_VARIABLE plain GET "${grammar}" rules _hole_forms members)
 string(JSON word_start ERROR_VARIABLE wordless GET "${grammar}" rules _word_start)
 string(JSON space ERROR_VARIABLE spaceless GET "${grammar}" rules _space)
@@ -80,6 +95,7 @@ endif()
 if(SCANNER)
     file(REAL_PATH "${SCANNER}" SCANNER)
     execute_process(COMMAND "${CMAKE_C_COMPILER}" -E "-I${parser_dir}" "-I${NODE_MODULES}" "-I${CMAKE_CURRENT_BINARY_DIR}" "${SCANNER}" OUTPUT_VARIABLE scanned COMMAND_ERROR_IS_FATAL ANY)
+    string(REGEX REPLACE "(^|\n)#[ \t]+[0-9]+[^\n]*" "\\1" scanned "${scanned}")
     string(APPEND library_key "${scanned}")
 endif()
 if(NOT plain)

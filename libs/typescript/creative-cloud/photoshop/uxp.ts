@@ -1,5 +1,5 @@
 import photoshop, { action, app, constants, core, type Document, type ExecutionContext } from 'adobe:photoshop';
-import type { File } from 'adobe:uxp';
+import { type File, host } from 'adobe:uxp';
 import { ExecuteScript, HostError, ObjectModel, Reference } from '@rasm/automation';
 import { Peer } from '@rasm/automation/peer';
 import { Unmatched } from '@rasm/search';
@@ -52,7 +52,7 @@ const Members = Schema.Record(Schema.String, Schema.Union([Schema.String, Schema
 const Parameter = Schema.Struct({ type: Schema.String, start: Schema.Int, end: Schema.Int, left: Schema.OptionFromOptionalKey(Schema.Struct({ start: Schema.Int, end: Schema.Int })) });
 const Declared = Schema.Struct({ body: Schema.Tuple([Schema.Struct({ expression: Schema.Struct({ body: Schema.Struct({ body: Schema.Tuple([Schema.Struct({ value: Schema.Struct({ params: Schema.Array(Parameter) }) })]) }) }) })]) });
 const Rejected = Schema.Struct({ number: Schema.Union(Record.collect(REJECTIONS, (tag, code) => Schema.Literal(code).transform(tag))) });
-const Executable = Schema.Tuple([Schema.Struct({ executablePath: Schema.Struct({ _path: Schema.String }) })]);
+const Executable = Schema.Tuple([Schema.Union([Schema.Struct({ executablePath: Schema.Struct({ _path: Schema.NonEmptyString }) }), Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int })])]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -171,7 +171,7 @@ const executed = (payload: ExecuteScript, { hostControl }: ExecutionContext) =>
             Effect.acquireUseRelease(
                 Effect.tryPromise({ try: () => hostControl.suspendHistory({ documentID: id, name: payload.label }), catch: HostError.refused(`suspendHistory of document ${id}`) }),
                 () => inner,
-                (suspension, exit) => Effect.tryPromise({ try: () => hostControl.resumeHistory(suspension, Exit.isSuccess(exit)), catch: HostError.refused(`resumeHistory of document ${id}`) }),
+                (suspension, exit) => (app.documents.some(({ id: openId }) => openId === id) ? Effect.tryPromise({ try: () => hostControl.resumeHistory(suspension, Exit.isSuccess(exit)), catch: HostError.refused(`resumeHistory of document ${id}`) }) : Effect.void),
             ),
         Effect.gen(function* () {
             const services = yield* Effect.context<never>();
@@ -218,11 +218,16 @@ const handlers = Layer.merge(
 const linkPhotoshop = Peer.dial(
     Photoshop.Contract,
     handlers,
-    Effect.tryPromise({ try: () => action.batchPlay([{ _obj: 'get', _target: [{ _property: 'executablePath' }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }], {}), catch: HostError.refused('executablePath') }).pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(Executable)),
-        Effect.zip(Path.Path),
-        Effect.flatMap(([[{ executablePath }], path]) => path.toFileUrl(executablePath._path)),
-    ),
+    Effect.gen(function* () {
+        const refused = HostError.refused(`Photoshop ${host.version} executable path`);
+        const descriptors = yield* Effect.tryPromise({ try: () => action.batchPlay([{ _obj: 'get', _target: [{ _property: 'executablePath' }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }], {}), catch: refused });
+        const [reply] = yield* Schema.decodeUnknownEffect(Executable)(descriptors).pipe(Effect.mapError((cause) => refused({ cause, fields: descriptors.map(Struct.keys) })));
+        if ('message' in reply) {
+            return yield* refused(reply);
+        }
+        const path = yield* Path.Path;
+        return yield* path.toFileUrl(reply.executablePath._path);
+    }),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

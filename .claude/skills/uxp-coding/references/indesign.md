@@ -313,7 +313,7 @@ Text members return a range's first-run value. `textStyleRanges.everyItem().<fie
 
 ## [09]-[GREP]
 
-`findWhat`, `grepExpression`, and `changeTo` take native strings unchanged. Invalid expressions can return no matches without throwing, and tests run on an intended passage through the native search scope:
+`findWhat`, `grepExpression`, and `changeTo` take native strings unchanged. Invalid expressions can return no matches without throwing.
 
 | [INDEX] | [PATTERN]                    | [GREP_READS]                           | [GREP_FORM]                              |
 | :-----: | :--------------------------- | :------------------------------------- | :--------------------------------------- |

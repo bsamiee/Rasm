@@ -56,7 +56,8 @@ it.effect(
         assert.deepStrictEqual(Record.map(shots, Result.isSuccess), { [BLOCKING]: true, 20900: false });
         assert.deepStrictEqual((yield* Effect.fromResult(listing)).map(buildOf), ['3826']);
         assert.lengthOf(executed.artifacts, 1);
-        assert.deepStrictEqual(yield* Schema.encodeEffect(Schema.toCodecJson(Launch))(Launch.make({ url: new URL(MAIL) })), { url: MAIL, documents: [], arguments: [], environment: {}, new: false });
+        const encodeLaunch = Schema.encodeEffect(Schema.toCodecJson(Launch));
+        assert.deepStrictEqual(yield* encodeLaunch(Launch.make({ url: new URL(MAIL) })), { url: MAIL, documents: [], arguments: [], environment: {}, new: false });
         assert.strictEqual(yield* Schema.encodeEffect(wire(Perform))(yield* decoded(Perform)(ACTIONS)), ACTIONS);
         assert.include(yield* Schema.encodeEffect(wire(RunningInstance))(yield* decoded(RunningInstance)(INSTANCE)), '"actions":[]');
     }),

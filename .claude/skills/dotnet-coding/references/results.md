@@ -1,6 +1,6 @@
 # [RESULTS]
 
-Covers the result-type flows, from validators to the equations results satisfy and their property tests.
+Covers the result-type flows, from validators to the equations results satisfy.
 
 ## [01]-[VALIDATION]
 
@@ -233,20 +233,4 @@ Monad left identity:  Pure(t).Bind(f) == f(t)
 Monad associativity:  m.Bind(f).Bind(g) == m.Bind(x => f(x).Bind(g))
 ```
 
-Both identities require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion. Associativity lets a multi-argument function enter a monadic pipeline, the right-associated form lets the innermost function close over every earlier value and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks.
-
-Property-based tests check these equations and invariants over generated inputs (removing items from a cart never increases its total), random sampling raises confidence without proving an equation for every input:
-
-```csharp
-internal static class Properties {
-    private static readonly Func<int, int, int> Multiply = static (x, y) => x * y;
-    private static readonly Option<Func<int, int, int>> Lifted = Pure(Multiply);
-    private static readonly Gen<Option<int>> Operand =
-        Gen.OneOf(Gen.Int[-1000, 1000].Select(static x => Some(x)), Gen.Const(Option<int>.None));
-
-    public static void Equivalence() =>
-        Operand.Select(Operand).Sample(static (a, b) => Multiply.Map(a).Apply(b) == Lifted.Apply(a).Apply(b));
-}
-```
-
-`Gen.OneOf` builds a generator that yields both `Some` and `None`, a generator of integers alone checks only the `Some` path. `Gen.Int[-1000, 1000]` keeps the product inside `int`, `Sample` throws on a counterexample, the case count and the ranges are configurable, and a property tied to `Multiply` checks that function alone.
+Both identities require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion. Associativity lets a multi-argument function enter a monadic pipeline, the right-associated form lets the innermost function close over every earlier value and a query expresses that without nested `Bind` calls.

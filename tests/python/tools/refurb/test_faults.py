@@ -21,7 +21,7 @@ def test_text_and_exception_errors_report(findings: Findings) -> None:
         def optional(text: str) -> Result[int, str] | None:
             return Error(text) if text else None
     """)
-    assert [error.line for error in findings(ErrorResultFaultError, source)] == [4, 6, 9]
+    assert [error.line for error in findings(source, ErrorResultFaultError)] == [4, 6, 9]
 
 
 def test_fault_tuple_errors_pass(findings: Findings) -> None:
@@ -42,7 +42,7 @@ def test_fault_tuple_errors_pass(findings: Findings) -> None:
         def counted(text: str) -> Result[int, Faults]:
             return Error((Fault(subject=text),))
     """)
-    assert findings(ErrorResultFaultError, source) == ()
+    assert findings(source, ErrorResultFaultError) == ()
 
 
 def test_async_and_overload_errors_report(findings: Findings) -> None:
@@ -63,7 +63,7 @@ def test_async_and_overload_errors_report(findings: Findings) -> None:
         def counted(text: str | bytes) -> Result[int, Exception]:
             return Error(Exception(text))
     """)
-    assert [error.line for error in findings(ErrorResultFaultError, source)] == [5, 9, 12, 14]
+    assert [error.line for error in findings(source, ErrorResultFaultError)] == [5, 9, 12, 14]
 
 
 def test_tuple_tail_and_union_errors_report(findings: Findings) -> None:
@@ -77,7 +77,7 @@ def test_tuple_tail_and_union_errors_report(findings: Findings) -> None:
 
         type Checked = Result[int, tuple[Fault, str, *tuple[str | BaseException, ...]]]
     """)
-    assert [(error.line, error.msg) for error in findings(ErrorResultFaultError, source)] == [
+    assert [(error.line, error.msg) for error in findings(source, ErrorResultFaultError)] == [
         (8, f"`Checked` declares `{kind.__name__}` as `Result` error type, declare the package fault type") for kind in (str, BaseException)
     ]
 
@@ -104,7 +104,7 @@ def test_recursive_faults_and_return_aliases_pass(findings: Findings) -> None:
         def opaque(text: str) -> dict[str, Result[int, str]]:
             return {text: Error(text)}
     """)
-    assert [error.line for error in findings(ErrorResultFaultError, source)] == [10]
+    assert [error.line for error in findings(source, ErrorResultFaultError)] == [10]
 
 
 def test_generic_aliases_report_at_the_specialization_owner(findings: Findings) -> None:
@@ -134,4 +134,4 @@ def test_generic_aliases_report_at_the_specialization_owner(findings: Findings) 
         def optional(text: str) -> Maybe[str]:
             return Error(text) if text else None
     """)
-    assert [error.line for error in findings(ErrorResultFaultError, source)] == [6, 7, 8, 11, 14, 23]
+    assert [error.line for error in findings(source, ErrorResultFaultError)] == [6, 7, 8, 11, 14, 23]

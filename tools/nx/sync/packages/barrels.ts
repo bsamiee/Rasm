@@ -1,10 +1,10 @@
-import type { Tree } from '@nx/devkit';
-import { Array, Effect, Equivalence, Function, Option, Path, Record, String, Struct } from 'effect';
-import { parseSync } from 'vite';
+import { globAsync, type Tree } from '@nx/devkit';
+import { Array, Effect, Equivalence, Filter, Function, Option, Path, Record, String, Struct } from 'effect';
+import { parseSync } from 'rolldown/utils';
 import { accumulate } from '#/eng/typescript/accumulate';
 import { ClaudeHooks, libraryRoot, Package } from '#/eng/typescript/manifest';
 import { decodeTree, formatted, syncGenerator, treeText } from '#/tools/nx/sync/tree';
-import { glob, WorkspaceError } from '#/tools/nx/workspace';
+import { WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -46,11 +46,7 @@ const exportLine = (imports: Readonly<Record<string, string>>, relative: string,
         onEmpty: Array.empty,
         onNonEmpty: (names) => [`export { ${names.map(({ name, type }) => (type ? `type ${name}` : name)).join(', ')} } from '${Option.getOrElse(selfImport(imports, file), Function.constant(relative))}';`],
     });
-const ownerFolder = (folders: readonly string[], separator: string) => (file: string) => Array.findFirst(folders, (folder) => folder === '.' || file.startsWith(`${folder}${separator}`));
-const readManifest = Effect.fnUntraced(function* (tree: Tree, file: string) {
-    const path = yield* Path.Path;
-    return { dir: path.dirname(file), manifest: yield* decodeTree(tree, Package.schema, file) };
-});
+const ownerFolder = (folders: readonly string[], separator: string) => (file: string) => Option.getOrUndefined(Array.findFirst(folders, (folder) => folder === '.' || file.startsWith(`${folder}${separator}`)));
 const barrel = Effect.fnUntraced(function* (tree: Tree, dir: string, imports: Readonly<Record<string, string>>, folder: string, files: readonly string[]) {
     const path = yield* Path.Path;
     const file = path.join(dir, folder, BARREL);
@@ -63,11 +59,10 @@ const barrel = Effect.fnUntraced(function* (tree: Tree, dir: string, imports: Re
     );
     return { file, next: yield* formatted(tree, file, [DIVIDER, '', ...lines.flat(), ''].join('\n')) };
 });
-const libraryBarrels = Effect.fnUntraced(function* (tree: Tree, dir: string, manifest: typeof Package.schema.Type, nested: readonly string[]) {
+const libraryBarrels = Effect.fnUntraced(function* (tree: Tree, dir: string, manifest: typeof Package.schema.Type, files: readonly string[]) {
     const path = yield* Path.Path;
-    const excluded = nested.map((inner) => `${inner}/**`);
-    const [files, hooks] = yield* Effect.all([glob(tree.root, [`${dir}/**/*.{ts,tsx}`], excluded), glob(tree.root, [`${dir}/**/${ClaudeHooks.file}`], excluded)]);
-    const modules = files.map((file) => path.relative(dir, file)).filter((file) => !(file.endsWith('.d.ts') || file.endsWith('.config.ts') || file.split(path.sep).some(String.startsWith('.'))));
+    const [hooks, sources] = Array.partition(files, Filter.fromPredicate(String.endsWith(ClaudeHooks.file)));
+    const modules = sources.map((file) => path.relative(dir, file)).filter((file) => !(file.endsWith('.d.ts') || file.endsWith('.config.ts') || file.split(path.sep).some(String.startsWith('.'))));
     const stem = (file: string) => path.join(path.dirname(file), path.parse(file).name);
     yield* accumulate(
         modules.filter((file) => modules.some(String.startsWith(`${stem(file)}${path.sep}`))),
@@ -80,9 +75,9 @@ const libraryBarrels = Effect.fnUntraced(function* (tree: Tree, dir: string, man
         .filter((entry) => path.basename(entry) === BARREL)
         .map(path.dirname)
         .toSorted((left, right) => right.length - left.length);
-    const owner = ownerFolder(folders, path.sep);
     const exported = modules.filter((file) => !(entries.includes(file) || programs.includes(file) || file.split(path.sep).includes('internal')));
-    const grouped = folders.map((folder) => ({ folder, owned: exported.filter(Function.flow(owner, Option.contains(folder))) }));
+    const byFolder = Map.groupBy(exported, ownerFolder(folders, path.sep));
+    const grouped = folders.map((folder) => ({ folder, owned: byFolder.get(folder) ?? [] }));
     yield* accumulate(
         grouped.filter(({ owned }) => owned.length < 2),
         ({ folder, owned }) => Array.match(owned, { onEmpty: () => WorkspaceError.missing(path.join(dir, folder, BARREL), 'module to re-export'), onNonEmpty: ([module]) => WorkspaceError.single(path.join(dir, folder, BARREL), module) }),
@@ -94,12 +89,14 @@ const libraryBarrels = Effect.fnUntraced(function* (tree: Tree, dir: string, man
 });
 
 const rows = Effect.fnUntraced(function* (tree: Tree) {
-    const path = yield* Path.Path;
-    const manifests = yield* Effect.forEach(yield* glob(tree.root, [`**/${Package.file}`]), (file) => readManifest(tree, file));
-    const dirs = manifests.map(Struct.get('dir'));
+    const [path, candidates] = yield* Effect.all([Path.Path, Effect.tryPromise(() => globAsync(tree, [`**/${Package.file}`, '**/*.{ts,tsx}', `**/${ClaudeHooks.file}`]))]);
+    const [packageFiles, files] = Array.partition(candidates, Filter.fromPredicate(String.endsWith(Package.file)));
+    const manifests = yield* Effect.forEach(packageFiles, (file) => Effect.map(decodeTree(tree, Package.schema, file), (manifest) => ({ dir: path.dirname(file), manifest })), { concurrency: 'unbounded' });
+    const directories = manifests.map(Struct.get('dir')).toSorted((left, right) => right.length - left.length);
+    const byPackage = Map.groupBy(files, ownerFolder(directories, path.sep));
     const libraries = yield* Effect.forEach(
         manifests.filter(({ manifest }) => Option.isSome(libraryRoot(manifest))),
-        ({ dir, manifest }) => libraryBarrels(tree, dir, manifest, dirs.filter(String.startsWith(`${dir}${path.sep}`))),
+        ({ dir, manifest }) => libraryBarrels(tree, dir, manifest, byPackage.get(dir) ?? []),
         { concurrency: 'unbounded' },
     );
     return [...libraries.flatMap(Struct.get('written')), ...libraries.flatMap(Struct.get('stale')).map((file) => ({ file }))];

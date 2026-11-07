@@ -30,8 +30,13 @@
         "image-size": "catalog:"
     },
     "devDependencies": {
+        "@effect/vitest": "catalog:",
         "@rasm/extendscript": "workspace:*",
         "@types/node": "catalog:",
-        "vite": "catalog:"
+        "fast-xml-parser": "catalog:",
+        "jszip": "catalog:",
+        "sharp": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
     }
 }

@@ -8,7 +8,7 @@ description: "Use when outlining, searching, or rewriting code with ast-grep or 
 MCP tools answer one-off matches and syntax trees, the CLI runs project scans, outlines, rewrites, and execution limits. Search rules stay inline, durable rules sit under `ruleDirs`.
 
 [REFERENCES]:
-- [01]-[RULE_BUILDING](references/rule-building.md): New rule's diagnostic, rewrite, and proof from one correction
+- [01]-[RULE_BUILDING](references/rule-building.md): Rule diagnostics and rewrites
 - [02]-[RULE_HARDENING](references/rule-hardening.md): Existing rule's coverage, shared shapes, and recursion
 - [03]-[OUTLINE](references/outline.md): Reading outlines and writing the extractor catalogs behind them
 - [04]-[CONFIG](references/config.md): Project discovery, custom languages, trust, globs, stdin, exit codes, and injections
@@ -317,7 +317,6 @@ ast-grep-mcp runs one CLI process per tool call and hands the rule or pattern th
 | [INDEX] | [TOOL]                 | [COMMAND]                                                  | [RETURNS]                           |
 | :-----: | :--------------------- | :--------------------------------------------------------- | :---------------------------------- |
 |  [01]   | `dump_syntax_tree`     | `run --pattern <code> --lang <l> --debug-query=<format>`   | Tree the CLI prints on stderr       |
-|  [02]   | `test_match_code_rule` | `scan --inline-rules <yaml> --json --stdin`                | Matches, an error when none matches |
 |  [03]   | `find_code`            | `run --pattern <code> [--lang <l>] --json=stream <folder>` | Text or match objects               |
 |  [04]   | `find_code_by_rule`    | `scan --inline-rules <yaml> --json=stream <folder>`        | Text or match objects               |
 

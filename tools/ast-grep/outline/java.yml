@@ -78,12 +78,12 @@ rewriters:
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        T: rewrite($TYPES, rewriters=[comment, tool, value])
-        P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
-        S: rewrite($SUPERCLASS, rewriters=[comment, tool, value])
-        I: rewrite($INTERFACES, rewriters=[comment, tool, value])
-        R: rewrite($PERMITS, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          T: rewrite($TYPES, rewriters=[comment, tool, value])
+          P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
+          S: rewrite($SUPERCLASS, rewriters=[comment, tool, value])
+          I: rewrite($INTERFACES, rewriters=[comment, tool, value])
+          R: rewrite($PERMITS, rewriters=[comment, tool, value])
       fix: "$M\n$KEYWORD $NAME$T$P\n$S\n$I\n$R"
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
@@ -118,10 +118,10 @@ rewriters:
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        T: rewrite($TYPES, rewriters=[comment, tool, value])
-        E: rewrite($EXTENDS, rewriters=[comment, tool, value])
-        R: rewrite($PERMITS, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          T: rewrite($TYPES, rewriters=[comment, tool, value])
+          E: rewrite($EXTENDS, rewriters=[comment, tool, value])
+          R: rewrite($PERMITS, rewriters=[comment, tool, value])
       fix: "$M\n$KEYWORD $NAME$T\n$E\n$R"
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
@@ -153,8 +153,8 @@ rewriters:
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        I: rewrite($INTERFACES, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          I: rewrite($INTERFACES, rewriters=[comment, tool, value])
       fix: "$M\nenum $NAME\n$I"
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
@@ -191,19 +191,19 @@ rewriters:
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        T: rewrite($TYPES, rewriters=[comment, tool, value])
-        A: rewrite($ANNOTATION, rewriters=[comment, tool, value])
-        Y: rewrite($TYPE, rewriters=[comment, tool, value])
-        P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
-        H: rewrite($THROWS, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          T: rewrite($TYPES, rewriters=[comment, tool, value])
+          A: rewrite($ANNOTATION, rewriters=[comment, tool, value])
+          Y: rewrite($TYPE, rewriters=[comment, tool, value])
+          P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
+          H: rewrite($THROWS, rewriters=[comment, tool, value])
       fix: "$M\n$T\n$A\n$Y $NAME$P$DIMENSIONS\n$H"
     - id: element
       rule: {kind: identifier, inside: {kind: annotation_type_element_declaration, field: name, matches: form, any: [{has: {field: value, pattern: $VALUE}}, {kind: annotation_type_element_declaration}]}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        Y: rewrite($TYPE, rewriters=[comment, tool, value])
-        D: {replace: {source: $VALUE, replace: '(?s).+', by: ' default …'}}
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          Y: rewrite($TYPE, rewriters=[comment, tool, value])
+          D: {replace: {source: $VALUE, replace: '(?s).+', by: ' default …'}}
       fix: "$M\n$Y $NAME()$DIMENSIONS$D"
 transform:
     HEADER: rewrite($NAME, rewriters=[element, header])
@@ -237,15 +237,15 @@ rewriters:
     - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
     - id: header
       rule:
-        kind: identifier
-        inside:
-            kind: variable_declarator
-            field: name
-            any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
-            inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'field_declaration, constant_declaration'}]}
+          kind: identifier
+          inside:
+              kind: variable_declarator
+              field: name
+              any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
+              inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'field_declaration, constant_declaration'}]}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        Y: rewrite($TYPE, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          Y: rewrite($TYPE, rewriters=[comment, tool, value])
       fix: "$M\n$Y $NAME$DIMENSIONS"
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
@@ -279,15 +279,15 @@ rewriters:
     - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
     - id: header
       rule:
-        kind: identifier
-        inside:
-            kind: variable_declarator
-            field: name
-            any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
-            inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: field_declaration}]}
+          kind: identifier
+          inside:
+              kind: variable_declarator
+              field: name
+              any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
+              inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: field_declaration}]}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        Y: rewrite($TYPE, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          Y: rewrite($TYPE, rewriters=[comment, tool, value])
       fix: "$M\n$Y $NAME$DIMENSIONS"
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
@@ -395,17 +395,17 @@ rewriters:
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        T: rewrite($TYPES, rewriters=[comment, tool, value])
-        P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
-        S: rewrite($SUPERCLASS, rewriters=[comment, tool, value])
-        I: rewrite($INTERFACES, rewriters=[comment, tool, value])
-        R: rewrite($PERMITS, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          T: rewrite($TYPES, rewriters=[comment, tool, value])
+          P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
+          S: rewrite($SUPERCLASS, rewriters=[comment, tool, value])
+          I: rewrite($INTERFACES, rewriters=[comment, tool, value])
+          R: rewrite($PERMITS, rewriters=[comment, tool, value])
       fix: "$M\n$KEYWORD $NAME$T$P\n$S\n$I\n$R"
     - id: lineage
       rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
       transform:
-        ABOVE: rewrite($UP, rewriters=[lineage])
+          ABOVE: rewrite($UP, rewriters=[lineage])
       fix: $ABOVE$SELF.
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
@@ -464,15 +464,15 @@ rewriters:
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        T: rewrite($TYPES, rewriters=[comment, tool, value])
-        E: rewrite($EXTENDS, rewriters=[comment, tool, value])
-        R: rewrite($PERMITS, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          T: rewrite($TYPES, rewriters=[comment, tool, value])
+          E: rewrite($EXTENDS, rewriters=[comment, tool, value])
+          R: rewrite($PERMITS, rewriters=[comment, tool, value])
       fix: "$M\n$KEYWORD $NAME$T\n$E\n$R"
     - id: lineage
       rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
       transform:
-        ABOVE: rewrite($UP, rewriters=[lineage])
+          ABOVE: rewrite($UP, rewriters=[lineage])
       fix: $ABOVE$SELF.
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
@@ -528,13 +528,13 @@ rewriters:
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        I: rewrite($INTERFACES, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          I: rewrite($INTERFACES, rewriters=[comment, tool, value])
       fix: "$M\nenum $NAME\n$I"
     - id: lineage
       rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
       transform:
-        ABOVE: rewrite($UP, rewriters=[lineage])
+          ABOVE: rewrite($UP, rewriters=[lineage])
       fix: $ABOVE$SELF.
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
@@ -577,7 +577,7 @@ rewriters:
     - id: lineage
       rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
       transform:
-        ABOVE: rewrite($UP, rewriters=[lineage])
+          ABOVE: rewrite($UP, rewriters=[lineage])
       fix: $ABOVE$SELF.
 transform:
     HEADER: rewrite($DECLARATION, rewriters=[comment, tool, value])
@@ -611,10 +611,10 @@ rule:
     any:
         - kind: enum_constant
           all:
-            - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-            - inside: {kind: enum_body, inside: {kind: enum_declaration, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}
-            - not: {has: {field: body, kind: class_body}}
-            - matches: plain
+              - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+              - inside: {kind: enum_body, inside: {kind: enum_declaration, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}
+              - not: {has: {field: body, kind: class_body}}
+              - matches: plain
         - kind: identifier
           pattern: {context: 'class $NAME {}', selector: identifier}
           inside: {kind: enum_constant, field: name, inside: {kind: enum_body, inside: {kind: enum_declaration, any: [{inside: {kind: 'program, ERROR'}}, {has: {field: name, pattern: {context: 'class $OWNER {}', selector: identifier}}}]}}}
@@ -625,12 +625,12 @@ rewriters:
     - id: lineage
       rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
       transform:
-        ABOVE: rewrite($UP, rewriters=[lineage])
+          ABOVE: rewrite($UP, rewriters=[lineage])
       fix: $ABOVE$SELF.
     - id: header
       rule: {kind: identifier, inside: {kind: enum_constant, field: name, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: enum_constant}]}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
       fix: "$M\n$NAME"
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
@@ -675,9 +675,9 @@ rule:
     any:
         - kind: method_declaration, annotation_type_element_declaration
           all:
-            - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-            - matches: owner
-            - matches: plain
+              - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+              - matches: owner
+              - matches: plain
         - kind: identifier
           pattern: {context: 'class $NAME {}', selector: identifier}
           inside: {kind: method_declaration, field: name, matches: owner}
@@ -688,24 +688,24 @@ rewriters:
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        T: rewrite($TYPES, rewriters=[comment, tool, value])
-        A: rewrite($ANNOTATION, rewriters=[comment, tool, value])
-        Y: rewrite($TYPE, rewriters=[comment, tool, value])
-        P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
-        H: rewrite($THROWS, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          T: rewrite($TYPES, rewriters=[comment, tool, value])
+          A: rewrite($ANNOTATION, rewriters=[comment, tool, value])
+          Y: rewrite($TYPE, rewriters=[comment, tool, value])
+          P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
+          H: rewrite($THROWS, rewriters=[comment, tool, value])
       fix: "$M\n$T\n$A\n$Y $NAME$P$DIMENSIONS\n$H"
     - id: element
       rule: {kind: identifier, inside: {kind: annotation_type_element_declaration, field: name, matches: form, any: [{has: {field: value, pattern: $VALUE}}, {kind: annotation_type_element_declaration}]}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        Y: rewrite($TYPE, rewriters=[comment, tool, value])
-        D: {replace: {source: $VALUE, replace: '(?s).+', by: ' default …'}}
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          Y: rewrite($TYPE, rewriters=[comment, tool, value])
+          D: {replace: {source: $VALUE, replace: '(?s).+', by: ' default …'}}
       fix: "$M\n$Y $NAME()$DIMENSIONS$D"
     - id: lineage
       rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
       transform:
-        ABOVE: rewrite($UP, rewriters=[lineage])
+          ABOVE: rewrite($UP, rewriters=[lineage])
       fix: $ABOVE$SELF.
 transform:
     HEADER: rewrite($NAME, rewriters=[element, header])
@@ -747,17 +747,17 @@ rule:
     any:
         - kind: constructor_declaration, compact_constructor_declaration
           all:
-            - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-            - matches: owner
-            - matches: plain
+              - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+              - matches: owner
+              - matches: plain
         - kind: identifier
           pattern: {context: 'class $NAME {}', selector: identifier}
           inside: {kind: 'constructor_declaration, compact_constructor_declaration', field: name, matches: owner}
         - kind: static_initializer, block
           all:
-            - matches: owner
-            - has: {pattern: $$NAME, not: {kind: block}}
-            - matches: plain
+              - matches: owner
+              - has: {pattern: $$NAME, not: {kind: block}}
+              - matches: plain
         - any: [{pattern: static, inside: {kind: static_initializer, matches: owner}}, {pattern: '{', inside: {kind: block, matches: owner}}]
           pattern: $$NAME
 rewriters:
@@ -767,16 +767,16 @@ rewriters:
     - id: lineage
       rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
       transform:
-        ABOVE: rewrite($UP, rewriters=[lineage])
+          ABOVE: rewrite($UP, rewriters=[lineage])
       fix: $ABOVE$SELF.
     - {id: initializer, rule: {pattern: '{'}, fix: '{}'}
     - id: header
       rule: {kind: identifier, inside: {field: name, matches: form}}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        T: rewrite($TYPES, rewriters=[comment, tool, value])
-        P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
-        H: rewrite($THROWS, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          T: rewrite($TYPES, rewriters=[comment, tool, value])
+          P: rewrite($PARAMETERS, rewriters=[comment, tool, value])
+          H: rewrite($THROWS, rewriters=[comment, tool, value])
       fix: "$M\n$T\n$NAME$P\n$H"
 transform:
     LINES: replace($HEADER, replace='[\t-\r ]+', by="\n ")
@@ -814,16 +814,16 @@ rule:
     any:
         - kind: field_declaration, constant_declaration
           all:
-            - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
-            - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}}
-            - matches: constant
-            - matches: owner
-            - matches: plain
+              - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+              - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}}
+              - matches: constant
+              - matches: owner
+              - matches: plain
         - kind: variable_declarator
           all:
-            - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-            - inside: {kind: 'field_declaration, constant_declaration', all: [{matches: constant}, {matches: owner}]}
-            - matches: plain
+              - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+              - inside: {kind: 'field_declaration, constant_declaration', all: [{matches: constant}, {matches: owner}]}
+              - matches: plain
         - kind: identifier
           pattern: {context: 'class $NAME {}', selector: identifier}
           inside: {kind: variable_declarator, field: name, inside: {kind: 'field_declaration, constant_declaration', all: [{matches: constant}, {matches: owner}]}}
@@ -833,20 +833,20 @@ rewriters:
     - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
     - id: header
       rule:
-        kind: identifier
-        inside:
-            kind: variable_declarator
-            field: name
-            any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
-            inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'field_declaration, constant_declaration'}]}
+          kind: identifier
+          inside:
+              kind: variable_declarator
+              field: name
+              any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
+              inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: 'field_declaration, constant_declaration'}]}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        Y: rewrite($TYPE, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          Y: rewrite($TYPE, rewriters=[comment, tool, value])
       fix: "$M\n$Y $NAME$DIMENSIONS"
     - id: lineage
       rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
       transform:
-        ABOVE: rewrite($UP, rewriters=[lineage])
+          ABOVE: rewrite($UP, rewriters=[lineage])
       fix: $ABOVE$SELF.
 transform:
     HEADER: rewrite($NAME, rewriters=[header])
@@ -883,16 +883,16 @@ rule:
     any:
         - kind: field_declaration
           all:
-            - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
-            - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}}
-            - matches: variable
-            - matches: owner
-            - matches: plain
+              - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+              - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}}
+              - matches: variable
+              - matches: owner
+              - matches: plain
         - kind: variable_declarator
           all:
-            - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
-            - inside: {kind: field_declaration, all: [{matches: variable}, {matches: owner}]}
-            - matches: plain
+              - has: {field: name, pattern: {context: 'class $NAME {}', selector: identifier}}
+              - inside: {kind: field_declaration, all: [{matches: variable}, {matches: owner}]}
+              - matches: plain
         - kind: identifier
           pattern: {context: 'class $NAME {}', selector: identifier}
           inside: {kind: variable_declarator, field: name, inside: {kind: field_declaration, all: [{matches: variable}, {matches: owner}]}}
@@ -902,20 +902,20 @@ rewriters:
     - {id: value, rule: {kind: annotation_argument_list}, fix: '(…)'}
     - id: header
       rule:
-        kind: identifier
-        inside:
-            kind: variable_declarator
-            field: name
-            any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
-            inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: field_declaration}]}
+          kind: identifier
+          inside:
+              kind: variable_declarator
+              field: name
+              any: [{has: {field: dimensions, pattern: $DIMENSIONS}}, {kind: variable_declarator}]
+              inside: {has: {field: type, pattern: $TYPE}, any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: field_declaration}]}
       transform:
-        M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
-        Y: rewrite($TYPE, rewriters=[comment, tool, value])
+          M: rewrite($MODIFIERS, rewriters=[comment, tool, value])
+          Y: rewrite($TYPE, rewriters=[comment, tool, value])
       fix: "$M\n$Y $NAME$DIMENSIONS"
     - id: lineage
       rule: {pattern: $$SELF, any: [{inside: {matches: placed}}, {regex: ''}]}
       transform:
-        ABOVE: rewrite($UP, rewriters=[lineage])
+          ABOVE: rewrite($UP, rewriters=[lineage])
       fix: $ABOVE$SELF.
 transform:
     HEADER: rewrite($NAME, rewriters=[header])

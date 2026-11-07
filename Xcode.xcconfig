@@ -26,10 +26,9 @@ ENABLE_POINTER_AUTHENTICATION = NO
 SPARKLE_FEED_URL = https:/$()/github.com/bsamiee/Rasm/releases/download/$(PRODUCT_NAME)-updates/appcast.xml
 
 // --- [SWIFT] ---------------------------------------------------------------------------
-OTHER_SWIFT_FLAGS = -enable-upcoming-feature ExistentialAny -enable-upcoming-feature ImmutableWeakCaptures -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature InternalImportsByDefault -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature NonisolatedNonsendingByDefault -warn-soft-deprecated -Xfrontend -warn-long-expression-type-checking-scopes -Xfrontend 200
+OTHER_SWIFT_FLAGS = -enable-upcoming-feature ExistentialAny -enable-upcoming-feature ImmutableWeakCaptures -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature InternalImportsByDefault -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature NonisolatedNonsendingByDefault -strict-memory-safety -warn-soft-deprecated -Xfrontend -warn-long-expression-type-checking-scopes -Xfrontend 200 -warnings-as-errors -Werror ExplicitSendable -Werror StrictLanguageFeatures
 SWIFT_COMPILATION_MODE[config=Release] = wholemodule
 SWIFT_OPTIMIZATION_LEVEL[config=Debug] = -Onone
 SWIFT_STRICT_MEMORY_SAFETY = YES
 SWIFT_TREAT_WARNINGS_AS_ERRORS = YES
 SWIFT_VERSION = 6.0
-SWIFT_WARNINGS_AS_ERRORS_GROUPS = ExplicitSendable StrictLanguageFeatures

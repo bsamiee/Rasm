@@ -61,6 +61,7 @@ extension AXUIElement {
             return unsafe remoteElement(id as CFData)?.takeRetainedValue().timed
         }
         let words: [Int] = stride(from: id.startIndex + menuMark.count, to: id.endIndex, by: 4).map { start in id[start..<(start + 4)].reduce(0) { word, byte in word << 8 | Int(byte) } }
+        guard menuBars.indices.contains(words[1]) else { return nil }
         let bar: String = menuBars[words[1]]
         var node: AXUIElement? = try application(pid_t(truncatingIfNeeded: words[0])).values([bar])[bar].flatMap(checked)
         for index: Int in words.dropFirst(2) {

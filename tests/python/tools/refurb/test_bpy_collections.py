@@ -16,29 +16,20 @@ lazy from tests.python.tools.refurb.conftest import Findings
 
 
 @pytest.mark.parametrize("findings", ["3.13"], indirect=True)
-def test_collection_struct_type_test_reports(findings: Findings) -> None:
-    """Type test against an RNA collection struct, reported for each named struct."""
+def test_collection_struct_reports_and_owner_passes(findings: Findings) -> None:
+    """Reports RNA collection type tests and accepts an owner type test in the same module."""
     source = dedent("""
         import bpy
 
-        def moved(stack: object, before: int, index: int) -> None:
+        def collection(stack: object, before: int, index: int) -> None:
             if isinstance(stack, bpy.types.ObjectModifiers):
                 stack.move(before, index)
-    """)
-    assert [error.line for error in findings(ErrorCollectionTypeTestError, source)] == [5]
 
-
-@pytest.mark.parametrize("findings", ["3.13"], indirect=True)
-def test_owner_type_test_passes(findings: Findings) -> None:
-    """Type test against the owner struct, not reported."""
-    source = dedent("""
-        import bpy
-
-        def moved(item: object, before: int, index: int) -> None:
+        def owner(item: object, before: int, index: int) -> None:
             if isinstance(item, bpy.types.Object):
                 item.modifiers.move(before, index)
     """)
-    assert findings(ErrorCollectionTypeTestError, source) == ()
+    assert [error.line for error in findings(source, ErrorCollectionTypeTestError)] == [5]
 
 
 @pytest.mark.parametrize("findings", ["3.13"], indirect=True)
@@ -66,7 +57,7 @@ def test_nested_collection_types_report(findings: Findings) -> None:
         def union(item: object) -> bool:
             return isinstance(item, Kinds)
     """)
-    found = findings(ErrorCollectionTypeTestError, source)
+    found = findings(source, ErrorCollectionTypeTestError)
     assert [error.line for error in found] == [8, 8, 10, 15, 21]
     assert all(error.msg.startswith("`bpy.types.ObjectModifiers` ") for error in found)
 

@@ -49,7 +49,7 @@ def test_template_interpolations_are_visited(findings: Findings) -> None:
         def render() -> object:
             return t"{declared(width=80):{declared(width=80)}}"
     """)
-    assert [(error.line, error.column) for error in findings(ErrorRestatedDefaultError, source)] == [(6, 29), (6, 49)]
+    assert [(error.line, error.column) for error in findings(source, ErrorRestatedDefaultError)] == [(6, 29), (6, 49)]
 
 
 def test_findings_keep_source_filename(tmp_path: Path) -> None:
@@ -80,6 +80,16 @@ def test_ignore_comments_follow_source_changes(tmp_path: Path) -> None:
     assert checked(load_settings([str(path)])) == []
     path.write_text(f"{source}\n", encoding="utf-8")
     assert [error.line for error in checked(load_settings([str(path)])) if isinstance(error, Error)] == [3]
+
+
+def test_native_shadow_file_supplies_types_and_ignores(tmp_path: Path) -> None:
+    """Mypy and Refurb read the same overlay and report findings against the original path."""
+    original, shadow = tmp_path / "original.py", tmp_path / "shadow.py"
+    original.write_text("value: int = 'invalid'\n", encoding="utf-8")
+    shadow.write_text("def read(*, width: int = 80) -> int:\n    return width\nread(width=80)\nread(width=80)  # noqa: RASM102\n", encoding="utf-8")
+    errors = checked(load_settings([str(original), "--", "--shadow-file", str(original), str(shadow)]))
+    assert [(error.filename, error.line) for error in errors if isinstance(error, ErrorRestatedDefaultError)] == [(str(original), 3)]
+    assert not any(isinstance(error, str) for error in errors)
 
 
 def test_repeated_runs_keep_all_nested_merge_findings(tmp_path: Path) -> None:
@@ -119,7 +129,7 @@ def test_unpacked_comprehension_keeps_value_traversal(findings: Findings) -> Non
         def merged(count: int) -> dict[str, int]:
             return {**declared(width=80) for _ in range(count)}
     """)
-    assert [error.line for error in findings(ErrorRestatedDefaultError, source)] == [6]
+    assert [error.line for error in findings(source, ErrorRestatedDefaultError)] == [6]
 
 
 def test_debug_and_timing_keep_driver_analysis(tmp_path: Path) -> None:

@@ -23,7 +23,7 @@ Covers functional TypeScript on Effect modules, with a native construct where no
 - [05]-[SCHEMA](references/schema.md): Schemas as codecs at a boundary
 - [06]-[SERVICES](references/services.md): Services, layers, and runtimes
 - [07]-[CONCURRENCY](references/concurrency.md): Concurrent work and the state it shares
-- [08]-[MODULES](references/modules.md): Package entries, files, tests, and programs
+- [08]-[MODULES](references/modules.md): Package entries, files, and programs
 
 ## [01]-[DECLARATIONS]
 
@@ -300,4 +300,4 @@ Packages are libraries, which export values and choose no runtime, or programs, 
 - Repeated Node source entry points use `NODE_COMPILE_CACHE`; V8 coverage runs with `NODE_DISABLE_COMPILE_CACHE=1`
 - Layered host configuration merges through the host's function (`mergeConfig`), a spread standing where a concatenated array must be replaced
 - Modules load without side effects, a registry, cache, or connection building in its layer, and a package entry export a build takes runs at load
-- Use `typescript-coding-effect` for Effect module families, tests, and telemetry
+- Use `typescript-coding-effect` for Effect module families and telemetry

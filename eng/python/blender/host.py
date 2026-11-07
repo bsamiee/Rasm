@@ -1,21 +1,22 @@
 """Reads the facts the installed Blender states once per build of it, runs the child processes around it, and syncs the user bases its interpreter loads."""
 
 lazy from collections.abc import Iterable
-lazy from functools import partial
 lazy import hashlib
 lazy from itertools import chain, takewhile
 lazy from pathlib import Path
 lazy import subprocess
 lazy import sys
+lazy import tomllib
 lazy from typing import Annotated
+lazy from zipfile import BadZipFile, ZipFile
 
-from expression.extra.result import catch
 import msgspec
 from packaging.tags import mac_platforms
+from pydantic import AliasChoices, AliasPath, BaseModel, Field, ValidationError
 lazy from cyclopts import Parameter
 lazy from cyclopts.types import ResolvedExistingFile
 
-lazy from blender.records.faults import Error, Fault, Ok, Outcome, paired, Reason
+lazy from blender.records.faults import Error, Fault, Ok, Outcome, Reason
 lazy from blender.records.stores import committed, folder_made, RecordFile
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -71,6 +72,12 @@ class Manifest(msgspec.Struct, frozen=True):
     """`blender_manifest.toml` member selecting what a build stages."""
 
     type: str
+
+
+class _ArchiveManifest(BaseModel, frozen=True, defer_build=True):
+    """The platform restriction Blender gives generated archives or their source manifest."""
+
+    platforms: tuple[str, ...] = Field((), validation_alias=AliasChoices(AliasPath("build", "generated", "platforms"), "platforms"))
 
 
 class Target(msgspec.Struct, frozen=True):
@@ -169,41 +176,55 @@ def declared[T](path: Path, form: type[T], /) -> Outcome[T]:
         return Error(Fault.of(Reason.UNREADABLE, str(path), error))
 
 
+# --- [ARCHIVES]
+
+
+def archived(directory: Path, platform: str, /) -> Outcome[Path]:
+    """Selects the one archive whose Blender manifest admits the host platform."""
+    matches: list[Path] = []
+    try:
+        for path in directory.glob("*.zip"):
+            with ZipFile(path) as packed:
+                manifest = _ArchiveManifest.model_validate(tomllib.loads(packed.read("blender_manifest.toml").decode()))
+            if not manifest.platforms or platform in manifest.platforms:
+                matches.append(path)
+    except (OSError, BadZipFile, KeyError, UnicodeError, tomllib.TOMLDecodeError, ValidationError) as error:
+        return Error(Fault.of(Reason.UNREADABLE, str(directory), error))
+    match matches:
+        case [archive]:
+            return Ok(archive)
+        case []:
+            return Error(Fault.of(Reason.ABSENT, str(directory), member=f"{platform} extension archive"))
+        case _:
+            return Error(Fault.of(Reason.INVALID, str(directory), f"Multiple extension archives admit {platform}: {', '.join(path.name for path in sorted(matches))}"))
+
+
 # --- [FACTS]
 
 
-@catch(exception=OSError)
-def _stamp(blender: Path, program: Path, tags: tuple[str, ...], /) -> str:
-    """Returns the digest of one Blender build, the probe source, and the wheel platforms asked about."""
-    built = blender.stat()
-    return hashlib.blake2b(msgspec.msgpack.encode((str(blender), built.st_mtime_ns, built.st_size, program.read_bytes(), tags)), digest_size=16).hexdigest()
-
-
-def probed(blender: Path, /) -> Outcome[Host]:
-    """Returns host facts, `probe.py` running at most once per Blender build and probe source.
+def probed(base: Path, blender: Path, /) -> Outcome[Host]:
+    """Reads cached host facts or probes the installed Blender build.
 
     Args:
+        base: Workspace root.
         blender: Blender executable.
 
     Returns:
         Host facts, or fault of the run, its answer, or a cached answer's read.
     """
+    program = base / "libs/python/blender/probe.py"
     tags = tuple(target.tags[0] for target in TARGETS)
+    try:
+        built = blender.stat()
+        stamp = hashlib.blake2b(msgspec.msgpack.encode((str(blender), built.st_mtime_ns, built.st_size, program.read_bytes(), tags)), digest_size=16).hexdigest()
+    except OSError as error:
+        return Error(Fault.of(Reason.UNREADABLE, str(blender), error))
+    record = RecordFile(path=base / f".cache/blender/host/{stamp}.json", form=Host)
 
-    def cached(base: Path) -> Outcome[Host]:
-        program = base / "libs/python/blender/probe.py"
+    def staged(path: Path) -> Outcome[Host]:
+        return scripted(blender, program, path, *tags, stdout=subprocess.PIPE, stderr=subprocess.PIPE).bind(lambda _: RecordFile(path=path, form=Host).read())
 
-        def asked(record: RecordFile[Host]) -> Outcome[Host]:
-            return committed(record.path, lambda stage: scripted(blender, program, stage, *tags, stdout=subprocess.PIPE, stderr=subprocess.PIPE)).bind(lambda _: record.read())
-
-        return (
-            _stamp(blender, program, tags)
-            .map_error(partial(Fault.of, Reason.UNREADABLE, str(blender)))
-            .map(lambda stamp: RecordFile(path=base / f".cache/blender/host/{stamp}.json", form=Host))
-            .bind(lambda record: record.found().bind(lambda found: found.map(Ok).default_with(lambda: asked(record))))
-        )
-
-    return root().bind(cached)
+    return record.found().bind(lambda found: found.map(Ok).default_with(lambda: committed(record.path, staged).bind(lambda _: record.read())))
 
 
 # --- [ENVIRONMENTS]
@@ -219,8 +240,6 @@ def exported(base: Path, host: Host, lock: Path, /, *options: str) -> Outcome[su
         "--locked",
         "--no-default-groups",
         "--no-header",
-        "--format",
-        "pylock.toml",
         *chain.from_iterable(("--no-emit-package", name) for name in host.bundled),
         *options,
         "--output-file",
@@ -229,34 +248,37 @@ def exported(base: Path, host: Host, lock: Path, /, *options: str) -> Outcome[su
     )
 
 
-def site(*, blender: Path, package: str | None = None, groups: tuple[str, ...] = ()) -> Outcome[Path]:
+def requirements(base: Path, host: Host, folder: Path, /, *selectors: str) -> Outcome[Path]:
+    """Installs the selected workspace lock into the given Blender user base."""
+    lock, target = folder / "pylock.toml", folder / host.user_site
+    return (
+        folder_made(folder)
+        .bind(lambda _: exported(base, host, lock, *selectors))
+        .bind(lambda _: ran("uv", "pip", "sync", "--preview-features", "pylock", "--python", host.executable, "--target", target, lock))
+        .map(lambda _: target)
+    )
+
+
+def site(base: Path, host: Host, /, *, package: str | None = None, groups: tuple[str, ...] = ()) -> Outcome[Path]:
     """Reconciles locked requirements into the user base of one selection on the installed Blender version, editable projects kept.
 
     Selections keep separate user bases, since a sync removes what its lock omits from a base a concurrent run reads.
 
     Args:
-        blender: Blender executable.
+        base: Workspace root.
+        host: Facts from the Blender build that loads the packages.
         package: Workspace member selecting locked runtime requirements, workspace root when omitted.
         groups: Additional uv dependency group selectors.
 
     Returns:
-        The workspace's `.cache/blender/python/<version>/<package>+<group>...` user base, or fault of an export, host query, or package sync.
+        The workspace's `.cache/blender/python/<version>/<package>+<group>...` user base, or fault of an export or package sync.
     """
     options = (*(("--package", package) if package is not None else ()), *chain.from_iterable(("--group", group) for group in groups))
 
-    def synced(base: Path, host: Host) -> Outcome[Path]:
-        folder = base / ".cache/blender/python" / host.version / "+".join((package or base.name, *groups))
-        lock = folder / "pylock.toml"
-        return (
-            folder_made(folder)
-            .bind(lambda _: exported(base, host, lock, *options))
-            .bind(lambda _: ran("uv", "pip", "sync", "--preview-features", "pylock", "--python", host.executable, "--target", folder / host.user_site, lock))
-            .map(lambda _: folder)
-        )
-
-    return paired(root(), probed(blender)).bind(lambda held: synced(*held))
+    folder = base / ".cache/blender/python" / host.version / "+".join((package or base.name, *groups))
+    return requirements(base, host, folder, *options).map(lambda _: folder)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TARGETS", "Blender", "Host", "Manifest", "Pyproject", "Target", "Upstream", "declared", "exported", "headless", "probed", "ran", "root", "scripted", "site"]
+__all__ = ["TARGETS", "Blender", "Host", "Manifest", "Pyproject", "Target", "Upstream", "archived", "declared", "exported", "headless", "probed", "ran", "requirements", "root", "scripted", "site"]
