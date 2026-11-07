@@ -36,6 +36,7 @@
     "devDependencies": {
         "@openai/sites-vite-plugin": "catalog:",
         "@rasm/test-support": "workspace:*",
+        "@storybook/addon-vitest": "catalog:",
         "@storybook/react-vite": "catalog:",
         "@tailwindcss/vite": "catalog:",
         "@types/node": "catalog:",
@@ -44,7 +45,8 @@
         "@types/validator": "catalog:",
         "cf": "catalog:",
         "storybook": "catalog:",
-        "typescript": "catalog:docgen",
-        "vite": "catalog:"
+        "typescript": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
     }
 }

@@ -1,13 +1,11 @@
 import { createRequire, isBuiltin } from 'node:module';
-import { matchesGlob } from 'node:path';
 import type { CreateNodesResult, Optional, ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { findMatchingProjects, interpolate } from '@nx/devkit/internal';
 import { ClaudeHooks, decodeFile, TextFormat, Xcconfig, XcodeProject } from '@rasm/eng';
-import { suitePath, VITEST_INTEGRATION_TESTS } from '@rasm/test-support/suite';
-import { Array, Effect, Equal, FileSystem, Filter, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Effect, Equal, FileSystem, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parseSync } from 'rolldown/utils';
-import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, suiteParents, type Workspace, WorkspaceError } from '#/workspace.ts';
+import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, suiteParents, suitePath, type Workspace, WorkspaceError } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -17,6 +15,7 @@ type Inference = Workspace & { readonly configFiles: ReadonlySet<string> };
 
 const TESTS = 'tests';
 const MODULES = 'node_modules';
+const VITEST_INTEGRATION = 'vitest.integration.config';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -41,14 +40,12 @@ const packageName = (specifier: string) =>
         .split('/')
         .slice(0, specifier.startsWith('@') ? 2 : 1)
         .join('/');
-const moduleRequests = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
-    const { staticImports, staticExports } = parseSync(file, yield* decodeFile(Schema.String, workspaceRoot, file)).module;
-    const reexported = staticExports.flatMap(Struct.get('entries')).map(({ moduleRequest }) => Option.fromNullishOr(moduleRequest));
-    return Array.dedupe([...staticImports.map(Struct.get('moduleRequest')), ...Array.getSomes(reexported)].map(Struct.get('value')));
-});
 const imports = (workspaceRoot: string) =>
     Effect.fnUntraced(function* (file: string) {
-        const [path, requests] = yield* Effect.all([Path.Path, moduleRequests(workspaceRoot, file)]);
+        const [path, text] = yield* Effect.all([Path.Path, decodeFile(Schema.String, workspaceRoot, file)]);
+        const { staticImports, staticExports } = parseSync(file, text).module;
+        const reexported = Array.getSomes(staticExports.flatMap(Struct.get('entries')).map(({ moduleRequest }) => Option.fromNullishOr(moduleRequest)));
+        const requests = Array.dedupe([...staticImports.map(Struct.get('moduleRequest')), ...reexported].map(Struct.get('value')));
         const { resolve } = createRequire(path.join(workspaceRoot, file));
         const located = (request: string) => path.relative(workspaceRoot, resolve(request));
         const source = (request: string) => Option.filter(Option.liftThrowable(located)(request), (held) => !held.split(path.sep).includes(MODULES));
@@ -268,64 +265,12 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         const python = yield* Effect.filterOrFail(pythonTargets(dir, workspace), ({ targets }) => 'test' in targets);
         return { ...python, name: path.basename(dir), tags: ['language:python'] };
     }),
-    'tsconfig.json': Effect.fnUntraced(function* ({ dir }, workspace) {
-        const { file, workspaceRoot, configs, configFiles } = workspace;
-        const [path, readConfig] = yield* Effect.all([Path.Path, configs]);
-        const {
-            config: { options, errors, fileNames },
-            files,
-        } = yield* Effect.try(() => readConfig(file));
-        if (Array.isArrayNonEmpty(errors)) {
-            return yield* WorkspaceError.unparsed(file, errors.map(Struct.get('text')).join('\n'));
-        }
-        const suite = suitePath(path, path.join(TESTS, 'typescript'), dir);
-        const storybook = path.join(dir, '.storybook', 'main.ts');
-        const suiteFiles = yield* glob(workspaceRoot, [`${suite}/**/*`, storybook]);
-        const tests = suiteFiles.filter((candidate) => candidate !== storybook);
-        const sourceRoots = [dir, suite];
-        const parent = `..${path.sep}`;
-        const sources = fileNames.map((candidate) => path.relative(workspaceRoot, candidate));
-        const externalSources = sources.filter((candidate) => !(path.isAbsolute(candidate) || candidate.startsWith(parent)) && sourceRoots.every((root) => path.relative(root, candidate).startsWith(parent))).map((candidate) => `{workspaceRoot}/${candidate}`);
-        const compilerInputs = files.map((held) => ({ fileset: `{workspaceRoot}/${held}`, includeIgnored: true }));
-        const [containers, portable] = Array.partition(
-            tests.filter((candidate) => matchesGlob(candidate, '**/*.test.{ts,tsx}')),
-            Filter.fromPredicate((candidate) => matchesGlob(candidate, VITEST_INTEGRATION_TESTS)),
-        );
-        const integration = Array.match(containers, {
-            onEmpty: () => ({}),
-            onNonEmpty: () => ({
-                'test:integration': { inputs: [...compilerInputs, folderInput(suite), ...portable.map((candidate) => `!{workspaceRoot}/${candidate}`)] },
-            }),
-        });
-        return {
-            ...defaultInputs([...externalSources, ...(tests.length === 0 || suite === dir ? [] : [folderInput(suite)])]),
-            tags: ['language:typescript'],
-            targets: {
-                'typecheck:tsc': {
-                    inputs: [
-                        `{workspaceRoot}/${dir}/**/*`,
-                        ...compilerInputs,
-                        ...(options.typeRoots ?? []).map((typeRoot) => ({ fileset: `{workspaceRoot}/${path.relative(workspaceRoot, typeRoot)}/**/*.d.ts`, includeIgnored: true })),
-                        ...(configFiles.has(path.join(dir, CLOUDFLARE_CONFIG)) ? [{ dependentTasksOutputFiles: '**/*.d.ts' }] : []),
-                    ],
-                },
-                check: { inputs: ['default', '^production', 'typescript', ...compilerInputs, { externalDependencies: ['@effect/tsgo', 'typescript'] }] },
-                ...(configFiles.has(path.join(dir, 'vitest.config.ts')) && (portable.length > 0 || suiteFiles.includes(storybook)) ? { test: { inputs: [...compilerInputs, ...containers.map((candidate) => `!{workspaceRoot}/${candidate}`)] } } : {}),
-                ...integration,
-            },
-        };
-    }),
-    'vitest.config.ts': {},
+    'tsconfig.json': { tags: ['language:typescript'], targets: { check: {} } },
+    [`${VITEST_INTEGRATION}.ts`]: { targets: { 'test:integration': { command: `vitest run --config ${VITEST_INTEGRATION}.ts`, options: { cwd: '{projectRoot}' }, outputs: [`{workspaceRoot}/.artifacts/typescript/vitest/{projectRoot}/${VITEST_INTEGRATION}`] } } },
     'vite.config.ts': Effect.fnUntraced(function* ({ dir }, { configFiles }) {
         const path = yield* Path.Path;
         const hosted = configFiles.has(path.join(dir, CLOUDFLARE_CONFIG));
-        return {
-            tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])],
-            targets: {
-                build: { command: 'vite build --configLoader native', options: { cwd: '{projectRoot}' } },
-                ...(hosted ? { infra: {}, publish: {} } : {}),
-            },
-        };
+        return { tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])], targets: hosted ? { infra: {}, publish: {} } : {} };
     }),
     ...Record.fromIterableWith(['uxp', 'cep'] as const, (host) => [`${host}.config.ts` as const, { tags: [`host:${host}`], targets: { build: { command: `vite build --configLoader native --config ${host}.config.ts`, options: { cwd: '{projectRoot}' } }, pack: {}, install: {} } }]),
     'perso-arabic/rasm.toml': ({ dir, base, name }) =>
@@ -377,4 +322,4 @@ const infer = Effect.fnUntraced(function* (file: string, workspace: Inference) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { attachedSuites, folderInput, imports, infer, logged, markers, moduleRequests, owning, packageName, reach, rootTargets, swiftProject, TESTS };
+export { attachedSuites, folderInput, imports, infer, logged, markers, owning, packageName, reach, rootTargets, swiftProject, TESTS };

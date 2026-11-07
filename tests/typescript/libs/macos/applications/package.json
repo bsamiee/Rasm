@@ -1,0 +1,14 @@
+{
+    "name": "@rasm/test-applications",
+    "private": true,
+    "description": "Mac application server contract suite",
+    "type": "module",
+    "devDependencies": {
+        "@effect/vitest": "catalog:",
+        "@rasm/applications": "workspace:*",
+        "@rasm/test-support": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vitest": "catalog:"
+    }
+}

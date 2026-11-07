@@ -36,7 +36,8 @@ nonisolated struct QuotaWindow: Equatable, Sendable {
     let resetsAt: Date?
     let rejected: Bool
 
-    var blocks: Bool { used.isExhausted || rejected }
+    func hasReset(at now: Date) -> Bool { resetsAt.map { reset in reset <= now } ?? false }
+    func blocks(at now: Date) -> Bool { !hasReset(at: now) && (used.isExhausted || rejected) }
 }
 
 nonisolated struct AccountUsage: Equatable, Sendable {
@@ -46,7 +47,7 @@ nonisolated struct AccountUsage: Equatable, Sendable {
     let signInExpiresAt: Date?
 
     var weekly: QuotaWindow? { windows.first { window in window.kind == .weekly } }
-    var isBlocked: Bool { weekly?.blocks == true || includedUsageAllowed == false }
+    func isBlocked(at now: Date) -> Bool { weekly?.blocks(at: now) == true || includedUsageAllowed == false }
 }
 
 @CasePathable

@@ -1,3 +1,4 @@
+import CasePathsCore
 import DeveloperToolsSupport
 import Foundation
 
@@ -48,19 +49,28 @@ extension UsageAmount {
 }
 
 extension QuotaWindow {
+    func resetText(at now: Date) -> String? {
+        hasReset(at: now) ? nil : resetsAt?.resetText(at: now)
+    }
+
     func reading(at now: Date) -> String {
-        [used.percentage, resetsAt.flatMap { date in date <= now ? nil : date.resetText(at: now) }].compactMap(\.self).joined(separator: separator)
+        hasReset(at: now) ? "Reset" : [used.percentage, resetText(at: now)].compactMap(\.self).joined(separator: separator)
     }
 }
 
-extension UsageState {
+extension AccountModel {
     func note(at now: Date) -> String? {
-        switch (usage, usage?.isBlocked, usage?.signInExpiresAt) {
-            case (.none, _, _): nil
-            case (.some(let usage), true, _): ["Blocked", usage.weekly?.resetsAt?.resetText(at: now)].compactMap(\.self).joined(separator: separator)
-            case (.some, _, .some(let expiry)) where expiry <= now: "Sign-in expired"
-            case (.some, _, _): nil
-        }
+        let parts: [String?] =
+            switch (authentication, usage.usage, usage.usage?.signInExpiresAt.flatMap { expiry in expiry <= now ? expiry : nil }) {
+                case (_, _, .some(let expiry)): ["Sign-in expired \(expiry.formatted(.monthDay))"]
+                case (.signInRequired, _, .none): ["Sign in required"]
+                case (.connected, .none, .none): []
+                case (.connected, .some(let reading), .none):
+                    (reading.isBlocked(at: now) ? ["Blocked", reading.weekly?.resetText(at: now)] as [String?] : [])
+                        + [usage.is(\.stale) ? "Updated \(reading.observedAt.formatted(.relative(presentation: .named)))" : nil] as [String?]
+            }
+        let text: [String] = parts.compactMap(\.self)
+        return text.isEmpty ? nil : text.joined(separator: separator)
     }
 }
 

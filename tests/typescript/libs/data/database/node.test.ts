@@ -4,7 +4,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { Catalog, Relation } from '@rasm/database';
 import { Effect, FileSystem, Layer, Path, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
-import { cases } from '#/tests/typescript/libs/data/database/cases.ts';
+import { cases } from '#/cases.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

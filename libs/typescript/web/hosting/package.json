@@ -35,15 +35,10 @@
         "vite": "catalog:"
     },
     "devDependencies": {
-        "@cloudflare/vitest-plugin": "catalog:",
-        "@effect/vitest": "catalog:",
-        "@rasm/test-support": "workspace:*",
         "@types/culori": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
-        "@types/web-app-manifest": "catalog:",
-        "testcontainers": "catalog:",
-        "vitest": "catalog:"
+        "@types/web-app-manifest": "catalog:"
     }
 }

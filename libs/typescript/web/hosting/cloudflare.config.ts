@@ -1,6 +1,6 @@
-import { bindings, defineConfig, defineWorker } from 'cf/config';
+import { defineConfig, defineWorker } from 'cf/config';
 import { compatibilityDate } from '#/cloudflare.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig({ worker: defineWorker({ name: 'hosting', compatibilityDate, env: { BUCKET: bindings.r2() } }) });
+export default defineConfig({ worker: defineWorker({ name: 'hosting', compatibilityDate }) });

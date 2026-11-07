@@ -37,9 +37,13 @@ nonisolated extension ClaudeCredentialStore {
         } catch {
             throw .invalidCredentials(error)
         }
-        let line: String = "add-generic-password -U -a \(quoted(username)) -s \(quoted(service)) -X \(data.hexEncoded())\n"
-        guard line.utf8.count < 4096 else { throw .credentialTooLong }
-        _ = try await security(["-i"], input: .string(line))
+        let password: String = data.hexEncoded()
+        let line: String = "add-generic-password -U -a \(quoted(username)) -s \(quoted(service)) -X \(password)\n"
+        if line.utf8.count <= 4032 {
+            _ = try await security(["-i"], input: .string(line))
+        } else {
+            _ = try await security(["add-generic-password", "-U", "-a", username, "-s", service, "-X", password])
+        }
         do { _ = try ifPresent { try FileManager.default.removeItem(at: directory.appending(path: ".credentials.json")) } } catch { throw .filesystem(error) }
     }
 

@@ -4,11 +4,8 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateNodesContext, hashArray } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { decodeFile, Mise, Package, runCommand, TextFormat } from '@rasm/eng';
-import { suitePath } from '@rasm/test-support/suite';
-import { Array, Config, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Order, Path, Predicate, Record, Result, Schema, Scope, String, Struct } from 'effect';
+import { Array, Config, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Order, Path, Predicate, Record, Result, Schema, type Scope, String, Struct } from 'effect';
 import { escape } from 'minimatch';
-import { serverFS } from 'typescript/fs';
-import { API } from 'typescript/sync';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -100,6 +97,7 @@ class WorkspaceError extends Schema.TaggedError<WorkspaceError, { readonly brand
 // --- [READS]
 
 const glob = (workspaceRoot: string, patterns: string[], exclude?: string[]) => Effect.tryPromise(() => globWithWorkspaceContext(workspaceRoot, patterns, exclude));
+const suitePath = (path: Path.Path, base: string, directory: string) => (directory === base || directory.startsWith(`${base}${path.sep}`) ? directory : path.join(base, ...directory.split(path.sep).filter((segment, index) => index !== 1 || segment !== path.basename(base))));
 const suiteParents = (path: Path.Path, suites: readonly string[]) => Array.dedupe(suites.flatMap((suite) => Array.unfold(path.dirname(suite), (parent) => (parent === '.' ? Option.none() : Option.some([parent, path.dirname(parent)])))));
 const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string) {
     const [path, { tool }] = yield* Effect.all([Path.Path, decodeFile(WorkspacePyproject, workspaceRoot, PYPROJECT)]);
@@ -182,9 +180,8 @@ const readDaemons = Effect.fnUntraced(function* (workspaceRoot: string, declared
 // --- [WORKSPACE]
 
 const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfiguration }: Pick<CreateNodesContext, 'workspaceRoot' | 'nxJsonConfiguration'>) {
-    const [fs, path, scope] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.scope]);
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const pyproject = yield* Effect.cached(readPyproject(workspaceRoot));
-    const configReads = new Set<string>();
     let cacheChanged = false;
     const cache = yield* Effect.acquireRelease(
         Effect.sync(() => new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.cache'))),
@@ -246,37 +243,6 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
             ),
             packages: Effect.cached(readPackages(workspaceRoot)),
             pythonScopes: Effect.cached(Effect.flatMap(Effect.all([hosts, pyproject]), ([folders, { testPaths }]) => readScopes(workspaceRoot, folders, testPaths))),
-            configs: Effect.cached(
-                Effect.acquireRelease(
-                    Effect.sync(
-                        () =>
-                            new API({
-                                cwd: workspaceRoot,
-                                fs: {
-                                    directoryExists: serverFS.useOS,
-                                    fileExists: serverFS.useOS,
-                                    getAccessibleEntries: serverFS.useOS,
-                                    readFile: (file) => {
-                                        configReads.add(file);
-                                        return serverFS.useOS;
-                                    },
-                                    realpath: serverFS.useOS,
-                                    stat: serverFS.useOS,
-                                    writeFile: serverFS.useOS,
-                                    removeFile: serverFS.useOS,
-                                },
-                            }),
-                    ),
-                    (api) => Effect.sync(api.close),
-                ).pipe(
-                    Scope.provide(scope),
-                    Effect.map((api) => (file: string) => {
-                        configReads.clear();
-                        const config = api.parseConfigFile(path.join(workspaceRoot, file));
-                        return { config, files: [...configReads].map(path.relative.bind(null, workspaceRoot)) };
-                    }),
-                ),
-            ),
             swift: Effect.cached(
                 Effect.map(swiftManifest(SwiftPackage, 'describe', '--type', 'json'), (described) => ({
                     ...described,
@@ -294,4 +260,4 @@ const runPlugin = <A, E>(effect: Effect.Effect<A, E, Scope.Scope | PluginService
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, runPlugin, SWIFT_MANIFEST, suiteParents, type Workspace, WorkspaceError };
+export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, JsonListRecord, openWorkspace, type PluginServices, PYPROJECT, runPlugin, SWIFT_MANIFEST, suiteParents, suitePath, type Workspace, WorkspaceError };

@@ -6,13 +6,16 @@
     "imports": {
         "#/*": "./*"
     },
+    "exports": {
+        ".": "./graph/plugin.ts",
+        "./package.json": "./package.json"
+    },
     "dependencies": {
         "@cloudflare/config": "catalog:",
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/eng": "workspace:*",
-        "@rasm/test-support": "workspace:*",
         "effect": "catalog:",
         "fast-xml-builder": "catalog:",
         "fast-xml-parser": "catalog:",
@@ -21,10 +24,10 @@
         "nx": "catalog:",
         "rolldown": "catalog:",
         "shell-quote": "catalog:",
-        "typescript": "catalog:",
         "yaml": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:"
-    }
+    },
+    "generators": "./sync/generators.json"
 }

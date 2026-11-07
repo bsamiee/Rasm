@@ -252,7 +252,7 @@ actor ClaudeClient: ProviderClient {
         _ current: ClaudeCredential,
         in store: ClaudeCredentialStore,
     ) async throws(ClaudeFailure) -> ClaudeCredential {
-        guard let posted: String = current.token.document.known.refreshToken else { throw .signInRequired }
+        guard let posted: String = current.token.refreshToken(at: Date()) else { throw .signInRequired }
         let grant: ClaudeTokenRequest = ClaudeTokenRequest(
             refreshToken: posted,
             clientId: current.token.document.known.clientId ?? "9d1c250a-e61b-44d9-88ed-5944d1962f5e",

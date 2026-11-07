@@ -23,9 +23,12 @@ struct UsageGauge: View {
     var body: some View {
         let reading: String = window.reading(at: now)
         let detail: String = window.resetsAt.resetTooltip
+        let hasReset: Bool = window.hasReset(at: now)
+        let isCurrent: Bool = isCurrent && !hasReset
+        let fraction: Double = hasReset ? 0 : window.used.fraction
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                label
+                label(isCurrent: isCurrent)
                 Spacer(minLength: 8)
                 Text(reading)
                     .monospacedDigit()
@@ -33,7 +36,7 @@ struct UsageGauge: View {
                     .contentTransition(.opacity)
             }
             .accessibilityRepresentation {
-                ProgressView(value: window.used.fraction) {
+                ProgressView(value: fraction) {
                     Text(window.kind.name)
                 } currentValueLabel: {
                     Text(reading)
@@ -42,7 +45,7 @@ struct UsageGauge: View {
             .help(detail)
             .font(.subheadline)
 
-            ProgressView(value: window.used.fraction)
+            ProgressView(value: fraction)
                 .tint(isCurrent ? Color.accentColor : .secondary)
                 .accessibilityHidden(true)
                 .help(detail)
@@ -50,7 +53,7 @@ struct UsageGauge: View {
     }
 
     @ViewBuilder
-    private var label: some View {
+    private func label(isCurrent: Bool) -> some View {
         let text: Text = Text(window.kind.name).foregroundStyle(isCurrent ? .primary : .secondary)
         if leadsGlyphRow {
             text.alignmentGuide(.glyphRow) { dimensions in dimensions[VerticalAlignment.center] }

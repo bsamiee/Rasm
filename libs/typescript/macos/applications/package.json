@@ -19,9 +19,6 @@
         "vite": "catalog:"
     },
     "devDependencies": {
-        "@effect/vitest": "catalog:",
-        "@rasm/test-support": "workspace:*",
-        "@types/node": "catalog:",
-        "vitest": "catalog:"
+        "@types/node": "catalog:"
     }
 }

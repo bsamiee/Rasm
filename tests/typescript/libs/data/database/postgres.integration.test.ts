@@ -11,7 +11,7 @@ import { Reactivity } from 'effect/reactivity';
 import { SqlClient, type SqlError } from 'effect/sql';
 import { PullPolicy } from 'testcontainers';
 import { afterAll } from 'vitest';
-import { cases } from '#/tests/typescript/libs/data/database/cases.ts';
+import { cases } from '#/cases.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ const plans = [inject('artifacts'), 'sql', 'postgres'] as const;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Container extends Context.Service<Container, { readonly restore: Effect.Effect<void, SqlError.SqlError>; readonly url: Redacted.Redacted }>()('rasm/tests/typescript/libs/data/database/postgres.integration.test/Container') {
+class Container extends Context.Service<Container, { readonly restore: Effect.Effect<void, SqlError.SqlError>; readonly url: Redacted.Redacted }>()('@rasm/test-database/postgres.integration.test/Container') {
     static client(options: typeof Column.transforms) {
         return Layer.unwrap(Container.use(({ restore, url }) => Effect.as(restore, pgClient({ url, ...options }))));
     }

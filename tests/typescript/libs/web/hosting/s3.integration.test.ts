@@ -3,11 +3,11 @@ import { layer } from '@effect/vitest';
 import { s3Storage } from '@rasm/hosting/node';
 import { Context, Effect, Layer } from 'effect';
 import { GenericContainer, PullPolicy, Wait } from 'testcontainers';
-import { cases } from '#/tests/typescript/libs/web/hosting/cases.ts';
+import { cases } from '#/cases.ts';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Bucket extends Context.Service<Bucket, { readonly name: string; readonly client: S3ClientConfig }>()('rasm/tests/typescript/libs/web/hosting/s3.integration.test/Bucket') {}
+class Bucket extends Context.Service<Bucket, { readonly name: string; readonly client: S3ClientConfig }>()('@rasm/test-hosting/s3.integration.test/Bucket') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

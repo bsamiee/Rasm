@@ -1,4 +1,4 @@
 {
     "extends": "../automation/tsconfig.json",
-    "compilerOptions": { "types": [ "node", "@adobe-uxp-types/uxp/with-protocol" ] }
+    "compilerOptions": { "module": "preserve", "types": [ "node", "@adobe-uxp-types/uxp/with-protocol" ] }
 }

@@ -70,7 +70,6 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
     case process(ProcessFailure)
     case filesystem(any Error)
     case interactionNotAllowed
-    case credentialTooLong
     case invalidCredentials(any Error?)
     case invalidIdentity(AggregateError<IdentityError>)
     case invalidResponse(ClaudeEndpoint, any Error?)
@@ -122,7 +121,6 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
             case .process(let failure): failure.localizedDescription
             case .filesystem(let error): "Claude file access failed. \(error.localizedDescription)"
             case .interactionNotAllowed: SecCopyErrorMessageString(errSecInteractionNotAllowed, nil) as String?
-            case .credentialTooLong: "Claude credential exceeds security -i line buffer of 4096 bytes"
             case .invalidCredentials: "Unreadable Claude credential"
             case .invalidIdentity: "Incomplete Claude account identity"
             case .invalidResponse(let endpoint, _): "Unreadable Claude \(endpoint) response"

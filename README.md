@@ -140,7 +140,7 @@ Products reach a person through separate levels:
 |  [16]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                          |
 |  [17]   | Container runtime              | Mise clients, a `[daemons]` `docker` row per `.config/mise.<os>.toml`, Colima on macOS               |
 |  [18]   | Shared Vite configuration      | `@rasm/ui/vite` React Compiler plugin, `@rasm/hosting/vite` `cloudflareWorker`                       |
-|  [19]   | Shared Vitest and Storybook    | `@rasm/test-support/vitest` `vitestProject`, `@rasm/test-support/main` and `/preview`                |
+|  [19]   | Shared Vitest and Storybook    | `@rasm/test-support/vitest` `defaults`, `@rasm/test-support/main` and `/preview`                     |
 |  [20]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
 |  [21]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |
 |  [22]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                  |

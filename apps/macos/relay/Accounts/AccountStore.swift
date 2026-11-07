@@ -134,7 +134,7 @@ final class AccountStore {
                 group.addTask(name: "Claude selection") {
                     await observe(file: self.claude.shared.configFile, provider: .claude)
                 }
-                group.addTask(name: "Claude refresh lock") { await observeRefreshLock() }
+                group.addTask(name: "Claude credential writes") { await observeCredentialWrites() }
                 group.addTask(name: "Codex selection") { await observe(file: self.codex.liveAuthFile, provider: .openAI) }
                 group.addTask(name: "Codex configuration") { await observe(file: self.codex.liveHome.appending(path: "config.toml"), provider: .openAI) }
                 group.addTask(name: "Refresh schedule") { await schedule() }
@@ -236,16 +236,16 @@ final class AccountStore {
                 await readSelection()
             }
         }
-        func observeRefreshLock() async {
-            let lock: URL = ClaudeLock.refreshLockfile(in: claude.shared.directory)
+        func observeCredentialWrites() async {
+            let lock: URL = ClaudeLock.storageWriteLockfile(in: claude.shared.directory)
             do {
                 for try await present: Bool in FileEvent.presence(of: lock).map({ present in try present.get() }).removeDuplicates().dropFirst()
                 where !present {
-                    logger.debug("Claude refresh lock released")
+                    logger.debug("Claude storage write lock released")
                     await readSelection(.claude)
                 }
             } catch {
-                logger.error("Claude refresh lock watch failed with \(error, privacy: .public)")
+                logger.error("Claude storage write lock watch failed with \(error, privacy: .public)")
             }
         }
         func schedule() async {
@@ -710,6 +710,7 @@ final class AccountStore {
         }
         guard error.failure.requiresSignIn else { return }
         model.authentication = .signInRequired
+        model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
         saves.continuation.yield()
         if owning.contains(.live(model.account.provider)) { await readSelection(model.account.provider, owning: owning) }
     }

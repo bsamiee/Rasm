@@ -1,8 +1,8 @@
-import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type TargetConfiguration } from '@nx/devkit';
+import { type CreateDependencies, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type TargetConfiguration } from '@nx/devkit';
 import { findProjectForPath } from '@nx/devkit/internal';
-import { Package, runCommand } from '@rasm/eng';
+import { runCommand } from '@rasm/eng';
 import { Array, Effect, Function, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
-import { infer, logged, markers, moduleRequests, owning, packageName, rootTargets } from '#/graph/projects.ts';
+import { infer, logged, markers, owning, rootTargets } from '#/graph/projects.ts';
 import { neutrality, roots } from '#/graph/root-project.ts';
 import { JsonListRecord, openWorkspace, runPlugin, type Workspace } from '#/workspace.ts';
 
@@ -39,35 +39,6 @@ const components = Effect.fnUntraced(function* (workspace: Workspace, projects: 
         return [file, { projects: { ...dependencies, [root]: { root, implicitDependencies: nested.map(Struct.get('name')), targets: { ...after('check', 'build'), ...after('install', 'install'), ...after('publish', 'pack') } } } }] as const;
     });
     return yield* Effect.forEach(applications, component);
-});
-
-// --- [DEPENDENCIES]
-
-const importTarget = ({ projects, externalNodes = {} }: CreateDependenciesContext, specifier: string) => {
-    const name = packageName(specifier);
-    return Option.firstSomeOf([Option.as(Record.get(externalNodes, `npm:${name}`), `npm:${name}`), Option.as(Record.get(projects, name), name)]);
-};
-const sourceImports = Effect.fnUntraced(function* (context: CreateDependenciesContext, [source, sourceFile]: readonly [string, string]) {
-    const requests = yield* moduleRequests(context.workspaceRoot, sourceFile);
-    return Array.dedupe(Array.getSomes(requests.map((request) => importTarget(context, request)))).map((target) => ({ source, target, sourceFile, type: DependencyType.static }));
-});
-const pythonImports = Effect.fnUntraced(function* ({ fileMap, filesToProcess, workspaceRoot }: CreateDependenciesContext) {
-    const changed = Object.values(filesToProcess.projectFileMap).flatMap((files) => files.map(Struct.get('file')).filter(String.endsWith('.py')));
-    if (changed.length === 0) {
-        return [];
-    }
-    const sources = yield* runCommand('ruff', ['analyze', 'graph', ...changed], { cwd: workspaceRoot }).pipe(Effect.flatMap(Schema.decodeEffect(JsonListRecord)));
-    const entries = Object.entries(sources);
-    const referenced = new Set(entries.flatMap(([file, targets]) => [file, ...targets]));
-    const owners = new Map(Object.entries(fileMap.projectFileMap).flatMap(([owner, files]) => files.filter(({ file }) => referenced.has(file)).map(({ file }) => [file, owner] as const)));
-    return entries.flatMap(([sourceFile, files]) => {
-        const source = owners.get(sourceFile);
-        return source === undefined
-            ? []
-            : Array.dedupe(files.map((file) => owners.get(file)))
-                  .filter((target): target is string => target !== undefined && target !== source)
-                  .map((target) => ({ source, target, sourceFile, type: DependencyType.static }));
-    });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -112,17 +83,23 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
         ];
     }, runPlugin),
 ];
-const createDependencies: CreateDependencies = Effect.fnUntraced(function* (_options, context) {
-    const { fileMap, filesToProcess, projects } = context;
-    const path = yield* Path.Path;
-    const requests = Object.entries(filesToProcess.projectFileMap)
-        .filter(([name]) => {
-            const project = projects[name];
-            return project?.tags?.includes('language:typescript') === true && !(fileMap.projectFileMap[name] ?? []).some(({ file }) => file === path.join(project.root, Package.file));
-        })
-        .flatMap(([name, files]) => Array.cartesian([name], files.map(Struct.get('file')).filter(Predicate.or(String.endsWith('.ts'), String.endsWith('.tsx')))));
-    const [resolved, imported] = yield* Effect.all([pythonImports(context), Effect.forEach(requests, (pair) => sourceImports(context, pair), { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
-    return [...resolved, ...imported.flat()];
+const createDependencies: CreateDependencies = Effect.fnUntraced(function* (_options, { fileMap, filesToProcess, workspaceRoot }) {
+    const changed = Object.values(filesToProcess.projectFileMap).flatMap((files) => files.map(Struct.get('file')).filter(String.endsWith('.py')));
+    if (changed.length === 0) {
+        return [];
+    }
+    const sources = yield* runCommand('ruff', ['analyze', 'graph', ...changed], { cwd: workspaceRoot }).pipe(Effect.flatMap(Schema.decodeEffect(JsonListRecord)));
+    const entries = Object.entries(sources);
+    const referenced = new Set(entries.flatMap(([file, targets]) => [file, ...targets]));
+    const owners = new Map(Object.entries(fileMap.projectFileMap).flatMap(([owner, files]) => files.filter(({ file }) => referenced.has(file)).map(({ file }) => [file, owner] as const)));
+    return entries.flatMap(([sourceFile, files]) => {
+        const source = owners.get(sourceFile);
+        return source === undefined
+            ? []
+            : Array.dedupe(files.map((file) => owners.get(file)))
+                  .filter((target): target is string => target !== undefined && target !== source)
+                  .map((target) => ({ source, target, sourceFile, type: DependencyType.static }));
+    });
 }, runPlugin);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

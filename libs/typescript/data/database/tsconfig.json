@@ -1,8 +1,6 @@
 {
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
-        "types": [ "node", "@cloudflare/vitest-plugin/types" ]
-    },
-    "files": [ ".cloudflare/types/index.d.ts" ],
-    "include": [ "**/*", "../../../../tests/typescript/libs/data/database" ]
+        "types": [ "node" ]
+    }
 }

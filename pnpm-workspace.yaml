@@ -3,7 +3,7 @@
 packages:
     - 'libs/typescript/*/*'
     - 'apps/**'
-    - 'tests/typescript/*'
+    - 'tests/typescript/**'
     - 'plugins/*'
     - 'eng/typescript'
     - 'infra'
@@ -441,7 +441,8 @@ catalog:
     # --- [COMPILERS]
 
     '@effect/tsgo': 0.67.4 # Effect diagnostics for native TypeScript compiler and language server
-    typescript: 7.1.0-dev.20261105.1 # Native TypeScript release `@effect/tsgo` supports
+    typescript: npm:@typescript/typescript6@6.0.2 # Compiler API Nx plugins and Storybook docgen read, native TypeScript exports none
+    '@typescript/native': npm:typescript@7.1.0-dev.20261105.1 # Native TypeScript release `@effect/tsgo` supports
     '@swc/wasm': 1.16.21
     tslib: 2.9.1
     '@types/node': 26.6.6
@@ -455,10 +456,13 @@ catalog:
     '@cloudflare/build-output-utils': 0.9.10 # Build Output tree reader for hosting programs
     '@cloudflare/config': 0.30.2 # `cloudflare.config.ts` uncached loader and parser for sync generators
     cf: 1.0.0-beta.28 # `cloudflare.config.ts` definitions and local resource commands against Vite plugin state
-    nx: 24.0.4
-    '@nx/devkit': 24.0.4
-    '@nx/dotnet': 24.0.4
-    '@nx/playwright': 24.0.4
+    nx: 24.0.5
+    '@nx/devkit': 24.0.5
+    '@nx/dotnet': 24.0.5
+    '@nx/js': 24.0.5
+    '@nx/playwright': 24.0.5
+    '@nx/vite': 24.0.5
+    '@nx/vitest': 24.0.5
     vite-plugin-static-copy: 4.1.1
     vite: 8.3.6
     '@vitejs/plugin-react': 6.2.1
@@ -537,12 +541,6 @@ catalog:
     testcontainers: 12.2.1
     '@testcontainers/postgresql': 12.2.1
     '@modelcontextprotocol/inspector': 2.13.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
-
-# --- [CATALOGS] -------------------------------------------------------------------------
-
-catalogs:
-    docgen:
-        typescript: npm:typescript@6.0.3 # Compiler API for Storybook prop docgen, default catalog `typescript` exports none
 
 # --- [OVERRIDES] ------------------------------------------------------------------------
 

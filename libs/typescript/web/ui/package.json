@@ -22,14 +22,14 @@
     },
     "devDependencies": {
         "@rasm/test-support": "workspace:*",
+        "@storybook/addon-vitest": "catalog:",
         "@storybook/react-vite": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "react-dom": "catalog:",
         "storybook": "catalog:",
-        "typescript": "catalog:docgen",
+        "typescript": "catalog:",
         "vite": "catalog:",
-        "vitest": "catalog:",
-        "vitest-browser-react": "catalog:"
+        "vitest": "catalog:"
     }
 }

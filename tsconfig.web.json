@@ -1,4 +1,4 @@
 {
     "extends": "./tsconfig.base.json",
-    "compilerOptions": { "lib": [ "esnext", "dom" ] }
+    "compilerOptions": { "lib": [ "esnext", "dom" ], "module": "preserve" }
 }

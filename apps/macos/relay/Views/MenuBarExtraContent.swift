@@ -143,7 +143,7 @@ private struct AccountCard: View {
                 Text(model.account.identity.email)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
-                if let expiry: Date = model.usage.usage?.signInExpiresAt {
+                if let expiry: Date = model.usage.usage?.signInExpiresAt, expiry > now {
                     let tooltip: String = "Sign-in expires \(expiry.formatted(.detail))"
                     Text(expiry, format: .monthDay)
                         .font(.caption)
@@ -157,7 +157,7 @@ private struct AccountCard: View {
                 providerGlyph
                 VStack(alignment: .leading, spacing: 8) {
                     gauges
-                    if let note: String {
+                    if let note: String = model.note(at: now) {
                         Text(note)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -193,13 +193,6 @@ private struct AccountCard: View {
             ForEach(usage.windows.enumerated(), id: \.offset) { offset, window in
                 UsageGauge(window: window, isCurrent: isCurrent, now: now, leadsGlyphRow: offset == 0)
             }
-        }
-    }
-
-    private var note: String? {
-        switch model.authentication {
-            case .signInRequired: "Sign in required"
-            case .connected: model.usage.note(at: now)
         }
     }
 }

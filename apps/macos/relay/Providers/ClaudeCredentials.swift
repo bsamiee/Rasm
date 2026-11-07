@@ -42,8 +42,12 @@ nonisolated struct ClaudeOAuthToken: Sendable {
         expiresAt.map { expiry in expiry <= now.addingTimeInterval(300) } ?? false
     }
 
+    func refreshToken(at now: Date) -> String? {
+        refreshTokenExpiresAt.map { expiry in expiry <= now } == true ? nil : document.known.refreshToken
+    }
+
     func isUsable(at now: Date) -> Bool {
-        document.known.refreshToken != nil || !needsRefresh(at: now)
+        refreshToken(at: now) != nil || !needsRefresh(at: now)
     }
 
     static func make(_ document: JSONDocument<Attributes>) throws(ClaudeFailure) -> Self? {
@@ -86,7 +90,9 @@ nonisolated struct ClaudeTokenResponse: Decodable, Sendable {
     func oauth(replacing token: ClaudeOAuthToken, posted: String, at now: Date) throws(ClaudeFailure) -> ClaudeOAuthToken {
         let requestedScopes: [Substring]? = scope?.split(separator: " ")
         let scopes: [String] = requestedScopes?.map(String.init) ?? token.scopes
-        let refreshTokenExpiresAt: Double? = refreshTokenExpiresIn.map { interval in Self.milliseconds(now.addingTimeInterval(interval)) } ?? token.document.known.refreshTokenExpiresAt
+        let refreshTokenExpiresAt: Double? = token.document.known.refreshTokenExpiresAt.map { held in
+            min(held, refreshTokenExpiresIn.map { interval in Self.milliseconds(now.addingTimeInterval(interval)) } ?? held)
+        }
         let attributes: ClaudeOAuthToken.Attributes = ClaudeOAuthToken.Attributes(
             accessToken: accessToken,
             refreshToken: refreshToken ?? posted,

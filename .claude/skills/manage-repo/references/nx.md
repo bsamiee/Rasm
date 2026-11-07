@@ -5,14 +5,14 @@
 - Plugins export `createDependencies` beside `createNodes` for undeclared edges, a static edge names its `sourceFile`
 - Nx merges inferred projects sharing a root, each file of one directory adds its targets to one project
 - Workspace plugin markers match a base name, an extension, or `<directory>/<base>` for a generic name
-- Projects with a `tsconfig.json` and no `package.json` take the nearest package's name joined to their relative path, their source imports giving edges
-- `analyzeSourceFiles` stays off, Nx resolves `#/` imports through a TypeScript API 7.1 lacks
+- `@nx/js/typescript`, `@nx/vite/plugin`, and `@nx/vitest` infer typecheck, build, and test, the workspace plugin `@rasm/nx` infers what no official plugin reads
+- `analyzeSourceFiles` stays off, pnpm links declared dependencies alone, so `package.json` edges equal import edges
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
 - Plugins infer each target and tag from project files, `targetDefaults` configure them, `package.json` files hold no `nx` field
 - Workspace plugin `root` option holds root targets under root `package.json` `name`, Nx infers a root project from an `nx` field alone
 - `analytics: false` disables telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
 - `useDaemonProcess: false` avoids graph rebuilds on every file batch, concurrent processes share one build through `project-graph.lock`
-- Sync generators take one `tools/nx/sync/<written kind>/<name>.ts` and one `tools/nx/sync/generators.json` row, in `syncGenerators` of the target reading what they write, else in `sync.globalGenerators`
+- Sync generators take one `tools/nx/sync/<written kind>/<name>.ts` and one row in the `generators` file `@rasm/nx` names, as `@rasm/nx:<name>` in `syncGenerators` of the target reading what they write, else in `sync.globalGenerators`
 - `lint:nx` reports generator drift, the workspace `format` target runs `nx sync` before `hk fix`
 - Target `inputs` name files the generators read or write, the plugin adds rule folders, the `**/*.{ts,tsx}` input covers generator imports
 - Generators on a target rerun `createNodes` per run and off a TTY refuse the task over another writer's drift

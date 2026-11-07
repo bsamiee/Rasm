@@ -9,7 +9,7 @@ One store owns every trigger and account state change, views call it and provide
 - Credential reads and writes reserve each live and private store they touch for the whole operation
 - Selection follows each provider's live store, actions re-read selection in place of setting it
 - Account identity is account id with organization id, every identity check compares both
-- Failures needing a new sign-in mark the account for sign-in, every other failure logs and leaves its card connected
+- Failures needing a new sign-in mark the account for sign-in and its reading stale, every other failure logs and leaves its card connected
 - Accounts marked for sign-in read no usage until their own store holds a matching credential that refreshes or has not expired
 - Logs mark account ids public and emails private, failures hold no token
 - Pending and failed `accounts.json` loads start no trigger, a failed load leaves the file unwritten
@@ -18,13 +18,14 @@ One store owns every trigger and account state change, views call it and provide
 
 Claude stores are Claude Code config directories, each with an account file and a login Keychain item:
 - Selected account uses the shared store Claude Code resolves, every other account a private config directory under `Accounts/<id>/Claude`
-- Keychain items trust `/usr/bin/security` alone, reads and writes go through the `security` CLI
+- Keychain items trust `/usr/bin/security` alone, reads and writes go through the `security` CLI, writes pass `security -i` lines up to 4032 bytes and longer items as arguments
 - Writes to an item or account file replace Relay's fields and keep the rest (`mcpOAuth` MCP server logins)
 - Claude Code signs out by revoking the refresh token and deleting the item
 - Rejected refreshes blank `accessToken` and `refreshToken` with `expiresAt` 0, a blanked item reads as signed out
 - `claude` children point at one store and drop variables that redirect their credential or API
 - Refresh tokens are single use, a reused one revokes its token family and signs out every holder
-- Claude Code refreshes under `.oauth_refresh.lock` and `<realpath>.lock` and writes credentials under `.storage-write.lock` in its store
+- Refresh tokens expire at the `refreshTokenExpiresAt` sign-in sets, refreshes keep the earlier expiry, an expired refresh token reads as signed out
+- Claude Code refreshes under `.oauth_refresh.lock` and `<realpath>.lock` and writes credentials under `.storage-write.lock` in its store, its release re-reads selection
 - Claude Code writes `.credentials.json` when a Keychain write fails and reads it only while the item is absent
 - While `.credentials.json` exists, running sessions detect outside writes by its mtime alone, Relay's Keychain writes delete it
 - Refresh holds `.oauth_refresh.lock`, `<realpath>.lock`, and `.storage-write.lock` on its store, re-reads it, and adopts any token another process wrote
@@ -52,4 +53,6 @@ Relay spawns one login shell at launch, `claude`, `codex app-server`, and `secur
 
 ## [05]-[INTERFACE]
 
-Panel and Settings use system controls, semantic colors, and fonts.
+Panel and Settings use system controls, semantic colors, and fonts:
+- Windows past their reset show no reading and block nothing until the next read
+- Past sign-in expiry shows as the card note, a future one as the card date

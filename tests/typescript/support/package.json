@@ -3,17 +3,12 @@
     "private": true,
     "description": "Shared Storybook and Vitest configuration",
     "type": "module",
-    "imports": {
-        "#/*": "./*"
-    },
     "exports": {
         "./main": "./main.ts",
         "./preview": "./preview.ts",
-        "./suite": "./suite.ts",
         "./vitest": "./vitest.ts"
     },
     "dependencies": {
-        "@effect/platform-node": "catalog:",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",

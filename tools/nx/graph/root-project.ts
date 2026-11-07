@@ -209,7 +209,7 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, scanExclusions }: 
                     'lint:ast-grep': {
                         dependsOn: built,
                         command: `${scan} --error=no-suppress-all`,
-                        syncGenerators: ['./tools/nx/sync/generators.json:injection-utils'],
+                        syncGenerators: ['@rasm/nx:injection-utils'],
                         inputs: [...sources, ...Object.values(languageGlobs).flatMap(Array.map((pattern) => `{workspaceRoot}/**/${pattern}`)), ...skipped, ...ruleInputs, 'astGrep'],
                     },
                     'lint:ast-grep:classes': {

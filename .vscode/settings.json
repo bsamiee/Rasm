@@ -172,7 +172,7 @@
     "css.lint.unknownAtRules": "ignore",
     "js/ts.experimental.useTsgo": true,
     "js/ts.trace.server": "off",
-    "js/ts.tsdk.path": "./.cache/typescript",
+    "js/ts.tsdk.path": "./node_modules/@typescript/native",
     "js/ts.tsserver.automaticTypeAcquisition.enabled": false,
 
     // --- [YAML] ------------------------------------------------------------------------
