@@ -4,9 +4,11 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public delegate Curve? CatenaryCall(out Point3d apex, out double parameter, out double length, out double deviation);
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record CatenaryCurve(Curve Curve, Point3d Apex, double Parameter, double Length, double MaxDeviation);
 
 public sealed record NurbsCurveFit(NurbsCurve Curve, Option<Line> MaximumSeparation, Option<(double Source, double Fit)> SeparationParameters);
@@ -23,13 +25,17 @@ public abstract partial record Ribbon {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class CurveConstruction {
+
     // --- [CATENARIES]
+
     public static IO<CatenaryCurve> CreateCatenaryCurve(CatenaryCall call, [CallerArgumentExpression(nameof(call))] string member = "") =>
         from answered in Products.Of(() => (call(out Point3d apex, out double parameter, out double length, out double deviation), (Apex: apex, Parameter: parameter, Length: length, Deviation: deviation)), member)
         select new CatenaryCurve(answered.Value, answered.Out.Apex, answered.Out.Parameter, answered.Out.Length, answered.Out.Deviation);
 
     // --- [FITS]
+
     public static IO<NurbsCurveFit> CreateNurbsCurveFit(Curve curve, Interval domain, NurbsCurveFitParameters rebuildOptions) =>
         from answered in Products.Of(() => (
             Curve.CreateNurbsCurveFit(curve, domain, rebuildOptions, out Line separation, out double source, out double fit), (Separation: separation, Source: source, Fit: fit)))
@@ -39,6 +45,7 @@ public static class CurveConstruction {
             select (Source: sourceAt, Fit: fitAt));
 
     // --- [RIBBONS]
+
     public static IO<Ribbon> RibbonOffset(Curve curve, RibbonOffsetParameters parameters) =>
         parameters.RibbonSurfaceGenerationMethod is RibbonOffsetSurfaceMethod.None
             ? from answered in Products.Of(() => (
@@ -54,6 +61,7 @@ public static class CurveConstruction {
               select (Ribbon)new Ribbon.Swept(answered.Value, rails, sections, breps);
 
     // --- [CHAMFERS]
+
     public static Step<Curve> Chamfer(Tolerances tolerances, double before, double after) =>
         Steps.Derived<Curve>(curve =>
             from kinks in IO.lift(() => CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous))

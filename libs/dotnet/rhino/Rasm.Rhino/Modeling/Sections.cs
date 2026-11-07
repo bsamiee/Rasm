@@ -5,6 +5,7 @@ using Rhino.Geometry.Intersect;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SectionSubject {
     public Transform Xform { get; init; } = Transform.Identity;
@@ -47,8 +48,11 @@ public sealed record MeshField {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Sections {
+
     // --- [CUTS]
+
     public static IO<Seq<Section>> Cut(Tolerances tolerances, SectionSubject source, Frames frames, bool joinCurves) =>
         from planes in IO.lift(() => frames.Planes(tolerances))
         from cache in use(static () => new PlaneIntersectionCache())
@@ -68,6 +72,7 @@ public static class Sections {
         };
 
     // --- [LEVELS]
+
     public static IO<Seq<(double Level, Seq<Curve> Curves)>> Levels(Tolerances tolerances, MeshField field, Seq<double> levels) =>
         from lifted in Products.Of(field.Mesh.DuplicateMesh)
         from written in IO.lift(Products.Each(field.Values, (value, vertex) => RhinoFault.Unless(

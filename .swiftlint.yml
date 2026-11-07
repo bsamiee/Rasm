@@ -1,4 +1,5 @@
 # --- [RULES] ----------------------------------------------------------------------------
+
 only_rules:
     - accessibility_label_for_image
     - accessibility_trait_for_button
@@ -109,6 +110,7 @@ only_rules:
     - yoda_condition
 
 # --- [OPTIONS] --------------------------------------------------------------------------
+
 strict: true
 cache_path: .cache/swiftlint
 deployment_target:

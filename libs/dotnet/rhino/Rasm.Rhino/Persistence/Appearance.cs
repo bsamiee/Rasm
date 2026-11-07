@@ -9,6 +9,7 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<int>]
 public sealed partial class CommandPromptStyle {
     public static readonly CommandPromptStyle Links = new(0, "Links");
@@ -30,8 +31,11 @@ public sealed partial class CommandPromptLocation {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Appearance {
+
     // --- [SIGNALS]
+
     private static readonly HostEvent<Unit> TabIconSizeChanged =
         Subscriptions.On<EventHandler, EventArgs>(static h => Accessors.add_TabIconSizeChanged(owner: null, h), static h => Accessors.remove_TabIconSizeChanged(owner: null, h), static handler => handler.Invoke)
             .Choose(static _ => Some(unit));
@@ -45,6 +49,7 @@ public static class Appearance {
             .Choose(static _ => Some(unit));
 
     // --- [MODES]
+
     public static Preference<bool> DarkMode { get; } =
         Preferences.Of(
             IO.lift(static () => HostUtils.RunningInDarkMode),
@@ -52,6 +57,7 @@ public static class Appearance {
             Some(Preferences.AppSettingsChanged));
 
     // --- [PROMPT]
+
     private const string GetPresentationStyle = "Rhino.UI.Internal.DockBars.CommandLine.GetPresentationStyle";
     private const string ModeEntry = "mode";
     private const string StyleKey = "CommandPromptStyle";
@@ -82,6 +88,7 @@ public static class Appearance {
         Products.Accepted(() => RhinoApp.RunScript($"-_CommandMode {option} _Enter", echo: false));
 
     // --- [EDIT_DELAYS]
+
     private static readonly SettingsNode Runtime = new SettingsNode(new SettingsRoot.PlugInNode(RhinoApp.CurrentRhinoId)).Child("UI").Child("Settings");
 
     public static Preference<Duration> TextChangingDelay { get; } =
@@ -97,6 +104,7 @@ public static class Appearance {
             Some(Runtime.Saved));
 
     // --- [ICONS]
+
     public static Preference<int> TabIconSize { get; } =
         Preferences.Of(
             Accessors.Scoped(static () => Accessors.TabIconSize(owner: null)),
@@ -136,6 +144,7 @@ public static class Appearance {
             Some(SettingsNode.Application.Saved));
 
     // --- [DENSITY]
+
     public static Seq<IO<IO<Unit>>> IconSizes(int stripHeight, int glyph, int row) =>
         IO.lift(() => RhinoFault.Unless(int.IsEvenInteger(row - glyph), RhinoReason.Outside, (row, glyph))) switch {
             var even => (even >> Accessors.Scoped(static () => Accessors.ItemPadding(owner: null).Height)).Map(inset => stripHeight - (2 * inset)) switch {

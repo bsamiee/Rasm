@@ -3,6 +3,7 @@ using UnitsNet;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LineWidth {
     public static readonly LineWidth Width013 = new(Length.FromMillimeters(0.13m));

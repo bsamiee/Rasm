@@ -3,6 +3,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling.Solids;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record EdgeReplacement {
     public BrepReplaceEdgeMethod Method => Switch(line: static _ => BrepReplaceEdgeMethod.Line, extendSideEdges: static _ => BrepReplaceEdgeMethod.ExtendSideEdges, along: static _ => BrepReplaceEdgeMethod.Curve);
@@ -23,8 +24,11 @@ public abstract partial record EdgeReplacement {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SolidEdits {
+
     // --- [FACES]
+
     public static Step<Brep> ReplaceSurface(Tolerances tolerances, int face, Surface surface, bool rebuildSharedEdges, bool rebuildVertices) =>
         Steps.Derived<Brep>(brep =>
             from held in IO.lift(() => brep.Within(ComponentIndexType.BrepFace, Seq(face)))
@@ -34,6 +38,7 @@ public static class SolidEdits {
             select brep);
 
     // --- [LOOPS]
+
     public static Step<Brep> RemoveHoles(Tolerances tolerances, Seq<int> loops) =>
         Steps.Derived<Brep>(brep =>
             from inner in IO.lift(() => brep.Within(loops.Map(static loop => new ComponentIndex(ComponentIndexType.BrepLoop, loop))).Bind(held =>
@@ -45,6 +50,7 @@ public static class SolidEdits {
             select removed);
 
     // --- [EDGES]
+
     public static Step<Brep> JoinEdges(Tolerances tolerances, Seq<(int Edge0, int Edge1)> pairs) =>
         Steps.Derived<Brep>(brep =>
             from held in IO.lift(() => brep.Within(ComponentIndexType.BrepEdge, pairs.Bind(static pair => Seq(pair.Edge0, pair.Edge1))))

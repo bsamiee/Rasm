@@ -4,6 +4,7 @@ using Rhino.Geometry.Intersect;
 namespace Rasm.Rhino.Modeling.Intersections;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ProjectionTargets {
     public sealed record OnMeshes(Seq<Mesh> Meshes, Vector3d Direction) : ProjectionTargets;
@@ -19,8 +20,11 @@ public abstract partial record ProjectionTargets {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Projections {
+
     // --- [POINTS]
+
     public static IO<Seq<(Point3d Point, int Index)>> Points(Tolerances tolerances, ProjectionTargets targets, Seq<Point3d> points) =>
         targets.Switch(
             (Points: points, tolerances.Absolute),
@@ -29,6 +33,7 @@ public static class Projections {
             onPlane: static (at, target) => IO.lift(() => target.Projection.Map(xform => at.Points.Map((point, index) => (Point: xform * point, Index: index)).Strict())));
 
     // --- [CURVES]
+
     public static IO<Seq<(Curve Curve, Option<int> Source, Option<int> Target)>> Curves(Tolerances tolerances, ProjectionTargets targets, Seq<Curve> curves, bool loose) =>
         targets.Switch(
             (Curves: curves, tolerances.Absolute, Loose: loose),

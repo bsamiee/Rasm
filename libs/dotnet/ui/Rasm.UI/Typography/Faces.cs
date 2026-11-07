@@ -10,6 +10,7 @@ using Topten.RichTextKit;
 namespace Rasm.UI.Typography;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Span(string Text) {
     public Option<Key> Role { get; init; }
     public HashSet<Condition> Conditions { get; init; }

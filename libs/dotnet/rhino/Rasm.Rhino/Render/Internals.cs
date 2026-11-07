@@ -5,8 +5,11 @@ using Rhino.Render.PostEffects;
 namespace Rasm.Rhino.Render;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Internals {
+
     // --- [VARIANTS]
+
     private const string VariantName = "Rhino.Render.Variant, RhinoCommon";
     private static readonly Type VariantType = Type.GetType(VariantName, throwOnError: true)!;
 
@@ -23,6 +26,7 @@ internal static class Internals {
             .Bracket();
 
     // --- [CONTENT]
+
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_AutoDelete")]
     internal static extern void AutoDelete(RenderContent content, bool autoDelete);
 
@@ -33,6 +37,7 @@ internal static class Internals {
     internal static extern void Destroy(RenderContentSerializer serializer);
 
     // --- [RENDERING]
+
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "RhinoDocumentId")]
     internal static extern uint RhinoDocumentId([UnsafeAccessorType("Rhino.Render.Rendering, RhinoCommon")] object rendering);
 

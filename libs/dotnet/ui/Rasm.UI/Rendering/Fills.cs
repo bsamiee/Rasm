@@ -6,6 +6,7 @@ using SkiaSharp;
 namespace Rasm.UI.Rendering;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record FillKey(LayoutNode Layout, int Index, HashMap<Interaction, float> StateLayers, SKRect Frame, float Scale, float Clock, Option<SKPoint> Pointer);
 
 internal sealed record FillContext(Painter.Pass Pass, LayoutNode Layout, Context Context, SKRect Frame, int Index) {
@@ -22,8 +23,11 @@ internal sealed record FillContext(Painter.Pass Pass, LayoutNode Layout, Context
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Fills {
+
     // --- [FILLS]
+
     internal static Option<Action<SKCanvas>> Fill(FillContext held, Material material, Outline shape) =>
         material is Material.Glass glass
             ? Some<Action<SKCanvas>>(canvas => Glass(canvas, held, glass, shape))
@@ -49,6 +53,7 @@ internal static class Fills {
             skin: static (state, _) => Some(new SKPaint { IsAntialias = true, Blender = state.Blend.ValueUnsafe() }));
 
     // --- [GLASS]
+
     private const string Edge = """
         uniform float2 size;
         uniform float4 corners;
@@ -133,6 +138,7 @@ internal static class Fills {
     }
 
     // --- [PAINTS]
+
     private static SKPaint Shaded(FillContext held, SKShader shader, bool dither) {
         using SKShader owned = shader;
         return new SKPaint { IsAntialias = true, Shader = owned, IsDither = dither, Blender = held.Blend.ValueUnsafe() };

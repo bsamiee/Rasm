@@ -7,6 +7,7 @@ using SkiaSharp;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<int>(SkipIComparable = true)]
 public sealed partial class PhysicalAxis {
     public static readonly PhysicalAxis Horizontal = new(0);
@@ -70,6 +71,7 @@ public sealed partial class Limits {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class UIReason {
     public static readonly UIReason Range = new("value out of range");
@@ -97,6 +99,7 @@ public sealed record UIFault(object? Subject, UIReason Reason, Option<int> Index
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class TextInfoExtensions {
     extension(TextInfo text) {
         internal string Listed(Seq<string> items) => string.Join($"{text.ListSeparator} ", items);

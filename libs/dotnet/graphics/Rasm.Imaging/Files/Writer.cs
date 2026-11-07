@@ -13,6 +13,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ImageFile {
     public abstract IO<Unit> Write(FileMetadata metadata, Stream stream);
@@ -138,6 +139,7 @@ public abstract partial record ImageFile {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 file sealed class BorrowedTiffStream : TiffStream {
     public override void Close(object clientData) { }
 }

@@ -14,6 +14,7 @@ using Rhino.Render;
 namespace Rasm.Rhino.PlugIns;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ComputeEndpoint(string Path, Type Type);
 
 public sealed record PlugInDefinition {

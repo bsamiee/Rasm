@@ -4,6 +4,7 @@ using SkiaSharp;
 namespace Rasm.UI.Input;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Transfer {
     public sealed record Keys(Seq<Seq<Key>> Paths) : Transfer;

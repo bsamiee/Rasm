@@ -101,6 +101,7 @@ where F: Fn(&[f64], &mut [f64]) -> f64
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [POSTERIOR]
+
 pub fn calibrate<K, F, S, M>(space: &Space<K>, settings: &NutsSettings<EuclideanAdaptOptions<M>>, starts: DMatrixView<'_, f64>, density: F, stop: S) -> Result<Vec<Trace>, NEVec<StatsError>>
 where
     K: Sync,
@@ -163,6 +164,7 @@ fn bounded(z: Dual64, bounds: &Bounds) -> (Dual64, Dual64) {
 }
 
 // --- [DIAGNOSTICS]
+
 pub fn convergence<'space, K>(space: &'space Space<K>, traces: &[Trace]) -> Result<NEBTreeMap<&'space K, Convergence>, StatsError>
 where K: Ord {
     let dimensions = space.len().get();
@@ -256,6 +258,7 @@ where K: Ord {
 }
 
 // --- [GRADING]
+
 pub fn fit(pairs: impl IntoIterator<Item = (f64, f64)>, parameters: u32) -> Result<Fit, StatsError> {
     let ((measurements, residuals, squares), non_finite) = pairs.into_iter().fold((<(Mean, Mean, Mean)>::default(), 0_u64), |(mut moments, non_finite), (measured, simulated)| {
         let residual = measured - simulated;

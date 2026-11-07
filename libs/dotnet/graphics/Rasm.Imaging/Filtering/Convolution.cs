@@ -12,6 +12,7 @@ using Rasm.Imaging.Pixels;
 namespace Rasm.Imaging.Filtering;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class PointSpread {
     public static VectorOfMat Veiling(PixelExtent size, double degreesPerPixel) {
         VectorOfMat kernels = new(1);

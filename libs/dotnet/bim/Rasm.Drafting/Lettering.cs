@@ -3,6 +3,7 @@ using UnitsNet;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LetteringForm {
     public static readonly LetteringForm TypeA = new(divisor: 14, lowercase: 10, pitch: 21);
@@ -36,7 +37,9 @@ public sealed partial class Terminator {
 }
 
 public sealed record StyleMetrics(SheetSize Size, LetteringForm Form, Terminator Terminator, DrawingScale Scale) {
+
     // --- [LETTERING]
+
     public Length Height => Size.Convention.Lettering.Height(Size);
     public Length LineThickness => Height / Form.Divisor;
     public Length LowercaseHeight => LineThickness * Form.Lowercase;
@@ -45,6 +48,7 @@ public sealed record StyleMetrics(SheetSize Size, LetteringForm Form, Terminator
     public Length Resolution => Scale.ToModel(LineThickness);
 
     // --- [DIMENSIONING]
+
     public Length TerminatorLength => Height * Terminator.Proportion;
     public Length ExtensionOvershoot => LineThickness * 8;
     public Length ExtensionGap => LineThickness * 8;

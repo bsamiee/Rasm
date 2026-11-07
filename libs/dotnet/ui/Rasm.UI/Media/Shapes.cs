@@ -5,6 +5,7 @@ using SkiaSharp;
 namespace Rasm.UI.Media;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Shape {
     public sealed record Rounded : Shape;

@@ -4,6 +4,7 @@ using Rasm.Spatial;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Decomposition {
     public Transform Composed => Switch(
@@ -77,8 +78,11 @@ public abstract partial record Decomposition {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Transformations {
+
     // --- [TRANSFORMS]
+
     public static IO<T> Transformed<T>(T copy, Transform xform) where T : GeometryBase =>
         from subject in xform.SimilarityType is TransformSimilarityType.NotSimilarity ? Deformable(copy, None) : IO.pure(copy)
         from reverse in IO.lift(() => xform.Determinant < 0d && (subject switch {
@@ -97,6 +101,7 @@ public static class Transformations {
         select subject;
 
     // --- [DEFORMABLE]
+
     internal static IO<T> Deformable<T>(T copy, Option<int> index) where T : GeometryBase =>
         IO.lift(copy.MakeDeformable).Bind(deformable => deformable ? IO.pure(copy) : (GeometryBase)copy switch {
             Extrusion extrusion => Successor<T>(Products.Of<GeometryBase>(() => extrusion.ToBrep(splitKinkyFaces: false))),
@@ -109,6 +114,7 @@ public static class Transformations {
         successor.Bind(static made => IO.lift(Conversions.Cast<T>(made)));
 
     // --- [CONVERSIONS]
+
     extension(Point3d point) {
         public Vector3D<double> ToVector3D() => new(point.X, point.Y, point.Z);
     }

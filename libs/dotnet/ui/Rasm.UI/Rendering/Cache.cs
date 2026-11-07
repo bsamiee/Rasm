@@ -9,11 +9,13 @@ using Topten.RichTextKit;
 namespace Rasm.UI.Rendering;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 internal interface ISlot : IDisposable {
     public void Evict();
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class Slot<TKey, TValue>(Action<TValue> release) : ISlot where TKey : notnull {
     private readonly Lock gate = new();
     private HashMap<TKey, TValue> live;
@@ -61,7 +63,9 @@ internal sealed class Slot<TKey, TValue>(Action<TValue> release) : ISlot where T
 }
 
 internal sealed class PaintCache : IDisposable {
+
     // --- [STATE]
+
     private static readonly SKImageFilter Source = SKImageFilter.CreateOffset(0f, 0f);
     private readonly SKImageInfo target;
     private readonly SKSurfaceProperties raster;
@@ -96,6 +100,7 @@ internal sealed class PaintCache : IDisposable {
     internal HashSet<Seq<Key>> Moving => retained.Map(static held => held.Moving).IfNone([]);
 
     // --- [SLOTS]
+
     internal Slot<(LayoutNode Layout, Context Context, float Alpha, HashSet<Seq<Key>> Live), SKDrawable> Recordings { get; } = new(static value => value.Dispose());
     internal Slot<LayoutNode, Painter.Leaf> Leaves { get; } = new(static value => value.Dispose());
     internal Slot<Typeset, SKPath> TextOutlines { get; } = new(static value => value.Dispose());
@@ -125,6 +130,7 @@ internal sealed class PaintCache : IDisposable {
     private Slot<SKColorF, SKPaint> Solids { get; } = new(static value => value.Dispose());
 
     // --- [LAYERS]
+
     internal SKPaint Opacity(float alpha, Option<SKImageFilter> filter) =>
         Opacities.GetOrAdd((alpha, filter), () => new SKPaint { ColorF = new SKColorF(0f, 0f, 0f, alpha), ImageFilter = filter.ValueUnsafe() });
 
@@ -146,6 +152,7 @@ internal sealed class PaintCache : IDisposable {
     internal SKCanvasSaveLayerRecFlags Layer(bool previous) => previous ? (SKCanvasSaveLayerRecFlags)((int)Precision | (int)SKCanvasSaveLayerRecFlags.InitializeWithPrevious) : Precision;
 
     // --- [PAINTS]
+
     internal SKPaint Stroke(Stroke stroke, SKColorF color, float width, uint ordinal, float clock, Option<SKBlender> blend) =>
         Strokes.GetOrAdd((stroke, color, width, ordinal, stroke.Timed ? clock : 0f, blend), () => {
             using SKPathEffect? effect = PathEffect.Composed(stroke.Patterned(ordinal), width, clock).ValueUnsafe();
@@ -173,6 +180,7 @@ internal sealed class PaintCache : IDisposable {
     internal SKPaint Solid(SKColorF color) => Solids.GetOrAdd(color, () => new SKPaint { IsAntialias = true, ColorF = color });
 
     // --- [OFFSCREENS]
+
     internal Option<SKImage> Rasterized(SKSize size, float scale, SKColorType type, Action<SKCanvas> draw) {
         SKSizeI pixels = Capture.Pixels(size, scale);
         return Offscreen(new SKImageInfo(int.Max(1, pixels.Width), int.Max(1, pixels.Height), type, SKAlphaType.Premul, Space)).Map(surface => {
@@ -195,6 +203,7 @@ internal sealed class PaintCache : IDisposable {
     private Option<SKSurface> Offscreen(SKImageInfo info) => Optional(context.Match(gpu => SKSurface.Create(gpu, budgeted: true, info, raster), () => SKSurface.Create(info, raster)));
 
     // --- [RETENTION]
+
     internal Fin<Unit> Retain(Scene scene, Seq<LayoutNode> leaving, float scale) {
         HashSet<LayoutNode> left = toHashSet(leaving);
         if (retained.Exists(held => ReferenceEquals(held.Scene, scene) && held.Leaving == left && held.Scale.CompareTo(scale) is 0)) return unit;

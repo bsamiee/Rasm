@@ -10,6 +10,7 @@ using UnitsNet;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Resampling(Sampling Sampling, WrapMode Wrap) {
     public static Resampling Default { get; } = new(Sampling.Linear, WrapMode.Black);
 

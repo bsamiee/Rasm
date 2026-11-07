@@ -244,6 +244,7 @@ impl From<NEVec<(Record, Malformed)>> for WeatherError {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [RESAMPLING]
+
 pub fn resampled(hours: &Hours, step: SignedDuration, gap: SignedDuration) -> Result<Hours, WeatherError> {
     fn received<D>(run: &[Hour], gap: SignedDuration, field: impl Fn(&Hour) -> Option<Measure<D>> + Copy) -> impl FnMut(Range<Timestamp>) -> Result<Option<Measure<D>>, ConversionError>
     where D: si::Dimension + ?Sized {
@@ -406,6 +407,7 @@ fn aligned(duration: SignedDuration, step: SignedDuration) -> bool { duration.as
 fn length(interval: Range<Timestamp>) -> SignedDuration { interval.end.duration_since(interval.start) }
 
 // --- [CALENDAR]
+
 fn zone(hours: &Hours) -> &TimeZone { &AsRef::<Place>::as_ref(&hours.sun).zone }
 
 fn local(hours: &Hours, hour: &Hour) -> civil::DateTime { zone(hours).to_datetime(hour.interval.start) }
@@ -416,6 +418,7 @@ fn redated(hour: Hour, zone: &TimeZone, year: i16) -> Result<Hour, jiff::Error> 
 }
 
 // --- [COMPLETION]
+
 pub fn completed(hours: &Hours) -> Result<Hours, WeatherError> {
     const ERBS_LOW: f64 = 0.22;
     const ERBS_HIGH: f64 = 0.8;
@@ -464,6 +467,7 @@ pub fn completed(hours: &Hours) -> Result<Hours, WeatherError> {
 }
 
 // --- [SOLAR]
+
 fn position(sun: &Sun, interval: Range<Timestamp>) -> Result<(PreparedPositions, SolarPosition), WeatherError> {
     rasm_solar::at(interval, 0.5).and_then(|at| rasm_solar::position(sun, at)).map_err(WeatherError::Solar)
 }
@@ -481,6 +485,7 @@ fn normal(horizontal: HeatFluxDensity, prepared: &PreparedPositions, solar: &Sol
 }
 
 // --- [CODECS]
+
 fn temperature(value: ThermodynamicTemperature) -> Temperature { Temperature::from_kelvin(value.get::<kelvin>()) }
 
 fn quantity(value: Temperature) -> ThermodynamicTemperature { ThermodynamicTemperature::new::<kelvin>(value.as_kelvin()) }
@@ -507,6 +512,7 @@ where D: si::Dimension + ?Sized {
 }
 
 // --- [REFUSALS]
+
 fn refused<I>(refusals: I) -> Result<(), WeatherError>
 where I: IntoIterator<Item = Refusal> {
     refusals.try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map_or(Ok(()), |refusals| Err(refusals.into()))

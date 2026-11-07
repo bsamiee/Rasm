@@ -4,9 +4,11 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public delegate bool PrincipalRead(out double x, out Vector3d xAxis, out double y, out Vector3d yAxis, out double z, out Vector3d zAxis);
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record MassSource {
     public sealed record Shape(GeometryBase Geometry) : MassSource;
@@ -32,8 +34,11 @@ public sealed record PrincipalMoments(double X, Vector3d XAxis, double Y, Vector
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Measurements {
+
     // --- [PARTS]
+
     public static uint Checksum<T>(Seq<T> parts) where T : GeometryBase =>
         parts.Fold(0u, static (remainder, part) => part.DataCRC(remainder));
 
@@ -41,6 +46,7 @@ public static class Measurements {
         Conversions.Present(boxes.Fold(BoundingBox.Empty, BoundingBox.Union));
 
     // --- [MASS]
+
     public static IO<(Seq<Seq<AreaMassProperties>> Parts, AreaMassProperties Total)> Area(Tolerances tolerances, Seq<MassSubject> subjects, bool firstMoments, bool secondMoments, bool productMoments) =>
         new Measure<AreaMassProperties>((geometry, index) => geometry switch {
             Brep brep => Products.Of(() => AreaMassProperties.Compute(brep, area: true, firstMoments, secondMoments, productMoments, tolerances.Relative, tolerances.Absolute)),

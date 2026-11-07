@@ -8,6 +8,7 @@ using UUIDNext;
 namespace Rasm.Rhino.Display;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class DraggedGrip(Point3d location, Func<Point3d, MouseState, IO<Unit>> dragged) : GripUserInterfaceObject(location) {
     protected override void OnDrag(Point3d newLocation, MouseState mouse) {
         base.OnDrag(newLocation, mouse);
@@ -71,8 +72,11 @@ internal sealed class MouseLeaveHook(Action<MouseCallbackEventArgs> deliver) : M
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class ViewportControls {
+
     // --- [MOUSE]
+
     public static readonly DocumentEvent<MouseCallbackEventArgs> MouseMove = Mouse(static deliver => new MouseMoveHook(deliver));
     public static readonly DocumentEvent<MouseCallbackEventArgs> EndMouseMove = Mouse(static deliver => new EndMouseMoveHook(deliver));
     public static readonly DocumentEvent<MouseCallbackEventArgs> MouseDown = Mouse(static deliver => new MouseDownHook(deliver));
@@ -95,6 +99,7 @@ public static class ViewportControls {
             static args => Conversions.Serial(args.View.Document));
 
     // --- [GRIPS]
+
     public static GripUserInterfaceObject Grip(Point3d location, Func<Point3d, MouseState, IO<Unit>> dragged) => new DraggedGrip(location, dragged);
 
     public static DirectionGripUserInterfaceObject Grip(Point3d location, Vector3d direction, Func<Point3d, MouseState, IO<Unit>> dragged) =>
@@ -103,6 +108,7 @@ public static class ViewportControls {
     public static RotationGripUserInterfaceObject Grip(Plane plane, double radius, Func<double, MouseState, IO<Unit>> rotated) => new RotatedGrip(plane, radius, rotated);
 
     // --- [CONTROLS]
+
     public static IO<UserInterfaceButton> Button(string text, IO<Unit> clicked) =>
         Bound(new UserInterfaceButton { Text = text }, static (button, h) => button.Click += h, static (button, h) => button.Click -= h, _ => clicked);
 
@@ -136,6 +142,7 @@ public static class ViewportControls {
         Subscriptions.On<EventArgs>(handler => add(control, handler), handler => remove(control, handler)).Attach(_ => changed(control)).Map(_ => control);
 
     // --- [REGISTRATION]
+
     public static IO<Unit> Show(RhinoDoc doc, string name, Seq<UserInterfaceObjectBase> items) =>
         Uuid.NewNameBased(Session.PlugIn.Id, name) switch {
             var groupId =>
@@ -151,6 +158,7 @@ public static class ViewportControls {
             static held => IO.lift(held.Unregister))).As().Map(unit);
 
     // --- [MESSAGES]
+
     public static IO<Seq<uint>> Toast(RhinoDoc doc, ViewportSet views, string message) =>
         Viewports.Resolve(doc, views).Bind(rows => IO.lift(() =>
             toSeq(rows.Map(static row => row.View).DistinctBy(static view => view.RuntimeSerialNumber)).Map(view => view.ShowToast(message)).Strict())).Bracket();

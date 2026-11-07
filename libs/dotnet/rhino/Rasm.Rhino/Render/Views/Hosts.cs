@@ -14,6 +14,7 @@ using Rhino.UI.Controls.DataSource;
 namespace Rasm.Rhino.Render.Views;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public abstract class DefinedTab<TSelf> : Eto.Forms.Panel where TSelf : DefinedTab<TSelf>, IDefined<View.Tab> {
     private readonly HostedView hosted;
 
@@ -112,8 +113,11 @@ internal sealed class DefinedContentSection : EtoContentUISection3, ICollapsible
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class ContentViews {
+
     // --- [SECTIONS]
+
     internal static IO<Unit> RegisterSections() =>
         Subscriptions.On<AddCustomUISectionsEventArgs>(static h => AddCustomUISections.OnAddCustomUISections += h, static h => AddCustomUISections.OnAddCustomUISections -= h)
             .Attach(static args => IO.lift(() => ViewCatalog.Current.Listed<View.ContentSection>().Iter(row => args.ExpandableContentUI.AddSection(new DefinedContentSection(row)))));
@@ -121,6 +125,7 @@ public static class ContentViews {
     public static EntryKey FieldKey(RenderContent content, string field) => EntryKey.Named(EntryKey.TypeOwner(content.TypeId), field);
 
     // --- [MENUS]
+
     public static IO<Unit> AddMenuItem(Seq<ContentMenuRow> rows) =>
         Products.Each(rows.Map(static (row, order) =>
                 from icon in Icons.DrawingIcon(row.Icon, IconSlot.Small)

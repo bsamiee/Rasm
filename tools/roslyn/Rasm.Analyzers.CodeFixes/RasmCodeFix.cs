@@ -13,11 +13,15 @@ using Microsoft.CodeAnalysis.Text;
 namespace Rasm.Analyzers.CodeFixes;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, Func<SyntaxNode, SyntaxGenerator, string> Title)[] fixes) : CodeFixProvider {
+
     // --- [RULES]
+
     private readonly ImmutableDictionary<string, Func<SyntaxNode, SyntaxGenerator, string>> titles = fixes.ToImmutableDictionary(static fix => fix.Rule.Id, static fix => fix.Title, StringComparer.Ordinal);
 
     // --- [REGISTRATION]
+
     public sealed override ImmutableArray<string> FixableDiagnosticIds { get; } = [.. fixes.Select(static fix => fix.Rule.Id)];
 
     [SuppressMessage("Roslynator", "RCS1174", Justification = "FixAll requires a nullable task result; the action requires a nonnullable task result.")]
@@ -34,6 +38,7 @@ public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, Func<Syntax
     }
 
     // --- [SYNTAX]
+
     protected static SyntaxNode Site(SyntaxNode root, Location location) => root.FindNode(location.SourceSpan, getInnermostNodeForTie: true);
 
     private protected static SyntaxTriviaList Relocated(IEnumerable<SyntaxTrivia> triviaList) =>
@@ -68,6 +73,7 @@ public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, Func<Syntax
             Separated(arguments.Select(static argument => SyntaxFactory.Argument(argument))), Punctuation(SyntaxKind.CloseParenToken)));
 
     // --- [EDITS]
+
     protected abstract Task<Document> ChangedAsync(Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellation);
 
     protected static void Replaced(DocumentEditor editor, SyntaxNode site, Func<SyntaxNode, SyntaxGenerator, SyntaxNode> replace) {
@@ -98,10 +104,13 @@ public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, Func<Syntax
 
 public abstract class DocumentEditorCodeFix(params (DiagnosticDescriptor Rule, Func<SyntaxNode, SyntaxGenerator, string> Title, Action<DocumentEditor, SyntaxNode, Diagnostic, CancellationToken> Edit)[] fixes)
     : RasmCodeFix([.. fixes.Select(static fix => (fix.Rule, fix.Title))]) {
+
     // --- [RULES]
+
     private readonly ImmutableDictionary<string, Action<DocumentEditor, SyntaxNode, Diagnostic, CancellationToken>> edits = fixes.ToImmutableDictionary(static fix => fix.Rule.Id, static fix => fix.Edit, StringComparer.Ordinal);
 
     // --- [EDITS]
+
     protected sealed override async Task<Document> ChangedAsync(Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellation) {
         DocumentEditor editor = await DocumentEditor.CreateAsync(document, cancellation).ConfigureAwait(false);
         foreach (Diagnostic diagnostic in diagnostics.OrderBy(static diagnostic => diagnostic.Location.SourceSpan.End).ThenBy(static diagnostic => diagnostic.Location.SourceSpan.Length)) {

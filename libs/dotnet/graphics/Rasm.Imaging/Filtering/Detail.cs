@@ -15,6 +15,7 @@ using Rasm.Imaging.Tone;
 namespace Rasm.Imaging.Filtering;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class LocalContrast {
     private const float Spacing = 12f / 31f;
 

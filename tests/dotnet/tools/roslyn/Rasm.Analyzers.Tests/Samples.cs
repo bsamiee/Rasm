@@ -16,6 +16,7 @@ using Thinktecture.CodeAnalysis.SmartEnums;
 namespace Rasm.Analyzers.Tests;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, EmptyCodeFixProvider, DefaultVerifier> {
     private static readonly ImmutableArray<DiagnosticAnalyzer> Analyzers = Exported<DiagnosticAnalyzer, DiagnosticAnalyzerAttribute>(typeof(RasmAnalyzer).Assembly);
 
@@ -63,6 +64,7 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public sealed class Samples {
     private static readonly string Root = Path.Combine(AttributeReader.GetProjectDirectory(typeof(Samples).Assembly), nameof(Samples));
 
@@ -434,6 +436,7 @@ public sealed class Samples {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 internal static class Snapshots {
     [ModuleInitializer]
     internal static void Initialize() => VerifierSettings.UseUtf8NoBom();

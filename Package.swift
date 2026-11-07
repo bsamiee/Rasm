@@ -21,11 +21,15 @@ let linkerSettings: [LinkerSetting] = [.unsafeFlags(["-Xlinker", "-fatal_warning
 // --- [MODELS] --------------------------------------------------------------------------
 
 let modules: [Target] = [
+
     // --- [CORE]
+
     .target(name: "Encoding", path: "libs/swift/core/Encoding"),
     .target(name: "Results", path: "libs/swift/core/Results"),
     .target(name: "JSONRPC", dependencies: ["Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")], path: "libs/swift/core/JSONRPC"),
+
     // --- [MACOS]
+
     .target(name: "CurrentProcess", dependencies: ["Results"], path: "libs/swift/macos/CurrentProcess"),
     .target(
         name: "Files",
@@ -94,7 +98,9 @@ let support: [Target] = [
     ),
 ]
 let suites: [Target] = [
+
     // --- [TOOLS]
+
     .testTarget(
         name: "watch-appsTests",
         dependencies: ["Encoding", "Processes", "TestSupport", "watch-apps", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "Subprocess", package: "swift-subprocess")],
@@ -118,14 +124,20 @@ let package: Package = Package(
     platforms: [.macOS(.v27)],
     products: modules.map { module in .library(name: module.name, targets: [module.name]) },
     dependencies: [
+
         // --- [LANGUAGE]
+
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.1.7"),
         .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "1.10.0"),
         .package(url: "https://github.com/apple/swift-collections", from: "1.7.5"),
+
         // --- [SYSTEM]
+
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
         .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.2"),
+
         // --- [TESTING]
+
         .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.7.3"),
         .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.2"),
         .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.0.1"),

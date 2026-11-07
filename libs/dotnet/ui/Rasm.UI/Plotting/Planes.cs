@@ -11,6 +11,7 @@ using SuperLinq;
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record PlaneAxis(PhysicalAxis Along, Axis Axis);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

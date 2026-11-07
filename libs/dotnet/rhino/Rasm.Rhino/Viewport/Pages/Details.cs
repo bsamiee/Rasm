@@ -9,6 +9,7 @@ using UnitsNet;
 namespace Rasm.Rhino.Viewport.Pages;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record DetailState(
     Option<string> Name = default, Option<DrawingScale> Scale = default, Option<bool> ProjectionLocked = default, Option<bool> Active = default,
     Option<HashMap<Guid, bool>> Layers = default) {
@@ -51,8 +52,11 @@ public abstract partial record Arrangement {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Details {
+
     // --- [READS]
+
     public static IO<Seq<(DetailViewObject Detail, DetailState State)>> Read(RhinoPageView page) =>
         IO.lift(() => Products.Each(toSeq(page.GetDetailViews()), (detail, index) =>
             Conversions.Required(detail.DetailGeometry, index).Bind(geometry => State(page.Document, detail, geometry)).Map(state => (detail, state))));
@@ -66,6 +70,7 @@ public static class Details {
         toHashMap(Conversions.Rows(doc.Layers).Filter(layer => !layer.IsDeleted && !layer.PerViewportIsVisible(viewport)).Map(static layer => (layer.Id, false)));
 
     // --- [WRITES]
+
     public static IO<Guid> Add(RhinoPageView page, string title, BoundingBox frame, DefinedViewportProjection projection) =>
         Products.Of(() => page.AddDetailView(title, new Point2d(frame.Min), new Point2d(frame.Max), projection)).Map(static detail => detail.Id);
 
@@ -87,6 +92,7 @@ public static class Details {
         select unit;
 
     // --- [ARRANGEMENT]
+
     public static BoundingBox Field(PaperRectangle field, LengthUnit page) =>
         new(Quantities.As(field.Left, page), Quantities.As(field.Bottom, page), 0d, Quantities.As(field.Right, page), Quantities.As(field.Top, page), 0d);
 

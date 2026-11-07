@@ -14,6 +14,7 @@ using Topten.RichTextKit;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Key {
     private const char Prefix = '#';
@@ -206,6 +207,7 @@ public abstract partial record Trigger {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class KeyExtensions {
     extension(Seq<Key> path) {
         internal Option<int> Position(Key key) => Some(path.IndexOf(key)).Filter(static index => index >= 0);

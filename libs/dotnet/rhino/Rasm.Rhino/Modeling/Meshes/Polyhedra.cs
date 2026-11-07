@@ -5,6 +5,7 @@ using SuperLinq;
 namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class PointGroup {
     private static readonly Seq<Seq<int>> Orders = toSeq(Enumerable.Range(0, 4).Permutations()).Map(static order => toSeq(order)).Strict();
@@ -66,6 +67,7 @@ public sealed record Hull {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Polyhedra {
     public static IO<(Mesh Mesh, Hull Hull)> Orbit(Tolerances tolerances, PointGroup symmetry, Seq<Point3d> seeds) =>
         from points in IO.lift(() => Conversions.Rows(Point3d.CullDuplicates(from map in symmetry.Elements from seed in seeds select map * seed, tolerances.Absolute)))

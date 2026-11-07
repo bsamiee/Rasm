@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 // --- [MODELS] --------------------------------------------------------------------------
 
 public final class Report {
+
     // --- [RESULTS]
 
     public sealed interface Result<T> permits Success, Failure {

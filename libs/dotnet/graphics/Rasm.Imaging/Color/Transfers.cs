@@ -14,6 +14,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
 [ValidationError<ImagingFault>]

@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 type GraphTree = bpy.types.CompositorNodeTree | bpy.types.GeometryNodeTree | bpy.types.ShaderNodeTree
 type Holder = bpy.types.NodeTree | bpy.types.Material | bpy.types.World | bpy.types.Light
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 NATIVE: Final[Mapping[type[bpy.types.NodeTree], Mapping[type[bpy.types.Node], type[bpy.types.Node]]]] = MappingProxyType({

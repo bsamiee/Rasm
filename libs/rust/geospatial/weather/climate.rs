@@ -78,6 +78,7 @@ pub enum Profile {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [SUMMARIES]
+
 pub fn summary<K, D>(
     hours: &Hours,
     key: impl Fn(civil::DateTime, &Hour) -> Option<K>,
@@ -184,6 +185,7 @@ pub fn running_mean(hours: &Hours, days: NonZero<usize>, options: RunningMeanOut
 }
 
 // --- [TYPICAL]
+
 pub fn typical(hours: &Hours, year: i16) -> Result<(Hours, Vec<Period>), WeatherError> {
     const CANDIDATES: usize = 3;
     const WEEK: usize = 7;
@@ -298,6 +300,7 @@ pub fn typical(hours: &Hours, year: i16) -> Result<(Hours, Vec<Period>), Weather
 }
 
 // --- [WIND]
+
 pub fn rose<K>(hours: &Hours, key: impl Fn(civil::DateTime, &Hour) -> Option<K>, sectors: NonZero<u16>, edges: &[Velocity]) -> Result<BTreeMap<K, Rose>, WeatherError>
 where K: Ord + Hash {
     let rising = edges.first().is_some_and(|first| positive(*first)) && edges.is_sorted_by(|lower, upper| lower < upper);
@@ -365,6 +368,7 @@ pub fn wind(speed: Velocity, anemometer: Length, height: Length, profile: Profil
 }
 
 // --- [READINGS]
+
 fn readings<K, D>(
     hours: &Hours,
     key: impl Fn(civil::DateTime, &Hour) -> Option<K>,

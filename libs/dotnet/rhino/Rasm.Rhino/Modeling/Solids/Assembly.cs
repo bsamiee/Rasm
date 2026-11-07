@@ -1,6 +1,7 @@
 namespace Rasm.Rhino.Modeling.Solids;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record TopologyTrim {
     public sealed record Along(int Edge, bool Rev3d, Curve Curve, Option<IsoStatus> Iso) : TopologyTrim;
@@ -26,8 +27,11 @@ public sealed record TopologyEdge(int Curve, int Start, int End) {
 public sealed record BrepTopology(Seq<Surface> Surfaces, Seq<Curve> Curves, Seq<(Point3d Point, Option<double> Tolerance)> Vertices, Seq<TopologyEdge> Edges, Seq<TopologyFace> Faces);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SolidAssembly {
+
     // --- [TOPOLOGY]
+
     public static IO<Brep> Build(BrepTopology topology) =>
         from brep in use(static () => new Brep())
         from declared in IO.lift(Declared(brep, topology))
@@ -93,6 +97,7 @@ public static class SolidAssembly {
     }
 
     // --- [EXTRUSIONS]
+
     public static IO<Extrusion> ProfiledExtrusion(Line path, Vector3d up, Curve outerProfile, Seq<Curve> innerProfiles, bool cap) =>
         from made in use(static () => new Extrusion())
         from pathed in Products.Accepted(() => made.SetPathAndUp(path.From, path.To, up))

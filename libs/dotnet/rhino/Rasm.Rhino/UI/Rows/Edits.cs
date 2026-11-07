@@ -1,6 +1,7 @@
 namespace Rasm.Rhino.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Edit<T> where T : notnull {
     public Option<T> Held => Switch(changed: static held => Some(held.Value), cancel: static _ => Option<T>.None);

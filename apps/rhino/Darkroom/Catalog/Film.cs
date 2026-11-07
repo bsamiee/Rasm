@@ -9,6 +9,7 @@ using Rasm.Imaging.Warping;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record DamageMark(float Likelihood, Hold Hold, float White) {
     public static DamageMark Default { get; } = new(0f, Hold.Create(Duration.FromSeconds(6d / 24d)), 0f);
 }

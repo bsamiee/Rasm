@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
+
 executable=$(ps -o comm= -p "$(pgrep -x 'Adobe Illustrator')")
 version=$(defaults read "${executable%/Contents/MacOS/*}/Contents/Info" CFBundleShortVersionString)
 prefs=$(jq -r --arg version "$version" 'select(has($version)) | input_filename | sub("\\.runConfig$"; "Adobe Illustrator Prefs")' "$HOME"/Library/Preferences/Adobe\ Illustrator*Settings/*/.runConfig)

@@ -9,15 +9,20 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Annotation;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public delegate IO<Seq<Seq<T>>> OutlineFactory<T>(TextEntity text, DimensionStyle style, bool makeSmallCaps, double smallCapsScale, double spacing)
     where T : GeometryBase;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record OutlineOptions(Option<double> SmallCapsScale, double Spacing, Option<Transform> Transform);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Annotations {
+
     // --- [CREATION]
+
     public static IO<T> Create<T>(
         RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style, Seq<Step<DimensionStyle>> overrides, Func<DimensionStyle, T?> create, [CallerArgumentExpression(nameof(create))] string member = "")
         where T : AnnotationBase =>
@@ -44,6 +49,7 @@ public static class Annotations {
          select id).Bracket();
 
     // --- [EDITS]
+
     public static IO<Unit> Edit<T>(RhinoDoc doc, Guid id, Seq<Step<T>> steps) where T : AnnotationBase =>
         (from resolved in ObjectTarget.Resolve<AnnotationObjectBase, T>(doc, id)
          from edited in Edits.Apply(Staged<T>(doc, id), resolved.Geometry, steps)
@@ -66,6 +72,7 @@ public static class Annotations {
                 select staged);
 
     // --- [TEXT]
+
     public static IO<string> Text(RhinoDoc doc, DimensionObject owner) =>
         (from style in DimensionStyles.Effective(doc, owner.AnnotationGeometry, None)
          let units = owner.Attributes.Space is ActiveSpace.PageSpace ? doc.PageUnits : doc.ModelUnits
@@ -119,6 +126,7 @@ public static class Annotations {
     }
 
     // --- [DISPLAY]
+
     public static IO<(Seq<Line> Lines, Seq<Arc> Arcs, Seq<Point3d> Text)> Display(Dimension dimension, DimensionStyle style, double scale) =>
         IO.lift(Fin<(Seq<Line> Lines, Seq<Arc> Arcs, Seq<Point3d> Text)> () => dimension switch {
             LinearDimension linear => Shown(linear.GetTextRectangle(out Point3d[] corners), corners, linear.GetDisplayLines(style, scale, out IEnumerable<Line> lines), lines, []),

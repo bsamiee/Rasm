@@ -11,6 +11,7 @@ using Wacton.Unicolour;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Fog(NoiseSource Noise, float Variation, Length Start, float Amount, Seq<RampStop> Colors, GeneratedLayer Layer, int Seed, Timing Timing) : IPixelStage<Fog> {
     public Option<Length> Attenuation { get; init; }
     public Option<Length> Cutoff { get; init; }

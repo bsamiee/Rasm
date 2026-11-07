@@ -14,6 +14,7 @@ using UnitsNet;
 namespace Darkroom.Review;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class Gel {
     public static readonly Gel Warm = new(new Vector3(1f, 0.78f, 0.5f));
@@ -263,6 +264,7 @@ public sealed record RigLayout(
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class RandomDraws {
     extension(Random random) {
         public float Uniform(double low, double high) => (float)ContinuousUniform.Sample(random, low, high);

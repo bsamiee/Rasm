@@ -11,6 +11,7 @@ using Rasm.Imaging.Pixels;
 namespace Rasm.Imaging.Quantization;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Quantizer {
     private Quantizer(int levels) => MaxCode = levels - 1;
 

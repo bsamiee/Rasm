@@ -5,6 +5,7 @@ using Rhino.Geometry.MeshRefinements;
 namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Refinement {
     public sealed record CatmullClark : Refinement;
@@ -50,8 +51,11 @@ public sealed partial class PatchBoundary {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class MeshConstruction {
+
     // --- [GENERATED]
+
     public static IO<Mesh> QuadRemesh(QuadSource source, QuadRemeshParameters parameters, Seq<Curve> guides, Option<IProgress<int>> progress) =>
         from token in cancelToken
         from remeshed in source.Switch(
@@ -86,6 +90,7 @@ public static class MeshConstruction {
             perimeter: static (at, of) => Mesh.CreatePatch(outerBoundary: null, at.Angle, of.Surface, at.Holes, at.Inner, at.Points, of.Trimback, of.Divisions)));
 
     // --- [REBUILT]
+
     public static IO<Seq<Option<Mesh>>> CreateFromIterativeCleanup(Tolerances tolerances, Seq<Mesh> meshes) =>
         from slots in IO.lift(() => toSeq(Mesh.CreateFromIterativeCleanup(meshes, tolerances.Absolute) ?? new Mesh?[meshes.Count]).Map(static mesh => Optional(mesh)).Strict())
         from cleaned in Products.Many(() => slots.Somes(), required: false)
@@ -105,6 +110,7 @@ public static class MeshConstruction {
         select refined;
 
     // --- [DERIVED]
+
     public static IO<(Mesh Mesh, Seq<int> WallFaces)> Offset(Mesh source, double distance, bool solidify, Option<Vector3d> direction) =>
         from answered in Products.Of(() => (source.Offset(distance, solidify, Conversions.Unset(direction), out List<int> walls), walls))
         select (Mesh: answered.Value, WallFaces: toSeq(answered.Out));

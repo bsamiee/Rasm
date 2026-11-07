@@ -13,6 +13,7 @@ using Wacton.Unicolour;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class FlareAnchor {
     public static readonly FlareAnchor Frame = new("frame", [], static (position, _, context) => Some((context.Extent.Point(position), Option<float>.None)));

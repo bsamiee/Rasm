@@ -13,6 +13,7 @@ using Wacton.Unicolour;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic]
 [JsonDerivedType(typeof(Image), nameof(Image))]

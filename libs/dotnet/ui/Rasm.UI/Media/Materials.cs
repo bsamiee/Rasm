@@ -6,9 +6,12 @@ using Wacton.Unicolour;
 namespace Rasm.UI.Media;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record Material {
+
     // --- [FACTS]
+
     private static readonly SKSamplingOptions Sampling = new(SKFilterMode.Linear);
 
     internal virtual Option<ColorValue> BaseColor => None;
@@ -29,6 +32,7 @@ public abstract partial record Material {
             None: () => SKMatrix.CreateScale(frame.Width / natural.Width, frame.Height / natural.Height)).PostConcat(SKMatrix.CreateTranslation(frame.Left, frame.Top));
 
     // --- [CASES]
+
     public sealed record Solid(ColorValue Color) : Material {
         internal override Option<ColorValue> BaseColor => Some(Color);
 
@@ -124,7 +128,9 @@ public abstract partial record Material {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GradientShape {
+
     // --- [SHADER]
+
     internal abstract SKShader Shader(SKRect frame, SKColorF[] colors, float[] positions);
 
     private static SKPoint Point(SKRect frame, UnitPoint at) => new(frame.Left + (frame.Width * (float)at.X), frame.Top + (frame.Height * (float)at.Y));
@@ -134,6 +140,7 @@ public abstract partial record GradientShape {
             .Fold(0f, (farthest, corner) => float.Max(farthest, SKPoint.Distance(from, corner)));
 
     // --- [CASES]
+
     public sealed record Linear(float Angle) : GradientShape {
         internal override SKShader Shader(SKRect frame, SKColorF[] colors, float[] positions) {
             using SKColorSpace space = SKColorSpace.CreateSrgb();

@@ -6,6 +6,7 @@ using Rasm.UI.Styling;
 namespace Rasm.UI.Automation;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class Check {
     public static readonly Check Off = new(None);

@@ -35,6 +35,7 @@ _MULTIVIEW: Final = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("
 _PRIORS: Final = "camera_prior"
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [FRAMING]
 
 

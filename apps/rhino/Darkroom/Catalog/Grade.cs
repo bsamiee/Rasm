@@ -10,6 +10,7 @@ using UnitsNet;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ContrastGrade(float Amount, float Pivot, float Vibrance, float Saturation) : IPixelStage<ContrastGrade> {
     public static ContrastGrade Default { get; } = new(1f, 0f, 0f, 1f);
 

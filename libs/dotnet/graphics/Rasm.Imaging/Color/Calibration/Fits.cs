@@ -5,6 +5,7 @@ using MathNet.Numerics.LinearAlgebra.Factorization;
 namespace Rasm.Imaging.Color.Calibration;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ChartTransform(Matrix4x4 Matrix, float Stops) {
     public Fin<ChartTransform> Inverse => Matrix4x4.Invert(Matrix, out Matrix4x4 inverse) ? new ChartTransform(inverse, -Stops) : ImagingFault.Of(ImagingReason.NoInverse, Matrix);
 }

@@ -5,6 +5,7 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record DocumentStatistics(
     HashMap<ObjectType, int> Kinds,
     HashMap<ActiveSpace, int> Spaces,
@@ -16,7 +17,9 @@ public sealed record DocumentStatistics(
     HashMap<Guid, int> LayerDepths,
     DefinitionGraph DefinitionGraph,
     Option<long> FileLength) {
+
     // --- [MEASURES]
+
     public int ObjectCount => Kinds.Values.Fold(0, static (sum, count) => sum + count);
 
     public int LayerLevelCount => LayerDepths.Values.Fold(0, static (levels, depth) => int.Max(levels, depth + 1));
@@ -24,6 +27,7 @@ public sealed record DocumentStatistics(
     public int PlacementCount => DefinitionGraph.Placements.Values.Fold(0, static (sum, placed) => sum + placed.Count);
 
     // --- [READS]
+
     public static IO<DocumentStatistics> Read(RhinoDoc doc) =>
         (IO.lift(() => Conversions.Rows(doc.Objects.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, IdefObjects = true, ReferenceObjects = true, IncludeLights = true }))
              .Map(found => (

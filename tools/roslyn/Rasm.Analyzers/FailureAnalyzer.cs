@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class FailureAnalyzer : RasmAnalyzer {
     public static readonly DiagnosticDescriptor Predicate = Rule(

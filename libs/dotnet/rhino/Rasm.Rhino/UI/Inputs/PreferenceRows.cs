@@ -10,8 +10,11 @@ using UnitsNet;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class PreferenceRows {
+
     // --- [SOURCES]
+
     extension<TControl, T>(ValueRow<TControl, T> row)
         where TControl : Control
         where T : notnull {
@@ -40,6 +43,7 @@ public static class PreferenceRows {
     }
 
     // --- [ROWS]
+
     extension(Row) {
         public static Row Of(string label, Preference<bool> preference) => Row.Of(label, Values.Check(None, Ignored).Over(preference));
 
@@ -62,6 +66,7 @@ public static class PreferenceRows {
     }
 
     // --- [EDITS]
+
     internal static HostEvent<Unit> Signal<T>(Preference<T> preference, [CallerArgumentExpression(nameof(preference))] string label = "") => new(label, deliver => preference.Changed(_ => deliver(unit)));
 
     private static IO<Option<IO<Unit>>> Taken(Ref<Option<IO<Unit>>> restore) =>

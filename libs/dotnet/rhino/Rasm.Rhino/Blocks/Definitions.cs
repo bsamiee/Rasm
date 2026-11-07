@@ -8,6 +8,7 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.Blocks;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 [SmartEnum<int>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class ReferenceScope {
     public static readonly ReferenceScope TopLevel = new(0);
@@ -16,6 +17,7 @@ public sealed partial class ReferenceScope {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Hyperlink(string Address, Option<string> Tag) {
     public Option<string> Tag { get; } = Tag.Bind(Conversions.Present);
 }
@@ -37,8 +39,11 @@ public sealed record DefinitionMetadata(string Name, Option<string> Description,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Definitions {
+
     // --- [STATE]
+
     private const string ClippingDrawingKey = "SectionTools";
 
     private static readonly Ref<bool> Watching = Ref(value: false);
@@ -47,6 +52,7 @@ public static class Definitions {
         Ref(HashMap<(uint Document, int Definition, Guid Mode, DefinedViewportProjection Projection, IsometricCamera Camera, bool Decorations, Size Pixels), Bitmap>());
 
     // --- [FACTS]
+
     extension(InstanceDefinitionArchiveFileStatus status) {
         public bool Outdated => status is InstanceDefinitionArchiveFileStatus.LinkedFileIsNewer or InstanceDefinitionArchiveFileStatus.LinkedFileIsOlder or InstanceDefinitionArchiveFileStatus.LinkedFileIsDifferent;
     }
@@ -84,6 +90,7 @@ public static class Definitions {
                 .Bytes(archive));
 
         // --- [PREVIEW]
+
         public IO<Bitmap> Preview(RhinoDoc doc, Guid displayMode, DefinedViewportProjection projection, IsometricCamera camera, bool decorations, Size pixels) =>
             (doc.RuntimeSerialNumber, definition.Index, displayMode, projection, camera, decorations, pixels) switch {
                 var key =>

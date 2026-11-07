@@ -5,6 +5,7 @@ using Rhino.Render.Fields;
 namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ContentField<TState> where TState : notnull {
     internal ContentField(string key, Func<FieldDictionary, string, TState, Field> add, Func<Field, TState, TState> read, Func<TState, object> value, bool file) =>
         (Key, Add, Read, Value, File) = (key, add, read, value, file);
@@ -20,8 +21,11 @@ public sealed record ContentField<TState> where TState : notnull {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class ContentFields {
+
     // --- [FIELDS]
+
     public static Fin<ContentField<TState>> Of<TState, T>(string key, Lens<TState, T> value, bool textured = false, bool linear = false) where TState : notnull where T : notnull {
         Fin<Func<FieldDictionary, string, T, string, Field>> add = textured
             ? Adding<Func<FieldDictionary, string, T, string, bool, Field>>(nameof(FieldDictionary.AddTextured))
@@ -46,6 +50,7 @@ public static class ContentFields {
     }
 
     // --- [PARAMETERS]
+
     public static IO<Option<T>> GetParameter<T>(RenderContent content, string parameter, Option<string> requirement = default) where T : notnull =>
         Internals.Unwrapped<T>(() => requirement.Match(Some: extra => content.GetExtraRequirementParameter(parameter, extra), None: () => content.GetParameter(parameter)), parameter);
 

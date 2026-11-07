@@ -6,6 +6,7 @@ using Rasm.Imaging.Tone;
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public abstract partial class GradingStyle {
     public static readonly GradingStyle Log = new Encoded("log", 4f, new GradingTone(GradingRgbmsw.Neutral(0.4f, 0.4f), GradingRgbmsw.Neutral(0.5f, 0f), GradingRgbmsw.Neutral(0.4f, 0.6f), GradingRgbmsw.Neutral(0.3f, 1f), GradingRgbmsw.Neutral(0.4f, 0.5f)));

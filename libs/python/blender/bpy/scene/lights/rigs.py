@@ -215,6 +215,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [RIGS]
 
 

@@ -4,13 +4,17 @@ using Rhino;
 namespace Rasm.Rhino;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Transition<TState>(TState Before, TState After);
 
 internal sealed record LiveState<TState>(TState Before, TState After, int Shown, bool Stale, long Revision);
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class LiveModel<TState> where TState : notnull {
+
     // --- [STATE]
+
     private readonly Ref<LiveState<TState>> state;
 
     internal LiveModel(TState initial) => state = Ref(new LiveState<TState>(initial, initial, Shown: 0, Stale: false, Revision: 0));
@@ -21,6 +25,7 @@ public sealed class LiveModel<TState> where TState : notnull {
         Subscriptions.Changed(state).DistinctUntilChanged(static _ => unit, static held => held.Revision).Choose(static held => Some(new Transition<TState>(held.Before, held.After)));
 
     // --- [VISIBILITY]
+
     internal IO<Unit> Show(IO<TState> read) =>
         from shown in atomicIO(() => state.Swap(static held => held with { Shown = held.Shown + 1 }))
         from hidden in Products.Released(() => atomic(() => state.Swap(static held => held with { Shown = held.Shown - 1 })))
@@ -69,6 +74,7 @@ public sealed class ReadModel<TState>(Seq<HostEvent<Option<uint>>> marks, Func<R
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class ReadModels {
     public static HostEvent<Option<uint>> Marks<TArgs>(DocumentEvent<TArgs> row) =>
         row.Choose(args => Some(row.Serial(args)));

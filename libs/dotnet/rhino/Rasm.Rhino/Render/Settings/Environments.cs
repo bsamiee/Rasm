@@ -6,12 +6,16 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Settings;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Environments {
+
     // --- [CURRENT]
+
     public static IO<Option<RenderEnvironment>> Current(RhinoDoc doc, RenderSettings.EnvironmentUsage usage) =>
         RenderSettingsSources.Read(doc, scope => IO.lift(() => Optional(scope.Settings.RenderEnvironment(usage, RenderSettings.EnvironmentPurpose.ForRendering))));
 
     // --- [INTENSITY]
+
     private static readonly Seq<string> GainParameters = ["intensity", "multiplier", "rdk-texture-adjust-multiplier"];
 
     public static IO<Option<double>> Intensity(RenderEnvironment lighting) =>
@@ -34,6 +38,7 @@ public static class Environments {
             select texture, string.Create(CultureInfo.InvariantCulture, $"gain {intensity}"));
 
     // --- [LIGHTING]
+
     public static IO<UInt128> LightingKey(RhinoDoc doc) =>
         from lights in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => (row.Id, Crc: row.LightGeometry.DataCRC(0))).Strict())
         from sky in RenderSettingsSources.Read(doc, static scope =>
@@ -49,6 +54,7 @@ public static class Environments {
             .Integer(Conversions.Unset(environment)));
 
     // --- [PHYSICAL_SKY]
+
     public static IO<Guid> AddPhysicalSky(RhinoDoc doc, string name, bool useDocumentSun, double intensity) =>
         Products.Transfer(() => RenderContentType.NewContentFromTypeId(ContentUuids.BasicEnvironmentType, doc) as RenderEnvironment, created =>
             from slot in IO.lift(() => created.TextureChildSlotName)

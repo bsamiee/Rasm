@@ -6,6 +6,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record GradingRgbm(float Red, float Green, float Blue, float Master) {
     public Vector3 Product => new Vector3(Red, Green, Blue) * Master;
     internal Vector3 Sum => new Vector3(Red, Green, Blue) + new Vector3(Master);

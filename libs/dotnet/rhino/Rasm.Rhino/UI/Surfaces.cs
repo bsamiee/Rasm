@@ -7,6 +7,7 @@ using Rhino.UI.Theme;
 namespace Rasm.Rhino.UI;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class Surface<TState> : Drawable where TState : notnull {
     private readonly Atom<TState> state;
     private readonly Action<Graphics, RectangleF, TState, ThemeZone> paint;
@@ -33,8 +34,11 @@ public sealed class Surface<TState> : Drawable where TState : notnull {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Surfaces {
+
     // --- [SURFACES]
+
     public static IO<Surface<TState>> Of<TState>(TState initial, Action<Graphics, RectangleF, TState, ThemeZone> paint) where TState : notnull =>
         from surface in use(() => new Surface<TState>(initial, paint))
         from captured in ViewOps.WhileLoaded(surface, Products.Released(() => { if (surface.IsMouseCaptured) surface.ReleaseMouseCapture(); }))
@@ -42,6 +46,7 @@ public static class Surfaces {
         select surface;
 
     // --- [FRAMES]
+
     public static IO<IO<Unit>> Animated<TState>(Surface<TState> surface, Func<Duration, TState, Option<TState>> step) where TState : notnull =>
         from running in IO.lift(static () => Ref(Option<Func<bool, IO<Unit>>>.None))
         from linked in ViewOps.WhileLoaded(surface,

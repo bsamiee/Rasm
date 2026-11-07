@@ -18,6 +18,7 @@ using SuperLinq;
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record Pen(float Stroke, float Spacing) {
     private readonly Option<SKMatrix> inverse = Some(SKMatrix.Identity);
 

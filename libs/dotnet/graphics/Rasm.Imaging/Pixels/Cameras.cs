@@ -6,6 +6,7 @@ using UnitsNet;
 namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ViewWindow {
     public Vector2 Center { get; }

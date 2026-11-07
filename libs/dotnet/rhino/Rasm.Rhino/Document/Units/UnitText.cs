@@ -6,8 +6,11 @@ using UnitsNet;
 namespace Rasm.Rhino.Document.Units;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class UnitText {
+
     // --- [LENGTHS]
+
     public static IO<Length> ParseLength(string text, StringParserSettings settings, LengthUnit spaceUnit) =>
         Parsed(text, settings, spaceUnit).Map(value => Quantities.From(value, spaceUnit));
 
@@ -27,6 +30,7 @@ public static class UnitText {
         LengthUnit.IsNone(parsed.Units) || !LengthUnit.IsNone(spaceUnit) ? parsed.Length(spaceUnit) : new RhinoFault(text, RhinoReason.Unreadable);
 
     // --- [SCALES]
+
     public static IO<DrawingScale> ParseScale(string text, StringParserSettings settings, LengthUnit spaceUnit) =>
         (from sides in IO.lift(() => text.Split([':', '='], StringSplitOptions.TrimEntries) is [var first, var second]
              ? Fin.Succ((Paper: first, Model: second))
@@ -39,6 +43,7 @@ public static class UnitText {
          select parsed).Bracket();
 
     // --- [ANGLES]
+
     public static IO<Angle> ParseAngle(string text, StringParserSettings settings) =>
         IO.lift(Fin<Angle> () => {
             StringParserSettings? results = null;

@@ -11,9 +11,12 @@ using Rhino.UI.Controls.DataSource;
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSection, ICollapsibleSection, ICollapsibleSection2, ICollapsibleSection3
     where TState : notnull {
+
     // --- [STATE]
+
     private readonly PostEffectType stage;
     private readonly Guid id;
     private readonly View.Section row;
@@ -35,6 +38,7 @@ public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSecti
     }
 
     // --- [IDENTITY]
+
     public override Guid PostEffectId { get; }
     public override string SettingsTag => id.ToString("D", CultureInfo.InvariantCulture);
     Guid ICollapsibleSection.Id => id;
@@ -47,6 +51,7 @@ public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSecti
         !toSeq(GetPostEffects(stage)).Exists(listed => listed.Id == PostEffectId && listed.IsSelected && (stage is PostEffectType.ToneMapping || listed.Shown));
 
     // --- [HEADER]
+
     IHeaderButtonHandler ICollapsibleSection2.NewHeaderButtonHandler() => hosted.Header.ValueUnsafe()!;
 
     void ICollapsibleSection2.OnAttachingToHolder(ICollapsibleSectionHolder2 holder) { }
@@ -64,6 +69,7 @@ public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSecti
     void ICollapsibleSection3.UpdateView(uint flags) => _ = hosted.Reread;
 
     // --- [RELEASE]
+
     protected override void Dispose(bool disposing) {
         if (disposing) hosted.Dispose();
         base.Dispose(disposing);

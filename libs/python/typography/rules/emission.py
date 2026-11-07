@@ -49,6 +49,7 @@ class FeatureWriter(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [STATEMENTS]
 
 

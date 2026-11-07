@@ -4,8 +4,11 @@ using System.Globalization;
 namespace Rasm.Analyzers.Tests;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public sealed class ResultLifts {
+
     // --- [CASES]
+
     private static readonly (string Type, string Expression)[] Values = [
         ("int", "1"), ("string", "string.Empty"), ("Unit", "unit"), ("Seq<int>", "Seq(1, 2)"),
         ("Option<int>", "Some(1)"), ("object", "new object()"), (nameof(Error), """Error.New("held")"""), ("Expected", """new Expected("held", 1, None)"""),
@@ -57,6 +60,7 @@ public sealed class ResultLifts {
         """;
 
     // --- [ASSERTIONS]
+
     [Fact]
     public Task ReportsEveryTargetTypedConversion() {
         Analysis analysis = new(LanguageExtAnalyzer.Lift);

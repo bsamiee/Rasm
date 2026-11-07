@@ -1,6 +1,7 @@
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SmoothFrame {
     public SmoothingCoordinateSystem System => Switch(world: static _ => SmoothingCoordinateSystem.World, objectUvn: static _ => SmoothingCoordinateSystem.Object, cPlane: static _ => SmoothingCoordinateSystem.CPlane);

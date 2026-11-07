@@ -8,13 +8,17 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Viewport.Printing;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record PrinterMargins(Length Left, Length Top, Length Right, Length Bottom);
 
 public sealed record PrinterForm(string Name, Length Width, Length Height, HashMap<SheetOrientation, PrinterMargins> Margins);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Printers {
+
     // --- [PRINTERS]
+
     public static IO<Seq<PrinterForm>> Forms(string printer) =>
         IO.lift(() => Conversions.Rows(HostUtils.GetPrinterFormNames(printer)).Choose(form =>
                 from size in Conversions.Present(HostUtils.GetPrinterFormSize(printer, form, out double width, out double height), (Width: width, Height: height))
@@ -28,6 +32,7 @@ public static class Printers {
         IO.lift(() => (HostUtils.GetPrinterDPI(printer, horizontal: true), HostUtils.GetPrinterDPI(printer, horizontal: false)));
 
     // --- [CUSTOM_PAGES]
+
     public static IO<T> WithCustomPages<T>(Seq<PrintedPageDefinition> pages, IO<T> write) =>
         (from added in Products.Changed<IEnumerable<PrintedPageDefinition>>(FilePdf.GetCustomPages, FilePdf.SetCustomPages, prior => [.. prior, .. pages])
          from written in write

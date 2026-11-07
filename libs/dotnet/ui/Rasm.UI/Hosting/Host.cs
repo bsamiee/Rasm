@@ -10,6 +10,7 @@ using SuperLinq;
 namespace Rasm.UI.Hosting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class Visibility {
     public static readonly Visibility Hidden = new(drawn: false, hasKeyFocus: false);

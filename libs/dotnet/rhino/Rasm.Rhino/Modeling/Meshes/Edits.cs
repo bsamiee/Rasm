@@ -1,6 +1,7 @@
 namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<int>]
 public sealed partial class QuadSplit {
     public static readonly QuadSplit Default = new(0);
@@ -40,8 +41,11 @@ public abstract partial record FacePatch {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class MeshEdits {
+
     // --- [REDUCTION]
+
     public static Step<Mesh> Reduce(Func<ReduceMeshParameters> parameters, bool threaded) =>
         Steps.Derived<Mesh>(mesh =>
             from token in cancelToken
@@ -52,6 +56,7 @@ public static class MeshEdits {
             select mesh);
 
     // --- [COMPONENTS]
+
     public static Step<Mesh> UnweldVertices(Seq<int> topologyVertices, bool modifyNormals) =>
         Steps.At<Mesh>(ComponentIndexType.MeshTopologyVertex, topologyVertices, (mesh, vertices) =>
             mesh.UnweldEdge(toSeq(vertices.Bind(vertex => toSeq(mesh.TopologyVertices.ConnectedEdges(vertex))).Distinct()), modifyNormals));

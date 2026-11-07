@@ -13,6 +13,7 @@ using QuikGraph.Algorithms.TopologicalSort;
 namespace Rasm.Analyzers.CodeFixes;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [ExportCodeFixProvider(LanguageNames.CSharp)]
 public sealed class LanguageCodeFix() : DocumentEditorCodeFix((
     LanguageAnalyzer.Covered,

@@ -95,6 +95,7 @@ impl Kriging {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [TRIANGULATIONS]
+
 fn observations(sites: Sites<'_>, values: DVectorView<'_, f64>) -> Result<Vec<Observation>, NEVec<AnalysisError>> {
     iter::once((values.len() == sites.ncols()).ok_or(AnalysisError::Shape { input: Input::Values, expected: sites.ncols(), found: values.len() }))
         .chain(refused_sites(&sites, |coordinate: &f64| matches!(spade::validate_coordinate(*coordinate), Ok(()) | Err(InsertionError::TooSmall))))
@@ -184,6 +185,7 @@ pub fn gradients(triangulation: &Delaunay, sites: Sites<'_>) -> Result<Vec<Optio
 }
 
 // --- [KRIGING]
+
 fn correlation(kernel: Kernel, lengths: &DVector<f64>, first: DVectorView<'_, f64>, second: DVectorView<'_, f64>) -> f64 {
     let distance = izip!(first.iter(), second.iter(), lengths.iter())
         .map(|(near, far, length)| {

@@ -6,6 +6,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.UI.Numeric;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record SliderRow(double Value, NumberRange Range, Func<Edit<double>, IO<Unit>> Edited) : IRow<SliderRow> {
     private const int Ticks = 1000;
 

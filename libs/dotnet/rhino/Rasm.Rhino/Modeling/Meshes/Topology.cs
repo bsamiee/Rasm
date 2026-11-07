@@ -3,6 +3,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record MeshSplit {
     public sealed record ByMeshes(Seq<Mesh> Meshes, Func<MeshSplitOptions> Options) : MeshSplit;
@@ -40,8 +41,11 @@ public abstract partial record MeshManifold {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class MeshTopology {
+
     // --- [SPLITS]
+
     public static IO<(Seq<Mesh> Meshes, Option<Seq<Point3d>> OpenCutEnds)> Split(Tolerances tolerances, Mesh mesh, MeshSplit method, Option<IProgress<double>> progress) =>
         from token in cancelToken
         from split in method.Switch(
@@ -75,6 +79,7 @@ public static class MeshTopology {
     private static Mesh[]? Unsplit(Mesh[]? meshes, CancellationToken token) => meshes ?? (token.IsCancellationRequested ? null : []);
 
     // --- [EXTRACTION]
+
     public static IO<(Mesh Remaining, Option<Mesh> Extracted)> Extract(Mesh source, MeshExtraction extraction) =>
         from copy in Products.Of(source.DuplicateMesh)
         from extracted in extraction.Switch(
@@ -88,12 +93,14 @@ public static class MeshTopology {
         select (Remaining: copy, Extracted: extracted);
 
     // --- [MATCHING]
+
     public static IO<Seq<Mesh>> MatchEdges(Seq<Mesh> inputMeshes, double distance, bool simpleSplits, bool rachet, bool average, bool join) =>
         from copies in Products.Each(inputMeshes.Map(static mesh => Products.Of(mesh.DuplicateMesh)))
         from matched in Products.Many(() => Mesh.MatchEdges(copies, distance, simpleSplits, rachet, average, @join))
         select matched;
 
     // --- [MEASURES]
+
     public static IO<Seq<MeshThicknessMeasurement>> ComputeThickness(Seq<Mesh> meshes, double maximumThickness, Option<double> sharpAngle) =>
         from token in cancelToken
         from measured in IO.lift(Conversions.Required(sharpAngle.Match(

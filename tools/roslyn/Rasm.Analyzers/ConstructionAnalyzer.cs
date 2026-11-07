@@ -9,6 +9,7 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ConstructionAnalyzer : RasmAnalyzer {
     private static readonly DiagnosticDescriptor TypeName = Rule(

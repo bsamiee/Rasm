@@ -3,6 +3,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record OffsetResult {
     public sealed record Joined(Brep Offset) : OffsetResult;
@@ -27,8 +28,11 @@ public sealed record BlendEdge(BrepEdge Edge, BlendContinuity Continuity) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Shells {
+
     // --- [OFFSETS]
+
     public static IO<OffsetResult> Offset(Tolerances tolerances, Brep brep, double distance, bool solid, bool extend, bool shrink) =>
         from answered in Products.Many(() => (Brep.CreateOffsetBrep(brep, distance, solid, extend, shrink, tolerances.Absolute, out Brep[] blends, out Brep[] walls), (Blends: blends, Walls: walls)))
         from blends in Products.Many(() => answered.Out.Blends, required: false, nameof(Brep.CreateOffsetBrep))
@@ -43,6 +47,7 @@ public static class Shells {
         select shelled;
 
     // --- [BLENDS]
+
     public static IO<Seq<Brep>> Blend(BlendEdge first, BlendEdge second) =>
         from sides in IO.lift(() => (first.Side, second.Side).Apply(static (start, end) => (Start: start, End: end)).As())
         from blended in Products.Many(() => Brep.CreateBlendSurface(

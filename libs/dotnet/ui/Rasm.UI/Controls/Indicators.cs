@@ -9,6 +9,7 @@ using Rasm.UI.Styling;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Gauge(float Value, Axis Axis) {
     internal const float Top = 0.25f;
     internal static readonly PlotPlane.Polar Turn = new(new Axis.Linear(AxisRange.Unit), Some<Axis>(new Axis.Linear(AxisRange.Unit)));

@@ -173,7 +173,6 @@ def _procedural() -> tuple[npt.NDArray[np.float32], ContentHash, npt.NDArray[np.
 
 grain: Final = CompositorEffect(record=Grain, mix=Mix.STRAIGHT, interface=Interface(inputs=(_MEDIUM, _CHROMA, SEED), panels=(_FILM, _SENSOR, _CLOCK)), derives=(motion.timing,), registers=(_TILES,))
 
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["Grain", "grain"]

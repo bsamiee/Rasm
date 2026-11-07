@@ -7,6 +7,7 @@ using SuperLinq;
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject(SkipToString = true)]
 [ValidationError<ImagingFault>]
 public sealed partial class PointCurve {

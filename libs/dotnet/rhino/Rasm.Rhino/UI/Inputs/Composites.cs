@@ -7,6 +7,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record PointRow(Option<Point3d> Value, Func<Edit<Point3d>, IO<Unit>> Edited) : IRow<PointRow> {
     public bool ModelUnits { get; init; } = true;
 

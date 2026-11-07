@@ -5,6 +5,7 @@ using MathNet.Numerics.LinearAlgebra;
 namespace Rasm.Spatial;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Bounds(Vector3D<double> Min, Vector3D<double> Max) {
     public Bounds Union(Bounds other) => new(Each(Min, other.Min, double.Min), Each(Max, other.Max, double.Max));
     public Bounds Intersection(Bounds other) => new(Each(Min, other.Min, double.Max), Each(Max, other.Max, double.Min));
@@ -49,12 +50,15 @@ public sealed partial class Combination {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ScalarField {
+
     // --- [EVALUATION]
+
     public virtual Option<Bounds> Bounds => None;
     public virtual Option<double> Constant => None;
     public abstract double Distance(Vector3D<double> point);
 
     // --- [LEAVES]
+
     public sealed record HalfSpace(Vector3D<double> Origin, Vector3D<double> Normal) : ScalarField {
         [SuppressMessage("Performance", "MA0168:Use readonly struct for in or ref readonly parameter", Justification = "HyperJet declares readonly Dot with an in parameter of mutable Vector3D<T>, preserving projection arithmetic.")]
         public override double Distance(Vector3D<double> point) => (point - Origin).Dot(Normal) / Normal.Length();
@@ -76,6 +80,7 @@ public abstract partial record ScalarField {
     public sealed record Uniform(double Value) : ScalarField { public override Option<double> Constant => Value; public override double Distance(Vector3D<double> point) => Value; }
 
     // --- [COMBINATORS]
+
     public sealed record Combined(Seq<ScalarField> Operands, Combination Combination) : ScalarField { public override Option<Bounds> Bounds => Combination.Bounded(Operands.Map(static operand => operand.Bounds)); public override double Distance(Vector3D<double> point) => Operands.Fold(Combination.Identity, (met, operand) => Combination.Meet(met, operand.Distance(point))); }
 
     public sealed record Difference(ScalarField Body, ScalarField Cutter) : ScalarField { public override Option<Bounds> Bounds => Body.Bounds; public override double Distance(Vector3D<double> point) => double.Max(Body.Distance(point), -Cutter.Distance(point)); }

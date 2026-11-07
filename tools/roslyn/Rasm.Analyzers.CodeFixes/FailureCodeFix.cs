@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis.Simplification;
 namespace Rasm.Analyzers.CodeFixes;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [ExportCodeFixProvider(LanguageNames.CSharp)]
 public sealed class FailureCodeFix() : DocumentEditorCodeFix(
     (FailureAnalyzer.Predicate, static (_, _) => "Apply failure predicate through @catch", static (editor, site, _, token) => {

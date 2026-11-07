@@ -4,6 +4,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class ArcDegree {
     public static readonly ArcDegree Cubic = new(
@@ -124,6 +125,7 @@ public sealed record SurfaceToRailFit(double Deviation0, double Deviation1, doub
 public sealed record FilletResult(Seq<Brep> Fillets, Seq<Brep> Trimmed0, Seq<Brep> Trimmed1);
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 file sealed class FilletEngine : SurfaceFilletBase {
     internal FilletEngine(BrepFace faceA, Point2d uvA, BrepFace faceB, Point2d uvB, double radius, bool allowExtend, double tolerance)
         : base(faceA, uvA, faceB, uvB, radius, allowExtend, tolerance) { }
@@ -139,8 +141,11 @@ file sealed class FilletEngine : SurfaceFilletBase {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Fillets {
+
     // --- [EDGES]
+
     public static IO<Seq<Brep>> Edges(Tolerances tolerances, Brep brep, Map<int, Law> radii, Spacing sampling, BlendType blendType, RailType railType, bool setbackFillets) =>
         from held in IO.lift(() => brep.Within(ComponentIndexType.BrepEdge, toSeq(radii.Keys)))
         from filleted in toSeq(radii.Values).ForAll(static radius => radius is Law.Constant or Law.Linear)
@@ -157,6 +162,7 @@ public static class Fillets {
         select filleted;
 
     // --- [SURFACES]
+
     public static IO<FilletResult> Surface(Tolerances tolerances, FilletContact contact, FilletSection section, bool trim, bool extend, bool tangentChain) =>
         from answered in IO.lift(() => contact.Surface(section, tolerances, trim, extend, tangentChain))
         from result in Decoded(answered.Accepted, answered.Results?.Fillets, answered.Results?.OutBreps0, answered.Results?.OutBreps1, nameof(Brep.CreateFilletSurface))
@@ -171,6 +177,7 @@ public static class Fillets {
         select result;
 
     // --- [RAILS]
+
     public static IO<(Seq<Brep> Fillets, SurfaceToCurveFit Fit)> ToCurve(Tolerances tolerances, Curve curve, BrepFace face, double t, Point2d uv, double radius, CurveAlignment alignment, int railDegree, ArcSection section) =>
         from fillets in IO.lift(static () => new List<Brep>())
         from answered in IO.lift(() => (
@@ -196,6 +203,7 @@ public static class Fillets {
         select (result, fit);
 
     // --- [DECODING]
+
     private static IO<FilletResult> Decoded(bool accepted, IEnumerable<Brep>? fillets, IEnumerable<Brep>? first, IEnumerable<Brep>? second, string member) =>
         from trimmed0 in Products.Many(() => first ?? [], required: false, member)
         from trimmed1 in Products.Many(() => second ?? [], required: false, member)

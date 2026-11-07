@@ -12,6 +12,7 @@ using TinyEXR;
 namespace Rasm.Imaging.Procedural;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record CellGrid(long Columns, long Rows) {
     public static CellGrid Fit(PixelExtent extent, double width, double height) {
         return new(Count(extent.Width, width), Count(extent.Height, height));

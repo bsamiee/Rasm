@@ -4,6 +4,7 @@ using Rasm.UI.Styling;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class EditPhase {
     public static readonly EditPhase Begin = new(applies: false);
@@ -109,6 +110,7 @@ public abstract partial record Selection {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class EditExtensions {
     extension<TValue>(K<Edit, TValue> edit) {
         public Edit<TValue> As() => (Edit<TValue>)edit;

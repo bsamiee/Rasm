@@ -9,6 +9,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
 [ValidationError<ImagingFault>]
 public sealed partial record Gamut : IConvertible<string> {

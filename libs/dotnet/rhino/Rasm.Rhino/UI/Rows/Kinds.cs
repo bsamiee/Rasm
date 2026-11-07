@@ -5,6 +5,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.UI.Rows;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public interface IRow<TSelf> where TSelf : IRow<TSelf> {
     public RowShape Shape { get; }
 
@@ -12,6 +13,7 @@ public interface IRow<TSelf> where TSelf : IRow<TSelf> {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class RowShape {
     public static readonly RowShape Inline = new(labeled: true, spans: false, fills: false);

@@ -6,14 +6,18 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record WindowChannels(
     Seq<RenderWindow.StandardChannels> Requested,
     HashSet<RenderWindow.StandardChannels> Available,
     Option<RenderWindow.StandardChannels> Shown);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class RenderWindows {
+
     // --- [CHANNELS]
+
     public static IO<WindowChannels> ChannelState(RenderWindow window) =>
         from requested in IO.lift(() => Known(window.GetRequestedRenderChannelsAsStandardChannels()))
         let members = Known(Enum.GetValues<RenderWindow.StandardChannels>())
@@ -31,6 +35,7 @@ public static class RenderWindows {
         toSeq(channels).Filter(static channel => channel is not RenderWindow.StandardChannels.None).Strict();
 
     // --- [PIXELS]
+
     public static IO<Memory2D<float>> Read(RenderWindow window, RenderWindow.StandardChannels channel) =>
         Opened(window, channel, opened => IO.lift(() => Channels.Read(opened, new Rectangle(0, 0, opened.Width, opened.Height))
             .Map(native => channel is RenderWindow.StandardChannels.RGBA ? native : Channels.Widened(native.Span, opened.Width))));

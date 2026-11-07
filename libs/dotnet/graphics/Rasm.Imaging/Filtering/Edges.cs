@@ -12,9 +12,11 @@ using SixLabors.ImageSharp.Processing.Processors.Convolution;
 namespace Rasm.Imaging.Filtering;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public delegate void ContourMarks(Mat guide, Rectangle first, Rectangle second, Mat edges);
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ContourLine(Seq<(ContourMarks Marks, PixelFrame Guide)> Sources, float Alignment, Func<float, float> Width, Vector3 Color);
 
 [SmartEnum<string>]
@@ -75,6 +77,7 @@ public sealed partial class EdgeOperator {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class EdgeSource {
     public static Action<Mat, Mat> Color { get; } = static (frame, plane) => CvInvoke.CvtColor(frame, plane, ColorConversion.Rgba2Rgb);
     public static Action<Mat, Mat> Hue { get; } = static (frame, plane) => {

@@ -10,6 +10,7 @@ using Wacton.Unicolour;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class GradientKind {
     public static readonly GradientKind Linear = new("linear", static extent => point => (0.5d + (point.X / (2d * extent.X)), 1d / (2d * extent.X)), static integral => integral.Mean);

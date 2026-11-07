@@ -1,6 +1,7 @@
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record CurveFit {
     public (SweepRebuild RebuildType, int RebuildPointCount, double RefitTolerance) Parameters => Switch(

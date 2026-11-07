@@ -12,6 +12,7 @@ using SkiaSharp;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ImageRegion {
     public static ImageRegion Whole { get; } = new(new SKRect(0f, 0f, 1f, 1f));

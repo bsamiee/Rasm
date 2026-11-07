@@ -8,6 +8,7 @@ using Rasm.UI.Styling;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Tabs(Seq<Key> Items, Option<Key> Value, Func<Key, string> Label, Func<Edit<Key>, IO<Unit>> Selected) {
     private static readonly Key Folded = new Key.Named("overflow");
 

@@ -163,6 +163,7 @@ private struct Held: Equatable, Sendable {
 
 private actor Holder<Failure: LockFailure> {
     // --- [STATE]
+
     private(set) var held: [Held]
 
     init(_ held: [Held]) {
@@ -170,6 +171,7 @@ private actor Holder<Failure: LockFailure> {
     }
 
     // --- [HEARTBEAT]
+
     func heartbeat(_ index: Int, every interval: Duration, clock: some Clock<Duration> & Sendable) async throws(Failure) -> Never {
         for await _ in AsyncTimerSequence(interval: interval, clock: clock) {
             do throws(FileFailure) { held[index] = try held[index].updated() } catch { throw .lock(error) }

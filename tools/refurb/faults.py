@@ -236,7 +236,6 @@ def configured(reads: Reads) -> Callable[[MypyFile, list[Error]], None]:
 
 check = configured(Reads())
 
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ("ErrorMisusedExpressionError", "check", "configured")

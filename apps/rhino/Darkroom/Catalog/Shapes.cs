@@ -8,6 +8,7 @@ using Wacton.Unicolour;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class ShapeFit {
     public static readonly ShapeFit ShortSide = new("short-side", static _ => Vector2.One);

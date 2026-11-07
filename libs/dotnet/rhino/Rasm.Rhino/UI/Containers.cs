@@ -7,6 +7,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record SplitterSetting(string Name, double Default, SplitterFixedPanel Fixed) {
     private const string Positions = "splitter-positions";
 
@@ -36,14 +37,18 @@ public abstract partial record ContainerRow {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Containers {
+
     // --- [FRAMES]
+
     public static IO<T> Frame<T>(Func<T> create) where T : Container => use(IO.lift(create), Emptied);
 
     private static IO<Unit> Emptied(Container frame) =>
         Products.Each(Seq(IO.lift(frame is StackLayout stack ? stack.Items.Clear : frame.RemoveAll), IO.lift(frame.Dispose))).Map(unit);
 
     // --- [REALIZATION]
+
     public static IO<Control> Realize(ContainerRow row, RowScope scope) =>
         row.Switch(
             scope,
@@ -53,6 +58,7 @@ internal static class Containers {
             tiles: static (held, tiles) => Tiles(tiles, held));
 
     // --- [SPLITS]
+
     private static IO<Control> Split(ContainerRow.Split split, RowScope scope) =>
         from position in split.Setting.Position.Read
         from splitter in use(static () => new Splitter())
@@ -68,6 +74,7 @@ internal static class Containers {
         select (Control)splitter;
 
     // --- [TABS]
+
     private static IO<Control> Tabs(ContainerRow.Tabs tabs, RowScope scope) =>
         from control in use(static () => new TabControl())
         from pages in toSeq(tabs.Pages).TraverseM(page =>
@@ -87,6 +94,7 @@ internal static class Containers {
         select (Control)control;
 
     // --- [TILES]
+
     private static IO<Control> Tiles(ContainerRow.Tiles tiles, RowScope scope) =>
         from row in use(static () => new TopRowButtonLayout())
         from cells in toSeq(tiles.Cells).TraverseM(command => CommandRows.Button(command, IconSlot.PanelButton, scope)).As()

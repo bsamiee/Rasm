@@ -5,6 +5,7 @@ using UnitsNet;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<QuantityValue>(SkipFactoryMethods = true, SkipToString = true, SkipIFormattable = true)]
 public sealed partial class DrawingScale {
     public (BigInteger Paper, BigInteger Model) Terms => QuantityValue.Reduce(_value) switch { var (paper, model) => (paper, model) };

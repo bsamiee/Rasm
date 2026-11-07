@@ -176,6 +176,7 @@ nonisolated enum ClaudeStoreContent: Sendable {
 
 nonisolated struct ClaudeCredentialStore: Sendable {
     // --- [STATE]
+
     let directory: URL
     let configFile: URL
     let directoryConfigFile: URL
@@ -203,6 +204,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     }
 
     // --- [STORE_CONTENT]
+
     func read() async throws(ClaudeFailure) -> ClaudeStoreContent {
         let token: ClaudeOAuthToken? = try await readItem()?.known.claudeAiOauth.flatMap(ClaudeOAuthToken.make)
         return switch (token, try token.flatMap { _ throws(ClaudeFailure) in try readAccount() }) {
@@ -219,6 +221,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     }
 
     // --- [ACCOUNT_FILE]
+
     func identity() throws(ClaudeFailure) -> AccountIdentity? {
         try readAccount()?.known.identity(plan: nil)
     }

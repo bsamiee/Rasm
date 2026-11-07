@@ -4,6 +4,7 @@ using NodaTime.Text;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class RevisionAlphabet {
     public static readonly RevisionAlphabet Asme = new(symbols: "ABCDEFGHJKLMNPRTUVWY", maxLetters: 3);

@@ -5,6 +5,7 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.Viewport;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class ZBuffer {
     private readonly ZBufferCapture capture;
     private readonly Rectangle frame;

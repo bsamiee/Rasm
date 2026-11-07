@@ -8,6 +8,7 @@ using Rasm.Imaging.Pixels;
 namespace Rasm.Imaging.Filtering;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class SortMetric {
     public static readonly SortMetric Hue = new("hue", Vector3.UnitX);

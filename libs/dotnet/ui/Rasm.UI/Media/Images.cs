@@ -5,6 +5,7 @@ using Wacton.Unicolour.Datasets;
 namespace Rasm.UI.Media;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class ImageFit {
     public static readonly ImageFit Stretch = new(static (content, _) => content);

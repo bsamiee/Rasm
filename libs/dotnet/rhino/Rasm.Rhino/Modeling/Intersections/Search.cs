@@ -4,12 +4,16 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling.Intersections;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union<BoundingBox, Sphere>(SkipToString = true, SkipEqualityComparison = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class SearchRegion;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Search {
+
     // --- [BOXES]
+
     public static IO<Seq<(int A, int B)>> Overlaps(Sets<BoundingBox> boxes, double tolerance) =>
         boxes.Switch(
             tolerance,
@@ -36,6 +40,7 @@ public static class Search {
         select toSeq(rows).Strict();
 
     // --- [CURVES]
+
     public static IO<Seq<(int Object, bool Entire, Seq<ComponentIndex> Removed, Option<Curve> Replacement)>> Overlapping(
         Tolerances tolerances, Seq<GeometryBase> objects, Plane plane, bool wholeCurves, Seq<GeometryBase> locked, bool lockedExclusive) =>
         from answered in IO.lift(() => (

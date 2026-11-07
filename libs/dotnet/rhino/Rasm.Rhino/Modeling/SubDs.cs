@@ -1,6 +1,7 @@
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ChainSeed {
     public sealed record Sorted(Seq<uint> Edges) : ChainSeed;
@@ -11,8 +12,11 @@ public abstract partial record ChainSeed {
 public sealed record SubDChain(Seq<(uint Edge, bool Reversed)> Edges, bool Closed, Option<NurbsCurve> Curve, Option<NurbsCurve> LoftCurve);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SubDs {
+
     // --- [STEPS]
+
     public static Step<SubD> FillHole(uint boundaryEdge) =>
         new(subd => IO.lift(() =>
             from held in Held(subd, ComponentIndexType.SubdEdge, [boundaryEdge])
@@ -67,6 +71,7 @@ public static class SubDs {
         });
 
     // --- [CHAINS]
+
     public static IO<Seq<SubDChain>> Chains(SubD subd, ChainSeed seed) =>
         seed.Switch(
             subd,

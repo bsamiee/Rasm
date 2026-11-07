@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 namespace Rasm.Drafting;
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class DraftingReason {
     public static readonly DraftingReason Stated = new("rejected input");

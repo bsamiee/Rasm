@@ -5,6 +5,7 @@ using SuperLinq;
 namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject]
 [ValidationError<RhinoFault>]
 public sealed partial class AscendingParameters {
@@ -44,8 +45,11 @@ public sealed record CurveJet(CurveSample At, Vector3d Tangent, Vector3d Curvatu
 public sealed record CurveDeviation(double Distance, CurveSample OnA, CurveSample OnB);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class CurveEvaluation {
+
     // --- [ADDRESSES]
+
     public static Fin<double> Resolve(Curve curve, CurveAddress at) =>
         at.Switch(
             curve,
@@ -59,6 +63,7 @@ public static class CurveEvaluation {
             }));
 
     // --- [JETS]
+
     public static Fin<CurveJet> Jet(Curve curve, CurveAddress at, int order, CurveEvaluationSide side) =>
         from t in Resolve(curve, at)
         from tangent in Conversions.Required(Conversions.Present(curve.TangentAt(t)).Filter(static tangent => !tangent.IsTiny()))
@@ -72,6 +77,7 @@ public static class CurveEvaluation {
         select measured;
 
     // --- [SCANS]
+
     internal static Seq<double> Kinks(Tolerances tolerances, Curve curve, Continuity kind) =>
         Breaks(tolerances, kind, curve.IsClosed, curve.Domain, (read, t0, t1, cosAngleTolerance, curvatureTolerance) =>
             Conversions.Present(curve.GetNextDiscontinuity(read, t0, t1, cosAngleTolerance, curvatureTolerance, out double t), t));
@@ -90,6 +96,7 @@ public static class CurveEvaluation {
         };
 
     // --- [DEVIATION]
+
     public static Fin<(CurveDeviation Maximum, CurveDeviation Minimum)> Deviation(Tolerances tolerances, Curve curveA, Curve curveB) =>
         RhinoFault.Unless(
                 Curve.GetDistancesBetweenCurves(curveA, curveB, tolerances.Absolute, out double maximum, out double maximumA, out double maximumB, out double minimum, out double minimumA, out double minimumB),

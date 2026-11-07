@@ -11,6 +11,7 @@ using UnitsNet;
 namespace Rasm.Imaging.Tone;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed class LuminanceSamples {
     public const float Floor = 1e-5f;
 

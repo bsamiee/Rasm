@@ -18,8 +18,11 @@ using Grasshopper2.Undo.Actions;
 namespace Rasm.Grasshopper.Components;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes, ICursorAwareAttributes {
+
     // --- [STATE]
+
     private const string SizeKey = "Attr.Size";
     private const string Host = "Grasshopper2.Doc.Attributes.ModularComponentAttributes, Grasshopper2";
     private readonly ModularComponent component;
@@ -40,6 +43,7 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
     }
 
     // --- [LAYOUT]
+
     SizeF IResizableAttributes.Size {
         get => SizeF.Max(Minimum, SizeF.Min(Owner.CustomValues.Get(SizeKey, new SizeF(StandardLayout.LargeObjectWidth, StandardLayout.LargeObjectHeight)), Maximum));
         set {
@@ -71,6 +75,7 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
     }
 
     // --- [DRAWING]
+
     protected override void DrawContent(Context context, Skin skin, Capsule capsule, Shade shade) => Hooks.Run(IO.lift(() => paint(context, skin, shade, ContentBox)), unit);
 
     protected override void DrawForeground(Context context, Skin skin, Capsule capsule, Shade shade) {
@@ -95,6 +100,7 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
     private static extern void DrawForegroundDecorations([UnsafeAccessorType(Host)] object attributes, Context context, Skin skin, Capsule capsule, Shade shade);
 
     // --- [RESIZING]
+
     private Padding Bands() {
         (SizeF low, SizeF high) = (Minimum, Maximum);
         (int horizontal, int vertical) = (low.Width == high.Width ? 0 : ResizableAttributes<Component>.EdgeSize, low.Height == high.Height ? 0 : ResizableAttributes<Component>.EdgeSize);
@@ -161,6 +167,7 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
     }
 
     // --- [WIDGET]
+
     private bool Inside(ResponseMouseArgs args) => ContentBox.Contains(args.ContentLocation);
 
     private Unit Forwarded(IResponsive held) {

@@ -5,8 +5,11 @@ using Rhino;
 namespace Rasm.Rhino.Objects;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal static class Internals {
+
     // --- [NAMES]
+
     private const string ModelType = "Commands.ViewModels.NamedSelectionsViewModel, Commands";
     private const string ItemType = "Commands.ViewModels.NsGridItem, Commands";
     private const string SelectionType = "Commands.ViewModels.NamedSelection, Commands";
@@ -20,6 +23,7 @@ internal static class Internals {
     internal const string Collection = "TreeGridCollection";
 
     // --- [NAMED_SELECTIONS]
+
     internal static IO<object> SelectionModel(RhinoDoc doc) =>
         from type in IO.lift(static () => Conversions.Required(Type.GetType(ModelType)))
         from model in IO.lift(() => doc.RuntimeData.GetValue(type, static owner => Created(owner.RuntimeSerialNumber)))

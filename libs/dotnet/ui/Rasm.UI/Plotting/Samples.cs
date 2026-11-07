@@ -11,6 +11,7 @@ using SuperLinq;
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed class Samples(ReadOnlyMemory<float> values) : IInterpolated<Samples> {
     private const int Shift = 6;
     private const int Block = 1 << Shift;

@@ -9,6 +9,7 @@ using Wacton.Unicolour.Datasets;
 namespace Rasm.UI.Media;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ColorValue {
     public Fraction Alpha { get; init; } = Fraction.MaxValue;
@@ -56,7 +57,9 @@ public sealed record Stop(ColorValue Color, Fraction At);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ColorRamp {
+
     // --- [STOPS]
+
     private ColorRamp(Seq<Stop> stops) => Stops = toSeq(stops.OrderBy(static stop => stop.At));
 
     public Seq<Stop> Stops { get; private protected init; }
@@ -76,12 +79,14 @@ public abstract partial record ColorRamp {
             At(new Fraction((band + 0.5f) / count)).Map(color => new Stop(color, new Fraction((float)band / count)))));
 
     // --- [SAMPLING]
+
     public abstract Option<ColorValue> At(Fraction at);
 
     internal virtual Option<ColorValue> Valued(double value) =>
         Fraction.Validated((float)value).Match(Succ: At, Fail: _ => (value < 0d ? Stops.Head : Stops.Last).Map(static stop => stop.Color));
 
     // --- [DENSITY]
+
     private const double JustNoticeable = 0.02d;
 
     internal virtual Option<Seq<(Fraction At, SKColorF Color)>> Dense(Func<ColorValue, Option<SKColorF>> resolve, ColourSpace blend) =>
@@ -104,6 +109,7 @@ public abstract partial record ColorRamp {
         };
 
     // --- [CASES]
+
     public sealed record Smooth(Seq<Stop> Stops) : ColorRamp(Stops) {
         public ColourSpace Space { get; init; } = ColourSpace.Oklab;
         public HueSpan Hue { get; init; } = HueSpan.Shorter;
@@ -150,6 +156,7 @@ public abstract partial record ColorRamp {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class UnicolourExtensions {
     extension(SKColorF color) {
         internal Unicolour ToUnicolour() => new(ColourSpace.Rgb, color.Red, color.Green, color.Blue, color.Alpha);

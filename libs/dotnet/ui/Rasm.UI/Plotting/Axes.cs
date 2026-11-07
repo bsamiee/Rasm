@@ -9,6 +9,7 @@ using SuperLinq;
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject(SkipFactoryMethods = true, ConstructorAccessModifier = AccessModifier.Internal)]
 public sealed partial class AxisRange : IInterpolated<AxisRange> {
     public static AxisRange Unit { get; } = new(0f, 1f);

@@ -11,6 +11,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record LabelPair(string Off, string On) {
     public static readonly LabelPair NoYes = new("No", "Yes");
     public static readonly LabelPair OffOn = new("Off", "On");
@@ -23,8 +24,11 @@ public sealed record OptionSpec<T>(string Caption, Func<GetBaseClass, LocalizeSt
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class OptionType {
+
     // --- [ROWS]
+
     public static readonly Func<GetBaseClass, LocalizeStringPair, Color, IO<AddedOption<Color>>> Swatch =
         static (getter, name, initial) => Held(() => new OptionColor(initial), holder => getter.AddOptionColor(name, ref holder), static holder => Fin.Succ(holder.CurrentValue));
 
@@ -73,10 +77,12 @@ public static class OptionType {
             select new AddedOption<TItem>(index, option => IO.lift(() => Conversions.Required(items.At(option.CurrentListOptionIndex))));
 
     // --- [NAMES]
+
     internal static IO<LocalizeStringPair> Named(string english) =>
         IO.lift(() => Conversions.Required(RhinoGet.StringToCommandOptionName(english, LocalText.Of(english).Local)));
 
     // --- [REGISTRATION]
+
     internal static Fin<int> Indexed(int index, [CallerArgumentExpression(nameof(index))] string call = "") =>
         RhinoFault.Unless(index > 0, RhinoReason.Declined, index, names: call).Map(_ => index);
 

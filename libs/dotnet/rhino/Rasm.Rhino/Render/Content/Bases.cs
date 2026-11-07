@@ -10,6 +10,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ContentPreviewRow(
     RenderPlugIn.PreviewRenderTypes Type,
     Func<CreatePreviewEventArgs, IO<Option<Bitmap>>> Content,
@@ -20,6 +21,7 @@ public sealed record ContentDefinition<TState>(string Caption, string Help, stri
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class ContentBody<TState> where TState : notnull {
     private readonly ContentDefinition<TState> definition;
     private readonly Seq<(Field Field, ContentField<TState> Row)> fields;

@@ -15,6 +15,7 @@ using SuperLinq;
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Hierarchy {
     private Hierarchy(Key key, float weight, Seq<Hierarchy> members) => (Key, Weight, Members) = (key, weight, members);
 
@@ -46,6 +47,7 @@ public sealed record Network(Seq<Arranged> Nodes, Seq<Arranged> Links) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class GeometryExtensions {
     extension(Geometry geometry) {
         public Seq<Figure.Path> Paths =>
@@ -75,7 +77,9 @@ public static class GeometryExtensions {
 }
 
 public static class Arrangements {
+
     // --- [HIERARCHIES]
+
     public static Fin<Seq<Arranged>> Treemap(PlotFrame frame, Hierarchy root, float inner = 0f, float outer = 0f) =>
         UIFault.Unless(float.IsFinite(inner) && float.IsFinite(outer) && inner >= 0f && outer >= 0f, UIReason.Range, (inner, outer)).Map(_ => {
             float half = inner / 2f;
@@ -139,6 +143,7 @@ public static class Arrangements {
         SKRect.Inflate(rect, -by, -by) switch { var inset => new SKRect(float.Min(inset.Left, rect.MidX), float.Min(inset.Top, rect.MidY), float.Max(inset.Right, rect.MidX), float.Max(inset.Bottom, rect.MidY)) };
 
     // --- [FLOWS]
+
     private const int Relaxations = 6;
 
     public static Fin<Network> Sankey(PlotFrame frame, Seq<Flow> flows, Fraction width, Fraction gap) {
@@ -237,6 +242,7 @@ public static class Arrangements {
     private static Vector2 Circled(float turn, float radius) => MathF.SinCos(MathF.Tau * turn) switch { var (sin, cos) => new Vector2(cos, sin) * radius };
 
     // --- [FIELDS]
+
     private static readonly Seq<Seq<(int From, int To)>> Cuts = Seq(
         Seq<(int From, int To)>(), Seq((3, 0)), Seq((0, 1)), Seq((3, 1)), Seq((1, 2)), Seq((3, 0), (1, 2)), Seq((0, 2)), Seq((3, 2)),
         Seq((2, 3)), Seq((0, 2)), Seq((0, 1), (2, 3)), Seq((1, 2)), Seq((3, 1)), Seq((0, 1)), Seq((3, 0)), Seq<(int From, int To)>());
@@ -293,6 +299,7 @@ public static class Arrangements {
     }
 
     // --- [DISTRIBUTIONS]
+
     private const float Slack = 1e-5f;
 
     public static Figure.Points Dodged(PlotFrame frame, PhysicalAxis along, Seq<float> values, Factor radius) {
@@ -323,6 +330,7 @@ public static class Arrangements {
     }
 
     // --- [MESHES]
+
     public static Network Triangulated(PlotFrame frame, Seq<Vector2> sites) {
         Coordinate[] framed = frame.Points(sites).Coordinates;
         DelaunayTriangulationBuilder builder = new();
@@ -351,6 +359,7 @@ public static class Arrangements {
                 .Apply((center, corners) => new Arranged(new Key.Ordinal(owner(held.Cell, held.Index)), center, (float)held.Cell.Area, new Figure.Path(corners) { Closed = true })).As());
 
     // --- [FRAMES]
+
     private static Seq<float> Positions(PlotFrame frame, PhysicalAxis along, Seq<float> values) => frame.Points(values.Map(value => along.With(Vector2.Zero, value))).Map(at => along.Of(at));
 
     private static Option<Seq<Vector2>> Unframed(PlotFrame frame, Seq<SKPoint> pixels) => pixels.Traverse(pixel => frame.Valued(pixel)).As();

@@ -477,7 +477,6 @@ neutral: Final = CompositorEffect(record=Neutral, mix=Mix.STRAIGHT, pointwise=Tr
 photoreceptor: Final = CompositorEffect(record=Photoreceptor, interface=Interface(inputs=_ADAPTATION), mix=Mix.RESULT)
 tony: Final = CompositorEffect(record=Tony, mix=Mix.STRAIGHT, pointwise=True, registers=(TILES,))
 
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["TONY", "UPSTREAM", "Hable", "Neutral", "Photoreceptor", "ToneCurve", "Tony", "formed", "hable", "neutral", "photoreceptor", "tone_curve", "tony"]

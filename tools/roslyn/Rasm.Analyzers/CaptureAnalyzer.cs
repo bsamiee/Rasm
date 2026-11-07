@@ -10,9 +10,12 @@ using Microsoft.CodeAnalysis.Text;
 namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class CaptureAnalyzer : RasmAnalyzer {
+
     // --- [RULES]
+
     private static readonly DiagnosticDescriptor Captured = Rule(
         "RASM3104", "CSharp", "Return callback values through their result",
         "`{0}` passes a value out of a callback through a write outside its result",
@@ -21,6 +24,7 @@ public sealed class CaptureAnalyzer : RasmAnalyzer {
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Captured];
 
     // --- [SYMBOLS]
+
     private static readonly ImmutableArray<string> Atoms = ["Atom", "AtomHashMap", "AtomSeq", "AtomQue", "Ref", "VersionHashMap"];
 
     private static readonly ImmutableArray<Type> Collections = [
@@ -32,6 +36,7 @@ public sealed class CaptureAnalyzer : RasmAnalyzer {
     ];
 
     // --- [ANALYSIS]
+
     protected override void Start(CompilationStartAnalysisContext context) {
         Compilation compilation = context.Compilation;
         ControlFlow flow = ControlFlow.For(compilation);

@@ -8,8 +8,11 @@ using Rhino.UI;
 namespace Rasm.Rhino.UI.Components;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Editors {
+
     // --- [LISTS]
+
     public static ControlRows List<TItem, TKey>(string label, Preference<Seq<TItem>> items, Func<TItem, TKey> key, Func<TItem, string> caption, Func<TItem, string, Fin<TItem>> rename, Func<RowScope, IO<TItem>> add)
         where TItem : notnull where TKey : notnull =>
         new(_ => items.Read.Map(current => Seq(Row.Of(label, new ListRow<TItem, TKey>(IterableNE.create<ListColumn<TItem>>(new ListColumn<TItem>.Label(Some(label), caption, None, Some(rename))), key, current, HashSet<TKey>()) {
@@ -30,6 +33,7 @@ public static class Editors {
             _ => IO.pure(Seq(PreferenceRows.Signal(items))));
 
     // --- [PRESETS]
+
     public static Command<Invoke>.Run Presets(PresetBinding binding) =>
         new(new CommandFace("section-presets", "Presets") { Icon = Some(IconResource.Presets) }, new Invoke.Popup(_ =>
             from shelf in binding.Shelf

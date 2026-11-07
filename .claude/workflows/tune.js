@@ -33,6 +33,7 @@ const FINDINGS = (owners) => ({
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [ARGS]
+
 const relative = (path) => path.replace('/Users/bardiasamiee/Developer/Rasm/', '').replace(/^\.\//, '').replace(/#.*$/, '').replace(/\/+$/, '')
 const within = (path, roots) => roots.some((root) => path === root || path.startsWith(`${root}/`))
 const row = languages[args?.language]
@@ -47,6 +48,7 @@ const SYNTAX = OWNERS.at(-1)
 const RELEASE = row.blender ? `${row.release}, and for files under ${row.blender.roots.join(', ')} ${row.blender.release} with packages under ${row.blender.sources}` : row.release
 
 // --- [PROMPTS]
+
 const listed = (lines) => lines.map((line) => `- ${line}`).join('\n')
 const loads = (skills) => [...new Set(skills)].map((skill) => `Skill(${skill})`).join(', ')
 const counted = (count, noun) => `${count} ${noun[PLURALS.select(count)]}`
@@ -58,6 +60,7 @@ const shown = (finding) => `${finding.site} (${finding.kind}): ${finding.fact}${
 const untracked = (paths) => `the untracked files \`git status --short --untracked-files=all -- ${paths}\` lists`
 
 // --- [SCHEDULE]
+
 const normal = (finding) => ({ ...finding, paths: [...new Set(finding.paths.map(relative))].toSorted(), joins: relative(finding.joins) })
 const folder = (path) => {
   const [rules] = SYNTAX.paths
@@ -88,6 +91,7 @@ const pumped = (items, run) => {
 }
 
 // --- [LOSSES]
+
 const lost = []
 const note = (label, why) => {
   lost.push(`${label}: ${why}`)
@@ -100,6 +104,7 @@ const once = (prompt, opts) => (Object.hasOwn(FINISHED, opts.label)
   : agent(prompt, opts).then((result) => result ?? note(opts.label, 'agent ended with no result'), broke(opts.label)))
 
 // --- [STAGES]
+
 const read = (unit, skills = skillsOf(unit.paths)) => once(`Load ${loads(row.skills)}.
 Reader over \`git diff ${RANGE} -- ${unit.paths.join(' ')}\`: read every hunk with its file at HEAD, at ${RELEASE} with package sources under ${row.sources}, and name each improvement and each regression the hunks show, small and large alike, that its owner does not yet state or check soundly. A regression names the check or skill line that refuses it.
 Each finding goes to the first owner below stating it soundly for every instance; an owner reporting a subset of another's instances owns nothing, and a row turning a check off stays while its reason holds:

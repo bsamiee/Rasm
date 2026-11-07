@@ -7,8 +7,11 @@ using Wacton.Unicolour;
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record RoleStyle {
+
     // --- [DEFAULTS]
+
     private static readonly HashMap<Metric, float> Defaulted = toHashMap(Metric.Items.Select(static metric => (metric, metric.Default)));
     private static readonly Seq<Material> NativeFills = [new Material.Solid(new ColorValue.Current(Channel.Fill))];
     private static readonly Seq<Stroke> NativeStrokes = [new Stroke(new ColorValue.Current(Channel.Stroke))];
@@ -17,6 +20,7 @@ internal sealed record RoleStyle {
     private static readonly Shape RoundedShape = new Shape.Rounded();
 
     // --- [CONSTRUCTION]
+
     internal RoleStyle(Theme theme, StyleSheet sheet, Key role, HashSet<Condition> stated, Option<RoleStyle> enclosing) {
         HashSet<Condition> conditions = stated.Union(enclosing.Map(static held => held.Conditions.Filter(static condition => condition.Inherited)).IfNone([])).Union(theme.Conditions);
         Look row = sheet.Looks.Find(role).IfNone(Look.Empty);
@@ -38,6 +42,7 @@ internal sealed record RoleStyle {
     }
 
     // --- [RESOLVED]
+
     internal Key Role { get; }
     internal Option<RoleStyle> Enclosing { get; }
     internal HashSet<Condition> Conditions { get; }
@@ -53,6 +58,7 @@ internal sealed record RoleStyle {
     internal Option<float> Rounded => Look.Metrics.ContainsKey(Metric.Radius) ? Some(Metrics[Metric.Radius]) : None;
 
     // --- [CHANNELS]
+
     internal Seq<Material> Fills => UnderGlass ? Painted.Filter(static fill => fill is not Material.Glass) : Painted;
     internal Seq<Stroke> Strokes => Look.Strokes.IfNone(NativeStrokes);
     internal ColorValue Text => Look.Text.IfNone(NativeText);

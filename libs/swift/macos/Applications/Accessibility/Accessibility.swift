@@ -48,6 +48,7 @@ extension AXValue {
 
 extension AXUIElement {
     // --- [IDENTITY]
+
     var token: Data { unsafe remoteToken(self).takeRetainedValue() as Data }
 
     static func menuItem(of process: pid_t, at path: [Int]) -> Data {
@@ -87,6 +88,7 @@ extension AXUIElement {
     }
 
     // --- [READS]
+
     private func copied(_ attributes: [String]) -> (answer: AXError, slots: [(attribute: String, slot: CFTypeRef)]) {
         var values: CFArray?
         let answer: AXError = unsafe AXUIElementCopyMultipleAttributeValues(self, attributes as CFArray, [], &values)
@@ -162,6 +164,7 @@ extension AXUIElement {
     }
 
     // --- [WRITES]
+
     func write(_ value: CFTypeRef, to attribute: String) throws(ApplicationFailure) -> AXError {
         var settable: DarwinBoolean = false
         return switch unsafe AXUIElementIsAttributeSettable(self, attribute as CFString, &settable) {

@@ -6,6 +6,7 @@ using Rhino.Display;
 namespace Rasm.Rhino.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record RedrawPolicy {
     public sealed record Silent() : RedrawPolicy;
@@ -20,8 +21,11 @@ public abstract partial record RedrawPolicy {
 public sealed record Committed<T>(T Value, Option<uint> Record);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Commits {
+
     // --- [REDRAW]
+
     public static IO<T> WithinRedraw<T>(RhinoDoc doc, RedrawPolicy redraw, IO<T> body) =>
         redraw.Switch(
             (Document: doc, Body: body),
@@ -35,6 +39,7 @@ public static class Commits {
                     when(prior, IO.lift(() => state.Document.Views.Redraw(suppressed.Deferred))).As())))));
 
     // --- [RECORDS]
+
     public static IO<Committed<T>> Commit<T>(RhinoDoc doc, string name, RedrawPolicy redraw, IO<T> body) =>
         WithinRedraw(doc, redraw,
             from begun in IO.lift(() =>
@@ -57,6 +62,7 @@ public static class Commits {
             .Map(closed => closed.Filter(serial => doc.GetUndoRecords().Any(entry => entry.SerialNumber == serial)));
 
     // --- [CUSTOM]
+
     public static IO<Unit> Register(RhinoDoc doc, string description, IO<Unit> undo, IO<Unit> redo) =>
         Products.Accepted(() => doc.AddCustomUndoEvent(description, (_, args) => Session.Run(undo >> Register(args.Document, description, redo, undo))));
 

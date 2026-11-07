@@ -9,6 +9,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<int>]
 public sealed partial class ClockFormat {
     public static readonly ClockFormat HourMinute12 = new(0, "h:mm tt");

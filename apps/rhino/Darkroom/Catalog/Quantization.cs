@@ -8,6 +8,7 @@ using Rasm.Imaging.Quantization;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record OutputDither(Dither Method, float Amount) : IPixelStage<OutputDither> {
     public static OutputDither Default { get; } = new(Dither.WhiteNoise, 1f);
 

@@ -5,6 +5,7 @@ using SkiaSharp;
 namespace Rasm.UI.Input;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Stylus(Fraction Pressure, Vector2 Tilt, bool Eraser);
 
 public sealed record PointerSample(SKPoint At) {

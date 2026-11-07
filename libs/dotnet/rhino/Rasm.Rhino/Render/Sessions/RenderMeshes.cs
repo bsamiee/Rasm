@@ -8,16 +8,21 @@ using Rhino.Render.CustomRenderMeshes;
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record MeshRequest(MeshType Type, ViewportInfo Viewport, RenderMeshProvider.Flags Flags, Option<PlugIn> Requester, Option<DisplayPipelineAttributes> Display);
 
 public sealed record MeshBuild(Seq<Instance> Instances, UInt128 Inputs, RenderMeshProvider.Flags Flags);
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public abstract class DefinedMeshProvider(string name) : RenderMeshProvider {
+
     // --- [IDENTITY]
+
     public sealed override string Name => LocalText.Of(name).Local;
 
     // --- [CALLBACKS]
+
     public sealed override List<Guid> NonObjectIds => [.. Session.Run(ProvidedIds, failed: Seq<Guid>())];
 
     public sealed override bool HasCustomRenderMeshes(MeshType mt, ViewportInfo vp, RhinoDoc doc, Guid objectId, ref Flags flags, PlugIn plugin, DisplayPipelineAttributes attrs) {
@@ -57,6 +62,7 @@ public abstract class DefinedMeshProvider(string name) : RenderMeshProvider {
         _ = Session.Run(Parametrized(doc, objectId, parameterName, value));
 
     // --- [HOOKS]
+
     protected virtual IO<Seq<Guid>> ProvidedIds => IO.pure(Seq<Guid>());
 
     protected abstract IO<(bool Provides, Flags Flags)> Provides(MeshRequest request, RhinoDoc document, Guid objectId);
@@ -70,6 +76,7 @@ public abstract class DefinedMeshProvider(string name) : RenderMeshProvider {
     protected virtual IO<Unit> Parametrized(RhinoDoc document, Guid objectId, string name, object value) => IO.fail<Unit>(new RhinoFault($"{Name} parameter {name}", RhinoReason.Unsupported));
 
     // --- [REGISTRATION]
+
     public static IO<Unit> Register(Func<DefinedMeshProvider> create) =>
         from provider in use(create)
         from accepted in Products.Accepted(() => RegisterProvider(provider, Session.PlugIn))
@@ -77,8 +84,11 @@ public abstract class DefinedMeshProvider(string name) : RenderMeshProvider {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Meshing {
+
     // --- [CUSTOM_MESHES]
+
     public static IO<RenderMeshes> RenderMeshes(RhinoObject rhinoObject, MeshRequest request, Seq<InstanceObject> ancestry) =>
         Products.Of(() => Rendered(rhinoObject, request, ancestry))
             .Bind(static read => read.Out.HasFlag(RenderMeshProvider.Flags.Canceled)
@@ -95,6 +105,7 @@ public static class Meshing {
     }
 
     // --- [PARAMETERS]
+
     public static IO<Option<T>> GetCustomRenderMeshParameter<T>(RhinoObject rhinoObject, Guid providerId, string parameterName) where T : notnull =>
         Internals.Unwrapped<T>(() => rhinoObject.GetCustomRenderMeshParameter(providerId, parameterName), parameterName);
 }

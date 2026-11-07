@@ -11,6 +11,7 @@ using Rhino.Render.ParameterNames;
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 [Guid("1E61FAC0-CB0C-4245-A299-03464E5F6EDC")]
 public sealed class ClayMeshProvider : DefinedMeshProvider {
     private readonly uint serial;

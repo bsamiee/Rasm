@@ -7,6 +7,7 @@ using SuperLinq;
 namespace Rasm.UI.Input;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record PointerCapture {
     private PointerCapture(Seq<Key> owner, Seq<Key> hit) => (Owner, Hit) = (owner, hit);
@@ -41,7 +42,9 @@ internal abstract partial record Latch {
 internal sealed record Focus(Seq<Key> Element, bool Traversed);
 
 internal sealed record Routing {
+
     // --- [STATE]
+
     internal static Routing Idle { get; } = new();
 
     internal Option<SKPoint> Pointer { get; init; }
@@ -51,6 +54,7 @@ internal sealed record Routing {
     internal Option<Focus> Focus { get; init; }
 
     // --- [DERIVED]
+
     internal Option<Seq<Key>> Pressed => Capture.Map(static capture => capture.Hit);
 
     internal Option<PointerCapture.Part> Part => Capture.Bind(static capture => Optional(capture as PointerCapture.Part));
@@ -58,6 +62,7 @@ internal sealed record Routing {
     internal Option<Track> ActiveTrack => Part.Map(static part => part.Track);
 
     // --- [FOCUS]
+
     private const float AlignWeight = 5f;
     private const float HorizontalOrthogonalWeight = 30f;
     private const float VerticalOrthogonalWeight = 2f;

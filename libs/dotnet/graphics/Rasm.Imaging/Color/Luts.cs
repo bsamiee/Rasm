@@ -12,11 +12,13 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public interface IFixedFunction {
     public void Apply(Span<Vector4> row, bool inverted);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed class Lut1D {
     private const int HalfCodes = ushort.MaxValue + 1;
 
@@ -345,6 +347,7 @@ file readonly struct LatticeRows(int edge, Seq<Action<Span<Vector4>>> steps, Mem
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class LutTables {
     extension(Lut3D) {
         public static Fin<Lut3D> From(int size, ReadOnlyMemory<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>

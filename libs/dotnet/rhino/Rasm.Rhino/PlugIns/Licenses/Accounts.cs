@@ -6,6 +6,7 @@ using Rhino.Runtime.RhinoAccounts;
 namespace Rasm.Rhino.PlugIns.Licenses;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record Entitlement {
     public sealed record Entitled(Option<string> Signature) : Entitlement;
@@ -16,13 +17,17 @@ public abstract partial record Entitlement {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Accounts {
+
     // --- [ACCOUNT]
+
     public static IO<Option<T>> LoggedInUser<T>(Func<string, Image, T> read) =>
         IO.lift(static () => Conversions.Present(RhinoApp.LoggedInUserName))
             .Bind(name => name.TraverseM(present => Products.Of(static () => RhinoApp.LoggedInUserAvatar).Map(avatar => read(present, avatar)).Bracket()).As());
 
     // --- [TOKENS]
+
     public static IO<Option<(IOpenIDConnectToken OpenId, IOAuth2Token OAuth)>> TryGetAuthTokens(string clientId, Option<Seq<string>> scope = default) =>
         Protected(key => Optional(scope.Match(
             Some: requested => RhinoAccountsManager.TryGetAuthTokens(clientId, requested, key),
@@ -52,6 +57,7 @@ public static class Accounts {
             answer => IO.liftAsync(() => RhinoAccountsManager.ExecuteProtectedCodeAsync(async key => answer(await call(key, token).ConfigureAwait(false))).ToUnit())));
 
     // --- [ENTITLEMENT]
+
     public static IO<Entitlement> CheckEntitlement =>
         IO.lift(CloudHostUtils.CheckEntitlement).Map(static _ => CloudHostUtils.IsEntitled
             ? new Entitlement.Entitled(Conversions.Present(CloudHostUtils.Signature))

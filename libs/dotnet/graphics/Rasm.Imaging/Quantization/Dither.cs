@@ -12,6 +12,7 @@ using SixLabors.ImageSharp.Processing.Processors.Dithering;
 namespace Rasm.Imaging.Quantization;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 internal interface IThreshold {
     public static abstract bool Noise { get; }
 
@@ -19,6 +20,7 @@ internal interface IThreshold {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class Dither {
     public static readonly Dither Off = new("off", static (levels, _) => Thresholded<Ordered>(levels, 0f));

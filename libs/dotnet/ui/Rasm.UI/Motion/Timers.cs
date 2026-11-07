@@ -4,6 +4,7 @@ using SkiaSharp;
 namespace Rasm.UI.Motion;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Expiry(Duration Lifetime, IO<Unit> Elapsed);
 
 internal sealed record Countdown(Duration Left, Option<Duration> Since) {

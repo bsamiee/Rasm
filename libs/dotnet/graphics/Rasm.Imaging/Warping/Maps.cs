@@ -15,6 +15,7 @@ using UnitsNet;
 namespace Rasm.Imaging.Warping;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class Sampling {
     public static readonly Sampling Nearest = new("nearest", Inter.Nearest, 0);

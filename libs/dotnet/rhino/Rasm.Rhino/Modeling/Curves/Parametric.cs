@@ -5,6 +5,7 @@ using SuperLinq;
 namespace Rasm.Rhino.Modeling.Curves;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ParametricCurve {
     private ParametricCurve(Func<double, Point3d> point, Seq<double> joins) => (Point, Joins) = (point, joins);
@@ -52,8 +53,11 @@ public abstract partial record ParametricCurve {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class CurveLowerings {
+
     // --- [CLOSED_FORMS]
+
     extension(AnalyticCurve curve) {
         public IO<NurbsCurve> ToNurbs(Plane frame, Tolerances tolerances) => Traced(t => curve.At(t).ToPoint3d(frame), curve.Joins, tolerances);
     }
@@ -83,6 +87,7 @@ public static class CurveLowerings {
     }
 
     // --- [TRACING]
+
     internal static IO<NurbsCurve> Traced(Func<double, Point3d> point, Seq<double> joins, Tolerances tolerances) =>
         from pieces in Products.Each(toSeq(joins.Window(2, static span => new Line(span[0], 0d, 0d, span[1], 0d, 0d))).Map(span =>
             from line in Products.Of(() => NurbsCurve.CreateFromLine(span))

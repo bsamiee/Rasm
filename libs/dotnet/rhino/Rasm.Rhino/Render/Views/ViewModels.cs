@@ -7,6 +7,7 @@ using EventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 namespace Rasm.Rhino.Render.Views;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed class ProviderId<T> where T : class {
     internal ProviderId(Guid id) => Id = id;
 
@@ -31,6 +32,7 @@ public static class Provider {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SectionModels {
     public static IO<TResult> Read<T, TResult>(ICollapsibleSection section, ProviderId<T> provider, Func<T, IO<TResult>> read) where T : class =>
         Model(section).Bind(model => GetData(model, provider, forWrite: false)).Bind(read);

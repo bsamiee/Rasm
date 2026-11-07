@@ -6,8 +6,11 @@ using Rhino;
 namespace Rasm.Rhino;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Conversions {
+
     // --- [SENTINELS]
+
     public static Guid Unset(Option<Guid> id) => id.IfNone(Guid.Empty);
 
     public static int Unset(Option<int> index) => index.IfNone(-1);
@@ -83,6 +86,7 @@ public static class Conversions {
     public static Option<uint> Serial(RhinoDoc? document) => Optional(document).Map(static value => value.RuntimeSerialNumber);
 
     // --- [SEQUENCES]
+
     public static Seq<T> Rows<T>(IEnumerable<T?>? rows) =>
         Optional(rows).ToSeq().Bind(static held => held.AsIterable().Choose(static row => Optional(row)).ToSeq()).Strict();
 
@@ -95,6 +99,7 @@ public static class Conversions {
             .Map(_ => rows);
 
     // --- [TIME]
+
     public static Option<LocalDateTime> Present(DateTime value) => Some(value).Filter(static held => held != DateTime.MinValue).Map(LocalDateTime.FromDateTime);
 
     public static Option<LocalDateTime> Present(DateTime? value) => Optional(value).Bind(Present);
@@ -105,6 +110,7 @@ public static class Conversions {
             : new RhinoFault(call, RhinoReason.Outside);
 
     // --- [BOUNDS]
+
     public static Fin<Unit> Within(int index, int itemCount, [CallerArgumentExpression(nameof(index))] string call = "") =>
         index >= 0 && index < itemCount ? unit : new RhinoFault(call, RhinoReason.Outside, index);
 
@@ -112,10 +118,12 @@ public static class Conversions {
         domain.IncludesParameter(parameter) ? parameter : new RhinoFault(call, RhinoReason.Outside);
 
     // --- [TYPES]
+
     public static Fin<T> Cast<T>(object? value, [CallerArgumentExpression(nameof(value))] string call = "") where T : notnull =>
         value is T typed ? typed : new RhinoFault(call, RhinoReason.Mismatched);
 
     // --- [VALUES]
+
     public static Option<T> Present<T>(bool present, T value) => present ? Some(value) : None;
 
     public static Fin<T> Required<T>(T? value, Option<int> index = default, [CallerArgumentExpression(nameof(value))] string call = "") where T : class =>
@@ -133,6 +141,7 @@ public static class Conversions {
     public static bool Same(Color held, Color wanted) => held.ToArgb() == wanted.ToArgb();
 
     // --- [HOOKS]
+
     public static RhinoFault? Rejection<T>(Fin<T> result) =>
         result.Match<RhinoFault?>(Succ: static _ => null, Fail: static error =>
             error.Filter<RhinoFault>().Head is RhinoFault failure && error.Count is 1 ? failure : new RhinoFault(typeof(T), RhinoReason.Invalid, Inner: error));

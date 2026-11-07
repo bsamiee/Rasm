@@ -9,6 +9,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record IconResource(Assembly Assembly, string Id) {
     private const string PlugInMaster = "icon.svg";
 
@@ -48,8 +49,11 @@ public sealed partial class IconSlot {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Icons {
+
     // --- [ETO]
+
     public static IO<Eto.Drawing.Icon> Frames(IconResource icon, Eto.Drawing.Size logical) =>
         IO.lift(() => Conversions.Required(icon.Assembly.EtoAssets().Icons.TryGet(icon.Id, logical), call: icon.Id));
 
@@ -60,6 +64,7 @@ public static class Icons {
         HostTheme.Applied(owner, Frames(icon, slot).Bind(frames => IO.lift(() => write(frames))));
 
     // --- [DRAWING]
+
     public static IO<Bitmap> Raster(IconResource icon, IconSlot slot, Option<Control> owner) => slot.Device(owner).Bind(pixels => Raster(icon, pixels));
 
     public static IO<Bitmap> Raster(IconResource icon, Size pixels) =>

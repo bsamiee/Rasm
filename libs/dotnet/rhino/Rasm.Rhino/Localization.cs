@@ -4,6 +4,7 @@ using Rhino.UI;
 namespace Rasm.Rhino;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class LocalText {
     public static CultureInfo Culture => CultureInfo.GetCultureInfo(Localization.CurrentLanguageId);
 

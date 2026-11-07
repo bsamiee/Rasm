@@ -11,6 +11,7 @@ using SuperLinq;
 namespace Rasm.UI.Layout;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record LayoutNode {
     public virtual bool Equals([NotNullWhen(true)] LayoutNode? other) => ReferenceEquals(this, other);

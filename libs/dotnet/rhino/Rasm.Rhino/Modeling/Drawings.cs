@@ -4,6 +4,7 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record DrawingSubject(GeometryBase Geometry, object Tag) {
     public Transform Xform { get; init; } = Transform.Identity;
 
@@ -16,8 +17,11 @@ public sealed record DrawingSubject(GeometryBase Geometry, object Tag) {
 public sealed partial class SilhouetteFrame;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Drawings {
+
     // --- [CLIPS]
+
     public static Seq<Plane> Clips(ClippingPlaneSurface surface) =>
         new Plane(surface.Plane.Origin, surface.Plane.YAxis, surface.Plane.XAxis) switch {
             var cut => surface.PlaneDepthEnabled
@@ -26,6 +30,7 @@ public static class Drawings {
         };
 
     // --- [HIDDEN_LINE]
+
     public static IO<HiddenLineDrawing> Draw(
         Tolerances tolerances, ViewportInfo viewport, Seq<DrawingSubject> subjects, Action<HiddenLineDrawingParameters> configure, bool multipleThreads, Option<IProgress<double>> progress) =>
         from lowered in Products.Each(subjects.Map(static (subject, index) => Lowered(subject.Geometry, index).Map(pieces => (Subject: subject, Pieces: pieces))))
@@ -55,6 +60,7 @@ public static class Drawings {
         };
 
     // --- [SILHOUETTES]
+
     public static IO<Seq<Silhouette>> Silhouettes(Tolerances tolerances, GeometryBase subject, SilhouetteType silhouetteType, SilhouetteFrame frame, Seq<Plane> clips) =>
         from token in cancelToken
         from silhouettes in Traced(() => frame.Switch(

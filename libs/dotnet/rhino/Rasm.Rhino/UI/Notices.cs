@@ -10,6 +10,7 @@ using static Rhino.Runtime.Notifications.NotificationCenter;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class Progress {
     public long Done { get; }
@@ -37,6 +38,7 @@ public abstract partial record Loading<T> where T : notnull {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class WorkProgress<T>(Atom<Loading<T>> work, long total) : IProgress<int>, IProgress<(int Done, string Stage)> where T : notnull {
     public void Report(int value) => _ = work.Swap(_ => new Loading<T>.Pending(Progress.Of(value, total)));
 
@@ -44,8 +46,11 @@ public sealed class WorkProgress<T>(Atom<Loading<T>> work, long total) : IProgre
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Notices {
+
     // --- [PROGRESS]
+
     public static IO<T> Paced<T>(RhinoDoc doc, string label, int total, Func<WorkProgress<T>, IO<T>> work) where T : notnull =>
         (from reading in atomIO<Loading<T>>(new Loading<T>.Pending(None))
          from metered in Metered(doc, label, total, reading).OnUiThread()
@@ -83,6 +88,7 @@ public static class Notices {
             };
 
     // --- [PANES]
+
     public static IO<Unit> Message(string text) =>
         use(IO.lift(() => StatusBar.SetMessagePane(LocalText.Of(text).Local)), static _ => IO.lift(StatusBar.ClearMessagePane)).Map(unit);
 
@@ -93,6 +99,7 @@ public static class Notices {
         use(IO.lift(() => { Eto.Forms.Application.Instance.BadgeLabel = label; }), static _ => IO.lift(static () => { Eto.Forms.Application.Instance.BadgeLabel = ""; }).OnUiThread()).OnUiThread().Map(unit);
 
     // --- [TOASTS]
+
     public static IO<uint> Toast(RhinoDoc doc, string message, Option<int> textHeight = default) =>
         from view in Products.Of(() => doc.Views.ActiveView)
         from serial in IO.lift(() => textHeight.Match(
@@ -101,6 +108,7 @@ public static class Notices {
         select serial;
 
     // --- [NOTICES]
+
     public static IO<Notification> Post(Action<Notification> write, Option<IconResource> icon = default, Option<View.Panel> reveal = default) =>
         from raised in use(
             IO.lift(() => Notification.ExecuteAssemblyProtectedCode(() => {
@@ -129,6 +137,7 @@ public static class Notices {
                 .Bind(static found => found.TraverseM(HostPanels.Open).As()).Map(static _ => unit));
 
     // --- [TRAY]
+
     public static IO<Unit> Tray(Command<Invoke>.Menu menu, RowScope scope) =>
         from tray in use(static () => new Eto.Forms.TrayIndicator())
         from themed in menu.Face.Icon.Traverse(icon => Icons.Themed(icon, IconSlot.Small, None, frames => tray.Image = frames)).As()

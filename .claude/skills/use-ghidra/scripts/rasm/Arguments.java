@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public final class Arguments {
+
     // --- [USAGE]
 
     public record Usage(String script, String form) {

@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 namespace Rasm.Rhino;
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class RhinoReason {
     public static readonly RhinoReason Stated = new("rejected input");

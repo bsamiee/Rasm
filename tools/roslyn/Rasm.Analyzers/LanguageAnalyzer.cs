@@ -11,9 +11,12 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class LanguageAnalyzer : RasmAnalyzer {
+
     // --- [RULES]
+
     private const string Category = "CSharp";
 
     public static readonly DiagnosticDescriptor Reader = Rule(
@@ -139,6 +142,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     }
 
     // --- [READERS]
+
     private static IOperation? Expressed(IOperation block) =>
         block switch {
             IFieldInitializerOperation { Value: var value } => value,
@@ -483,6 +487,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     }
 
     // --- [ENUMS]
+
     private static void Enums(CompilationStartAnalysisContext context, INamedTypeSymbol flags) {
         static IEnumerable<object?> Named(IOperation? test, CancellationToken token) {
             Stack<IOperation> remaining = new(test is null ? [] : [test]);
@@ -510,6 +515,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     }
 
     // --- [AWAITABLES]
+
     private static void Awaitables(CompilationStartAnalysisContext context) {
         static bool Awaitable(IOperation value, OperationAnalysisContext analysis) {
             if (value.Type is not { } type || analysis.Operation.SemanticModel is not { } source) return false;
@@ -533,6 +539,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     }
 
     // --- [NAMESPACES]
+
     private static void Namespaces(CompilationStartAnalysisContext context) =>
         context.RegisterSyntaxNodeAction(
             static node => {
@@ -546,6 +553,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
             SyntaxKind.FileScopedNamespaceDeclaration);
 
     // --- [CLASHES]
+
     private static void Clashes(CompilationStartAnalysisContext context, SemanticModels models, ImmutableArray<IAssemblySymbol> sources) {
         ConcurrentBag<(INamedTypeSymbol Type, Location Location)> declarations = [];
         context.RegisterSyntaxNodeAction(
@@ -593,6 +601,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     }
 
     // --- [QUALIFICATIONS]
+
     private static void Qualifications(CompilationStartAnalysisContext context) {
         ConcurrentDictionary<SyntaxTree, ILookup<string, SimpleNameSyntax>> unqualified = new();
         ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<INamespaceSymbol, bool>> ambiguous = new();
@@ -646,6 +655,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     }
 
     // --- [RESTATEMENTS]
+
     private sealed class ShapeComparer : EqualityComparer<ImmutableArray<(ISymbol Symbol, object? Constant)>> {
         public override bool Equals(ImmutableArray<(ISymbol Symbol, object? Constant)> x, ImmutableArray<(ISymbol Symbol, object? Constant)> y) =>
             x.Length == y.Length && x.Zip(y, static (one, other) => SymbolEqualityComparer.Default.Equals(one.Symbol, other.Symbol) && Equals(one.Constant, other.Constant)).All(static same => same);
@@ -806,6 +816,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     }
 
     // --- [TESTS]
+
     private static void Tests(CompilationStartAnalysisContext context, ImmutableArray<IAssemblySymbol> sources, INamedTypeSymbol type) {
         IAssemblySymbol own = context.Compilation.Assembly;
         ControlFlow flow = ControlFlow.For(context.Compilation);
@@ -869,6 +880,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     }
 
     // --- [OVERLOADS]
+
     private static void Overloads(CompilationStartAnalysisContext context) {
         static bool Delegates(IParameterSymbol parameter, ITypeParameterSymbol held) =>
             parameter.Type is INamedTypeSymbol { DelegateInvokeMethod: { } invoke }
@@ -901,6 +913,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
     }
 
     // --- [FILES]
+
     private static void Files(CompilationStartAnalysisContext context) =>
         context.RegisterSyntaxTreeAction(static tree => {
             if (tree.IsGeneratedCode) return;

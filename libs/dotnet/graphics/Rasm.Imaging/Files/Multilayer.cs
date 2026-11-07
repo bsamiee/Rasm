@@ -11,6 +11,7 @@ using TinyEXR;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ExrLayer(string Name, PixelFrame Frame, Seq<string> Channels) {
     public static ExrLayer Reciprocal(string name, PixelFrame distance) => new(name, ImageFile.Mapped(distance, static (depth, _) => new Vector4(1f / depth.X)), ["Z"]);
 }

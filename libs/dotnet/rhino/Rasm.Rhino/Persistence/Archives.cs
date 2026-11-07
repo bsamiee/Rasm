@@ -8,6 +8,7 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ArchiveSource {
     public sealed record Located(InputPath Path, File3dm.TableTypeFilter Tables, File3dm.ObjectTypeFilter Objects) : ArchiveSource {
@@ -84,14 +85,18 @@ public sealed record ArchiveDiff(
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Archives {
+
     // --- [SCOPES]
+
     public static IO<T> Read<T>(ArchiveSource source, Func<ArchiveRead, IO<T>> body) =>
         (from read in use(source.Open(), static read => IO.lift(read.Model.Dispose))
          from value in body(read)
          select value).Bracket();
 
     // --- [READS]
+
     public static IO<ArchiveGraph> Graph(File3dm archive) =>
         from read in IO.lift(() => (
             Vertices: (Conversions.Rows<ModelComponent>(archive.AllLayers) + Conversions.Rows<ModelComponent>(archive.AllMaterials) + Conversions.Rows<ModelComponent>(archive.AllGroups)
@@ -123,6 +128,7 @@ public static class Archives {
         }).Strict());
 
     // --- [WRITES]
+
     public static IO<Unit> Embed(File3dm archive, InputPath path) =>
         Products.Accepted(() => archive.EmbeddedFiles.Add(path));
 

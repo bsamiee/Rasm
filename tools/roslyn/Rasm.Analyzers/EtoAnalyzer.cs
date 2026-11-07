@@ -9,9 +9,12 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class EtoAnalyzer : RasmAnalyzer {
+
     // --- [RULES]
+
     private const string Category = "Eto";
 
     public static readonly DiagnosticDescriptor Cached = Rule(
@@ -69,6 +72,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
     }
 
     // --- [FONTS]
+
     private static void Fonts(SemanticModels models, Lifetimes lifetimes, INamedTypeSymbol fonts, INamedTypeSymbol font) =>
         models.Report<IInvocationOperation>([OperationKind.Invocation], (invocation, _, reading) =>
             Same(invocation.TargetMethod.ContainingType, fonts) && Same(invocation.Type, font)
@@ -77,6 +81,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
                 : []);
 
     // --- [FRAMES]
+
     private enum ControlReach { Type, Properties, Collection }
 
     private sealed class ControlFactComparer : IEqualityComparer<(ITypeSymbol Type, ControlReach Reach)> {
@@ -211,6 +216,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
     }
 
     // --- [TRANSFERS]
+
     private static void Transfers(SemanticModels models, ControlFlow flow, Lifetimes lifetimes, INamedTypeSymbol widget) {
         IEnumerable<IOperation> Origins(ISymbol held, Reading reading) =>
             held switch {
@@ -256,6 +262,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
     }
 
     // --- [NATIVES]
+
     private static void Natives(CompilationStartAnalysisContext context, SemanticModels models, ControlFlow flow, SystemSymbols system, EtoSymbols eto, MacSymbols mac, RasmRhinoSymbols rasm, INamedTypeSymbol callbacks) {
         (INamedTypeSymbol? register, INamedTypeSymbol? export, INamedTypeSymbol? pointer, INamedTypeSymbol? callers, INamedTypeSymbol? widget) = (mac.Register, mac.Export, system.FunctionPointer, system.CallersOnly, eto.Widget);
         (ImmutableArray<IMethodSymbol> boundaries, ImmutableArray<IMethodSymbol> adders) = (rasm.Boundaries, eto.AddMethod);
@@ -341,6 +348,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
     }
 
     // --- [HANDLERS]
+
     private static void Handlers(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> handlers) =>
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, _) =>
             Among(invocation.TargetMethod, handlers) && invocation.TargetMethod.TypeArguments[0] is { TypeKind: TypeKind.Delegate } handed
@@ -348,6 +356,7 @@ public sealed class EtoAnalyzer : RasmAnalyzer {
                 : []);
 
     // --- [BINDINGS]
+
     private static IOperation Carried(IOperation reference) {
         IOperation value = Stripped(Lambda(reference) is { Symbol.Parameters.IsEmpty: true } factory && Sole(factory.Body) is { } made ? made : reference);
         while (value is IConversionOperation { OperatorMethod: null, Conversion: { IsIdentity: true } or { IsReference: true } } conversion) value = Stripped(conversion.Operand);

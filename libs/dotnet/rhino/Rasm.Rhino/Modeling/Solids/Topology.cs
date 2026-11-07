@@ -4,6 +4,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling.Solids;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record BrepCut {
     public sealed record ByBrep(Brep Cutter) : BrepCut;
@@ -25,8 +26,11 @@ public abstract partial record WireCutter {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SolidTopology {
+
     // --- [JOINS]
+
     public static IO<(Brep Face0, Brep Face1)> ExtendBrepFacesToConnect(Tolerances tolerances, BrepFace face0, BrepFace face1, ConnectAt at) =>
         from answered in IO.lift(() => at.Switch(
             (Face0: face0, Face1: face1, Tolerances: tolerances),
@@ -46,6 +50,7 @@ public static class SolidTopology {
         select connected;
 
     // --- [SPLITS]
+
     public static IO<Seq<Grouped<Brep, ComponentIndex>>> SplitDisjointPieces(Brep brep) =>
         from answered in Products.Many(() => (Brep.SplitDisjointPieces(brep, out List<int[]> map), map))
         select answered.Values.Zip(toSeq(answered.Out), static (piece, faces) =>

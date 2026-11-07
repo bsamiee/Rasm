@@ -6,6 +6,7 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record DocumentSource {
     public sealed record Live(RhinoDoc Doc) : DocumentSource;
@@ -22,8 +23,11 @@ public abstract partial record DocumentSource {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Documents {
+
     // --- [SOURCES]
+
     private const string WorksessionExtension = ".rws";
 
     public static IO<T> With<T>(DocumentSource source, Func<RhinoDoc, IO<T>> body) =>
@@ -48,6 +52,7 @@ public static class Documents {
         use(open, static held => IO.lift(held.Dispose).OnUiThread());
 
     // --- [ARRIVALS]
+
     public static readonly HostEvent<uint> Arrived =
         Subscriptions.Merged(
             Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.NewDocument += h, static h => RhinoDoc.NewDocument -= h).Choose(static args => Some(args.DocumentSerialNumber)),
@@ -63,10 +68,12 @@ public static class Documents {
                 };
 
     // --- [PROPERTIES]
+
     public static readonly HostEvent<DocumentEventArgs> PropertiesChanged =
         Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.DocumentPropertiesChanged += h, static h => RhinoDoc.DocumentPropertiesChanged -= h);
 
     // --- [SCRIPTS]
+
     public static Fin<RhinoDoc> Scripted(RhinoDoc doc) =>
         Conversions.Required(RhinoDoc.FromRuntimeSerialNumber(doc.RuntimeSerialNumber))
             .Bind(static open => (

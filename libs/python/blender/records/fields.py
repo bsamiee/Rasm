@@ -35,6 +35,7 @@ type _Parent = tuple[msgspec.Struct, MemberDescriptorType] | tuple[tuple[object,
 SEED_BOUND: Final = 2 ** (np.finfo(np.float32).nmant + 1)
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
 # --- [BASES]
 
 
@@ -168,7 +169,6 @@ def amended[T: msgspec.Struct, V](kind: type[V], record: T, lens: Lens, change: 
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
-
 
 __all__ = [
     "SEED_BOUND",

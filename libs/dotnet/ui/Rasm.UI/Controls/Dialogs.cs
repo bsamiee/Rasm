@@ -9,6 +9,7 @@ using Rasm.UI.Styling;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record DialogAction(CommandPresentation Presentation, IO<Unit> Run) {
     public HashSet<Condition> Conditions { get; init; }
 

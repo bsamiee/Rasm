@@ -6,6 +6,7 @@ import Results
 
 public actor JSONRPCConnection<Method: RawRepresentable<String> & Hashable & Sendable, Failure: Error> {
     // --- [STATE]
+
     private struct Listener: Sendable {
         let receive: @Sendable (JSONValue) throws -> Bool
         let close: @Sendable (Failure) -> Void
@@ -25,6 +26,7 @@ public actor JSONRPCConnection<Method: RawRepresentable<String> & Hashable & Sen
     }
 
     // --- [LIFECYCLE]
+
     public static func run<Value>(
         reading lines: sending some AsyncSequence<Data, any Error>,
         writing write: @escaping @Sendable (Data) async throws -> Void,
@@ -62,6 +64,7 @@ public actor JSONRPCConnection<Method: RawRepresentable<String> & Hashable & Sen
     }
 
     // --- [REQUESTS]
+
     @discardableResult
     public func request<Value: Decodable & Sendable>(
         _ method: Method,
@@ -88,6 +91,7 @@ public actor JSONRPCConnection<Method: RawRepresentable<String> & Hashable & Sen
     }
 
     // --- [NOTIFICATIONS]
+
     public func notification<Value: Decodable & Sendable>(
         _ method: Method,
         returning _: Value.Type,
@@ -128,6 +132,7 @@ public actor JSONRPCConnection<Method: RawRepresentable<String> & Hashable & Sen
     }
 
     // --- [TRANSPORT]
+
     private func receive(
         _ envelope: Envelope<JSONValue, JSONRPCError>,
         retaining: Set<Method>,

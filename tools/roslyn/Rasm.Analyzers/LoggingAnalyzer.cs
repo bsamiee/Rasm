@@ -7,9 +7,12 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class LoggingAnalyzer : RasmAnalyzer {
+
     // --- [RULES]
+
     private const string Category = "Microsoft.Extensions.Logging";
 
     public static readonly DiagnosticDescriptor Called = Rule(
@@ -37,6 +40,7 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
     }
 
     // --- [SYMBOLS]
+
     private sealed class LoggingSymbols {
         public LoggingSymbols(Compilation compilation) {
             Logger = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.ILogger");
@@ -55,6 +59,7 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
     }
 
     // --- [CALLS]
+
     private static void Calls(CompilationStartAnalysisContext context, INamedTypeSymbol logger, ImmutableArray<IMethodSymbol> members) {
         bool Logs(IMethodSymbol method) => members.Any(member => Implements(method, member));
         bool Forwards(ISymbol symbol) => Containers(symbol).OfType<INamedTypeSymbol>().Any(type => Faces(type, logger).Any());
@@ -69,6 +74,7 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
     }
 
     // --- [FALLBACKS]
+
     private static void Fallbacks(SemanticModels models, ControlFlow flow, LoggingSymbols symbols, ImmutableArray<IMethodSymbol> crashes, IAssemblySymbol assembly, ImmutableArray<IMethodSymbol> callbacks) {
         ConcurrentDictionary<IMethodSymbol, ImmutableArray<IMethodSymbol>> calls = new(SymbolEqualityComparer.Default);
         ConcurrentDictionary<IMethodSymbol, bool> reports = new(SymbolEqualityComparer.Default);

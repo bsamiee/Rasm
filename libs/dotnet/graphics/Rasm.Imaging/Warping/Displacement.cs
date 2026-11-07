@@ -13,6 +13,7 @@ using SixLabors.ImageSharp.PixelFormats;
 namespace Rasm.Imaging.Warping;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class MapReading {
     public static readonly MapReading Gradient = new("gradient");
@@ -76,6 +77,7 @@ public sealed partial class MapReading {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Refraction {
     public static Func<Vector2, Vector4> Blocks { get; } = Glass(static cell =>
         Vector2.Abs((2f * Fraction(cell)) - Vector2.One) switch { var edge => (Vector2.One - (edge * edge * edge * edge)) switch { var bevel => bevel.X * bevel.Y } });

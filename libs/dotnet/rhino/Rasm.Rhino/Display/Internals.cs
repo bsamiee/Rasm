@@ -7,12 +7,16 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [StructLayout(LayoutKind.Sequential)]
 internal readonly record struct DisplayMaterialRef(Guid ViewportId, Guid DisplayMaterialId);
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal static class DisplayMaterialRefs {
+
     // --- [EXPORTS]
+
     private static readonly nint OpenNurbs = OperatingSystem.IsWindows() ? NativeLibrary.Load("opennurbs") : NativeLibrary.GetMainProgramHandle();
 
     private static readonly unsafe delegate* unmanaged<nint, DisplayMaterialRef*, DisplayMaterialRef*, byte> FindExport =
@@ -39,6 +43,7 @@ internal static class DisplayMaterialRefs {
     private static extern nint NonConstPointer(ObjectAttributes target);
 
     // --- [SLOTS]
+
     internal static unsafe Option<Guid> DisplayMaterialRef(ObjectAttributes attributes, Guid viewport) {
         DisplayMaterialRef search = default(DisplayMaterialRef) with { ViewportId = viewport };
         DisplayMaterialRef found = search;
@@ -56,7 +61,9 @@ internal static class DisplayMaterialRefs {
 }
 
 internal static class PipelineAttributes {
+
     // --- [COPIES]
+
     [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
     internal static extern DisplayPipelineAttributes Copy(DisplayPipelineAttributes other);
 

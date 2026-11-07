@@ -11,6 +11,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace Rasm.Analyzers.CodeFixes;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [ExportCodeFixProvider(LanguageNames.CSharp)]
 public sealed class LanguageExtCodeFix() : DocumentEditorCodeFix(
     (LanguageExtAnalyzer.Lift, static (site, _) => FormattableString.Invariant($"Replace `{site}` with `{LanguageExtAnalyzer.Unlifted(site)!}`"), Unlift),
@@ -21,7 +22,9 @@ public sealed class LanguageExtCodeFix() : DocumentEditorCodeFix(
     }, Append),
     (LanguageExtAnalyzer.Narrowed, static (site, _) => FormattableString.Invariant($"Delete `{Called(site)}()`"), Unnarrow),
     (LanguageExtAnalyzer.Continued, static (site, _) => FormattableString.Invariant($"Write `{site.FirstAncestorOrSelf<InvocationExpressionSyntax>()}` without its lift"), Continue)) {
+
     // --- [CALLS]
+
     private static SimpleNameSyntax Called(SyntaxNode site) {
         ExpressionSyntax expression = site.FirstAncestorOrSelf<InvocationExpressionSyntax>()!.Expression;
         return expression is MemberAccessExpressionSyntax access ? access.Name : (SimpleNameSyntax)expression;
@@ -34,18 +37,21 @@ public sealed class LanguageExtCodeFix() : DocumentEditorCodeFix(
         expression.DescendantNodesAndSelf(static node => node is ParenthesizedExpressionSyntax).OfType<ExpressionSyntax>().First(static node => node is not ParenthesizedExpressionSyntax);
 
     // --- [NARROWINGS]
+
     private static void Unnarrow(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) =>
         Replaced(editor, site.FirstAncestorOrSelf<InvocationExpressionSyntax>()!, static (current, _) =>
             current.CopyAnnotationsTo(Parenthesized(Extracted(current, Receiver((InvocationExpressionSyntax)current))))
                 .WithAdditionalAnnotations(Formatter.Annotation));
 
     // --- [LIFTS]
+
     private static void Unlift(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) =>
         Replaced(editor, site, static (current, _) =>
             current.CopyAnnotationsTo(Parenthesized(Extracted(current, LanguageExtAnalyzer.Unlifted(current)!)))
                 .WithAdditionalAnnotations(Formatter.Annotation));
 
     // --- [CONTINUATIONS]
+
     private static T Kept<T>(SyntaxNode owner, T value) where T : SyntaxNode =>
         Extracted(owner, value).WithTrailingTrivia(owner.DescendantTrivia(TextSpan.FromBounds(value.Span.End, owner.Span.End)).Concat(owner.GetTrailingTrivia()));
 
@@ -84,6 +90,7 @@ public sealed class LanguageExtCodeFix() : DocumentEditorCodeFix(
     }
 
     // --- [ROUND_TRIPS]
+
     private static void Unwrap(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) {
         foreach (SyntaxNode hop in diagnostic.AdditionalLocations.Select(location => Site(editor.OriginalRoot, location)))
             Replaced(editor, hop, (current, _) => {
@@ -94,6 +101,7 @@ public sealed class LanguageExtCodeFix() : DocumentEditorCodeFix(
     }
 
     // --- [SPREADS]
+
     private static void Append(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) =>
         Replaced(editor, site, static (current, generator) => {
             CollectionExpressionSyntax collection = (CollectionExpressionSyntax)current;

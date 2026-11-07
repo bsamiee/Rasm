@@ -8,6 +8,7 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record ComponentRef<T> {
     public sealed record ById(Guid Id) : ComponentRef<T>;
@@ -78,6 +79,7 @@ public sealed partial class Prune {
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
+
 public static class TableKinds {
     public static TableKind<Linetype> Linetypes { get; } = new(
         static doc => doc.Linetypes,
@@ -121,8 +123,11 @@ public static class TableKinds {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Rows {
+
     // --- [ADDRESSES]
+
     public static IO<T> Find<T>(RhinoDocCommonTable<T> table, ComponentRef<T> address, bool includeDeleted = false) where T : ModelComponent =>
         IO.lift(() => address.Switch(
                 table,
@@ -148,6 +153,7 @@ public static class Rows {
     private static NameHash NameKey<T>(string? name) where T : ModelComponent => new(name, Guid.Empty, ManifestTable.GetModelComponentTypeFromGenericType<T>());
 
     // --- [EDITS]
+
     public static RowEdit<T> Set<T, TValue>(
         Func<T, TValue> read, Action<T, TValue> write, TValue value, [CallerArgumentExpression(nameof(read))] string member = "")
         where T : class =>
@@ -171,6 +177,7 @@ public static class Rows {
          select added).Bracket();
 
     // --- [STAGES]
+
     public static Stage<T> Staged<T>(RhinoDoc doc, TableKind<T> kind, Seq<RowEdit<T>> edits) where T : ModelComponent =>
         new(
             Copy: live => use(() => kind.Copy(live)),
@@ -188,6 +195,7 @@ public static class Rows {
         edits.ForAll(edit => edit.Holds.Exists(holds => holds(row)));
 
     // --- [PLANS]
+
     public static Fin<Seq<RowPlan<TRow, TSpec>>> Plan<TRow, TSpec>(
         Seq<TRow> rows, Seq<TSpec> specs, Func<TRow, string> rowKey, Func<TSpec, string> key, IEqualityComparer<string> names, Prune prune,
         Option<Func<Seq<TSpec>, Fin<Seq<TSpec>>>> arrange = default) =>

@@ -8,14 +8,17 @@ requires-python = ">=3.15"
 
 dependencies = [
     # --- [CORE]
+
     "expression", # Results each command returns
     "msgspec",    # JSON encoding of command results
 
     # --- [COMMANDS]
+
     "cyclopts",   # Command parser from typed signatures
     "sysexits",   # Portable process exit codes
 
     # --- [LIBRARY]
+
     "typography", # Font set pipeline every command runs
 ]
 

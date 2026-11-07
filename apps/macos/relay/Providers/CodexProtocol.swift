@@ -7,6 +7,7 @@ import Results
 
 nonisolated enum CodexProtocol {
     // --- [JSON_RPC]
+
     enum Method: String, Sendable {
         case initialize
         case initialized
@@ -18,6 +19,7 @@ nonisolated enum CodexProtocol {
     }
 
     // --- [REQUESTS]
+
     static let authMode: String = "chatgpt"
 
     struct InitializeParams: Encodable, Sendable {
@@ -48,6 +50,7 @@ nonisolated enum CodexProtocol {
     }
 
     // --- [MESSAGES]
+
     struct RateLimitWindow: Decodable, Sendable {
         let usedPercent: Double
         let windowDurationMins: Int?

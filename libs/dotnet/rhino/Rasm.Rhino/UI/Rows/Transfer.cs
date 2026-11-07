@@ -6,8 +6,11 @@ using Rasm.Rhino.Persistence;
 namespace Rasm.Rhino.UI.Rows;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class DataTransfer {
+
     // --- [CLIPBOARD]
+
     public static IO<Unit> Copy(ValueSet values) =>
         IO.lift(() => Clipboard.Instance.Text = values.Text()).Map(unit);
 
@@ -23,6 +26,7 @@ public static class DataTransfer {
         select diff;
 
     // --- [DRAGS]
+
     public static IO<Unit> Drag(Control source, Seq<string> files, Option<Image> image) =>
         from paths in Products.Each(files.Map(static file => IO.lift(() => InputPath.Of(file))))
         from dragged in (from data in use(static () => new DataObject()) from dropped in Dragged(source, paths, image, data) select dropped).Bracket()
@@ -34,6 +38,7 @@ public static class DataTransfer {
             None: () => source.DoDragDrop(data, DragEffects.Copy))));
 
     // --- [DROPS]
+
     public static IO<Unit> Drops(Control target, Seq<FileTypeRow> accepted, Func<string, IO<Unit>> commit) =>
         fun((DragEventArgs args) => IO.lift(() => { args.Effects = Accepted(args.Data, accepted).Match(Some: static _ => DragEffects.Copy, None: static () => DragEffects.None); })) switch {
             var gate =>

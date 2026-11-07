@@ -12,6 +12,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record CommitMode {
     private CommitMode(bool drafts) => Drafts = drafts;
@@ -74,8 +75,11 @@ public sealed record ControlRows(Func<RowScope, IO<Seq<Row>>> Read, Func<RowScop
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed record RowScope {
+
     // --- [STATE]
+
     private static readonly HashSet<EntryKey> Unlocked = [];
 
     private RowScope(Option<RhinoDoc> document, Atom<CommitMode> mode) =>
@@ -94,6 +98,7 @@ public sealed record RowScope {
     private static Atom<(bool Visible, HashSet<Func<bool, IO<Unit>>> Heard)> Fresh(bool visible) => Atom((Visible: visible, Heard: HashSet<Func<bool, IO<Unit>>>()));
 
     // --- [OPENING]
+
     public static IO<RowScope> Open(Option<RhinoDoc> document, CommitMode mode) => IO.lift(() => new RowScope(document, Atom(mode)));
 
     public RowScope Nested(SettingsNode settings, Option<HistoryBinding> history, Option<Preference<HashSet<EntryKey>>> locks) =>
@@ -104,6 +109,7 @@ public sealed record RowScope {
     public IO<CommitMode> Mode => Moded.ValueIO;
 
     // --- [VISIBILITY]
+
     public IO<bool> Visibility => Visibilities.ValueIO.Map(static held => held.Visible);
 
     public IO<Unit> Shown(bool visible) => Visibilities.SwapIO(held => held with { Visible = visible })
@@ -116,6 +122,7 @@ public sealed record RowScope {
         select unit;
 
     // --- [CHANGES]
+
     public IO<Unit> Changed(Seq<EntryKey> keys) =>
         Listeners.ValueIO.Bind(held => Products.Each(toSeq(held).Map(heard => heard(keys)))).Map(unit);
 
@@ -128,6 +135,7 @@ public sealed record RowScope {
         new(label, deliver => Listen(_ => read(this).Bind(deliver)));
 
     // --- [STORES]
+
     public IO<Seq<Preference<T>>> Objects<T>(Func<RhinoObject, Preference<T>> store) where T : notnull =>
         Selected(
             targets => IO.lift(() => Conversions.Rows(new ObjectPropertiesPageEventArgs(targets.Page).Objects).Map(store).Strict()),
@@ -155,6 +163,7 @@ public sealed record RowScope {
         IO.fail<Seq<Preference<T>>>(new RhinoFault(held.GetType().Name, RhinoReason.Mismatched));
 
     // --- [COMMITS]
+
     public IO<HashSet<EntryKey>> Locked =>
         Locks.Match(Some: static store => store.Read, None: static () => IO.pure(Unlocked));
 
@@ -203,6 +212,7 @@ public sealed record RowScope {
         History.Match(Some: history => (history with { Group = bound }).Commit(incoming, locks), None: () => bound.Apply(incoming, locks));
 
     // --- [PAGES]
+
     public IO<bool> Pending => Edits.Map(static edits => !edits.Entries.IsEmpty);
 
     public IO<Unit> Opened(BindingGroup bound) =>
@@ -233,6 +243,7 @@ public sealed record RowScope {
                 state.Scope.Swapped(new CommitMode.Deferred(ValueSet.Empty)).Bind(_ => state.Scope.Changed(toSeq(deferred.Edits.Entries.Keys)))));
 
     // --- [DRAFTS]
+
     private IO<ValueSet> Edits =>
         Moded.ValueIO.Map(static held => held.SwitchPartially(@default: static _ => ValueSet.Empty, deferred: static deferred => deferred.Edits));
 

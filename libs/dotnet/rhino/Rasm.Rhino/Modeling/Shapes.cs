@@ -3,6 +3,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record CurveShape {
     public sealed record Linear(Line Value) : CurveShape;

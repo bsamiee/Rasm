@@ -4,6 +4,7 @@ using Eto.Forms;
 namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public interface IHostPlatform {
     public static IHostPlatform Current => Platform.Instance.CreateShared<IHostPlatform>();
 

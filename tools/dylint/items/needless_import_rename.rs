@@ -52,6 +52,7 @@ fn binding(child: &ModChild) -> (Symbol, Res) { (child.ident.name, child.res.map
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     // --- [IMPORTS]
+
     fn check_crate(&mut self, cx: &LateContext<'tcx>) {
         fn scope(tcx: TyCtxt<'_>, bindings: impl IntoIterator<Item = (Symbol, Res)>) -> FxHashMap<Symbol, Vec<Res>> {
             bindings
@@ -169,6 +170,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     }
 
     // --- [REFERENCES]
+
     fn check_pat(&mut self, _: &LateContext<'tcx>, pat: &'tcx Pat<'tcx>) {
         if let PatKind::Binding(_, binding, ident, _) = pat.kind
             && let Some(bindings) = self.bindings.get_mut(&ident.name)
@@ -186,6 +188,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     }
 
     // --- [DIAGNOSTICS]
+
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
         let tcx = cx.tcx;
         let shadowed = |name, namespace, node: HirId| {

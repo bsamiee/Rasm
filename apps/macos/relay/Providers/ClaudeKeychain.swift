@@ -10,6 +10,7 @@ import System
 
 nonisolated extension ClaudeCredentialStore {
     // --- [KEYCHAIN_ITEM]
+
     func readItem() async throws(ClaudeFailure) -> JSONDocument<ClaudeCredentialItem>? {
         guard let printed: String = try await security(["find-generic-password", "-a", username, "-s", service, "-g"]) else { return nil }
         let password: Data? =
@@ -47,6 +48,7 @@ nonisolated extension ClaudeCredentialStore {
     }
 
     // --- [SECURITY]
+
     private func security(_ arguments: Arguments, input: some InputProtocol = .none, within timeout: Duration = .seconds(15)) async throws(ClaudeFailure) -> String? {
         func code(_ status: OSStatus) -> Int32 { status & 0x00FF_FFFF }
         do throws(ProcessFailure) {

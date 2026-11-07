@@ -3,6 +3,7 @@ using SkiaSharp;
 namespace Rasm.UI.Media;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PathEffect {
     internal virtual bool Timed => false;

@@ -342,5 +342,4 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-
 __all__ = ["AssetMark", "CatalogPath", "ImportMethod", "UserLibrary", "bundled", "essential", "imported", "loading", "published"]

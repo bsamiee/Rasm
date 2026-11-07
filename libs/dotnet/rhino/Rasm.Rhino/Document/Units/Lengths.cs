@@ -6,6 +6,7 @@ using UnitsNet;
 namespace Rasm.Rhino.Document.Units;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Tolerances(double Absolute, double Relative, double Angle) {
     public double MeshIntersection => Absolute * Intersection.MeshIntersectionsTolerancesCoefficient;
 
@@ -67,6 +68,7 @@ public sealed partial class Space {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Quantities {
     private const byte RoundTripDigits = 17;
 

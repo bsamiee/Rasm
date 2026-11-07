@@ -14,8 +14,11 @@ using SuperLinq;
 namespace Rasm.Rhino.UI;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class ViewBody {
+
     // --- [STATE]
+
     private readonly View row;
     private readonly RowScope enclosing;
     private readonly EnvIO scope;
@@ -36,6 +39,7 @@ internal sealed class ViewBody {
     internal Seq<IO<Unit>> Clicks { get; }
 
     // --- [REALIZATION]
+
     public static IO<ViewBody> Realize(View row, Seq<Command<Invoke>> actions, RowScope enclosing) =>
         Nesting(row, enclosing).Bind(nesting => Built(row, actions, enclosing, nesting.Bindings, nesting.Scope, None));
 
@@ -64,6 +68,7 @@ internal sealed class ViewBody {
         select built;
 
     // --- [CALLBACKS]
+
     public IO<Unit> Shown(bool visible) =>
         IO.lift(() => showing = visible).Bind(_ => Products.Each(Seq(ViewOps.Toggled(listeners, visible, Listening).Scoped(scope), Evaluated))).Map(unit);
 
@@ -72,6 +77,7 @@ internal sealed class ViewBody {
     public IO<Unit> Reread => Scope.Changed(Group.Keys());
 
     // --- [RULES]
+
     private IO<Unit> Evaluated =>
         from shows in CommandRows.Holds(row.Visible, Scope)
         from enables in CommandRows.Holds(row.Enabled, Scope)
@@ -91,10 +97,13 @@ internal sealed class ViewBody {
 }
 
 internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realize) {
+
     // --- [STATE]
+
     private readonly Ref<Option<Owned<(ViewBody Body, Control Frame)>>> realized = Ref(Option<Owned<(ViewBody Body, Control Frame)>>.None);
 
     // --- [REALIZATION]
+
     internal EnvIO Scope { get; } = EnvIO.New(token: CancellationToken.None);
 
     internal Option<ViewBody> Current => realized.Value.Map(static held => held.Value.Body);
@@ -129,6 +138,7 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
         }));
 
     // --- [CALLBACKS]
+
     internal Unit Shown(bool visible) =>
         Session.Run((visible ? Realized : realized.Value.Map(static held => held.Value)).Traverse(held => held.Body.Shown(visible)).As());
 
@@ -153,6 +163,7 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
             Result.Failure);
 
     // --- [RELEASE]
+
     internal Unit Release() {
         _ = Session.Run(IO.lift(Scope.DisposeResources));
         Scope.Dispose();
@@ -318,8 +329,11 @@ internal sealed class DefinedPropertiesPage : ObjectPropertiesPage {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class ViewOps {
+
     // --- [STORES]
+
     public static IO<BindingGroup> Bindings(View view, RowScope scope) =>
         view.Store.Bind(static store => store.Bindings).Match(
             Some: stored => scope.DocumentIO.Bind(stored),
@@ -345,6 +359,7 @@ internal static class ViewOps {
         .As();
 
     // --- [REALIZATION]
+
     public static IO<Control> Realize(Seq<Child> children, RowScope scope) =>
         from stack in Containers.Frame(static () => new RhinoNestedStackLayout(Orientation.Vertical, RhinoLayout.SpacingType.Panel))
         from parts in Runs(children).TraverseM(run => Part(run, scope)).As()
@@ -372,6 +387,7 @@ internal static class ViewOps {
         };
 
     // --- [LIFECYCLE]
+
     public static HostEvent<bool> Loaded(Control control) =>
         Subscriptions.Merged(
             Subscriptions.On<EventArgs>(h => control.LoadComplete += h, h => control.LoadComplete -= h).Choose(static _ => Some(value: true)),

@@ -5,6 +5,7 @@ using System.Globalization;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [ValidationError<DraftingFault>]
 public sealed partial class Discipline {

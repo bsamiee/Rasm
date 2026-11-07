@@ -142,7 +142,6 @@ primary: Final = CompositorEffect(record=Primary, mix=Mix.STRAIGHT, interface=In
 saturation: Final = CompositorEffect(record=Saturation, mix=Mix.STRAIGHT, interface=Interface(inputs=(_SCALE, _VIBRANCE)), pointwise=True)
 zones: Final = CompositorEffect(record=Zones, mix=Mix.STRAIGHT, interface=Interface(inputs=(_S_CONTRAST,), panels=_ZONE_PANELS), pointwise=True)
 
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["SLOPE", "Primary", "Saturation", "Zones", "primary", "saturation", "zones"]

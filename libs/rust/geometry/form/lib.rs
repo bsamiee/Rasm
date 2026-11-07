@@ -151,6 +151,7 @@ pub enum FormError {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [VIEWS]
+
 fn view(matrix: &Matrix3xX<f64>) -> MatRef<'_, f64> { MatRef::from_column_major_slice(matrix.as_slice(), matrix.nrows(), matrix.ncols()).transpose() }
 
 fn view_mut(matrix: &mut Matrix3xX<f64>) -> MatMut<'_, f64> {
@@ -159,6 +160,7 @@ fn view_mut(matrix: &mut Matrix3xX<f64>) -> MatMut<'_, f64> {
 }
 
 // --- [ASSEMBLY]
+
 fn grounded<I>(index: &[Option<usize>], edges: &[[usize; 2]], weights: I) -> impl Iterator<Item = (Pair<usize, usize>, f64)>
 where I: IntoIterator<Item = f64> {
     iter::zip(edges, weights).flat_map(move |(&[first, second], weight)| {
@@ -182,6 +184,7 @@ fn laplacian(network: &Network, magnitudes: impl IntoIterator<Item = f64>) -> Re
 }
 
 // --- [EQUILIBRIUM]
+
 fn spans(network: &Network, free: &Matrix3xX<f64>) -> Matrix3xX<f64> {
     let mut spans = network.anchors.clone();
     sparse_dense_matmul(view_mut(&mut spans), Accum::Add, network.free.as_ref(), view(free), 1.0, get_global_parallelism());

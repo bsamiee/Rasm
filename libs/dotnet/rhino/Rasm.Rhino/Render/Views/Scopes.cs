@@ -6,6 +6,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.Render.Views;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class EngineScope {
     public static readonly EngineScope Own = new(alwaysShow: false, static () => Session.PlugIn.Id);

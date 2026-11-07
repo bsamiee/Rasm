@@ -1,6 +1,7 @@
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class Condition {
     public static readonly Condition Compact = new(inherited: true);

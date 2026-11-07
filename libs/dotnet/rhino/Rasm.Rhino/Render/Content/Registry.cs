@@ -6,6 +6,7 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record SerializerRow(FileExtension FileExtension, RenderContentKind ContentKind, string EnglishDescription) {
     public Option<Func<string, RenderContent?>> Read { get; init; }
     public Option<Func<string, RenderContent, Option<CreatePreviewEventArgs>, IO<Unit>>> Write { get; init; }
@@ -15,9 +16,12 @@ public sealed record SerializerRow(FileExtension FileExtension, RenderContentKin
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class DefinedContentSerializer(SerializerRow row)
     : RenderContentSerializer(row.Extension, row.ContentKind, row.Read.IsSome, row.Write.IsSome) {
+
     // --- [REGISTRATION]
+
     public static IO<Unit> Register(SerializerRow row) =>
         from serializer in IO.lift(() => new DefinedContentSerializer(row))
         from registered in Products.Accepted(() => serializer.RegisterSerializer(Session.PlugIn.Id))
@@ -25,11 +29,13 @@ public sealed class DefinedContentSerializer(SerializerRow row)
         select registered;
 
     // --- [DESCRIPTIONS]
+
     public override string EnglishDescription => row.EnglishDescription;
 
     public override string LocalDescription => LocalText.Of(row.EnglishDescription).Local;
 
     // --- [CALLBACKS]
+
     public override RenderContent? Read(string pathToFile) =>
         Session.Run(
             row.Read.Map(read => OnFile(pathToFile, RhinoReason.Unreadable, Products.Transfer(() => read(pathToFile), static created =>
@@ -55,6 +61,7 @@ public sealed class DefinedContentSerializer(SerializerRow row)
             failed: false);
 
     // --- [STEPS]
+
     private static RenderContent Adopted(RenderContent content) {
         Internals.AutoDelete(content, autoDelete: false);
         return content;

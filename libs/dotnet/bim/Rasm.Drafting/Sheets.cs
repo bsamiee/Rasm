@@ -4,6 +4,7 @@ using UnitsNet;
 namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class DraftingConvention {
     public static readonly DraftingConvention Iso = new(binding: Length.FromMillimeters(20), border: Length.FromMillimeters(10), rowsFromTop: true, columnsFromRight: false, smallestTopRight: true,

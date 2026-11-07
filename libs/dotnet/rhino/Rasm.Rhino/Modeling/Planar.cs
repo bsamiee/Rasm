@@ -10,6 +10,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record PlanarRegion {
     private PlanarRegion(Curve boundary, Seq<Curve> holes) => (Boundary, Holes) = (boundary, holes);
 
@@ -59,8 +60,11 @@ public abstract partial record PlanarEnclosure {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Planar {
+
     // --- [CIRCLES]
+
     public static IO<(Circle Circle, Point3d RadiusPoint)> InscribedCircle(Tolerances tolerances, Plane plane, IterableNE<PlanarRegion> regions) =>
         Analyzed(plane, () => Polygonal(tolerances, plane, toSeq(regions)), polygonal => Radius(plane, MaximumInscribedCircle.GetRadiusLine(polygonal, tolerances.Absolute)));
 
@@ -74,6 +78,7 @@ public static class Planar {
             input => Radius(plane, LargestEmptyCircle.GetRadiusLine(input.Obstacles, input.Boundary, tolerances.Absolute)));
 
     // --- [ENCLOSURES]
+
     public static IO<PlanarEnclosure> EnclosingRectangle(Tolerances tolerances, Plane plane, PlanarGeometry input) =>
         Analyzed(plane, () => Collection(tolerances, plane, input), geometry => Enclosure(plane, MinimumAreaRectangle.GetMinimumRectangle(geometry)));
 
@@ -84,6 +89,7 @@ public static class Planar {
         });
 
     // --- [HULLS]
+
     public static IO<(Polyline Boundary, Seq<Polyline> Holes)> ConcaveBoundary(Tolerances tolerances, Plane plane, Seq<Point3d> points, ConcaveCriterion criterion, bool holesAllowed) =>
         Analyzed(
             plane,
@@ -95,6 +101,7 @@ public static class Planar {
                 alpha: static (at, of) => Region(at.Plane, ConcaveHull.AlphaShape(at.Points, of.Radius, at.HolesAllowed))));
 
     // --- [DIAGRAMS]
+
     public static IO<Seq<(Point3d Site, Polyline Cell)>> Voronoi(Tolerances tolerances, Rectangle3d frame, Seq<Point3d> sites) =>
         from envelope in IO.lift(() => RhinoFault.Unless(frame.IsValid && frame.Width > 0 && frame.Height > 0, RhinoReason.Invalid, frame).Map(_ => new Envelope(frame.X.Min, frame.X.Max, frame.Y.Min, frame.Y.Max)))
         from coordinates in IO.lift(Products.Each(sites, (site, index) =>
@@ -113,6 +120,7 @@ public static class Planar {
         select cells;
 
     // --- [BOUNDARY]
+
     private static readonly GeometryFactory Factory = NtsGeometryServices.Instance.CreateGeometryFactory();
 
     private static IO<T> Analyzed<TInput, T>(Plane plane, Func<IO<TInput>> read, Func<TInput, Fin<T>> analysis) =>

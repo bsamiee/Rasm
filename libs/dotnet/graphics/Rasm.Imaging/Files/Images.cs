@@ -16,6 +16,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public abstract partial record ImageFile {
     private static readonly ColorEncoding Untagged = new(Gamut.StandardRgb, Transfer.Gamma.Srgb);
 

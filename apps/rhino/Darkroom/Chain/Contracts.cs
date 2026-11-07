@@ -12,6 +12,7 @@ using Rhino.Render;
 namespace Darkroom.Chain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public interface IPixelStage<TSelf> where TSelf : IPixelStage<TSelf> {
     public static abstract TSelf Default { get; }
 
@@ -25,6 +26,7 @@ public interface IPixelStage<TSelf> where TSelf : IPixelStage<TSelf> {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<RenderWindow.StandardChannels>(SkipIComparable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class GuideChannel {
     private const float Background = 1e10f;
@@ -55,6 +57,7 @@ public sealed record PassContext(
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class DarkroomReason {
     public static readonly DarkroomReason Stated = new("rejected input");

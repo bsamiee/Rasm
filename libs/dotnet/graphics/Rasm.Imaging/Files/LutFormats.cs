@@ -19,6 +19,7 @@ using TinyEXR;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class LutFormat {
     public static readonly LutFormat Cube = Text("cube", ParseCube, RenderCube);

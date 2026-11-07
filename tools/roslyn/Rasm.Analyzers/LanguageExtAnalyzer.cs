@@ -9,9 +9,12 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class LanguageExtAnalyzer : RasmAnalyzer {
+
     // --- [RULES]
+
     private const string Category = "LanguageExt";
 
     public static readonly DiagnosticDescriptor Lift = Rule(
@@ -105,6 +108,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     }
 
     // --- [FLATTENS]
+
     private static void Flattens(CompilationStartAnalysisContext context, IAssemblySymbol owner) {
         bool Owned(IInvocationOperation call, string name) => string.Equals(call.TargetMethod.Name, name, StringComparison.Ordinal) && Same(call.TargetMethod.ContainingAssembly, owner);
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (flatten, _) =>
@@ -116,6 +120,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     }
 
     // --- [LIFTS]
+
     public static ExpressionSyntax? Unlifted(SyntaxNode lift) =>
         lift switch {
             InvocationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } => arguments[0].Expression,
@@ -219,6 +224,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         }).Where(static call => call.Site is not null).Select(static call => (call.Site!, call.Symbol))];
 
     // --- [TYPE_TESTS]
+
     private static void TypeTests(CompilationStartAnalysisContext context, ImmutableArray<ISymbol> leaves, INamedTypeSymbol error, INamedTypeSymbol many) {
         ISymbol? runtime = context.Compilation.GetSpecialType(SpecialType.System_Object).GetMembers(nameof(GetType)).FirstOrDefault();
         bool Typed(IOperation value) => Same(value.Type, error);
@@ -267,6 +273,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     }
 
     // --- [ROUND_TRIPS]
+
     private static bool Parameterless(IInvocationOperation call) => (call.Instance is not null || call.TargetMethod.IsExtensionMethod) && call.Arguments.Length == (call.Instance is null ? 1 : 0);
 
     private static void RoundTrips(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> applies, INamedTypeSymbol fin, INamedTypeSymbol validation, INamedTypeSymbol kind) {
@@ -312,6 +319,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     }
 
     // --- [SPREADS]
+
     private static void Spreads(CompilationStartAnalysisContext context, INamedTypeSymbol seq) {
         static bool Stepped(IOperation operation, ISymbol held) =>
             Ancestor<IOperation>(operation, static step => step is IAnonymousFunctionOperation { Symbol.Parameters.Length: > 1 } or ILoopOperation) switch {
@@ -328,6 +336,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     }
 
     // --- [NARROWINGS]
+
     private static void Narrowings(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> narrowings, INamedTypeSymbol kind) =>
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (call, _) =>
             Among(call.TargetMethod, narrowings) && Parameterless(call) && Receiver(call) is IConversionOperation { IsImplicit: true, Type: var trait, Operand.Type: { } held }
@@ -336,6 +345,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 : []);
 
     // --- [MATCHES]
+
     private static void Matches(CompilationStartAnalysisContext context, LanguageExtSymbols symbols, INamedTypeSymbol fin, INamedTypeSymbol option) {
         (ISymbol? identity, ISymbol? matched, ISymbol? some, ISymbol? none) = (symbols.Identity, symbols.Case, symbols.IsSome, symbols.IsNone);
         ImmutableArray<IMethodSymbol> fallbacks = Members(option, "IfNone");
@@ -415,6 +425,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     }
 
     // --- [LENSES]
+
     private static void Lenses(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> lenses) {
         static ImmutableArray<IPropertySymbol>? Read(IOperation value, IParameterSymbol root, CancellationToken token) {
             Stack<IPropertySymbol> path = new();
@@ -459,6 +470,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     }
 
     // --- [CONTINUATIONS]
+
     private static void Continuations(CompilationStartAnalysisContext context, INamedTypeSymbol io, INamedTypeSymbol effect) {
         (ImmutableArray<IMethodSymbol> lifts, ImmutableArray<IMethodSymbol> pures, ImmutableArray<IMethodSymbol> binds, ImmutableArray<IMethodSymbol> maps) = (Members(io, "lift"), Members(io, "pure"), Members(effect, "Bind"), Members(effect, "Map"));
         ImmutableArray<IMethodSymbol> continuations = [.. binds, .. Members(effect, "SelectMany")];

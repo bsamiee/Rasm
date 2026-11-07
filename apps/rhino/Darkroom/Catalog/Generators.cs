@@ -8,12 +8,14 @@ using UnitsNet;
 namespace Darkroom.Catalog;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
+
 public static class ReferenceFrame {
     public const float Height = 1080f;
     public const float GreaterSide = 1920f / Height;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<Duration>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<DarkroomFault>]
 public sealed partial class Hold {
@@ -80,6 +82,7 @@ public sealed record GeneratedLayer(BlendingMode Mode, float Exposure) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class OptionalLengths {
     extension(Option<ShortSideLength> length) {
         public float Share => length.Map(static held => (float)held).IfNone(0f);

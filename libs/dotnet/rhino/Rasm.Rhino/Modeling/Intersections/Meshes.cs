@@ -7,6 +7,7 @@ using Rhino.Geometry.Intersect;
 namespace Rasm.Rhino.Modeling.Intersections;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Sets<T> {
     public (IEnumerable<T> First, IEnumerable<T>? Second) Operands => Switch<(IEnumerable<T>, IEnumerable<T>?)>(
@@ -20,8 +21,11 @@ public abstract partial record Sets<T> {
 public sealed record MeshCrossings(Seq<Polyline> Polylines, Seq<Polyline> Overlaps, Option<Mesh> OverlapMesh, Option<string> Log);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class MeshIntersections {
+
     // --- [CROSSINGS]
+
     public static IO<MeshCrossings> MeshMesh(Tolerances tolerances, Sets<Mesh> meshes, bool overlaps, bool overlapMesh, Option<IProgress<double>> progress) =>
         from token in cancelToken
         from crossed in meshes.Switch(
@@ -58,6 +62,7 @@ public static class MeshIntersections {
         select new MeshCrossings(Conversions.Rows(crossed.Answer.Polylines), Conversions.Rows(crossed.Answer.Overlaps), mesh, Conversions.Present(crossed.Log));
 
     // --- [POINTS]
+
     public static IO<Seq<(Point3d Point, int Index)>> Points(Func<(Point3d[]? Points, int[]? Indices)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
         IO.lift(call).Bind(answered => IO.lift(from points in Optional(answered.Points).ToFin(new RhinoFault(member, RhinoReason.Missing))
                                                from indices in Optional(answered.Indices).ToFin(new RhinoFault(member, RhinoReason.Missing))

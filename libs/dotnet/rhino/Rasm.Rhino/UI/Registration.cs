@@ -10,8 +10,11 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class ViewRegistration {
+
     // --- [FOLDS]
+
     private static IO<Unit> Each<TCase>(Func<TCase, IO<Unit>> register) where TCase : View =>
         IO.lift(static () => ViewCatalog.Current.Listed<TCase>()).Bind(rows => Products.Each(rows.Map(register))).Map(unit);
 
@@ -21,11 +24,13 @@ internal static class ViewRegistration {
     private static string Caption(View view) => LocalText.Of(view.Caption).Local;
 
     // --- [PANELS]
+
     public static IO<Unit> RegisterPanels() =>
         Each<View.Panel>(static row => Hosted(row, () => Panels.RegisterPanel(
             Session.PlugIn, row.Identity, Caption(row), row.Icon.Map(static icon => icon.Assembly).ValueUnsafe(), row.Icon.Map(static icon => icon.Id).ValueUnsafe(), row.Kind.IfNone(PanelType.PerDoc))));
 
     // --- [PAGES]
+
     public static IO<Unit> OptionsDialogPages(ICollection<OptionsDialogPage> pages) => Pages(PageDialog.Options, None, pages);
 
     public static IO<Unit> DocumentPropertiesDialogPages(RhinoDoc doc, ICollection<OptionsDialogPage> pages) => Pages(PageDialog.DocumentProperties, Some(doc), pages);
@@ -50,6 +55,7 @@ internal static class ViewRegistration {
         select page;
 
     // --- [SECTIONS]
+
     public static IO<Unit> CustomSections(Seq<View.Section> rows, ICollection<ICollapsibleSection> sections) =>
         IO.lift(() => rows.Iter(row => sections.Add(new DefinedSection(row, row.Identity.GUID, expanded: true, section =>
             from document in SectionModels.Read(section, Provider.RhinoSettings, static settings => IO.lift(() => Conversions.Required(Optional(settings.ActiveView()).Map(static view => view.Document))))
@@ -58,6 +64,7 @@ internal static class ViewRegistration {
             select body))));
 
     // --- [RENDER_WINDOW]
+
     public static IO<Unit> RegisterRenderTabs(RenderTabs tabs) =>
         Each<View.Tab>(row =>
             from icon in row.Icon.TraverseM(static art => Icons.DrawingIcon(art, IconSlot.RenderTab)).As()

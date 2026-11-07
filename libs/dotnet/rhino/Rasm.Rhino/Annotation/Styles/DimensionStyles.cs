@@ -10,6 +10,7 @@ using DistanceDisplayMode = Rhino.UI.DistanceDisplayMode;
 namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record DimensionStyleSource {
     public sealed record BuiltIn(string Name) : DimensionStyleSource;
@@ -26,8 +27,11 @@ public sealed record DimensionStyleSpec {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class DimensionStyles {
+
     // --- [FIELDS]
+
     private static readonly Seq<DimensionStyle.Field> Fields =
         toSeq(Enum.GetValues<DimensionStyle.Field>()).Filter(static field => field is not (DimensionStyle.Field.Unset or DimensionStyle.Field.Count)).Strict();
 
@@ -57,6 +61,7 @@ public static class DimensionStyles {
             == (right.PostScriptName, right.RichTextFontName, right.Weight, right.Style, right.Stretch, right.Underlined, right.Strikeout, right.PointSize);
 
     // --- [EFFECTIVE]
+
     public static IO<DimensionStyle> Resolve(RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style) =>
         style.Match(
             Some: address => Rows.Find(doc.DimStyles, address),
@@ -71,6 +76,7 @@ public static class DimensionStyles {
         select effective;
 
     // --- [AUTHORING]
+
     public static IO<Unit> Written(RhinoDoc doc, DimensionStyle staged, DimensionStyleSpec spec) =>
         from copied in spec.Source.Traverse(source => Copied(doc, staged, source)).As()
         from faced in IO.lift(() => spec.Font.Filter(wanted => !SameFont(staged.Font, wanted)).Iter(wanted => staged.Font = wanted))
@@ -130,6 +136,7 @@ public static class DimensionStyles {
          select lines.GetBoundingBox(accurate: true).Diagonal.Y - probe.TextHeight).Bracket();
 
     // --- [OVERRIDES]
+
     public static IO<Unit> Override(RhinoDoc doc, AnnotationBase annotation, Seq<Step<DimensionStyle>> steps) =>
         (from effective in Effective(doc, annotation, None)
          from child in Products.Of(() => effective.Duplicate("", Guid.Empty, annotation.DimensionStyleId))
@@ -149,6 +156,7 @@ public static class DimensionStyles {
              select cleared).Bracket()).As());
 
     // --- [CURRENT]
+
     public static IO<Unit> SetCurrent(RhinoDoc doc, ComponentRef<DimensionStyle> address) =>
         from style in Rows.Find(doc.DimStyles, address)
         from current in unless(doc.DimStyles.CurrentId == style.Id, Products.Accepted(() => doc.DimStyles.SetCurrent(style.Index, quiet: true))).As()

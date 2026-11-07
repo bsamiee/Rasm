@@ -6,8 +6,11 @@ using Mono.Unix.Native;
 namespace Rasm.Rhino.Document.Files;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class FilePublication {
+
     // --- [WRITES]
+
     private const int FileExists = unchecked((int)0x80070050);
     private const int AlreadyExists = unchecked((int)0x800700B7);
 
@@ -39,6 +42,7 @@ public static class FilePublication {
             .Bracket(Use: stream => encode(stream).Bracket(), Fin: static stream => IO.liftVAsync(() => stream.DisposeAsync().ToUnit()));
 
     // --- [JSON]
+
     public static IO<Option<TValue>> Read<TRecord, TValue>(string path, JsonTypeInfo<TRecord> info, Func<TRecord, Fin<TValue>> decode) where TRecord : class =>
         IO.lift(() => {
             using FileStream stream = File.OpenRead(path);

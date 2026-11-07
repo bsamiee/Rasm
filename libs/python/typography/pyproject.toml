@@ -8,25 +8,30 @@ requires-python = ">=3.15"
 
 dependencies = [
     # --- [CORE]
+
     "anyio",              # Worker processes running each face of a set in parallel
     "expression",         # Results, options, and collections of every library package
     "msgspec",            # Records, tagged unions, field bounds, and TOML and JSON codecs
 
     # --- [FONTS]
+
     "fonttools[woff]",    # Font tables, feature AST, subsetting, WOFF2, pens, and the test font builder
     "ufo2ft",             # UFO to TrueType compile with its mark, cursive, kern and GDEF writers and filters
     "ufoLib2",            # UFO source object model the compile reads
     "youseedee",          # Unicode Character Database rows for joining type and joining group
 
     # --- [GEOMETRY]
+
     "scipy",              # Scalar optimization over glyph outlines
     "shapely",            # Planar topology and outline geometry
     "skia-pathops",       # Path booleans, simplify and stroke over glyph outlines
 
     # --- [SHAPING]
+
     "uharfbuzz",          # HarfBuzz shaping with the `ot` and `coretext` shapers and glyph drawing
 
     # --- [VERIFICATION]
+
     "opentype-sanitizer", # OTS acceptance of a built binary
     "ttfautohint-py",     # TrueType hinting where a face's plan asks for it
 ]

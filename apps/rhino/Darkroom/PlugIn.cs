@@ -13,6 +13,7 @@ using Rhino.PlugIns;
 namespace Darkroom;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public sealed class DarkroomPlugIn : DefinedPlugIn<DarkroomPlugIn>, IDefined<PlugInDefinition> {
     private const uint ChainSnapshot = 0x5244_5353u;
 

@@ -12,6 +12,7 @@ using Rasm.Imaging.Procedural;
 namespace Rasm.Imaging.Filtering;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject]
 [ValidationError<ImagingFault>]
 public sealed partial class Iris {
@@ -117,6 +118,7 @@ public sealed partial class Iris {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Bokeh {
     public static Fin<VectorOfMat> Spread(Iris iris, double fringe, Vector4 radii) =>
         toSeq(Range(0, 4)).Traverse(channel => Gaussian.Taps(radii[channel] * iris.Circumradius / double.Min(iris.Squeeze, 1d))).As().Map(taps => {

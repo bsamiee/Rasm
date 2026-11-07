@@ -6,6 +6,7 @@ using Rasm.Imaging.Tone;
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record HueRange(Vector3 Center, Vector3 Width, Vector3 Softness) {
     public static HueRange Open { get; } = new(Vector3.Zero, new Vector3(float.PositiveInfinity), Vector3.Zero);
 

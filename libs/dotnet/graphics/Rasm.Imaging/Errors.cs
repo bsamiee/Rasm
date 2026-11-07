@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 namespace Rasm.Imaging;
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class ImagingReason {
     public static readonly ImagingReason Stated = new("rejected input");

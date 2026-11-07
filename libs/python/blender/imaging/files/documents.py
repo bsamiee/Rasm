@@ -24,7 +24,6 @@ from blender.records.fields import Finite
 
 type DocumentLayers = tuple[PixelLayer | LayerGroup, ...]
 
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 

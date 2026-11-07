@@ -7,6 +7,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record ReadoutSource<TValue> where TValue : notnull {
     public sealed record Model(ReadModel<TValue> Read) : ReadoutSource<TValue>;

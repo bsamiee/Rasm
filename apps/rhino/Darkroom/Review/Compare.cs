@@ -3,6 +3,7 @@ using Rasm.Imaging.Pixels;
 namespace Darkroom.Review;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class Verdict {
     public static readonly Verdict Pass = new(0);

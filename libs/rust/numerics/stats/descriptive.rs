@@ -18,6 +18,7 @@ pub enum Dependence {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [QUANTILES]
+
 #[must_use]
 pub fn quantile(frequencies: impl IntoIterator<Item = (f64, usize)>, probability: f64) -> Option<f64> {
     (0.0..=1.0).contains(&probability).then_some(())?;
@@ -63,6 +64,7 @@ fn quantile_position(count: usize, probability: f64) -> ControlFlow<usize, (usiz
 }
 
 // --- [DEPENDENCE]
+
 #[must_use]
 pub fn dependence(points: DMatrixView<'_, f64>, measure: Dependence) -> DMatrix<f64> {
     let ranked = |values: Vec<f64>| Data::new(values).ranks(RankTieBreaker::Average);
@@ -92,6 +94,7 @@ pub fn dependence(points: DMatrixView<'_, f64>, measure: Dependence) -> DMatrix<
 }
 
 // --- [MATRICES]
+
 #[must_use]
 pub(crate) fn symmetric<T, F>(items: &[T], entry: F) -> DMatrix<f64>
 where

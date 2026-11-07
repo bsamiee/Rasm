@@ -12,6 +12,7 @@ using TinyEXR;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record FileMetadata(string Software, DateTimeOffset Created, double Density, Map<string, string> Fields) {
     internal const string InteropId = "colorInteropID";
 

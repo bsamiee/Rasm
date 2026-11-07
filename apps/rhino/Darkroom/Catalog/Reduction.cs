@@ -11,6 +11,7 @@ using Wacton.Unicolour;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class PaletteDither {
     public static readonly PaletteDither Bayer2 = new("bayer-2", KnownDitherings.Bayer2x2);

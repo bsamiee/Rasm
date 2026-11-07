@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 namespace Rasm.Grasshopper;
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class GrasshopperReason {
     public static readonly GrasshopperReason Stated = new("rejected input");

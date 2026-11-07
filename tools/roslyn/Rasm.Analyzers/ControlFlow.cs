@@ -9,6 +9,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace Rasm.Analyzers;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class ControlFlow {
     private static readonly ConditionalWeakTable<Compilation, ControlFlow> Compilations = new();
     private readonly ConcurrentDictionary<SyntaxNode, Optional<ControlFlowGraph>> graphs = [];

@@ -7,6 +7,7 @@ using UnitsNet;
 namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class FrameQuad {
     public Vector2 TopLeft { get; }

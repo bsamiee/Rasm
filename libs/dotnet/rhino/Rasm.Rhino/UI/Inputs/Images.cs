@@ -13,6 +13,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Thumbnail {
     public void Paint(Graphics graphics, RectangleF bounds, Color color) =>

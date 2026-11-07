@@ -15,6 +15,7 @@ using Wacton.Unicolour;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record DictionaryOwner(IO<ArchivableDictionary> Read, Func<Func<ArchivableDictionary, Fin<Unit>>, IO<Unit>> Edit) {
     public Option<RhinoDoc> Document { get; init; }
 
@@ -60,6 +61,7 @@ public sealed record DictionaryCodec<T>(string Name, int Version, Func<T, Fin<Ar
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class TypeConverterFactory : JsonConverterFactory {
     public override bool CanConvert(Type typeToConvert) =>
         typeToConvert.IsValueType && (typeToConvert == typeof(Color) || typeToConvert.IsAssignableTo(typeof(IQuantity)));
@@ -156,8 +158,11 @@ internal sealed class UnicolourJson : JsonConverter<Unicolour> {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class ArchivableDictionaries {
+
     // --- [VALUES]
+
     public static Fin<Option<T>> Find<T>(ArchivableDictionary source, string key) where T : notnull =>
         source.TryGetValue(key, out object held) ? Conversions.Cast<T>(held, key).Map(Some) : Option<T>.None;
 
@@ -186,10 +191,12 @@ public static class ArchivableDictionaries {
     }
 
     // --- [USER_DICTIONARY]
+
     public static IO<Unit> Replace(DictionaryOwner owner, ArchivableDictionary source) =>
         owner.Edit(target => ignore(target.ReplaceContentsWith(source.Clone())));
 
     // --- [RECORDS]
+
     public static IO<Option<T>> Read<T>(DictionaryOwner owner, DictionaryCodec<T> codec) =>
         from source in owner.Read
         from stored in IO.lift(Stored(source, codec))
@@ -237,6 +244,7 @@ public static class ArchivableDictionaries {
         doc.RuntimeData.GetValue(typeof(DictionaryOwner), static _ => AtomHashMap<(ArchivableDictionary Dictionary, string Name), IO<Unit>>());
 
     // --- [CODECS]
+
     private const string JsonKey = "Json";
 
     public static JsonSerializerOptions Options { get; } = new JsonSerializerOptions(JsonSerializerDefaults.Strict) {

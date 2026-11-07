@@ -9,6 +9,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Numeric;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class NumberScale {
     public static readonly NumberScale Linear = new(
@@ -55,6 +56,7 @@ public sealed record NumberRange(double Low, double High) {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class ScaledField(NumberRange range) : NumericUpDownWithUnitParsing {
     private const double Fine = 0.1d;
 
@@ -70,8 +72,11 @@ internal sealed class ScaledField(NumberRange range) : NumericUpDownWithUnitPars
 internal sealed class DocumentUnits : ViewModel;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class NumberFields {
+
     // --- [SCALARS]
+
     public static IO<(NumericUpDownWithUnitParsing Control, Func<double, IO<Unit>> Show)> Scalar(NumberRange range, Func<Edit<double>, IO<Unit>> edited) =>
         from field in use(() => Values.Fielded(new ScaledField(range)))
         from ranged in IO.lift(() => range.Applied(field))
@@ -80,6 +85,7 @@ public static class NumberFields {
         select (Control: (NumericUpDownWithUnitParsing)field, Show: (Func<double, IO<Unit>>)(value => show(Some(value))));
 
     // --- [DISTANCES]
+
     public static IO<Unit> Measured(NumericUpDownWithUnitParsing field, RhinoDoc doc, bool modelUnits) =>
         from units in IO.lift(static () => new DocumentUnits())
         from bound in IO.lift(() => {

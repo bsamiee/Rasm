@@ -6,6 +6,7 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.PlugIns;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public abstract record DocumentFrame {
     internal abstract IO<bool> Filled(RhinoDoc doc, FileWriteOptions options);
 
@@ -48,8 +49,11 @@ public record ArchiveFrame<T>(
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class DocumentArchive {
+
     // --- [CALLBACKS]
+
     public static IO<bool> ShouldWrite(Seq<DocumentFrame> frames, FileWriteOptions options) =>
         IO.lift(() => Optional(options.RhinoDoc).Filter(_ => !options.WriteGeometryOnly && options.WriteUserData && !options.WriteSelectedObjectsOnly))
             .Bind(saved => saved.Match(
@@ -64,6 +68,7 @@ internal static class DocumentArchive {
             .Bind(opened => when(opened, frames.TraverseM(frame => frame.Read(doc, reader)).As().Map(unit)).As());
 
     // --- [SAVES]
+
     public static IO<Unit> Rewrites =>
         Subscriptions.On<DocumentSaveEventArgs>(static h => RhinoDoc.BeginSaveDocument += h, static h => RhinoDoc.BeginSaveDocument -= h).Documents().Attach(static args => Optional(args.Document).Traverse(ArchivableDictionaries.Rewrite).As().Map(unit));
 }

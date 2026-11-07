@@ -14,6 +14,7 @@ using Wacton.Unicolour;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class VideoStandard {
     public static readonly VideoStandard Rec601 = new("rec601", YbrConfiguration.Rec601);

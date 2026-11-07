@@ -9,6 +9,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record EntryForm {
     public sealed record SingleLine : EntryForm;
@@ -49,8 +50,11 @@ public sealed record EntryRow(Option<string> Value, EntryForm Form, Func<Edit<st
 internal sealed record Entry(Control Shown, TextControl Field, Keys Commit, Func<string> Read, Action<string> Write);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Entries {
+
     // --- [FORMS]
+
     internal static IO<Entry> Line() =>
         from box in use(static () => new TextBox())
         select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text);
@@ -70,6 +74,7 @@ internal static class Entries {
         select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text);
 
     // --- [COMMITS]
+
     internal static HostEvent<Unit> Committing(TextControl field, Keys commit) =>
         Subscriptions.Merged(
             Subscriptions.Inline<EventArgs>(h => field.LostFocus += h, h => field.LostFocus -= h).Choose(static _ => Some(unit)),
@@ -79,6 +84,7 @@ internal static class Entries {
             })));
 
     // --- [BROWSING]
+
     internal static IO<Control> Browsed(LocalizeStringPair title, FileBrowse browse, Seq<FileTypeRow> types, TextControl box, Func<string, IO<Unit>> commit, RowScope scope) =>
         from picked in CommandRows.Button(
             new Command<Invoke>.Run(new CommandFace("text-browse", "Browse") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.OpenSvg)) },

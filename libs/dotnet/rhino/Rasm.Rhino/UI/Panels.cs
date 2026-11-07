@@ -10,6 +10,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -23,8 +24,11 @@ public sealed partial class PanelAction {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class HostPanels {
+
     // --- [PLACEMENT]
+
     public static IO<Unit> Open(View.Panel row) =>
         row.Placement.Switch(
             row.Identity,
@@ -45,10 +49,12 @@ public static class HostPanels {
     private static IO<Unit> Docked(Guid dockBar, Type panel) => IO.lift(() => Panels.OpenPanel(dockBar, panel, makeSelectedPanel: true)).Map(unit);
 
     // --- [ICONS]
+
     public static IO<Unit> Icon(View.Panel row, IconResource icon) =>
         Icons.DrawingIcon(icon, IconSlot.PanelTab).Bind(drawn => IO.lift(() => Panels.ChangePanelIcon(row.Identity, drawn)));
 
     // --- [EVENTS]
+
     public static HostEvent<(uint Document, bool Shown)> Shown(View.Panel row) =>
         Subscriptions.On<ShowPanelEventArgs>(static h => Panels.Show += h, static h => Panels.Show -= h)
             .Choose(args => Conversions.Present(args.PanelId == row.Identity.GUID, (Document: args.DocumentSerialNumber, Shown: args.Show)));
@@ -58,11 +64,13 @@ public static class HostPanels {
             .Choose(args => Conversions.Present(args.PanelId == row.Identity.GUID, args.DocumentSerialNumber));
 
     // --- [LAYOUTS]
+
     public static IO<Unit> RestoreLayout(RhinoDoc doc, string name) => Documents.RunScript(doc, $"""-_WindowLayout "{name}" _Enter""", echo: false, display: None);
 
     public static IO<Unit> SaveLayout(RhinoDoc doc, string name) => Documents.RunScript(doc, $"""-_SaveWindowLayout "{name}" _Enter""", echo: false, display: None);
 
     // --- [COMMANDS]
+
     public static CommandDefinition<CommandInput.Run> Command(View.Panel row) =>
         new(RhinoGet.StringToCommandOptionName(row.Caption), new CommandInput.Run((doc, mode, _) =>
             (mode is RunMode.Scripted

@@ -10,6 +10,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record RenderWork(IO<Unit> Render) {
     public Option<Func<Guid, IO<bool>>> Ready { get; init; }
     public Option<Func<bool, IO<Unit>>> Pause { get; init; }
@@ -19,7 +20,9 @@ public sealed record RenderEngine(
     LocalizeStringPair Caption,
     Seq<RenderWindow.StandardChannels> Channels,
     Func<RenderStart, Option<Size>, RenderWindow, DefinedChangeFeed, IO<RenderWork>> Open) {
+
     // --- [ROWS]
+
     public bool HostWireframe { get; init; }
     public HashMap<Guid, string> CustomChannels { get; init; }
     public Option<RenderWindow.StandardChannels> InitialChannel { get; init; }
@@ -34,6 +37,7 @@ public sealed record RenderEngine(
     public Func<RenderContent, bool> Choosable { get; init; } = static _ => true;
 
     // --- [CHANNELS]
+
     internal Seq<Guid> SupportedChannels =>
         Channels.Bind(Effects.Channels.Components).Map(RenderWindow.ChannelId).Concat(toSeq(CustomChannels.Keys)).Distinct();
 
@@ -42,11 +46,13 @@ public sealed record RenderEngine(
     internal Option<Guid> InitialChannelId => InitialChannel.Map(RenderWindow.ChannelId);
 
     // --- [CONTENT]
+
     internal IEnumerable<RenderContentSerializer> RenderContentSerializers() => Serializers.Map(static row => (RenderContentSerializer)new DefinedContentSerializer(row));
 
     internal List<FileType> SupportedOutputTypes(List<FileType> host) => [.. OutputTypes(toSeq(host))];
 
     // --- [DECALS]
+
     internal void InitializeDecalProperties(ref List<NamedValue> properties) => properties.AddRange(DecalDefaults);
 
     internal bool ShowDecalProperties(ref List<NamedValue> properties) {
@@ -61,6 +67,7 @@ public sealed record RenderEngine(
     }
 
     // --- [MATERIALS]
+
     internal static bool Pressed(Option<Func<RhinoDoc, Material, IO<Material>>> button, RhinoDoc doc, ref Material material) {
         Material current = material;
         Option<Material> pressed = Session.Run(button.Map(press => press(doc, current).Map(static held => Some(held))).IfNone(IO.pure(Option<Material>.None)), Option<Material>.None);
@@ -69,5 +76,6 @@ public sealed record RenderEngine(
     }
 
     // --- [CURRENT]
+
     internal void OnSetCurrent(bool current) => _ = Session.Run(Current.Map(set => set(current)).IfNone(IO.pure(unit)));
 }

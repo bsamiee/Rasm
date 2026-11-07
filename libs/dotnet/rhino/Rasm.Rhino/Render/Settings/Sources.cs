@@ -9,6 +9,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record RenderSettingsScope(RenderSettings Settings, LengthUnit Units);
 
 [Union]
@@ -25,8 +26,11 @@ public abstract partial record RenderSettingsSource {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class RenderSettingsSources {
+
     // --- [SCOPES]
+
     public static IO<T> Read<T>(RenderSettingsSource source, Func<RenderSettingsScope, IO<T>> read) =>
         source.Switch(
             read,
@@ -73,6 +77,7 @@ public static class RenderSettingsSources {
             : IO.lift(() => doc.RenderSettings = next).Map(static _ => unit));
 
     // --- [DICTIONARY]
+
     public static DictionaryOwner Dictionary(RenderSettingsSource source) =>
         new(Read(source, static scope => IO.lift(() => scope.Settings.UserDictionary.Clone())),
             edit => Edit(source, scope => IO.lift(() => edit(scope.Settings.UserDictionary)))) {

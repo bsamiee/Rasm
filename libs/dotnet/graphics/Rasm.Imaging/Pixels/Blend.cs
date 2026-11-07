@@ -9,11 +9,13 @@ using SixLabors.ImageSharp.PixelFormats;
 namespace Rasm.Imaging.Pixels;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 internal interface IBlend {
     public static abstract Vector4 Blended(Vector4 backdrop, Vector4 source);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class MaskOperation {
     public static readonly MaskOperation Add = new("add", 0f, static (mask, key) => TensorPrimitives.Max(mask, key, mask));

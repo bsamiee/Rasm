@@ -15,6 +15,7 @@ using SuperLinq;
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Plotted(Key Key, string Label, Figure Figure) {
     public Option<Key> Role { get; init; }
     public Option<ColorValue> Color { get; init; }

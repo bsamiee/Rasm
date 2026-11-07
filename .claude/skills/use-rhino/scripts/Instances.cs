@@ -23,6 +23,7 @@ using Rhino.PlugIns;
 namespace Rasm.Skills.UseRhino;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [AttributeUsage(AttributeTargets.Property)]
 internal sealed class ShownAttribute(string present, string absent) : Attribute {
     public ShownAttribute(string present) : this(present, present) { }
@@ -95,9 +96,11 @@ internal sealed partial class Wire : JsonSerializerContext {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
 internal sealed record Refused(string Text) : Expected(Text, 0);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 internal static class Program {
     public static async Task<int> Main(string[] args) => args switch {
         [] or [nameof(Listing)] => await RunAsync().ConfigureAwait(false),

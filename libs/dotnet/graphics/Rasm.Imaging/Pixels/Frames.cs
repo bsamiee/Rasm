@@ -14,6 +14,7 @@ using TinyEXR;
 namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class PixelExtent {
     public int Width { get; }
@@ -214,6 +215,7 @@ public abstract partial class PixelPass {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class PixelSampling {
     extension(Mat plane) {
         public unsafe Span2D<T> View<T>() where T : unmanaged =>

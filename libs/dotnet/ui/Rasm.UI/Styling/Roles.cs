@@ -1,8 +1,11 @@
 namespace Rasm.UI.Styling;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
+
 public static class Roles {
+
     // --- [SURFACES]
+
     public static readonly Key Window = new Key.Named(nameof(Window));
     public static readonly Key Accent = new Key.Named(nameof(Accent));
     public static readonly Key Panel = new Key.Named(nameof(Panel));
@@ -23,6 +26,7 @@ public static class Roles {
     public static readonly Key Stack = new Key.Named(nameof(Stack));
 
     // --- [CONTROLS]
+
     public static readonly Key Button = new Key.Named(nameof(Button));
     public static readonly Key Field = new Key.Named(nameof(Field));
     public static readonly Key Toggle = new Key.Named(nameof(Toggle));
@@ -43,6 +47,7 @@ public static class Roles {
     public static readonly Key FocusRing = new Key.Named(nameof(FocusRing));
 
     // --- [TEXT]
+
     public static readonly Key Label = new Key.Named(nameof(Label));
     public static readonly Key Title = new Key.Named(nameof(Title));
     public static readonly Key Headline = new Key.Named(nameof(Headline));
@@ -59,6 +64,7 @@ public static class Roles {
     public static readonly Key Link = new Key.Named(nameof(Link));
 
     // --- [DATA]
+
     public static readonly Key ListRow = new Key.Named(nameof(ListRow));
     public static readonly Key Cell = new Key.Named(nameof(Cell));
     public static readonly Key Gutter = new Key.Named(nameof(Gutter));
@@ -77,6 +83,7 @@ public static class Roles {
     public static readonly Key Legend = new Key.Named(nameof(Legend));
 
     // --- [GLYPHS]
+
     public static readonly Key Icon = new Key.Named(nameof(Icon));
     public static readonly Key Chevron = new Key.Named(nameof(Chevron));
     public static readonly Key Checkmark = new Key.Named(nameof(Checkmark));

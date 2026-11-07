@@ -9,6 +9,7 @@ using SuperLinq;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record MorphKind {
     public sealed record Bend(Point3d Start, Point3d End, Point3d Through, Option<double> Angle, bool Straight, bool Symmetric) : MorphKind;
@@ -47,12 +48,16 @@ public abstract partial record MorphKind {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class PointSpaceMorph(Func<Point3d, Point3d> map) : SpaceMorph {
+
     // --- [STATE]
+
     private readonly Func<Point3d, Point3d> mapping = map;
     private ExceptionDispatchInfo? failure;
 
     // --- [POINTS]
+
     internal static Func<Point3d, Point3d> Direct(SpaceMorph morph) => morph is PointSpaceMorph managed ? managed.mapping : morph.MorphPoint;
 
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "The native void callback has no failure channel; the original exception is rethrown after native return.")]
@@ -67,6 +72,7 @@ internal sealed class PointSpaceMorph(Func<Point3d, Point3d> map) : SpaceMorph {
     }
 
     // --- [MORPHS]
+
     internal bool Applied(Func<bool> apply) {
         Volatile.Write(ref failure, null);
         bool accepted = apply();
@@ -76,8 +82,11 @@ internal sealed class PointSpaceMorph(Func<Point3d, Point3d> map) : SpaceMorph {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Morphs {
+
     // --- [GEOMETRY]
+
     public static IO<Seq<T>> Morph<T>(Tolerances tolerances, Seq<T> targets, MorphKind kind, bool preserveStructure, bool quickPreview) where T : GeometryBase =>
         Morpher(kind, tolerances, preserveStructure, quickPreview).Bind(morpher => Products.Each(targets
             .Map((target, index) => Morphed(target, index, morpher.Apply, preserveStructure))));
@@ -110,6 +119,7 @@ public static class Morphs {
             : new RhinoFault(subject.ObjectType, RhinoReason.Declined, index));
 
     // --- [MORPHERS]
+
     private static IO<(Func<GeometryBase, bool> Apply, Option<SpaceMorph> Space)> Morpher(MorphKind kind, Tolerances tolerances, bool preserveStructure, bool quickPreview) =>
         from morph in Made(kind, tolerances)
         from configured in morph.Match(

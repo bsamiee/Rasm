@@ -8,6 +8,7 @@ using Rasm.Imaging.Tone;
 namespace Rasm.Imaging.Grade;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed class ColorRamp {
     private ColorRamp(ImmutableArray<Vector4> samples) => Samples = samples;
 

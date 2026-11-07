@@ -9,6 +9,7 @@ using Rhino.PlugIns;
 namespace Rasm.Rhino.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<string>(SkipFactoryMethods = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -82,8 +83,11 @@ public abstract partial record StepOutcome {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Exchange {
+
     // --- [FORMATS]
+
     public static IO<Seq<FileTypeRow>> FileTypes(PlugInType direction) =>
         IO.lift(() => toSeq(PlugIn.GetInstalledPlugIns().Keys)
             .Choose(static id => Optional(PlugIn.GetPlugInInfo(id)))
@@ -95,6 +99,7 @@ public static class Exchange {
             .Strict());
 
     // --- [READS]
+
     public static IO<Committed<Unit>> Import(RhinoDoc doc, InputPath path, RedrawPolicy redraw, Option<ArchivableDictionary> options) =>
         Recorded(doc, path, redraw, Products.Accepted(() => doc.Import(path, options.ValueUnsafe())));
 
@@ -108,6 +113,7 @@ public static class Exchange {
             Using(static () => new FileReadOptions { BatchMode = true }, fileOptions => IO.lift(() => mode(fileOptions)) >> Products.Accepted(() => RhinoDoc.ReadFile(path, fileOptions)))));
 
     // --- [WRITES]
+
     public static IO<Unit> Export<TOptions>(
         RhinoDoc doc, OutputPath path, Func<string, RhinoDoc, TOptions, WriteFileResult> writer, Func<FileWriteOptions, TOptions> options,
         [CallerArgumentExpression(nameof(writer))] string member = "") =>
@@ -129,6 +135,7 @@ public static class Exchange {
             : IO.pure(Option<string>.None));
 
     // --- [OPTIONS]
+
     private static IO<Committed<Unit>> Recorded(RhinoDoc doc, InputPath path, RedrawPolicy redraw, IO<Unit> read) =>
         Commits.Commit(doc, Path.GetFileName(path), redraw, read);
 

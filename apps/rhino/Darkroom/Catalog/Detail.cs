@@ -10,6 +10,7 @@ using Rasm.Imaging.Tone;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class DenoisePasses {
     public static readonly DenoisePasses Beauty = new("none", []);

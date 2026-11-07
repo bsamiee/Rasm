@@ -10,6 +10,7 @@ using Wacton.Unicolour;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class EdgeChannel {
     public static readonly EdgeChannel Luma = new("luma", static gamut => EdgeSource.Luma(gamut.Luminance));

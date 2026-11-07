@@ -5,8 +5,11 @@ using Rhino.Runtime;
 namespace Rasm.Rhino;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class NamedCallbacks {
+
     // --- [REGISTRATION]
+
     private const string HandledEntry = "handled";
 
     [UnsafeAccessor(UnsafeAccessorKind.StaticField, Name = "_namedCallbacks")]
@@ -18,6 +21,7 @@ public static class NamedCallbacks {
             .Attach(args => reply(args) >> IO.lift(() => args.Set(HandledEntry, value: true)));
 
     // --- [EXECUTION]
+
     public static IO<T> Execute<T>(string name, Func<NamedParametersEventArgs, Option<T>> read, params Seq<Action<NamedParametersEventArgs>> entries) =>
         (from args in use(static () => new NamedParametersEventArgs())
          from entered in IO.lift(() => entries.Iter(entry => entry(args)))

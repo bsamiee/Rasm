@@ -12,11 +12,15 @@ using SkiaSharp;
 namespace Rasm.UI.Rendering;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record MarkKey(Figure Figure, PlotFrame Frame, Pen Pen);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Marks {
+
     // --- [EFFECTS]
+
     internal const int Steps = byte.MaxValue + 1;
     private const int CellsPerMesh = ushort.MaxValue / 4;
 
@@ -35,6 +39,7 @@ internal static class Marks {
         """);
 
     // --- [MARKS]
+
     internal static void Mark(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, Figure figure, PlotFrame frame) =>
         figure.SwitchPartially(
             (Canvas: canvas, Pass: pass, Layout: layout, Context: context, Key: new MarkKey(figure, frame, context.Pen(layout.Style)), Lead: context.Lead(layout)),
@@ -80,6 +85,7 @@ internal static class Marks {
     }
 
     // --- [SPRITES]
+
     private static Seq<(SKPoint At, float Degrees, float Diameter, Option<float> Value, float Opacity)> Placed(Figure.Points points, PlotFrame frame, Pen pen) =>
         points.At.Map((at, index) => (At: frame.Point(at), Degrees: 0f,
             Diameter: points.Marker.Map(static marker => marker.Size).IfNone(() => points.Sizes.Bind(sizes => sizes.At(index)).Map(size => size * pen.Icon).IfNone(pen.Stroke)),
@@ -128,6 +134,7 @@ internal static class Marks {
             }));
 
     // --- [FIELDS]
+
     private static void Field(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, MarkKey key, Figure.Field field, Option<SKColorF> lead) =>
         _ = pass.Cache.Fields.GetOrAdd((key, lead), () => Ramp(layout.Style.Look.Scale.Match(
                 Some: scale => Resolved(layout, scale),
@@ -201,6 +208,7 @@ internal static class Marks {
     }
 
     // --- [LABELS]
+
     internal static void Label(SKCanvas canvas, Painter.Pass pass, LayoutNode.Text layout, Context context, Figure.Label label, SKColorF color) =>
         _ = context.Plot.Iter(frame => {
             Pen pen = context.Pen(layout.Style);

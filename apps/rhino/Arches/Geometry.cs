@@ -6,6 +6,7 @@ using Rasm.Rhino.Modeling.Curves;
 namespace Arches;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record ArchSpan {
     private ArchSpan(Line baseline, Plane frame) => (Baseline, Frame) = (baseline, frame);
 
@@ -24,6 +25,7 @@ internal sealed record ArchSpan {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
 [SmartEnum]
 internal sealed partial class ArchReason {
     public static readonly ArchReason Planeless = new("baseline and normal spanning no plane");
@@ -48,8 +50,11 @@ internal sealed record ArchFault(object? Subject, ArchReason Reason, string Expr
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class ArchGeometry {
+
     // --- [RISES]
+
     private static readonly double CrownDepth = double.Sqrt(0.5);
     private static readonly double HaunchRadius = 1 - CrownDepth;
     internal static readonly double PersianRise = double.Sqrt(((1 + HaunchRadius) * (1 + HaunchRadius)) - 0.25) - CrownDepth;
@@ -59,6 +64,7 @@ internal static class ArchGeometry {
     internal static readonly double KeelRise = (1 + double.Sqrt(3)) / 4;
 
     // --- [RISEN_ARCHES]
+
     internal static IO<Seq<Curve>> Circular(ArchSpan span, Point3d apex) =>
         Products.Many<Curve>(() => [new ArcCurve(new Arc(span.Baseline.From, apex, span.Baseline.To))]);
 
@@ -175,6 +181,7 @@ internal static class ArchGeometry {
     }
 
     // --- [FOILED_ARCHES]
+
     internal static IO<Seq<Curve>> Trefoil(ArchSpan span, bool pointed) {
         double quarter = span.Baseline.Length / 4;
         Arc springing = new(span.Frame, span.Baseline.PointAt(0.75), quarter, double.Pi / 2);
@@ -210,6 +217,7 @@ internal static class ArchGeometry {
         new(new Circle(frame, center, center.DistanceTo(from)), new Interval(-Vector3d.VectorAngle(frame.XAxis, from - center), Vector3d.VectorAngle(frame.XAxis, to - center)));
 
     // --- [SYMMETRY]
+
     private static IO<Seq<Curve>> Symmetric(ArchSpan span, Seq<Arc> arcs) =>
         Transform.Mirror(span.Midpoint, span.Frame.XAxis) switch {
             var mirror => Products.Each(arcs.Map(arc => Products.Accepted(() => {

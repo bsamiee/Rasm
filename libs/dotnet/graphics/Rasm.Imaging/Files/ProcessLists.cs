@@ -15,6 +15,7 @@ using TinyEXR;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 internal sealed partial class ClfLogStyle {
     public static readonly ClfLogStyle Log10 = new("log10", Some(10f), camera: false, inverted: false);

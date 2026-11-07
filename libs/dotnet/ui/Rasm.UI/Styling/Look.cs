@@ -6,6 +6,7 @@ using SkiaSharp;
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Look : Monoid<Look> {
     public static Look Empty { get; } = new();
 

@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 namespace Rasm.Spatial;
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class SpatialRule {
     public static readonly SpatialRule Stated = new("rejected input");

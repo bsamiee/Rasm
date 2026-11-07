@@ -16,6 +16,7 @@ using Rhino.UI.Forms;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record MenuChoice<T>(ChoiceItem<T> Item) where T : notnull {
     public bool Enabled { get; init; } = true;
     public bool Checked { get; init; }
@@ -49,8 +50,11 @@ public abstract partial record Suppressible<T> {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class HostDialogs {
+
     // --- [ASKS]
+
     public static readonly IO<Unit> Attended =
         IO.lift(static () => guard(!RhinoApp.IsRunningUnattended, Errors.Cancelled).ToFin());
 
@@ -61,10 +65,12 @@ public static class HostDialogs {
     private static Eto.Forms.Window Parent(Option<RhinoDoc> doc) => doc.Map(RhinoEtoApp.MainWindowForDocument).IfNone(static () => RhinoEtoApp.MainWindow);
 
     // --- [MESSAGES]
+
     public static IO<ShowMessageResult> ShowMessage(Option<RhinoDoc> doc, LocalizeStringPair message, LocalizeStringPair title, ShowMessageButton buttons, ShowMessageIcon icon, ShowMessageDefaultButton defaultButton, ShowMessageOptions options, ShowMessageMode mode) =>
         Ask(() => (true, Dialogs.ShowMessage(Parent(doc), message.Local, title.Local, buttons, icon, defaultButton, options, mode)));
 
     // --- [LISTS]
+
     public static IO<T> ShowListBox<T>(LocalizeStringPair title, LocalizeStringPair message, IterableNE<ChoiceItem<T>> items, Option<ChoiceItem<T>> selected) where T : notnull =>
         Ask(() => Optional(Dialogs.ShowListBox(title.Local, message.Local, items.ToArray(), selected.ValueUnsafe()) as ChoiceItem<T>)).Map(static picked => picked.Value);
 
@@ -91,6 +97,7 @@ public static class HostDialogs {
         };
 
     // --- [VALUES]
+
     public static IO<(Length Min, Length Max)> ShowRangeDialog(RhinoDoc doc, LocalizeStringPair title, (Length Min, Length Max) range, (bool Min, bool Max) editable) =>
         from units in IO.lift(() => Space.Model.Read(doc))
         from chosen in ShowRangeDialog(doc, title, (Quantities.As(range.Min, units.Unit), Quantities.As(range.Max, units.Unit)), editable, units.Precision)
@@ -108,6 +115,7 @@ public static class HostDialogs {
             .Map(PlotWeight.FromHost));
 
     // --- [COLORS]
+
     public static IO<Color4f> ShowColorDialog(RhinoDoc doc, Color4f initial, bool allowAlpha, Option<NamedColorList> palette, Option<Func<Color4f, IO<Unit>>> preview) =>
         Ask(() => {
             Color4f color = initial;
@@ -120,6 +128,7 @@ public static class HostDialogs {
          select chosen).Bracket();
 
     // --- [TABLES]
+
     public static IO<(ComponentRef<Layer> Layer, bool MadeCurrent)> ShowSelectLayerDialog(RhinoDoc doc, ComponentRef<Layer> initial, LocalizeStringPair title, bool showNewLayerButton, bool showSetCurrentButton, bool initialSetCurrentState) =>
         from start in Document.Tables.Rows.Find(doc.Layers, initial)
         from chosen in Ask(() => {
@@ -158,6 +167,7 @@ public static class HostDialogs {
         Products.Each(layers.Map(layer => Document.Tables.Rows.Find(doc.Layers, layer).Map(static found => found.Index)));
 
     // --- [FILES]
+
     public static IO<Seq<string>> ShowOpenFileDialog(Action<OpenFileDialog> configure) =>
         Ask(() => {
             OpenFileDialog dialog = new();
@@ -175,6 +185,7 @@ public static class HostDialogs {
          select chosen).Bracket();
 
     // --- [SUPPRESSION]
+
     public static Seq<Preference<bool>> Suppressions(ViewCatalog views) =>
         views.Listed<View.Dialog>().Choose(static dialog => dialog.Suppression);
 

@@ -18,6 +18,7 @@ using SixLabors.ImageSharp.PixelFormats;
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DocumentLayer {
     private DocumentLayer(string name, float opacity, bool visible) => (Name, Opacity, Visible) = (name, opacity, visible);

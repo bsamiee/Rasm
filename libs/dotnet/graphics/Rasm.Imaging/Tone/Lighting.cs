@@ -10,6 +10,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Tone;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class LightingKey {
     public static readonly LightingKey HighKey = new(Linear(0.45f), 2f, float.PositiveInfinity);

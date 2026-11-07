@@ -7,8 +7,11 @@ using Rhino.Render.PostEffects;
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Channels {
+
     // --- [IDENTITY]
+
     public static Rectangle Extent(PostEffectPipeline pipeline) => new(default, pipeline.Dimensions());
 
     public static Guid[] Required(Seq<RenderWindow.StandardChannels> channels) =>
@@ -25,6 +28,7 @@ public static class Channels {
         };
 
     // --- [PIXELS]
+
     public static Fin<Memory2D<float>> Read(RenderWindow.Channel cpu, Rectangle rect) {
         int size = cpu.PixelSize();
         int components = size / sizeof(float);
@@ -84,6 +88,7 @@ public static class Channels {
     }
 
     // --- [PIPELINE]
+
     public static IO<Memory2D<float>> Read(Func<Guid, PostEffectChannel?> open, RenderWindow.StandardChannels channel, Rectangle rect) =>
         Opened(open, RenderWindow.ChannelId(channel), (_, cpu) => IO.lift(() => Read(cpu, rect)));
 

@@ -9,6 +9,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record SectionFill(SectionBackgroundFillMode Mode, Option<Color> Color = default, Option<Color> PrintColor = default);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -30,8 +31,11 @@ public sealed record SectionHatch(ComponentRef<HatchPattern> Pattern, double Sca
 public sealed record SectionStyleDefinition(ObjectSectionFillRule SectionFillRule, SectionFill Fill, Option<SectionBoundary> Boundary, Option<SectionHatch> Hatch);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SectionStyles {
+
     // --- [READS]
+
     public static IO<(SectionStyleDefinition Definition, bool BoundaryHasShapes)> Definition(SectionStyle style, Option<Seq<HatchPattern>> patterns = default) =>
         from visible in IO.lift(() => style.BoundaryVisible)
         from embedded in visible
@@ -59,6 +63,7 @@ public static class SectionStyles {
         (Definition(live), Definition(staged)).Apply(static (held, wanted) => !held.BoundaryHasShapes && !wanted.BoundaryHasShapes && held.Definition == wanted.Definition).As();
 
     // --- [WRITES]
+
     public static TableKind<SectionStyle> References { get; } =
         TableKinds.SectionStyles with { Add = static (doc, row) => doc.SectionStyles.AddReferenceSectionStyle(row) };
 
@@ -94,6 +99,7 @@ public static class SectionStyles {
         Rows.Add(doc, kind, Some(name), [Rows.Write<SectionStyle>(staged => Written(doc, staged, definition))]).Map(static row => row.Index);
 
     // --- [FILES]
+
     public static IO<StyleSpec> ReadFile(InputPath path) =>
         from native in IO.lift(() => (Read: SectionStyle.ReadFromFile(path, out SectionStyle[] styles, out HatchPattern[] patterns), Styles: styles, Patterns: patterns))
         from read in IO.lift(RhinoFault.Unless(native.Read, RhinoReason.Unreadable, path))
@@ -106,6 +112,7 @@ public static class SectionStyles {
         ReadFile(path).Bind(spec => StyleTables.Reconcile(doc, spec, name, redraw)).Bracket();
 
     // --- [USAGE]
+
     public static IO<(bool InUse, int InstanceDefinitions, int Objects, int Layers)> Usage(RhinoDoc doc, ComponentRef<SectionStyle> address) =>
         Rows.Find(doc.SectionStyles, address)
             .Map(row => (InUse: doc.SectionStyles.InUse(row.Index, out int definitions, out int objects, out int layers), InstanceDefinitions: definitions, Objects: objects, Layers: layers));

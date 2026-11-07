@@ -10,6 +10,7 @@ type Tag = Annotated[str, msgspec.Meta(min_length=4, max_length=4, pattern=r"\A[
 type _GlyphClass = tuple[str, ...]
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
 # --- [VALUES]
 
 

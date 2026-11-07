@@ -9,6 +9,7 @@ using Wacton.Unicolour;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record RampStop(Unicolour Color, float Position) {
     public bool Eased { get; init; }
 
@@ -31,6 +32,7 @@ public sealed record Blackbody(double Cool, double Hot) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class RampLight {
     private const int Intervals = 256;
 

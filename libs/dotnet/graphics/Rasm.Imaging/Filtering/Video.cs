@@ -20,6 +20,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Filtering;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class PhosphorMask {
     public static readonly PhosphorMask ApertureGrille = new("aperture-grille", gap: 0d, period: (2d, 1d), shift: (1d, 0d));
@@ -87,6 +88,7 @@ public sealed partial class TelevisionSystem {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Video {
     public static long Line(long row, int lines, int height) => (long)CellGrid.Floored((Int128)row * lines, height).Quotient;
 

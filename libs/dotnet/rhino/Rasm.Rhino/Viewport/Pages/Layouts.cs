@@ -14,6 +14,7 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.Viewport.Pages;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -30,8 +31,11 @@ public sealed record LayoutSheet(LayoutName Name, Sheet Sheet, Option<string> De
 public sealed record LayoutGroup(LayoutName Name, Option<string> Description, Seq<LayoutName> Members);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Layouts {
+
     // --- [SHEETS]
+
     public static IO<RhinoPageView> Ensure(RhinoDoc doc, LayoutSheet sheet) =>
         from extent in IO.lift(() => (Width: Quantities.As(sheet.Sheet.Extent.Width, doc.PageUnits), Height: Quantities.As(sheet.Sheet.Extent.Height, doc.PageUnits)))
         from page in Find(doc, sheet.Name).Match(Some: IO.pure, None: () => Products.Of(() => doc.Views.AddPageView(sheet.Name, extent.Width, extent.Height, setActive: false)))
@@ -57,6 +61,7 @@ public static class Layouts {
         EqualityComparer<T>.Default.Equals(held, wanted) ? unit : fun(write)(wanted);
 
     // --- [TITLES]
+
     public static IO<Unit> Title(RhinoDoc doc, RhinoPageView page, DraftingConvention convention, HashMap<TitleField, string> entries) =>
         from accepted in IO.lift(TitleField.Accept(convention, entries))
         from written in accepted.TraverseM(entry => entry.Field.Entry.Switch(
@@ -74,6 +79,7 @@ public static class Layouts {
             .Strict());
 
     // --- [ZONES]
+
     public static IO<Option<string>> Zone(RhinoDoc doc, RhinoObject placed) =>
         IO.lift(() => toSeq(doc.Views.GetPageViews()).Find(page => placed.Attributes.Space is ActiveSpace.PageSpace && page.MainViewport.Id == placed.Attributes.ViewportId))
             .Bind(found => found.Match(
@@ -85,6 +91,7 @@ public static class Layouts {
                 None: static () => IO.pure(Option<string>.None)));
 
     // --- [GROUPS]
+
     public static IO<PageViewGroup> Ensure(RhinoDoc doc, LayoutGroup grouping) =>
         from members in IO.lift(() => (Conversions.Unique(grouping.Members, identity),
                 grouping.Members.Traverse(name => Find(doc, name).ToFin(new RhinoFault(name, RhinoReason.Missing))).As())
@@ -103,6 +110,7 @@ public static class Layouts {
          select row).Bracket();
 
     // --- [ORDER]
+
     public static IO<Seq<(RhinoPageView Page, StandardName Number)>> Sheets(RhinoDoc doc, NamingStandard grammar) =>
         IO.lift(() => toSeq(Viewports.Pages(doc.Views.GetPageViews()).Choose(page => StandardName.From(grammar, page.PageName).ToOption().Map(number => (Page: page, Number: number))).OrderBy(static sheet => sheet.Number)).Strict());
 
@@ -146,6 +154,7 @@ public static class Layouts {
         select unit;
 
     // --- [FRAMES]
+
     private const string FrameKey = "sheet-frame";
 
     private static IO<Unit> Frame(RhinoDoc doc, RhinoPageView page, Sheet sheet, FrameStyle style) =>

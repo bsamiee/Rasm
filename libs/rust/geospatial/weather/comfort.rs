@@ -113,6 +113,7 @@ pub enum Index {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [PSYCHROMETRICS]
+
 pub fn psychrometrics(dry_bulb: ThermodynamicTemperature, relative_humidity: Ratio, pressure: Pressure) -> Result<Option<Psychrometrics>, WeatherError> {
     const DRY_AIR_HEAT: f64 = 1.006;
     const VAPOUR_HEAT: f64 = 1.86;
@@ -158,6 +159,7 @@ where F: Fn(f64) -> f64 + Sync {
 }
 
 // --- [OUTDOOR]
+
 pub fn outdoor(hours: &Hours, mut exposure: impl FnMut(&Hour, SolarPosition) -> Exposure) -> impl Iterator<Item = Result<(&Hour, Option<Conditions>), WeatherError>> {
     const BODY_EMISSIVITY: f64 = 0.95;
     const RADIATIVE_COEFFICIENT: f64 = 6.0;
@@ -196,6 +198,7 @@ pub fn outdoor(hours: &Hours, mut exposure: impl FnMut(&Hour, SolarPosition) -> 
 }
 
 // --- [INDICES]
+
 #[must_use]
 pub fn utci(conditions: Conditions) -> Option<(ThermodynamicTemperature, StressCategory)> {
     let (tdb, tr, speed, rh) = environment(conditions);

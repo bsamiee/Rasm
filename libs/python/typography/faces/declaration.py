@@ -45,6 +45,7 @@ class Recipe(StrEnum):
 PROFILE = Path(__file__).parents[1] / "verification" / "fontspector.toml"
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
 # --- [SCRIPTS]
 
 

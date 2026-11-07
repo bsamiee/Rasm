@@ -6,6 +6,7 @@ using Rhino;
 namespace Rasm.Rhino.Document.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<string>]
 [ValidationError<RhinoFault>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -157,8 +158,11 @@ public abstract partial record Stem : IConvertible<string> {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Destinations {
+
     // --- [RESOLUTION]
+
     public static IO<Seq<(OutputName Name, OutputPath Path)>> Preview(RhinoDoc document, OutputFolder folder, Stem stem, bool overwrite, OutputConvention convention, Seq<OutputName> names) =>
         Planned(document, folder, stem, overwrite, convention, names).Map(static planned => planned.Placed);
 
@@ -168,6 +172,7 @@ public static class Destinations {
         select planned.Placed;
 
     // --- [PLANNING]
+
     private static IO<(string Folder, Seq<(OutputName Name, OutputPath Path)> Placed)> Planned(
         RhinoDoc document, OutputFolder folder, Stem stem, bool overwrite, OutputConvention convention, Seq<OutputName> names) =>
         from saved in IO.lift(() => Conversions.Present(document.Path))

@@ -9,6 +9,7 @@ using Rhino.Input.Custom;
 namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record PickRegion {
     public sealed record PointPick(System.Drawing.Point Client) : PickRegion;
@@ -19,8 +20,11 @@ public abstract partial record PickRegion {
 public sealed record PickRequest(ViewportTarget Viewport, PickRegion Region, PickMode PickMode, bool PickGroupsEnabled, bool SubObjectSelectionEnabled);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Selections {
+
     // --- [FRUSTUM]
+
     public static IO<T> Frustum<T>(RhinoDoc doc, PickRequest request, Func<PickContext, IO<T>> body) =>
         Viewports.With(doc, request.Viewport, row =>
             (from context in use(static () => new PickContext())
@@ -60,6 +64,7 @@ public static class Selections {
             None: () => IO.lift(page.SetPageAsActive));
 
     // --- [PICKS]
+
     public static IO<Seq<PickCapture>> Pick(RhinoDoc doc, PickRequest request, Option<Func<ObjRef, int>> selection = default) =>
         Frustum(doc, request, context =>
             from picked in IO.lift(() => toSeq(doc.Objects.PickObjects(context)).Strict())

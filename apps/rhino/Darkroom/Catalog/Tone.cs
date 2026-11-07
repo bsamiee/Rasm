@@ -12,6 +12,7 @@ using UnitsNet;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class AgXLook {
     public static readonly AgXLook Punchy = new("punchy", [
@@ -248,6 +249,7 @@ public sealed record ImageFormation(ToneMapping View, Display Device) : IPixelSt
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class FormationTables {
     public static Func<(string Resource, LutFormat Format), LutTable> Table { get; } = memoUnsafe(static ((string Resource, LutFormat Format) source) => {
         using Stream stream = typeof(FormationTables).Assembly.GetManifestResourceStream(source.Resource)!;

@@ -7,6 +7,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, string> Label, Func<RowScope, TItem, Size, IO<Image>> Tile, Seq<TItem> Items, Size TileSize)
     : IRow<BrowserRow<TItem, TKey>>
     where TItem : notnull

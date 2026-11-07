@@ -6,6 +6,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record TopologyGraph(IUndirectedGraph<int, TaggedUndirectedEdge<int, int>> Graph, Func<TaggedUndirectedEdge<int, int>, double> Weight) {
     internal static TopologyGraph Of(IEnumerable<int> vertices, Func<int, IEnumerable<TaggedUndirectedEdge<int, int>>> adjacent, Func<TaggedUndirectedEdge<int, int>, double> weight) =>
         new(vertices.ToDelegateUndirectedGraph(adjacent), weight);

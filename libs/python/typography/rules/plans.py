@@ -26,7 +26,6 @@ lazy from typography.shaping.runs import Binary
 
 type Rules = Ornaments | Locale | Digits | Outlines | Marks | QuranicMarks | Joins | Scale | Anchors | Spacing | WordSigns | Records
 
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 

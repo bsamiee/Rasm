@@ -11,6 +11,7 @@ using Rasm.Imaging.Color;
 namespace Rasm.Imaging.Pixels;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record LevelRange(float Low, float High) {
     public bool Clips(Vector4 pixel) => float.Min(pixel.X, float.Min(pixel.Y, pixel.Z)) < Low || float.Max(pixel.X, float.Max(pixel.Y, pixel.Z)) >= High;
 

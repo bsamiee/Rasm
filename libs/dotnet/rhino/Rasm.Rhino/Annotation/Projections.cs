@@ -7,8 +7,11 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Annotation;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Projections {
+
     // --- [DRAWING]
+
     public static IO<Seq<Guid>> Draw(RhinoDoc doc, HiddenLineDrawing drawing, LineGroup lines, Transform placement, ObjectAttributes attributes, Seq<ClippingPlaneObject> clippers) =>
         from styles in toSeq(LineRole.Items).TraverseM(role => Styled(doc, lines, role).Map(style => (Role: role, Style: style))).As().Map(static held => toHashMap(held))
         let tolerance = attributes.Space is ActiveSpace.PageSpace ? doc.PageAbsoluteTolerance : doc.ModelAbsoluteTolerance
@@ -58,6 +61,7 @@ public static class Projections {
          select id).Bracket();
 
     // --- [SECTIONS]
+
     private static IO<Seq<Guid>> Sectioned(
         RhinoDoc doc, RhinoObject source, Option<ClippingPlaneObject> clipper, Seq<Curve> cuts, Transform placement, ObjectAttributes attributes, double tolerance) =>
         (from style in clipper.Traverse(held => Products.Of(() => source.Attributes.ComputedSectionStyle(doc, held.Attributes, computeColors: true, Guid.Empty))).As()

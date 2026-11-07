@@ -12,6 +12,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Tone;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record DisplayDevice(ColorEncoding Encoding, Luminance Peak, Gamut LimitingGamut) {
     public const float Bt2390KneeOffset = 0.5f;
 

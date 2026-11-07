@@ -6,6 +6,7 @@ using SuperLinq;
 namespace Rasm.Spatial;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record CubicBezier(Vector3D<double> Start, Vector3D<double> StartControl, Vector3D<double> EndControl, Vector3D<double> End);
 
 public sealed record HermiteStation(Vector3D<double> Point, Vector3D<double> In, Vector3D<double> Out);

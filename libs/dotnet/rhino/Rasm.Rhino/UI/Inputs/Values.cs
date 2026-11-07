@@ -19,6 +19,7 @@ using RhinoSlider = Rhino.UI.Controls.Slider;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ChoiceItem<T>(T Value, string Caption) where T : notnull {
     public Option<IconResource> Icon { get; init; }
 
@@ -57,8 +58,11 @@ public sealed record ValueRow<TControl, T>(Func<TControl> Make, Func<TControl, R
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Values {
+
     // --- [BINDING]
+
     internal static IO<Func<Option<T>, IO<Unit>>> Bound<TControl, T>(
         TControl control, BindableBinding<TControl, Option<T>> binding, Func<TControl, bool> previewing, Option<HostEvent<Unit>> committing, Option<T> initial, Func<Edit<T>, IO<Unit>> edited)
         where TControl : Control
@@ -107,12 +111,14 @@ public static class Values {
     }
 
     // --- [TOGGLES]
+
     public static ValueRow<CheckBox, bool> Check(Option<bool> value, Func<Edit<bool>, IO<Unit>> edited) =>
         new(static () => new CheckBox(), static (box, _) => IO.pure(box.CheckedBinding.Convert(static held => Optional(held), static held => held.ToNullable())), IO.pure(value), edited) {
             Shaped = static (box, current, _) => IO.lift(() => { box.ThreeState = current.IsNone; }),
         };
 
     // --- [CHOICES]
+
     public static ValueRow<DropDown, T> Choice<T>(Option<T> value, Seq<ChoiceItem<T>> items, Func<Edit<T>, IO<Unit>> edited) where T : notnull =>
         Listed(value, _ => IO.pure(items), edited);
 
@@ -176,12 +182,14 @@ public static class Values {
             Subscriptions.On<GroupTableEventArgs>(static h => RhinoDoc.GroupTableEvent += h, static h => RhinoDoc.GroupTableEvent -= h).Choose(static _ => Some(unit)));
 
     // --- [MOMENTS]
+
     public static ValueRow<DateTimePicker, LocalDateTime> Moment(Option<LocalDateTime> value, DateTimePickerMode part, DateInterval limits, Func<Edit<LocalDateTime>, IO<Unit>> edited) =>
         new(() => new DateTimePicker { Mode = part, MinDate = limits.Start.AtMidnight().ToDateTimeUnspecified(), MaxDate = limits.End.PlusDays(1).AtMidnight().ToDateTimeUnspecified() },
             static (picker, _) => IO.pure(picker.ValueBinding.Convert(static held => Conversions.Present(held), static held => held.Map(static wall => wall.ToDateTimeUnspecified()).ToNullable())),
             IO.pure(value), edited);
 
     // --- [COLORS]
+
     public static ValueRow<ColorPicker, Color4f> Swatch(Option<Color4f> value, Func<Edit<Color4f>, IO<Unit>> edited) =>
         new(static () => new ColorPicker { AllowAlpha = true },
             static (picker, _) => IO.pure(Colored(picker)),
@@ -233,6 +241,7 @@ public static class Values {
             select unit)) { Enabled = new RowRule(_ => current.Map(static held => held.IsSome)) };
 
     // --- [NUMBERS]
+
     public static ValueRow<NumericUpDownWithUnitParsing, double> Number(Option<double> value, NumberRange range, Func<Edit<double>, IO<Unit>> edited) =>
         new(() => Fielded(new ScaledField(range)), static (field, _) => IO.pure(Numeric(field)), IO.pure(value), edited) {
             Previewing = Stepping,
@@ -283,6 +292,7 @@ public static class Values {
         };
 
     // --- [TEXT]
+
     public static ValueRow<TextBox, string> Line(Option<string> value, Func<Edit<string>, IO<Unit>> edited) =>
         new(static () => new TextBox(), static (box, _) => IO.pure(new BindableBinding<TextBox, Option<string>>(box,
                 static held => Optional(held.Text),

@@ -7,6 +7,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color.Calibration;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ColorChart {
     public static ColorChart ColorCheckerClassic { get; } = new(6, 21, [

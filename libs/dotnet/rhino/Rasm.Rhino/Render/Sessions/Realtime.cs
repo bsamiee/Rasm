@@ -8,6 +8,7 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record RealtimeDefinition(string Product, TimeProvider Clock) {
     public bool OpenGl { get; init; }
     public bool FastDraw { get; init; }
@@ -114,14 +115,18 @@ public abstract partial record HudEvent {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where TSelf : DefinedRealtimeEngine<TSelf>, IDefined<RealtimeDefinition> {
+
     // --- [STATE]
+
     private readonly Ref<Option<Owned<RealtimeRun>>> sessions = Ref(Option<Owned<RealtimeRun>>.None);
     private readonly Atom<Option<DisplayPipelineAttributes>> attributes = Atom(Option<DisplayPipelineAttributes>.None);
 
     private sealed record RealtimeRun(Ref<RealtimeSession> Session, DefinedChangeFeed Feed);
 
     // --- [ROWS]
+
     protected abstract IO<Unit> Start(RealtimeStart start);
 
     protected abstract IO<Unit> Stop();
@@ -139,6 +144,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
     protected virtual Option<Func<DisplayPipeline, IO<Unit>>> Middleground => None;
 
     // --- [LIFECYCLE]
+
     public sealed override void PostConstruct() => SetUseDrawOpenGl(TSelf.Definition.OpenGl);
 
     public sealed override bool DrawOpenGl() => TSelf.Definition.OpenGl;
@@ -198,6 +204,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
         select unit;
 
     // --- [FRAMES]
+
     public sealed override bool IsRendererStarted() => Running.IsSome;
 
     public sealed override bool IsFrameBufferAvailable(ViewInfo view) =>
@@ -212,6 +219,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
     public sealed override double CaptureProgress() => Running.Bind(static session => session.Progress).IfNone(base.CaptureProgress);
 
     // --- [HUD]
+
     public sealed override bool HudShow() => TSelf.Definition.Hud;
 
     public sealed override bool HudShowControls() => TSelf.Definition.HudControls;
@@ -246,6 +254,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
     private IO<Unit> Delivered(HudEvent hudEvent) => Hud.TraverseM(deliver => deliver(hudEvent)).As().Map(static _ => unit);
 
     // --- [REPORTS]
+
     protected Option<RealtimeSession> Running => sessions.Value.Map(static owned => owned.Value.Session.Value);
 
     protected IO<Unit> FrameRendered(int pass, ViewInfo view) =>

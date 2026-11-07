@@ -7,9 +7,12 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class RhinoAnalyzer : RasmAnalyzer {
+
     // --- [RULES]
+
     private const string Category = "RhinoCommon";
 
     public static readonly DiagnosticDescriptor Count = Rule(
@@ -163,6 +166,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     }
 
     // --- [MARSHALS]
+
     private static void Marshals(CompilationStartAnalysisContext context, EtoSymbols eto, MacSymbols mac, INamedTypeSymbol callbacks) {
         (INamedTypeSymbol? application, INamedTypeSymbol? queue, INamedTypeSymbol? objects, INamedTypeSymbol? threads, ImmutableArray<ISymbol> mains) =
             (eto.Application, mac.DispatchQueue, mac.NSObject, mac.NSThread, mac.Mains);
@@ -181,6 +185,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     }
 
     // --- [COUNTS]
+
     private static void Counts(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> counted) {
         static bool Collected(IParameterSymbol? parameter) => parameter is { RefKind: RefKind.None, Type: var type } && Enumerated(type) is not null;
         ImmutableArray<IMethodSymbol> counting = [.. counted.Where(static method => method.ReturnType.SpecialType is SpecialType.System_Int32 && method.Parameters.Any(Collected))];
@@ -192,6 +197,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     }
 
     // --- [THREADS]
+
     private static void Threads(CompilationStartAnalysisContext context, ImmutableArray<INamedTypeSymbol> schedulers, INamedTypeSymbol document) =>
         Report<IOperation>(context, [OperationKind.Invocation, OperationKind.ObjectCreation], (operation, _) =>
             operation switch {
@@ -206,6 +212,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
                 : []);
 
     // --- [ACTIVE_DOCS]
+
     private static void ActiveDocs(CompilationStartAnalysisContext context, ISymbol active, INamedTypeSymbol document) {
         static bool Compared(IOperation operation) {
             while (operation.Parent is IConversionOperation or IConditionalAccessOperation or IMemberReferenceOperation) operation = operation.Parent;
@@ -229,6 +236,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     }
 
     // --- [SCRIPTS]
+
     private static void Scripts(CompilationStartAnalysisContext context, ImmutableArray<ISymbol> scripts, INamedTypeSymbol command, INamedTypeSymbol attribute, int runner) {
         bool Runs(INamedTypeSymbol type) =>
             Bases(type).Select(held => Marked(held, attribute)).FirstOrDefault(static style => style is not null) is { ConstructorArguments: { Length: 1 } arguments }
@@ -240,6 +248,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     }
 
     // --- [PLATFORMS]
+
     private static void Platforms(CompilationStartAnalysisContext context, RhinoCommonSymbols rhino, SystemSymbols system, ISymbol mac) {
         ImmutableArray<(ISymbol Member, string Fact, string Action)> broken = [
             .. rhino.RestoreWithAspectRatio.Select(static member => ((ISymbol)member, "asserts and aborts Rhino when a docked target's aspect differs from its named view's", "guard it with `!OperatingSystem.IsMacOS() &&`")),
@@ -268,6 +277,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     }
 
     // --- [CAPTURES]
+
     private static void Captures(CompilationStartAnalysisContext context, ISymbol grayscale, ImmutableArray<IMethodSymbol> checks, ImmutableArray<IMethodSymbol> found) {
         static bool First(IOperation? consumer, ImmutableArray<IMethodSymbol> owners) =>
             consumer is IArgumentOperation { Parameter.Ordinal: 0, Parent: IInvocationOperation call } && Among(call.TargetMethod, owners);
@@ -277,6 +287,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     }
 
     // --- [PAGES]
+
     private static void Pages(CompilationStartAnalysisContext context, SemanticModels models, RasmRhinoSymbols rasm, INamedTypeSymbol page, IPropertySymbol shown, INamedTypeSymbol control, ImmutableArray<IMethodSymbol> callbacks) {
         (ImmutableArray<IMethodSymbol> scopes, ISymbol? views) = (rasm.Acquire, rasm.UI);
         ControlFlow flow = ControlFlow.For(context.Compilation);
@@ -341,12 +352,14 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     }
 
     // --- [MODES]
+
     private static void Modes(SemanticModels models, Lifetimes lifetimes, ImmutableArray<ISymbol> owned, INamedTypeSymbol description) =>
         models.Report<IOperation>([OperationKind.Invocation, OperationKind.PropertyReference], (operation, _, reading) =>
             !Written(operation) && Among(Target(operation), owned) && !Inside<INameOfOperation>(operation) && !lifetimes.Released(operation, description, reading).Any()
                 ? [Diagnostic.Create(Mode, operation.Syntax.GetLocation(), operation.Syntax)] : []);
 
     // --- [READS]
+
     private static void Reads(CompilationStartAnalysisContext context, INamedTypeSymbol settings) {
         ImmutableArray<IMethodSymbol> methods = [
             .. settings.GetMembers().OfType<IMethodSymbol>().Where(static method => method is { IsStatic: false, Parameters: { IsEmpty: false } parameters } && parameters[0].Type.SpecialType is SpecialType.System_String),
@@ -369,6 +382,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     }
 
     // --- [DUPLICATES]
+
     private static void Duplicates(SemanticModels models, ImmutableArray<ISymbol> duplicates) {
         static IEnumerable<ITypeSymbol?> Tested(IOperation test) {
             IEnumerable<IPatternOperation> patterns = test switch {

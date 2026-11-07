@@ -10,6 +10,7 @@ using Topten.RichTextKit;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class ToggleKind {
     public static readonly ToggleKind CheckBox = new(Roles.Label, AccessRole.CheckBox,
@@ -160,6 +161,7 @@ public sealed record RangePicker(Axis Axis, Seq<Preset<AxisRange>> Presets, Func
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class PresetExtensions {
     extension<T>(Seq<Preset<T>> presets) where T : notnull {
         internal Option<Preset<T>> Chosen(T value) => presets.Find(preset => preset.Value.Equals(value));

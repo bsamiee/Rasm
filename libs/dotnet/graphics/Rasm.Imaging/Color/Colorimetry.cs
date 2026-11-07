@@ -5,6 +5,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Color;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class StandardObserver {
     public static Seq<Illuminant> Illuminants { get; } = Named();
 

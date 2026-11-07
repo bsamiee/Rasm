@@ -11,8 +11,11 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class HatchPatterns {
+
     // --- [STANDARD]
+
     public static HatchPattern Hatching(LineGroup lines) {
         HatchPattern pattern = new() { FillType = HatchPatternFillType.Lines, PatternUnitSystem = UnitSystem.Millimeters };
         using HatchLine line = new() { Angle = lines.Hatching.Angle.Radians.ToDouble(), Offset = new Vector2d(0d, lines.Hatching.Spacing.Millimeters.ToDouble()) };
@@ -21,6 +24,7 @@ public static class HatchPatterns {
     }
 
     // --- [COMPARISON]
+
     public static IO<bool> Unchanged(HatchPattern live, HatchPattern staged) =>
         (from held in Products.Many(() => live.HatchLines, required: false)
          from wanted in Products.Many(() => staged.HatchLines, required: false)
@@ -32,12 +36,14 @@ public static class HatchPatterns {
                  && pair.First.GetDashes.SequenceEqual(pair.Second.GetDashes))).Bracket();
 
     // --- [PREVIEW]
+
     public static IO<Seq<(Vector2 From, Vector2 To)>> Preview(HatchPattern pattern, UnitsNet.Angle angle, Size pixels) =>
         IO.lift(() => toSeq(pattern.CreatePreviewGeometry(pixels.Width, pixels.Height, angle.Radians.ToDouble()))
             .Map(static line => (From: new Vector2((float)line.FromX, (float)-line.FromY), To: new Vector2((float)line.ToX, (float)-line.ToY)))
             .Strict());
 
     // --- [DEFAULTS]
+
     public static IO<int> FromDefaults(RhinoDoc doc, string name) =>
         Rows.Find(doc.HatchPatterns, name)
             .Map(static live => live.Index)
@@ -48,6 +54,7 @@ public static class HatchPatterns {
                  select index).Bracket());
 
     // --- [FILES]
+
     public static IO<Seq<HatchPattern>> ReadFile(InputPath path) =>
         Products.Many(() => HatchPattern.ReadFromFile(path, quiet: true));
 
@@ -58,6 +65,7 @@ public static class HatchPatterns {
         ReadFile(path).Bind(patterns => StyleTables.Reconcile(doc, new StyleSpec { HatchPatterns = patterns.Map(static pattern => (pattern.Name, (Func<HatchPattern>)(() => new HatchPattern(pattern)))) }, name, redraw)).Bracket();
 
     // --- [CURRENT]
+
     public static IO<Unit> SetCurrent(RhinoDoc doc, ComponentRef<HatchPattern> address) =>
         from live in Rows.Find(doc.HatchPatterns, address)
         from changed in unless(doc.HatchPatterns.CurrentHatchPatternIndex == live.Index, IO.lift(() => { doc.HatchPatterns.CurrentHatchPatternIndex = live.Index; })).As()

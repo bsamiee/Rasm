@@ -1,6 +1,7 @@
 namespace Rasm.UI.Layout;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 public abstract partial record Sizing {
     public Limits Limits { get; init; } = Limits.Open;

@@ -12,8 +12,11 @@ using Temperature = Wacton.Unicolour.Temperature;
 namespace Darkroom.Catalog;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public static class Kinds {
+
     // --- [ROWS]
+
     public static EffectRow<LutTable.Cdl> ColorDecisionList { get; } = new LutTable.Cdl(CdlStyle.FwdNoClamp, Vector3.One, Vector3.Zero, Vector3.One, 1f) switch {
         var neutral => new(neutral, (state, context) => state == neutral ? None
             : Some<PixelPass>(new PixelPass.Point(FormationTables.AgXLog.Around(new ColorEncoding(context.Working, context.Signal), state).Apply))) {
@@ -69,6 +72,7 @@ public static class Kinds {
     };
 
     // --- [REGISTRATION]
+
     internal static readonly EffectKind Lens = EffectKind.Of(new Guid(0x944522ca, 0xdde2, 0x4e3e, 0x81, 0xb0, 0x82, 0x56, 0x57, 0x28, 0x95, 0x1b), PostEffectType.Early, EffectRow.Of<LensProfile>());
 
     public static Seq<EffectKind> Ordered { get; } = [

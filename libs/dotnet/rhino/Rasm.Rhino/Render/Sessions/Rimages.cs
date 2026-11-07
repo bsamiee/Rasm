@@ -13,8 +13,11 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects, HashMap<Guid, HashMap<string, string>> State) {
+
     // --- [CONSTANTS]
+
     private const int Version = 2;
     private const string Start = "[RIMAGE-START]";
     private const string Body = "[RIMAGE-BODY]";
@@ -36,6 +39,7 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
     private const string Fields = "state";
 
     // --- [READS]
+
     public Seq<Guid> Running => Effects.Filter(static effect => effect.Runs).Map(static effect => effect.Id);
 
     public static IO<Rimage> Open(string fileName) =>

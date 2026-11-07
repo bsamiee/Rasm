@@ -10,6 +10,7 @@ using Wacton.Unicolour.Datasets;
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Token(Key Role, Channel Channel) {
     public static readonly Token Canvas = new(Roles.Window, Channel.Fill);
     public static readonly Token CanvasText = new(Roles.Window, Channel.Text);
@@ -110,7 +111,9 @@ internal sealed partial class Tone {
 
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class Theme {
+
     // --- [THEME]
+
     private static readonly HashMap<Token, Tone> Painted = toHashMap(Seq<(Tone Tone, Seq<Token> Tokens)>(
         (Tone.Ground, [Token.Canvas]),
         (Tone.Raised, Token.Field.Cons(Rows(Channel.Fill, [Roles.Card, Roles.Dialog, Roles.Sheet, Roles.Popover, Roles.Menu, Roles.Tooltip, Roles.Hud, Roles.Toggle]))),
@@ -187,6 +190,7 @@ public sealed partial class Theme {
               select new Token(role, channel) { Condition = condition, Interaction = interaction });
 
     // --- [DISABLED]
+
     internal float DisabledOpacity(SKColorSpace target) {
         Vector3 text = Offset(Chrome[Token.CanvasText], Chrome[Token.Canvas], target);
         float span = Vector3.Dot(text, text);
@@ -201,6 +205,7 @@ public sealed partial class Theme {
         };
 
     // --- [COLORS]
+
     private static readonly Func<(Unicolour Color, Configuration Gamut), SKColorF> Gamuted = memo<(Unicolour Color, Configuration Gamut), SKColorF>(static held => held.Color.Mapped(held.Gamut));
 
     internal Option<SKColorF> Color(ColorValue value, RoleStyle style, Option<DataSeries> series = default) =>
@@ -230,6 +235,7 @@ public sealed partial class Theme {
     private static SKColorF Faded(SKColorF color, Fraction alpha) => color.WithAlpha(color.Alpha * (float)alpha);
 
     // --- [STATE_LAYERS]
+
     internal Option<SKColorF> WithStateLayers(ColorValue value, RoleStyle style, HashMap<Interaction, float> layers,
         Func<StatePalette, Func<Seq<int>, SKColorF>> palettes, HashMap<Interaction, ColorValue> targets = default, Option<DataSeries> series = default) =>
         Color(value, style, series).Map(source => toSeq(Interaction.Items).Choose(interaction =>
@@ -244,6 +250,7 @@ public sealed partial class Theme {
         value is ColorValue.Current { Interaction.IsNone: true } current ? RoleColor(current, style, interaction).Map(color => Faded(color, current.Alpha)) : None;
 
     // --- [SERIES]
+
     private static readonly Seq<Unicolour> Categorical = Seq("#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#F0E442", "#999999").Map(static hex => new Unicolour(hex)).Strict();
 
     private Option<SKColorF> SeriesColor(DataSeries series, RoleStyle style) =>
@@ -256,6 +263,7 @@ public sealed partial class Theme {
         || Some(Gamuted((Categorical[(int)(series.Ordinal % (uint)Categorical.Count)], Configuration)));
 
     // --- [LEGIBILITY]
+
     private const double Accuracy = 1e-6;
 
     private static readonly Func<(SKColorF Color, SKColorF Ground, double Ratio, Configuration Gamut), SKColorF> Lifted =

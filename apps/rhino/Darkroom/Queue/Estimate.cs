@@ -9,6 +9,7 @@ using Rhino.Render;
 namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record FrameTiming(UInt128 Entry, SequenceNumber Frame, long Started, long Began, long Saved, long Written, long PeakWorkingSet) {
     public Duration Time(TimeProvider clock) => clock.GetElapsedTime(Started, Written).ToDuration();
 
@@ -27,7 +28,9 @@ public sealed partial class FrameStage {
 }
 
 public sealed record QueueEstimate(long Completed, long Total, Option<(Duration Remaining, Instant Finish)> Prediction) {
+
     // --- [ETA]
+
     public static QueueEstimate Running(RenderBatch batch, QueueProgress record, Instant now) => Of(batch, record, now, Mean);
 
     public static QueueEstimate Sampled(RenderBatch batch, QueueProgress record, Instant now) => Of(batch, record, now, static times => times.At(1) | times.Head);
@@ -51,6 +54,7 @@ public sealed record QueueEstimate(long Completed, long Total, Option<(Duration 
         times.IsEmpty ? None : Some(times.Fold(Duration.Zero, static (sum, time) => sum + time) / times.Count);
 
     // --- [MEMORY]
+
     public static Option<Seq<RenderWindow.StandardChannels>> Components(RenderChannels requested) =>
         (requested.Mode is RenderChannels.Modes.Custom ? toSeq(requested.CustomList) : Seq<Guid>())
             .Traverse(static id => RenderWindow.StandardChannelForGuid(id) switch {

@@ -1,6 +1,7 @@
 namespace Arches;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]

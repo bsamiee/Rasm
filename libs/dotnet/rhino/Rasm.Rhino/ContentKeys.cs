@@ -8,8 +8,11 @@ using CommunityToolkit.HighPerformance.Buffers;
 namespace Rasm.Rhino;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class ContentKeys {
+
     // --- [KEYS]
+
     public static UInt128 Of<TOwner>(Func<XxHash128, XxHash128> fields) =>
         fields(new XxHash128().Id(typeof(TOwner).GUID)).GetCurrentHashAsUInt128();
 
@@ -24,6 +27,7 @@ public static class ContentKeys {
     }
 
     // --- [FIELDS]
+
     extension(XxHash128 accumulator) {
         public XxHash128 Integer<T>(T value) where T : unmanaged, IBinaryInteger<T> {
             Span<byte> field = stackalloc byte[value.GetByteCount()];

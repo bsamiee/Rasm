@@ -4,8 +4,11 @@ using Rasm.Spatial;
 namespace Rasm.Rhino.Modeling;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Fields {
+
     // --- [LEAVES]
+
     public static Fin<ScalarField.Moved> Solid(Box box) =>
         RhinoFault.Unless(box.IsValid, RhinoReason.Invalid, box).Bind(_ =>
             ScalarField.Moved.Of(new ScalarField.Box(new(box.X.Min, box.Y.Min, box.Z.Min), new(box.X.Max, box.Y.Max, box.Z.Max)), Transform.PlaneToPlane(Plane.WorldXY, box.Plane).ToMatrix()));
@@ -34,6 +37,7 @@ public static class Fields {
         Proximity.Nearest(source, point, None).Match(Succ: found => found.Map(at => point.DistanceTo(at.Point)).IfNone(double.NaN), Fail: static _ => double.NaN);
 
     // --- [MESHING]
+
     public static IO<Mesh> Isosurface(ScalarField field, int resolution, int rootFindingSteps, Option<BoundingBox> box = default) =>
         from grid in IO.lift(() =>
             from found in Conversions.Required(box.Map(given => (Box: given, Resolution: resolution))

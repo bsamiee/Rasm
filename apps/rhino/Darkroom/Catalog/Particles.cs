@@ -14,6 +14,7 @@ using UnitsNet;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record PointCells(ShortSideLength Spacing, float Density, float Size, float Variation, float Spread, float Softness) {
     private const float Randomness = 0.5f;
     private const float Largest = (1f - Randomness) / 2f;

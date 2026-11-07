@@ -8,6 +8,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Tone;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class ToneCurve {
     public static Func<float, float> Sigmoid(float contrast, float skew, float black, Luminance peak) {
         const double gray = Metering.MiddleGray;

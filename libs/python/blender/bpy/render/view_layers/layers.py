@@ -158,6 +158,7 @@ class Clipboard(bpy.types.PropertyGroup):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [RESTRICTIONS]
 
 

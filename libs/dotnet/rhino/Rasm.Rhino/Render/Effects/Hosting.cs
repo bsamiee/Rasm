@@ -9,6 +9,7 @@ using Rhino.Render.PostEffects;
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record EffectFrame(Rectangle Rect, Rectangle Extent, bool Rendering, HashMap<RenderWindow.StandardChannels, ReadOnlyMemory2D<float>> Inputs, Memory2D<float> Rgba);
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -32,15 +33,19 @@ public sealed record EffectDefinition<TState>(TState Default, Func<TState, Effec
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public abstract class DefinedEffect<TSelf, TState> : PostEffect
     where TSelf : DefinedEffect<TSelf, TState>, IDefined<EffectDefinition<TState>> where TState : notnull {
+
     // --- [STATE]
+
     private readonly Atom<TState> held = Atom(TSelf.Definition.Default);
 
     protected DefinedEffect() =>
         _ = EffectList.Held(this, text => EffectList.Decoded<TState>(text).Exists(state => EqualityComparer<TState>.Default.Equals(state, held.Value)));
 
     // --- [EXECUTION]
+
     public sealed override Guid[] RequiredChannels => Channels.Required(TSelf.Definition.Channels(held.Value));
 
     public sealed override bool CanExecute(PostEffectPipeline pipeline) =>
@@ -50,6 +55,7 @@ public abstract class DefinedEffect<TSelf, TState> : PostEffect
         Session.Run(EffectJob.Run(this, pipeline, rect, held.Value, TSelf.Definition).Map(static _ => true), failed: false);
 
     // --- [PARAMETERS]
+
     public sealed override bool GetParam(string param, ref object v) {
         bool found = string.Equals(param, EffectList.StateKey, StringComparison.Ordinal);
         v = found ? EffectList.Encoded(held.Value) : v;
@@ -64,6 +70,7 @@ public abstract class DefinedEffect<TSelf, TState> : PostEffect
             failed: false);
 
     // --- [PERSISTENCE]
+
     public sealed override bool ReadState(PostEffectState state) =>
         Session.Run(
             Conversions.Present(state.TryGetValue(EffectList.StateKey, out string text), text)
@@ -82,6 +89,7 @@ public abstract class DefinedEffect<TSelf, TState> : PostEffect
         >> next.Bind(state => writeIO(held, state)).Bind(_ => IO.lift(Changed)).Finally(IO.lift(() => _ = EndChange()));
 
     // --- [UI]
+
     public sealed override void AddUISections(PostEffectUI ui) =>
         _ = Session.Run(Products.Each(TSelf.Definition.Sections.Map(build => IO.lift(() => ui.AddSection(new DefinedEffectSection<TState>(this, TSelf.Definition.Default, build))))));
 
@@ -89,6 +97,7 @@ public abstract class DefinedEffect<TSelf, TState> : PostEffect
         Session.Run(TSelf.Definition.Help.Map(static topic => topic.Show.Map(static _ => true)).IfNone(IO.pure(value: false)), failed: false);
 
     // --- [RELEASE]
+
     public sealed override void Dispose(bool bDisposing) {
         _ = EffectList.Released(this);
         base.Dispose(bDisposing);

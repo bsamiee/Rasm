@@ -4,6 +4,7 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record SceneBatch {
     public static SceneBatch Empty { get; } = new();
 

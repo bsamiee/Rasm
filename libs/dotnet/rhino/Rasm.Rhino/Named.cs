@@ -6,6 +6,7 @@ using Rasm.Rhino.Viewport;
 namespace Rasm.Rhino;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public static class NamedStates {
     public static Seq<NamedTable> Tables { get; } =
         [LayerStates.Table, NamedViews.Table, ConstructionPlanes.Table, NamedPositions.Table, Snapshots.Table, NamedSelections.Table, Markups.Table];

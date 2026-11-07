@@ -50,6 +50,7 @@ class ScopeForm(Protocol):
 SCOPE_COLLECTION: Final = bpy.props.StringProperty(name="Collection", description="Collection whose objects a collection scope reaches")
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
 # --- [CONDITIONS]
 
 
@@ -313,6 +314,7 @@ class Objects(Case, frozen=True, kw_only=True):
 SCOPES: Final = case_choices(Scope)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [CONDITIONS]
 
 

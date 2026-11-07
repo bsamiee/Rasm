@@ -1,6 +1,7 @@
 namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record SunCoverage(Seq<Point3d> Vertices, Seq<MeshFace> Faces) {
     public Mesh ToMesh() {
         Mesh mesh = new();
@@ -12,7 +13,9 @@ public sealed record SunCoverage(Seq<Point3d> Vertices, Seq<MeshFace> Faces) {
 }
 
 public sealed record SunPaths(Map<LocalTime, Seq<Seq<Point3d>>> Analemmas, SunCoverage Coverage) {
+
     // --- [PATHS]
+
     public static IO<SunPaths> Of(SunSite site, int year, Sphere dome) =>
         from valid in IO.lift(() => RhinoFault.Unless(dome.IsValid, RhinoReason.Invalid, dome))
         let days = toSeq(new DateInterval(new LocalDate(year, 1, 1), new LocalDate(year, 12, 31)))
@@ -31,6 +34,7 @@ public sealed record SunPaths(Map<LocalTime, Seq<Seq<Point3d>>> Analemmas, SunCo
             Covered(Band(sky, hours.Count, declinations.MaxBy(static day => day.Declination).Row, declinations.MinBy(static day => day.Declination).Row), dome));
 
     // --- [SKY]
+
     private static Vector3d Polar(SunSite site) =>
         (Math.SinCos(site.North.Radians.ToDouble()), Math.SinCos(site.Place.Latitude.Radians.ToDouble())) switch {
             var ((northSin, northCos), (latitudeSin, latitudeCos)) => new Vector3d(latitudeCos * northCos, latitudeCos * northSin, latitudeSin),

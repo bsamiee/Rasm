@@ -4,12 +4,16 @@ using Rhino.PlugIns;
 namespace Rasm.Rhino.PlugIns;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class PlugInRegistry {
+
     // --- [READS]
+
     public static IO<Seq<PlugInInfo>> InstalledPlugIns =>
         IO.lift(static () => toSeq(PlugIn.GetInstalledPlugIns().Keys).Strict()).Bind(static ids => ids.TraverseM(static id => Products.Of(() => PlugIn.GetPlugInInfo(id))).As());
 
     // --- [LOADS]
+
     public static IO<Guid> LoadPlugIn(InputPath path) =>
         IO.lift(Fin<Guid> () => PlugIn.LoadPlugIn(path, out Guid loaded) switch {
             LoadPlugInResult.Success or LoadPlugInResult.SuccessAlreadyLoaded => loaded,
@@ -28,6 +32,7 @@ public static class PlugInRegistry {
         select unit;
 
     // --- [PROTECTION]
+
     public static IO<Unit> SetLoadProtection(Guid id, bool loadSilently) =>
         from info in Products.Of(() => PlugIn.GetPlugInInfo(id))
         from current in IO.lift(() => {

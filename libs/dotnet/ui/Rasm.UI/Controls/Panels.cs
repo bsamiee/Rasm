@@ -11,6 +11,7 @@ using SuperLinq;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Panel(string Title, Seq<View> Body) {
     private static readonly Seq<Condition> Signals = [Condition.Faulted, Condition.Warning, Condition.Success];
 

@@ -8,6 +8,7 @@ using Rhino.UI.Gumball;
 namespace Rasm.Rhino.Objects;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 [SmartEnum<int>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class ObjectSelection {
     public static readonly ObjectSelection Unselected = new(0);
@@ -20,6 +21,7 @@ public sealed partial class ObjectSelection {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record TransformedObjects(Transform Transform, bool ObjectsWillBeCopied, Seq<Guid> ObjectIds, Seq<Guid> GripOwnerIds, int GripCount, Option<uint> Document) {
     public static TransformedObjects Of(RhinoTransformObjectsEventArgs args) =>
         (Conversions.Rows(args.Objects), Conversions.Rows(args.GripOwners)) switch {
@@ -34,8 +36,11 @@ public sealed record TransformedObjects(Transform Transform, bool ObjectsWillBeC
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class RhinoObjects {
+
     // --- [EVENTS]
+
     public static readonly DocumentEvent<TransformedObjects> Transformed = new(
         "RhinoDoc.BeforeTransformObjects | RhinoDoc.AfterTransformObjects",
         static deliver =>
@@ -54,6 +59,7 @@ public static class RhinoObjects {
         static args => args.Document);
 
     // --- [FACTS]
+
     extension(RhinoObject o) {
         public ObjectSelection Selection => ObjectSelection.Get(o.IsSelected(checkSubObjects: false));
 
@@ -79,6 +85,7 @@ public static class RhinoObjects {
              select described).Bracket();
 
         // --- [SUBOBJECTS]
+
         public IO<Unit> SelectSubObjects(Seq<ComponentIndex> components, ObjectSelection selection, bool syncHighlight) =>
             IO.lift(() => Products.Each(components, (component, index) => ObjectSelection.Get(o.SelectSubObject(component, selection.On, syncHighlight, selection.PersistentSelect)) switch {
                 var applied => RhinoFault.Unless(applied == selection, RhinoReason.Declined, applied, index),
@@ -88,6 +95,7 @@ public static class RhinoObjects {
             IO.lift(() => Products.Each(components, (component, index) => RhinoFault.Unless(o.HighlightSubObject(component, highlight) == highlight, RhinoReason.Declined, component, index))).Map(unit);
 
         // --- [CUTS]
+
         public IO<Seq<(GeometryBase Geometry, ObjectAttributes Attributes)>> Sections(Tolerances tolerances, Plane plane, string name, Option<double> thickness) =>
             from cut in Products.Of(() => thickness.Match(
                 Some: value => (o.CreateSlices(plane, name, value, tolerances.Absolute, out ObjectAttributes[] rows), rows),
@@ -100,10 +108,12 @@ public static class RhinoObjects {
     }
 
     // --- [INTERFERENCES]
+
     public static IO<Seq<MeshInterference>> Interferences(Seq<RhinoObject> setA, Seq<RhinoObject> setB, double distance, MeshType meshType, MeshingParameters parameters) =>
         IO.lift(() => toSeq(MeshClash.Search(setA, setB, distance, meshType, parameters)).Filter(static found => Conversions.Present(found.IndexA).IsSome).Strict());
 
     // --- [REPLACEMENT]
+
     public static Stage<T> Replacement<T>(RhinoDoc doc, Guid id, bool ignoreModes) where T : GeometryBase =>
         Stages.Geometry<T>() switch {
             var geometry => geometry with {

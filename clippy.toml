@@ -1,9 +1,11 @@
 # --- [CLIPPY] ---------------------------------------------------------------------------
 
 # --- [API]
+
 avoid-breaking-exported-api = false
 
 # --- [FORMS]
+
 warn-on-all-wildcard-imports                 = true
 matches-for-let-else                         = "AllTypes"
 max-struct-bools                             = 1
@@ -15,10 +17,12 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
+
 arithmetic-side-effects-allowed       = ["acadrust::Vector3", "centrality::Centrality", "f128", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Isometry", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Transform", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "twofloat::TwoFloat", "typst::layout::Axes", "uom::si::Quantity"]
 arithmetic-side-effects-allowed-unary = ["acadrust::Vector3", "kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
+
 upper-case-acronyms-aggressive = true
 allowed-idents-below-min-chars = ["A", "C", "b", "g", "r", "w", "x", "y", "z"]
 enum-variant-name-threshold    = 2
@@ -27,6 +31,7 @@ allow-renamed-params-for       = []
 pub-underscore-fields-behavior = "AllPubFields"
 
 # --- [GRAPH]
+
 allowed-duplicate-crates = [
     "syn",                   # 1 under `derive_builder` 0.11 and `darling` 0.14 of newest `clarabel` 0.11.1, under `nuts-derive` of newest `nuts-rs` 0.19.1, and under `derive-new` 0.5 and `prost-derive` 0.11 of `tract-onnx` 0.22.5 that the `pdf_oxide` 0.3.78 `ocr-tract` feature takes, and under `derivative` 2.2 and `packed_struct_codegen` 0.10 of newest `office-crypto` 0.4.0, 2 under proc macros not on `syn` 3 (`asn1-rs-derive`, `attribute-derive`, `attribute-derive-macro`, `bitcode_derive`, `comemo-macros`, `der_derive`, `derive_more-impl`, `enum_dispatch`, `get-size-derive2`, `jiff-static`, `manyhow`, `nalgebra-macros`, `palette_derive`, `phf_macros`, `prost-derive`, `quote-use-macros`, `strum_macros`, `tracing-attributes`, `typst-macros`, `zerocopy-derive`)
     "strsim",                # 0.10 under `darling_core` 0.14 beside 0.11 under `darling_core` 0.24 and `clap_builder`
@@ -110,6 +115,7 @@ allowed-duplicate-crates = [
 ]
 
 # --- [BANS]
+
 disallowed-methods          = [
     { path = "std::time::SystemTime::now", replacement = "jiff::Timestamp::now", reason = "`jiff` owns wall-clock time" },
     { path = "std::time::SystemTime::elapsed", replacement = "jiff::Timestamp::duration_since", reason = "`jiff` owns wall-clock time" },

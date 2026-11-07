@@ -1,18 +1,21 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 # --- [IDENTITY]
+
 [package]
 name              = "lints"
 edition.workspace = true
 publish.workspace = true
 
 # --- [RUST_ANALYZER]
+
 [package.metadata.rust-analyzer]
 rustc_private = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
 # --- [LIB]
+
 [lib]
 path       = "lib.rs"
 test       = false
@@ -21,6 +24,7 @@ bench      = false
 crate-type = ["cdylib"]
 
 # --- [EXAMPLE]
+
 [[example]]
 name = "assertions_outside_tests"
 path = "../../tests/rust/tools/dylint/assertions_outside_tests.rs"
@@ -66,6 +70,7 @@ name       = "untyped_error_exported"
 crate-type = ["lib"]
 
 # --- [TEST]
+
 [[test]]
 name = "lints"
 path = "../../tests/rust/tools/dylint/expansions.rs"
@@ -78,6 +83,7 @@ path = "../../tests/rust/tools/dylint/main.rs"
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
+
 [dependencies]
 clippy_utils   = { workspace = true }
 dunce          = { workspace = true }
@@ -87,6 +93,7 @@ itertools      = { workspace = true }
 strum          = { workspace = true }
 
 # --- [TESTING]
+
 [dev-dependencies]
 derive_more                        = { workspace = true }
 dylint-non-exhaustive              = { path = "examples/non_exhaustive" }

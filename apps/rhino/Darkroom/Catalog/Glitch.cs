@@ -12,6 +12,7 @@ using UnitsNet;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record PixelSort(SortMetric Key, float Low, float High, SortDirection Direction) : IPixelStage<PixelSort> {
     public static PixelSort Default { get; } = new(SortMetric.Luma, 0f, 0.3f, SortDirection.Right);
 

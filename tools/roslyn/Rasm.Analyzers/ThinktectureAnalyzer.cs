@@ -9,9 +9,12 @@ using Microsoft.CodeAnalysis.Operations;
 namespace Rasm.Analyzers;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ThinktectureAnalyzer : RasmAnalyzer {
+
     // --- [RULES]
+
     private const string Category = "Thinktecture";
 
     private const string Hook = "ValidateFactoryArguments";
@@ -75,6 +78,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     }
 
     // --- [CATCH_ALLS]
+
     private static void CatchAlls(CompilationStartAnalysisContext context, ImmutableArray<INamedTypeSymbol> marks, INamedTypeSymbol adHoc, INamedTypeSymbol keyed) {
         ConcurrentDictionary<ITypeSymbol, AttributeData?> attributes = new(SymbolEqualityComparer.Default);
         AttributeData? Mark(ITypeSymbol type) => attributes.GetOrAdd(type, held => held.GetAttributes().FirstOrDefault(data => marks.Any(mark => Derives(data.AttributeClass, mark))));
@@ -115,6 +119,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     }
 
     // --- [VALIDATIONS]
+
     private static void Validations(CompilationStartAnalysisContext context, INamedTypeSymbol factory, INamedTypeSymbol invalid, ISymbol validate, INamedTypeSymbol? items) {
         IEnumerable<INamedTypeSymbol> Factories(INamedTypeSymbol owner) =>
             Faces(owner, factory).Where(face => Same(face.TypeArguments[0], owner) && Same(face.TypeArguments[2], invalid));
@@ -139,6 +144,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     }
 
     // --- [CONVERSIONS]
+
     private static void Conversions(CompilationStartAnalysisContext context, INamedTypeSymbol error, ISymbol message) =>
         Report<IPropertyReferenceOperation>(context, [OperationKind.PropertyReference], (reference, _) =>
             reference is { Instance: not null } && Same(reference.Property, message)
@@ -147,6 +153,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
                 : []);
 
     // --- [CREATIONS]
+
     private static void Creations(CompilationStartAnalysisContext context, string validator, ImmutableArray<INamedTypeSymbol> validated, ImmutableArray<INamedTypeSymbol> enums) {
         bool Validating(INamedTypeSymbol owner) =>
             Marked(owner, validated) is not null
@@ -172,6 +179,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     }
 
     // --- [ENUMERATIONS]
+
     private static void Enumerations(CompilationStartAnalysisContext context, INamedTypeSymbol plain, INamedTypeSymbol keyed) {
         ConcurrentDictionary<INamedTypeSymbol, (bool Plain, bool Items)> free = new(SymbolEqualityComparer.Default);
         ConcurrentDictionary<INamedTypeSymbol, byte> read = new(SymbolEqualityComparer.Default);
@@ -232,6 +240,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     }
 
     // --- [PICKERS]
+
     private static void Pickers(CompilationStartAnalysisContext context, INamedTypeSymbol union, LanguageExtSymbols languageExt) {
         Compilation compilation = context.Compilation;
         ImmutableArray<IMethodSymbol> lifts = [.. languageExt.Lifts, .. languageExt.Uses];
@@ -278,6 +287,7 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     }
 
     // --- [KEYS]
+
     private static string Key(AttributeData mark) {
         bool Selected(string option, string member) => mark.NamedArguments.FirstOrDefault(named => string.Equals(named.Key, option, StringComparison.Ordinal)).Value is { Type: INamedTypeSymbol type, Value: { } value }
             && type.GetMembers(member).OfType<IFieldSymbol>().Any(field => Equals(field.ConstantValue, value));

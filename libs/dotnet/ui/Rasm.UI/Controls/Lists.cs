@@ -12,6 +12,7 @@ using SuperLinq;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Row<TItem>(TItem Item, Key Key, int Depth, Option<bool> Open) where TItem : notnull {
     public Seq<View> Lead(Option<IO<Unit>> toggle) => LanguageExt.Seq.repeat(Disclosure.Chevron(None, None), Depth).Add(Disclosure.Chevron(Open, toggle));
 

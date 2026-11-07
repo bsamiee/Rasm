@@ -12,6 +12,7 @@ using static Rhino.Render.RenderWindow;
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RenderStart {
     private RenderStart(bool fastPreview) => FastPreview = fastPreview;
@@ -24,6 +25,7 @@ public abstract partial record RenderStart {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class ExecutionControl(Func<Guid, IO<bool>> ready) : PostEffectExecutionControl {
     public override bool ReadyToExecutePostEffect(Guid pep_id) => Session.Run(ready(pep_id), failed: false);
 }
@@ -141,6 +143,7 @@ internal sealed class BatchPipeline : RenderPipeline {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Batches {
     public static IO<Result> Render(RhinoDoc doc, RunMode mode, RenderEngine engine, RenderStart start) =>
         (from pipeline in Products.Transfer(static () => new AsyncContext(), context => use(() => new BatchPipeline(doc, mode, engine, start, context)))

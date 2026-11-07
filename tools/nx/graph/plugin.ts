@@ -10,6 +10,7 @@ import { JsonListRecord, openWorkspace, runPlugin, type Workspace } from '#/tool
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [COMPONENTS]
+
 const dependedProjects = (dependsOn: TargetConfiguration['dependsOn'] = []) => dependsOn.filter((step) => typeof step !== 'string').flatMap((step) => Array.ensure(step.projects ?? []));
 const located = (inferred: CreateNodesResultArray) => inferred.flatMap(([file, { projects = {} }]) => Record.collect(projects, (at, project) => ({ file, at, project })));
 const components = Effect.fnUntraced(function* (workspace: Workspace, projects: ReturnType<typeof located>) {
@@ -42,6 +43,7 @@ const components = Effect.fnUntraced(function* (workspace: Workspace, projects: 
 });
 
 // --- [DEPENDENCIES]
+
 const importTarget = ({ projects, externalNodes = {} }: CreateDependenciesContext, specifier: string) => {
     const name = packageName(specifier);
     return Option.firstSomeOf([Option.as(Record.get(externalNodes, `npm:${name}`), `npm:${name}`), Option.as(Record.get(projects, name), name)]);

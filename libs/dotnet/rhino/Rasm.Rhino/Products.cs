@@ -6,6 +6,7 @@ using Rhino.Runtime;
 namespace Rasm.Rhino;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class Owned<T> {
     internal Owned(T value, EnvIO scope, Resources owner) => (Value, Scope, this.owner) = (value, scope, owner);
 
@@ -19,8 +20,11 @@ public sealed class Owned<T> {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Products {
+
     // --- [PRODUCTS]
+
     public static IO<T> Of<T>(Func<T?> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
         Maybe(call, member).Bind(found => IO.lift(found.ToFin(new RhinoFault(member, RhinoReason.Missing))));
 
@@ -64,6 +68,7 @@ public static class Products {
         });
 
     // --- [CALLBACKS]
+
     public static IO<T> Captured<T>(Func<Action<Fin<T>>, IO<Unit>> host, [CallerArgumentExpression(nameof(host))] string call = "") =>
         from answer in atomIO(Option<Fin<T>>.None)
         from hosted in host(value => answer.Swap(_ => Some(value)))
@@ -74,6 +79,7 @@ public static class Products {
         Captured<T>(answer => IO.lift(() => host(args => answer(Session.RunSafe(body(args), CancellationToken.None)))), call);
 
     // --- [TRAVERSALS]
+
     public static Fin<Seq<T>> Each<TItem, T>(Seq<TItem> items, Func<TItem, int, Fin<T>> element) =>
         items.Map(element).Strict().Traverse(static answer => answer).As();
 
@@ -82,6 +88,7 @@ public static class Products {
             .Bind(static outcome => outcome.Fails.IsEmpty ? IO.pure(outcome.Succs) : IO.fail<Seq<T>>(Error.Many(outcome.Fails)));
 
     // --- [RELEASES]
+
     public static IO<Unit> Released(Action release) => use(static () => new object(), _ => IO.lift(release)).Map(unit);
 
     public static IO<Unit> Released(IO<Unit> release) => use(static () => new object(), _ => release).Map(unit);
@@ -93,6 +100,7 @@ public static class Products {
         IO.lift(read).Bind(prior => Released(() => write(prior)) >> IO.lift(() => write(change(prior))));
 
     // --- [OWNERSHIP]
+
     public static IO<T> Acquired<T>(IO<T> acquire) where T : IDisposable => Acquired(acquire, static held => IO.lift(held.Dispose));
 
     public static IO<T> Acquired<T>(IO<T> acquire, Func<T, IO<Unit>> release) =>

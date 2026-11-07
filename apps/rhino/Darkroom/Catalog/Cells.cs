@@ -10,6 +10,7 @@ using Wacton.Unicolour;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class Separation {
     public static readonly Separation Mono = new("mono", static (rgb, luminance) => new Vector4(Vector3.Zero, 1f - float.Clamp(Vector3.Dot(luminance, rgb), 0f, 1f)));

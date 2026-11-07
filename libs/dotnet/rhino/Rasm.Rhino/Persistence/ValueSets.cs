@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record EntryKey(string Owner, Seq<string> Path) {
     private const char Separator = '.';
 
@@ -117,6 +118,7 @@ public sealed record ValueDiff(HashMap<EntryKey, Change<string>> Changes) {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed record ValueBinding(
     string Owner, HashMap<Seq<string>, string> Defaults, IO<HashMap<Seq<string>, string>> Capture, Func<HashMap<Seq<string>, string>, IO<IO<ValueDiff>>> Prepare) {
     public Seq<Seq<string>> Paths() => toSeq(Defaults.Keys);
@@ -167,6 +169,7 @@ public sealed record BindingGroup(Seq<ValueBinding> Bindings) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public sealed class ValueSetConverter : JsonConverter<ValueSet> {
     public override ValueSet Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
         new(toHashMap(

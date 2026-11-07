@@ -6,6 +6,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Tone;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed partial record ViewTransform {
     private const int Hues = 360;
     private const int SearchIterations = 100;

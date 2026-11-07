@@ -9,8 +9,11 @@ using Grasshopper2.UI.Flex;
 namespace Rasm.Grasshopper.UI;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Chrome {
+
     // --- [COMMANDS]
+
     public static Command Run(Nomen face, Func<Canvas, IO<Unit>> run, Keys shortcut = Keys.None, Predicate<Canvas>? enabled = null) =>
         fun((Canvas canvas) => canvas is not null && (enabled?.Invoke(canvas) ?? true)) switch {
             var ready => new Command {
@@ -66,6 +69,7 @@ public static class Chrome {
         });
 
     // --- [MENUS]
+
     public static IO<Unit> Menu(Seq<Command> commands) =>
         unless(commands.IsEmpty, Hooks.Editor(editor =>
             from host in IO.lift(() => (EditorMainMenu)editor.Menu)

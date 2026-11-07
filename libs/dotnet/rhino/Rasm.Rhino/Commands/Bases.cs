@@ -10,8 +10,11 @@ using UUIDNext;
 namespace Rasm.Rhino.Commands;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class CommandBody<TInput>(CommandDefinition<TInput> definition) where TInput : CommandInput, ICommandInput<TInput> {
+
     // --- [IDENTITY]
+
     private readonly PlugIn host = Session.PlugIn;
 
     public CommandDefinition<TInput> Definition => definition;
@@ -21,12 +24,14 @@ internal sealed class CommandBody<TInput>(CommandDefinition<TInput> definition) 
     public string LocalName => Localization.LocalizeCommandName(definition.EnglishName, host);
 
     // --- [HELP]
+
     public string HelpUrl => Conversions.Unset(Optional(PlugIn.GetPlugInInfo(host.Id)).Bind(static info => Conversions.Present(info.WebSite)));
 
     public void Help() =>
         _ = Session.Run(definition.Help.Match(Some: static topic => topic.Show, None: () => IO.lift(() => ignore(host.DisplayHelp(windowHandle: 0)))), member: definition.EnglishName);
 
     // --- [EXECUTION]
+
     public Result Run(IO<Unit> body) => Session.Run(Results.Of(body), Result.Failure, member: definition.EnglishName);
 
     public bool Replay(ReplayHistoryData data, Func<ReplayHistoryData, bool> inherited) =>
@@ -39,6 +44,7 @@ internal sealed class CommandBody<TInput>(CommandDefinition<TInput> definition) 
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public abstract class RunHost : Command {
     private readonly CommandBody<CommandInput.Run> body;
 

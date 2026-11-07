@@ -6,6 +6,7 @@ using Rhino.Commands;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class SetOperation {
     public static readonly SetOperation Union = new(static (first, second, options) =>
@@ -26,8 +27,11 @@ public sealed record Split<T>(Seq<T> Pieces, Seq<T> Cutters) where T : GeometryB
 public sealed record Grouped<T, TFrom>(T Value, Seq<TFrom> From);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Booleans {
+
     // --- [SOLIDS]
+
     public static IO<Seq<Grouped<Brep, int>>> Solid(Tolerances tolerances, Boolean<Brep> operation, bool manifoldOnly) =>
         operation.Operation.Switch(
             (Operation: operation, Tolerance: tolerances.Absolute, ManifoldOnly: manifoldOnly),
@@ -61,6 +65,7 @@ public static class Booleans {
         Products.Many(() => Brep.CreateBooleanSplit(split.Pieces, split.Cutters, tolerances.Absolute), required: false);
 
     // --- [MESHES]
+
     public static IO<(Seq<Grouped<Mesh, int>> Groups, MeshBooleanOptions Report)> Meshes(Tolerances tolerances, Boolean<Mesh> operation, Func<MeshBooleanOptions> options) =>
         from report in Running(tolerances, options)
         from groups in Checked(() => operation.Operation.Meshed(operation.First, operation.Second, report))
@@ -84,6 +89,7 @@ public static class Booleans {
         select groups;
 
     // --- [CURVES]
+
     public static IO<Seq<Grouped<Curve, int>>> Curves(Tolerances tolerances, Boolean<Curve> operation) =>
         operation.Operation.Switch(
             (Operation: operation, tolerances.Absolute),
@@ -103,6 +109,7 @@ public static class Booleans {
         select shapes.Map((shape, index) => new Grouped<Seq<Curve>, int>(shape, toSeq(owners[index]))).Strict();
 
     // --- [PROVENANCE]
+
     public static IO<Seq<Grouped<T, int>>> Keyed<T>(Func<(T[]? Rows, int[]? Key)> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : GeometryBase =>
         from answered in Products.Many(() => call(), required: false, member)
         from key in IO.lift(Conversions.Required(answered.Out, call: member))
@@ -115,6 +122,7 @@ public static class Booleans {
         select answered.Values.Zip(toSeq(map), static (row, inputs) => new Grouped<T, int>(row, toSeq(inputs))).Strict();
 
     // --- [OPERANDS]
+
     private static IO<Seq<Grouped<T, int>>> PerFirst<T>(Seq<T> first, Func<T, IO<Seq<T>>> step) =>
         Products.Each(first.Map((operand, index) => step(operand).Map(pieces => pieces.Map(piece => new Grouped<T, int>(piece, [index])))))
             .Map(static groups => groups.Bind(static group => group));

@@ -5,6 +5,7 @@ using Grasshopper2.Data.Rules;
 namespace Rasm.Grasshopper.Data;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Metadata {
     extension(MetaName name) {
         public Option<T> Read<T>(MetaData meta) =>

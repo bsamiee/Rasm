@@ -7,8 +7,11 @@ using Rasm.Rhino.Modeling.Curves;
 namespace Rasm.Rhino.Modeling;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Points {
+
     // --- [CLOUDS]
+
     public static IO<(PointCloud Above, PointCloud Below)> Split(PointCloud cloud, Plane plane) =>
         from split in IO.lift(() => (Accepted: cloud.Split(plane, out PointCloud? above, out PointCloud? below), Above: above, Below: below))
         from above in Products.Of(() => split.Above)
@@ -17,6 +20,7 @@ public static class Points {
         select (above, below);
 
     // --- [NORMALS]
+
     public static IO<PointCloud> Normals(PointCloud cloud, int neighbours) =>
         from estimated in IO.lift(() => Estimated(cloud, neighbours))
         from copy in Products.Copied(cloud)
@@ -47,6 +51,7 @@ public static class Points {
     }
 
     // --- [TANGENCY]
+
     public static Fin<Circle> TangentCircle(Curve first, CurveAddress nearFirst, Curve second, CurveAddress nearSecond) =>
         from circle in (CurveEvaluation.Resolve(first, nearFirst), CurveEvaluation.Resolve(second, nearSecond)).Apply((t1, t2) => Circle.TryFitCircleTT(first, second, t1, t2)).As()
         from valid in RhinoFault.Unless(circle.IsValid, RhinoReason.Declined, circle)

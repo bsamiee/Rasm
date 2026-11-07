@@ -9,6 +9,7 @@ using Rhino.Render;
 namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record RenderRegion(double Left, double Top, double Right, double Bottom) {
     public static RenderRegion Of(Rectangle area, Size extent) =>
         new((double)area.Left / extent.Width, (double)area.Top / extent.Height, (double)area.Right / extent.Width, (double)area.Bottom / extent.Height);

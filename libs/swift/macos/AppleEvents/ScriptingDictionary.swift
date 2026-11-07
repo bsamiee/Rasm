@@ -178,6 +178,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
 
 extension ScriptingDictionary {
     // --- [DEFINITIONS]
+
     public static func definition(of application: URL) throws(AppleEventFailure) -> Data {
         var definition: Unmanaged<CFData>?
         let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(application as CFURL, 0, &definition)
@@ -188,6 +189,7 @@ extension ScriptingDictionary {
     }
 
     // --- [COMMANDS]
+
     public func command(_ query: String, taking arguments: Set<String>) throws(Unmatched) -> Command {
         let code: UInt64? = UInt64(sdef: query)
         let matching: (Command) -> Bool = { command in command.name == query || command.code == code }
@@ -208,6 +210,7 @@ extension ScriptingDictionary {
     }
 
     // --- [EVENTS]
+
     public func event(
         _ command: Command,
         arguments: [String: AppleEventValue],
@@ -259,6 +262,7 @@ extension ScriptingDictionary {
     }
 
     // --- [TERMS]
+
     static func resolve(_ name: String, in scopes: [Scope]) -> Result<Term, AggregateError<AppleEventFailure>> {
         let named: [Term] = scopes.lazy.compactMap { scope in scope.named[name] }.first ?? []
         let codes: [FourCharCode] = named.isEmpty ? [FourCharCode(sdef: name)].compactMap(\.self) : OrderedSet(named.map(\.code)).elements
@@ -293,6 +297,7 @@ extension ScriptingDictionary {
 
 extension FixedWidthInteger where Self: UnsignedInteger {
     // --- [CODES]
+
     public init?(sdef text: String) {
         switch (text.wholeMatch(of: /0x(.+)/).flatMap { match in [UInt8](hexEncoded: match.1) }, text.data(using: .macOSRoman).map { data in [UInt8](data) }) {
             case (.some(let bytes), _) where bytes.count == Self.bitWidth / 8, (_, .some(let bytes)) where bytes.count == Self.bitWidth / 8:

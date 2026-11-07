@@ -10,6 +10,7 @@ using Rhino.PlugIns;
 namespace Arches;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public sealed class ArchesPlugIn : DefinedPlugIn<ArchesPlugIn>, IDefined<PlugInDefinition>, IRuiSource {
     public static PlugInDefinition Definition { get; } = new() {
         LoadTime = PlugInLoadTime.AtStartup,

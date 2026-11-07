@@ -15,13 +15,17 @@ using Rhino.UI.Forms;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record PageTarget(string EnglishTitle, PageDialog Dialog) {
     public static PageTarget Of(View.Page row) => new(row.Caption, row.Kind);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Showing {
+
     // --- [WINDOWS]
+
     public static IO<Form> Show(View.Window row, RhinoDoc doc) =>
         IO.lift(() => toSeq(EtoExtensions.WindowsFromDocument<HostedWindow>(doc)).Find(open => open.Row.Identity == row.Identity)).Bind(open => open.Match(
             Some: static found => IO.lift(found.BringToFront).Map(_ => (Form)found),
@@ -47,6 +51,7 @@ public static class Showing {
         select unit;
 
     // --- [DIALOGS]
+
     public static IO<Suppressible<Unit>> ShowSemiModal(View.Dialog row, RhinoDoc doc) =>
         row.Suppression.Match(
             Some: setting => HostDialogs.Suppressing(setting, box => Presented(row, doc, Some(box))),
@@ -86,6 +91,7 @@ public static class Showing {
          select (Value: unit, Suppress: box.Exists(static held => held.Checked is true))).Bracket();
 
     // --- [PAGES]
+
     public static IO<Option<Window>> WindowForPage(OptionsDialogPage page) =>
         IO.lift(() => (PageDialog.TryGet(page.OptionsPageType, out PageDialog? dialog) ? Optional(dialog) : None).Bind(held => Optional(held.WindowForPage(page))));
 
@@ -95,6 +101,7 @@ public static class Showing {
         select opened;
 
     // --- [SCRIPTS]
+
     internal static IO<Unit> RunScript(View view, RowScope scope, RhinoDoc doc) =>
         from groups in Products.Each(ViewCatalog.Tree(view).Map(held => ViewOps.Bindings(held, scope)))
         let bindings = new BindingGroup(groups.Bind(static bound => bound.Bindings))
@@ -121,6 +128,7 @@ public static class Showing {
         select unit;
 
     // --- [PICKS]
+
     public static IO<T> PushPickButton<T>(Window window, IO<T> pick) => Picked(window.PushPickButton, pick);
 
     public static IO<T> PushPickButton<T>(Panel panel, IO<T> pick) => Picked(panel.PushPickButton, pick);

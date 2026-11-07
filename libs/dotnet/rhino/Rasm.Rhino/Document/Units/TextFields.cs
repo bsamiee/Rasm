@@ -7,6 +7,7 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.Document.Units;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record FieldRun {
     public sealed record Literal(string Text) : FieldRun;
@@ -15,8 +16,11 @@ public abstract partial record FieldRun {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class FieldFormulas {
+
     // --- [RUNS]
+
     public static FieldRun Field(string function, params Seq<Option<string>> arguments) => new FieldRun.Evaluator(function, arguments);
 
     public static Option<FieldRun> Title(TitleField field, Option<Sheet> sheet) =>
@@ -28,6 +32,7 @@ public static class FieldFormulas {
             sheetFact: static (state, fact) => state.Sheet.Map<FieldRun>(page => fact.Read(page)));
 
     // --- [RENDERING]
+
     public static string Text(Seq<FieldRun> runs) =>
         string.Concat(runs.Map(static run => run.Switch(
             literal: static literal => literal.Text.Replace("%", $"%<{Quoted("%")}>%", StringComparison.Ordinal),
@@ -39,6 +44,7 @@ public static class FieldFormulas {
         """;
 
     // --- [EVALUATION]
+
     public static IO<string> Format(RhinoDoc doc, string text, Option<RhinoObject> obj = default, Option<RhinoObject> topParent = default, Option<InstanceObject> immediateParent = default) =>
         Products.Accepted(() => (TextFields.TryFormat(text, doc, obj.ValueUnsafe(), topParent.ValueUnsafe(), immediateParent.ValueUnsafe(), out string result), result));
 

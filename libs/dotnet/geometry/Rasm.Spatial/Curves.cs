@@ -4,6 +4,7 @@ using MathNet.Numerics;
 namespace Rasm.Spatial;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class ParameterSpan {
     public double Start { get; }
