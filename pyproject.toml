@@ -1,25 +1,50 @@
-# --- [PROJECT] --------------------------------------------------------------------------
-
-[project]
-name        = "rasm"
-version     = "0.0.0"
-description = "Repository Python environment and checker policy"
-
-dependencies = ["blender", "typography; python_version >= '3.15'", "foundry; python_version >= '3.15'"]
-
 # --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
 
 [dependency-groups]
-workspace   = [
-    # --- [CORE]
+dev                   = [
+    # --- [CHECKERS]
 
+    "fawltydeps",                                                                 # Native AST import-to-requirement checker for modern packages
+    "pydantic",                                                                   # `pydantic.mypy` plugin the root mypy configuration loads
+    "ruff",                                                                       # Linter and formatter rasm:check runs
+    "ty",                                                                         # Type checker rasm:check runs
+    "yamllint",                                                                   # YAML linter rasm:check runs
+
+    # --- [SCRIPTS]
+
+    "anyio",                                                                      # Worker processes and `git` runs of the prose checker
+    "cyclopts",                                                                   # CLI parser from typed signatures
+    "editorconfig",                                                               # EditorConfig property resolution per file path
+    "markdown-it-py",                                                             # CommonMark tokens with source line ranges and GFM tables
+    "mdit-py-plugins",                                                            # Front-matter and extension rules for markdown-it-py
+    "msgspec",                                                                    # Records of prose edits and source lines
+    "pygments",                                                                   # Lexer aliases and filename patterns
+    "regex",                                                                      # DEFINE groups and Unicode property classes `re` lacks
+    "wcwidth",                                                                    # Display width of text with wide, combining, and emoji characters
+
+    # --- [STUBS]
+
+    "brotli-stubs",
+    "pandas-stubs",
+    "scipy-stubs",
+    "types-geopandas",
+    "types-lxml",
+    "types-openpyxl",
+    "types-protobuf",
+    "types-psutil",
+    "types-pygments",
+    "types-pyphen",
+    "types-regex",
+    "types-reportlab",
+    "types-shapely",
+]
+core                  = [
     "beartype",                                                                   # Runtime type checks over annotations
     "pydantic-settings",                                                          # Settings models read from environment and files
     "pyobjc-framework-Cocoa; sys_platform == 'darwin'",                           # AppKit, Foundation, and CoreFoundation for apps and main run loop
     "xxhash",                                                                     # Content identity hashes matching C# System.IO.Hashing
-
-    # --- [SECURITY]
-
+]
+security              = [
     "azure-identity",                                                             # DefaultAzureCredential chain for Azure Key Vault secrets
     "azure-keyvault-secrets",                                                     # Azure Key Vault secret store
     "cryptography",                                                               # AES-GCM envelopes and key wrap for per-subject crypto-shredding
@@ -27,9 +52,8 @@ workspace   = [
     "google-crc32c",                                                              # CRC32C integrity check for Google Cloud secret payloads
     "hvac",                                                                       # HashiCorp Vault secret store
     "keyring",                                                                    # OS keychain credential store
-
-    # --- [OBSERVABILITY]
-
+]
+observability         = [
     "opentelemetry-api",                                                          # Trace, metric, and context API
     "opentelemetry-exporter-otlp-proto-grpc",                                     # OTLP gRPC exporter beside proto-http default
     "opentelemetry-exporter-otlp-proto-http",                                     # OTLP HTTP exporter, default transport
@@ -48,9 +72,8 @@ workspace   = [
     "opentelemetry-semantic-conventions",                                         # Schema URL for telemetry
     "pyroscope-io",                                                               # Profiling agent feeding pyroscope-otel span-link exporter
     "pyroscope-otel",                                                             # Continuous-profiling span links beside OTLP exporters
-
-    # --- [EXECUTION]
-
+]
+execution             = [
     "apscheduler",                                                                # Cron, interval, and date triggers
     "cloudpickle",                                                                # Kernel and closure transfer to processes and subinterpreters
     "loky",                                                                       # Reusable process pool with worker restart
@@ -58,16 +81,14 @@ workspace   = [
     "tblib",                                                                      # Picklable tracebacks for worker exceptions across processes
     "wasmtime",                                                                   # In-process WASM guest sandbox for workers
     "watchfiles",                                                                 # File-change watching over Rust notify backend
-
-    # --- [PARSING]
-
+]
+parsing               = [
     "jinja2",                                                                     # Report templating for visual and document outputs
     "lark",                                                                       # Parser generator for CESQL filter, IDS, and selector grammars
     "lxml",                                                                       # XML processing
     "ruamel-yaml",                                                                # Round-trip YAML with comments and layout kept
-
-    # --- [DATA_EXCHANGE]
-
+]
+data-exchange         = [
     "asyncssh",                                                                   # SSH and SFTP client for remote workers
     "brotli",                                                                     # Brotli compression
     "cloudevents",                                                                # CloudEvents attribute validation and protocol bindings
@@ -95,9 +116,8 @@ workspace   = [
     "universal-pathlib",                                                          # UPath storage_options and protocol resolution over fsspec registry
     "zlib-ng",                                                                    # Accelerated zlib and gzip compression
     "zstandard",                                                                  # Zstandard compression
-
-    # --- [MATHEMATICS]
-
+]
+mathematics           = [
     "array-api-compat",                                                           # Array API standard namespaces over each array library
     "array-api-extra",                                                            # Supplemental array API functions
     "clarabel",                                                                   # Clarabel conic solver, a cvxpy backend
@@ -118,14 +138,12 @@ workspace   = [
     "pywavelets",                                                                 # Discrete and continuous wavelet transforms
     "quadax",                                                                     # JAX adaptive quadrature
     "scikit-fem",                                                                 # FEM assembly
-    "scipy",                                                                      # Root finding, quadrature, splines, sparse operators, and signal filters
     "scs",                                                                        # SCS operator-splitting conic solver, a cvxpy backend
     "sectionproperties",                                                          # Cross-section property solver
     "sympy>=1.14.0",                                                              # Symbolic expressions beside python-flint and mpmath ground domains, uv takes 1.14.0rc1 or 1.12 for a newer mpmath, both lacking the `mpmath<1.4` bound their `mpmath.libmp.bitcount` import needs
     "uncertainties",                                                              # First-order error propagation with correlated values
-
-    # --- [STATISTICS]
-
+]
+statistics            = [
     "arviz",                                                                      # Bayesian diagnostics
     "blackjax",                                                                   # JAX NUTS/HMC samplers
     "numpyro",                                                                    # JAX NUTS sampler
@@ -136,9 +154,8 @@ workspace   = [
     "salib",                                                                      # Global sensitivity analysis
     "scikit-learn",                                                               # Classical ML and ONNX export
     "skl2onnx",                                                                   # sklearn-to-ONNX converter
-
-    # --- [ANALYTICS]
-
+]
+analytics             = [
     "cubed",                                                                      # Bounded-memory distributed arrays
     "daft",                                                                       # Distributed and streaming out-of-core query engine
     "dask",                                                                       # Out-of-core arrays and dataframes
@@ -154,9 +171,8 @@ workspace   = [
     "polars",                                                                     # Dataframe engine
     "sqlglot",                                                                    # SQL parser, transpiler, optimizer, and lineage engine
     "substrait[extensions]",                                                      # Typed Substrait plan IR with extension registry and validator
-
-    # --- [DATA_STORAGE]
-
+]
+data-storage          = [
     "adbc-driver-flightsql",                                                      # Arrow Flight SQL remote driver
     "adbc-driver-manager",                                                        # ADBC driver manager for Arrow Flight SQL and DuckDB
     "adbc-driver-postgresql",                                                     # PostgreSQL driver for COPY ingest and partitioned Arrow reads
@@ -170,9 +186,8 @@ workspace   = [
     "pyarrow",                                                                    # Arrow C++ bridge
     "pyiceberg",                                                                  # Apache Iceberg tables
     "pylance",                                                                    # Lance columnar/vector format
-
-    # --- [ARRAYS]
-
+]
+arrays                = [
     "awkward",                                                                    # Ragged arrays
     "flox",                                                                       # Vectorized and parallel grouped reductions for xarray
     "h5netcdf",                                                                   # Pure-h5py netCDF-4 engine
@@ -183,9 +198,8 @@ workspace   = [
     "virtualizarr",                                                               # Virtual Zarr aggregation over archival references
     "xarray",                                                                     # Labeled field datasets and DataTree arrays
     "zarr",                                                                       # Chunked n-D arrays
-
-    # --- [GEOSPATIAL]
-
+]
+geospatial            = [
     "geoarrow-pyarrow",                                                           # GeoArrow extension types for pyarrow and geopandas
     "geoarrow-rust-compute",                                                      # GeoRust operations on GeoArrow memory
     "geoarrow-rust-core",                                                         # GeoArrow geometry array memory model under GeoRust compute kernels
@@ -207,9 +221,8 @@ workspace   = [
     "rioxarray",                                                                  # rasterio accessor for CF DataArray and COG raster writes
     "stac-geoparquet",                                                            # STAC item GeoParquet table interchange
     "xvec",                                                                       # Vector data cubes with geometry-indexed xarray dimensions
-
-    # --- [GEOMETRY]
-
+]
+geometry              = [
     "compas",                                                                     # COMPAS geometry, data, and datastructure core
     "compas_dr",                                                                  # COMPAS dynamic relaxation form finding
     "compas_tna",                                                                 # COMPAS thrust network analysis
@@ -218,9 +231,8 @@ workspace   = [
     "rtree",                                                                      # R-tree spatial index over libspatialindex
     "small-gicp",                                                                 # Point-cloud registration
     "trimesh",                                                                    # Triangle mesh loading, repair, and queries
-
-    # --- [ENERGY_SIMULATION]
-
+]
+energy-simulation     = [
     "dragonfly-core",                                                             # Dragonfly district and urban model object graph
     "dragonfly-energy",                                                           # Dragonfly energy model aggregation and translation
     "honeybee-core",                                                              # HBJSON base object model and validation companion
@@ -235,9 +247,8 @@ workspace   = [
     "pollination-handlers",                                                       # Pollination job handler and recipe execution adapters
     "pvlib",                                                                      # Solar position and irradiance calculations
     "queenbee",                                                                   # Recipe and workflow schema contract models
-
-    # --- [LIFE_CYCLE_ASSESSMENT]
-
+]
+life-cycle-assessment = [
     "bw-processing",                                                              # Brightway matrix data preparation
     "bw2analyzer",                                                                # Brightway contribution and comparison analysis after calculation
     "bw2calc",                                                                    # Brightway LCA calculation engine
@@ -246,16 +257,14 @@ workspace   = [
     "epdx; sys_platform != 'linux' or platform_machine != 'aarch64'",             # EPD interchange, no release publishes a linux aarch64 wheel
     "olca-ipc",                                                                   # openLCA IPC client for foreground and background LCA interchange
     "openepd",                                                                    # OpenEPD declarations and PCR material-impact data
-
-    # --- [VISUALIZATION]
-
+]
+visualization         = [
     "altair",                                                                     # Declarative Vega-Lite charts
     "great-tables",                                                               # Display tables for documents
     "vegafusion",                                                                 # Server-side Vega transform and pre-transform export
     "vl-convert-python",                                                          # Vega and Vega-Lite rendering to SVG, PNG, and PDF
-
-    # --- [DOCUMENTS]
-
+]
+documents             = [
     "docxtpl",                                                                    # Template-driven docx authoring
     "jupytext",                                                                   # Notebook round-trip text source
     "msoffcrypto-tool",                                                           # ECMA-376 Office decrypt and encrypt
@@ -280,9 +289,8 @@ workspace   = [
     "typst",                                                                      # Typst PDF typesetting
     "weasyprint",                                                                 # HTML and CSS to PDF
     "xlsxwriter",                                                                 # Streaming write-only xlsx
-
-    # --- [MEDIA]
-
+]
+media                 = [
     "av",                                                                         # PyAV video and audio mux and encode
     "colour-cxf",                                                                 # CxF3 spot and spectral color exchange
     "openexr",                                                                    # Named-channel, multipart, and tiled EXR read and write
@@ -293,27 +301,18 @@ workspace   = [
     "pyvips[binary]",                                                             # Fused decode, downscale, ICC, and smartcrop over libvips
     "rawpy",                                                                      # Camera RAW decode over LibRaw
     "simpleidml",                                                                 # IDML package mutation and composition
-
-    # --- [TYPOGRAPHY]
-
+]
+typography            = [
     "blackrenderer",                                                              # COLRv1 color-glyph SVG rasterization
     "fontbakery",                                                                 # Font QA profiles over built binaries
     "opentype-feature-freezer",                                                   # Freeze OpenType features into default glyph set
-    "opentype-sanitizer",                                                         # OTS sanitizer browsers run on web fonts
     "PyICU",                                                                      # ICU line breaking, bidi, and collation, built on Pixi's ICU
     "pyphen",                                                                     # Language-aware hyphenation dictionaries
     "python-bidi",                                                                # UAX 9 bidi reorder pass before HarfBuzz shaping
-    "skia-pathops",                                                               # Skia path boolean, simplify, and stroke operations
-    "ttfautohint-py",                                                             # TrueType auto-hinting over the bundled ttfautohint library
-    "ufo2ft",                                                                     # UFO source to OpenType binary compiler
-    "ufoLib2",                                                                    # UFO font source object model
-    "uharfbuzz",                                                                  # HarfBuzz text-shaping bindings
     "uniseg",                                                                     # Unicode line, word, and grapheme segmentation
     "vharfbuzz",                                                                  # HarfBuzz shaping QA and buffer-diff
-    "youseedee",                                                                  # Unicode Character Database rows, joining type and joining group among them
-
-    # --- [DIAGRAMS]
-
+]
+diagrams              = [
     "drawpyo",                                                                    # draw.io export
     "drawsvg",                                                                    # Hierarchical named-layer SVG authoring
     "ezdxf",                                                                      # DXF read, write, and render
@@ -330,9 +329,8 @@ workspace   = [
     "svgelements",                                                                # SVG geometry, transform, and parse helpers
     "ziafont",                                                                    # Text to SVG glyph paths
     "ziamath",                                                                    # Math-to-SVG rendering
-
-    # --- [IDENTIFICATION]
-
+]
+identification        = [
     "c2pa-python",                                                                # Cross-format C2PA content credentials
     "puremagic",                                                                  # Pure-Python format sniffer, default detection beside libmagic
     "pyexiftool",                                                                 # Descriptive metadata read and write over exiftool binary
@@ -341,89 +339,11 @@ workspace   = [
     "segno",                                                                      # QR and Micro-QR vector codes
     "zxing-cpp",                                                                  # 2D matrix code encode and decode
 ]
-host-checks = [
-    "fake-bpy-module-latest",                                                     # Stubs for bpy, bmesh, mathutils, and gpu
-    "scipy-stubs",
-    "types-networkx",
-    "types-opencolorio",                                                          # Stubs for PyOpenColorIO
-]
-test        = [
-    "anyio",                                                                      # Structured concurrency over asyncio and trio, a required pytest plugin
-    "coverage",                                                                   # Coverage engine pytest-cov drives
-    "fastapi",                                                                    # Native field declarations in typed checker integration tests
-    "hypothesis",                                                                 # Property-based tests, a required pytest plugin
-    "msgspec[toml]",                                                              # Struct types and JSON, MessagePack, and TOML test codecs
-    "pytest",                                                                     # Test collection, assertions, and fixtures
-    "pytest-cov",                                                                 # Coverage collection, a required pytest plugin
-    "pytest-randomly",                                                            # Random test order and seeds, a required pytest plugin
-    "pytest-reportlog",                                                           # JSON Lines test reports
-    "pytest-socket",                                                              # Block unrequested network connections
-    "pytest-timeout",                                                             # Per-test deadline
-    "pytest-xdist",                                                               # Parallel test workers, a required pytest plugin
-    "sysexits",                                                                   # Portable process exit codes
-    "trio",                                                                       # AnyIO Trio backend and virtual-time clocks
-]
-dev         = [
-    { include-group = "test" },
-    { include-group = "host-checks" },
-
-    # --- [CHECKERS]
-
-    "fawltydeps",                                                                 # Native AST import-to-requirement checker for modern packages
-    "mypy",                                                                       # Type checker rasm:check runs
-    "refurb",                                                                     # Modernization checker over a mypy build rasm:check runs
-    "ruff",                                                                       # Linter, formatter, and import graph source of Nx Python project edges
-    "ty",                                                                         # Type checker rasm:check runs
-    "yamllint",                                                                   # YAML linter rasm:check runs
-
-    # --- [SCRIPTS]
-
-    "asttokens",                                                                  # Source token ranges over `ast` nodes for in-place rewrites
-    "coloraide",                                                                  # Color parsing, conversion, and sRGB gamut fitting
-    "cyclopts",                                                                   # CLI parser from typed signatures
-    "editorconfig",                                                               # EditorConfig property resolution per file path
-    "expression",                                                                 # Result and Option types, collections, and catch over raising calls
-    "fonttools",                                                                  # Font tables, subsetting, instancing, and pens
-    "httpx2",                                                                     # Sync and async HTTP client
-    "markdown-it-py",                                                             # CommonMark tokens with source line ranges and GFM tables
-    "mcp",                                                                        # MCP client over Streamable HTTP
-    "mdit-py-plugins",                                                            # Front-matter and extension rules for markdown-it-py
-    "numpy",                                                                      # N-dimensional arrays and vectorized math
-    "packaging",                                                                  # Python requirement, marker, and `pylock.toml` parsing
-    "pathvalidate",
-    "picosvg",                                                                    # SVG geometry normalization and path operations                                                               # Native filename validation before resetting a Blender run folder
-    "pooch",                                                                      # Pinned downloads checked by hash into a content cache
-    "psutil",                                                                     # Process and host resource readings
-    "pydantic",                                                                   # Validated models at protocol boundaries
-    "pygments",                                                                   # Lexer aliases and filename patterns
-    "regex",                                                                      # DEFINE groups and Unicode property classes `re` lacks
-    "shapely",                                                                    # Planar operations
-    "structlog",                                                                  # Structured logging through typed bound loggers and log capture
-    "tomlkit",                                                                    # Round-trip TOML with comments and layout kept
-    "wcwidth",                                                                    # Display width of text with wide, combining, and emoji characters
-
-    # --- [STUBS]
-
-    "brotli-stubs",
-    "pandas-stubs",
-    "types-geopandas",
-    "types-lxml",
-    "types-openpyxl",
-    "types-protobuf",
-    "types-psutil",
-    "types-pygments",
-    "types-pyphen",
-    "types-regex",
-    "types-reportlab",
-    "types-shapely",
-]
 
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-default-groups           = ["workspace", "dev"]
-python-preference        = "only-system"
-python-downloads         = "never"
+default-groups           = "all"
 environments             = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
@@ -432,43 +352,19 @@ environments             = [
 ]
 prerelease               = "allow"
 override-dependencies    = ["cachebox>=6", "pyarrow>=26"]        # CPython 3.15 wheels start above DeepDiff and Daft bounds
-constraint-dependencies  = [
-    "attrs==25.3.0; python_version == '3.13'",
-    "autopep8==2.3.1; python_version == '3.13'",
-    "cattrs==25.1.1; python_version == '3.13'",
-    "certifi==2025.4.26; python_version == '3.13'",
-    "charset-normalizer==3.4.1; python_version == '3.13'",
-    "Cython==3.0.11; python_version == '3.13'",
-    "docutils==0.22.4; python_version == '3.13'",
-    "idna==3.10; python_version == '3.13'",
-    "numpy==2.3.4; python_version == '3.13'",
-    "opencolorio==2.5.0; python_version == '3.13'",
-    "openimageio==3.1.16.0; python_version == '3.13'",
-    "packaging==25.0; python_version == '3.13'",
-    "pip==26.0.1; python_version == '3.13'",
-    "pycodestyle==2.13.0; python_version == '3.13'",
-    "pyproject-metadata==0.9.1; python_version == '3.13'",
-    "requests==2.32.3; python_version == '3.13'",
-    "setuptools==80.9.0; python_version == '3.13'",
-    "tomli_w==1.2.0; python_version == '3.13'",
-    "typing_extensions==4.14.1; python_version == '3.13'",
-    "urllib3==2.4.0; python_version == '3.13'",
-    "zstandard==0.25.0; python_version == '3.13'",
-]                                                                # Versions the installed Blender bundles, `python -m eng.python.blender upgrade` their one writer
 no-build-package         = ["epdx"]                              # `epdx` sdist lacks `project.version`
 extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
 [tool.uv.workspace]
-members = ["libs/python/blender", "apps/blender/*"]
+members = ["libs/python/*/*", "eng/python", "tools/refurb", "tests/python/support", "tests/python/libs/*/*", "tests/python/tools/*"]
+exclude = ["libs/python/blender/*", "tests/python/libs/blender/*"]
 
 [tool.uv.sources]
-blender    = { workspace = true }
-typography = { path = "libs/python/typography", editable = true }
-foundry    = { path = "tools/foundry", editable = true }
-
-[tool.uv.dependency-groups]
-dev       = { requires-python = ">=3.15" }
-workspace = { requires-python = ">=3.15" }
+rasm-eng        = { workspace = true }
+rasm-records    = { workspace = true }
+rasm-refurb     = { workspace = true }
+rasm-testing    = { workspace = true }
+rasm-typography = { workspace = true }
 
 [tool.uv.config-settings-package.manifold3d]
 "cmake.define.MANIFOLD_USE_BUILTIN_TBB" = "ON"
@@ -521,7 +417,7 @@ cache-dir      = ".cache/ruff"
 preview        = true
 target-version = "py315"
 line-length    = 200
-src            = [".", "libs/python"]
+src            = ["libs/python/*/*", "eng/python", "tools/refurb", "tests/python/support"]
 format         = { exclude = ["*.md"], line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
@@ -544,8 +440,6 @@ ignore                    = [
     "typing-only-third-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
     "typing-only-standard-library-import",                                                                                                                                                                           # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
     "suspicious-subprocess-import",                                                                                                                                                                                  # Reports every `subprocess` import, process boundaries call it
-    "implicit-namespace-package",                                                                                                                                                                                    # Packages outside extension roots hold no `__init__.py`
-    "non-empty-init-module",                                                                                                                                                                                         # Package entry points own registration and exports
     "missing-copyright-notice",                                                                                                                                                                                      # Files hold no license header
     "commented-out-code",                                                                                                                                                                                            # Reads `# --- [<LABEL>]` section and subsection dividers as code
     "float-equality-comparison",                                                                                                                                                                                     # Authored controls compare against exact identity values (`0.0`, `1.0`)
@@ -592,8 +486,7 @@ pydoclint                 = { ignore-one-line-docstrings = true }
 pylint                    = { allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_json_schema__", "__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }           # Protocol properties type module attributes, which ty matches to a property alone
 
 [tool.ruff.lint.per-file-ignores]
-"apps/blender/**" = ["relative-imports"] # Blender loads an extension as `bl_ext.<repository>.<id>`, its own modules import each other relatively
-"tests/**"        = ["assert"]
+"tests/**" = ["assert"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-lazy             = ["abc", "os", "sys"] # Interpreter startup loads them before any module runs
@@ -700,18 +593,16 @@ require-lazy         = [
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
-environment = { python-platform = "all", root = [".", "libs/python"] }
+environment = { python-platform = "all" }
 rules       = { all = "error" }
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
 [tool.mypy]
 files                   = [".", ".claude"]
-mypy_path               = ["libs/python"]
 cache_dir               = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
 strict                  = true
 warn_unreachable        = true
-explicit_package_bases  = true
 exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
@@ -724,77 +615,76 @@ overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sys
 [tool.refurb]
 enable_all = true
 quiet      = true
-load       = ["tools.refurb"]
 disable    = [
-    "FURB100",                # Arbitrary slices of `str(path)` need not remove its suffix, `Path.with_suffix` changes the result
-    "FURB101",                # Ruff runs FURB101
-    "FURB103",                # Ruff runs FURB103
-    "FURB104",                # Ruff PTH109 reports the form
-    "FURB105",                # Ruff runs FURB105
-    "FURB106",                # `expandtabs` differs from its replacement unless tabs lead the string
-    "FURB107",                # Rewrites to `contextlib.suppress` `banned-api` rejects, Ruff SIM105 and S110 report swallowed exceptions
-    "FURB108",                # Ruff PLR1714 reports the form
-    "FURB109",                # Rewrites to a tuple membership Ruff PLR6201 rejects
-    "FURB110",                # Ruff runs FURB110
-    "FURB111",                # Ruff PLW0108 reports the form
-    "FURB112",                # Ruff C408 reports the form
-    "FURB113",                # Named receiver types do not prove exact builtin list mutation
-    "FURB114",                # Ruff SIM208 reports the form
-    "FURB116",                # Ruff runs FURB116
-    "FURB117",                # Ruff PTH123 reports the form
-    "FURB118",                # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
-    "FURB119",                # Ruff RUF010 reports the form
-    "FURB120",                # Crashes on argument lists the mypy cache drops (`'FuncItem' arguments undefined`), RASM102 reports same-module restated defaults
-    "FURB121",                # Ruff SIM101 reports the form
-    "FURB124",                # Chained `x is y is z` compares outer operands mypy comparison-overlap rejects when types differ
-    "FURB125",                # Ruff PLR1711 reports the form
-    "FURB126",                # Dropping a trailing `case _` arm fails mypy exhaustive-match
-    "FURB128",                # Ruff PLR1712 reports the form
-    "FURB130",                # Ruff SIM118 reports the form
-    "FURB132",                # Named receiver types do not prove exact builtin mutation, hashing, or equality
-    "FURB134",                # Ruff UP033 reports the form
-    "FURB135",                # Ruff PERF102 reports the form
-    "FURB136",                # Ruff runs FURB136
-    "FURB137",                # Ruff C400, C401, C409, and C419 report the form
-    "FURB138",                # Ruff PERF401 reports the form
-    "FURB140",                # Starmap suggestion ignores comprehension `if` filters, Ruff's FURB140 checks them
-    "FURB141",                # Ruff PTH110 reports the form
-    "FURB142",                # Named receiver types do not prove exact builtin set mutation
-    "FURB144",                # Ruff PTH107 and PTH108 report the form
-    "FURB146",                # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
-    "FURB147",                # Ruff PTH118 reports the form, FURB147 rejects `posixpath.join` on archive and URL paths
-    "FURB150",                # Ruff PTH102 and PTH103 report the form
-    "FURB151",                # `Path.touch` keeps an existing file's content, the replaced `open` truncates it
-    "FURB152",                # Ruff runs FURB152
-    "FURB153",                # Ruff PTH201 reports the form
-    "FURB154",                # Ruff runs FURB154
-    "FURB155",                # Ruff PTH116 and PTH202 through PTH205 report the form
-    "FURB156",                # Ruff runs FURB156
-    "FURB157",                # Ruff runs FURB157
-    "FURB160",                # Ruff PLW0127 reports the form
-    "FURB161",                # Ruff runs FURB161
-    "FURB162",                # Ruff runs FURB162
-    "FURB163",                # Ruff runs FURB163
-    "FURB164",                # Ruff runs FURB164
-    "FURB166",                # Ruff runs FURB166
-    "FURB167",                # Ruff runs FURB167
-    "FURB168",                # Ruff runs FURB168
-    "FURB169",                # Ruff runs FURB169
-    "FURB171",                # Ruff runs FURB171
-    "FURB172",                # `Path.suffix` differs from `endswith` for multi-part extensions and dotfiles
-    "FURB173",                # Merged literal `{...} | d` infers its own value type, mypy rejects it at target parameter type
-    "FURB176",                # Ruff DTZ003 and DTZ004 report the form
-    "FURB177",                # Ruff runs FURB177
-    "FURB179",                # `chain.from_iterable` rewrite joins heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` and `no-chain-flattening` report hand flattening
-    "FURB180",                # Ruff runs FURB180
-    "FURB183",                # `str(value)` calls `__str__`, formatting calls `__format__`
-    "FURB184",                # Matches names with no type or binding check, chaining drops annotations and reused bindings
-    "FURB186",                # In-place sorting changes list identity and aliases, functional code retains `sorted`
-    "FURB187",                # In-place reversal changes list identity and aliases, Ruff's reverse-copy rule preserves a copied result
-    "FURB188",                # Ruff runs FURB188
-    "FURB189",                # Ruff runs FURB189
-    "FURB190",                # Unbound `str` methods lose receiver overrides and reject bytes accepted by an untyped lambda
-    "FURB192",                # Ruff runs FURB192
+    "FURB100",    # Arbitrary slices of `str(path)` need not remove its suffix, `Path.with_suffix` changes the result
+    "FURB101",    # Ruff runs FURB101
+    "FURB103",    # Ruff runs FURB103
+    "FURB104",    # Ruff PTH109 reports the form
+    "FURB105",    # Ruff runs FURB105
+    "FURB106",    # `expandtabs` differs from its replacement unless tabs lead the string
+    "FURB107",    # Rewrites to `contextlib.suppress` `banned-api` rejects, Ruff SIM105 and S110 report swallowed exceptions
+    "FURB108",    # Ruff PLR1714 reports the form
+    "FURB109",    # Rewrites to a tuple membership Ruff PLR6201 rejects
+    "FURB110",    # Ruff runs FURB110
+    "FURB111",    # Ruff PLW0108 reports the form
+    "FURB112",    # Ruff C408 reports the form
+    "FURB113",    # Named receiver types do not prove exact builtin list mutation
+    "FURB114",    # Ruff SIM208 reports the form
+    "FURB116",    # Ruff runs FURB116
+    "FURB117",    # Ruff PTH123 reports the form
+    "FURB118",    # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
+    "FURB119",    # Ruff RUF010 reports the form
+    "FURB120",    # Crashes on argument lists the mypy cache drops (`'FuncItem' arguments undefined`), RASM102 reports same-module restated defaults
+    "FURB121",    # Ruff SIM101 reports the form
+    "FURB124",    # Chained `x is y is z` compares outer operands mypy comparison-overlap rejects when types differ
+    "FURB125",    # Ruff PLR1711 reports the form
+    "FURB126",    # Dropping a trailing `case _` arm fails mypy exhaustive-match
+    "FURB128",    # Ruff PLR1712 reports the form
+    "FURB130",    # Ruff SIM118 reports the form
+    "FURB132",    # Named receiver types do not prove exact builtin mutation, hashing, or equality
+    "FURB134",    # Ruff UP033 reports the form
+    "FURB135",    # Ruff PERF102 reports the form
+    "FURB136",    # Ruff runs FURB136
+    "FURB137",    # Ruff C400, C401, C409, and C419 report the form
+    "FURB138",    # Ruff PERF401 reports the form
+    "FURB140",    # Starmap suggestion ignores comprehension `if` filters, Ruff's FURB140 checks them
+    "FURB141",    # Ruff PTH110 reports the form
+    "FURB142",    # Named receiver types do not prove exact builtin set mutation
+    "FURB144",    # Ruff PTH107 and PTH108 report the form
+    "FURB146",    # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
+    "FURB147",    # Ruff PTH118 reports the form, FURB147 rejects `posixpath.join` on archive and URL paths
+    "FURB150",    # Ruff PTH102 and PTH103 report the form
+    "FURB151",    # `Path.touch` keeps an existing file's content, the replaced `open` truncates it
+    "FURB152",    # Ruff runs FURB152
+    "FURB153",    # Ruff PTH201 reports the form
+    "FURB154",    # Ruff runs FURB154
+    "FURB155",    # Ruff PTH116 and PTH202 through PTH205 report the form
+    "FURB156",    # Ruff runs FURB156
+    "FURB157",    # Ruff runs FURB157
+    "FURB160",    # Ruff PLW0127 reports the form
+    "FURB161",    # Ruff runs FURB161
+    "FURB162",    # Ruff runs FURB162
+    "FURB163",    # Ruff runs FURB163
+    "FURB164",    # Ruff runs FURB164
+    "FURB166",    # Ruff runs FURB166
+    "FURB167",    # Ruff runs FURB167
+    "FURB168",    # Ruff runs FURB168
+    "FURB169",    # Ruff runs FURB169
+    "FURB171",    # Ruff runs FURB171
+    "FURB172",    # `Path.suffix` differs from `endswith` for multi-part extensions and dotfiles
+    "FURB173",    # Merged literal `{...} | d` infers its own value type, mypy rejects it at target parameter type
+    "FURB176",    # Ruff DTZ003 and DTZ004 report the form
+    "FURB177",    # Ruff runs FURB177
+    "FURB179",    # `chain.from_iterable` rewrite joins heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` and `no-chain-flattening` report hand flattening
+    "FURB180",    # Ruff runs FURB180
+    "FURB183",    # `str(value)` calls `__str__`, formatting calls `__format__`
+    "FURB184",    # Matches names with no type or binding check, chaining drops annotations and reused bindings
+    "FURB186",    # In-place sorting changes list identity and aliases, functional code retains `sorted`
+    "FURB187",    # In-place reversal changes list identity and aliases, Ruff's reverse-copy rule preserves a copied result
+    "FURB188",    # Ruff runs FURB188
+    "FURB189",    # Ruff runs FURB189
+    "FURB190",    # Unbound `str` methods lose receiver overrides and reject bytes accepted by an untyped lambda
+    "FURB192",    # Ruff runs FURB192
 ]
 
 # --- [PYTEST] ---------------------------------------------------------------------------
@@ -803,8 +693,6 @@ disable    = [
 strict                   = true
 cache_dir                = ".cache/pytest"
 testpaths                = ["tests/python"]
-pythonpath               = ["."]
-python_files             = ["test_*.py", "*_test.py"]
 collect_imported_tests   = false
 empty_parameter_set_mark = "fail_at_collect"
 addopts                  = [
@@ -815,30 +703,31 @@ addopts                  = [
     "-x",
     "--tb=short",
     "--import-mode=importlib",
+    "-m",
+    "not integration",
     "--disable-socket",
     "--allow-unix-socket",
 ]
 filterwarnings           = ["error"]
 timeout                  = "30"
 required_plugins         = [
-    "anyio",
+    "rasm-testing",
     "hypothesis",
     "pytest-cov",
     "pytest-randomly",
     "pytest-reportlog",
     "pytest-socket",
     "pytest-timeout",
-    "pytest-xdist",
 ]
 markers                  = [
-    "network: tests that need real INET sockets (loopback servers or outbound connections)",
+    "integration: needs a host, service, or network resource outside the process",
 ]
 
 # --- [COVERAGE] -------------------------------------------------------------------------
 
 [tool.coverage]
-run    = { branch = true, relative_files = true, data_file = ".artifacts/python/coverage/data/.coverage", source = ["libs/python"] }
-report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\(", "if __name__ == .__main__.:"] }
+run    = { branch = true, relative_files = true, data_file = ".artifacts/python/coverage/data/.coverage" }
+report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\("] }
 
 # --- [TOMBI] ----------------------------------------------------------------------------
 
@@ -850,9 +739,6 @@ indent-width                    = 4
 key-value-equals-sign-alignment = true
 trailing-comment-alignment      = true
 trailing-comment-space-width    = 1
-
-[tool.tombi.lint.rules]
-key-empty = "off" # Hatch states a root path prefix as the empty `sources` key alone
 
 [tool.tombi.extensions."tombi-toml/cargo".lsp.inlay-hint.default-features]
 enabled = false

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Checks and fixes Markdown and source comments."""
 
 from functools import cache, partial, reduce

@@ -7,7 +7,7 @@ description: "Use when writing or reviewing Python that runs inside Blender, cov
 
 Covers what Blender requires of `bpy` code. Use `python-coding` for Python design.
 
-Code runs on Blender's bundled Python 3.13 and takes no 3.14 or 3.15 form: imports stay eager, frozen mappings are `types.MappingProxyType`, `TypeForm` imports from `typing_extensions`, annotations read through `inspect.get_annotations(owner, eval_str=True)`, and text another program parses escapes each value at its format site (`shlex.join`) in place of a t-string.
+Code runs on Blender's bundled Python 3.13 and takes no 3.14 or 3.15 form: imports stay eager, frozen mappings are `types.MappingProxyType`, `TypeForm` imports from `typing_extensions`, annotations read through `inspect.get_annotations(owner, eval_str=True)`, and text another program parses escapes each value at its format site (`shlex.join`) in place of a t-string. A package entry that also runs on 3.15 names its private modules in `__lazy_modules__`, which 3.13 ignores.
 
 [PRINCIPLES]:
 - Kinds, keys, and states are Blender's own values (`rna_enums` literals, `<Class>.bl_idname`)

@@ -14,9 +14,9 @@ uv resolves projects, workspace members, and dependency groups through native me
 ## [02]-[DEPENDENCIES]
 
 - `[project] dependencies` holds runtime requirements, dependency groups hold development requirements outside published metadata
-- `[tool.uv.sources]` selects workspace members or independent path projects
-- Referenced virtual projects declare `tool.uv.package=false`, installed path projects declare `[build-system]`
-- Dependency groups can narrow interpreter ranges separately from project requirements
+- Root domain groups hold chosen packages no project imports yet, a project importing one declares it and its root row goes
+- `[tool.uv.sources]` selects workspace members, `{ workspace = "<path>" }` a member of another root
+- Projects uv never builds declare no `[build-system]`
 - Published packages declare every directly imported dependency, type-only imports included
 - Version bounds express package metadata gaps or native library compatibility
 - Environment markers select platform and interpreter requirements
@@ -25,7 +25,7 @@ uv resolves projects, workspace members, and dependency groups through native me
 
 ## [03]-[LOCK]
 
-- Workspace members share `uv.lock`, independent path sources participate in each requesting project's lock
+- Workspace members share their root's `uv.lock`, a project outside every workspace locks its own
 - PEP 723 scripts use independent resolution
 - Backend settings, extra build requirements, and package build variables select cached wheel variants
 - Inherited process variables and linked library contents alone do not invalidate cached wheels
@@ -36,7 +36,7 @@ uv resolves projects, workspace members, and dependency groups through native me
 - Keep versioned soname series in Pixi requirements; use `*` for libraries opened by name or linked without a version
 - `LDFLAGS` supplies C and C++ link paths, `LIBRARY_PATH` also reaches Rust links that record no `LC_RPATH`
 - Keep uv's cache outside the checkout, where Cargo can build Rust distributions outside the root workspace
-- Host checks restore `host-checks` on the embedded interpreter version
+- Checks of an embedded-interpreter root read that root's own synced environment
 - `exclude-dependencies` selects one provider when distributions compete for one installed module
 
 ## [04]-[ENVIRONMENT]
@@ -63,11 +63,11 @@ uv resolves projects, workspace members, and dependency groups through native me
 - `mypy` narrows a union holding a large `Literal` in time squared in its members, a `lambda` in `.map` with no expected type solves once per member
 - Refurb reads source arguments and default files through mypy's option parser
 - `[tool.refurb] enable_all` enables checks added by installed releases
-- `[tool.refurb] load` imports configured modules and package descendants, entry modules guard execution
+- Refurb imports every module of each `refurb.plugins` entry-point package, so plugin modules hold no import-time effect
 - Check modules expose one `Error...` subclass and one `check`, support modules hold shared analysis
 - Dependency checks use importing projects' manifests and resolved environments to classify declared, development, and transitive requirements
 - Host-provided modules and deliberately unimported distributions take narrowly scoped dependency-checker exceptions
-- Build graphs join native project ownership with static runtime and type-only imports
+- Build graph edges come from declared requirement names, undeclared imports are dependency-check findings
 
 ## [06]-[HOST_PACKAGING]
 

@@ -1,0 +1,13 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-refurb-tests"
+version         = "0.0.0"
+requires-python = ">=3.15"
+
+dependencies = ["fastapi", "hypothesis", "msgspec[toml]", "mypy", "pytest", "rasm-refurb", "rasm-testing", "refurb", "structlog"]
+
+# --- [FAWLTYDEPS] -----------------------------------------------------------------------
+
+[tool.fawltydeps]
+ignore_unused = ["fastapi", "pytest", "rasm-testing", "refurb"] # Driver sample sources import FastAPI, pytest loads `rasm-testing` by entry point, and isort reads this folder's name as a first-party `refurb`

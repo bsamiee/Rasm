@@ -19,9 +19,9 @@ pub(crate) struct Suite {
 pub(crate) async fn test(Suite { script, arguments }: Suite, run: &Run) -> io::Result<()> {
     let active = run.directory().join("active-case");
     let profile = run.directory().file_name().ok_or_else(|| io::Error::other("Run directory has no name"))?;
-    let mut command = Command::new("python");
+    let mut command = Command::new("rasm-eng");
     command
-        .args(["-m", "eng.python.blender", "run"])
+        .arg("run")
         .arg(profile)
         .args(["--", "--background", "--factory-startup", "--offline-mode", "--disable-autoexec", "--console-crash-handler", "--python-exit-code", "1", "--python"])
         .arg(script)

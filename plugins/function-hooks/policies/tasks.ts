@@ -45,20 +45,6 @@ const argsOf = (options: Options): readonly string[] => Array.ensure(options.arg
 
 const fileFolder = (place: string, host: Call['host']): string => (host.path.extname(place) === '' ? place : host.path.dirname(place));
 
-const owners = Effect.fnUntraced(function* ({ nodes }: ProjectGraph, host: Call['host'], { row, values }: Site, folder: string) {
-    if (row.routes?.across === true) {
-        return Object.values(nodes);
-    }
-    const { createProjectRootMappings, findProjectForPath } = yield* nx;
-    const roots = createProjectRootMappings(nodes);
-    const placeOwner = (place: string) => Option.flatMap(Option.fromNullishOr(host.inside(place, host.root) ? findProjectForPath(host.path.relative(host.root, place) || '.', roots) : undefined), (name) => Record.get(nodes, name));
-    if (row.routes?.rooted === true) {
-        return Option.toArray(placeOwner(host.root));
-    }
-    const named = values(...(row.routes?.selects ?? []));
-    return named.length === 0 ? Option.toArray(placeOwner(folder)) : Array.getSomes(named.map((value) => Option.orElse(Record.get(nodes, value), () => Option.flatMap(host.place(value, Option.some(folder)), placeOwner))));
-});
-
 // --- [RUNS]
 
 const valueKeys = (names: readonly string[], values: readonly string[]): readonly string[] => Array.cartesianWith(names.slice(-1), values, (name, value) => `${name}=${value}`);
@@ -73,10 +59,10 @@ const keysOf = ({ items }: Site, known: Predicate.Predicate<string> = () => true
 
 const subcommandWords = ({ row, path }: Site): number => (row.routes?.flat === true || path.length > 0 ? 0 : 1);
 
-const scopeOf = (site: Site, host: Call['host']) => ({
-    places: site.row.routes?.entries === true ? [] : Array.getSomes(site.operands.slice(subcommandWords(site), site.operands.length - site.tail.length).map(({ text }) => host.place(text, site.command.cwd))),
-    extra: site.tail.map(({ text }) => text),
-});
+const scopeOf = (site: Site, host: Call['host'], unnamed: readonly string[] = []) => {
+    const named = site.row.routes?.entries === true ? [] : Array.getSomes(site.operands.slice(subcommandWords(site), site.operands.length - site.tail.length).map(({ text }) => host.place(text, site.command.cwd)));
+    return { places: named.length === 0 && site.row.routes?.rooted === true ? unnamed : named, extra: site.tail.map(({ text }) => text) };
+};
 
 const subcommandOf = ({ row, path, operands }: Site): Option.Option<string> => (row.routes?.flat === true ? Option.none() : Array.head([...path, ...operands.map(({ text }) => text)]));
 
@@ -110,6 +96,23 @@ const runsOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, site:
         .flatMap(([entry, { sites }]) => Array.cartesian([entry], sites))
         .map(([{ target, forwardAllArgs, narrows }, ran]): Run => ({ target, forwardAllArgs, narrows, site: ran, keys: keysOf(ran), ...scopeOf(ran, host) }))
         .filter((run) => run.site.row === routedRow && Equal.equals(subcommandOf(run.site), subcommandOf(site)));
+});
+
+const owners = Effect.fnUntraced(function* ({ nodes }: ProjectGraph, host: Call['host'], site: Site, folder: string) {
+    const { row, values } = site;
+    if (row.routes?.across === true) {
+        return Object.values(nodes);
+    }
+    const { createProjectRootMappings, findProjectForPath } = yield* nx;
+    const roots = createProjectRootMappings(nodes);
+    const placeOwner = (place: string) => Option.flatMap(Option.fromNullishOr(host.inside(place, host.root) ? findProjectForPath(host.path.relative(host.root, place) || '.', roots) : undefined), (name) => Record.get(nodes, name));
+    if (row.routes?.rooted === true) {
+        const root = placeOwner(host.root);
+        const nearest = yield* Effect.forEach(scopeOf(site, host, [folder]).places, (place) => Option.match(placeOwner(place), { onNone: () => Effect.succeed(root), onSome: (node) => Effect.map(runsOf(node, site, host), (runs) => (runs.length > 0 ? Option.some(node) : root)) }));
+        return Array.dedupe(Array.getSomes(nearest));
+    }
+    const named = values(...(row.routes?.selects ?? []));
+    return named.length === 0 ? Option.toArray(placeOwner(folder)) : Array.getSomes(named.map((value) => Option.orElse(Record.get(nodes, value), () => Option.flatMap(host.place(value, Option.some(folder)), placeOwner))));
 });
 
 // --- [FITS]
@@ -154,10 +157,11 @@ const readsOwnConfig = Effect.fnUntraced(function* ({ data, name }: ProjectGraph
 const fitted = (site: Site, host: Call['host'], node: ProjectGraphProjectNode, runs: readonly Run[], folder: string) => {
     const targets = targetsOf(node);
     const { modes = [], selects = [], ignores = [], requires, rooted } = site.row.routes ?? {};
+    const atRoot = rooted === true && node.data.root === '.';
     const found = runs.filter((ran) => (requires === undefined || ran.site.has(requires)) && modes.every((flag) => site.has(flag) === ran.site.has(flag)) && chosenFile(site, host) === chosenFile(ran.site, host));
     const known = new Set(found.flatMap((ran) => [...ran.site.names]));
     const wanted = keysOf(site, (name) => known.has(name) && !selects.includes(name) && !ignores.includes(name));
-    const { places, extra } = scopeOf(site, host);
+    const { places, extra } = scopeOf(site, host, [folder]);
     const covers = (folders: readonly string[]): boolean => places.every((file) => folders.some((held) => host.inside(file, held)));
     const fits = found.filter((ran) => wanted.isSubsetOf(ran.keys) && new Set(extra).isSubsetOf(new Set(ran.extra)) && (ran.places.length === 0 || (places.length > 0 && covers(ran.places))));
     const fitting = places.length > 0 && fits.some(({ places: held }) => held.length > 0) ? fits.filter(({ places: held }) => held.length > 0) : fits;
@@ -175,13 +179,13 @@ const fitted = (site: Site, host: Call['host'], node: ProjectGraphProjectNode, r
     const running = accepting.filter(({ target: name }) => name === target);
     const narrowing = running.some(({ narrows }) => narrows);
     const scoped = running.some(({ places: held, narrows }) => held.length > 0 && !narrows);
-    const moved = rooted === true && folder !== host.root;
+    const moved = atRoot && folder !== host.root;
     const passed = Option.all(scoped && !switched ? [] : rest.flatMap(({ words }) => words).map((word) => forwardedWord(word, moved, folder, host)));
     const forwarded = [...Option.getOrElse(passed, () => []), ...(moved && !scoped && rest.length === 0 ? [quote(host.path.relative(host.root, folder))] : [])];
     const refused =
         (forwarded.length > 0 && running.some(({ forwardAllArgs }) => !forwardAllArgs)) ||
         rest.some(({ words }) => words.some(({ known: fixed, raw }) => !fixed && quote(raw) !== raw)) ||
-        (rooted !== true && forwarded.length > 0 && running.some(({ site: ran }) => !Option.contains(ran.command.cwd, folder))) ||
+        (!atRoot && forwarded.length > 0 && running.some(({ site: ran }) => !Option.contains(ran.command.cwd, folder))) ||
         (moved && switched) ||
         rest.flatMap(({ words, values }) => [...values, ...words.map(({ text }) => text)]).some((text) => host.path.isAbsolute(text) && !host.inside(text, host.root)) ||
         Option.isNone(passed) ||
@@ -227,9 +231,12 @@ const launchedThrough: Fix = Effect.fnUntraced(function* (site, { host }) {
     if (site.outer.length > 0) {
         return [];
     }
-    const [root] = yield* Option.match(yield* host.graph, { onNone: () => Effect.succeed([]), onSome: (held) => owners(held, host, site, host.root) });
-    const launcher = root === undefined ? undefined : Option.getOrUndefined(Array.findFirst(yield* runsOf(root, site, host), (ran) => ran.site.outer.length > 0))?.site;
-    return launcher === undefined ? [] : edited(site, site.head, spoken(launcher.command.words.filter(({ start }) => start <= launcher.head.start)), site.program);
+    const [owner] = yield* Option.match(yield* host.graph, { onNone: () => Effect.succeed([]), onSome: (held) => owners(held, host, site, host.root) });
+    const launches = owner === undefined ? [] : (yield* runsOf(owner, site, host)).map(({ site: { command, head } }) => spoken(command.words.filter(({ start }) => start <= head.start)));
+    return Option.match(
+        Array.findFirst(launches, (launch) => launch !== site.program),
+        { onNone: () => [], onSome: (launch) => edited(site, site.head, launch, site.program) },
+    );
 });
 
 const customLanguages: Fix = (site) => {
@@ -274,12 +281,17 @@ const forwardedOptions: Fix = Effect.fnUntraced(function* (site, call) {
     if (ran === undefined) {
         return [];
     }
+    const { programs } = yield* Shell;
+    const reached = Array.findFirst([...programs], ([, row]) => row.routes?.through === ran.program).pipe(
+        Option.map(([name]) => name),
+        Option.getOrElse(() => ran.program),
+    );
     const tail = spoken(site.tail);
-    const [forwarded] = (yield* bodyOf([ran.program, ...site.values('--args'), tail].join(' '), host)).sites;
+    const [forwarded] = (yield* bodyOf([reached, ...site.values('--args'), tail].join(' '), host)).sites;
     if (forwarded === undefined) {
         return [];
     }
-    const guards = ['mypy', 'pytest'].includes(ran.program) ? yield* all(...(forwarded.row.fixes ?? []))(forwarded, call) : [];
+    const guards = ['mypy', 'pytest'].includes(reached) ? yield* all(...(forwarded.row.fixes ?? []))(forwarded, call) : [];
     return [...guards, ...(Option.isSome(site.separator) && !site.has('--args') && forwarded.items.length > 0 && forwarded.items.every(({ names }) => names.length > 0) && keysOf(forwarded).isSubsetOf(keysOf(ran)) ? silent(cut(site, [site.separator.value, ...site.tail], `nx -- ${tail}`)) : [])];
 });
 
@@ -372,10 +384,10 @@ const TASKS: Policy = {
         },
         mypy: {
             flags: ['--cache-dir=', '--config-file=', '--python-version='],
-            routes: { rooted: true, flat: true, through: 'refurb', ignores: ['--cache-dir', '--no-pretty', '--config-file'] },
+            routes: { rooted: true, flat: true, through: 'rasm-refurb', ignores: ['--cache-dir', '--no-pretty', '--config-file'] },
             fixes: [projectOptions(respell({ '--cache-dir': '' }, { notify: true }), unassign(/^MYPY_CACHE_DIR=/u))],
         },
-        refurb: { flags: ['--config-file=', '--python-version='], informational: ['--explain'], routes: { rooted: true, flat: true }, fixes: [launchedThrough] },
+        'rasm-refurb': { aliases: ['refurb'], flags: ['--config-file=', '--python-version='], informational: ['--explain'], routes: { rooted: true, flat: true }, fixes: [launchedThrough] },
         pytest: {
             flags: ['-o, --override-ini=', '-c, --config-file=', '--benchmark-storage='],
             routes: { rooted: true, flat: true, across: true, ignores: ['--override-ini=addopts='] },

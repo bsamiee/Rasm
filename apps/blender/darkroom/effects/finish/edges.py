@@ -10,18 +10,10 @@ from expression import Option, Some
 import msgspec
 import numpy as np
 
-from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.nodes.content import Ramp
-from blender.bpy.nodes.desired import MenuItem
-from blender.bpy.nodes.graphs import cell, Component, Expr, math, Scalar, switched, vector, xyz
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, StockInput
-from blender.bpy.render.compositor.coordinates import dimensions, uv_mapped
-from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix
-from blender.bpy.render.compositor.filters import filtered
-from blender.bpy.render.compositor.inputs import FRAME_SCALE, GraphInputs
-from blender.bpy.render.compositor.lenses import camera_info
-from blender.bpy.render.view_layers.passes import CryptomatteKind, PassRequest
-from blender.records.faults import accumulated, Fault, Ok, Outcome, Reason
+from rasm_bpy.data import Descriptor
+from rasm_bpy.nodes import cell, Component, Expr, Interface, InterfacePanel, math, MenuItem, Ramp, Scalar, Socket, StockInput, switched, vector, xyz
+from rasm_bpy.render import camera_info, CompositorEffect, CompositorRecord, CryptomatteKind, dimensions, filtered, FRAME_SCALE, GraphInputs, Mix, PassRequest, uv_mapped
+from rasm_records import accumulated, Fault, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

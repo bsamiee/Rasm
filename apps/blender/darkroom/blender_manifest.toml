@@ -14,3 +14,8 @@ blender_version_min = "5.4.0"
 files     = "Writes renders, exports, presets, extension data, OCIO config"
 network   = "Submits jobs to Flamenco Manager and posts queue notices to ntfy"
 clipboard = "Copies and pastes setting values between scenes and files"
+
+# --- [BUILD] ----------------------------------------------------------------------------
+
+[build]
+paths_exclude_pattern = ["__pycache__/", ".*", "/*.zip", "*.blend[1-9]", "/pyproject.toml", "/uv.lock"] # Blender defaults, then the uv project files beside the extension

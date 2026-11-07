@@ -11,20 +11,11 @@ import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
-from blender.bpy.extension.identity import Identity
-from blender.bpy.nodes.functions import column, POSITION, sampled, W
-from blender.bpy.nodes.interfaces import decoded, Interface, InterfacePanel
-from blender.bpy.nodes.textures import Noise, Voronoi
-from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, precise, Prepared, Stage
-from blender.bpy.render.compositor.inputs import toggled, value
-from blender.bpy.render.compositor.motion import CLOCK, Clock, SEED
-from blender.imaging.files import buffers
-from blender.imaging.geometry.arithmetic import smoothstep
-from blender.imaging.geometry.frames import Raster
-from blender.imaging.sampling.integration import Estimate, footprint, Population, Precision
-from blender.imaging.sampling.tiles import stream, uniforms
-from blender.records.faults import accumulated, Ok, Outcome, paired
-from blender.records.fields import AtLeastOne, NonNegative, Positive, Seed, Unit
+from rasm_bpy.data import Identity
+from rasm_bpy.nodes import column, decoded, Interface, InterfacePanel, Noise, POSITION, sampled, Voronoi, W
+from rasm_bpy.render import CLOCK, Clock, CompositorEffect, CompositorRecord, Mix, precise, Prepared, SEED, Stage, toggled, value
+from rasm_imaging import buffers, Estimate, footprint, Population, Precision, Raster, smoothstep, stream, uniforms
+from rasm_records import accumulated, AtLeastOne, NonNegative, Ok, Outcome, paired, Positive, Seed, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

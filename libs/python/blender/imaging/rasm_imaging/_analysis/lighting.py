@@ -1,0 +1,231 @@
+"""Subject lighting, spatial cues, and distinct linear-light palettes."""
+
+from enum import auto, Enum
+import functools
+import math
+from typing import ClassVar
+
+import colour
+from expression import Option, Some
+import msgspec
+import numpy as np
+import numpy.typing as npt
+import PyOpenColorIO
+from scipy.cluster.vq import kmeans, vq
+from scipy.spatial.distance import cdist
+
+from rasm_imaging._analysis.metering import Samples
+from rasm_imaging._color.colorimetry import WhitePoint
+from rasm_imaging._color.processors import basis
+from rasm_imaging._files.buffers import fitted
+from rasm_imaging._geometry.frames import Region
+from rasm_records import AtLeastOne, Count, Frozen, NonNegative, Nothing, Outcome, paired, Percent, Positive, Unit
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Band = tuple[float, float]
+
+
+class LightingMood(Enum):
+    """Lighting class from mean luminance, contrast, and split."""
+
+    HIGH_KEY = auto()
+    NEUTRAL = auto()
+    LOW_KEY = auto()
+
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class PaletteEntry(Frozen, frozen=True, kw_only=True, eq=False):
+    """Cluster mean color of shape `(3,)`, bottom-left position, and subject share."""
+
+    color: npt.NDArray[np.float64]
+    position: tuple[float, float]
+    share: float
+
+    @property
+    def chroma(self) -> float:
+        """Channel spread over peak channel, zero for nonpositive peak."""
+        peak = float(self.color.max())
+        return (peak - float(self.color.min())) / peak if peak > 0.0 else 0.0
+
+
+class LightingReading(Frozen, frozen=True, kw_only=True, eq=False):
+    """Reference light colors of shape `(3,)`, contrast, spatial cues, and palette."""
+
+    key: npt.NDArray[np.float64]
+    fill: npt.NDArray[np.float64]
+    ambient: npt.NDArray[np.float64]
+    rim: Option[npt.NDArray[np.float64]]
+    contrast: float
+    dynamic_range: float
+    metered_exposure: float
+    mean_luminance: float
+    direction: tuple[float, float]
+    split: float
+    backlight: Option[float]
+    backlit: bool
+    hardness: float
+    key_white: Option[WhitePoint]
+    palette: tuple[PaletteEntry, ...]
+
+
+class Lighting(msgspec.Struct, frozen=True, kw_only=True):
+    """Lighting estimator settings over sorted-luminance bands, spatial cues, palette clusters, backlight ratios, and mood thresholds."""
+
+    key_band: ClassVar[_Band] = (0.85, 1.0)
+    fill_band: ClassVar[_Band] = (0.35, 0.60)
+    ambient_band: ClassVar[_Band] = (0.0, 0.15)
+    shadow_band: ClassVar[_Band] = (0.0, 0.22)
+    highlight_band: ClassVar[_Band] = (0.78, 1.0)
+    weighted_band: ClassVar[_Band] = (0.55, 1.0)
+    range_percentiles: ClassVar[_Band] = (5.0, 95.0)
+    variation_percentiles: ClassVar[_Band] = (10.0, 90.0)
+    shadow_gain: ClassVar[float] = 1.25
+    cue_weights: ClassVar[tuple[float, float, float, float]] = (0.42, 0.28, 0.18, 0.12)
+    grid: Count = 256
+    palette_size: Count = 3
+    separation: NonNegative = 0.08
+    split_range: Positive = math.log2(6.0)
+    rim_percentile: Percent = 85.0
+    gel_chroma: Unit = 0.18
+    subject: Region = Region(left=0.12, bottom=0.12, right=0.88, top=0.88)
+    center: Region = Region(left=0.25, bottom=0.25, right=0.75, top=0.75)
+    core: Region = Region(left=0.18, bottom=0.18, right=0.82, top=0.82)
+    border_ratio: AtLeastOne = 1.35
+    center_ratio: AtLeastOne = 1.08
+    ring_ratio: AtLeastOne = 1.25
+    subject_ratio: AtLeastOne = 1.05
+    high_key_luminance: NonNegative = float(colour.cctf_decoding(0.45, function="sRGB"))
+    low_key_luminance: NonNegative = float(colour.cctf_decoding(0.22, function="sRGB"))
+    high_key_contrast: NonNegative = 2.0
+    low_key_contrast: NonNegative = 3.0
+    low_key_split: Unit = 0.42
+
+    def gels(self, reading: LightingReading) -> Option[tuple[PaletteEntry, PaletteEntry]]:
+        """Two largest palette entries of `reading` as key and accent when both are chromatic."""
+        match tuple(entry for entry in reading.palette[:2] if entry.chroma >= self.gel_chroma):
+            case (first, second):
+                return Some((first, second) if np.dot(np.subtract(first.position, second.position), reading.direction) >= 0.0 else (second, first))
+            case _:
+                return Nothing
+
+    def mood(self, reading: LightingReading) -> LightingMood:
+        """Mood of `reading` from frame luminance, key-to-fill contrast in stops, and split."""
+        return (
+            LightingMood.HIGH_KEY
+            if reading.mean_luminance > self.high_key_luminance and reading.contrast < self.high_key_contrast
+            else LightingMood.LOW_KEY
+            if reading.mean_luminance < self.low_key_luminance or reading.contrast > self.low_key_contrast or reading.split > self.low_key_split
+            else LightingMood.NEUTRAL
+        )
+
+    def read(self, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> Outcome[Option[LightingReading]]:
+        """Reads lighting of plane fitted within `grid` pixels, or absence without covered samples inside the `subject` region."""
+
+        def measured(pair: tuple[Samples, npt.NDArray[np.float64]]) -> Option[LightingReading]:
+            samples, matrix = pair
+            covered = samples.finite
+            height, width = covered.shape
+            subject, central, core = (covered & region.mask(height, width) for region in (self.subject, self.center, self.core))
+            if not subject.any():
+                return Nothing
+            levels = np.where(covered, np.maximum(samples.luminance, Samples.floor), np.nan)
+            found = levels[subject]
+            colors, raw = samples.color[subject].astype(np.float64), samples.luminance[subject]
+            rows, columns = np.nonzero(subject)
+            points = np.column_stack(((columns + 0.5) / width, 1.0 - (rows + 0.5) / height))
+            coordinates = 2.0 * points - 1.0
+            ordered = np.argsort(found, stable=True)
+
+            def band(share: _Band) -> npt.NDArray[np.intp]:
+                start = math.floor(found.size * share[0])
+                return ordered[start : max(math.ceil(found.size * share[1]), start + 1)]
+
+            asymmetry = tuple(
+                float(((positive_mean := positive.mean()) - (negative_mean := negative.mean())) / (positive_mean + negative_mean)) if positive.size and negative.size else 0.0
+                for positive, negative in ((found[coordinates[:, axis] > 0.0], found[coordinates[:, axis] < 0.0]) for axis in (0, 1))
+            )
+            weighted = band(self.weighted_band)
+            weights = found[weighted] - found[weighted[0]]
+            centroid = np.average(coordinates[weighted], axis=0, weights=weights) if weights.sum() > 0.0 else np.zeros(2, dtype=np.float64)
+            gradients = np.stack((np.gradient(levels, axis=1) if width > 1 else np.zeros_like(levels), -np.gradient(levels, axis=0) if height > 1 else np.zeros_like(levels)), axis=-1)
+            slopes = gradients[subject & np.isfinite(gradients).all(axis=-1)]
+            magnitudes = np.linalg.norm(slopes, axis=-1)
+            energy = np.square(magnitudes).sum(dtype=np.float64)
+            gradient = (slopes * magnitudes[:, None]).sum(axis=0, dtype=np.float64) / energy if energy > 0.0 else np.zeros(2, dtype=np.float64)
+            shadow_to_highlight = self.shadow_gain * (coordinates[band(self.highlight_band)].mean(axis=0) - coordinates[band(self.shadow_band)].mean(axis=0))
+            stacked = np.stack((asymmetry, shadow_to_highlight, centroid, gradient), dtype=np.float64)
+            mixed = stacked / np.maximum(1.0, np.linalg.norm(stacked, axis=-1, keepdims=True))
+            direction = np.array(self.cue_weights, dtype=np.float64) @ mixed
+
+            count = min(self.palette_size, found.size)
+            centers, _ = kmeans(colors, np.stack(tuple(colors[band((index / count, (index + 1) / count))].mean(axis=0) for index in range(count))), thresh=0.0, check_finite=False)
+            labels, _ = vq(colors, centers, check_finite=False)
+            counts = np.bincount(labels, minlength=centers.shape[0])
+            clusters = np.argsort(-counts, stable=True)
+            clusters = clusters[counts[clusters] > 0]
+            means = np.stack(tuple(np.bincount(labels, weights=channel, minlength=counts.size)[clusters] for channel in (*colors.T, *points.T)), axis=-1) / counts[clusters, None]
+            tristimulus = means[:, :3] @ matrix.T
+            lab = colour.XYZ_to_Oklab(tristimulus / np.maximum(tristimulus[:, 1:2], Samples.floor))
+            distances = cdist(lab, lab)
+
+            def merged(state: tuple[tuple[int, ...], npt.NDArray[np.float64]], index: int) -> tuple[tuple[int, ...], npt.NDArray[np.float64]]:
+                kept, shares = state
+                nearest = kept[int(np.argmin(distances[index, list(kept)]))]
+                return (kept, np.where(np.arange(shares.size) == nearest, shares + shares[index], shares)) if distances[index, nearest] < self.separation else ((*kept, index), shares)
+
+            first: tuple[tuple[int, ...], npt.NDArray[np.float64]] = ((0,), counts[clusters].astype(np.float64) / found.size)
+            kept, shares = functools.reduce(merged, range(1, clusters.size), first)
+
+            border = covered & ~central
+            frame_mean, subject_mean = float(levels[covered].mean(dtype=np.float64)), float(found.mean(dtype=np.float64))
+            center_mean, border_mean, ring_mean = (
+                Some(levels[group]).filter(lambda held: held.size > 0).map(lambda held: float(held.mean(dtype=np.float64))) for group in (central, border, subject & ~core)
+            )
+            rim = (
+                Some(levels[border])
+                .filter(lambda held: held.size > 0)
+                .map(lambda held: samples.color[border & (levels >= np.percentile(held, self.rim_percentile, method="inverted_cdf"))].mean(axis=0, dtype=np.float64))
+            )
+            backlit = border_mean.map2(lambda outside, inner: outside > self.border_ratio * inner and inner <= self.center_ratio * frame_mean, center_mean).default_value(value=False) or ring_mean.map(
+                lambda ring: ring > self.ring_ratio * subject_mean and subject_mean < self.subject_ratio * frame_mean
+            ).default_value(value=False)
+
+            lit, filled = band(self.key_band), band(self.fill_band)
+            key, fill, ambient = (colors[held].mean(axis=0, dtype=np.float64) for held in (lit, filled, band(self.ambient_band)))
+            key_y, fill_y = (raw[held].mean(dtype=np.float64) for held in (lit, filled))
+            darkest, brightest, lower, upper = np.percentile(found, (*self.range_percentiles, *self.variation_percentiles), method="inverted_cdf")
+            spread = math.log2(float(brightest / darkest))
+            derivative = float(np.abs(gradients[subject[..., None] & np.isfinite(gradients)]).max(initial=0.0))
+            variation = derivative + float(upper - lower)
+            return Some(
+                LightingReading(
+                    key=key,
+                    fill=fill,
+                    ambient=ambient,
+                    rim=rim,
+                    contrast=math.log2(max(key_y, Samples.floor) / max(fill_y, Samples.floor)),
+                    dynamic_range=spread,
+                    metered_exposure=Samples.stops(found),
+                    mean_luminance=frame_mean,
+                    direction=(float(direction[0]), float(direction[1])),
+                    split=float(np.linalg.norm(mixed[0])) * min(1.0, spread / self.split_range),
+                    backlight=border_mean.map2(lambda outside, inner: math.log2(outside / inner), center_mean),
+                    backlit=backlit,
+                    hardness=derivative / variation if variation > 0.0 else 0.0,
+                    key_white=WhitePoint.of(matrix @ key),
+                    palette=tuple(
+                        PaletteEntry(color=means[index, :3], position=(float(means[index, 3]), float(means[index, 4])), share=float(shares[index]))
+                        for index in sorted(kept, key=lambda index: float(shares[index]), reverse=True)
+                    ),
+                )
+            )
+
+        return fitted(plane, (self.grid, self.grid), filtername="triangle").bind(lambda values: paired(Samples.of(config, values), basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR))).map(measured)
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Lighting", "LightingMood", "LightingReading", "PaletteEntry"]

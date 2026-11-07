@@ -172,14 +172,10 @@ def stamp(name: str, /, *, scratch: Annotated[Path, Parameter(parse=False)], now
         Scratch file path, or its `UNWRITABLE` fault.
     """
     return changed(Path.write_text, scratch / name, now.isoformat())
-
-
-if __name__ == "__main__":
-    app.meta()
 ```
 
 `stamp --help` lists `--keep` in its `Session` panel, and `--scratch` is an unknown option. Called app and parse mode decide binding:
-- `app.meta()` runs `session`, and `app()` skips it and leaves every unparsed parameter unfilled
+- `app.meta()` runs `session`, and `app()` skips it and leaves every unparsed parameter unfilled, so a meta app's script entry point names `app.meta`
 - `parse=` takes a `bool` or a regex searched against parameter names, and `parse=False` on a positional parameter without default raises `ValueError`
 - Meta apps answer `--help` and `--version` before `session` runs
 - `parse_args` applies no `result_action`, a nested `app(tokens)` inside `session` returns its command result, and the meta app maps it once
@@ -192,7 +188,7 @@ if __name__ == "__main__":
 `App(config=...)` takes a source or a sequence, values resolve from command line, `env_var=`, each source in order, then signature default:
 
 ```python
-package: str = Path(__file__).parent.name
+package: str = __name__.partition(".")[0]
 app = App(config=(config.Env(f"{package.upper()}_", command=True), config.Toml(f"{package}.toml", search_parents=True)))
 ```
 
@@ -276,15 +272,12 @@ def exited(result: Outcome[object] | None, /) -> int:
             return EXITS[faults[0].reason]
 
 
-package: str = Path(__file__).parent.name
+package: str = __name__.partition(".")[0]
 app = App(help=__doc__, result_action=(exited, "sys_exit"), config=config.Env(f"{package.upper()}_", command=False), default_parameter=Parameter(negative=()))
-app.command(f"{package}.runs:launch", help="Run the host executable inside a folder.")
-app.command(f"{package}.remote:locate", help="Print the address of a server path.")
-app.command(f"{package}.entries:remove", help="Remove one file under a folder.")
+app.command(f"{package}._runs:launch", help="Run the host executable inside a folder.")
+app.command(f"{package}._remote:locate", help="Print the address of a server path.")
+app.command(f"{package}._entries:remove", help="Remove one file under a folder.")
 app.register_install_completion_command()
-
-if __name__ == "__main__":
-    app()
 ```
 
 `launch` exits with its host's status, `locate` writes its address as JSON on stdout, and each fault goes to stderr. `result_action` maps a return value to process outcome, default `"print_non_int_sys_exit"` prints any non-`int` result, `Error` included, and exits 0:

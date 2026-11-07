@@ -168,19 +168,19 @@ Conduct:
 
 Regressions an adversary restores in place:
 
-| [INDEX] | [KIND]            | [TEST]                                                                                              |
-| :-----: | :---------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | Growth            | Lines, declarations, exports, or files above base, growth tied to a named consumer included         |
-|  [02]   | Lost capability   | Input, grammar class, outline depth, or output the base served and the new code does not            |
-|  [03]   | Weakened check    | Lint lowered, rule narrowed, suppression, `files` exclusion, or dead branch kept for a lint         |
-|  [04]   | Snapshot gate     | Check comparing output to a pre-change copy, rebuilt output differs on purpose                      |
-|  [05]   | Shuffle           | Move, split, rename, alias, forwarder, barrel, re-export, or extracted helper                       |
-|  [06]   | Hidden cause      | Lock, wait, retry, guard, hidden launch, kill, or forwarded flag standing where a cause needs a fix |
-|  [07]   | Hand-written host | Behavior a host performs moved into code, host value as a literal, app list grown, version branch   |
-|  [08]   | Package loss      | Member replaced by hand code, row removed with its capability wanted, feature turned off            |
-|  [09]   | Wrong removal     | Guard or flag removed while an entry point reaches it, consumer left broken                         |
-|  [10]   | Naive fix         | Checker finding fixed by a form a row of `[04]` or `[05]` removes, or by a fix that does not build  |
-|  [11]   | Product break     | Served product, plumbing, or host integration failing after the change                              |
+| [INDEX] | [KIND]            | [TEST]                                                                                                |
+| :-----: | :---------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | Growth            | Lines, declarations, exports, or files above base, growth tied to a named consumer included           |
+|  [02]   | Lost capability   | Input, grammar class, outline depth, or output the base served and the new code does not              |
+|  [03]   | Weakened check    | Lint lowered, rule narrowed, suppression, `files` exclusion, or dead branch kept for a lint           |
+|  [04]   | Snapshot gate     | Check comparing output to a pre-change copy, rebuilt output differs on purpose                        |
+|  [05]   | Shuffle           | Move, split, rename, alias, forwarder, barrel, re-export outside a package entry, or extracted helper |
+|  [06]   | Hidden cause      | Lock, wait, retry, guard, hidden launch, kill, or forwarded flag standing where a cause needs a fix   |
+|  [07]   | Hand-written host | Behavior a host performs moved into code, host value as a literal, app list grown, version branch     |
+|  [08]   | Package loss      | Member replaced by hand code, row removed with its capability wanted, feature turned off              |
+|  [09]   | Wrong removal     | Guard or flag removed while an entry point reaches it, consumer left broken                           |
+|  [10]   | Naive fix         | Checker finding fixed by a form a row of `[04]` or `[05]` removes, or by a fix that does not build    |
+|  [11]   | Product break     | Served product, plumbing, or host integration failing after the change                                |
 
 Verdict: declarations and lines fall against the pass before with each kept declaration listed with its fact, a pass changing nothing fails unless every file passes the depth test of `[03]`, and a shuffle, growth naming no absent capability, a re-derived fact, a weakened check, a hand-written host behavior, or a finding deferred fails the pass.
 

@@ -1,0 +1,73 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-eng"
+version         = "0.0.0"
+description     = "Writes extension assets, packs and installs Blender extensions, syncs host constraints, and runs Blender in isolated profiles"
+requires-python = ">=3.15"
+
+dependencies = [
+    # --- [CORE]
+
+    "cyclopts",     # Command parser from typed signatures
+    "expression",   # Results each command returns and `catch` over raising calls
+    "msgspec",      # Host facts, manifests, and lock records with TOML, JSON, and MessagePack codecs
+    "rasm-records", # Fault model, record files, atomic commits, and record arguments
+
+    # --- [PACKAGING]
+
+    "asttokens",    # Source token ranges for rewriting vendored imports in place
+    "packaging",    # Markers, platform tags, versions, and `pylock.toml` selection
+    "tomlkit",      # Manifest rewrites with comments and layout kept
+
+    # --- [FILES]
+
+    "anyio",        # Parallel pinned downloads
+    "pathvalidate", # Native filename validation before resetting a Blender run folder
+    "pooch",        # Pinned downloads checked by hash into a content cache
+
+    # --- [ICONS]
+
+    "coloraide",    # Theme text color to sRGB hex
+    "fonttools",    # Cubic Bezier points and pens over icon outlines
+    "numpy",        # Icon geometry arrays
+    "picosvg",      # SVG geometry normalization and path operations
+    "shapely",      # Planar operations over icon outlines
+
+    # --- [SESSIONS]
+
+    "httpx2",       # HTTP errors of the MCP transport
+    "mcp",          # MCP client over Streamable HTTP
+    "psutil",       # Running Blender sessions and their environments
+    "pydantic",     # Validation errors the MCP client raises on a malformed answer
+]
+
+[project.scripts]
+rasm-eng = "rasm_eng._cli:app"
+
+[dependency-groups]
+dev = [
+    "fake-bpy-module-latest", # Stubs for bpy that `_probe`, `_session`, and `_streams` check against
+    "openimageio",            # OpenImageIO module `_probe` reads the bundled version of
+    "types-opencolorio",      # Stubs for PyOpenColorIO
+]
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["uv_build"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+# --- [RUFF] -----------------------------------------------------------------------------
+
+[tool.ruff]
+extend                  = "../../pyproject.toml"
+per-file-target-version = { "rasm_eng/_{probe,session,streams}.py" = "py313" } # Blender's interpreter runs these three files
+
+# --- [FAWLTYDEPS] -----------------------------------------------------------------------
+
+[tool.fawltydeps]
+ignore_undeclared = ["bl_pkg", "bpy", "PyOpenColorIO"] # Blender's interpreter supplies these to `_probe`, `_session`, and `_streams`

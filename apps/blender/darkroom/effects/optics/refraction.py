@@ -10,24 +10,11 @@ import bpy
 from expression import Some
 import PyOpenColorIO
 
-from blender.bpy.data.ids.images import Tag
-from blender.bpy.nodes import textures
-from blender.bpy.nodes.content import Loaded
-from blender.bpy.nodes.desired import MenuItem, MenuItems
-from blender.bpy.nodes.functions import EXPRESSIONS
-from blender.bpy.nodes.graphs import Expr, math, Scalar, SocketType, switched, vector, xyz
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
-from blender.bpy.render.compositor import filters, masks
-from blender.bpy.render.compositor.coordinates import dimensions, FrameSpace, uv_mapped
-from blender.bpy.render.compositor.editors import FilePath
-from blender.bpy.render.compositor.inputs import GraphInputs
-from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, hashed, origin, SEED
-from blender.bpy.render.compositor.shapes import rotated
-from blender.imaging.color.processors import GRAY
-from blender.imaging.geometry.arithmetic import smoothstep
-from blender.imaging.sampling.integration import placement, Population
-from blender.imaging.sampling.tiles import stream
-from blender.records.faults import Ok, Outcome
+from rasm_bpy.data import Tag
+from rasm_bpy.nodes import Expr, EXPRESSIONS, Interface, InterfacePanel, Loaded, math, MenuItem, MenuItems, Scalar, Socket, SocketType, switched, textures, vector, xyz
+from rasm_bpy.render import CLOCK, Clock, clocked, dimensions, FilePath, filters, FrameSpace, GraphInputs, hashed, masks, origin, rotated, SEED, uv_mapped
+from rasm_imaging import GRAY, placement, Population, smoothstep, stream
+from rasm_records import Ok, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

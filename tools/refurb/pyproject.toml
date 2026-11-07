@@ -1,0 +1,35 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-refurb"
+version         = "0.0.0"
+description     = "Refurb checks over mypy types Ruff lacks, and the driver running mypy diagnostics and the checks over one typed build"
+requires-python = ">=3.15"
+
+dependencies = [
+    "expression", # Results and `catch` over raising calls
+    "msgspec",    # The findings store's MessagePack records
+    "mypy",       # The typed build every check reads
+    "refurb",     # Check host, visitor, and settings
+    "structlog",  # Bound logger types the log-field check reads
+]
+
+[project.entry-points."refurb.plugins"]
+rasm = "rasm_refurb"
+
+[project.scripts]
+rasm-refurb = "rasm_refurb._cli:status"
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["uv_build"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+# --- [FAWLTYDEPS] -----------------------------------------------------------------------
+
+[tool.fawltydeps]
+code = ["rasm_refurb"] # isort reads this folder's own name as a first-party `refurb`

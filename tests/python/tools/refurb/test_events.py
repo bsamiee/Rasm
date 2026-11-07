@@ -9,9 +9,8 @@ lazy from mypy.nodes import ArgKind, CallExpr, MemberExpr, NameExpr, OpExpr, Str
 lazy from refurb.error import Error
 lazy import structlog
 
-from tools.refurb.events import check, ErrorLostLogFieldError
-lazy from tests.python.tools.refurb.conftest import Findings
-lazy from tools.refurb.findings import fullname
+from rasm_refurb.events import check, ErrorLostLogFieldError
+lazy from rasm_refurb import Findings, fullname
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

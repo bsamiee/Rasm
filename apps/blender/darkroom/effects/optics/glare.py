@@ -12,20 +12,11 @@ import numpy.typing as npt
 import PyOpenColorIO
 import scipy as sp
 
-from blender.bpy.data.ids.images import Tag
-from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.nodes.content import Generated
-from blender.bpy.nodes.graphs import Expr, mixed, Scalar, switched, vector, xyz
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, StockInput
-from blender.bpy.render.compositor import filters, masks
-from blender.bpy.render.compositor.coordinates import dimensions, shorter, uv_mapped
-from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Prepared, Stage
-from blender.bpy.render.compositor.inputs import GraphInputs
-from blender.imaging.geometry.frames import Raster
-from blender.imaging.sampling.tiles import Pupil, Specks
-from blender.records.faults import Ok, Outcome
-from blender.records.stores import content_hash
+from rasm_bpy.data import Ownership, Saved, Tag, Value
+from rasm_bpy.nodes import Expr, Generated, Interface, InterfacePanel, mixed, Scalar, Socket, StockInput, switched, vector, xyz
+from rasm_bpy.render import CompositorEffect, CompositorRecord, dimensions, filters, GraphInputs, masks, Prepared, shorter, Stage, uv_mapped
+from rasm_imaging import Pupil, Raster, Specks
+from rasm_records import content_hash, Ok, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

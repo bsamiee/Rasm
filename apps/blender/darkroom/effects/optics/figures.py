@@ -9,14 +9,31 @@ from typing import Annotated, Final
 import bpy
 from expression import Some
 
-from blender.bpy.nodes.desired import item_key, MenuItem, MenuItems
-from blender.bpy.nodes.functions import Group, grouped
-from blender.bpy.nodes.graphs import Expr, math, mixed, Scalar, switched, vector, xyz
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
-from blender.bpy.render.compositor.coordinates import FrameSpace, shorter
-from blender.bpy.render.compositor.inputs import GraphInputs, Step
-from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, hashed, SEED
-from blender.bpy.render.compositor.shapes import Bounded, box, cross, ellipse, heart, Join, lattice, line, polygon, rotated, stroke, triangle, turned
+from rasm_bpy.nodes import Expr, Group, grouped, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, mixed, Scalar, Socket, switched, vector, xyz
+from rasm_bpy.render import (
+    Bounded,
+    box,
+    CLOCK,
+    Clock,
+    clocked,
+    cross,
+    ellipse,
+    FrameSpace,
+    GraphInputs,
+    hashed,
+    heart,
+    Join,
+    lattice,
+    line,
+    polygon,
+    rotated,
+    SEED,
+    shorter,
+    Step,
+    stroke,
+    triangle,
+    turned,
+)
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

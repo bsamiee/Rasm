@@ -1,48 +1,102 @@
 # --- [PROJECT] --------------------------------------------------------------------------
 
 [project]
-name            = "darkroom"
+name            = "rasm-darkroom"
 version         = "0.0.0"
-requires-python = ">=3.13"
+requires-python = "==3.13.*"
 
 dependencies = [
     # --- [CORE]
 
-    "blender",                                   # Shared extension code with bpy behind one boundary
-    "expression",                                # Results, options, and collections of every stage and panel
-    "msgspec",                                   # Records and tagged unions for stage settings, looks, and review results
+    "expression",     # Results, options, and collections of every stage and panel
+    "msgspec",        # Records and tagged unions for stage settings, looks, and review results
+    "rasm-bpy",       # Blender's bpy API behind one boundary
+    "rasm-imaging",   # Image science every stage drives
+    "rasm-records",   # Fault model, field domains, and record files
+    "rasm-rendering", # Output naming of render passes
 
     # --- [MATHEMATICS]
 
-    "numpy",                                     # Arrays for image planes, curves, and metering
-    "scipy",                                     # Glare kernels and particle neighbour queries
+    "numpy",          # Arrays for image planes, curves, and metering
+    "scipy",          # Glare kernels and particle neighbour queries
 
     # --- [IMAGING]
 
-    "colour-science",                            # Transfer functions and YCbCr weights for media and emulation stages
-    "opencolorio; python_full_version < '3.15'", # Color processing, display transforms, and LUT baking
-    "openimageio",                               # Image IO and buffer operations for finish and particle stages
+    "colour-science", # Transfer functions and YCbCr weights for media and emulation stages
+    "opencolorio",    # Color processing, display transforms, and LUT baking
+    "openimageio",    # Image IO and buffer operations for finish and particle stages
+]
+
+[dependency-groups]
+dev = [
+    "fake-bpy-module-latest", # Stubs for bpy, bmesh, mathutils, and gpu
+    "scipy-stubs",
+    "types-networkx",
+    "types-opencolorio",      # Stubs for PyOpenColorIO
 ]
 
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-package = false
+environments            = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+prerelease              = "allow"
+constraint-dependencies = [
+    "attrs==25.3.0",
+    "autopep8==2.3.1",
+    "cattrs==25.1.1",
+    "certifi==2025.4.26",
+    "charset-normalizer==3.4.1",
+    "Cython==3.0.11",
+    "docutils==0.22.4",
+    "idna==3.10",
+    "numpy==2.3.4",
+    "opencolorio==2.5.0",
+    "openimageio==3.1.16.0",
+    "packaging==25.0",
+    "pip==26.0.1",
+    "pycodestyle==2.13.0",
+    "pyproject-metadata==0.9.1",
+    "requests==2.32.3",
+    "setuptools==80.9.0",
+    "tomli_w==1.2.0",
+    "typing_extensions==4.14.1",
+    "urllib3==2.4.0",
+    "zstandard==0.25.0",
+]                                                                # Versions the installed Blender bundles, `rasm-eng upgrade` their one writer
+
+[tool.uv.sources]
+rasm-bpy       = { workspace = "../../../libs/python/blender" }
+rasm-imaging   = { workspace = "../../../libs/python/blender" }
+rasm-records   = { workspace = "../../.." }
+rasm-rendering = { workspace = "../../../libs/python/blender" }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
 extend = "../../../pyproject.toml"
 
-# --- [BLENDER] --------------------------------------------------------------------------
+[tool.ruff.lint]
+ignore = ["relative-imports"] # Blender loads an extension as `bl_ext.<repository>.<id>`, its own modules import each other relatively
 
-[tool.blender.turned]
+# --- [FAWLTYDEPS] -----------------------------------------------------------------------
+
+[tool.fawltydeps]
+ignore_unused = ["scipy-stubs", "types-*"] # Stub distributions the checkers read
+
+# --- [RASM_ENG] -------------------------------------------------------------------------
+
+[tool.rasm-eng.turned]
 flip-vertical = "flip"
 
-[tool.blender.fetch."effects/formation/fetched"]
+[tool.rasm-eng.fetch."effects/formation/fetched"]
 base = "https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9"
 
-[tool.blender.fetch."effects/formation/fetched".files]
+[tool.rasm-eng.fetch."effects/formation/fetched".files]
 "OCIO/config.ocio"                     = "78e80ab792fefbfcb312973ff7991fff0d1a793f4fef6474b6087c252bc1b0c7"
 "OCIO/LUTs/tony_log_to_rational.spi1d" = "4d92af631fd1815891f66addcbcb5a461b9091880a57eae680ba5a892d860914"
 "OCIO/LUTs/sRGB_OETF.spi1d"            = "3ea89cbb69cd8933a007073ac9c9fd60dd2546d768987ab5a8fefb623d8625a0"

@@ -32,7 +32,7 @@ jobs:
                       exclude: tag:host:macos,tag:host:rhino,tag:host:claude,tag:host:blender
                     - runner: xcode-27
                       targets: check,test
-                      exclude: "!tag:host:macos,!tag:host:rhino"
+                      exclude: "!tag:host:macos,!tag:host:rhino,!tag:host:blender"
         runs-on: ${{ matrix.runner }}
         timeout-minutes: 60
         steps:

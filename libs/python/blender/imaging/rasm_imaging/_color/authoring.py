@@ -1,0 +1,235 @@
+"""OCIO configuration authoring: view transform, display, look, and file-rule rows merged into a base config, archived, or installed."""
+
+from collections.abc import Callable
+import copy
+from functools import partial, reduce
+import pathlib
+from typing import Final, Self
+
+from expression import Option
+import msgspec
+import PyOpenColorIO
+
+from rasm_imaging._color.luts import LutFormat
+from rasm_imaging._color.processors import called, processor
+from rasm_records import accumulated, committed, files_copied, Ok, Outcome, paired
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Texts = tuple[tuple[str, str], ...]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_CREATE: Final[Callable[[], object]] = PyOpenColorIO.ConfigMergingParameters.Create  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+_PREFER_BASE: Final[object] = PyOpenColorIO.ConfigMergingParameters.STRATEGY_PREFER_BASE  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_SET_ROLES: Final[Callable[[object, object], None]] = PyOpenColorIO.ConfigMergingParameters.setRoles  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+_SET_COLORSPACES: Final[Callable[[object, object], None]] = PyOpenColorIO.ConfigMergingParameters.setColorspaces  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+_MERGE: Final[Callable[[object, PyOpenColorIO.Config, PyOpenColorIO.Config], PyOpenColorIO.Config]] = PyOpenColorIO.ConfigMergingHelpers.MergeConfigs  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+_ACTIVE_DISPLAY: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO.Config.addActiveDisplay  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+_ACTIVE_VIEW: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO.Config.addActiveView  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
+    """View transform, display, look, and file-rule rows and source config files merged into base config, base roles and colorspaces preferred by default."""
+
+    @staticmethod
+    def merging() -> object:
+        """Returns merge parameters preferring base roles and colorspaces."""
+        parameters = _CREATE()
+        _SET_ROLES(parameters, _PREFER_BASE)
+        _SET_COLORSPACES(parameters, _PREFER_BASE)
+        return parameters
+
+    view_transforms: tuple[PyOpenColorIO.ViewTransform, ...] = ()
+    displays: tuple[PyOpenColorIO.ColorSpace, ...] = ()
+    looks: tuple[PyOpenColorIO.Look, ...] = ()
+    inactive: frozenset[str] = frozenset()
+    file_rules: PyOpenColorIO.FileRules = msgspec.field(default_factory=PyOpenColorIO.FileRules)
+    luts: tuple[pathlib.Path, ...] = ()
+    sources: tuple[pathlib.Path, ...] = ()
+    merge: object = msgspec.field(default_factory=merging)
+
+    def absorbed(self, base: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.Config]:
+        """Merges every source config file into `base`, its search paths absolute for reads in place.
+
+        Returns:
+            Merged config, or `FAILED` fault.
+        """
+
+        def merged() -> PyOpenColorIO.Config:
+            return reduce(partial(_absorbed, self.merge, None), self.sources, base)
+
+        return called(merged, str(self.sources))
+
+    def keeping(self, base: PyOpenColorIO.Config, prior: PyOpenColorIO.Config) -> Outcome[Self]:
+        """Adds the view transforms an earlier merged config holds that neither `base` nor the build names, in their earlier order, each resolved into the operations its processor runs so no file it read stays referenced.
+
+        Returns:
+            Build, or `FAILED` faults of an earlier transform that no longer resolves.
+        """
+        held = frozenset(base.getViewTransformNames())
+        own = {view.getName(): view for view in self.view_transforms}
+        earlier = tuple(view for view in prior.getViewTransforms() if view.getName() not in held)
+
+        def resolved(view: PyOpenColorIO.ViewTransform) -> Outcome[PyOpenColorIO.ViewTransform]:
+            copied = copy.deepcopy(view)
+
+            def ran(direction: PyOpenColorIO.ViewTransformDirection) -> Outcome[None]:
+                return (
+                    Option
+                    .of_optional(view.getTransform(direction))
+                    .map(lambda transform: processor(prior, transform).map(lambda built: copied.setTransform(built.createGroupTransform(), direction)))
+                    .default_value(Ok(None))
+                )
+
+            return paired(ran(PyOpenColorIO.VIEWTRANSFORM_DIR_TO_REFERENCE), ran(PyOpenColorIO.VIEWTRANSFORM_DIR_FROM_REFERENCE)).map(lambda _: copied)
+
+        return accumulated(resolved(view) for view in earlier if view.getName() not in own).map(
+            lambda kept: msgspec.structs.replace(self, view_transforms=tuple(({view.getName(): view for view in earlier} | own | {view.getName(): view for view in kept}).values()))
+        )
+
+    def staged(self, base: PyOpenColorIO.Config, stage: pathlib.Path) -> Outcome[PyOpenColorIO.Config]:
+        """Merges rows into `base` with base files, LUT folders, and generated CLF tables staged in `stage`.
+
+        Returns:
+            Merged config, or `FAILED` and `UNWRITABLE` faults.
+        """
+        rows = PyOpenColorIO.Config()
+        stage = stage.absolute()
+        clf = {row.extension: row.name for row in LutFormat.writable()}["clf"]
+        working = base.getWorkingDir()
+        copies = (*(((pathlib.Path(working), stage),) if working else ()), *((folder, stage / folder.name) for folder in self.luts))
+
+        def tabled(transform: PyOpenColorIO.Transform) -> tuple[PyOpenColorIO.Transform, _Texts]:
+            match transform:
+                case PyOpenColorIO.GroupTransform():
+                    children = tuple(map(tabled, transform))
+                    group = PyOpenColorIO.GroupTransform([child for child, _ in children], direction=transform.getDirection())
+                    group.getFormatMetadata().setName(transform.getFormatMetadata().getName())
+                    return group, tuple(text for _, texts in children for text in texts)
+                case PyOpenColorIO.Lut1DTransform() | PyOpenColorIO.Lut3DTransform():
+                    table = PyOpenColorIO.GroupTransform([transform], direction=transform.getDirection())
+                    name = f"{rows.getProcessor(table).getCacheID()}.clf"
+                    return PyOpenColorIO.FileTransform(src=name, interpolation=transform.getInterpolation(), direction=transform.getDirection()), ((name, table.write(clf, rows)),)
+                case _:
+                    return transform, ()
+
+        def retabled(transform: PyOpenColorIO.Transform | None, write: Callable[[PyOpenColorIO.Transform], None]) -> _Texts:
+            found = Option.of_optional(transform).map(tabled)
+            for held, _ in found.to_list():
+                write(held)
+            return found.map(lambda pair: pair[1]).default_value(())
+
+        def authored() -> _Texts:
+            scene = PyOpenColorIO.ColorSpace(PyOpenColorIO.REFERENCE_SPACE_SCENE, name="ACES2065-1")
+            display = PyOpenColorIO.ColorSpace(PyOpenColorIO.REFERENCE_SPACE_DISPLAY, name="CIE-XYZ-D65")
+            spaces = (scene, display, *copy.deepcopy(self.displays))
+            views, looks = tuple(map(copy.deepcopy, self.view_transforms)), tuple(map(copy.deepcopy, self.looks))
+            rules, given = copy.deepcopy(self.file_rules), base.getFileRules()
+            rules.setDefaultRuleColorSpace(given.getColorSpace(given.getIndexForRule(PyOpenColorIO.DEFAULT_RULE_NAME)))
+            rows.setVersion(base.getMajorVersion(), base.getMinorVersion())
+            rows.setDefaultViewTransformName(base.getDefaultViewTransformName())
+            rows.setFileRules(rules)
+            for path in (".", *(folder.name for folder in self.luts)):
+                rows.addSearchPath(path)
+            texts = (
+                *(
+                    text
+                    for space in spaces
+                    for direction in (PyOpenColorIO.COLORSPACE_DIR_TO_REFERENCE, PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)
+                    for text in retabled(space.getTransform(direction), partial(space.setTransform, direction=direction))
+                ),
+                *(
+                    text
+                    for view in views
+                    for direction in (PyOpenColorIO.VIEWTRANSFORM_DIR_TO_REFERENCE, PyOpenColorIO.VIEWTRANSFORM_DIR_FROM_REFERENCE)
+                    for text in retabled(view.getTransform(direction), partial(view.setTransform, direction=direction))
+                ),
+                *(text for look in looks for text in (*retabled(look.getTransform(), look.setTransform), *retabled(look.getInverseTransform(), look.setInverseTransform))),
+            )
+            for space in spaces:
+                rows.addColorSpace(space)
+            rows.setRole(PyOpenColorIO.ROLE_INTERCHANGE_SCENE, scene.getName())
+            rows.setRole(PyOpenColorIO.ROLE_INTERCHANGE_DISPLAY, display.getName())
+            for view in views:
+                rows.addViewTransform(view)
+            for look in looks:
+                rows.addLook(look)
+            return texts
+
+        def viewed(request: PyOpenColorIO.Config) -> PyOpenColorIO.Config:
+            built = tuple(space.getName() for space in self.displays)
+            names = tuple(view.getName() for view in self.view_transforms)
+            for name in names:
+                request.addSharedView(name, name, PyOpenColorIO.OCIO_VIEW_USE_DISPLAY_NAME)
+            for display_name in (name for name in dict.fromkeys((*request.getDisplaysAll(), *built)) if Option.of_optional(request.getColorSpace(name)).is_some()):
+                for name in names:
+                    request.addDisplaySharedView(display_name, name)
+            for name in built if request.getActiveDisplays() else ():
+                _ACTIVE_DISPLAY(request, name)
+            for name in names if request.getActiveViews() else ():
+                _ACTIVE_VIEW(request, name)
+            separator = request.getFamilySeparator()
+            request.setInactiveColorSpaces(
+                ", ".join(
+                    space.getName()
+                    for space in request.getColorSpaces(PyOpenColorIO.SEARCH_REFERENCE_SPACE_ALL, PyOpenColorIO.COLORSPACE_ALL)
+                    if request.isInactiveColorSpace(space.getName()) or any(space.getFamily() == family or space.getFamily().startswith(family + separator) for family in self.inactive)
+                )
+            )
+            request.setWorkingDir(str(stage))
+            return request
+
+        def sourced() -> tuple[tuple[pathlib.Path, pathlib.Path], ...]:
+            return tuple((path.parent / held, stage / held) for path in self.sources for held in PyOpenColorIO.Config.CreateFromFile(str(path)).getSearchPaths())
+
+        def merged() -> PyOpenColorIO.Config:
+            return _MERGE(self.merge, reduce(partial(_absorbed, self.merge, pathlib.Path()), self.sources, base), rows)
+
+        return paired(called(authored, str(stage)), called(sourced, str(stage))).bind(
+            lambda held: paired(
+                called(merged, str(stage)).bind(lambda request: called(viewed, str(stage), request)),
+                files_copied((*copies, *held[1])),
+                accumulated(committed(stage / name, text.encode()) for name, text in dict(held[0]).items()),
+            ).map(lambda pair: pair[0])
+        )
+
+    def archived(self, base: PyOpenColorIO.Config, path: pathlib.Path) -> Outcome[pathlib.Path]:
+        """Stages rows merged into `base` and atomically publishes them as an OCIO archive at `path`.
+
+        Returns:
+            Published path, or `FAILED` and `UNWRITABLE` faults.
+        """
+        return committed(path, lambda stage: self.staged(base, stage.parent).bind(lambda config: called(config.archive, str(path), str(stage))))
+
+    def installed(self, base: PyOpenColorIO.Config, folder: pathlib.Path) -> Outcome[pathlib.Path]:
+        """Replaces `folder` whole with rows merged into `base` and their files.
+
+        Returns:
+            Installed config path, or `FAILED` and `UNWRITABLE` faults.
+        """
+        return committed(folder, lambda stage: self.staged(base, stage).bind(lambda config: committed(stage / "config.ocio", config.serialize().encode()))).map(
+            lambda installed: installed / "config.ocio"
+        )
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _absorbed(merge: object, folder: pathlib.Path | None, base: PyOpenColorIO.Config, path: pathlib.Path, /) -> PyOpenColorIO.Config:
+    """Merges one config file into `base` after stating the interchange role it lacks, its reference space named in `base`, and appends its search paths under `folder`, absolute beside the file when none."""
+    source = PyOpenColorIO.Config.CreateFromFile(str(path))
+    interchange = base.getCanonicalName(PyOpenColorIO.ROLE_INTERCHANGE_SCENE)
+    source.addColorSpace(PyOpenColorIO.ColorSpace(name=interchange, toReference=base.getProcessor(interchange, source.getCanonicalName(PyOpenColorIO.ROLE_REFERENCE)).createGroupTransform()))
+    source.setRole(PyOpenColorIO.ROLE_INTERCHANGE_SCENE, interchange)
+    merged = _MERGE(merge, base, source)
+    for held in source.getSearchPaths():
+        merged.addSearchPath(str((folder if folder is not None else path.parent) / held))
+    return merged
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["ConfigBuild"]

@@ -73,10 +73,10 @@ Numbers run in order; a number with a letter runs beside the number it shares.
   - Deepens per crate in Deepen left order
   - Cadence: one build and one deepen at launch, another pair every 30 minutes, at most 3 of each running, each commit freeing its slot
   - Once deepen targets run out, deepen runs over the geospatial group, cli group or chosen crates; `tune` over Rust every few commits
-- 1c: Font library `libs/python/typography` and `tools/foundry` CLI, building, refining and verifying any font, Perso-Arabic one domain in depth:
+- 1c: Font library `libs/python/graphics/typography` and its `foundry` command, building, refining and verifying any font, Perso-Arabic one domain in depth:
   - Round one committed (3,049 lines in seven packages, `foundry ACTION DECLARATION [NAME] [DESTINATION]`), so push it first
   - Then 2 or 3 `deepen` rounds over both paths with `deepen-brief.md` input, each a fresh run from the prior round
-  - `typecheck:mypy:3.13` spends 7.5 s on `libs/python/blender/bpy/ui/resources/icons.py`'s literal-union `case _`; fix it at its cause
+  - `rasm-bpy:typecheck:mypy` spends 7.5 s on `rasm_bpy/ui/_resources/icons.py`'s literal-union `case _`; fix it at its cause
   - First round folds type, class, constant and string spam into richer objects with higher-order operations for fonts in general
   - Each change rebuilds only what it reaches; CLI takes no flag a question does not need; nothing is tied to old tooling or one font
   - Then `tune` over Python

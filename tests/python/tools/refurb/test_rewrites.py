@@ -18,8 +18,7 @@ lazy from mypy.nodes import ArgKind, CallExpr, MemberExpr, StrExpr
 lazy from refurb.error import Error
 lazy from refurb.settings import Settings
 
-lazy from tests.python.tools.refurb.conftest import Findings
-lazy from tools.refurb.rewrites import RewriteVisitor
+lazy from rasm_refurb import Findings, RewriteVisitor
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

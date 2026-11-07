@@ -8,21 +8,10 @@ from typing import Final
 import bpy
 from expression import Some
 
-from blender.bpy.data.ids.images import Tag
-from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.identity import Identity
-from blender.bpy.nodes import functions
-from blender.bpy.nodes.changes import made
-from blender.bpy.nodes.content import ImageFrames, Loaded
-from blender.bpy.nodes.graphs import Component, Expr, math, mixed, switched, where, xyz
-from blender.bpy.nodes.interfaces import Interface
-from blender.bpy.render.compositor.colors import COLOR_RESULT, with_alpha
-from blender.bpy.render.compositor.coordinates import PixelGrid, uv_mapped
-from blender.bpy.render.outputs.results import COMBINED
-from blender.bpy.render.sessions.followups import FollowedRender, FollowUp, FollowUpSettings, WrittenPass
-from blender.records.faults import Outcome, paired
+from rasm_bpy.data import Descriptor, Identity, Ownership, Saved, Snapshot, Tag
+from rasm_bpy.nodes import Component, Expr, functions, ImageFrames, Interface, Loaded, made, math, mixed, switched, where, xyz
+from rasm_bpy.render import COLOR_RESULT, COMBINED, FollowedRender, FollowUp, FollowUpSettings, PixelGrid, uv_mapped, with_alpha, WrittenPass
+from rasm_records import Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

@@ -14,9 +14,8 @@ lazy import msgspec
 lazy from mypy.nodes import MypyFile
 lazy from refurb.checks.readability import no_copy_with_merge, no_len_cmp
 
-from tools.refurb.defaults import ErrorRestatedDefaultError
-lazy from tests.python.tools.refurb.conftest import Findings
-lazy from tools.refurb.__main__ import checked
+from rasm_refurb.defaults import ErrorRestatedDefaultError
+lazy from rasm_refurb import checked, Findings
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

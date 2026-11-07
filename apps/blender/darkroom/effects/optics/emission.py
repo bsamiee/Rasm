@@ -11,19 +11,11 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.nodes.content import Ramp
-from blender.bpy.nodes.desired import item_key, MenuItem, MenuItems
-from blender.bpy.nodes.functions import sampled, W
-from blender.bpy.nodes.graphs import Expr, math, menus, mixed, Scalar, vector
-from blender.bpy.nodes.interfaces import decoded, Interface, InterfacePanel, Socket, StockInput
-from blender.bpy.render.compositor import masks
-from blender.bpy.render.compositor.inputs import chosen, GraphInputs, path_key, Step
-from blender.imaging.color import colorimetry
-from blender.imaging.color.processors import Stops
-from blender.records.faults import accumulated, Nothing, Ok, Outcome
-from blender.records.fields import Case
+from rasm_bpy.data import Identity, Key, Value
+from rasm_bpy.nodes import decoded, Expr, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, menus, mixed, Ramp, sampled, Scalar, Socket, StockInput, vector, W
+from rasm_bpy.render import chosen, GraphInputs, masks, path_key, Step
+from rasm_imaging import colorimetry, Stops
+from rasm_records import accumulated, Case, Nothing, Ok, Outcome
 
 from .bases import cased
 

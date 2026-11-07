@@ -1,0 +1,47 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-rendering"
+version         = "0.0.0"
+description     = "Render management: render queues and farm targets, background-render supervision, light rigs, sun positions, and output naming"
+requires-python = "==3.13.*"
+
+dependencies = [
+    # --- [CORE]
+
+    "expression",        # Results, options, and collections of every module
+    "msgspec",           # Records, tagged unions, and field bounds
+    "rasm-imaging",      # Image analysis the light rigs read
+    "rasm-records",      # Fault model, field domains, and record files
+    "typing-extensions", # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
+    "tzdata",            # IANA time zones for zoneinfo on platforms without a database
+
+    # --- [MATHEMATICS]
+
+    "numpy",             # Arrays for sun positions and light rigs
+    "pvlib",             # Solar position, refraction, and horizon event times
+    "scipy",             # Vector quadrature over light rigs
+
+    # --- [IMAGING]
+
+    "opencolorio",       # Color processing of render outputs
+
+    # --- [HTTP]
+
+    "httpx2",            # HTTP for batch render targets and notices
+    "tenacity",          # Batch target retries over configured domain retry policies
+]
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["uv_build"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+# --- [FAWLTYDEPS] -----------------------------------------------------------------------
+
+[tool.fawltydeps]
+ignore_unused = ["tzdata"] # zoneinfo reads tzdata data files

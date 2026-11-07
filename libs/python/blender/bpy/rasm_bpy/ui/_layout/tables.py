@@ -1,0 +1,155 @@
+"""Tables of setting cells and tree rows over layout rows."""
+
+from collections.abc import Callable
+from functools import partial
+from pathlib import PurePath
+
+import bpy
+from expression import Option, Some
+from expression.collections import Block
+
+from rasm_bpy.data._extension.identity import Identity
+from rasm_bpy.data._extension.registration import _acquired, Acquisitions
+from rasm_bpy.data._rna.conditions import Scoped
+from rasm_bpy.data._rna.descriptors import Descriptor
+from rasm_bpy.data._rna.paths import _definition, Native, RnaPath, Struct
+from rasm_bpy.ui._layout.members import _marked
+from rasm_bpy.ui._layout.rows import _realized, _split, ConditionalRow, RowContent, RowDraw
+from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Editor = Callable[[bpy.types.UILayout, Native, str], None]
+type _Branch[L: Struct, C: Struct] = tuple[int, L, tuple[Option[C], ...]]
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _SettingsTable(ConditionalRow, frozen=True, kw_only=True):
+    """Setting rows across the owners of an edit scope, each compound pointer drawn through its host editor under the cell action, each field beside it.
+
+    Rows a cell action draws register through their owner.
+    """
+
+    scope: Scoped
+    settings: tuple[RnaPath, ...]
+    compound: tuple[tuple[type[Struct], _Editor], ...] = ()
+    action: Option[Callable[[Identity, Descriptor], Outcome[RowDraw]]] = Nothing
+
+    def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
+        """Resolves the leaf settings, their cells, and the owner name property once into the table draw."""
+        owner_type = self.scope.owner_type
+        kinds = tuple(kind for kind, _ in self.compound)
+
+        def celled(setting: Descriptor) -> Outcome[tuple[Descriptor, RowDraw]]:
+            action = accumulated(build(identity, setting) for build in self.action.to_list())
+            editor = Block.of_seq(self.compound).filter(lambda pair: isinstance(setting.prop, bpy.types.PointerProperty) and isinstance(setting.prop.fixed_type, pair[0])).try_head()
+            return action.map(lambda extra: (setting, editor.map(lambda pair: partial(_edited, setting, pair[1], extra)).default_with(lambda: partial(_beside, setting, extra))))
+
+        named = Option.of_optional(_definition(owner_type).name_property).to_result_with(lambda: Fault.of(Reason.ABSENT, owner_type.__name__, member="name_property"))
+        settings = accumulated(Descriptor.resolve(owner_type, path, bpy.types.Property) for path in self.settings).map(lambda found: tuple(leaf for each in found for leaf in each.leaves(kinds)))
+        return paired(named, settings.bind(lambda found: accumulated(map(celled, found)))).map(lambda parts: partial(self.shown, identity, *parts))
+
+    def shown(self, identity: Identity, name: bpy.types.StringProperty, held: tuple[tuple[Descriptor, RowDraw], ...], layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+        """Draws owner names over one row of cells per setting across the scope's owners, labelled with the setting name or its mark while owner values differ."""
+        for owners in identity.reports.settled(self.scope.owners(context)).to_list():
+            heads = _grid(layout, len(owners))[1]
+            for owner in owners:
+                heads.label(text=getattr(owner, name.identifier), translate=False)
+            for setting, drawing in held:
+                names, cells = _grid(layout, len(owners))
+                names.alignment = "RIGHT"
+                mixed = identity.reports.settled(_marked(setting, owners)).default_value(Nothing)
+                names.label(text=mixed.default_value(setting.prop.name), text_ctxt=setting.prop.translation_context, translate=mixed.is_none())
+                for owner in owners:
+                    drawing(cells.column(), owner, context)
+
+
+class Tree(ConditionalRow, frozen=True, kw_only=True):
+    """Resolved paths listed once per prefix, indented by depth, files and folders under their icons."""
+
+    paths: Callable[[bpy.types.Context], Outcome[tuple[PurePath, ...]]]
+
+    def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
+        """Returns the tree draw over the paths read each redraw."""
+        return Ok(partial(self.shown, identity))
+
+    def shown(self, identity: Identity, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+        """Draws every path prefix once in order, indented by depth, a file icon on full paths and a folder icon on the rest."""
+        for paths in identity.reports.settled(self.paths(context)).to_list():
+            files = {path.parts for path in paths}
+            for node in sorted({path.parts[:end] for path in paths for end in range(1, len(path.parts) + 1)}):
+                line = layout.row(align=True)
+                for _ in node[1:]:
+                    line.label(text="", icon="BLANK1")
+                line.label(text=node[-1], icon="FILE_BLANK" if node in files else "FILE_FOLDER", translate=False)
+
+
+class _TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True):
+    """Tree rows indented by depth under the column owners' names, each label struct's name and marks in the label cell, one cell drawn per column owner the row holds."""
+
+    tree: Callable[[bpy.types.Context], tuple[tuple[str, ...], tuple[_Branch[L, C], ...]]]
+    cell: Callable[[bpy.types.UILayout, str, C, L], Outcome[None]]
+    marks: tuple[RowContent, ...] = ()
+
+    @property
+    def children(self) -> tuple[RowContent, ...]:
+        """Mark rows."""
+        return self.marks
+
+    def acquisitions(self, _identity: Identity, /) -> Acquisitions:
+        """Acquires the mark rows."""
+        return _acquired(self.marks)
+
+    def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
+        """Realizes the marks once into the tree draw."""
+        return _realized(self.marks, identity).map(lambda marks: partial(self.shown, identity, marks))
+
+    def shown(self, identity: Identity, marks: RowDraw, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+        """Draws column owner names, then each branch with its cells."""
+        owners, branches = self.tree(context)
+        heads = _grid(layout, len(owners))[1]
+        for owner in owners:
+            heads.label(text=owner, translate=False)
+        for depth, label, cells in branches:
+            names, row = _grid(layout, len(owners))
+            for _ in range(depth):
+                names.label(text="", icon="BLANK1")
+            for named in Option.of_optional(_definition(label).name_property).to_list():
+                names.label(text=getattr(label, named.identifier), translate=False)
+            marks(names, label, context)
+            for owner, found in zip(owners, cells):
+                line = row.row(align=True)
+                for each in found.to_list():
+                    identity.reports.faulted(self.cell(line, owner, each, label))
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _grid(layout: bpy.types.UILayout, columns: int) -> tuple[bpy.types.UILayout, bpy.types.UILayout]:
+    """Places the label cell beside an even grid of one value column per owner."""
+    names, values = _split(layout)
+    return names, values.grid_flow(row_major=True, columns=columns, even_columns=True, align=True)
+
+
+def _edited(setting: Descriptor, place: _Editor, action: tuple[RowDraw, ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    """Draws a compound setting through its editor at each located owner, its action row first."""
+    for owner in setting.owner_of(context, Some(holder)).to_list():
+        for draw in action:
+            draw(layout.row(align=True), holder, context)
+        place(layout, owner, setting.prop.identifier)
+
+
+def _beside(setting: Descriptor, action: tuple[RowDraw, ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    """Draws a field with its action after it in one row."""
+    line = layout.row(align=True) if action else layout
+    for owner in setting.owner_of(context, Some(holder)).to_list():
+        line.prop(owner, setting.prop.identifier, text="", index=setting.index.default_value(-1))
+    for draw in action:
+        draw(line, holder, context)
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Tree"]

@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
-files: ['{apps/blender,libs/python/blender}/**']
+files: ['{apps/blender,libs/python/blender,libs/python/data/records}/**', 'eng/python/rasm_eng/_{probe,session,streams}.py']
 utils:
     record-base:
         any:

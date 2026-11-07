@@ -7,14 +7,11 @@ from bl_ui.space_image import IMAGE_PT_image_properties
 from bl_ui.space_node import NODE_PT_active_node_generic
 import bpy
 
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
-from blender.bpy.data.rna.paths import rooted
-from blender.bpy.render.compositor.inputs import entered, path_key
-from blender.bpy.render.review.calibration import ChartCalibration
-from blender.bpy.render.review.editing import ChartEditing
-from blender.bpy.ui.elements.panels import Beside, Panel
-from blender.bpy.ui.layout.rows import OperatorButton
-from blender.records.faults import Outcome, paired
+from rasm_bpy.commands import Answer, Call, Done, Empty, Operator
+from rasm_bpy.data import rooted
+from rasm_bpy.render import ChartCalibration, ChartEditing, entered, path_key
+from rasm_bpy.ui import Beside, OperatorButton, Panel
+from rasm_records import Outcome, paired
 
 from ..catalog import chain
 from ..effects.grade.colorimetry import MIXER, Primaries, REMAP

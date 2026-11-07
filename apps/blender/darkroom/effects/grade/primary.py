@@ -6,14 +6,10 @@ import bpy
 from expression import Some
 import PyOpenColorIO
 
-from blender.bpy.nodes.graphs import Expr, math, switched, vector, xyz
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
-from blender.bpy.render.compositor import grades
-from blender.bpy.render.compositor.colors import AXES
-from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix
-from blender.bpy.render.compositor.inputs import GraphInputs
-from blender.imaging.color.processors import luma
-from blender.records.faults import Ok, Outcome
+from rasm_bpy.nodes import Expr, Interface, InterfacePanel, math, Socket, switched, vector, xyz
+from rasm_bpy.render import AXES, CompositorEffect, CompositorRecord, grades, GraphInputs, Mix
+from rasm_imaging import luma
+from rasm_records import Ok, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

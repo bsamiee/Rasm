@@ -1,0 +1,137 @@
+"""Evaluated dependency graphs, durable updates, copied instances, and scoped geometry."""
+
+from collections.abc import Generator
+from contextlib import contextmanager, ExitStack
+from functools import partial
+from typing import Self
+
+import bpy
+from expression import Option, Result, Some
+from expression.extra.result import catch
+from mathutils import Vector
+import msgspec
+import numpy as np
+
+from rasm_bpy.data._extension.events import Change
+from rasm_bpy.data._ids.store import Handle
+from rasm_records import Fault, Nothing, Outcome, Reason
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Update(msgspec.Struct, frozen=True, kw_only=True):
+    """Original ID changes kept past handler call."""
+
+    handle: Handle[bpy.types.ID]
+    changes: Change
+
+    @classmethod
+    def of(cls, item: bpy.types.DepsgraphUpdate) -> Self:
+        """Copies native update during handler call."""
+        block: bpy.types.ID = item.id  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        return cls(handle=Handle.of(block), changes=Change.of(item))
+
+
+class _Instancing(msgspec.Struct, frozen=True, kw_only=True):
+    """Instancer data of generated instance, generated and UV coordinates as values."""
+
+    instancer: bpy.types.Object
+    persistent_id: tuple[int, ...]
+    random_id: int
+    orco: tuple[float, ...]
+    uv: tuple[float, ...]
+    particle_system: Option[str]
+
+
+class _Instance(msgspec.Struct, frozen=True, kw_only=True):
+    """Copied depsgraph instance, its world matrix as rows."""
+
+    source: bpy.types.Object
+    matrix: tuple[tuple[float, ...], ...]
+    show_self: bool
+    show_particles: bool
+    instancing: Option[_Instancing]
+
+
+class _Hit(msgspec.Struct, frozen=True, kw_only=True):
+    """Object-space surface hit, location and normal as coordinates."""
+
+    location: tuple[float, ...]
+    normal: tuple[float, ...]
+    face: int
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def instances(depsgraph: bpy.types.Depsgraph) -> tuple[_Instance, ...]:
+    """Copies object instances in iterator order, sources and instancers as their originals."""
+
+    def copied(item: bpy.types.DepsgraphObjectInstance) -> _Instance:
+        source: bpy.types.Object = item.object.original  # type: ignore[union-attr, assignment]  # ty: ignore[unresolved-attribute, invalid-assignment]
+
+        def instancing(parent: bpy.types.Object) -> _Instancing:
+            instancer: bpy.types.Object = parent.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return _Instancing(
+                instancer=instancer,
+                persistent_id=tuple(np.asarray(item.persistent_id).tolist()),
+                random_id=item.random_id,
+                orco=item.orco[:],
+                uv=tuple(np.asarray(item.uv).tolist()),
+                particle_system=Option.of_optional(item.particle_system).map(lambda system: system.name),
+            )
+
+        return _Instance(
+            source=source,
+            matrix=tuple(row[:] for row in item.matrix_world[:]),
+            show_self=item.show_self,
+            show_particles=item.show_particles,
+            instancing=Option.of_optional(item.parent).map(instancing),
+        )
+
+    return tuple(map(copied, depsgraph.object_instances))
+
+
+def _evaluated(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Depsgraph]:
+    """Returns the layer's ensured, updated dependency graph, refused fault while evaluation runs."""
+    with bpy.context.temp_override(scene=view_layer.id_data, view_layer=view_layer):
+        return catch(bpy.context.evaluated_depsgraph_get, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(view_layer)))
+
+
+@contextmanager
+def meshed(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, *, preserve_all_data_layers: bool = False) -> Generator[Outcome[bpy.types.Mesh]]:
+    """Yields evaluated mesh, cleared at scope exit."""
+    copy = source.evaluated_get(depsgraph)
+    with ExitStack() as lifetime:
+        lifetime.callback(copy.to_mesh_clear)
+        yield (
+            catch(copy.to_mesh, exception=RuntimeError)(preserve_all_data_layers=preserve_all_data_layers, depsgraph=depsgraph)
+            .map_error(partial(Fault.of, Reason.REFUSED, repr(source)))
+            .bind(lambda mesh: Option.of_optional(mesh).to_result_with(partial(Fault.of, Reason.ABSENT, repr(source), member="to_mesh")))
+        )
+
+
+def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector, distance: float, direction: Option[Vector] = Nothing) -> Outcome[Option[_Hit]]:
+    """Returns object-space surface hit, Nothing on miss.
+
+    Args:
+        source: Object whose evaluated surface the query tests.
+        depsgraph: Evaluation the surface reads.
+        origin: Object-space query point.
+        distance: Farthest hit distance.
+        direction: Ray direction casting from origin, Nothing for the nearest surface point.
+
+    Returns:
+        Optional hit, refused fault for a refused query.
+    """
+    queried: Result[tuple[bool, Vector, Vector, int], RuntimeError] = direction.map(
+        lambda toward: catch(source.ray_cast, exception=RuntimeError)(origin, toward, distance=distance, depsgraph=depsgraph)
+    ).default_with(lambda: catch(source.closest_point_on_mesh, exception=RuntimeError)(origin, distance=distance, depsgraph=depsgraph))
+    return queried.map(lambda found: Some(found).filter(lambda held: held[0]).map(lambda held: _Hit(location=held[1][:], normal=held[2][:], face=held[3]))).map_error(
+        partial(Fault.of, Reason.REFUSED, repr(source))
+    )
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Update", "hit", "instances", "meshed"]

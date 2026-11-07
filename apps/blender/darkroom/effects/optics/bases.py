@@ -11,17 +11,10 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.nodes import textures
-from blender.bpy.nodes.desired import item_key, MenuItem, MenuItems
-from blender.bpy.nodes.functions import POSITION, sampled, W
-from blender.bpy.nodes.graphs import Expr, math, menus, Scalar, switched, Term, vector, xyz
-from blender.bpy.nodes.interfaces import decoded, Interface, InterfacePanel, Socket
-from blender.bpy.render.compositor.inputs import chosen, GraphInputs
-from blender.bpy.render.compositor.motion import origin
-from blender.records.faults import Nothing, Outcome, paired
-from blender.records.fields import Case, Positive
+from rasm_bpy.data import Identity, Key, Value
+from rasm_bpy.nodes import decoded, Expr, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, menus, POSITION, sampled, Scalar, Socket, switched, Term, textures, vector, W, xyz
+from rasm_bpy.render import chosen, GraphInputs, origin
+from rasm_records import Case, Nothing, Outcome, paired, Positive
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

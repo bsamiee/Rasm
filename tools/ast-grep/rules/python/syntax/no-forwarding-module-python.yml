@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
+ignores: ['**/__init__.py']
 rule:
     kind: string_content
     pattern: $NAME
@@ -25,4 +26,4 @@ rule:
                                 - {nthChild: 1, inside: {kind: dotted_name, inside: {kind: import_statement}}}
                                 - inside: {kind: dotted_name, not: {inside: {kind: import_from_statement, field: module_name}}, inside: {kind: import_from_statement}}
 message: '`__all__` exports `$NAME`, a name the module imports'
-note: 'Import each name from the module defining it at each consumer, and list names the module defines alone in `__all__`'
+note: 'Import each name from its package entry at each consumer, and list names the module defines alone in `__all__`'

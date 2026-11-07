@@ -15,27 +15,39 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.commands.invocations import Save
-from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
-from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.data.rna.paths import rooted
-from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.identity import Key
-from blender.bpy.nodes.desired import item_key, MenuItem, MenuItems
-from blender.bpy.nodes.functions import EXPRESSIONS
-from blender.bpy.nodes.graphs import Component, Expr, math, mixed, rgba, switched, vector
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
-from blender.bpy.render.compositor import lenses, masks
-from blender.bpy.render.compositor.colors import with_alpha
-from blender.bpy.render.compositor.coordinates import Border, BORDERS, extended, shorter
-from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, depth_precise, Mix, Named
-from blender.bpy.render.compositor.inputs import captured, chosen, entered, FRAME_ASPECT, FRAME_METERS, FRAME_SCALE, GraphInputs, Holds, path_key, value, valued
-from blender.bpy.render.compositor.shapes import turned
-from blender.bpy.render.outputs.framing import FrameSize, Whole
-from blender.imaging.files.images import ImageFile, Storage
-from blender.imaging.geometry.frames import Raster, StMap
-from blender.imaging.geometry.lenses import Aperture, Radial
-from blender.records.faults import Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_bpy.commands import Answer, Call, Done, Operator, Save, Unchanged
+from rasm_bpy.data import Key, rooted, Snapshot, Value
+from rasm_bpy.nodes import Component, Expr, EXPRESSIONS, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, mixed, rgba, Socket, switched, vector
+from rasm_bpy.render import (
+    Border,
+    BORDERS,
+    captured,
+    chosen,
+    CompositorEffect,
+    CompositorRecord,
+    depth_precise,
+    entered,
+    extended,
+    FRAME_ASPECT,
+    FRAME_METERS,
+    FRAME_SCALE,
+    FrameSize,
+    GraphInputs,
+    Holds,
+    lenses,
+    masks,
+    Mix,
+    Named,
+    path_key,
+    shorter,
+    turned,
+    value,
+    valued,
+    Whole,
+    with_alpha,
+)
+from rasm_imaging import Aperture, ImageFile, Radial, Raster, StMap, Storage
+from rasm_records import Error, Fault, Nothing, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

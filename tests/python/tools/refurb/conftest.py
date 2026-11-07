@@ -1,17 +1,13 @@
 """Native diagnostics for selected rules over a source sample."""
 
-lazy from collections.abc import Callable, Mapping
+lazy from collections.abc import Mapping
 lazy from dataclasses import replace
 
 import pytest
 lazy from refurb.error import Error, ErrorCode
 lazy from refurb.settings import load_settings
 
-lazy from tools.refurb.__main__ import checked
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Findings = Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]
+lazy from rasm_refurb import checked, Findings
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 

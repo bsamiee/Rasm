@@ -1,8 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
-ignores:
-    - '**/__main__.py'
 utils:
     mapping:
         matches: {python-unparenthesized: {value: {matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^environb?$'}}}}}}

@@ -8,22 +8,11 @@ from expression import Some
 import numpy as np
 import PyOpenColorIO
 
-from blender.bpy.extension.identity import Identity
-from blender.bpy.nodes.desired import MenuItem
-from blender.bpy.nodes.graphs import Expr, xyz
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, StockInput
-from blender.bpy.render.color.spaces import ColorSpace, tint_of
-from blender.bpy.render.compositor import grades
-from blender.bpy.render.compositor.colors import space_item
-from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix
-from blender.bpy.render.compositor.grades import matrixed
-from blender.bpy.render.compositor.inputs import entered, GraphInputs
-from blender.bpy.render.compositor.viewers import READ
-from blender.imaging.analysis.metering import Samples
-from blender.imaging.color.colorimetry import WhitePoint
-from blender.imaging.color.processors import basis
-from blender.imaging.files.images import ImageFile
-from blender.records.faults import Fault, Faults, Ok, Outcome, paired, Reason
+from rasm_bpy.data import Identity
+from rasm_bpy.nodes import Expr, Interface, InterfacePanel, MenuItem, Socket, StockInput, xyz
+from rasm_bpy.render import ColorSpace, CompositorEffect, CompositorRecord, entered, grades, GraphInputs, matrixed, Mix, READ, space_item, tint_of
+from rasm_imaging import basis, ImageFile, Samples, WhitePoint
+from rasm_records import Fault, Faults, Ok, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

@@ -54,7 +54,7 @@ return {
       outlines: ['python', 'toml', 'sql'],
       metadata: [],
       pathspec: ["'*.py'", "'*.py3'", "'*.pyi'", "'*.bzl'", "'*.bazel'", "'*pyproject.toml'"],
-      unit: 'folder holding the nearest `py.typed`, `blender_manifest.toml` or member pyproject.toml (a `[tool.uv.workspace] members` row)',
+      unit: 'folder holding the nearest pyproject.toml a uv root lists (`uv workspace list --paths`)',
       owners: [
         { name: 'ruff', paths: ['pyproject.toml'], decides: 'a Ruff rule or option row of a [tool.ruff*] table in the root or a member pyproject.toml', skills: ['manage-repo'] },
         { name: 'ty', paths: ['pyproject.toml'], decides: 'a ty rule row of a [tool.ty*] table in the root or a member pyproject.toml', skills: ['manage-repo'] },
@@ -63,7 +63,7 @@ return {
       ],
       blender: {
         roots: ['libs/python/blender', 'apps/blender'],
-        sources: '.cache/python/*/lib/python*/site-packages',
+        sources: 'libs/python/blender/.venv/lib/python*/site-packages',
         release: "Blender's bundled Python 3.13",
       },
     }),

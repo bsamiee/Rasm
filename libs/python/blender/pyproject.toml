@@ -1,83 +1,58 @@
-# --- [PROJECT] --------------------------------------------------------------------------
+# --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
 
-[project]
-name            = "blender"
-version         = "0.0.0"
-description     = "Shared extension code with bpy behind one boundary"
-requires-python = ">=3.13"
-
-dependencies = [
-    # --- [CORE]
-
-    "expression",                                         # Results, options, and collections of every library package
-    "makefun",                                            # Callback signatures for Blender's declared host slots
-    "msgspec",                                            # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
-    "optype",                                             # Native operator protocols with operand promotion and result types
-    "structlog",                                          # Structured logging through typed bound loggers holding each extension's context
-    "typing-extensions",                                  # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
-    "typing-inspection",                                  # Annotation metadata and generic type-alias inspection
-    "tzdata",                                             # IANA time zones for zoneinfo on platforms without a database
-
-    # --- [HASHING]
-
-    "cbor2",                                              # Canonical binary content hashing with unbounded integers
-
-    # --- [FILES]
-
-    "blender-asset-tracer; python_full_version < '3.14'", # Blend file packs with paths rewritten across linked libraries
-
-    # --- [MATHEMATICS]
-
-    "networkx",                                           # Strongly connected rename groups and their condensation order
-    "numpy",                                              # Arrays for image planes, previews, and analysis
-    "pvlib; python_full_version < '3.15'",                # Solar position, refraction, and horizon event times
-    "scipy",                                              # Color algebra, vector quadrature, FFT sizing, and zoom
-
-    # --- [IMAGING]
-
-    "coloraide",                                          # Color spaces, interpolation, compositing, filters, contrast, and gamut fitting of interface themes
-    "colour-science",                                     # CIE observer datasets
-    "imagecodecs",                                        # In-memory JPEG encoding and decoding for compressed image generations
-    "matplotlib",                                         # Colour imports its plotting API eagerly
-    "opencolorio; python_full_version < '3.15'",          # Color processing, config authoring, and LUT baking
-    "openimageio",                                        # Image IO and analysis
-    "psdtags",                                            # Photoshop layer records for layered documents
-    "scikit-image",                                       # Structural similarity over image comparison planes
-    "tifffile",                                           # Linear Raw DNG and TIFF containers for layered documents
-
-    # --- [HTTP]
-
-    "httpx2",                                             # HTTP for batch render targets and notices
-    "tenacity",                                           # Batch target retries over configured domain retry policies
+[dependency-groups]
+dev = [
+    "fake-bpy-module-latest", # Stubs for bpy, bmesh, mathutils, and gpu
+    "scipy-stubs",
+    "types-networkx",
+    "types-opencolorio",      # Stubs for PyOpenColorIO
 ]
 
-# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+# --- [UV] -------------------------------------------------------------------------------
 
-[build-system]
-requires      = ["hatchling"]
-build-backend = "hatchling.build"
+[tool.uv]
+environments            = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+prerelease              = "allow"
+constraint-dependencies = [
+    "attrs==25.3.0",
+    "autopep8==2.3.1",
+    "cattrs==25.1.1",
+    "certifi==2025.4.26",
+    "charset-normalizer==3.4.1",
+    "Cython==3.0.11",
+    "docutils==0.22.4",
+    "idna==3.10",
+    "numpy==2.3.4",
+    "opencolorio==2.5.0",
+    "openimageio==3.1.16.0",
+    "packaging==25.0",
+    "pip==26.0.1",
+    "pycodestyle==2.13.0",
+    "pyproject-metadata==0.9.1",
+    "requests==2.32.3",
+    "setuptools==80.9.0",
+    "tomli_w==1.2.0",
+    "typing_extensions==4.14.1",
+    "urllib3==2.4.0",
+    "zstandard==0.25.0",
+]                                                                # Versions the installed Blender bundles, `rasm-eng upgrade` their one writer
 
-# --- [HATCH] ----------------------------------------------------------------------------
+[tool.uv.workspace]
+members = ["*"]
 
-[tool.hatch.build]
-dev-mode-dirs = [".."] # Editable installs expose the folder holding the import root
-
-[tool.hatch.build.targets.wheel]
-include = ["**"]
-exclude = ["/pyproject.toml", "/probe.py"]
-
-[tool.hatch.build.targets.wheel.sources]
-"" = "blender"
+[tool.uv.sources]
+rasm-bpy       = { workspace = true }
+rasm-imaging   = { workspace = true }
+rasm-records   = { workspace = "../../.." }
+rasm-rendering = { workspace = true }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
-extend = "../../../pyproject.toml"
-
-[tool.ruff.lint.flake8-self]
-extend-ignore-names = ["_PropertyDeferred"] # Blender names deferred `bpy.props` definitions by this class alone
-
-# --- [FAWLTYDEPS] -----------------------------------------------------------------------
-
-[tool.fawltydeps]
-ignore_unused = ["matplotlib", "tzdata"] # Colour imports Matplotlib, zoneinfo reads tzdata data files
+extend         = "../../../pyproject.toml"
+target-version = "py313"                   # A virtual root holds no `requires-python` for Ruff to read

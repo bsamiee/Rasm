@@ -10,30 +10,11 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.data.ids.images import normalized, Tag
-from blender.bpy.data.ids.ownership import Ownership, Saved
-from blender.bpy.nodes.content import Generated
-from blender.bpy.nodes.desired import MenuItem
-from blender.bpy.nodes.functions import EXPRESSIONS
-from blender.bpy.nodes.graphs import equal, Expr, math, mixed, vector, where, xyz
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
-from blender.bpy.nodes.textures import MapRange, WhiteNoise
-from blender.bpy.render.compositor import motion
-from blender.bpy.render.compositor.colors import space_item
-from blender.bpy.render.compositor.coordinates import PixelGrid
-from blender.bpy.render.compositor.editors import FilePath
-from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, precise
-from blender.bpy.render.compositor.filters import tiled
-from blender.bpy.render.compositor.inputs import GraphInputs
-from blender.bpy.render.compositor.masks import luminance
-from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, origin, SEED
-from blender.imaging.color.processors import GRAY
-from blender.imaging.files.images import read_file
-from blender.imaging.geometry.arithmetic import gaussian
-from blender.imaging.sampling import tiles
-from blender.imaging.sampling.tiles import stream
-from blender.records.faults import Nothing, Ok, Outcome, paired
-from blender.records.stores import content_hash, ContentHash, rng
+from rasm_bpy.data import normalized, Ownership, Saved, Tag
+from rasm_bpy.nodes import equal, Expr, EXPRESSIONS, Generated, Interface, InterfacePanel, MapRange, math, MenuItem, mixed, Socket, vector, where, WhiteNoise, xyz
+from rasm_bpy.render import CLOCK, Clock, clocked, CompositorEffect, CompositorRecord, FilePath, GraphInputs, luminance, Mix, motion, origin, PixelGrid, precise, SEED, space_item, tiled
+from rasm_imaging import gaussian, GRAY, read_file, stream, tiles
+from rasm_records import content_hash, ContentHash, Nothing, Ok, Outcome, paired, rng
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

@@ -1,0 +1,13 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-typography-tests"
+version         = "0.0.0"
+requires-python = ">=3.15"
+
+dependencies = ["cyclopts", "expression", "msgspec", "pytest", "rasm-records", "rasm-testing", "rasm-typography", "sysexits"]
+
+# --- [FAWLTYDEPS] -----------------------------------------------------------------------
+
+[tool.fawltydeps]
+ignore_unused = ["rasm-testing"] # pytest loads it through its `pytest11` entry point

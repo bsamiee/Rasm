@@ -1,0 +1,208 @@
+"""Layered TIFF documents with Photoshop layer data and Linear Raw DNG frames through tifffile."""
+
+import fractions
+import functools
+import pathlib
+import struct
+
+from expression import Option
+from expression.extra.result import catch
+import msgspec
+import numpy as np
+import numpy.typing as npt
+import psdtags
+import PyOpenColorIO
+import tifffile
+
+from rasm_imaging._files.buffers import Coded
+from rasm_imaging._files.images import profile, written
+from rasm_imaging._geometry.lenses import Optics
+from rasm_records import Fault, Finite, Nothing, Outcome, paired, Reason
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type DocumentLayers = tuple[PixelLayer | LayerGroup, ...]
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class PixelLayer(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Pixel layer in unassociated color with alpha."""
+
+    name: str
+    color: npt.NDArray[Coded]
+    alpha: npt.NDArray[Coded]
+    mask: Option[npt.NDArray[Coded]] = Nothing
+    mode: psdtags.PsdBlendMode = psdtags.PsdBlendMode.NORMAL
+    opacity: float = 1.0
+    visible: bool = True
+
+
+class LayerGroup(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Layer group, layers bottom first."""
+
+    name: str
+    layers: DocumentLayers
+    mode: psdtags.PsdBlendMode = psdtags.PsdBlendMode.PASS_THROUGH
+    opacity: float = 1.0
+    visible: bool = True
+
+
+class Document(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Layers bottom first and density in pixels per meter."""
+
+    layers: DocumentLayers
+    composite: npt.NDArray[Coded]
+    colorspace: str
+    density: float
+
+    def written(self, path: pathlib.Path, config: PyOpenColorIO.Config) -> Outcome[pathlib.Path]:
+        """Writes layered TIFF with colorspace ICC profile.
+
+        Returns:
+            Path, `UNREADABLE` fault for profile IO, or `UNWRITABLE` fault.
+        """
+        height, width = self.composite.shape[:2]
+        canvas, void = psdtags.PsdRectangle(0, 0, height, width), psdtags.PsdRectangle(0, 0, 0, 0)
+        ids = (*(psdtags.PsdChannelId(index) for index in range(3)), psdtags.PsdChannelId.TRANSPARENCY_MASK)
+        empty = tuple(zip(ids, (np.zeros((0, 0), dtype=self.composite.dtype),) * 4))
+
+        def record(
+            name: str,
+            *,
+            blend: tuple[psdtags.PsdBlendMode, float],
+            visible: bool,
+            channels: tuple[tuple[psdtags.PsdChannelId, npt.NDArray[Coded]], ...],
+            rectangle: psdtags.PsdRectangle,
+            mask: psdtags.PsdLayerMask,
+            info: tuple[psdtags.PsdKeyABC, ...],
+        ) -> psdtags.PsdLayer:
+            return psdtags.PsdLayer(
+                name=name.encode("macroman", "replace").decode("macroman"),
+                channels=[psdtags.PsdChannel(channel, data=data) for channel, data in channels],
+                rectangle=rectangle,
+                mask=mask,
+                opacity=round(blend[1] * 255),
+                blendmode=blend[0],
+                flags=psdtags.PsdLayerFlag.PHOTOSHOP5 | (psdtags.PsdLayerFlag.BASE if visible else psdtags.PsdLayerFlag.VISIBLE),
+                info=[psdtags.PsdString(psdtags.PsdKey.UNICODE_LAYER_NAME, name), *info],
+            )
+
+        def records(node: PixelLayer | LayerGroup) -> tuple[psdtags.PsdLayer, ...]:
+            match node:
+                case PixelLayer():
+                    channels = (*zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha)), *((psdtags.PsdChannelId.USER_LAYER_MASK, mask) for mask in node.mask.to_list()))
+                    mask = node.mask.map(lambda _: psdtags.PsdLayerMask(rectangle=canvas)).default_with(psdtags.PsdLayerMask)
+                    return (record(node.name, blend=(node.mode, node.opacity), visible=node.visible, channels=channels, rectangle=canvas, mask=mask, info=()),)
+                case LayerGroup():
+                    bounding = psdtags.PsdSectionDividerSetting(psdtags.PsdSectionDividerType.BOUNDING_SECTION_DIVIDER)
+                    section = psdtags.PsdSectionDividerSetting(psdtags.PsdSectionDividerType.OPEN_FOLDER, node.mode)
+                    return (
+                        record("</Layer group>", blend=(psdtags.PsdBlendMode.NORMAL, 1.0), visible=True, channels=empty, rectangle=void, mask=psdtags.PsdLayerMask(), info=(bounding,)),
+                        *(layer for child in node.layers for layer in records(child)),
+                        record(node.name, blend=(node.mode, node.opacity), visible=node.visible, channels=empty, rectangle=void, mask=psdtags.PsdLayerMask(), info=(section,)),
+                    )
+
+        source = psdtags.TiffImageSourceData(
+            psdformat=psdtags.PsdFormat.LE32BIT,
+            layers=psdtags.PsdLayers(
+                key=next(key for key, char in psdtags.PsdLayers.TYPES.items() if np.dtype(char) == self.composite.dtype),
+                layers=[layer for node in self.layers for layer in records(node)],
+                has_transparency=True,
+            ),
+            usermask=psdtags.PsdUserMask(),
+            info=[psdtags.PsdEmpty(psdtags.PsdKey.SAVING_MERGED_TRANSPARENCY2)],
+        )
+        tagged = catch(source.tifftag, exception=struct.error)(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS).map_error(
+            functools.partial(Fault.of, Reason.UNWRITABLE, str(path))
+        )
+        return paired(tagged, profile(config, self.colorspace)).bind(
+            lambda pair: written(
+                path,
+                functools.partial(
+                    tifffile.imwrite,
+                    data=self.composite,
+                    photometric=tifffile.PHOTOMETRIC.RGB,
+                    planarconfig=tifffile.PLANARCONFIG.CONTIG,
+                    extrasamples=(tifffile.EXTRASAMPLE.UNASSALPHA,),
+                    compression=tifffile.COMPRESSION.ADOBE_DEFLATE,
+                    predictor=tifffile.PREDICTOR.HORIZONTAL if np.issubdtype(self.composite.dtype, np.integer) else tifffile.PREDICTOR.NONE,
+                    iccprofile=pair[1].to_optional(),
+                    resolution=(self.density * 0.0254, self.density * 0.0254),
+                    resolutionunit=tifffile.RESUNIT.INCH,
+                    byteorder=source.byteorder,
+                    metadata=None,
+                    software=False,
+                    bigtiff=False,
+                    extratags=[pair[0]],
+                ),
+            )
+        )
+
+
+class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
+    """Camera and exposure tags of Linear Raw DNG."""
+
+    make: str
+    model: str
+    exposure: Finite = 0.0
+    optics: Option[Optics] = Nothing
+
+    def written(self, path: pathlib.Path, frame: npt.NDArray[np.float32], basis: npt.NDArray[np.float64]) -> Outcome[pathlib.Path]:
+        """Writes C-contiguous `(height, width, 3)` scene-linear frame as Linear Raw DNG, `basis` the frame's linear RGB-to-XYZ D65 matrix.
+
+        Returns:
+            Path, or `FAILED` or `UNWRITABLE` fault.
+        """
+
+        def signed(*values: float) -> tuple[tuple[int, int], ...]:
+            bound = int(np.iinfo(np.int32).max)
+            return tuple(fractions.Fraction(value).limit_denominator(min(bound, int(bound / abs(value)))).as_integer_ratio() if value else (0, 1) for value in values)
+
+        def tags(matrix: npt.NDArray[np.float64]) -> list[tuple[str, int, int, object, bool]]:
+            rows = (
+                ("Make", tifffile.DATATYPE.ASCII, 0, self.make),
+                ("Model", tifffile.DATATYPE.ASCII, 0, self.model),
+                ("UniqueCameraModel", tifffile.DATATYPE.ASCII, 0, f"{self.make} {self.model}"),
+                ("DNGVersion", tifffile.DATATYPE.BYTE, 4, (1, 4, 0, 0)),
+                ("DNGBackwardVersion", tifffile.DATATYPE.BYTE, 4, (1, 4, 0, 0)),
+                ("ColorMatrix1", tifffile.DATATYPE.SRATIONAL, 9, signed(*matrix.reshape(-1).tolist())),
+                ("CalibrationIlluminant1", tifffile.DATATYPE.SHORT, 1, 21),
+                ("AsShotNeutral", tifffile.DATATYPE.RATIONAL, 3, (tifffile.rational(1.0),) * 3),
+                ("BaselineExposure", tifffile.DATATYPE.SRATIONAL, 1, signed(self.exposure)),
+                *(
+                    row
+                    for optics in self.optics.to_list()
+                    for row in (
+                        ("FocalLength", tifffile.DATATYPE.RATIONAL, 1, tifffile.rational(optics.focal_length * 1000.0)),
+                        ("FNumber", tifffile.DATATYPE.RATIONAL, 1, tifffile.rational(optics.f_number)),
+                    )
+                ),
+            )
+            return [(name, kind, count, value, True) for name, kind, count, value in rows]
+
+        return (
+            catch(np.linalg.inv, exception=np.linalg.LinAlgError)(basis)
+            .map_error(functools.partial(Fault.of, Reason.FAILED, str(basis)))
+            .bind(
+                lambda inverse: written(
+                    path,
+                    functools.partial(
+                        tifffile.imwrite,
+                        data=frame,
+                        photometric=tifffile.PHOTOMETRIC.LINEAR_RAW,
+                        planarconfig=tifffile.PLANARCONFIG.CONTIG,
+                        subfiletype=tifffile.FILETYPE.UNDEFINED,
+                        metadata=None,
+                        software=False,
+                        bigtiff=False,
+                        extratags=tags(np.asarray(inverse, dtype=np.float64)),
+                    ),
+                )
+            )
+        )
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Document", "DocumentLayers", "LayerGroup", "LinearRaw", "PixelLayer"]

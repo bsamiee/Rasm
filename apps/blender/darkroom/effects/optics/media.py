@@ -6,19 +6,11 @@ import bpy
 import colour
 from expression import Some
 
-from blender.bpy.nodes import textures
-from blender.bpy.nodes.graphs import Expr, math, mixed, switched, vector, where, xyz
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
-from blender.bpy.render.compositor import lenses, motion
-from blender.bpy.render.compositor.colors import with_alpha
-from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, depth_precise, Mix, precise
-from blender.bpy.render.compositor.filters import blurred
-from blender.bpy.render.compositor.inputs import FRAME_METERS, GraphInputs
-from blender.bpy.render.compositor.shapes import turned
-from blender.bpy.scene import cameras
-from blender.imaging.color.processors import GRAY
-from blender.imaging.sampling import tiles
-from blender.records.faults import Ok, Outcome
+from rasm_bpy.nodes import Expr, Interface, InterfacePanel, math, mixed, Socket, switched, textures, vector, where, xyz
+from rasm_bpy.render import blurred, CompositorEffect, CompositorRecord, depth_precise, FRAME_METERS, GraphInputs, lenses, Mix, motion, precise, turned, with_alpha
+from rasm_bpy.scene import cameras
+from rasm_imaging import GRAY, tiles
+from rasm_records import Ok, Outcome
 
 from .bases import bases, Basis, Perlin, textured
 from .emission import Emission, emission, emitted, Incandescence

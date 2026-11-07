@@ -10,7 +10,7 @@ Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, c
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Every type, export, and helper states a fact nothing else does, a helper with one reader, forwarder, or alias merges into its owner
+- Every type, export, and helper states its own fact, a one-reader helper, forwarder, or alias merges into its owner, entry imports excepted
 - Values that vary are parameters, a value every caller passes alike folds into its owner
 - Error cases exist where a caller branches on them, every other failure joins its owner's error
 - Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
@@ -449,10 +449,13 @@ def smoothed(window: Window, values: np.ndarray, /) -> Outcome[np.ndarray]:
 - Imports bind each name as its source declares it or as its import convention aliases it (`np`)
 - Names another import or definition holds read through their module (`msgspec.Struct`)
 - Names a module defines take no import of the same name
-- `__all__` lists names the module defines for importers to compose, names one module reads alone take a `_` prefix, and no module re-exports another's names
-- Unused public capability stays exported
+- Each package's `__init__.py` is its entry: a docstring, one import per private module of its public names, and `__all__`
+- Other modules import siblings by private path and re-export nothing, and consumers import entries alone
+- Entries export every capability a consumer outside the package composes, whether a consumer exists or not
+- Internal names, read only inside the package, take `_` and leave every `__all__`
+- Names a host or codec derives from (command key, wire tag) stay public or state the derived value
 - Annotations stay unquoted, runtime readers call `annotationlib.get_annotations`
-- Entry modules hold boundary code alone in import-safe top-level code, `to_process` and `to_interpreter` workers re-import them
+- Program modules hold boundary code alone in import-safe top-level code, `to_process` and `to_interpreter` workers re-import them
 - Use `blender-coding` for imports under Blender's Python 3.13
 - Use `python-coding-cyclopts` for command-line applications
 - Use `python-document` for docstrings

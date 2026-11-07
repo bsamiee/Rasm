@@ -1,0 +1,325 @@
+"""Requirements a build meets per genre and treatment, the fontspector run and findings that measure them, and approved shaping expectations."""
+
+import sys
+from typing import Annotated
+lazy from collections.abc import Callable
+lazy from functools import partial
+lazy from pathlib import Path
+lazy import re
+lazy import subprocess
+
+import msgspec
+lazy from expression.extra.result import catch
+lazy from fontTools.ufoLib import UFOReader
+lazy from fontTools.ufoLib.errors import UFOLibError
+lazy import ots
+
+from rasm_typography._faces.declaration import _PROFILE, Band, Contour, Em, Face, Faces, OrnamentFace, Ratio, Ringed, Segmented, Shadow, Sheared
+lazy from rasm_records import committed, Error, Fault, Ok, Outcome, Reason
+lazy from rasm_typography._faces import coverage
+lazy from rasm_typography._shaping.corpus import _Corpus
+lazy from rasm_typography._shaping.expectations import _encoded, _expected
+lazy from rasm_typography._shaping.runs import _Binary
+lazy from rasm_typography._verification.geometry import _Breach, _clearance, _distinct, _identity, _join_parity, _ligature_area, _mark_line, _metrics, _reachable, _seam
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+# --- [REQUIREMENTS]
+
+
+class _Requirement(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.lower):
+    """Property a build holds, its tag the finding's requirement name."""
+
+
+class Sanitized(_Requirement, frozen=True, kw_only=True):
+    """OTS accepts the built file."""
+
+
+class Profile(_Requirement, frozen=True, kw_only=True):
+    """The set's fontspector profile reports no FAIL, ERROR, or FATAL outside its shaping checks and the excluded check ids."""
+
+    excluded: tuple[str, ...] = ()
+
+
+class Expectations(_Requirement, frozen=True, kw_only=True):
+    """An approval exists and corpus shaping meets it under fontspector's shaping checks."""
+
+
+class Reachable(_Requirement, frozen=True, kw_only=True):
+    """No corpus line shapes to glyph 0 under any shaper and language."""
+
+    shapers: tuple[str, ...] = ("ot", *(("coretext",) if sys.platform == "darwin" else ()))
+
+
+class Covered(_Requirement, frozen=True, kw_only=True, tag="coverage"):
+    """Every required code point mapped and every mapped one required, excluded, or inside a kept block."""
+
+
+class MarkClearance(_Requirement, frozen=True, kw_only=True):
+    """Marks clear their own cluster and stand a gap in em from every other, and dots and hamzas clear other letters."""
+
+    gap: Em
+
+
+class MarkLine(_Requirement, frozen=True, kw_only=True):
+    """Single above marks over one letter form share one bottom line within a tolerance in em."""
+
+    tolerance: Em = 0.04
+
+
+class LigatureArea(_Requirement, frozen=True, kw_only=True):
+    """Each ligature holds a ratio of its components' filled area and spans that ratio of its advance."""
+
+    ratio: Ratio = 0.5
+
+
+class JoinParity(_Requirement, frozen=True, kw_only=True):
+    """Joined letter pairs keep their distance with `kern` on and off."""
+
+
+class Seam(_Requirement, frozen=True, kw_only=True):
+    """Seam columns composited glyph by glyph stay inside a band of the merged outline's filled area at each pixel size."""
+
+    band: tuple[Ratio, Ratio] = (0.87, 1.58)
+    sizes: tuple[Annotated[int, msgspec.Meta(ge=1)], ...] = (12, 16, 24, 96)
+
+
+class Distinct(_Requirement, frozen=True, kw_only=True):
+    """No two digits of one script reach an intersection over union bound."""
+
+    bound: Ratio = 0.9
+
+
+class LineMetrics(_Requirement, frozen=True, kw_only=True, tag="metrics"):
+    """Line pitch in em inside its band, the original's pitch where none is stated, and win metrics over every glyph and corpus run."""
+
+    pitch: Band | None = None
+
+
+class Identity(_Requirement, frozen=True, kw_only=True):
+    """Dots and hamzas of each letter form the original draws meet the original's, piece for piece."""
+
+
+type _Requirements = Sanitized | Profile | Expectations | Reachable | Covered | MarkClearance | MarkLine | LigatureArea | JoinParity | Seam | Distinct | LineMetrics | Identity
+
+# --- [FINDINGS]
+
+
+class _Finding(msgspec.Struct, frozen=True, kw_only=True):
+    """Requirement a build misses on one subject, with the measured value and its bound."""
+
+    requirement: str
+    subject: str
+    measured: float | str
+    bound: float | str
+
+
+# --- [REPORTS]
+
+
+class _Result(msgspec.Struct, frozen=True, kw_only=True):
+    severity: str
+    code: str = ""
+    message: str = ""
+
+
+class _Check(msgspec.Struct, frozen=True, kw_only=True):
+    """Fontspector check result on one font file or on the folder collection holding it."""
+
+    check_id: str
+    subresults: tuple[_Result, ...] = ()
+
+
+class _Report(msgspec.Struct, frozen=True, kw_only=True):
+    results: frozendict[str, frozendict[str, tuple[_Check, ...]]]
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [REQUIREMENTS]
+
+
+def _requirements(face: Faces, /) -> tuple[_Requirements, ...]:
+    """Derives the requirements of a face from its genre and treatments, an ornament face holding the ones art without letters meets.
+
+    Args:
+        face: Declared face.
+
+    Returns:
+        The requirements in measure order.
+    """
+    match face:
+        case Face(genre=genre, treatments=treatments):
+            drawn = not any(isinstance(treatment, Ringed | Contour | Shadow | Segmented) for treatment in treatments)
+            upright = drawn and not any(isinstance(treatment, Sheared) for treatment in treatments)
+            return (
+                Sanitized(),
+                Profile(),
+                Expectations(),
+                Reachable(),
+                Covered(),
+                MarkClearance(gap=genre.clearance),
+                MarkLine(),
+                LigatureArea(),
+                JoinParity(),
+                *((Seam(),) if drawn else ()),
+                Distinct(),
+                LineMetrics(pitch=genre.pitch),
+                *((Identity(),) if upright else ()),
+            )
+        case OrnamentFace():
+            return (Sanitized(), Profile(excluded=("opentype/monospace",)), Covered(), LineMetrics())
+
+
+def _covering(face: Faces, source: Path, /) -> Outcome[coverage.Coverage]:
+    """Returns the code points a built face answers for, a genre's for a text face and the mappings its written UFO states for an ornament face.
+
+    Args:
+        face: Declared face.
+        source: UFO the face's build wrote.
+
+    Returns:
+        Ok(coverage), `UNREADABLE` for an ornament UFO the reader refuses.
+    """
+    match face:
+        case Face(genre=genre):
+            return Ok(genre.coverage)
+        case OrnamentFace():
+            return (
+                catch(lambda: UFOReader(source).getGlyphSet().getUnicodes(), exception=UFOLibError)()
+                .map_error(partial(Fault.of, Reason.UNREADABLE, str(source)))
+                .map(lambda mapped: coverage.Coverage(required=frozenset(*codes for codes in mapped.values()), excluded=(), blocks=frozenset()))
+            )
+
+
+# --- [PROCESSES]
+
+
+def _ran(*command: str, cwd: Path | None = None, check: bool = True) -> Outcome[bytes]:
+    """Runs a program to its exit and returns its stdout, `FAILED` for a failed launch or, under `check`, a nonzero exit with its stderr as cause."""
+    try:
+        return Ok(subprocess.run(command, capture_output=True, check=check, cwd=cwd).stdout)
+    except OSError as error:
+        return Error(Fault.of(Reason.FAILED, " ".join(command), error))
+    except subprocess.CalledProcessError as error:
+        return Error(Fault.of(Reason.FAILED, " ".join(command), error.stderr.decode().strip()))
+
+
+def _inspected(paths: tuple[Path, ...], root: Path, /) -> Outcome[frozendict[Path, tuple[_Check, ...]]]:
+    """Runs fontspector once over built faces under the library's profile, from the declaration folder its relative test directory resolves against.
+
+    Args:
+        paths: Built font files.
+        root: Folder of the set's declaration.
+
+    Returns:
+        Ok(checks) per path holding the results on the file and on its folder's collection, `FAILED` for a failed launch, `INVALID` for an undecodable report.
+    """
+    return (
+        _ran("fontspector", "--profile", str(_PROFILE), "--configuration", str(_PROFILE), "--quiet", "--skip-network", "--json", "-", *(str(path.absolute()) for path in paths), cwd=root, check=False)
+        .bind(lambda raw: catch(lambda: msgspec.json.decode(raw, type=_Report), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, "fontspector")))
+        .map(
+            lambda report: frozendict({
+                path: tuple(check for tested in (path.absolute(), path.absolute().parent) for checks in report.results.get(str(tested), frozendict()).values() for check in checks) for path in paths
+            })
+        )
+    )
+
+
+def _breached(checks: Outcome[tuple[_Check, ...]], selected: Callable[[_Check], bool], /) -> tuple[_Breach, ...]:
+    """One breach per failed selected check and per shaping input that changed or produced a forbidden glyph, or one breach per fault where the run could not measure."""
+    shaping_input = r"(?<=^Shaping did not match: ).+$|^.+(?= produced forbidden )"
+    return checks.map(
+        lambda found: tuple(
+            (subject, result.severity, "WARN")
+            for check in found
+            if selected(check)
+            for result in check.subresults
+            if result.severity in {"FAIL", "ERROR", "FATAL"}
+            for subject in tuple(match.group() for match in re.finditer(shaping_input, result.message, re.MULTILINE)) or (f"{check.check_id} {result.code}".strip(),)
+        )
+    ).default_with(lambda faults: tuple((fault.subject, fault.message, "measured") for fault in faults))
+
+
+# --- [VERIFICATION]
+
+
+def _measured(
+    requirement: _Requirements, binary: _Binary, /, *, coverage: coverage.Coverage, original: _Binary, corpus: _Corpus, path: Path, approved: Path, checks: Outcome[tuple[_Check, ...]]
+) -> tuple[_Breach, ...]:
+    shaping = "shaping/"
+    match requirement:
+        case Sanitized():
+            return () if (done := ots.sanitize(str(path), capture_output=True)).returncode == 0 else ((path.name, done.stderr.decode().strip() or f"exit {done.returncode}", "accepted"),)  # type: ignore[no-untyped-call] # ty: ignore[unsound-return-statement]
+        case Profile(excluded=excluded):
+            return _breached(checks, lambda check: not check.check_id.startswith(shaping) and not any(part in check.check_id for part in excluded))
+        case Expectations():
+            return (*(() if approved.is_file() else ((str(approved), "absent", "approved"),)), *_breached(checks, lambda check: check.check_id.startswith(shaping)))
+        case Reachable(shapers=shapers):
+            return _reachable(binary, corpus, shapers)
+        case Covered():
+            return (
+                *((f"U+{code:04X}", "unmapped", "required") for code in coverage.uncovered(binary.encoded)),
+                *((f"U+{code:04X}", "mapped", "required, excluded, or kept") for code in coverage.unrecorded(binary.encoded)),
+            )
+        case MarkClearance(gap=floor):
+            return _clearance(binary, corpus, floor)
+        case MarkLine(tolerance=tolerance):
+            return _mark_line(binary, corpus, tolerance)
+        case LigatureArea(ratio=ratio):
+            return _ligature_area(binary, ratio)
+        case JoinParity():
+            return _join_parity(binary, corpus)
+        case Seam(band=band, sizes=sizes):
+            return _seam(binary, corpus, band, sizes)
+        case Distinct(bound=bound):
+            return _distinct(binary, bound)
+        case LineMetrics(pitch=pitch):
+            return _metrics(binary, original, corpus, pitch)
+        case Identity():
+            return _identity(binary, original, corpus)
+
+
+def _verified(
+    binary: _Binary, requirements: tuple[_Requirements, ...], /, *, coverage: coverage.Coverage, original: _Binary, corpus: _Corpus, path: Path, approved: Path, checks: Outcome[tuple[_Check, ...]]
+) -> tuple[_Finding, ...]:
+    """Measures every requirement of a build independently and accumulates their findings, an empty tuple passing.
+
+    Args:
+        binary: Built font.
+        requirements: Requirements the build meets.
+        coverage: Code points the build answers for, from `covering`.
+        original: Font the source was imported from.
+        corpus: Runs every shaping measure reads.
+        path: Built file OTS sanitizes.
+        approved: Approved shaping expectations of the face.
+        checks: Fontspector results on the built file, from `inspected`.
+
+    Returns:
+        Every finding in requirement order.
+    """
+    return tuple(
+        _Finding(requirement=str(type(requirement).__struct_config__.tag), subject=subject, measured=measured, bound=bound)
+        for requirement in requirements
+        for subject, measured, bound in _measured(requirement, binary, coverage=coverage, original=original, corpus=corpus, path=path, approved=approved, checks=checks)
+    )
+
+
+def _approved(binary: _Binary, corpus: _Corpus, path: Path, file: str, /) -> Outcome[Path]:
+    """Writes the shaping expectations of a build's corpus runs to a path, the one writer of approval files.
+
+    Args:
+        binary: Built font whose shaping the file approves.
+        corpus: Lines and languages to shape.
+        path: Approval file in the set's shaping test directory.
+        file: Built font file name the tests select.
+
+    Returns:
+        Ok(path), `UNWRITABLE` fault where the file cannot be written.
+    """
+    return committed(path, _encoded(_expected(binary, corpus, file)))
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Covered", "Distinct", "Expectations", "Identity", "JoinParity", "LigatureArea", "LineMetrics", "MarkClearance", "MarkLine", "Profile", "Reachable", "Sanitized", "Seam"]

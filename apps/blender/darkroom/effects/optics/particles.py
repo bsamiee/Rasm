@@ -13,22 +13,11 @@ import numpy.typing as npt
 import OpenImageIO
 from scipy.spatial import cKDTree
 
-from blender.bpy.extension.identity import Identity
-from blender.bpy.nodes import textures
-from blender.bpy.nodes.desired import item_key
-from blender.bpy.nodes.functions import POSITION, sampled, W
-from blender.bpy.nodes.interfaces import decoded, fielded, Interface, InterfacePanel
-from blender.bpy.render.compositor import lenses, motion
-from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, precise, Prepared, Stage
-from blender.bpy.render.compositor.inputs import toggled
-from blender.bpy.render.compositor.motion import Clock, Shutter
-from blender.imaging.files import buffers
-from blender.imaging.geometry.frames import Region
-from blender.imaging.geometry.lenses import Aperture, fringed
-from blender.imaging.sampling import tiles
-from blender.imaging.sampling.integration import Estimate, Population, Precision, transmitted
-from blender.records.faults import accumulated, Error, Fault, Ok, Outcome, paired, Reason
-from blender.records.fields import AtLeastOne, Finite, NonNegative, Positive, Seed, Unit
+from rasm_bpy.data import Identity
+from rasm_bpy.nodes import decoded, fielded, Interface, InterfacePanel, item_key, POSITION, sampled, textures, W
+from rasm_bpy.render import Clock, CompositorEffect, CompositorRecord, lenses, Mix, motion, precise, Prepared, Shutter, Stage, toggled
+from rasm_imaging import Aperture, buffers, Estimate, fringed, Population, Precision, Region, tiles, transmitted
+from rasm_records import accumulated, AtLeastOne, Error, Fault, Finite, NonNegative, Ok, Outcome, paired, Positive, Reason, Seed, Unit
 
 from . import bases, emission
 from .bases import Basis, density_range, evaluated, Perlin

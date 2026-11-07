@@ -8,8 +8,8 @@ from mypy.nodes import ARG_POS, Block, CallExpr, ClassDef, Expression, NameExpr,
 import pytest
 lazy from refurb.error import Error
 
-from tools.refurb.bpy_collections import check, ErrorCollectionTypeTestError
-lazy from tests.python.tools.refurb.conftest import Findings
+from rasm_refurb.bpy_collections import check, ErrorCollectionTypeTestError
+lazy from rasm_refurb import Findings
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

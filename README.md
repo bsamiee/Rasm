@@ -59,7 +59,6 @@ Rasm/
 ├── .editorconfig             # Editor settings and .NET formatting options
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .gitignore                # Generated, secret, and machine-local paths
-├── .nxignore                 # Paths Nx leaves out of project files, input hashes, and affected
 ├── .shellcheckrc             # ShellCheck checks off where an ast-grep rule owns the form
 ├── .swift-format             # Swift lint and format rules
 ├── .swiftlint.yml            # Swift lint rules swift-format lacks
@@ -92,7 +91,7 @@ flowchart LR
 ## [03]-[TASKS]
 
 - `git submodule update --init --checkout assets` fills `assets/` for font builds and publishing
-- `mise run update` moves tools, catalogs, locks, and action tags to newest releases, reinstalls `tools/` products and Python commands, and prunes old tool versions
+- `mise run update` moves tools, catalogs, locks, and action tags to newest releases, reinstalls `tools/` products and CLI projects, and prunes old tool versions
 - `mise run clean` removes build outputs and prunes tool caches
 - `pixi run --locked uv sync` builds Python distributions against Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`

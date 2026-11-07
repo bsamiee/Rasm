@@ -1,0 +1,230 @@
+"""Emitter list with solo, bulk power edits, and emissive selection."""
+
+from functools import partial
+from typing import ClassVar
+
+from bl_ui.space_view3d import VIEW3D_MT_select_object
+import bpy
+from expression import Option, Some, try_downcast
+import msgspec
+
+from rasm_bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
+from rasm_bpy.data._extension.identity import Identity
+from rasm_bpy.data._extension.registration import _acquired, Acquisitions
+from rasm_bpy.data._rna.conditions import chosen, Scenes, Scope, scope_choice, SCOPE_COLLECTION
+from rasm_bpy.data._rna.descriptors import Value
+from rasm_bpy.data._rna.paths import RnaPath, root_in, rooted
+from rasm_bpy.data._rna.properties import _redeclared
+from rasm_bpy.data._rna.snapshots import Applied, assigned, Snapshot
+from rasm_bpy.scene._lights.emitters import _emitters, _emitting, _picked, _strengths, _TEMPERATURE
+from rasm_bpy.scene._objects import _active_object
+from rasm_bpy.settings._attachments import Attached, Attachment
+from rasm_bpy.ui._elements.menus import Append
+from rasm_bpy.ui._layout.lists import _ItemList
+from rasm_bpy.ui._layout.members import Member
+from rasm_bpy.ui._layout.rows import OperatorButton, Property
+from rasm_bpy.ui._layout.sections import Section
+from rasm_records import accumulated, Ok, Outcome, paired
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type LightData = bpy.types.PointLight | bpy.types.SpotLight | bpy.types.AreaLight | bpy.types.SunLight
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Solo(bpy.types.PropertyGroup):
+    """Emitter visibility before solo, held while solo hides the emitter."""
+
+    hidden: bpy.props.BoolProperty(name="Hidden", description="Solo hides the emitter")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    render: bpy.props.BoolProperty(name="Render", description="Shown in renders before solo", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    viewport: bpy.props.BoolProperty(name="Viewport", description="Shown in viewports before solo", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+
+
+class Bulk(bpy.types.PropertyGroup):
+    """Multiplier on power and emission of emitters in scope, with a blackbody color for every light."""
+
+    scope: scope_choice(Scenes)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    factor: bpy.props.FloatProperty(name="Factor", description="Power and emission strength multiplier", min=0.0, soft_min=0.1, soft_max=10.0, precision=3, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    use_temperature: bpy.props.BoolProperty(name="Write Temperature", description="Write a blackbody color to every light")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    temperature: _redeclared(_TEMPERATURE.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+
+
+class Emissives(bpy.types.PropertyGroup):
+    """Scope of emissive objects to select."""
+
+    scope: scope_choice(Scenes)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+
+
+class _LightList(msgspec.Struct, frozen=True, kw_only=True):
+    """Emitter list with solo, bulk, and select operators."""
+
+    solo: ClassVar[Attachment[Solo]] = Attachment(key="solo", form=Solo, owner=bpy.types.Object)
+
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
+        """Returns solo attachment, emissive select menu entry, and section."""
+        return _LightList.solo, Append(target=VIEW3D_MT_select_object, rows=(OperatorButton(target=emissives_select),)), *_acquired((self.section(),))
+
+    @staticmethod
+    def section() -> Section:
+        """Returns emitter list, active light rows, and operator buttons."""
+
+        def light[K: bpy.types.Light](kind: type[K], context: bpy.types.Context) -> Option[K]:
+            return root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).bind(lambda item: Option.of_optional(try_downcast(kind, item.data)))
+
+        return Section(
+            key="light_list",
+            title=Some("Lights"),
+            rows=(
+                _ItemList[bpy.types.PropertyGroup, bpy.types.Object](
+                    key="emitters",
+                    collection=Member(root=bpy.types.Scene, path=("objects",)),
+                    active=Some(Member(root=bpy.types.LayerObjects, path=("active",))),
+                    cells=(
+                        Property(target=Member(root=bpy.types.Object, path=("hide_viewport",)), keywords={"text": "", "icon_only": True}),
+                        Property(target=Member(root=bpy.types.Object, path=("hide_render",)), keywords={"text": "", "icon_only": True}),
+                        Property(target=Member(root=bpy.types.Object, path=("lightgroup",)), keywords={"text": ""}, search=Some(Member(root=bpy.types.ViewLayer, path=("lightgroups",)))),
+                    ),
+                    where=Some(lambda _context, _ui, item: Ok(_emitting(item))),
+                    order=Some("type"),
+                    side=(OperatorButton(target=light_solo), OperatorButton(target=light_unsolo)),
+                ),
+                *(
+                    Property(target=Member(root=kind, path=(member,), reach=Some(partial(light, kind))))
+                    for kind, size in ((bpy.types.PointLight, "shadow_soft_size"), (bpy.types.SpotLight, "shadow_soft_size"), (bpy.types.AreaLight, "size"), (bpy.types.SunLight, "angle"))
+                    for member in ("energy", size)
+                ),
+                *(Property(target=Member(root=bpy.types.Light, path=(member,), reach=Some(partial(light, bpy.types.Light)))) for member in ("use_temperature", "temperature")),
+                OperatorButton(target=light_bulk),
+                OperatorButton(target=emissives_select),
+            ),
+        )
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _soloed(chosen: bpy.types.Object, scene: bpy.types.Scene, solo: Attached[Solo]) -> Outcome[Answer]:
+    """Hides every other scene emitter, storing prior visibility.
+
+    Args:
+        chosen: Emitter left shown.
+        scene: Scene with emitters to hide.
+        solo: Bound solo attachment.
+
+    Returns:
+        `Done`, `Unchanged` when solo hides every other emitter, or `refused` faults.
+    """
+
+    def hid(item: bpy.types.Object) -> Outcome[None]:
+        return (
+            assigned(solo.struct(item), {("hidden",): True, ("render",): not item.hide_render, ("viewport",): not item.hide_viewport})
+            .bind(lambda _: _shown(render=False, viewport=False).apply(item).outcome)
+            .map(lambda _: None)
+        )
+
+    reached = frozenset(_emitters(scene))
+    rows = tuple((item, solo.struct(item)) for item in scene.objects if item in reached or solo.stored(item))
+    restoring = tuple(item for item, held in rows if held.hidden and (item == chosen or item not in reached))
+    hiding = tuple(item for item, held in rows if item in reached and item != chosen and not held.hidden)
+    if not (restoring or hiding):
+        return Ok(Unchanged(reason="Solo hides every other emitter"))
+    return accumulated((*(_restored(item, solo) for item in restoring), *(hid(item) for item in hiding))).map(lambda _: Done())
+
+
+def _unsoloed(scene: bpy.types.Scene, solo: Attached[Solo]) -> Outcome[Answer]:
+    """Restores prior visibility of every emitter solo hid.
+
+    Args:
+        scene: Scene with emitters to restore.
+        solo: Bound solo attachment.
+
+    Returns:
+        `Done`, `Unchanged` when solo hides no emitter, or `refused` faults.
+    """
+    if not (hidden := tuple(item for item in scene.objects if solo.stored(item) and solo.struct(item).hidden)):
+        return Ok(Unchanged(reason="Solo hides no emitter"))
+    return accumulated(_restored(item, solo) for item in hidden).map(lambda _: Done())
+
+
+def _multiplied(factor: float, temperature: Option[float], scope: Scope, context: bpy.types.Context) -> Outcome[Answer]:
+    """Multiplies emitter power and emission strength in scope.
+
+    Args:
+        factor: Power and emission strength multiplier.
+        temperature: Blackbody color written to every light, `Nothing` leaving light colors.
+        scope: Owners to change.
+        context: Context `scope.owners` reads.
+
+    Returns:
+        `Done` with skipped faults when a write changed, `Unchanged` when no value changes, or `absent`, `refused`, and `outside` faults when none changed.
+    """
+
+    def powered(data: LightData) -> Applied:
+        colored = temperature.map(lambda kelvin: dict[RnaPath, Value]({("use_temperature",): True, ("temperature",): kelvin})).default_with(dict[RnaPath, Value])
+        values: dict[RnaPath, Value] = {("energy",): data.energy * factor, **colored}
+        return Snapshot.of(type(data), values).apply(data)
+
+    def edited(reached: tuple[bpy.types.Scene | bpy.types.ViewLayer | bpy.types.Object, ...]) -> Outcome[Answer]:
+        items = tuple(dict.fromkeys(item for owner in reached for item in _emitters(owner)))
+        lights = dict.fromkeys(data for item in items if isinstance(data := item.data, LightData.__value__))
+        materials = dict.fromkeys(material for item in items for slot in item.material_slots if (material := slot.material) is not None)
+        sockets = dict.fromkeys(socket for material in materials for socket, linked in _strengths(material) if not linked)
+        return answered(
+            Applied.join((*(powered(data) for data in lights), *(Snapshot.of(type(socket), {("default_value",): socket.default_value * factor}).apply(socket) for socket in sockets))),
+            "No light or unlinked emission strength in scope takes a new value",
+        )
+
+    return scope.owners(context).bind(edited)
+
+
+def _emissives_selected(scope: Scope, context: bpy.types.Context, layer: bpy.types.ViewLayer) -> Outcome[None]:
+    """Selects every emissive object in scope on layer."""
+    return scope.owners(context).bind(lambda reached: _picked(frozenset(item for owner in reached for item in _emitters(owner) if not isinstance(item.data, bpy.types.Light)), layer))
+
+
+def _shown(*, render: bool, viewport: bool) -> Snapshot:
+    """Returns `Object` snapshot writing render and viewport visibility."""
+    return Snapshot.of(bpy.types.Object, {("hide_render",): not render, ("hide_viewport",): not viewport})
+
+
+def _restored(item: bpy.types.Object, solo: Attached[Solo]) -> Outcome[None]:
+    """Restores emitter visibility solo held, clearing its solo mark."""
+    held = solo.struct(item)
+    return _shown(render=held.render, viewport=held.viewport).apply(item).outcome.bind(lambda _: assigned(held, {("hidden",): False}))
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+
+@Operator.of(Empty)
+def light_solo(call: Call[Empty]) -> Outcome[Answer]:
+    """Hides every other scene emitter, storing visibility for unsolo."""
+    return paired(paired(rooted(bpy.types.ViewLayer, call.context).bind(_active_object), rooted(bpy.types.Scene, call.context)), _LightList.solo.bound(call.identity)).bind(
+        lambda pair: _soloed(*pair[0], pair[1])
+    )
+
+
+@Operator.of(Empty)
+def light_unsolo(call: Call[Empty]) -> Outcome[Answer]:
+    """Restores the emitters solo hid."""
+    return paired(rooted(bpy.types.Scene, call.context), _LightList.solo.bound(call.identity)).bind(lambda pair: _unsoloed(*pair))
+
+
+@Operator.of(Bulk)
+def light_bulk(call: Call[Bulk]) -> Outcome[Answer]:
+    """Multiplies power and emission in scope."""
+    return _multiplied(call.properties.factor, Some(call.properties.temperature).filter(lambda _: call.properties.use_temperature), chosen(call.properties), call.context)
+
+
+@Operator.of(Emissives)
+def emissives_select(call: Call[Emissives]) -> Outcome[Answer]:
+    """Selects emissive objects in scope."""
+    return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: _emissives_selected(chosen(call.properties), call.context, layer)).map(lambda _: Done())
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Bulk", "Emissives", "Solo", "emissives_select", "light_bulk", "light_solo", "light_unsolo"]

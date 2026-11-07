@@ -65,7 +65,7 @@ Sessions open in order:
 Quitting saves preferences, the last GUI to quit overwriting what others saved. Restore preferences a task GUI changed before quitting it. Blender draws menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone. Quitting an edited file prints `refused` under a save prompt only `capture` shows, and `bpy.ops.wm.read_homefile()` before the quit discards a task GUI's edits.
 
 Script-driven task GUIs run a runner script:
-- `python -m eng.python.blender run <name> -- --python <runner.py>` runs one and returns once it quits
+- `rasm-eng run <name> -- --python <runner.py>` runs one and returns once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
 - `--enable-event-simulate` enables `window.event_simulate` and discards real keyboard and mouse input, the call otherwise raising `RuntimeError`
 - Runners end with `bpy.ops.wm.quit_blender()` under a `temp_override` naming the first window
@@ -82,7 +82,6 @@ Configured startup files open with:
 `mcp__blender__execute_blender_code` runs Python inside the GUI process:
 - Calls on either server run one at a time on the GUI main thread
 - With each call's namespace holding `result = {}` alone, code imports `bpy` and every module it uses
-- Calls importing checkout code from `libs/python` remove Blosm's `blosm/threed_tiles` entry from `sys.path` for the call, its `blender.py` module winning over the `blender` namespace root
 - `result` returns a dict of names, numbers, and lists, IDs and `mathutils` values returning as their `repr`
 - Each call sets `window` and `screen` and leaves `area` and `region` None
 - Operators reading an area, space, node, or material run under a `temp_override` naming them
@@ -116,7 +115,7 @@ Arguments apply left to right, `--python-exit-code` and the `.blend` before `--p
 ```
 
 Background runs follow host rules:
-- Runs using installed extensions start `"$BLENDER_PATH"` on the user's profile, every other run passes arguments to `python -m eng.python.blender run <name> --`
+- Runs using installed extensions start `"$BLENDER_PATH"` on the user's profile, every other run passes arguments to `rasm-eng run <name> --`
 - Tracebacks exit 0 without `--python-exit-code`, and `sys.exit(<n>)` exits `<n>`
 - Background runs hold no event loop, and `bpy.app.timers` and msgbus callbacks never run
 - Modal operators return `RUNNING_MODAL` without stepping, and invoke-only operators return `PASS_THROUGH`
@@ -132,7 +131,7 @@ Background renders use named files saved in place, untitled and scratch scenes r
 
 ## [06]-[MEMBERS]
 
-Member, signature, enum, and operator property facts come from the installed build, each printed by `python -m eng.python.blender run members -- --background --python-expr "import bpy; print(<expr>)"`, extension members by `"$BLENDER_PATH"` with the same arguments:
+Member, signature, enum, and operator property facts come from the installed build, each printed by `rasm-eng run members -- --background --python-expr "import bpy; print(<expr>)"`, extension members by `"$BLENDER_PATH"` with the same arguments:
 - `<Type>.bl_rna.properties["<name>"]` reads `type`, `fixed_type`, `is_readonly`, `enum_items`, and `array_dimensions`
 - `<Type>.bl_rna.functions["<name>"].parameters` lists a method's parameters, `bpy.ops.<module>.<op>.get_rna_type().properties` an operator's
 - `<function>.__doc__` prints the signature of a Python-level function (`bpy.app.timers.register`, `bpy.utils.*`)
@@ -176,8 +175,9 @@ Log reads follow host rules:
 
 ## [09]-[EVALUATION]
 
-Blender resolves user folders through `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES`, then `BLENDER_USER_RESOURCES` naming an existing base folder; unresolved lookups have no profile fallback. `python -m eng.python.blender run` creates a fresh `.artifacts/blender/evaluate/<name>/` profile and `TMPDIR` from the repository root:
-- `python -m eng.python.blender run <name> -- <arguments>` runs Blender with the arguments and prints its output
-- `run` sets `PYTHONUSERBASE` and process `PYTHONPYCACHEPREFIX`, with `--python-use-system-env` before caller arguments enabling native user-site and `.pth` startup
-- `run` syncs selected `--package` and `--groups` dependencies into `purelib` from Blender's `sysconfig` user scheme, retaining editable sources
+Blender resolves user folders through `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES`, then `BLENDER_USER_RESOURCES` naming an existing base folder; unresolved lookups have no profile fallback. `rasm-eng run` creates a fresh `.artifacts/blender/evaluate/<name>/` profile and `TMPDIR` from the repository root:
+- `rasm-eng run <name> -- <arguments>` runs Blender with the arguments and prints its output
+- `run` sets process `PYTHONPYCACHEPREFIX` and, under `--project`, `PYTHONUSERBASE`, with `--python-use-system-env` before caller arguments enabling native user-site and `.pth` startup
+- `run --project <folder>` syncs that uv project's locked closure and `--groups` into `purelib` from Blender's `sysconfig` user scheme, retaining editable sources
+- `run` without `--project` loads Blender's bundled interpreter alone
 - Crash reports sit in the folder's root, and output sits in its `blender.log`
