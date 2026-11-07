@@ -1,131 +1,145 @@
 ---
 name: review-change
-description: "Use when judging, challenging, or codifying a change to code, covering diff reading, owner routing per fact and checker, verification, adversary rounds, and the principles and checks a change leaves behind"
+description: "Use when judging, challenging, or codifying a change to code, covering diff reading, hunk verdicts, owner routing per fact and checker, review roles and briefs, and the principles and checks a change leaves behind"
 ---
 
 # [REVIEW_CHANGE]
 
-Reviews of a change prove each hunk against its file whole, its consumers, package source at pinned release, and repository checks, then leave each settled fact in the skill or checker owning it.
+Reviews judge each hunk of a change against its file whole, its consumers, package and host source at the pinned release, and every check the language's owners list, rebuild each wrong hunk in place, and leave each settled fact at the skill or checker owning it. Code, configuration, build, rule, and checker files take the same review. Use `refactor-code` for the rework, its removal and structure tables, and its adversary passes, `<language>-coding` skills for language form, `manage-repo` for check owners and entry points, `use-ast-grep` for rule shape and cost, `clean-prose` for guidance text.
 
-Arguments name a subject and a stage, a missing stage means `judge`:
+Scope names how the roles of `[04]` run:
 
-| [INDEX] | [SUBJECT] | [EXAMPLE]                                  | [SPLIT]                                                 |
-| :-----: | :-------- | :----------------------------------------- | :------------------------------------------------------ |
-|  [01]   | File      | One source file and its call sites         | One reader, consumers read whole                        |
-|  [02]   | Folder    | Package, crate, or module family           | `deepen` workflow, one reader and editor per file group |
-|  [03]   | Range     | `<base>..HEAD` of one language             | `tune` workflow, one reader per unit of the diff        |
-|  [04]   | Guidance  | Modified lines of one skill or rule folder | One adversary over the diff alone                       |
-
-| [INDEX] | [STAGE]     | [RESULT]                                                                        |
-| :-----: | :---------- | :------------------------------------------------------------------------------ |
-|  [01]   | `judge`     | Each hunk kept, reverted, or rebuilt, counts before and after, verification run |
-|  [02]   | `challenge` | Adversary rounds over the same scope, edits in place, verdict hunk by hunk      |
-|  [03]   | `codify`    | Principles in their language skill, checks at their owner, prose checked        |
+| [INDEX] | [SCOPE]  | [RUN]                                                                                                                 |
+| :-----: | :------- | :-------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | File     | `refactor-code` adversary passes where the change had none, then one judge holding every `[04]` role in order         |
+|  [02]   | Folder   | `deepen` with `args.mode` `reduce` or `deepen`: reader, editor, adversaries, and verdict per file group               |
+|  [03]   | Range    | `tune` over `<base>..HEAD`: a reader per unit, a writer per checker and rule folder, per skill a writer and adversary |
+|  [04]   | Pass     | One reader per tool-call log in order, naming each wasted round and skipped check with the step catching it earlier   |
+|  [05]   | Guidance | Guidance adversary of `[04]` over `git diff HEAD -- <folder>` hunk by hunk with its passage, then its prose pass      |
 
 ## [01]-[READING]
 
-Read before judging. A verdict drafted from a diff alone, a search over one file, or a summary beside the code is rewritten or dropped later:
-1. Run `git log -5 --stat` and `git status --short` for work in progress, then read the live tree, uncommitted edits included
-2. Read `CLAUDE.md` `[04]-[CODE_QUALITY]`, the language skill, its `.claude/workflows/` companion, memory entries, and cited `docs/research` sheets
-3. Choose what to read with `ast-grep outline <path>`, then read a file judged line by line whole, with no outline standing in for the read
-4. Read every consumer: outline `--items exports` names exports, `rg -F '<name>'` and `ast-grep run` find call sites, each followed to its effect
-5. Read the diff as syntax, `GIT_EXTERNAL_DIFF=difft git diff <base>` separates reshaped from moved code, `git diff --numstat <base>` counts lines
-6. Read each dependency member a hunk calls or replaces through `search-code`, source at the pinned release decides what hand code it replaces
-7. Read `git log -S '<literal>'` for why a form exists, a flag or guard arriving with a file serves it until its cause is read
-8. Run each check the subject owns (`nx run <project>:check`, `nx run rasm:lint:<tool> -- <paths>`) before any edit, findings at base belong to base
+Verdicts rest on the file whole, each consumer, and the checks at base, one drafted from a diff, a search over one file, or a pass's report is withdrawn. Each read runs its command:
 
-Measurements are counts a reader reproduces: lines, declarations, exports, and nesting depth per file from `loc` and outline, timings from `hyperfine` on the real command, each stated before and after.
+| [INDEX] | [READ]         | [COMMAND]                                                                                                               |
+| :-----: | :------------- | :---------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | Base and tree  | `git log -5 --stat`, `git status --short`, base is the named or last clean commit, the live tree is the subject         |
+|  [02]   | Standards      | `CLAUDE.md` standards, the language skill and its workflow companion, memory entries, cited research sheets             |
+|  [03]   | Checks at base | Every owner `languages.js` lists (`nx run <project>:check`, `nx run rasm:lint:<tool> -- <paths>`), before an edit       |
+|  [04]   | Rules and rows | Rule folders, utils, lint rows, and the `tools/` lint list of the language, before a stronger form is proposed          |
+|  [05]   | File           | `ast-grep outline <path>` to choose, each file whole, consumers by `--items exports`, `rg -F '<name>'`, `ast-grep run`  |
+|  [06]   | Diff           | `GIT_EXTERNAL_DIFF=difft git diff <base> -- <paths>` for reshaped against moved code, `git diff --numstat <base>`       |
+|  [07]   | Counts         | `loc` and `ast-grep outline` on base copy and tree, the counts `refactor-code` reading lists, each before and after     |
+|  [08]   | Cause          | `git log -S '<literal>' -- <path>` for each guard, flag, or form a hunk removes or keeps                                |
+|  [09]   | Sources        | `search-code` at the release `languages.js` names, generated files found by `fd <name> .cache/<tool>` before a read     |
+|  [10]   | Entry points   | Each entry point `refactor-code` reading lists, run once on repository input at base and new                            |
+|  [11]   | Probe          | One crafted input file in the scratchpad per entry point, extended never retyped, each site chosen from repository data |
+|  [12]   | Timing         | `hyperfine -r <runs> '<command>'` on the real command or binary at base and after, the build profile stated             |
+|  [13]   | Logs           | Each pass's tool-call log in order with its instruction verbatim, for a `Pass` scope                                    |
 
-## [02]-[ROUTING]
+Reading conduct:
+- Source claims quote lines read whole at the pinned tag, a grep for a flag list misses a stage before it (a substitution ahead of a parse)
+- Saved research in the scratchpad is read by absolute path before any fetch, every path is absolute, shell state resets between calls
+- Checks run through their Nx target, a raw tool call (`pnpm exec tsc`, `cargo clippy --package`) lacks the configuration the target holds
+- Manifest edits take one unlocked build updating the lock before a locked check, build output sits where the tool's own setting states
+- Substring edits (`sd`) are reread as the whole expression they sit in before a check runs
 
-Each fact a review settles has one owner, read before a review states it and edited by a review changing it, `manage-repo` `[04]-[CHECKS]` orders owners and `.claude/workflows/languages.js` lists them per language:
+## [02]-[JUDGING]
 
-| [INDEX] | [FACT]                                                | [OWNER]                                                               |
-| :-----: | :---------------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | Level, option, threshold, or ban of an included rule  | Checker configuration file `languages.js` names per checker           |
-|  [02]   | Form wrong whatever its types, in any parsed language | `tools/ast-grep/rules/<language>`, shared forms in `utils/<language>` |
-|  [03]   | Form resolved names, types, or paths decide           | `tools/dylint` (Rust), `tools/roslyn` (C#), `tools/refurb` (Python)   |
-|  [04]   | Type-resolved form in TypeScript                      | `tsconfig.base.json` row, an `@effect/language-service` diagnostic    |
-|  [05]   | Banned API symbol                                     | `tools/roslyn/BannedSymbols*.txt`                                     |
-|  [06]   | Fact no checker decides soundly for every instance    | Language skill, in the section with a heading covering it             |
-|  [07]   | Placement, target, or entry point of a check          | `manage-repo` and its references                                      |
+Each hunk takes one verdict from what it removes or adds, named with the `CLAUDE.md` line, skill line, or check deciding it, and a hunk doing neither is a shuffle:
 
-Routing tests:
-- Category over instance: a rule states a defect form code showed, widened to its category, a rule for one file or one session is noise
-- One owner per site: a site more than one checker reports takes the owner proving it at least cost, each other excludes it by one shared predicate
-- Configuration before rule, rule before compiler extension: a checker row is edited before a rule, a rule before a `tools/` checker
-- No weakening for speed: a slow check is timed by stage and fixed at its cause (grammar, regex class, rule shape, util, file walk), capability stays
-- No bending: a lowered level, a `files` exclusion, or a suppression added so one change passes is a regression the review reverts
-- Causes outside the tree (a machine setting, a host build) are named with their owner, a workaround inside the tree is a hidden cause
+| [INDEX] | [VERDICT] | [MEANS]                                                                    | [ACTION]                                 |
+| :-----: | :-------- | :------------------------------------------------------------------------- | :--------------------------------------- |
+|  [01]   | Right     | Shape removed, value derived, member called, family folded, pass cut       | Kept, principle landed through `[05]`    |
+|  [02]   | Naive     | Right in shape, wrong in a detail a check, source, or skill line names     | Detail rebuilt in place, check recorded  |
+|  [03]   | Shuffle   | `refactor-code` shuffle row, or a merge re-matching a narrowed value       | Reverted or finished into its removal    |
+|  [04]   | Wrong     | Other `refactor-code` row, `CLAUDE.md` or memory form, owner check finding | Reverted or rebuilt to the stronger form |
 
-## [03]-[JUDGING]
+Judges fix what they judge: each wrong, naive, and shuffle verdict is applied in place in the pass that reached it, a verdict list handed to a later pass is a deferred finding, and a verdict is settled by the read, a source, or one run, never asked. Tests beyond the `refactor-code` tables:
+- Count test: a count cut by an erased error, an untyped read, a discarded message, a dropped case, or a permissive decode is a regression
+- Trade test: a hunk fixing one checker's finding by a form another owner bans (an alias dodging a limit) is naive, one stronger shape resolves both
+- Credit test: a regression at base belongs to base, one the change introduced to the change, both fixed in this pass
+- Output test: when the wire shape changed, base and new outputs compare through one normalizer, never through a gate on old output
+- Logic test: a defect found by reading is proven by one discriminating input on base and new, chosen from repository data, before its verdict
+- Speed test: cost a hunk adds ahead of a filter is timed on inputs the filter drops, the `refactor-code` measure test holds for every other claim
+- Triage test: mixed work is judged from the last clean commit, each hunk kept for a fact or capability it names or reverted, no baseline is a target
+- Suppression test: each kept suppression's reason is traced to the row it names, a reason a catalog or manifest row makes false goes with it
+- Consumer test: a behavior change a checker intends reaches every consumer site in the same change, each rewritten site proven to still report
 
-Hunks are judged by what they remove or add, one doing neither is a shuffle and is reverted or finished:
+## [03]-[ROUTING]
 
-| [INDEX] | [REGRESSION]    | [TEST]                                                                                 |
-| :-----: | :-------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | Shuffle         | Move, split, rename, alias, forwarder, or extracted helper holding the same logic      |
-|  [02]   | New shape       | Struct, enum, type, constant, or string added where a package or declaration states it |
-|  [03]   | Hidden cause    | Wrapper, fallback, guard, retry, clamp, or lock standing where a cause needs a fix     |
-|  [04]   | Lost capability | Input range, grammar, rule, or output the old code served and the new does not         |
-|  [05]   | Growth          | Lines, declarations, or exports above base with no capability named for them           |
-|  [06]   | Hand-rolled     | Logic a dependency member or host at its installed release performs                    |
-|  [07]   | String-typed    | String or string union deciding behavior where a typed handle exists                   |
-|  [08]   | Enumerated      | Member, arm, or branch per subject or mode a parameter or table derives                |
-|  [09]   | Self-check      | Code proving its own code, config, or output                                           |
-|  [10]   | Coupled         | Library code naming a product, host, test, or one caller's need                        |
+Each fact a review settles has one owner, read before a verdict states it and edited by the review changing it, `manage-repo` ranks owners and `.claude/workflows/languages.js` lists them per language with the fact each decides:
 
-Improvements are the inverse: a shape removed, a value derived, a member replacing hand code, one parameterized form replacing a family, nesting flattened by a match or table, a cost cut by better logic. Use `refactor-code` for the rework itself and `<language>-coding` skills for language form, reviews judge the result.
+| [INDEX] | [FACT]                                               | [OWNER]                                                                           |
+| :-----: | :--------------------------------------------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | Level, option, threshold, or ban of an included rule | Checker configuration `languages.js` names, its ban rows included                 |
+|  [02]   | Form syntax decides alone, in any parsed language    | `tools/ast-grep/rules/<language>`, a capture in `utils/<language>`, outline row   |
+|  [03]   | Form resolved names, types, or attributes decide     | `tools/dylint`, `tools/roslyn`, `tools/refurb`, a `tsconfig.base.json` row        |
+|  [04]   | Fact a checker computes from a grammar or engine     | That checker's code under `tools/`, consumers rebuilt to its finding              |
+|  [05]   | Fact no checker decides soundly for every instance   | Language skill section whose heading covers it, else the family skill covering it |
+|  [06]   | Placement, target, entry point, or catalog feature   | `manage-repo` and its references, the catalog or manifest row                     |
+|  [07]   | Divider, section order, or wording                   | `clean-prose` and `prose.py`                                                      |
 
-Verification is the `refactor-code` `[06]` set, run once before a verdict with its output entering the report, and a review adds:
-- Timing of the real command with `hyperfine` where a change claims speed, before and after, a cost claim without one is `Unverified:`
-- Old output as evidence alone: a difference on crafted input is judged by the change's intent, a gate reverting an improvement is a regression
+Owner tests:
+- Soundness: the first owner in rank deciding the form for every instance owns it, an owner reporting a subset of another's instances owns nothing
+- Form: `manage-repo` rules decide the shown form, widened category, and shared site, the near rule or util named before a new one is written
+- Conflict: a lint's help contradicting a skill line or a package refusal narrows the lint by one predicate or changes the line, never a suppression
+- Off rows: a row turning a check off stays while its reason holds, the reason reread each review
+- Outside causes: a machine setting or host build is named with its owner, a workaround inside the tree is a hidden cause
 
-## [04]-[CHALLENGE]
+Check shape, kept by every rule or lint written or widened:
+- Rules take the `use-ast-grep` template order, utils, and `files` rules, its `performance.md` holds cost per form and the `hyperfine` baseline form
+- Lints read the resolved result (type, definition path, attribute, trait) inside their existing pass, a walk added per lint fails
 
-Adversaries over code run as `refactor-code` `[05]` states, agents with no prior context over the same files and standards, and reviews judge what they leave:
-- Verdicts read the diff against base hunk by hunk, growth naming no capability is reverted
-- Guidance an adversary edits takes an adversary of its own over its modified lines alone, judged against code in the tree and package source
+## [04]-[ROLES]
 
-`deepen` (`args.mode` `reduce` or `deepen`) runs readers, editors, adversaries, and a verdict per file group, `tune` runs the codifying stage over a committed range, and a scope smaller than a folder runs each role as a delegated agent.
+Reviewers, a combiner, fixers, and adversaries run as delegated agents when a subject spans more than one file group, language owner, or pass, else one judge holds every role in order. A lead keeps the merge and spawns each round in one message, disjoint scopes at once and scopes sharing a file in order, never one agent over the whole.
+
+Reviewers read one lens each, edit nothing, and return principles (form replaced, stronger form, test, evidence, standing in guidance), codifiable rules before and after, checker rows (fact kind, owner, near rule, shape, message), and mistakes per pass with what catches each earlier:
+
+| [INDEX] | [LENS]             | [READS]                                                           | [RETURNS]                                      |
+| :-----: | :----------------- | :---------------------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | Diff forward       | Each hunk against the file whole, consumers, and pinned source    | Verdict per hunk with its principle            |
+|  [02]   | Standards backward | Final file against skill, lint rows, rules, utils, `tools/` lints | Each line contradicted, weak, or missing       |
+|  [03]   | Process            | Each pass's tool-call log in order                                | Each wasted round and skipped check, its catch |
+
+Combiner, after every reviewer returns:
+1. Overlaps merge under the stronger statement, complements integrate, contradictions resolve by the source read whole at its tag or one run
+2. Each withdrawn claim is listed with its evidence, a gap present at base that no pass or reviewer named takes its owner
+3. Owner checks a pass skipped and timings a pass omitted run, their output entering the result
+4. Returns hunk verdicts per file, principles with owner file and section, codifiable rows with owners, checker rows, and mistakes to the fixers
+
+Fixers, at once over disjoint owners and in order over a shared file:
+- One per file group over its hunk verdicts, reverting or rebuilding each wrong, naive, and shuffle hunk in place with its owner checks rerun
+- One per skill, editing the owning section alone as `[05]` states, each fact once across the language's skill set
+- One per checker owner and per rule folder, proving each check as `[05]` states, a change another owner's file needs reroutes in one later round
+- One close moving renamed ids to every reference across the tree and deleting each mention of a removed id
+
+Adversaries:
+- Code: the `refactor-code` adversary passes in sequence per file group, then a verdict in place
+- Guidance: one per edited skill over `git diff HEAD -- .claude/skills/<skill>` and its untracked files, hunk by hunk with the passage around each
+- Guidance verdict: each line weaker than code in the tree, wrong against package source, or stating a fact another skill states is rebuilt in place
+- Prose: a clean-prose pass over the same lines, ending with `prose.py check`
+
+Briefs carry the `refactor-code` brief contents with scope (files owned, read, excluded), standards (sections and skills judging the scope, memory entries), and saved research by absolute scratchpad path. Each role returns structured: files edited, counts before and after, changes reaching other files, facts verified with sources, errors met, and `Unverified:` claims with the command settling them.
+
+Lead conduct:
+- Waits for completion notices, polling an agent's output reads partial results
+- Merges findings under their file keeping the strongest evidence, reruns the deciding check on a conflicting verdict
+- Reads each change against live text before it enters the result, re-derives no verified fact
 
 ## [05]-[CODIFYING]
 
-Facts a change settled leave it as principles and checks, mined after the verdict:
-1. Readers mine the diff, tool calls, and adversary edits for principles, each naming the form replaced, the stronger form, its category, and its test
-2. One combiner adjudicates: overlaps merge under the stronger statement, complements integrate, contradictions resolve by source, cost, or a live run
-3. Principles join the language skill at the section owning their category: a line replaced or added, a weak line deleted, a snippet rewritten whole
-4. Each principle routes through `[02]` to its checker, widening an existing rule or util before adding one, a tightening row violated nowhere
-5. Checks prove once: a scan of a scratch file of violating forms and near misses, then the project at zero findings, timed before and after
-6. Adversaries read the modified guidance and checks alone, then a clean-prose pass over the same lines ends with `prose.py check`
+Facts a change settled leave it as principles and checks, mined after the verdict and landed in the same review:
+1. Principles hold for any file of the language, naming the form replaced, the stronger form, its category, and its test on placeholder names
+2. Principles name no path, session, run, count, or term the field lacks, a one-file move is none, an exception one instance needs takes no line
+3. Each lands at the skill section whose heading covers it, the `[PRINCIPLES]` list when it spans constructs, a reference when its topic sits there
+4. Weak lines are replaced or split, a snippet rewritten whole, a wrong line deleted with every mention and nothing standing in its place
+5. `rg -F` over the language's skill folders shows where another file states the fact, the owner line stays and nothing is added beside it
+6. Each routes through `[03]` to its check, its message short and agent-facing
+7. Rules written or rewritten prove once: one scan of a scratch file of violating forms and near misses, one hit per form, then the project at zero
+8. Rules are timed against their kind baseline per `use-ast-grep` `performance.md`, lints and rows run over the finding sites before and after
+9. Scratch files are deleted after their scan, zero findings alone prove nothing
+10. Adversary and prose passes of `[04]` read the modified lines alone
 
-Principles hold for any file of the language: placeholder names, no path, session, run, or count of one pass, no term the field lacks, a move bound to one file is none. A wrong line goes with every mention and no warning in its place, an exception one instance needs takes no line, and an appended restatement is a regression. Use `use-ast-grep` for rule shape and cost.
-
-## [06]-[DELEGATION]
-
-Delegate when a subject spans more than one file group or more than one language owner. A lead keeps the merge and spawns each round in one message, disjoint scopes at once and scopes sharing a file in order, never one agent over the whole.
-
-Each brief states:
-- Scope: files owned, files read for consumers, files excluded
-- Standards: `CLAUDE.md` sections and skills judging the scope, memory entries, parked areas
-- Facts: the `refactor-code` `[05]` brief contents, with research on disk read and not redone and decisions changing on a new fact alone
-- Rules: fix in scope in place with nothing deferred, delete before add, verify before return, no report file, no copy or backup of a file
-- Return: files edited, counts before and after, changes reaching other files, `Unverified:` claims
-
-Lead steps after every agent returns:
-1. Wait for completion notices, polling an agent's output reads partial results
-2. Merge findings under their file, keeping strongest evidence
-3. Rerun the deciding check on a conflicting verdict
-4. Read each top change against live text before it enters the report
-
-## [07]-[REPORT]
-
-Reports take the `refactor-code` report form per change, then principles with their owner file and section, checks with their id and hits, and `Unverified:` claims with the command settling them.
-
-Reports leave out:
-- Moves bound to one file, one session, or one run
-- Guidance restating a line a skill holds
-- Checks for forms code never showed
-- Speed claims without a timing
-- Check output beyond one run per stage
-- Tests, unless the owner asked for them
+Reviews are finished when every wrong, naive, and shuffle hunk is rebuilt or reverted in place, each principle sits at its owner and each check is proved, `hk fix <paths>` ran over edited paths, and `nx run <project>:check` of each edited and consumer project (`nx run rasm:lint:<tool> -- <paths>` for a root checker, `prose.py check` for guidance) passes with zero findings. Results state verdicts per hunk with their principle, counts and timings before and after, principles with owner file and section, checks with id and hits, mistakes with the step catching each earlier, and `Unverified:` claims with the command settling them.
