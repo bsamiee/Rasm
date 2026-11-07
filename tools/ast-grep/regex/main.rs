@@ -133,6 +133,11 @@ impl Walker<'_> {
     // --- [FOLDING]
 
     fn folded(&mut self, node: &mut Ast) -> Result<(), hir::Error> {
+        let wrapped = |node: &mut Ast| {
+            let span = *node.span();
+            let flags = ast::Flags { span, items: [FlagsItemKind::Negation, FlagsItemKind::Flag(Flag::CaseInsensitive)].map(|kind| FlagsItem { span, kind }).to_vec() };
+            *node = Ast::group(Group { span, kind: GroupKind::NonCapturing(flags), ast: Box::new(mem::replace(node, Ast::empty(span))) });
+        };
         match node {
             Ast::Flags(flags) => *self.scopes.last_mut() = scoped(self.scopes.last(), Some(&flags.flags)),
             Ast::Group(group) => {
@@ -143,27 +148,17 @@ impl Walker<'_> {
             Ast::Repetition(repetition) => self.folded(&mut repetition.ast)?,
             Ast::Alternation(ast::Alternation { span: _, asts }) | Ast::Concat(ast::Concat { span: _, asts }) => asts.iter_mut().try_for_each(|part| self.folded(part))?,
             Ast::Empty(_) | Ast::Dot(_) | Ast::Assertion(_) => {}
-            Ast::Literal(_) | Ast::ClassUnicode(_) | Ast::ClassPerl(_) => self.leaf(node)?,
+            Ast::Literal(_) | Ast::ClassUnicode(_) | Ast::ClassPerl(_) => {
+                let negated = matches!(node, Ast::ClassUnicode(class) if class.is_negated()) || matches!(node, Ast::ClassPerl(class) if class.negated);
+                if let Some(class) = self.refolded(node, negated)? {
+                    *node = Ast::class_bracketed(class);
+                    wrapped(node);
+                }
+            }
             Ast::ClassBracketed(class) =>
                 if self.folded_set(&mut class.kind)? {
                     wrapped(node);
                 },
-        }
-        Ok(())
-    }
-
-    fn leaf(&self, node: &mut Ast) -> Result<(), hir::Error> {
-        let mut item = match &*node {
-            Ast::Literal(literal) => ClassSetItem::Literal((**literal).clone()),
-            Ast::ClassUnicode(class) => ClassSetItem::Unicode((**class).clone()),
-            Ast::ClassPerl(class) => ClassSetItem::Perl((**class).clone()),
-            Ast::Empty(_) | Ast::Flags(_) | Ast::Dot(_) | Ast::Assertion(_) | Ast::ClassBracketed(_) | Ast::Repetition(_) | Ast::Group(_) | Ast::Alternation(_) | Ast::Concat(_) => return Ok(()),
-        };
-        if self.folded_item(&mut item)? {
-            if let ClassSetItem::Bracketed(class) = item {
-                *node = Ast::ClassBracketed(class);
-            }
-            wrapped(node);
         }
         Ok(())
     }
@@ -176,12 +171,6 @@ impl Walker<'_> {
     }
 
     fn folded_item(&self, item: &mut ClassSetItem) -> Result<bool, hir::Error> {
-        static EXOTIC: LazyLock<ClassUnicode> = LazyLock::new(|| {
-            let mut folded = ClassUnicode::new([ClassUnicodeRange::new('A', 'z')]);
-            folded.case_fold_simple();
-            folded.difference(&ClassUnicode::new([ClassUnicodeRange::new('\0', '\x7F')]));
-            folded
-        });
         let negated = match item {
             ClassSetItem::Bracketed(class) => return self.folded_set(&mut class.kind),
             ClassSetItem::Union(union) => return union.items.iter_mut().try_fold(false, |folds, item| Ok(folds | self.folded_item(item)?)),
@@ -191,13 +180,24 @@ impl Walker<'_> {
             ClassSetItem::Perl(class) => class.negated,
             ClassSetItem::Unicode(class) => class.is_negated(),
         };
-        let span = *item.span();
-        let written = Ast::class_bracketed(ClassBracketed { span, negated: false, kind: ClassSet::Item(item.clone()) });
-        let scoped = self.translated(&written)?;
-        let HirKind::Class(hir::Class::Unicode(_)) = scoped.kind() else { return Ok(false) };
-        let plain = TranslatorBuilder::new().utf8(false).build().translate(self.pattern, &written)?;
+        let written = Ast::class_bracketed(ClassBracketed { span: *item.span(), negated: false, kind: ClassSet::Item(item.clone()) });
+        let Some(class) = self.refolded(&written, negated)? else { return Ok(false) };
+        *item = ClassSetItem::Bracketed(Box::new(class));
+        Ok(true)
+    }
+
+    fn refolded(&self, written: &Ast, negated: bool) -> Result<Option<ClassBracketed>, hir::Error> {
+        static EXOTIC: LazyLock<ClassUnicode> = LazyLock::new(|| {
+            let mut folded = ClassUnicode::new([ClassUnicodeRange::new('A', 'z')]);
+            folded.case_fold_simple();
+            folded.difference(&ClassUnicode::new([ClassUnicodeRange::new('\0', '\x7F')]));
+            folded
+        });
+        let scoped = self.translated(written)?;
+        let HirKind::Class(hir::Class::Unicode(_)) = scoped.kind() else { return Ok(None) };
+        let plain = TranslatorBuilder::new().utf8(false).build().translate(self.pattern, written)?;
         if scoped == plain {
-            return Ok(false);
+            return Ok(None);
         }
         let mut operand = match plain.into_kind() {
             HirKind::Class(hir::Class::Unicode(class)) => class,
@@ -210,17 +210,14 @@ impl Walker<'_> {
         }
         let mut asked = EXOTIC.clone();
         asked.intersect(&operand);
-        let mut folded = operand.clone();
-        folded.difference(&EXOTIC);
-        folded.case_fold_simple();
-        folded.difference(&EXOTIC);
-        folded.union(&asked);
-        if folded != operand {
-            let literal = |letter| ast::Literal { span, kind: ast::LiteralKind::Verbatim, c: letter };
-            let items = folded.ranges().iter().map(|range| ClassSetItem::Range(ClassSetRange { span, start: literal(range.start()), end: literal(range.end()) })).collect();
-            *item = ClassSetItem::Bracketed(Box::new(ClassBracketed { span, negated, kind: ClassSet::Item(ClassSetUnion { span, items }.into_item()) }));
-        }
-        Ok(true)
+        operand.difference(&EXOTIC);
+        operand.case_fold_simple();
+        operand.difference(&EXOTIC);
+        operand.union(&asked);
+        let span = *written.span();
+        let literal = |letter| ast::Literal { span, kind: ast::LiteralKind::Verbatim, c: letter };
+        let items = operand.ranges().iter().map(|range| ClassSetItem::Range(ClassSetRange { span, start: literal(range.start()), end: literal(range.end()) })).collect();
+        Ok(Some(ClassBracketed { span, negated, kind: ClassSet::Item(ClassSetUnion { span, items }.into_item()) }))
     }
 }
 
@@ -268,8 +265,8 @@ impl Visitor for Walker<'_> {
 enum Failure {
     #[error("cannot decode the request")]
     Request(#[source] serde_path_to_error::Error<serde_json::Error>),
-    #[error("cannot read pattern {pattern}")]
-    Pattern { pattern: String, source: Box<regex_syntax::Error> },
+    #[error("cannot read a pattern")]
+    Pattern(#[source] Box<regex_syntax::Error>),
     #[error("cannot decode transform {transform}")]
     Transform { transform: Value, source: serde_path_to_error::Error<serde_json::Error> },
     #[error("cannot parse transform {transform}")]
@@ -293,9 +290,9 @@ enum Failure {
 }
 
 impl Failure {
-    fn pattern<E>(pattern: &str) -> impl Fn(E) -> Self
+    fn pattern<E>(source: E) -> Self
     where E: Into<regex_syntax::Error> {
-        move |source| Self::Pattern { pattern: pattern.to_owned(), source: Box::new(source.into()) }
+        Self::Pattern(Box::new(source.into()))
     }
 }
 
@@ -401,12 +398,6 @@ fn scoped(scope: &TranslatorBuilder, flags: Option<&ast::Flags>) -> TranslatorBu
     scope
 }
 
-fn wrapped(node: &mut Ast) {
-    let span = *node.span();
-    let flags = ast::Flags { span, items: [FlagsItemKind::Negation, FlagsItemKind::Flag(Flag::CaseInsensitive)].map(|kind| FlagsItem { span, kind }).to_vec() };
-    *node = Ast::group(Group { span, kind: GroupKind::NonCapturing(flags), ast: Box::new(mem::replace(node, Ast::empty(span))) });
-}
-
 // --- [RANGES]
 
 fn ranges(class: &hir::Class) -> Vec<(u32, u32)> {
@@ -435,10 +426,10 @@ fn structure((pattern, caseless): &(String, bool)) -> Result<Node, Failure> {
         }
     }
     let source = GENERATOR_CLASSES.iter().fold(pattern.clone(), |text, (written, spelled)| text.replace(written, spelled));
-    let mut tree = Parser::new().parse(&source).map_err(Failure::pattern(pattern))?;
+    let mut tree = Parser::new().parse(&source).map_err(Failure::pattern)?;
     let base = TranslatorBuilder::new().utf8(false).case_insensitive(*caseless).clone();
-    Walker { pattern: &source, scopes: nev![base.clone()], findings: Vec::new() }.folded(&mut tree).map_err(Failure::pattern(pattern))?;
-    base.build().translate(&source, &tree).map(|hir| structured(&hir)).map_err(Failure::pattern(pattern))
+    Walker { pattern: &source, scopes: nev![base.clone()], findings: Vec::new() }.folded(&mut tree).map_err(Failure::pattern)?;
+    base.build().translate(&source, &tree).map(|hir| structured(&hir)).map_err(Failure::pattern)
 }
 
 // --- [RULES]
@@ -457,9 +448,9 @@ fn read(written: Written, tables: &HashMap<String, Table>) -> Result<Vec<Finding
             (replace, None)
         }
     };
-    let tree = Parser::new().parse(&pattern).map_err(Failure::pattern(&pattern))?;
-    let hir = Translator::new().translate(&pattern, &tree).map_err(Failure::pattern(&pattern))?;
-    let classes = visit(&tree, Walker { pattern: &pattern, scopes: nev![TranslatorBuilder::new()], findings: Vec::new() }).map_err(Failure::pattern(&pattern))?;
+    let tree = Parser::new().parse(&pattern).map_err(Failure::pattern)?;
+    let hir = Translator::new().translate(&pattern, &tree).map_err(Failure::pattern)?;
+    let classes = visit(&tree, Walker { pattern: &pattern, scopes: nev![TranslatorBuilder::new()], findings: Vec::new() }).map_err(Failure::pattern)?;
     let literal = site.and_then(|(language, subject)| tables.get(&language).map(|table| table.literal(&hir, &subject))).transpose()?.flatten();
     Ok(iter::chain(classes, literal).collect())
 }
