@@ -8,8 +8,11 @@ using Rhino.Commands;
 namespace Rasm.Grasshopper;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public static partial class Hooks {
-    // --- [SESSION]
+
+    // --- [SESSIONS]
+
     private const string ValuesKey = "Values";
 
     private static readonly Atom<Option<(ILogger Logger, Plugin Plugin, SettingsFile Settings, KeyedValues Values)>> Bound =
@@ -42,6 +45,7 @@ public static partial class Hooks {
         }));
 
     // --- [EVENTS]
+
     public static IO<Unit> On(Action<EventHandler> add, Action<EventHandler> remove, IO<Unit> react, [CallerArgumentExpression(nameof(add))] string label = "") =>
         Subscribed((_, _) => Run(react, unit, label), add, remove);
 
@@ -54,7 +58,8 @@ public static partial class Hooks {
             return handler;
         }, remove).Map(unit);
 
-    // --- [EDITOR]
+    // --- [EDITORS]
+
     public static IO<Unit> Editor(Func<Editor, IO<Unit>> attach) =>
         from scope in envIO
         from present in IO.lift(static () => Optional(Grasshopper2.UI.Editor.Instance))
@@ -71,7 +76,8 @@ public static partial class Hooks {
                 .Map(unit)).RunAsync(waiting))
         select subscribed;
 
-    // --- [RUNS]
+    // --- [EXECUTION]
+
     internal static T Run<T>(IO<T> effect, T failed, [CallerMemberName] string member = "") =>
         effect.RunSafe().IfFail(error => {
             if (error.Count is 1 && error.Is(Errors.Cancelled)) Canceled(Session.Logger, member);

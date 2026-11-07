@@ -3,13 +3,12 @@ import { layerPosix } from '@effect/platform-node/NodePath';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateNodesContext, hashArray } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { decodeFile, Mise, Package, runCommand, TextFormat } from '@rasm/eng';
+import { suitePath } from '@rasm/test-support/suite';
 import { Array, Config, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Order, Path, Predicate, Record, Result, Schema, Scope, String, Struct } from 'effect';
 import { escape } from 'minimatch';
 import { serverFS } from 'typescript/fs';
 import { API } from 'typescript/sync';
-import { decodeFile, Mise, Package, suitePath } from '#/eng/typescript/manifest';
-import { runCommand } from '#/eng/typescript/run-command';
-import { TextFormat } from '#/eng/typescript/text-format';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -82,19 +81,15 @@ const SwiftPackage = Schema.Struct({
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class WorkspaceError extends Schema.TaggedError<WorkspaceError, { readonly brand: unique symbol }>()('WorkspaceError', {
-    reason: Schema.TaggedUnion({ Missing: { value: Schema.String }, Shadowed: { folder: Schema.String }, Single: { module: Schema.String }, Unparsed: { error: Schema.String } }),
+    reason: Schema.TaggedUnion({ Missing: { value: Schema.String }, Unparsed: { error: Schema.String } }),
     subject: Schema.String,
 }) {
     static readonly missing = (subject: string, value: string) => WorkspaceError.make({ reason: { _tag: 'Missing', value }, subject });
-    static readonly shadowed = (subject: string, folder: string) => WorkspaceError.make({ reason: { _tag: 'Shadowed', folder }, subject });
-    static readonly single = (subject: string, module: string) => WorkspaceError.make({ reason: { _tag: 'Single', module }, subject });
     static readonly unparsed = (subject: string, error: string) => WorkspaceError.make({ reason: { _tag: 'Unparsed', error }, subject });
 
     override get message(): string {
         return WorkspaceError.fields.reason.match(this.reason, {
             Missing: ({ value }) => `${this.subject} has no ${value}`,
-            Shadowed: ({ folder }) => `${this.subject} shares its name with folder ${folder}, move it into the folder`,
-            Single: ({ module }) => `${this.subject} re-exports only ${module}, point its exports entry at that module`,
             Unparsed: ({ error }) => `${this.subject} does not parse: ${error}`,
         });
     }
@@ -103,6 +98,7 @@ class WorkspaceError extends Schema.TaggedError<WorkspaceError, { readonly brand
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [READS]
+
 const glob = (workspaceRoot: string, patterns: string[], exclude?: string[]) => Effect.tryPromise(() => globWithWorkspaceContext(workspaceRoot, patterns, exclude));
 const suiteParents = (path: Path.Path, suites: readonly string[]) => Array.dedupe(suites.flatMap((suite) => Array.unfold(path.dirname(suite), (parent) => (parent === '.' ? Option.none() : Option.some([parent, path.dirname(parent)])))));
 const readPyproject = Effect.fnUntraced(function* (workspaceRoot: string) {
@@ -184,6 +180,7 @@ const readDaemons = Effect.fnUntraced(function* (workspaceRoot: string, declared
 });
 
 // --- [WORKSPACE]
+
 const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfiguration }: Pick<CreateNodesContext, 'workspaceRoot' | 'nxJsonConfiguration'>) {
     const [fs, path, scope] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.scope]);
     const pyproject = yield* Effect.cached(readPyproject(workspaceRoot));

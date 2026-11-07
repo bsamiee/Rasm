@@ -8,13 +8,12 @@ lazy from pathops import PathOp
 lazy from scipy.optimize import root_scalar
 
 from typography.faces.declaration import Em, Ratio
-from typography.rules.measures import Rule
+from typography.rules.measures import band, dotted, nuqta, Rule
 lazy from typography.faces.glyphs import Glyph, Letter, Outline, Source
 lazy from typography.faces.names import Form
 lazy from typography.outlines.measure import counters, gap, inradius
 lazy from typography.outlines.paths import area, bounds, combined, offset, transformed, union
 lazy from typography.outlines.tidy import despiked, snapped, tidied
-lazy from typography.rules.measures import band, dotted, nuqta
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -38,7 +37,7 @@ class Outlines(Rule, frozen=True, kw_only=True):
 
 
 def _unified(contours: Outline, canonical: Outline, area_: float, single: tuple[float, float], /) -> Outline:
-    """Replaces a dot with an area ratio to the nuqta inside the single-dot band by the canonical nuqta at the dot's ink middle."""
+    """Replaces a dot with an area ratio to the nuqta inside the single-dot band by the canonical nuqta at the dot's outline middle."""
     match bounds(contours), bounds(canonical):
         case (dot, model) if dot and model and single[0] < area(contours) / area_ < single[1]:
             return transformed(canonical, (1.0, 0.0, 0.0, 1.0, dot.middle[0] - model.middle[0], dot.middle[1] - model.middle[1]))

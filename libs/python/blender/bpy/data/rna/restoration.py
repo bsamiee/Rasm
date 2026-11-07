@@ -53,6 +53,7 @@ class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [CAPTURE]
 
 
@@ -199,7 +200,7 @@ def decoded(tree: _Persisted, *, compound: bool = False) -> Outcome[NativeTree]:
     return _fold(folded(tree, compound=compound), partial(folded, compound=True))
 
 
-# --- [RESTORE]
+# --- [RESTORATION]
 
 
 def equal(left: NativeValue, right: NativeValue) -> bool:

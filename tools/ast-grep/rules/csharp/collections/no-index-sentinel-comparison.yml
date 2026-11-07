@@ -3,12 +3,11 @@ language: csharplang
 severity: error
 utils:
     zero:
-        kind: integer_literal
-        regex: '^0$'
+        pattern: '0'
     minus-one:
         kind: prefix_unary_expression
         regex: ^-
-        has: {kind: integer_literal, regex: '^1$'}
+        has: {pattern: '1'}
     array-type:
         matches: {csharp-type-name: {name: {regex: '^Array$'}}}
     arity-one:

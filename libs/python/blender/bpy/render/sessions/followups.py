@@ -64,6 +64,8 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
     sequences in its followed render record, renders with every compositor entry off, and writes its frames one output version later.
     """
 
+    # --- [STATE]
+
     key: Key
     form: type[G]
     built: Callable[[Identity, bpy.types.Scene, FollowedRender, G, Path], Outcome[None]]
@@ -163,7 +165,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
             )
         )
 
-    # --- [LOADING]
+    # --- [LOADS]
 
     def loaded(self, identity: Identity) -> Outcome[None]:
         """Runs `built` for every scene a job file loads holding a followed render, under the scene's stored output root."""
@@ -174,6 +176,8 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
             )
 
         return accumulated(map(ran, bpy.data.scenes)).map(lambda _: None)
+
+    # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Acquires the scene setting, the followed render record, and the load handler running `built`."""

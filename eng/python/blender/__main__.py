@@ -1,7 +1,7 @@
 """Writes extension assets, packs and installs Blender extensions, syncs host constraints, and runs Blender in isolated profiles."""
 
+import sys
 lazy import subprocess
-lazy import sys
 
 from cyclopts import App, Parameter
 lazy from expression import Result

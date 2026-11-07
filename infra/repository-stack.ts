@@ -2,8 +2,8 @@ import { readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
 import { findMatchingProjects, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { ActionsRepositoryPermissions, ActionsSecret, IssueLabels, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { secret } from '@pulumi/pulumi';
+import { Package } from '@rasm/eng';
 import { Config, Effect, FileSystem, Path, Record, Redacted } from 'effect';
-import { Package } from '#/eng/typescript/manifest';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

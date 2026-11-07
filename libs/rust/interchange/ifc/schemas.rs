@@ -330,7 +330,7 @@ where T: DeserializeOwned {
     node.attributes.get(id).map(|value| serde_path_to_error::deserialize(&**value).map_err(|source| IfcError::Invalid { node: node.path.clone(), attribute: id.into(), source })).transpose()
 }
 
-// --- [DECODE]
+// --- [DECODING]
 
 pub(crate) fn decoder<'schema>(described: impl IntoIterator<Item = (&'schema str, &'schema Schema)>) -> impl Fn(&Path, &str, &serde_json::Value) -> Result<Value, IfcError> {
     let schemas = described.into_iter().collect::<IndexMap<_, _>>();

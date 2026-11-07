@@ -12,6 +12,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record ViewportTarget {
     public sealed record Active : ViewportTarget;
@@ -33,6 +34,7 @@ public abstract partial record ViewportSet {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class ViewportRef : IDisposable {
     internal ViewportRef(RhinoView view, RhinoViewport viewport, Option<DetailViewObject> pending) => (View, Viewport, Pending) = (view, viewport, pending);
 
@@ -49,8 +51,11 @@ public sealed class ViewportRef : IDisposable {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Viewports {
+
     // --- [RESOLUTION]
+
     public static IO<ViewportRef> Resolve(RhinoDoc doc, ViewportTarget target) =>
         IO.lift(() => target.Switch(
                 doc,
@@ -107,6 +112,7 @@ public static class Viewports {
                 .Map(static view => view.MainViewport.Id));
 
     // --- [EDITS]
+
     public static IO<Seq<bool>> Edit(RhinoDoc doc, ViewportSet set, Func<RhinoViewport, IO<Unit>> edit, RedrawPolicy redraw) =>
         Commits.WithinRedraw(doc, redraw, Resolve(doc, set).Bind(rows => Products.Each(rows.Map(row =>
             from before in IO.lift(() => row.Viewport.ChangeCounter)
@@ -116,6 +122,7 @@ public static class Viewports {
             select moved))).Bracket());
 
     // --- [SIGNALS]
+
     public static readonly DocumentEvent<DrawEventArgs> ProjectionChanged =
         Subscriptions.Inline<DrawEventArgs>(static h => DisplayPipeline.ViewportProjectionChanged += h, static h => DisplayPipeline.ViewportProjectionChanged -= h)
             .DistinctUntilChanged(static args => (Document: Conversions.Serial(args.RhinoDoc), Viewport: args.Viewport.Id), static args => args.Viewport.ChangeCounter)
@@ -148,19 +155,22 @@ public static class Viewports {
             .DistinctUntilChanged(static view => view.RuntimeSerialNumber, static view => view.ScreenRectangle);
 
     // --- [STORES]
+
     public static Preference<T> Member<T>(RhinoDoc doc, ViewportTarget target, Func<RhinoViewport, IO<T>> read, Func<RhinoViewport, T, IO<Unit>> write) where T : notnull =>
         Preferences.Of(
             With(doc, target, row => read(row.Viewport)),
             value => Edit(doc, new ViewportSet.One(target), port => write(port, value), new RedrawPolicy.AllViews(Deferred: true)).Map(unit),
             Some(Changed(doc, target)));
 
-    // --- [SCREEN]
+    // --- [SCREENS]
+
     public static IO<RectangleF> Frame(RhinoView view) =>
         from window in IO.lift(() => Conversions.Required(RhinoEtoApp.MainWindowForDocument(view.Document)))
         let frame = view.ScreenRectangle
         select new RectangleF(frame.X, frame.Y, frame.Width, frame.Height) / window.LogicalPixelSize;
 
-    // --- [SPACE]
+    // --- [SPACES]
+
     public static LengthUnit Units(RhinoDoc doc, Option<RhinoViewport> viewport) =>
         viewport.Exists(static found => found.ViewportType is ViewportType.PageViewMainViewport) ? doc.PageUnits : doc.ModelUnits;
 }

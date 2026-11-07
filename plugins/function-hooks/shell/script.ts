@@ -1,5 +1,5 @@
 import { Array, Effect, Equal, Match, Option, Predicate, Result, Schema, Struct } from 'effect';
-import { HookError, Host } from '#/host';
+import { HookError, Host } from '#/host.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -207,7 +207,7 @@ const effects = (frame: Frame, words: readonly Word[], place: Place): Frame => {
         : frame;
 };
 
-// --- [WALK]
+// --- [WALKS]
 
 const chained = (frame: Frame, ...steps: readonly ((current: Frame) => Walked)[]): Walked => {
     const [final, scripts] = Array.mapAccum(steps, frame, (current, step) => step(current));

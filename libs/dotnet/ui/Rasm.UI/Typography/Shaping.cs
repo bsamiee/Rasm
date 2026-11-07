@@ -10,8 +10,11 @@ using Topten.RichTextKit;
 namespace Rasm.UI.Typography;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class Shaping : IDisposable {
+
     // --- [STATE]
+
     private static readonly float[] WidthPercents = [50f, 62.5f, 75f, 87.5f, 100f, 112.5f, 125f, 150f, 200f];
     private static readonly HashMap<Tag, Func<TextStyle, SKFontVariationAxis, float>> Derived = HashMap<Tag, Func<TextStyle, SKFontVariationAxis, float>>(
         (Tag.Parse("wght"), static (style, _) => style.FontWeight),
@@ -42,6 +45,7 @@ public sealed class Shaping : IDisposable {
     internal Func<CultureInfo, BreakIterator> LineBreaks { get; } = memo<CultureInfo, BreakIterator>(BreakIterator.GetLineInstance);
 
     // --- [TYPEFACES]
+
     internal Option<SKTypeface> Matching(string family, SKFontStyleWeight weight, SKFontStyleWidth width, SKFontStyleSlant slant) =>
         Optional(embedded
             .Filter(face => string.Equals(face.FamilyName, family, StringComparison.OrdinalIgnoreCase))
@@ -83,6 +87,7 @@ public sealed class Shaping : IDisposable {
     }
 
     // --- [SHAPING]
+
     internal Font HarfBuzzFont(SKTypeface typeface) {
         lock (gate) return fonts.GetOrAdd(typeface, static (face, shaping) => {
             Font font = shaping.bases.TryGetValue(face, out SKTypeface? based) ? new Font(shaping.HarfBuzzFont(based)) : new Font(shaping.HarfBuzzFace(face));
@@ -98,7 +103,8 @@ public sealed class Shaping : IDisposable {
         });
     }
 
-    // --- [LIFETIME]
+    // --- [RELEASE]
+
     public void Dispose() {
         lock (gate) {
             SKTypeface[] held = [.. bases.Select(static entry => entry.Key)];

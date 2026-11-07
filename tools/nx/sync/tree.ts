@@ -1,9 +1,9 @@
 import type { Tree } from '@nx/devkit';
+import { runCommand } from '@rasm/eng';
 import { Array, Effect, Equal, Record, Schema, type Scope, Stream, String, Struct } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { parseAllDocuments } from 'yaml';
-import { runCommand } from '#/eng/typescript/run-command';
-import { type PluginServices, runPlugin, WorkspaceError } from '#/tools/nx/workspace';
+import { type PluginServices, runPlugin, WorkspaceError } from '#/workspace.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

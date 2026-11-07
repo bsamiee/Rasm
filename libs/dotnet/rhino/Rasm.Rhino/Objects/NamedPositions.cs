@@ -5,6 +5,7 @@ using Rhino.DocObjects.Tables;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record NamedPosition(Guid Id, string Name, Seq<(Guid ObjectId, Transform Xform)> Objects, Seq<Guid> Skipped) {
     public static IO<Seq<NamedPosition>> Read(RhinoDoc doc) =>
         IO.lift(() => Products.Each(Conversions.Rows(doc.NamedPositions.Ids), (id, _) => Conversions.Rows(doc.NamedPositions.Objects(id)) switch {
@@ -29,8 +30,11 @@ public sealed record NamedPositionRestore(StateName Name) : NamedRestore(NamedPo
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
+
 public static class NamedPositions {
-    // --- [TABLE]
+
+    // --- [ROWS]
+
     public static NamedTable Table { get; } = new(nameof(NamedPositions), StringComparer.Ordinal) {
         Entries = Entries,
         Rename = static (doc, entry, name) => Found(doc, entry.Name).Bind(id => Products.Accepted(() => doc.NamedPositions.Rename(id, name))).Map(static _ => NamedWrite.Undoable),
@@ -39,11 +43,11 @@ public static class NamedPositions {
         Members = Some<Func<RhinoDoc, NamedEntry, IO<Seq<Guid>>>>(static (doc, entry) => Found(doc, entry.Name).Map(id => Conversions.Rows(doc.NamedPositions.ObjectIds(id)))),
     };
 
-    // --- [ROWS]
     private static IO<Seq<NamedEntry>> Entries(RhinoDoc doc) =>
         IO.lift(() => Conversions.Rows(doc.NamedPositions.Ids).Map(id => new NamedEntry(Table, doc.NamedPositions.Name(id), Some(id))).Strict());
 
-    // --- [HOLD]
+    // --- [HOLDS]
+
     private static IO<NamedWrite> Held(RhinoDoc doc) =>
         from members in IO.lift(() => toHashSet(Conversions.Rows(doc.NamedPositions.Ids).Bind(id => Conversions.Rows(doc.NamedPositions.ObjectIds(id)))))
         from held in Some(members).Filter(static set => !set.IsEmpty)
@@ -52,7 +56,8 @@ public static class NamedPositions {
             held.Traverse(id => Products.Accepted(() => doc.NamedPositions.Restore(id))).As().Map(static _ => unit),
             held.Traverse(id => Products.Accepted(() => doc.NamedPositions.Delete(id))).As().Map(static _ => unit));
 
-    // --- [HOST]
+    // --- [HOSTS]
+
     internal static Fin<Unit> Saved(NamedPositionTable table, string name, HashSet<Guid> wanted) =>
         Conversions.Present(table.Id(name))
             .Map(id => (Id: id, Held: toHashSet(table.ObjectIds(id))))

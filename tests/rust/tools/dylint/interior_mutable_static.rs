@@ -14,6 +14,14 @@ macro_rules! counter {
     };
 }
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Parser)]
+struct Options {
+    #[arg(long, default_value_t = 8080)]
+    port: u32,
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 static HITS: AtomicU32 = AtomicU32::new(0);
@@ -38,14 +46,6 @@ thread_local! {
 }
 
 counter!(CALLS);
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-#[derive(Parser)]
-struct Options {
-    #[arg(long, default_value_t = 8080)]
-    port: u32,
-}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -158,6 +158,7 @@ impl Recorded {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [ORIGINS]
+
 fn workspace_def(cx: &LateContext<'_>, item: DefId) -> bool {
     let source_map = cx.tcx.sess.source_map();
     item.is_local()
@@ -208,6 +209,7 @@ fn record_rendering(cx: &LateContext<'_>, reported: &ReportedRenderings, source:
 }
 
 // --- [PATHS]
+
 fn resolve<T>(tcx: TyCtxt<'_>, namespace: PathNS, table: &[(&str, T)]) -> FxHashMap<DefId, T>
 where T: Copy {
     table.iter().flat_map(|&(path, value)| lookup_path_str(tcx, namespace, path).into_iter().map(move |resolved| (resolved, value))).collect()
@@ -222,6 +224,7 @@ fn impl_owner(tcx: TyCtxt<'_>, item: DefId) -> Option<Ty<'_>> { tcx.impl_of_asso
 fn associated_trait(tcx: TyCtxt<'_>, item: DefId) -> Option<DefId> { tcx.trait_of_assoc(tcx.opt_associated_item(item)?.trait_item_or_self().ok()?) }
 
 // --- [TYPES]
+
 fn result_parts<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Option<(Ty<'tcx>, Ty<'tcx>)> {
     if let ty::Adt(result, args) = ty.kind()
         && result.is_diag_item(cx, sym::Result)
@@ -368,6 +371,7 @@ fn upcast(cx: &LateContext<'_>, method: LocalDefId) -> Option<DefId> {
 }
 
 // --- [PLACES]
+
 fn accessed_field(typeck: &TypeckResults<'_>, access: &Expr<'_>) -> Option<DefId> {
     let ExprKind::Field(base, _) = access.kind else { return None };
     Some(typeck.expr_ty_adjusted(base).peel_refs().ty_adt_def()?.non_enum_variant().fields[typeck.field_index(access.hir_id)].did)
@@ -439,6 +443,7 @@ fn pattern_fields<'tcx>(typeck: &TypeckResults<'tcx>, pat: &'tcx Pat<'tcx>) -> i
 }
 
 // --- [EXPRESSIONS]
+
 fn constructed<'tcx>(typeck: &TypeckResults<'tcx>, expr: &'tcx Expr<'tcx>) -> Option<(&'tcx VariantDef, impl ExactSizeIterator<Item = (&'tcx FieldDef, &'tcx Expr<'tcx>)> + Clone)> {
     let (variant, fields) = match expr.kind {
         ExprKind::Struct(qpath, fields, _) => {
@@ -497,6 +502,7 @@ fn parameter_of<'tcx>(cx: &LateContext<'tcx>, call: &Expr<'_>, argument: &Expr<'
 }
 
 // --- [ITEMS]
+
 fn generated(cx: &LateContext<'_>, node: HirId) -> bool {
     iter::once(node.owner)
         .chain(cx.tcx.hir_parent_owner_iter(node).map(|(owner, _)| owner))
@@ -530,6 +536,7 @@ fn item_path(cx: &LateContext<'_>, item: DefId) -> String {
 }
 
 // --- [BODIES]
+
 fn parameters_match(tcx: TyCtxt<'_>, locals: &mut HirIdMap<HirId>, left_id: BodyId, right_id: BodyId) -> bool {
     let [left_body, right_body] = [left_id, right_id].map(|body| tcx.hir_body(body));
     if left_body.params.len() != right_body.params.len() {
@@ -736,6 +743,7 @@ dylint_linting::__maybe_mangle! {
             manual::manual_partition,
             manual::manual_path_is_empty,
             manual::manual_retain_back,
+            manual::manual_set_operator,
             manual::manual_slice_as_array,
             manual::manual_type_changing_struct_update,
             manual::manual_upcast,

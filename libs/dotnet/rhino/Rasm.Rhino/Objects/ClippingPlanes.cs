@@ -6,8 +6,11 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Objects;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class ClippingPlanes {
-    // --- [DOCUMENT]
+
+    // --- [DOCUMENTS]
+
     public static IO<Guid> Add(RhinoDoc doc, Plane plane, Seq<Step<ClippingPlaneSurface>> steps, Option<ObjectAttributes> attributes, Option<HistoryRecord> history) =>
         (from surface in use(() => new ClippingPlaneSurface(plane))
          from staged in Edits.Apply(Stages.InPlace<ClippingPlaneSurface>(), surface, steps)
@@ -25,6 +28,7 @@ public static class ClippingPlanes {
                 .Map(static id => Steps.Of<ClippingPlaneSurface>(surface => surface.RemoveClipViewportId(id)))));
 
     // --- [STEPS]
+
     public static Step<ClippingPlaneSurface> Participation(Seq<Guid> objects, Seq<int> layers, bool exclusion) =>
         Steps.Then<ClippingPlaneSurface>(surface => {
             surface.SetClipParticipation(objects, layers, exclusion);
@@ -40,6 +44,7 @@ public static class ClippingPlanes {
         });
 
     // --- [FILLS]
+
     public static IO<Seq<(Guid Object, Seq<Brep> Fills)>> Fills(RhinoDoc doc, Seq<ClippingPlaneObject> planes, bool unclippedFills) =>
         IO.lift(() => Conversions.Rows(doc.Objects.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = false, LockedObjects = true, ReferenceObjects = true }))
                 .Filter(found => found is not ClippingPlaneObject && planes.Exists(plane => plane.ObjectParticipates(found.Id))).Strict())
@@ -50,6 +55,7 @@ public static class ClippingPlanes {
             .Map(static rows => rows.Somes());
 
     // --- [FACTS]
+
     extension(ClippingPlaneSurface surface) {
         public Option<(Seq<Guid> Objects, Seq<int> Layers, bool Exclusion)> Participants {
             get {

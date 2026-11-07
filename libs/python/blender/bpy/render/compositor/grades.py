@@ -114,7 +114,7 @@ def primary(
     return _saturated(contrasted, saturation)
 
 
-# --- [TONE]
+# --- [TONES]
 
 
 @grouped(kind=bpy.types.CompositorNodeTree)

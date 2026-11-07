@@ -8,7 +8,7 @@ Cursor pages over sorted rows are one generic function taking the row's key:
 #[must_use]
 pub fn page<T, K>(rows: &[T], mut key: impl FnMut(&T) -> K, after: Option<K>, size: NonZero<usize>) -> (&[T], Option<K>)
 where K: Ord {
-    let (_, rest) = rows.split_at(after.map_or(0, |cursor| rows.partition_point(|row| key(row) <= cursor)));
+    let (_, rest) = rows.split_at(after.map_or_default(|cursor| rows.partition_point(|row| key(row) <= cursor)));
     let (taken, left) = rest.split_at_checked(size.get()).unwrap_or((rest, &[]));
     (taken, taken.last().filter(|_| !left.is_empty()).map(key))
 }

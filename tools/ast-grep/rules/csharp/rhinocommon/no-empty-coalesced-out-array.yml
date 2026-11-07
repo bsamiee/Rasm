@@ -21,7 +21,7 @@ utils:
               has: {field: name, regex: '^Empty$'}
             - kind: array_creation_expression
               any:
-                - has: {field: type, kind: array_type, has: {field: rank, has: {kind: integer_literal, regex: '^0$'}}}
+                - has: {field: type, kind: array_type, has: {field: rank, has: {pattern: '0'}}}
                 - has: {kind: initializer_expression, not: {has: {pattern: $_}}}
             - kind: default_expression
             - kind: object_creation_expression

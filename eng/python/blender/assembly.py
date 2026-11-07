@@ -101,7 +101,7 @@ def _selected(path: Path, host: Host, targets: tuple[Target, ...], wheels: Path,
         return Error(Fault.of(Reason.UNREADABLE, str(path), error))
 
 
-# --- [STAGE]
+# --- [STAGES]
 
 
 @catch(exception=OSError)
@@ -238,7 +238,7 @@ def pack(source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, versi
     return paired(workspace, declared(source / "pyproject.toml", Pyproject), declared(source / "blender_manifest.toml", Manifest)).bind(lambda held: built(*held)).map(lambda _: 0)
 
 
-# --- [HOST]
+# --- [HOSTS]
 
 
 def upgrade(*, blender: Blender) -> Outcome[int]:

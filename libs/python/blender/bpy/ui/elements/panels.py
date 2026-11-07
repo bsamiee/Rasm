@@ -38,10 +38,9 @@ type _PanelPlacement = FixedPlacement | DynamicPlacement
 type _Site = tuple[str, _PanelPlacement, Option[Condition]]
 _G_co = TypeVar("_G_co", bound=bpy.types.PropertyGroup, covariant=True, default=bpy.types.PropertyGroup)
 
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
-# --- [PLACEMENTS]
+# --- [PLACEMENT]
 
 
 class Beside(msgspec.Struct, frozen=True):
@@ -174,8 +173,6 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Preferences the page declares."""
         return self.preferences
-
-    # --- [GATHERING]
 
     @contextmanager
     def gathered(self, identity: Identity, declared: tuple[Declaration | Gathering, ...], /) -> Generator[Acquisitions]:

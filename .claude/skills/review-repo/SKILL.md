@@ -46,6 +46,7 @@ Owner checks per concern:
 Each fact gets one trace, declaration to effect:
 - Declaration: one file per fact as README owners assign, a second declaration is a finding against the copy
 - Restatements: literal search (`rg -F '<value>'`) and code-form search (`ast-grep run`) across the tree, skills and README included
+- Measure: declared types, exports, parameters, and flags counted per file (`loc`, `ast-grep outline`) before a finding names a copy or hand code
 - Consumers: every reader of a value, followed to its effect, a value no consumer reads is a row nothing reads
 - Live state: what a declaration claims to produce, read from its tool or service, drift between them is a finding
 - History: `git log -S '<literal>'` and `git show <commit>` for why a form exists, read both ways (a flag arriving with a file serves it)

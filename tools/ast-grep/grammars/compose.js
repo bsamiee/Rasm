@@ -1,5 +1,5 @@
 import { Record } from 'effect';
-import { any, children, classes, closure, constants, lexemes, lexical, mandatory, named, reaches, rewrite, spans, spellings, symbol, widen } from '#/tools/ast-grep/grammars/derive.js';
+import { any, children, classes, closure, constants, lexemes, lexical, mandatory, named, reaches, rewrite, spans, spellings, symbol, widen } from '#/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

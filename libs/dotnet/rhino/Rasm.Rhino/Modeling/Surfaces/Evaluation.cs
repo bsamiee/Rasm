@@ -4,6 +4,7 @@ using Rasm.Rhino.Modeling.Curves;
 namespace Rasm.Rhino.Modeling.Surfaces;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record SurfaceJet(Point3d Point, Vector3d Normal, Seq<Seq<Vector3d>> Orders) {
     public Option<Vector3d> Partial(int du, int dv) =>
         du >= 0 && dv >= 0 && du <= Orders.Count - dv && du + dv is > 0 and var order ? Orders[order - 1].At(dv) : None;
@@ -44,8 +45,11 @@ public abstract partial record CurvatureSource {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SurfaceEvaluation {
-    // --- [SAMPLES]
+
+    // --- [SAMPLING]
+
     public static IO<SurfaceJet> Jet(Surface surface, Point2d uv, int order) =>
         from at in IO.lift(() => InDomain(surface, uv))
         from jet in IO.lift((
@@ -59,6 +63,7 @@ public static class SurfaceEvaluation {
         select jet;
 
     // --- [CURVES]
+
     public static IO<Seq<Curve>> IsoCurves(Surface surface, SurfaceDirection constant, double parameter) =>
         from t in IO.lift(() => Conversions.Within(constant.Domain(surface), parameter))
         from curves in surface is BrepFace face
@@ -67,12 +72,14 @@ public static class SurfaceEvaluation {
         select curves;
 
     // --- [SCANS]
+
     public static Seq<double> Discontinuities(Tolerances tolerances, Surface surface, SurfaceDirection direction, Continuity kind) =>
         CurveEvaluation.Breaks(tolerances, kind, surface.IsClosed(direction.Index), direction.Domain(surface),
             (read, t0, t1, cosAngleTolerance, curvatureTolerance) =>
                 Conversions.Present(surface.GetNextDiscontinuity(direction.Index, read, t0, t1, cosAngleTolerance, curvatureTolerance, out double t), t));
 
     // --- [DOMAIN]
+
     internal static Fin<Point2d> InDomain(Surface surface, Point2d uv) =>
         (Conversions.Within(SurfaceDirection.U.Domain(surface), uv.X), Conversions.Within(SurfaceDirection.V.Domain(surface), uv.Y))
             .Apply(static (u, v) => new Point2d(u, v))

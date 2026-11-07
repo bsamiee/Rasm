@@ -16,6 +16,7 @@ using Wacton.Unicolour;
 namespace Rasm.UI.Rendering;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record SceneChange(Scene Scene, Seq<SKRect> Damage);
 
 internal sealed record PartOwner(Seq<Key> Path, LayoutNode Layout, Part Part, SKRect Bounds) {
@@ -23,8 +24,11 @@ internal sealed record PartOwner(Seq<Key> Path, LayoutNode Layout, Part Part, SK
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed record Scene {
+
     // --- [STATE]
+
     private static readonly Key Overlaid = new Key.Named("fragment");
     private readonly HashMap<Seq<Key>, Option<SKPoint>> opened;
     private readonly HashMap<Seq<Key>, Seq<Seq<Key>>> readers;
@@ -83,6 +87,7 @@ internal sealed record Scene {
     public override int GetHashCode() => RuntimeHelpers.GetHashCode(this);
 
     // --- [TRANSITIONS]
+
     internal static Fin<Scene> Of(Cascade root, View view, Host host, Shaping shaping) {
         LayoutPass pass = new([], [], shaping, host.Culture);
         return Layouts.Unique(Layouts.Arrange(pass, root, view, host.Size), []).Map(main => Laid(host, pass, new Slot<OutlineKey, Outline>(static value => value.Dispose()), main, [], None).Scene);
@@ -170,6 +175,7 @@ internal sealed record Scene {
         Layouts.WithCorners(Layouts.Framed(pass, Layouts.Built(pass, plot.Inner, plot.Path.Add(Overlaid), overlay, held), SKRect.Create(plot.Frame.Size)), None);
 
     // --- [DAMAGE]
+
     private sealed record WalkState(HashMap<Seq<Key>, float> Was, HashMap<Seq<Key>, float> Now, bool Restyled, HashMap<Seq<Key>, LayoutNode> Index, HashMap<Seq<Key>, Place> Places, Seq<SKRect> Damage);
 
     internal Seq<SKRect> Sampled(Seq<SKRect> damage) => damage + sampling.Filter(glass => damage.Exists(rect => rect.IntersectsWith(glass.Reach))).Map(static glass => glass.Bounds);
@@ -215,7 +221,8 @@ internal sealed record Scene {
         from reach in Extents(fragment, place.Within(layout, fragment, offsets)).Head
         select reach;
 
-    // --- [QUERY]
+    // --- [QUERIES]
+
     internal Option<SKRect> Frame(Seq<Key> path) => Placed(path).Map(static held => held.Place.Transform.MapRect(held.Frame));
 
     internal Option<SKRect> Bounds(Seq<Key> path) => Placed(path).Map(static held => Painted(held.Layout, held.Place));
@@ -263,6 +270,7 @@ internal sealed record Scene {
     private static HashSet<Seq<Key>> Elected<T>(Seq<Hosted> hosted) where T : Hosted => toHashSet(hosted.Filter(static held => held is T).Map(static held => held.Path));
 
     // --- [HITS]
+
     internal Seq<Seq<Key>> Hit(SKPoint at) =>
         Order.Rev().Choose(layout => HitAt(layout, at).Map(hit => (Layout: layout, Hit: hit))).Head
             .Map(first => first.Hit.Cons(first.Layout.Path.Inits.Rev().Tail.Choose(Index.Find).Choose(layout => HitAt(layout, at))))
@@ -308,6 +316,7 @@ internal sealed record Scene {
     }
 
     // --- [PARTS]
+
     internal Option<PartOwner> PartAt(Seq<Key> path) =>
         from owned in (from layout in Index.Find(path) from part in layout.View.Part select (Layout: layout, Part: part))
                       | (from key in path.Last

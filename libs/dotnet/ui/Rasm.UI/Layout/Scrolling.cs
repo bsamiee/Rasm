@@ -6,6 +6,7 @@ using SkiaSharp;
 namespace Rasm.UI.Layout;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record Overflow(float Content, float Viewport) {
     internal float Max => float.Max(0f, Content - Viewport);
 
@@ -40,8 +41,8 @@ internal sealed record Scroller(Seq<Key> Owner, Seq<Key> Stored, PhysicalAxis Ax
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static partial class Layouts {
-    // --- [SCROLL]
     internal static Option<Scroller> Scroller(LayoutNode owner, Option<LayoutNode> thumb, HashMap<Seq<Key>, float> offsets) =>
         from node in Optional(owner.View as View.Scroll)
         from overflow in Panes(owner).Head.Map(content => new Overflow(node.Axis.Of(content.Frame.Size), node.Axis.Of(owner.ContentBox.Size)))

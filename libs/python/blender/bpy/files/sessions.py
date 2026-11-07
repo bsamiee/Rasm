@@ -246,7 +246,7 @@ class FarmTransfer(FileTransferProtocol):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [SAVE]
+# --- [SAVES]
 
 
 def saved(path: Path, operator: Operation, /, **params: Setting) -> Outcome[Path]:
@@ -263,7 +263,7 @@ def saved(path: Path, operator: Operation, /, **params: Setting) -> Outcome[Path
     return folder_made(path.parent).bind(lambda _: called(operator, {"filepath": str(path), **params})).map(lambda _: path if params.get("copy") is True else Path(bpy.data.filepath))
 
 
-# --- [LOAD]
+# --- [LOADS]
 
 
 def session_loaded(operator: Operation, /, **params: Setting) -> Outcome[BlendFile]:
@@ -397,7 +397,7 @@ def packed_session(target: Path | FileTransferProtocol, *, project: Path, option
     return _started(target, project, options, Ok).bind(Packing.drained)
 
 
-# --- [PROJECT]
+# --- [PROJECTS]
 
 
 def project_reconciled(project: Project) -> Outcome[None]:

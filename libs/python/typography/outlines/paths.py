@@ -25,7 +25,6 @@ type Axis = Literal["x", "y"]
 type Matrix = tuple[float, float, float, float, float, float]
 type Segment = tuple[tuple[float, float], ...]
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _FILL = frozendict(fix_winding=True, keep_starting_points=False, clockwise=False)
@@ -34,7 +33,7 @@ _FILL = frozendict(fix_winding=True, keep_starting_points=False, clockwise=False
 
 
 class Box(msgspec.Struct, frozen=True, kw_only=True):
-    """Axis-aligned ink extent in font units, the rectangle `fontTools.misc.arrayTools` reads in field order."""
+    """Axis-aligned outline extent in font units, the rectangle `fontTools.misc.arrayTools` reads in field order."""
 
     xmin: float
     ymin: float
@@ -88,7 +87,7 @@ class Box(msgspec.Struct, frozen=True, kw_only=True):
         return self.of(offsetRect(msgspec.structs.astuple(self), dx, dy))
 
     def centered(self, advance: float, /) -> Transform:
-        """Translation placing the horizontal ink center at the center of an advance."""
+        """Translation placing the horizontal outline center at the center of an advance."""
         return Offset(advance / 2 - self.middle[0], 0)
 
     def band(self, low: float, high: float, /, axis: Axis = "x") -> Self:
@@ -154,7 +153,7 @@ def combined(a: Outline, b: Outline, operation: pathops.PathOp, /) -> Outline:  
 
 
 def meets(a: Outline, b: Outline, /) -> bool:
-    """Tests whether two outlines share ink, each simplified first, the form resolving near-coincident edges a raw pair refuses."""
+    """Tests whether two outlines overlap, each simplified first, the form resolving near-coincident edges a raw pair refuses."""
     one, two = pathops.Path(), pathops.Path()
     draw(one.getPen(), a)
     draw(two.getPen(), b)
@@ -172,7 +171,7 @@ def pieces(outline: Outline, /) -> tuple[Outline, ...]:
 
 
 def strip(outline: Outline, low: float, high: float, /, axis: Axis = "x") -> Outline:
-    """Returns the ink between two coordinates along an axis, the band reaching one unit past the ink across the other."""
+    """Returns the outline between two coordinates along an axis, the band reaching one unit past the outline across the other."""
     match bounds(outline):
         case Box() as box:
             return combined(outline, (box.grown(1.0).band(low, high, axis).contour,), pathops.PathOp.INTERSECTION)
@@ -184,7 +183,7 @@ def strip(outline: Outline, low: float, high: float, /, axis: Axis = "x") -> Out
 
 
 def area(outline: Outline, /) -> float:
-    """Returns the ink area of the outline's union."""
+    """Returns the filled area of the outline's union."""
     path = pathops.Path()
     draw(path.getPen(), outline)
     return path.area  # type: ignore[no-any-return]  # ty: ignore[unsound-return-statement]
@@ -198,7 +197,7 @@ def bounds(outline: Outline, /) -> Box | None:
 
 
 def iou(a: Outline, b: Outline, /) -> float:
-    """Returns intersection over union of two outlines' ink, 0 when both are empty."""
+    """Returns intersection over union of two outlines' filled areas, 0 when both are empty."""
     one, two = pathops.Path(), pathops.Path()
     trace(one.getPen(), a)
     trace(two.getPen(), b)
@@ -218,7 +217,7 @@ def transformed(outline: Outline, matrix: Matrix, /) -> Outline:
 
 
 def offset(outline: Outline, distance: float, /) -> Outline:
-    """Grows the outline's ink by `distance` units, or shrinks it for a negative distance, at mitered corners with miter limit 4, the rim snapped so edges meeting at a half stem coincide exactly."""
+    """Grows the outline's filled area by `distance` units, or shrinks it for a negative distance, at mitered corners with miter limit 4, the rim snapped so edges meeting at a half stem coincide exactly."""
     if not distance:
         return union(outline)
     body = pathops.Path()

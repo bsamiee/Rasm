@@ -7,6 +7,7 @@ using UnitsNet;
 namespace Darkroom.Catalog;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class WaveForm {
     public static readonly WaveForm Bands = new("bands", static point => point.X);
@@ -25,11 +26,15 @@ public sealed partial class WaveForm {
 [JsonDerivedType(typeof(Wave), nameof(Wave))]
 [JsonDerivedType(typeof(White), nameof(White))]
 public abstract partial record NoiseBasis {
+
+    // --- [SAMPLING]
+
     public abstract Fin<Func<Vector4, uint, (float Value, Vector4 Site)>> Sampler { get; }
 
     public abstract Fin<(float Lower, float Upper)> Range { get; }
 
     // --- [CASES]
+
     public sealed record Perlin(NoiseDimensions Dimensions, Octaves Octaves, float Distortion, Fractal Fractal, float Offset, float Gain) : NoiseBasis {
         public static Perlin Default { get; } = new(NoiseDimensions.Three, new Octaves(2f, 0.5f, 2f), 0f, Fractal.Fbm, 0f, 1f);
         public static Perlin Plain { get; } = Default with { Octaves = Default.Octaves with { Detail = 0f } };

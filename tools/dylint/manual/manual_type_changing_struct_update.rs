@@ -11,6 +11,8 @@ use crate::{expanded_externally, suggest};
 
 lint!(MANUAL_TYPE_CHANGING_STRUCT_UPDATE: "struct literals copying each unchanged field from the same struct with other type arguments");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         if let ExprKind::Struct(path, fields, StructTailExpr::None) = expr.kind

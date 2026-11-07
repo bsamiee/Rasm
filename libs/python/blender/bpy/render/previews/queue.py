@@ -40,7 +40,6 @@ class Phase(Enum):
 
 type Feed = Callable[[Identity, bpy.types.Context], Outcome[tuple[Job, ...]]]
 
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -233,6 +232,8 @@ class Latest[K: Hashable, R, V]:
 class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
     """Registration row owning preview runs and timer steps under the budget preference, every instance equal, one extension holding one queue."""
 
+    # --- [STATE]
+
     interval: ClassVar[float] = 0.15
     preference: ClassVar[Preference[Budget]] = Preference(key="preview_queue", form=Budget)
 
@@ -306,7 +307,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
             case _:
                 return Ok(Some(self.interval))
 
-    # --- [LIFECYCLE]
+    # --- [REGISTRATION]
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:

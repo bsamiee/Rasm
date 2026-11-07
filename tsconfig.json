@@ -1,6 +1,6 @@
 {
     "extends": "./tsconfig.base.json",
-    "compilerOptions": { "types": [ "node" ], "allowJs": true },
-    "include": [ "eng/typescript/**/*.ts", "tools/ast-grep/**/*.ts", "**/*.config.ts", "**/.storybook/main.ts" ],
+    "compilerOptions": { "types": [ "node" ] },
+    "include": [ "**/*.config.ts", "**/.storybook/main.ts" ],
     "exclude": [ "docs" ]
 }

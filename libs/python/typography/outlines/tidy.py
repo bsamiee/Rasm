@@ -47,7 +47,7 @@ def tidied(outline: Outline, /, *, merge: float, corner: float, sliver: float) -
 
 
 def despiked(outline: Outline, band: tuple[float, float], /) -> Outline:
-    """Cuts at the band foot each piece of ink under a join band `(low, high)` narrower than half the band, round overshoots kept."""
+    """Cuts at the band foot each outline piece under a join band `(low, high)` narrower than half the band, round overshoots kept."""
     low, high = band
     match bounds(outline):
         case Box(xmin=xmin, ymin=ymin, xmax=xmax) if ymin < low:

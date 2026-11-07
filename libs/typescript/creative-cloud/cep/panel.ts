@@ -1,11 +1,11 @@
 import { HostError, HostUrl, Requests } from '@rasm/automation';
 import { Peer } from '@rasm/automation/peer';
-import { inkColor } from '@rasm/mark';
+import { fillColor } from '@rasm/mark';
 import { wcagContrast } from 'culori';
 import { Effect, FiberSet, Function, flow, Layer, Logger, Predicate, Queue, Record, Schema, type Scope, Stream, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
-import { Completion, Envelope } from '#/contract';
-import { ExtensionManifest } from '#/extension-manifest';
+import { Completion, Envelope } from '#/contract.ts';
+import { ExtensionManifest } from '#/manifest.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -58,13 +58,13 @@ const css = ({ red, green, blue }: typeof Rgb.Type) => `rgb(${red} ${green} ${bl
 const skinned = (root: HTMLElement) => (environment: typeof Environment.Type) => {
     const { baseFontFamily, baseFontSize, panelBackgroundColorSRGB, appBarBackgroundColorSRGB, systemHighlightColor } = environment.appSkinInfo;
     const background = css(panelBackgroundColorSRGB.color);
-    const scheme = wcagContrast(background, ExtensionManifest.inks.light.color) > wcagContrast(background, ExtensionManifest.inks.dark.color) ? 'light' : 'dark';
+    const scheme = wcagContrast(background, ExtensionManifest.fills.light.color) > wcagContrast(background, ExtensionManifest.fills.dark.color) ? 'light' : 'dark';
     return Effect.sync(() => {
         Record.toEntries({
             '--cep-host-background-color': background,
             '--cep-host-bar-background-color': css(appBarBackgroundColorSRGB.color),
             '--cep-host-highlight-color': css(systemHighlightColor),
-            '--cep-host-text-color': inkColor(ExtensionManifest.inks[scheme]),
+            '--cep-host-text-color': fillColor(ExtensionManifest.fills[scheme]),
             '--cep-host-font-family': baseFontFamily,
             '--cep-host-font-size': `${baseFontSize}px`,
         }).forEach(([property, value]) => root.style.setProperty(property, value));

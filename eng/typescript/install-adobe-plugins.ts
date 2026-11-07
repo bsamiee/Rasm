@@ -1,15 +1,15 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { HostError } from '@rasm/automation/error';
+import { HostError } from '@rasm/automation';
 import { extension, installed, replaced, running } from '@rasm/automation/installer';
-import { ExtensionManifest } from '@rasm/cep/manifest';
-import { UxpManifest } from '@rasm/uxp/manifest';
+import { ExtensionManifest } from '@rasm/cep';
+import { UxpManifest } from '@rasm/uxp';
 import { Array, Console, Effect, FileSystem, Path, Schema } from 'effect';
 import { Argument, Command } from 'effect/cli';
 import { ChildProcess } from 'effect/process';
 import nx from 'nx/package.json' with { type: 'json' };
-import { decodeFile } from '#/eng/typescript/manifest';
-import { runCommand } from '#/eng/typescript/run-command';
+import { decodeFile } from '#/manifest.ts';
+import { runCommand } from '#/run-command.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

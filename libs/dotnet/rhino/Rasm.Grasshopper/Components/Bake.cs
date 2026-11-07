@@ -13,8 +13,11 @@ using Rhino.FileIO;
 namespace Rasm.Grasshopper.Components;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Bakes {
-    // --- [RECONCILE]
+
+    // --- [RECONCILIATION]
+
     public static IO<Seq<Guid>> Reconcile(
         RhinoDoc target, string process, Guid id, ITree desired, StashOverwriteMode expired, UserPattern user = default, MetaPattern meta = default, Option<ObjectAttributes> attributes = default) =>
         from written in (from layers in IO.lift(() => BakeContext.EnsureLayers(desired, target, attributes.ValueUnsafe(), user, meta))
@@ -42,7 +45,8 @@ public static class Bakes {
             target.AllGroups.AddGroup)))
         select ids;
 
-    // --- [PLAN]
+    // --- [PLANS]
+
     private static (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) Planned(
         BakeContext context, ITree desired, StashOverwriteMode expired, Seq<(BakeKey Key, BakeDataState State, Guid Id)> found, Func<int> addGroup) {
         Seq<(BakeKey Key, BakeDataState State, Guid Id)> held = found.Filter(row => row.Key.ProcessGuid == context.ProcessGuid).Strict();
@@ -92,6 +96,7 @@ public static class Bakes {
     private static (int Twig, int Item, int Part) Slot(BakeKey key) => (key.TwigIndex, key.ItemIndex, key.PartIndex);
 
     // --- [WRITES]
+
     private static Fin<Seq<Guid>> Written(RhinoDoc document, (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) plan) {
         _ = plan.Severed.Iter(id => Optional(document.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
         Seq<bool> deleted = plan.Deleted.Map(id => Optional(document.Objects.FindId(id)).Exists(found => document.Objects.Delete(found, quiet: true, ignoreModes: true))).Strict();
@@ -123,6 +128,7 @@ public static class Bakes {
     }
 
     // --- [KEYS]
+
     private static readonly Memo<Seq<string>> Keys = memo(static () => toSeq(typeof(BakeKey).GetFields(BindingFlags.Public | BindingFlags.Static))
         .Filter(static field => field.IsLiteral)
         .Choose(static field => field.GetRawConstantValue() is string key ? Some(key) : None));

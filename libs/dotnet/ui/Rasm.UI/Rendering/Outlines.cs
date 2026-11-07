@@ -7,15 +7,15 @@ using SkiaSharp;
 namespace Rasm.UI.Rendering;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record OutlineKey(Shape Shape, Corners Corners, float Smoothing, SKRect Frame, float Offset, float Inset, float Turn, SKFontStyleWeight Weight);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal abstract class Outline : IDisposable {
-    private static readonly Seq<Vector2> Directions = [-Vector2.UnitY, Vector2.UnitX, Vector2.UnitY, -Vector2.UnitX];
 
-    private Outline() { }
+internal abstract class Outline : IDisposable {
 
     // --- [CONSTRUCTION]
+
     internal static Fin<Outline> Of(Slot<OutlineKey, Outline> outlines, LayoutNode layout, SKRect frame, float offset) {
         OutlineKey key = new(layout.Style.Shape, layout.Corners, layout.Smoothing, frame, offset, layout.Style.Metrics[Metric.Inset], layout.Style.Metrics[Metric.Turn],
             layout.Cascade.Theme.Face.Combine(layout.Style.Face).Weight.IfNone(SKFontStyleWeight.Normal));
@@ -27,6 +27,7 @@ internal abstract class Outline : IDisposable {
     internal static Traced Of(Action<SKPathBuilder> trace) => new(Built(trace));
 
     // --- [DRAWING]
+
     internal abstract void Draw(SKCanvas canvas, SKPaint paint);
 
     internal abstract void Clip(SKCanvas canvas, SKClipOperation operation);
@@ -38,6 +39,9 @@ internal abstract class Outline : IDisposable {
     public abstract void Dispose();
 
     // --- [CASES]
+
+    private Outline() { }
+
     private sealed class Rounded(SKRoundRect shape) : Outline {
         private readonly Lazy<SKPath> path = new(() => Built(builder => builder.AddRoundRect(shape)));
 
@@ -86,6 +90,7 @@ internal abstract class Outline : IDisposable {
     }
 
     // --- [LOWERING]
+
     private static Fin<SKPath> Lowered(OutlineKey key) =>
         key.Shape.Switch(
             key,
@@ -152,6 +157,9 @@ internal abstract class Outline : IDisposable {
     }
 
     // --- [CONTINUOUS]
+
+    private static readonly Seq<Vector2> Directions = [-Vector2.UnitY, Vector2.UnitX, Vector2.UnitY, -Vector2.UnitX];
+
     private static void Continuous(SKPathBuilder path, Corners corners, SKRect frame, float smoothing) {
         Seq<float> radii = corners.Fitted(frame.Size).Clockwise;
         Seq<SKPoint> vertices = [new(frame.Left, frame.Top), new(frame.Right, frame.Top), new(frame.Right, frame.Bottom), new(frame.Left, frame.Bottom)];

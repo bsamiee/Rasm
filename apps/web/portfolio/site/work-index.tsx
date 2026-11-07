@@ -1,8 +1,8 @@
 import { Array, Option } from 'effect';
 import type { ReactNode, Ref } from 'react';
-import { entryTitle, format } from '#/client/labels';
-import { UrlFragment, type useNavigation } from '#/client/navigation';
-import type { Portfolio } from '#/model/portfolio';
+import { entryTitle, format } from '#/media/labels.ts';
+import type { Portfolio } from '#/model/portfolio.ts';
+import { UrlFragment, type useNavigation } from '#/site/navigation.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

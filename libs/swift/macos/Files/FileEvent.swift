@@ -25,6 +25,7 @@ public struct FileEvent: Sendable {
 
     @safe private actor Watcher {
         // --- [STATE]
+
         private let continuation: AsyncStream<Result<[FileEvent], FileFailure>>.Continuation
         private let queue: DispatchSerialQueue = DispatchSerialQueue(label: String(reflecting: FileEvent.self))
         private var stream: FSEventStreamRef?
@@ -36,6 +37,7 @@ public struct FileEvent: Sendable {
         nonisolated var unownedExecutor: UnownedSerialExecutor { unsafe queue.asUnownedSerialExecutor() }
 
         // --- [LIFECYCLE]
+
         nonisolated func enqueue(_ work: @escaping @Sendable (isolated Watcher) -> Void) {
             queue.async { [self] in assumeIsolated(work) }
         }
@@ -84,7 +86,8 @@ public struct FileEvent: Sendable {
             unsafe FSEventStreamRelease(stream)
         }
 
-        // --- [CALLBACK]
+        // --- [CALLBACKS]
+
         private static let changed: FSEventStreamCallback = { _, info, count, eventPaths, eventFlags, _ in
             guard let info: UnsafeMutableRawPointer = unsafe info else { return }
             let reported: AnyObject = unsafe Unmanaged<AnyObject>.fromOpaque(eventPaths).takeUnretainedValue()

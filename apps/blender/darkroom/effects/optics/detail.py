@@ -11,9 +11,10 @@ from expression.collections import Block
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes import functions
+from blender.bpy.nodes.changes import NodeGroup
 from blender.bpy.nodes.desired import item_key, MenuItem
 from blender.bpy.nodes.graphs import Expr, group_input, math, menu, mixed, Scalar, switched, vector, where
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, NodeGroup, Socket, StockInput
+from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, StockInput
 from blender.bpy.render.compositor import filters, masks
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
 from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord
@@ -24,7 +25,7 @@ from blender.bpy.render.compositor.recombination import LightGroups, Lobes, Reco
 from blender.bpy.render.view_layers.passes import DENOISING_ALBEDO, DENOISING_NORMAL, Family, PassFlags, PassRequest
 from blender.records.faults import Nothing, Outcome
 
-from ..grade.exposure import LATER, later  # ruff: ignore[relative-imports]
+from ..grade.exposure import LATER, later
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -59,7 +60,7 @@ _LIGHT_GROUPS: Final = InterfacePanel.of("light_groups", _FILTER, description="L
 _TARGETS: Final = Interface(panels=(_FRAME, _LIGHT_PASSES, _LIGHT_GROUPS))
 _TARGET: Final = Socket(key="target", kind=bpy.types.NodeSocketMenu, description="Frame or recombined light terms to denoise", default_value=_FRAME.title, items=_TARGETS.menu.items)
 
-# --- [SHARPEN]
+# --- [SHARPENING]
 
 _SHARPNESS: Final = Socket(key="sharpness", kind=bpy.types.NodeSocketFloat, description="Gain of each pixel's difference from the mean of its eight neighbors", min_value=0.0, max_value=10.0)
 
@@ -85,7 +86,7 @@ class SpatialDenoise(CompositorRecord, frozen=True, kw_only=True):
     requested = staticmethod(PassRequest.denoising)
 
 
-# --- [SHARPEN]
+# --- [SHARPENING]
 
 
 class Sharpen(CompositorRecord, frozen=True, kw_only=True):

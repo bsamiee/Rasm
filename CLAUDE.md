@@ -4,6 +4,7 @@
 
 - Commits and pushes happen on user request alone
 - Create or run tests only when the user requests them
+- Instructions name a problem, edits follow it over the word, objections carry a fact, a question a read settles is decided, never asked
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but composition rules do not, when a language lacks a result type, adopt a dependency's, else define one
@@ -13,6 +14,7 @@
 - Run applications and hosts live as work needs them
 - Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project
 - Commands agents run answer in one call: no flag for a derivable fact, resulting state returned, exit status true, logs and cleanup automatic
+- Hooks rewrite a wrong command form or refuse it with one short reason, cover forms the owner named, and block no action the owner asks for
 - Configuration states each fact at its owner and varies by subject and mode through the tool's own mechanism, an addition edits its declaration alone
 - Changes to root files, `eng/`, `infra/`, and `tools/` extend the owning target, setting, or package, a parallel script or one-off flag is a defect
 
@@ -24,6 +26,7 @@
 - ALWAYS use `playwright:playwright-cli` skill for a browser session
 - ALWAYS use `playwright:playwright-trace` skill for a Playwright trace
 - ALWAYS use `manage-repo` skill for a change to how the repository is structured, built, or checked
+- ALWAYS use `refactor-code` skill for refactoring, reducing, or rebuilding a code file or folder
 - ALWAYS use `search-web` skill for a question the open web answers
 - ALWAYS use `search-code` skill for any fact about a dependency
 - ALWAYS use `secrets` skill for a command or build that reads a secret
@@ -65,7 +68,8 @@ Values derive from the declaration or host API that states them:
 - ALWAYS reach members through typed handles the compiler or a generator derives, a name string or hand-written handle per member is a defect
 - ALWAYS derive values from the operation and its target, a caller passing what the operation knows (value, flag, description) is a defect
 - ALWAYS derive behavior and presentation from count, kind, and nesting of supplied parts, callers state content alone
-- ALWAYS build a derived file into build output by a host tool where one exists, a per-user host setting goes through that host's API at plug-in load
+- ALWAYS build a derived file into build output by a host tool where one exists, a generator with output equal to its input goes with its output
+- ALWAYS set a per-user host setting through that host's API at plug-in load
 - ALWAYS fetch a third-party file no package holds by pinned commit and checksum, each variant of a hand-made master (font, SVG mark) builds from it
 
 ## [03]-[DEPENDENCY_POLICY]
@@ -74,16 +78,17 @@ Values derive from the declaration or host API that states them:
 - ALWAYS group project file items and dependency rows by responsibility and order each group consistently
 - ALWAYS add a dependency's missing record to the project file or catalog that owns it, the present record stays
 - ALWAYS fill a dependency gap by package, configuration, newer release, or boundary decode, restating its types, behavior, or entry is a defect
-- ALWAYS use the newest release, prereleases included
+- ALWAYS target the newest package, host, and language release, prereleases included, an older release from memory is a defect
 - ALWAYS pin versions in lock files and version catalogs alone
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
 
 ## [04]-[CODE_QUALITY]
 
-Architecture: no one-folder-one-file combos, no flat folders, no mini files, no god files, no `.d.ts`, no src/. No coined terms in files, folders, members, messages (clean-prose). One import line per source, one export line per file, no aliases, no `{ Change, change }`:
+Architecture: no one-folder-one-file combos, no flat folders, no mini files, no god files, no `.d.ts`, no src/. No coined terms in files, folders, members, messages (clean-prose):
 - All code is library-shaped, written as a package another project imports, with API for integration that couples to no caller
 - Rebuild code with its consumers, never shuffle, alias, forward, wrap, or extract helpers, and leave no adapter or old path
 - Reduce surface (internal and external), lines, and logic by removing content and folding its capability into a smaller surface, never into nesting
+- Growth names a capability the base lacked, and is added to the same depth and quality
 
 - ALWAYS treat external packages as first class: newest release, every capability integrated, deep usage over surface usage
 - ALWAYS derive values and logic from the host, packages, and declarations, a hand-rolled, hardcoded, or wrapped form of them is a defect
@@ -100,8 +105,11 @@ Source files group declarations into sections and an owner's members into operat
 
 ```text
 <marker> --- [<SECTION>] -----------------------------------------------------------------
+
 <owner>
+
     <marker> --- [<FAMILY>]
+
     <member>
 ```
 
@@ -121,9 +129,10 @@ Source files group declarations into sections and an owner's members into operat
 [DIVIDERS]: One label names one concept in every file
 - ALWAYS keep code files free of comments other than section and subsection dividers
 - ALWAYS open a section with a full divider: comment marker, `---`, one `[UPPER_SNAKE]` label, dashes to column 90
-- ALWAYS open a subsection with a divider without dashes, indented with its members, when one section holds more than one operation family
+- ALWAYS open a subsection with a divider without dashes, indented with its members, when one owner or section holds more than one operation family
 - ALWAYS place every declaration under a divider, the preamble (imports, namespace, shebang, `set` flags, assembly attributes) precedes the first one
-- ALWAYS place every member of a subdivided section under a `[<FAMILY>]` subsection that names what its members do
+- ALWAYS place every member of a subdivided owner or section under a `[<FAMILY>]` subsection that names what its members do
+- ALWAYS keep an owner's fields in one family with members that only set or derive them, a constant or helper in the family reading it
 - ALWAYS place every declaration and table of one concept in one section, each family under a subsection in place of a separate section
 - ALWAYS add a `[<SECTION>]` label outside the table after its closest core section when the label names what its declarations own
 - ALWAYS keep a type's members, nested types, union cases, and companion factories in the section of the type

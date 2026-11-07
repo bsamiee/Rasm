@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class CallSites extends GhidraScript {
+
     // --- [CALLEES]
 
     sealed interface Callee permits Direct, Stub {
@@ -122,7 +123,7 @@ public class CallSites extends GhidraScript {
         }
     }
 
-    // --- [RUN]
+    // --- [EXECUTION]
 
     @Override
     public void run() throws Exception {

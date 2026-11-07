@@ -1,19 +1,17 @@
 import { useAtomSet } from '@effect/atom-react';
-import { Choice } from '@rasm/ui/choice';
-import { MenuButton } from '@rasm/ui/menu-button';
-import { ReorderableList } from '@rasm/ui/reorderable-list';
+import { Choice, MenuButton, ReorderableList } from '@rasm/ui';
 import { Array, Optic, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
-import { choiceLayout, compositionLabel, entryTitle, format, literalOptions, placementTitle } from '#/client/labels';
-import { draft, hero, updateEntry } from '#/client/state';
-import { ConfirmDialog } from '#/editor/confirm-dialog';
-import { PlacementFields } from '#/editor/placement-fields';
-import { CompositionGrid } from '#/media/composition-grid';
-import type { Assets } from '#/model/asset';
-import { Alignment, type Composition, CompositionId, type Placement, Scale } from '#/model/placement';
-import type { Entry } from '#/model/portfolio';
+import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
+import { PlacementFields } from '#/editor/placement-fields.tsx';
+import { draft, hero, updateEntry } from '#/editor/state.ts';
+import { CompositionGrid } from '#/media/composition-grid.tsx';
+import { choiceLayout, compositionLabel, entryTitle, format, literalOptions, placementTitle } from '#/media/labels.ts';
+import type { Assets } from '#/model/asset.ts';
+import { Alignment, type Composition, CompositionId, type Placement, Scale } from '#/model/placement.ts';
+import type { Entry } from '#/model/portfolio.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

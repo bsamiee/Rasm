@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: rustlang
+severity: error
+ignores: ['tools/dylint/examples/**']
+utils:
+    deserializer:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^((::)?serde_json::(de::)?)?Deserializer::from_(reader|slice|str)$'}
+            - has: {field: function, pattern: $CALL}
+rule:
+    any:
+        - all:
+            - matches: deserializer
+            - not: {inside: {kind: let_declaration, field: value}}
+        - kind: let_declaration
+          all:
+            - has: {field: value, matches: deserializer}
+            - has: {field: pattern, any: [{kind: identifier, pattern: $D}, {kind: mut_pattern, has: {kind: identifier, pattern: $D}}]}
+            - not: {precedes: {stopBy: end, has: {stopBy: end, pattern: $D.end()}}}
+message: '`$CALL` builds a deserializer that never rejects trailing input'
+note: 'Bind the deserializer, decode through `serde_path_to_error::deserialize`, call `end()`, and join its error to `Track::new().path()` through `serde_path_to_error::Error::new`'

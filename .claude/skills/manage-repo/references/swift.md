@@ -65,10 +65,12 @@ Project and target settings override root `Xcode.xcconfig`:
 - `build-settings` writes `Xcode.xcconfig` and `Directory.Build.props` identity rows from root `package.json`
 - `build-settings` writes the `dump-package` macOS floor to `Xcode.xcconfig`, SwiftLint, pixi platform, and mise for rustc, clang, CMake and maturin
 - `registerAgents` in `CurrentProcess` re-registers every plist in `Contents/Library/LaunchAgents` on each launch, launchd otherwise keeps the job and environment of the version first registered
-- The `helper` Vite plugin builds an embedded Node helper from its app's `project.xcproj`: the SEA binary, `sea.entitlements` as the app's `CODE_SIGN_ENTITLEMENTS` plus the JIT exception V8 needs, and its launchd plist
-- Helper launchd plists hold `ProcessType` `Interactive`, an unset type throttles CPU and I/O, and a `SpawnConstraint` on the root `DEVELOPMENT_TEAM` and the helper's signing identifier, an in-bundle agent needs no `AssociatedBundleIdentifiers`
-- Xcode's copy re-sign preserves identifier, entitlements, and flags alone, so an embedded helper's launch constraints live in its launchd plist and never in its signature
-- launchd derives a job's code requirement (signing identifier, team, validation category) from the helper at submission and keeps it while the job is loaded, so `install` boots each agent of the bundle it replaces out before the new bundle registers
+- `helper` Vite plugin builds an embedded Node helper from its app's `project.xcproj`: SEA binary, `sea.entitlements` as app's `CODE_SIGN_ENTITLEMENTS` with the JIT exception V8 needs, and its launchd plist
+- Helper launchd plists hold `ProcessType` `Interactive`, an unset type throttles CPU and I/O
+- Helper launchd plists hold a `SpawnConstraint` on root `DEVELOPMENT_TEAM` and the helper's signing identifier, an in-bundle agent needs no `AssociatedBundleIdentifiers`
+- Xcode's copy re-sign keeps identifier, entitlements, and flags alone, embedded helpers hold launch constraints in launchd plists, never signatures
+- `launchd` derives a job's code requirement (signing identifier, team, validation category) from the helper at submission and keeps it while the job is loaded
+- `install` boots out each agent of the bundle it replaces before the new bundle registers
 - `ENABLE_POINTER_AUTHENTICATION` stays `NO` while Sparkle ships no `arm64e` slice
 - Imageset SVGs are Git symlinks, `<Mark>Symbol` into `AppIcon.icon/Assets` and a third-party mark into a catalog package under `node_modules`
 - Master roots hold the 16-point size `Image` reads, `actool` refuses a symlinked `.icon` layer

@@ -1,9 +1,9 @@
 import process from 'node:process';
 import type { ProjectGraph, ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Equal, Option, type Predicate, Record, String } from 'effect';
-import { all, become, type Call, cut, edited, type Fix, feedsJq, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, unassign, when, whole } from '#/policies/fix';
-import type { Word } from '#/shell/script';
-import { analyzed, Shell, type Site } from '#/shell/site';
+import { all, become, type Call, cut, edited, type Fix, feedsJq, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, unassign, when, whole } from '#/policies/fix.ts';
+import type { Word } from '#/shell/script.ts';
+import { analyzed, Shell, type Site } from '#/shell/site.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -33,7 +33,7 @@ const SEARCH_PATH = 'PYTHONPATH';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [GRAPH]
+// --- [GRAPHS]
 
 const nx = Effect.promise(() => import('@nx/devkit/internal'));
 
@@ -112,7 +112,7 @@ const runsOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, site:
         .filter((run) => run.site.row === routedRow && Equal.equals(subcommandOf(run.site), subcommandOf(site)));
 });
 
-// --- [FIT]
+// --- [FITS]
 
 const shellWord = ({ glob }: Word, text: string): Option.Option<string> => (glob ? Option.fromNullishOr(SHELL_GLOB.exec(text)?.[0]) : Option.some(quote(text)));
 
@@ -284,6 +284,7 @@ const forwardedOptions: Fix = Effect.fnUntraced(function* (site, call) {
 });
 
 // --- [PYTHON]
+
 const projectOptions =
     (...fixes: readonly Fix[]): Fix =>
     (site, call) =>

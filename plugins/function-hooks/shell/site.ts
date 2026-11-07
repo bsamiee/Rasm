@@ -1,8 +1,8 @@
 import { Array, Cache, Context, Duration, Effect, Exit, Layer, Option, Result } from 'effect';
-import { type HookError, Host } from '#/host';
-import { type Grammar, grammarOf, NO_GRAMMAR, type Parsed, parsed } from '#/shell/grammar';
-import type { Program } from '#/shell/programs';
-import { type Beginning, type Command, merged, type Script, scripted, tree, type Word } from '#/shell/script';
+import { type HookError, Host } from '#/host.ts';
+import { type Grammar, grammarOf, NO_GRAMMAR, type Parsed, parseArguments } from '#/shell/grammar.ts';
+import type { Program } from '#/shell/programs.ts';
+import { type Beginning, type Command, merged, type Script, scripted, tree, type Word } from '#/shell/script.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -77,7 +77,7 @@ const ignoredAny = Effect.fnUntraced(function* (places: readonly string[]) {
 });
 
 const built = (command: Command, head: Word, assigned: readonly Word[], args: readonly Word[], grammar: Grammar, program: string, row: Program, outer: readonly Site[]): Site => {
-    const reading = parsed(args, grammar, row);
+    const reading = parseArguments(args, grammar, row);
     const launching = row.wraps !== undefined || row.module !== undefined;
     const before = reading.items.filter((item) => item.names.length === 0).flatMap(({ words }) => words);
     const operands = [...before, ...reading.tail, ...(launching || row.ends !== undefined ? [] : reading.rest)];

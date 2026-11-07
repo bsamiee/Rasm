@@ -4,6 +4,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public enum NetworkFailure {
     None = 0,
     Sorting = 1,
@@ -13,6 +14,7 @@ public enum NetworkFailure {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<int>]
 public sealed partial class NetworkContinuity {
     public static readonly NetworkContinuity Loose = new(0);
@@ -42,6 +44,9 @@ public abstract partial record LoftEnds {
 }
 
 public sealed record Loft(Seq<Curve> Sections) {
+
+    // --- [STATE]
+
     public LoftType Type { get; init; } = LoftType.Normal;
 
     public bool Closed { get; init; }
@@ -49,6 +54,7 @@ public sealed record Loft(Seq<Curve> Sections) {
     public LoftEnds Ends { get; init; } = new LoftEnds.Fitted();
 
     // --- [BREPS]
+
     public IO<Seq<Brep>> ToBreps(Tolerances tolerances) =>
         Ends.Switch(
             (Loft: this, tolerances.Angle),
@@ -63,6 +69,7 @@ public sealed record Loft(Seq<Curve> Sections) {
             });
 
     // --- [SUBDS]
+
     public IO<SubD> ToSubD(int divisions, bool corners, bool creases) =>
         Ends is LoftEnds.Fitted { Start.IsNone: true, End.IsNone: true, Fit: CurveFit.AsIs }
             ? from sections in Products.Many(() => Sections.Map(static section => section.ToNurbsCurve()))
@@ -93,8 +100,11 @@ public abstract partial record NetworkMethod {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Lofts {
+
     // --- [DEVELOPABLE]
+
     public static IO<Seq<Brep>> Developable(Curve first, Curve second, DevelopableLoft loft) =>
         loft.Switch(
             (First: first, Second: second),
@@ -106,6 +116,7 @@ public static class Lofts {
                 select lofted);
 
     // --- [NETWORKS]
+
     public static IO<NurbsSurface> Network(Tolerances tolerances, NetworkMethod method, double interiorTolerance) =>
         method.Switch(
             (Interior: interiorTolerance, Tolerances: tolerances),
@@ -124,6 +135,7 @@ public static class Lofts {
         select surface;
 
     // --- [PATCHES]
+
     public static IO<(Brep Patch, Brep.VariationalPatchResult Result)> VariationalPatch(
         Seq<Brep.CurveConstraint> edges, Seq<Brep.CurveConstraint> internalCurves, Seq<Brep.PointConstraint> points, Brep.VariationalPatchSettings settings,
         bool multiThreading, Option<IProgress<double>> progress) =>

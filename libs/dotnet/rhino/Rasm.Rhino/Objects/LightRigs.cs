@@ -10,6 +10,7 @@ using UnitsNet;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record RigEmitter {
     public sealed record PointLight : RigEmitter;
@@ -46,8 +47,11 @@ public abstract partial record RigBasis {
 public sealed record LightRig(KeyName Name, RigTarget Target, RigBasis Basis, double Level, Angle Rotation, Angle Elevation, Seq<RigLight> Lights);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class LightRigs {
-    // --- [TARGET]
+
+    // --- [TARGETS]
+
     public static IO<RigTarget.Fixed> Target(RhinoDoc doc, RigTarget target) =>
         target.Switch(
             doc,
@@ -67,6 +71,7 @@ public static class LightRigs {
                 .Map(axes => new Plane(state.Focus, axes.XAxis, axes.ZAxis)));
 
     // --- [PLACEMENT]
+
     public static Seq<(string Slot, LightSpec Spec)> Placed(LightRig rig, RigTarget.Fixed target, Plane basis, double metersPerUnit) =>
         (Transform.Rotation(rig.Rotation.Radians.ToDouble(), basis.YAxis, basis.Origin)
             * Transform.Rotation(-rig.Elevation.Radians.ToDouble(), basis.XAxis, basis.Origin)
@@ -94,7 +99,8 @@ public static class LightRigs {
                      },
              };
 
-    // --- [RECONCILE]
+    // --- [RECONCILIATION]
+
     public static IO<Committed<Seq<(string Slot, Guid Id, bool Created)>>> Reconcile(RhinoDoc doc, LightRig rig, string undo, RedrawPolicy redraw) =>
         Commits.Commit(doc, undo, redraw,
             from target in Target(doc, rig.Target)
@@ -111,7 +117,8 @@ public static class LightRigs {
          from joined in IO.lift(() => client.GroupLights(lights))
          select unit).Bracket();
 
-    // --- [FOLLOW]
+    // --- [FOLLOWING]
+
     public static IO<Unit> Follow(RhinoDoc doc, LightRig rig, string undo, RedrawPolicy redraw) =>
         rig.Target.Switch(
             (Document: doc, Rig: rig, Undo: undo, Redraw: redraw),

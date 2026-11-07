@@ -43,7 +43,7 @@ pub struct Scan {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [WRITE]
+// --- [WRITES]
 
 pub fn properties(schema: &Schema, settings: &WriterProperties) -> Result<WriterProperties, TablesError> {
     Ok(ArrowSchemaConverter::new()
@@ -77,7 +77,7 @@ where
     writer.close().await.map_err(|source| E::from(TablesError::from(source)))
 }
 
-// --- [READ]
+// --- [READS]
 
 pub fn read<T, R>(builder: ParquetRecordBatchStreamBuilder<R>) -> Result<impl Stream<Item = Result<Vec<T>, TablesError>>, TablesError>
 where

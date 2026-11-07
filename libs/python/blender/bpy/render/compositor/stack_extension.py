@@ -132,6 +132,8 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     `tile` returns a stack preset's preview icon by its stem, the stock icon while it has none.
     """
 
+    # --- [STATE]
+
     rows: OfferedEffects
     before: Option[CompositorEffect] = Nothing
     looks: Mapping[str, Valued[LayerStack]] = MappingProxyType({})
@@ -300,11 +302,6 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [BINDING]
 
-    @property
-    def prerequisites(self) -> tuple[Declaration, ...]:
-        """Stack refresh and operators, view attachment, layer rows with the frame size binding stacks read, and the arranger placing owned stack nodes."""
-        return self.refresh, self.operating, VIEW, self.layered, FrameSize.attachment, Arranger()
-
     def bound(self, identity: Identity) -> Outcome[LayerStackService]:
         """Binds the store of each layer's structure, the layer rows and view attachments, and pass flags of an extension."""
         stored = Stored.keyed(identity, OWNERSHIP.key, msgspec.msgpack.Decoder(GenericAlias(dict, (Key, GenericAlias(StoredLayer, (self.rows.form,))))))
@@ -335,6 +332,8 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             rows=(Layout(builder=Some(lambda identity: self.presets_drawn(identity).map(lambda draw: (draw,))), prerequisites=(self,)),),
         )
 
+    # --- [DRAWING]
+
     def presets_drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Returns the preset listing draws of each held stack, layer, or effect, the New Stack button while no stack exists."""
 
@@ -352,6 +351,13 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 lambda parts: partial(self._editor_drawn, stacking, *parts)
             )
         )
+
+    # --- [REGISTRATION]
+
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Stack refresh and operators, view attachment, layer rows with the frame size binding stacks read, and the arranger placing owned stack nodes."""
+        return self.refresh, self.operating, VIEW, self.layered, FrameSize.attachment, Arranger()
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns the extension's stack operators and menus over them, listings, the preset popover the section header opens, and the handlers and subscriptions queueing the stack refresh."""
@@ -403,7 +409,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             Listing(preset=self.entry_preset, current=effect, matches=partial(matched, effect), applied=applied),
         )
 
-    # --- [EDITOR]
+    # --- [EDITORS]
 
     def _layer_list(self, stacking: LayerStackService) -> ItemList[bpy.types.PropertyGroup, LayerRow]:
         """Layer list top first with visibility, solo, and matte columns and edit side buttons, dragged to reorder."""

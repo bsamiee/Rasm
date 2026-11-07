@@ -47,6 +47,7 @@ import java.util.regex.Pattern;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Serve extends GhidraScript {
+
     // --- [REQUESTS]
 
     private static final Pattern CELL = Pattern.compile("\t");
@@ -227,7 +228,7 @@ public class Serve extends GhidraScript {
         }
     }
 
-    // --- [RUN]
+    // --- [EXECUTION]
 
     @Override
     public void run() throws Exception {

@@ -37,6 +37,7 @@ class CollectionState(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [WALKS]
 
 
@@ -169,7 +170,7 @@ def _holders(item: bpy.types.Object, scene: bpy.types.Scene) -> tuple[bpy.types.
     return tuple(held for held in (scene.collection, *scene.collection.children_recursive) if held in holders and _editable(held))
 
 
-# --- [LIFETIME]
+# --- [LIFECYCLE]
 
 
 def created(parent: Option[bpy.types.Collection], name: str) -> Outcome[bpy.types.Collection]:

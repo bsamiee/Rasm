@@ -12,11 +12,15 @@ using Rhino.DocObjects.Tables;
 namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record DisplayModeRule(Func<RhinoObject, bool> Applies, Option<ViewportTarget> Viewport, Guid Mode);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class DisplayModeRules {
-    // --- [MARK]
+
+    // --- [MARKS]
+
     private static readonly DictionaryCodec<ImmutableDictionary<Guid, Guid>> Mark = ArchivableDictionaries.Json<ImmutableDictionary<Guid, Guid>>(nameof(DisplayModeRules), 1);
 
     private static IO<HashMap<Guid, Guid>> Marked(ObjectAttributes attributes) =>
@@ -26,7 +30,8 @@ public static class DisplayModeRules {
                select mark.Match(Some: static stored => toHashMap(stored.Select(static pair => (pair.Key, pair.Value))), None: static () => HashMap<Guid, Guid>())).Bracket()
             : IO.pure(HashMap<Guid, Guid>()));
 
-    // --- [RECONCILE]
+    // --- [RECONCILIATION]
+
     public static IO<Seq<Guid>> Reconcile(RhinoDoc doc, Seq<DisplayModeRule> rules, Seq<RhinoObject> objects, RedrawPolicy redraw) =>
         Commits.WithinRedraw(doc, redraw,
             from slots in Products.Each(rules.Map(rule => Slot(doc, rule.Viewport).Map(slot => (Slot: slot, Rule: rule))))
@@ -61,7 +66,8 @@ public static class DisplayModeRules {
             : ArchivableDictionaries.Write(owner, Mark, mark.AsIterable().ToImmutableDictionary(static pair => pair.Key, static pair => pair.Value))
         select unit;
 
-    // --- [ACQUISITION]
+    // --- [REGISTRATION]
+
     public static IO<Unit> Declared(Seq<DisplayModeRule> rules) =>
         from assignable in Products.Each(rules.Map(static rule => rule.Mode).Distinct().Map(static mode => DisplayModes.With(mode, static description => IO.lift(() => Assignable(description)))))
         from post in Mailboxes.Idle<(uint Document, Option<Guid> Object), Unit>(pending => Drained(rules, pending))
@@ -99,6 +105,7 @@ public static class DisplayModeRules {
         .Strict();
 
     // --- [OVERRIDES]
+
     internal static IO<Unit> DisplayModeOverride(ObjectAttributes staged, Guid slot, Option<Guid> mode) =>
         mode.Match(
             Some: id => DisplayModes.With(id, description =>

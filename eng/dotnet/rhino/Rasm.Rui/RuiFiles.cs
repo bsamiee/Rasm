@@ -18,8 +18,11 @@ using UUIDNext;
 namespace Rasm.Rui;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record Translations(HashMap<EqInt, int, HashMap<EqStringOrdinal, string, string>> Tables) {
+
     // --- [LOCALIZATION]
+
     public static int English { get; } = CultureInfo.GetCultureInfo("en-US").LCID;
 
     public XElement Of(string name, string english) =>
@@ -29,6 +32,7 @@ internal sealed record Translations(HashMap<EqInt, int, HashMap<EqStringOrdinal,
     private static string Locale(int lcid) => string.Create(CultureInfo.InvariantCulture, $"locale_{lcid}");
 
     // --- [RESOURCES]
+
     public static Translations Read(Assembly plugIn) =>
         new(new HashMap<EqInt, int, HashMap<EqStringOrdinal, string, string>>(toSeq(plugIn.GetManifestResourceNames())
             .Filter(static name => name.Contains(".Localization.", StringComparison.Ordinal) && name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
@@ -47,8 +51,11 @@ internal sealed record Translations(HashMap<EqInt, int, HashMap<EqStringOrdinal,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class RuiFiles {
+
     // --- [FILES]
+
     public static IO<Unit> Write(string plugIn, string rui, Seq<string> references) =>
         references.Fold(HashMap<EqStringOrdinal, string, string>(), static (held, path) => held.TryAdd(Path.GetFileNameWithoutExtension(path), path)) switch {
             var located => IO.lift(() => {
@@ -72,7 +79,8 @@ internal static class RuiFiles {
                 Fin: static handler => IO.lift(() => AssemblyLoadContext.Default.Resolving -= handler)),
         };
 
-    // --- [DOCUMENT]
+    // --- [DOCUMENTS]
+
     private static Fin<XDocument> Document(Assembly plugIn) =>
         from declared in Toolbars.Declared(plugIn).ToFin(new RhinoFault($"{plugIn.GetName().Name} {nameof(IRuiSource)} declaration", RhinoReason.Missing))
         from file in Toolbars.Identity(plugIn)
@@ -106,6 +114,7 @@ internal static class RuiFiles {
         }).As();
 
     // --- [REACH]
+
     private static Seq<ToolbarRow> Reached(Seq<ToolbarRow> toolbars) =>
         toolbars.Bind(static toolbar => toSeq(SuperEnumerable.TraverseDepthFirst(toolbar, static held => held.Groups.Flatten().Choose(Linked))));
 
@@ -131,6 +140,7 @@ internal static class RuiFiles {
             }));
 
     // --- [IDENTIFIERS]
+
     private static Guid BarId(Guid file, ToolbarRow toolbar) => Uuid.NewNameBased(file, $"tool_bar/{toolbar.Face.Name}");
 
     private static Guid GroupId(Guid file, ToolbarGroupRow group) => Uuid.NewNameBased(file, $"tool_bar_group/{group.Face.Name}");
@@ -140,6 +150,7 @@ internal static class RuiFiles {
     private static Guid IconId(Guid file, IconResource art) => Uuid.NewNameBased(file, $"icon/{art.Assembly.GetName().Name}/{art.Id}");
 
     // --- [ELEMENTS]
+
     private static Seq<XAttribute> Platforms(RuiPlatforms platforms) =>
         platforms == RuiPlatforms.Both ? Seq<XAttribute>() : Seq(new XAttribute("platforms", platforms.Key));
 
@@ -210,6 +221,7 @@ internal static class RuiFiles {
             macro.Map(static held => new XElement("script", held.Text)).ToSeq());
 
     // --- [ICONS]
+
     private static Option<XAttribute> Bitmap(Guid file, CommandFace face) =>
         face.Icon.Map(art => new XAttribute("bitmap_id", IconId(file, art)));
 
@@ -232,6 +244,7 @@ internal static class RuiFiles {
     }
 
     // --- [MENUS]
+
     private static XElement Extended(Guid file, Translations text, Seq<MenuExtension> extensions) =>
         new("menu", new XAttribute("guid", Toolbars.ExtensionsId(file)),
             from extension in extensions
@@ -261,6 +274,7 @@ internal static class RuiFiles {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 internal static class Program {
     public static int Main(string[] args) =>
         (from request in IO.lift(Fin<(string PlugIn, string Rui, string References)> () => args is [var plugIn, var rui, ['@', .. var references]]

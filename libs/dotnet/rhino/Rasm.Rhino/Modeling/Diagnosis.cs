@@ -6,6 +6,7 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class DefectKind {
     public static readonly DefectKind Invalid = new("invalid geometry");
@@ -35,8 +36,11 @@ public sealed record Diagnosis<T>(bool Valid, string Log, Seq<Defect<T>> Defects
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Diagnostics {
-    // --- [DIAGNOSE]
+
+    // --- [DIAGNOSIS]
+
     extension<T>(T geometry) where T : GeometryBase {
         public IO<Diagnosis<T>> Diagnose(Tolerances tolerances) =>
             from validity in IO.lift(() => (Valid: geometry.IsValidWithLog(out string log), Log: log))
@@ -56,6 +60,7 @@ public static class Diagnostics {
     }
 
     // --- [MESHES]
+
     private static IO<(string Log, Seq<Defect<T>> Defects)> MeshDefects<T>(Tolerances tolerances, Mesh mesh) where T : GeometryBase =>
         from checkedMesh in IO.lift(() => {
             using TextLog log = new();
@@ -110,6 +115,7 @@ public static class Diagnostics {
     private static Seq<int> Ngons(Mesh mesh) => toSeq(Range(0, mesh.Ngons.Count)).Filter(ngon => mesh.Ngons.IsValid(ngon) is 0u).Strict();
 
     // --- [BREPS]
+
     private static (string Log, Seq<Defect<T>> Defects) BrepDefects<T>(Tolerances tolerances, Brep brep) where T : GeometryBase =>
         (Logs: Seq(brep.IsValidTopology(out string topology) ? "" : topology, brep.IsValidGeometry(out string shape) ? "" : shape, brep.IsValidTolerancesAndFlags(out string flags) ? "" : flags),
             Edges: brep.Edges.ToLookup(static edge => edge.Valence, static edge => edge.EdgeIndex)) switch {
@@ -127,6 +133,7 @@ public static class Diagnostics {
             };
 
     // --- [CURVES]
+
     private static (string Log, Seq<Defect<T>> Defects) CurveDefects<T>(Tolerances tolerances, Curve curve) where T : GeometryBase =>
         ("", Seq(
                 Located<T, Curve>(DefectKind.ShortCurve, curve.IsShort(tolerances.Absolute) ? 1 : 0, [], []),
@@ -136,6 +143,7 @@ public static class Diagnostics {
             .Filter(static defect => defect.Count > 0));
 
     // --- [STEPS]
+
     private static Defect<T> Located<T, TKind>(DefectKind kind, int count, Seq<ComponentIndex> at, Seq<Step<TKind>> repair) where T : GeometryBase where TKind : GeometryBase =>
         new(kind, count, at, repair.Map(Lifted<T, TKind>));
 

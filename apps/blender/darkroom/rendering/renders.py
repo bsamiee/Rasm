@@ -1,6 +1,5 @@
 """Darkroom renders: frame size, scene paths, passes, finishing, and exports in their host panels, render sets over Darkroom's setup categories and chain entries, preflight, the queue with its temporal denoise follow-up, and render slots, every render staged through the chain."""
 
-# ruff: file-ignore[relative-imports]
 from typing import Final
 
 from bl_ui.properties_freestyle import VIEWLAYER_PT_freestyle

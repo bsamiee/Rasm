@@ -1,11 +1,10 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
+import { decodeFile, runCommand, Sgconfig } from '@rasm/eng';
 import { Array, Console, Effect, FileSystem, Match, Option, Order, Path, Predicate, Record, Result, Runtime, Schema, Stream, Struct } from 'effect';
 import { CharSet, JS } from 'refa';
 import { Alias, type Document, isNode, LineCounter, type Pair, parseAllDocuments, Scalar, YAMLMap, YAMLSeq } from 'yaml';
-import { decodeFile, Sgconfig } from '#/eng/typescript/manifest';
-import { runCommand } from '#/eng/typescript/run-command';
-import { classes, collected, lexemes, MAXIMUM, NON_ASCII } from './grammars/derive.js';
+import { classes, collected, lexemes, MAXIMUM, NON_ASCII } from '#/grammars/derive.js';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,10 +23,10 @@ interface Facts {
     readonly facts: readonly Fact[];
     readonly claimed: CharSet;
 }
-type Classes = (typeof Reply.Type)['regexes'][number]['classes'];
+type Findings = (typeof Reply.Type)[1][number];
 interface Subject {
     readonly kinds: readonly string[];
-    readonly parent?: { readonly field: string; readonly subject: Subject };
+    readonly parent?: readonly [string, Subject];
 }
 interface Token {
     readonly value: string;
@@ -38,7 +37,7 @@ interface Located {
     readonly offset: number;
     readonly language: Option.Option<string>;
 }
-interface Judgement {
+interface Judgment {
     readonly fact: string;
     readonly missing: CharSet;
     readonly extra: CharSet;
@@ -61,10 +60,10 @@ const WORDING = { written: { relation: '', missing: 'lacks', extra: 'adds' }, co
 // --- [MODELS] --------------------------------------------------------------------------
 
 const GrammarFile = Schema.fromJsonString(Schema.Struct({ rules: Schema.Record(Schema.String, Schema.Unknown), extras: Schema.Array(Schema.Unknown), externals: Schema.Array(Schema.Unknown), word: Schema.optional(Schema.NullOr(Schema.String)) }));
-const Subject: Schema.Codec<Subject> = Schema.suspend(() => Schema.Struct({ kinds: Schema.Array(Schema.String), parent: Schema.optionalKey(Schema.Struct({ field: Schema.String, subject: Subject })) }));
-const Site = Schema.Struct({ language: Schema.String, subject: Subject });
+const Subject: Schema.Codec<Subject> = Schema.suspend(() => Schema.Struct({ kinds: Schema.Array(Schema.String), parent: Schema.optionalKey(Schema.Tuple([Schema.String, Subject])) }));
+const Site = Schema.Tuple([Schema.String, Subject]);
 const Written = Schema.Union([Schema.Struct({ regex: Schema.String, site: Schema.OptionFromOptionalKey(Site) }), Schema.Struct({ transform: Schema.Json })]);
-const Request = Schema.fromJsonString(Schema.Struct({ tokens: Schema.Array(Schema.Struct({ pattern: Schema.String, caseless: Schema.Boolean })), regexes: Schema.Array(Written), languages: Schema.Record(Schema.String, Schema.Json) }));
+const Request = Schema.fromJsonString(Schema.Struct({ tokens: Schema.Array(Schema.Tuple([Schema.String, Schema.Boolean])), regexes: Schema.Array(Written), languages: Schema.Record(Schema.String, Schema.Json), nodeTypes: Schema.Record(Schema.String, Schema.String) }));
 const Ranges = Schema.Array(Schema.Tuple([Schema.Finite, Schema.Finite]));
 const Node: Schema.Codec<Node, unknown> = Schema.suspend(() =>
     Schema.Union([
@@ -73,23 +72,13 @@ const Node: Schema.Codec<Node, unknown> = Schema.suspend(() =>
         Schema.Struct({ type: Schema.Literal('Quantifier'), min: Schema.Finite, max: Schema.NullOr(Schema.Finite), alternatives: Schema.Array(Schema.Array(Node)) }),
     ]),
 );
-const Literal = Schema.Struct({ text: Schema.String, kind: Schema.String });
-const Class = Schema.TaggedUnion({
-    Characters: { source: Schema.String, polarity: Schema.Literals(['Stated', 'Complement']), ranges: Ranges },
+const Finding = Schema.TaggedUnion({
+    Characters: { source: Schema.String, negated: Schema.Boolean, ranges: Ranges },
     UnicodePerl: { source: Schema.String },
     UnicodeBoundary: { source: Schema.String },
+    Literal: { kind: Schema.String, text: Schema.String },
 });
-const Reply = Schema.fromJsonString(
-    Schema.Struct({
-        tokens: Schema.Array(Node),
-        regexes: Schema.Array(
-            Schema.Struct({
-                classes: Schema.Array(Class),
-                literal: Schema.OptionFromNullOr(Literal),
-            }),
-        ),
-    }),
-);
+const Reply = Schema.fromJsonString(Schema.Tuple([Schema.Array(Node), Schema.Array(Schema.Array(Finding))]));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -148,7 +137,7 @@ const nested = (document: Document, { key, value }: Pair, subject: Subject): Sub
         return COMPOSITE.has(name) ? subject : EMPTY;
     }
     const pairs = [...value.pairs()];
-    return Option.filter(scalar(document, pairs, 'field'), () => Option.isNone(keyed(pairs, 'stopBy'))).pipe(Option.match({ onNone: () => EMPTY, onSome: (field) => ({ kinds: [], parent: { field, subject } }) }));
+    return Option.filter(scalar(document, pairs, 'field'), () => Option.isNone(keyed(pairs, 'stopBy'))).pipe(Option.match({ onNone: () => EMPTY, onSome: (field) => ({ kinds: [], parent: [field, subject] }) }));
 };
 const located = (document: Document, node: unknown, language: Option.Option<string>, subject: Subject): readonly Located[] => {
     if (node instanceof YAMLSeq) {
@@ -166,15 +155,15 @@ const located = (document: Document, node: unknown, language: Option.Option<stri
         Option.orElse(() => language),
     );
     const here: Subject = { ...held, kinds: [...held.kinds, ...Option.toArray(scalar(document, pairs, 'kind'))] };
-    const site = Option.filter(scope, () => Option.isNone(keyed(pairs, 'pattern'))).pipe(Option.map((name) => ({ language: name, subject: here })));
+    const site = Option.filter(scope, () => Option.isNone(keyed(pairs, 'pattern'))).pipe(Option.map((name) => [name, here] as const));
     const bodies = ({ key, value }: Pair) => (key instanceof Scalar && key.value === 'utils' && value instanceof YAMLMap ? [...value.pairs()].map(Struct.get('value')) : [value]);
     return pairs.flatMap((pair) => [...owned(document, pair, scope, site), ...bodies(pair).flatMap((body) => located(document, body, scope, nested(document, pair, here)))]);
 };
 
-// --- [JUDGEMENT]
+// --- [JUDGMENT]
 
 const shown = (characters: CharSet) => `${characters.size} (${characters.toRangesString().split(', ').slice(0, SHOWN).join(', ')}${characters.ranges.length > SHOWN ? ', …' : ''})`;
-const distance = Order.mapInput(Order.Number, ({ missing, extra }: Judgement) => missing.size + extra.size);
+const distance = Order.mapInput(Order.Number, ({ missing, extra }: Judgment) => missing.size + extra.size);
 const closest = (side: CharSet, { facts, claimed }: Facts) => {
     const held = side.intersect(claimed);
     const printable = side.intersect(PRINTABLE);
@@ -186,26 +175,25 @@ const closest = (side: CharSet, { facts, claimed }: Facts) => {
     );
     return Array.isArrayNonEmpty(matched) ? Option.liftPredicate(Array.min(matched, distance), ({ missing, extra }) => !(missing.isEmpty && extra.isEmpty)) : Option.none();
 };
-const findings = (place: string, held: Classes, grammar: Option.Option<readonly [string, Facts]>) =>
+const findings = (place: string, held: Findings, grammar: Option.Option<readonly [string, Facts]>) =>
     held.flatMap(
-        Class.match({
-            Characters: ({ source, polarity, ranges }) =>
+        Finding.match({
+            Characters: ({ source, negated, ranges }) =>
                 Option.toArray(
                     Option.flatMap(grammar, ([language, facts]) => {
-                        const inverted = polarity === 'Complement';
                         const characters = charset(ranges);
-                        const wording = inverted ? WORDING.complement : WORDING.written;
+                        const wording = negated ? WORDING.complement : WORDING.written;
                         return Option.map(
-                            closest(inverted ? characters.negate() : characters, facts),
+                            closest(negated ? characters.negate() : characters, facts),
                             ({ fact, missing, extra }) => `${place}: ${language} class ${source} differs from the ${wording.relation}grammar's ${fact} class: ${[...(missing.isEmpty ? [] : [`${wording.missing} ${shown(missing)}`]), ...(extra.isEmpty ? [] : [`${wording.extra} ${shown(extra)}`])].join(', ')}`,
                         );
                     }),
                 ),
             UnicodePerl: ({ source }) => [`${place}: Unicode Perl class ${source}, write the grammar's class or scope the Perl class to ASCII`],
             UnicodeBoundary: ({ source }) => [`${place}: Unicode word boundary ${source}, scope it to ASCII`],
+            Literal: ({ kind, text }) => Option.toArray(Option.map(grammar, ([language]) => `${place}: ${language} regex matches the ${kind} text ${text} alone, write pattern: ${text}`)),
         }),
     );
-const replacement = (place: string, language: string, { text, kind }: typeof Literal.Type) => `${place}: ${language} regex matches the ${kind} text ${text} alone, write pattern: ${text}`;
 const sited = (file: string, { lines, documents }: ReturnType<typeof parsed>, language: Option.Option<string>) => ({
     errors: documents.flatMap((document) => document.errors.map(({ message }) => `${file}: ${message}`)),
     sites: documents.flatMap((document) => located(document, document.value, language, EMPTY)).map((site) => ({ ...site, place: `${file}:${lines.linePos(site.offset).line}` })),
@@ -219,7 +207,7 @@ const check = Effect.gen(function* () {
     const { ruleDirs, utilDirs, customLanguages } = yield* Schema.decodeEffect(Sgconfig.schema)(source);
     const grammar = ([language, row]: readonly [string, (typeof customLanguages)[string]]) => {
         const generated = [path.dirname(row.libraryPath), path.basename(row.libraryPath, path.extname(row.libraryPath)), 'src'];
-        return Effect.map(decodeFile(GrammarFile, ...generated, 'grammar.json'), (decoded) => [language, lexemes(decoded), { ...Struct.omit(row, ['outlineRules']), nodeTypes: path.join(...generated, 'node-types.json') }] as const);
+        return Effect.map(decodeFile(GrammarFile, ...generated, 'grammar.json'), (decoded) => [language, lexemes(decoded), Struct.omit(row, ['outlineRules']), path.join(...generated, 'node-types.json')] as const);
     };
     const grammars = yield* Effect.forEach(Record.toEntries(customLanguages), grammar, { concurrency: 'unbounded' });
     const folders = yield* Effect.forEach([...ruleDirs, ...utilDirs], (folder) => fs.glob(`${folder}/**/*.{yml,yaml}`), { concurrency: 'unbounded' });
@@ -237,17 +225,18 @@ const check = Effect.gen(function* () {
     );
     const sites = written.flatMap(Struct.get('sites'));
     const request = yield* Schema.encodeEffect(Request)({
-        tokens: globalThis.Array.from(tokens.values(), (token) => ({ pattern: token.value, caseless: token.flags?.includes('i') === true })),
+        tokens: globalThis.Array.from(tokens.values(), (token) => [token.value, token.flags?.includes('i') === true] as const),
         regexes: sites.map(Struct.get('value')),
         languages: Record.fromIterableWith(grammars, ([language, , library]) => [language, library] as const),
+        nodeTypes: Record.fromIterableWith(grammars, ([language, , , nodeTypes]) => [language, nodeTypes] as const),
     });
     const reply = yield* runCommand('cargo', ['run', '--quiet', '--locked', '--package', 'rasm-regex-classes'], { stdin: { stream: Stream.encodeText(Stream.make(request)) } }).pipe(Effect.flatMap(Schema.decodeEffect(Reply)));
-    const structures = new Map(Array.zip(tokens.keys(), reply.tokens));
+    const [structures, regexes] = [new Map(Array.zip(tokens.keys(), reply[0])), reply[1]];
     const parse = (rule: Token) => [{ type: 'Concatenation', elements: Option.toArray(Option.map(Option.fromUndefinedOr(structures.get(patternKey(rule))), revived)) }];
     const languages = Record.fromIterableWith(grammars, ([language, held]) => [language, derived(held, parse)] as const);
     const known = (name: string) => Option.map(Record.get(languages, name), (facts) => [name, facts] as const);
-    const judged = ([{ place, language }, { classes: held, literal }]: readonly [(typeof sites)[number], (typeof reply.regexes)[number]]) => [...findings(place, held, Option.flatMap(language, known)), ...Option.toArray(Option.zipWith(language, literal, (name, item) => replacement(place, name, item)))];
-    const found = [...written.flatMap(Struct.get('errors')), ...Array.zip(sites, reply.regexes).flatMap(judged)];
+    const judged = ([{ place, language }, held]: readonly [(typeof sites)[number], (typeof regexes)[number]]) => findings(place, held, Option.flatMap(language, known));
+    const found = [...written.flatMap(Struct.get('errors')), ...Array.zip(sites, regexes).flatMap(judged)];
     return yield* Array.match(found, { onEmpty: () => Effect.void, onNonEmpty: (reported) => Effect.andThen(Console.error(reported.join('\n')), Mismatch.make({ findings: reported })) });
 });
 check.pipe(Effect.provide(layer), runMain);

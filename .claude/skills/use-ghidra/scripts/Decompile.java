@@ -47,6 +47,7 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Decompile extends GhidraScript {
+
     // --- [ROLES]
 
     @FunctionalInterface
@@ -227,7 +228,7 @@ public class Decompile extends GhidraScript {
         return !function.isThunk() && !function.isExternal() && !Functions.isStub(function);
     }
 
-    // --- [RUN]
+    // --- [EXECUTION]
 
     @Override
     public void run() throws Exception {

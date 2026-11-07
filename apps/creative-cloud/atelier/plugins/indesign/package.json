@@ -4,7 +4,7 @@
     "description": "Atelier InDesign",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*"
     },
     "dependencies": {
         "@rasm/indesign": "workspace:*",

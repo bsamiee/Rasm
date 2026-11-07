@@ -1,6 +1,5 @@
-import { HostError } from '@rasm/automation/error';
-import type { Requests } from '@rasm/automation/requests';
-import { Unmatched } from '@rasm/search/error';
+import { HostError, type Requests } from '@rasm/automation';
+import { Unmatched } from '@rasm/search';
 import { Cause, Effect, Option, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------

@@ -1,11 +1,11 @@
 """Runs native mypy diagnostics and Refurb checks over one typed build."""
 
+import os
 import sys
 lazy from collections.abc import Mapping, Sequence
 lazy from dataclasses import replace
 lazy from hashlib import sha256
 lazy from importlib import metadata
-lazy import os
 lazy from pathlib import Path
 lazy import re
 lazy from time import perf_counter
@@ -28,7 +28,7 @@ lazy from refurb.loader import get_error_class, load_checks
 lazy from refurb.main import format_errors, is_ignored_via_amend, main, output_timing_stats, sort_errors
 lazy from refurb.settings import load_settings, Settings
 
-from tools.refurb.rewrites import RewriteVisitor
+lazy from tools.refurb.rewrites import RewriteVisitor
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

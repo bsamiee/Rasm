@@ -11,6 +11,7 @@ using SuperLinq;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ListColumn<TItem> where TItem : notnull {
     private ListColumn(Option<string> caption) => Caption = caption;
@@ -109,6 +110,7 @@ public sealed record ListRow<TItem, TKey>(IterableNE<ListColumn<TItem>> Columns,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class RowItem<TItem> : TreeGridItem where TItem : notnull {
     internal RowItem(TItem row, Seq<RowItem<TItem>> kids) : base(kids.Map<ITreeGridItem>(static kid => kid)) =>
         (Row, Kids) = (row, kids);
@@ -125,8 +127,11 @@ internal sealed record ListState<TItem>(Seq<RowItem<TItem>> Nodes, TreeGridItemC
     where TItem : notnull;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Lists {
+
     // --- [STATE]
+
     internal static Seq<RowItem<TItem>> Chosen<TItem>(TreeGridView grid) where TItem : notnull => toSeq(grid.SelectedItems).Choose(RowItem<TItem>.Of);
 
     internal static Seq<int> Indices<TItem, TKey>(ListRow<TItem, TKey> row, Seq<RowItem<TItem>> shown, HashSet<TKey> keys) where TItem : notnull where TKey : notnull =>
@@ -138,7 +143,8 @@ internal static class Lists {
     internal static IO<Unit> Reselected<TItem>(TreeGridView grid, Atom<ListState<TItem>> list) where TItem : notnull =>
         list.ValueIO.Bind(state => unless(ReferenceEquals(grid.DataStore, state.Store), IO.lift(fun(() => { grid.DataStore = state.Store; }))).As());
 
-    // --- [FILL]
+    // --- [FILLS]
+
     internal static IO<Unit> Fill<TItem, TKey>(TreeGridView grid, Atom<ListState<TItem>> list, Atom<Func<TItem, bool>> keep, ListRow<TItem, TKey> row) where TItem : notnull where TKey : notnull =>
         from kept in keep.ValueIO
         from icons in toSeq(toHashSet(
@@ -201,6 +207,7 @@ internal static class Lists {
             : items.Map(item => row.Branches.Fold(item, (held, tree) => tree.Children.Update(kids => Reordered(row, kids, moved, target, after), held)));
 
     // --- [COLUMNS]
+
     internal static IO<Unit> Columns<TItem, TKey>(ListRow<TItem, TKey> row, TreeGridView grid, Atom<ListState<TItem>> list) where TItem : notnull where TKey : notnull =>
         toSeq(row.Columns).Map(static (column, index) => (Column: column, Index: index)).TraverseM(entry =>
             from cell in CellFor(entry.Column, list)
@@ -246,6 +253,7 @@ internal static class Lists {
             (node, value) => Session.Run(label.Rename.Traverse(rename => IO.lift(() => rename(node.Row, value)).Map(item => node.Row = item)).As()));
 
     // --- [EXPANSION]
+
     internal static IO<Unit> Expand<TItem, TKey>(TreeGridView grid, Atom<ListState<TItem>> list, ListRow<TItem, TKey> row, HashSet<TKey> open) where TItem : notnull where TKey : notnull =>
         list.ValueIO.Bind(state => state.Nodes.Bind(static node => node.Preorder)
             .Filter(node => node.Expanded != open.Contains(row.Key(node.Row)))
@@ -257,6 +265,7 @@ internal static class Lists {
             .Map(unit);
 
     // --- [GESTURES]
+
     internal static IO<Unit> Gestures<TItem, TKey>(TreeGridView grid, IO<ListRow<TItem, TKey>> latest, Font emphasis, Func<Keys, IO<bool>> keyed, Atom<ListState<TItem>> list, IO<Unit> shown)
         where TItem : notnull
         where TKey : notnull =>
@@ -319,6 +328,7 @@ internal static class Lists {
         }));
 
     // --- [COMMANDS]
+
     internal static IO<(Option<Control> Pair, Seq<Seq<Command<Invoke>>> Menu, Func<Keys, IO<bool>> Keyed, IO<Unit> Refresh)> Commanded(
         Option<(Command<Invoke>.Run Add, Command<Invoke>.Run Remove)> pair, Seq<Command<Invoke>> commands, RowScope scope) =>
         from paired in pair.Traverse(held => CommandRows.AddRemove(held.Add, held.Remove, scope)).As()
@@ -327,6 +337,7 @@ internal static class Lists {
         select (paired.Map(static held => held.Control), menu, keyed, paired.Map(static held => held.Refresh).IfNone(IO.pure(unit)));
 
     // --- [PLACEMENT]
+
     internal static IO<Control> Paired(Control content, Option<Control> pair) =>
         pair.Match(Some: buttons => Stacked(new StackLayoutItem(content, expand: true), new StackLayoutItem(buttons, HorizontalAlignment.Left)), None: () => IO.pure(content));
 

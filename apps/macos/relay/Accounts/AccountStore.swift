@@ -31,6 +31,7 @@ enum StorageState: Sendable {
 @Observable
 final class AccountStore {
     // --- [STATE]
+
     private(set) var accounts: [AccountModel] = []
     private(set) var authentication: AuthenticationPresentation?
     private(set) var loginItem: Result<SMAppService.Status, any Error> = .success(SMAppService.mainApp.status)
@@ -73,6 +74,7 @@ final class AccountStore {
     private var signposter: OSSignposter { OSSignposter(logger: logger) }
 
     // --- [CREDENTIAL_OWNERSHIP]
+
     private func withStores(
         _ requested: @autoclosure () -> Set<CredentialStore>,
         owning: Set<CredentialStore> = [],
@@ -116,6 +118,7 @@ final class AccountStore {
     }
 
     // --- [LIFECYCLE]
+
     func start() {
         guard root == nil else { return }
         root = Task(name: "Accounts") { [self] in
@@ -325,6 +328,7 @@ final class AccountStore {
     }
 
     // --- [INTERFACE]
+
     func setMenuBarExtraVisible(_ visible: Bool) {
         isMenuBarExtraVisible = visible
         guard visible else { return }
@@ -354,6 +358,7 @@ final class AccountStore {
     }
 
     // --- [ACCOUNT_ACTIONS]
+
     func moveAccounts(from offsets: IndexSet, to destination: Int) {
         accounts.move(fromOffsets: offsets, toOffset: destination)
         logger.info("Moved accounts at \(Array(offsets), privacy: .public) to position \(destination, privacy: .public)")
@@ -361,6 +366,7 @@ final class AccountStore {
     }
 
     // --- [SELECTION]
+
     private func readSelection() async {
         guard storageState == .available, !isStopping else { return }
         await withDiscardingTaskGroup { group in
@@ -430,7 +436,8 @@ final class AccountStore {
         }
     }
 
-    // --- [SWITCH]
+    // --- [SWITCHES]
+
     func select(_ id: UUID) {
         guard let model: AccountModel = model(id), model.canSelect else { return }
         let account: Account = model.account
@@ -461,6 +468,7 @@ final class AccountStore {
     }
 
     // --- [SIGN_IN]
+
     func addAccount(_ provider: Provider) {
         guard canAddAccount else { return }
         authenticate(UUID(), provider: provider)
@@ -643,6 +651,7 @@ final class AccountStore {
     }
 
     // --- [USAGE]
+
     private func refresh(_ candidates: [AccountModel]) {
         guard storageState == .available, !isStopping else { return }
         let now: Date = Date()
@@ -686,6 +695,7 @@ final class AccountStore {
     }
 
     // --- [FAILURES]
+
     private func record(_ error: ProviderError, of operation: AccountOperation, for model: AccountModel, owning: Set<CredentialStore>) async {
         guard !error.failure.isCancellation else { return }
         logger.error(
@@ -705,6 +715,7 @@ final class AccountStore {
     }
 
     // --- [PERSISTENCE]
+
     private func save() async {
         guard storageState == .available else { return }
         let snapshot: [SavedAccount] = accounts.map { model in

@@ -1,9 +1,9 @@
-import { Unmatched } from '@rasm/search/error';
+import { Unmatched } from '@rasm/search';
 import { Array, Context, Duration, Effect, Function, identity, Layer, Record, Schedule, Schema, Stream } from 'effect';
 import type { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
-import { Execute, Installation, Launch, Launching, Perform, Pid, Pressure, RunningInstance, Screenshot, State, Terms, WindowID } from '#/contract';
+import { Execute, Installation, Launch, Launching, Perform, Pid, Pressure, RunningInstance, Screenshot, State, Terms, WindowID } from '#/contract.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

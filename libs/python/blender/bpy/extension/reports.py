@@ -65,9 +65,9 @@ class _Write(msgspec.Struct, frozen=True, kw_only=True):  # type: ignore[explici
 class Reports(AbstractContextManager["Reports"]):
     """Extension callback fault log and queued requests, entered first in registration scope."""
 
-    __slots__ = ("_extension", "_folder", "_idle", "_loaded", "_lock", "_logged", "_pending", "_scope", "logger", "ticked")
+    # --- [STATE]
 
-    # --- [LIFECYCLE]
+    __slots__ = ("_extension", "_folder", "_idle", "_loaded", "_lock", "_logged", "_pending", "_scope", "logger", "ticked")
 
     def __init__(self, package: str, folder: Path, /, *, extension: str) -> None:
         """Initializes the empty queue, with the logger writing to the extension's user folder while the scope is open."""
@@ -97,6 +97,8 @@ class Reports(AbstractContextManager["Reports"]):
                 self._logged.clear()
 
         self.ticked, self._loaded = ticked, loaded
+
+    # --- [LIFECYCLE]
 
     @override
     def __enter__(self) -> Self:
@@ -192,6 +194,7 @@ class Reports(AbstractContextManager["Reports"]):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [ENTRIES]
 
 

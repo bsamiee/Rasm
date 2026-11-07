@@ -7,12 +7,11 @@ import msgspec
 lazy from fontTools.misc.transform import Transform
 
 from typography.faces.declaration import Em, Ratio, Script
-from typography.rules.measures import Rule
+from typography.rules.measures import middle, Rule
 lazy from typography.faces.glyphs import Digit, Source
 lazy from typography.faces.layout import Lookups, Single
 lazy from typography.outlines.measure import restroked, stroke
 lazy from typography.outlines.paths import bounds, Box, transformed
-lazy from typography.rules.measures import middle
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

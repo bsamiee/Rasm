@@ -115,6 +115,8 @@ class Owned(msgspec.Struct, frozen=True, kw_only=True):
 class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Effects an extension offers in phases, their pinned groups, the commands editing their entries, the add menu the stock add menu opens, and the handlers keeping entries current."""
 
+    # --- [STATE]
+
     phases: tuple[Phase, ...]
     pinned: tuple[Pinned, ...] = ()
 
@@ -299,7 +301,7 @@ class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         return holding(identity, scene).bind(lambda pair: released(*pair))
 
-    # --- [REFRESH]
+    # --- [REFRESHING]
 
     def refreshed(self, identity: Identity, scene: bpy.types.Scene) -> Outcome[bool]:
         """Separates per-entry groups, places missing pinned entries, and releases stale holds, answering whether an entry changed."""
@@ -428,7 +430,7 @@ class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Remove compositor effect."""
         return rooted(bpy.types.Scene, call.context).bind(lambda scene: self.removed(call.identity, scene, call.properties.name)).map(lambda _: Done())
 
-    # --- [LIFETIME]
+    # --- [REGISTRATION]
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:

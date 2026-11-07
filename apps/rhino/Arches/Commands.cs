@@ -9,6 +9,7 @@ using Rhino.Display;
 namespace Arches;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 internal abstract partial record ArchStage {
     public sealed record Starting(ArchChoice Choice, bool BothSides) : ArchStage;
@@ -42,17 +43,22 @@ internal abstract partial record ArchStage {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class ArchPrompts {
+
     // --- [OPTIONS]
+
     public const string Type = "Type";
     public const string BothSides = "BothSides";
 
-    // --- [COMMAND]
+    // --- [COMMANDS]
+
     public static IO<Unit> Run(RhinoDoc doc, ArchFamily family) =>
         Tolerances.Read(doc, Space.Model).Bind(tolerances =>
             Getters.Stages<ArchStage, Unit>(new ArchStage.Starting(family.Choices.Head, BothSides: false), (stage, kit) => Prompt(doc, family, tolerances, stage, kit)));
 
     // --- [STAGES]
+
     private static IO<StageStep<ArchStage, Unit>> Prompt(RhinoDoc doc, ArchFamily family, Tolerances tolerances, ArchStage stage, StageKit<ArchStage, Unit> kit) =>
         stage.Switch((Doc: doc, Family: family, Tolerances: tolerances, Kit: kit),
             starting: static (at, start) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Unit>>(start.BothSides ? "Middle of span" : "Start of span") {
@@ -107,6 +113,7 @@ internal static class ArchPrompts {
                 Fail: at.Kit.Retry)));
 
     // --- [TRANSITIONS]
+
     private static OptionSpec<StageStep<ArchStage, Unit>> Toggle(StageKit<ArchStage, Unit> kit, string caption, LabelPair labels, bool initial, Func<bool, ArchStage> next) =>
         OptionSpecs.Of(OptionType.Toggle(labels), initial, value => kit.Replace(next(value)), caption);
 
@@ -120,6 +127,7 @@ internal static class ArchPrompts {
             .Bind(kit.Done);
 
     // --- [FEEDBACK]
+
     private static IO<Unit> Drawn(DisplayPipeline display, ArchSpan span, Option<IO<Seq<Curve>>> build) =>
         (from curves in build.Traverse(static held => held).As() | @catch(Getters.Retried, static _ => IO.pure(Option<Seq<Curve>>.None))
          from drawn in IO.lift(() => {

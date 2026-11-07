@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pythonlang
+severity: error
+utils:
+    sourced:
+        any:
+            - {kind: import_from_statement, has: {field: module_name, kind: dotted_name, pattern: $SOURCE}}
+            - {kind: import_statement, has: {field: name, any: [{kind: dotted_name, pattern: $SOURCE}, {kind: aliased_import, has: {field: name, pattern: $SOURCE}}]}}
+rule:
+    matches: sourced
+    follows: {stopBy: {not: {kind: 'import_statement, import_from_statement, future_import_statement, comment'}}, matches: sourced}
+message: '`$SOURCE` repeats the source of an earlier import statement'
+note: 'Import each source in one statement, as `import <module>` read through attributes or as `from <module> import <names>`'

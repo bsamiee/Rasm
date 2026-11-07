@@ -9,6 +9,7 @@ using Rasm.Imaging.Pixels;
 namespace Rasm.Imaging.Filtering;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public enum DenoiseQuality {
     Default = 0,
     Fast = 4,
@@ -27,11 +28,15 @@ internal enum OidnError {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record DenoiseGuides(PixelFrame Albedo, Option<PixelFrame> Normal, bool Clean);
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed partial class Denoiser : IDisposable {
-    // --- [NATIVE]
+
+    // --- [NATIVES]
+
     private const string Library = "OpenImageDenoise.2";
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -78,6 +83,7 @@ public sealed partial class Denoiser : IDisposable {
         };
 
     // --- [LIFECYCLE]
+
     private readonly DeviceHandle device;
 
     private Denoiser(DeviceHandle device) => this.device = device;
@@ -94,7 +100,8 @@ public sealed partial class Denoiser : IDisposable {
 
     public void Dispose() => device.Dispose();
 
-    // --- [RUN]
+    // --- [EXECUTION]
+
     public IO<PixelFrame> Run(PixelFrame color, Option<DenoiseGuides> guides, DenoiseQuality quality, Option<IProgress<int>> progress = default) =>
         Denoised("RT", ("color", color), guides.ToSeq().Bind(static set => ("albedo", set.Albedo).Cons(set.Normal.Map(static normal => ("normal", normal)).ToSeq())),
             [("hdr", true), ("cleanAux", guides.Exists(static set => set.Clean))], quality, progress);

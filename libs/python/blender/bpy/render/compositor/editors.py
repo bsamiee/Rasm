@@ -44,7 +44,6 @@ type FilePath = Annotated[str, msgspec.Meta(min_length=1)]
 type _Choices = Mapping[str, tuple[str, object]]
 type _Edited = tuple[Key, tuple[str, ...], Operator[FieldEdit], Keywords, Mapping[str, float | str]]
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 EDITOR: Final[Key] = "active_effect"
@@ -81,6 +80,8 @@ class FieldEdit(Named):
 
 class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Editor of the scene's active compositor entry beside the stock effect list, `header` rows ahead of the entry's commands and `leading` and `trailing` rows around its body, each over the entry."""
+
+    # --- [STATE]
 
     rows: OfferedEffects
     header: tuple[RowContent, ...] = ()
@@ -313,7 +314,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             case _:
                 pass
 
-    # --- [SECTION]
+    # --- [SECTIONS]
 
     @cached_property
     def section(self) -> Section:
@@ -328,6 +329,8 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             header=(*self.header, header),
             opened=True,
         )
+
+    # --- [REGISTRATION]
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:

@@ -113,7 +113,8 @@
                                     "@effect/platform-node": "Import the module subpath (`@effect/platform-node/NodeRuntime`), the package entry evaluates every Node service module",
                                     "smol-toml": "Parse TOML through `Toml.parse` from `effect/encoding`",
                                     "yaml": { "importNames": [ "parse" ], "message": "Parse YAML through `Yaml.parse` from `effect/encoding`" }
-                                }
+                                },
+                                "patterns": [ { "group": [ "./**", "../**", ".", ".." ], "message": "Import the package's own modules through `#/` and other packages through `@rasm/<lib>/<module>`" } ]
                             }
                         },
                         "noTernary": "off",
@@ -152,7 +153,10 @@
                                     "smol-toml": "Parse TOML through `Toml.parse` from `effect/encoding`",
                                     "yaml": { "importNames": [ "parse" ], "message": "Parse YAML through `Yaml.parse` from `effect/encoding`" }
                                 },
-                                "patterns": [ { "group": [ "**/package.json", "#/package.json" ], "message": "Build helpers read the project manifest from the directory they take" } ]
+                                "patterns": [
+                                    { "group": [ "**/package.json", "#/package.json" ], "message": "Build helpers read the project manifest from the directory they take" },
+                                    { "group": [ "./**", "../**", ".", ".." ], "message": "Import the package's own modules through `#/` and other packages through `@rasm/<lib>/<module>`" }
+                                ]
                             }
                         }
                     }

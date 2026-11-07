@@ -14,7 +14,7 @@ pub struct Window(Range<Timestamp>);
 
 `Window` round-trips `{"start": .., "end": ..}` and rejects an unknown key or an end at or before its start. `Deref` reaches `Range` members (`window.contains(&now)`). Domain enums spelled as flat wire fields decode through `#[serde(try_from = "<Wire>")]`. Records re-encoded with one field replaced take it as a type parameter, decode `IgnoredAny` there, and rebuild through `Record { field, ..decoded }`.
 
-Decode errors name the failing path, held by `toml` errors and `axum::Json` rejections. `serde_json::Value` stays inside a decoder. Programs driving a `serde_json::Deserializer` decode through `serde_path_to_error::deserialize`, then reject trailing input with `Deserializer::end`. A primitive, `str`, or `String` holds no field path and reads through `Value::as_str` or another `as_*`. Lengths a peer sends size a buffer through `Vec::try_with_capacity`, refusing as `io::ErrorKind::OutOfMemory` in place of aborting.
+Decode errors name the failing path, held by `toml` errors and `axum::Json` rejections. `serde_json::Value` stays inside a decoder. Programs driving a `serde_json::Deserializer` (stdin, a file) decode through a `serde_path_to_error::Deserializer` over a `Track`, then reject trailing input with `Deserializer::end`, either error joined to the tracked path through `serde_path_to_error::Error::new`. Documents of one primitive, `str`, or `String` hold no field path and read through `Value::as_str` or another `as_*`, every other document decoding into a record in place of a key path (`pointer("/a/b")`) read over its `Value`. Decoded records take the shape of the call consuming them, never a wrapper the call site splits (`unzip`). Nested records decode as one type per level (a child kind holding `type` and `named` alone), never the parent type recursing under `#[serde(default)]` over fields a child never holds. Lengths a peer sends size a buffer through `Vec::try_with_capacity`, refusing as `io::ErrorKind::OutOfMemory` in place of aborting.
 
 ## [02]-[TAGGED_UNIONS]
 
@@ -173,10 +173,15 @@ where S: DeserializeOwned {
         .map(|layer| {
             let (table, errors) = DeTable::parse_recoverable(&layer.text);
             NEVec::try_from_vec(errors).map_or(Validated::Good(table.into_inner()), |failures| {
-                Validated::Fail(failures.into_nonempty_iter().map(|mut source| {
-                    source.set_input(None);
-                    ServiceError::Syntax { origin: Origin { layer: Arc::clone(layer), span: source.span() }, source: Box::new(source) }
-                }).collect())
+                Validated::Fail(
+                    failures
+                        .into_nonempty_iter()
+                        .map(|mut source| {
+                            source.set_input(None);
+                            ServiceError::Syntax { origin: Origin { layer: Arc::clone(layer), span: source.span() }, source: Box::new(source) }
+                        })
+                        .collect(),
+                )
             })
         })
         .collect::<Validated<Vec<_>, _>>()
@@ -289,7 +294,7 @@ where W: io::Write
         formatter.begin_array(&mut scratch).map(|()| Self { out, scratch, formatter, first: true })
     }
 
-    pub fn appended<T>(&mut self, value: &T) -> io::Result<Result<(), serde_json::Error>>
+    pub fn appended<T>(&mut self, value: &T) -> Result<(), serde_json::Error>
     where T: Serialize {
         let (mark, mut next) = (self.scratch.len(), self.formatter.clone());
         let encoded = try {
@@ -297,17 +302,12 @@ where W: io::Write
             value.serialize(&mut Serializer::with_formatter(&mut self.scratch, next.clone()))?;
             next.end_array_value(&mut self.scratch).map_err(serde_json::Error::io)?
         };
-        match encoded {
-            Ok(()) => {
-                (self.formatter, self.first) = (next, false);
-                let lines = self.scratch.iter().rposition(|byte| *byte == b'\n').map_or_default(|end| end.strict_add(1));
-                self.out.write_all(self.scratch.drain(..lines).as_slice()).map(Ok)
-            }
-            Err(source) => {
-                self.scratch.truncate(mark);
-                Ok(Err(source))
-            }
-        }
+        encoded.inspect(|()| (self.formatter, self.first) = (next, false)).inspect_err(|_| self.scratch.truncate(mark))
+    }
+
+    pub fn delivered(&mut self) -> io::Result<()> {
+        let lines = self.scratch.iter().rposition(|byte| *byte == b'\n').map_or_default(|end| end.strict_add(1));
+        self.out.write_all(self.scratch.drain(..lines).as_slice())
     }
 
     pub fn closed(mut self) -> io::Result<()> {
@@ -318,4 +318,4 @@ where W: io::Write
 }
 ```
 
-`opened` writes `begin_array` once, and an empty run closes as `[]`. Write failures ending the stream sit outside each item's refusal, and callers fold refusals per row with no variant test sorting out the fatal one. `Color::write_global` sets the one color choice every `anstream` writer reads where its consumer writes, no public record holding a standard stream, and `AutoStream::choice(&stream)` decides color for a consumer writing outside `anstream` (`enforce_styling`, `Styles::plain`).
+`opened` writes `begin_array` once, and an empty run closes as `[]`. `appended` encodes into the scratch buffer and `delivered` writes its completed lines, a write failure ending the stream sitting outside each item's refusal, and callers fold refusals per row with no variant test sorting out the fatal one. `Color::write_global` sets the one color choice every `anstream` writer reads where its consumer writes, no public record holding a standard stream, and `AutoStream::choice(&stream)` decides color for a consumer writing outside `anstream` (`enforce_styling`, `Styles::plain`).

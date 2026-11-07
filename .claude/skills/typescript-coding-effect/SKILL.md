@@ -44,7 +44,7 @@ const Telemetry = Otlp.layerFromConfig().pipe(
 - `Logger.layer(loggers)` replaces the current loggers, `{ mergeWithExisting: true }` adds to them
 - `Logger.LogToStderr` set `true` moves the default and pretty loggers to stderr, `Logger.consoleJson` stays on stdout, and `Logger.withConsoleError(Logger.formatJson)` is the stderr JSON logger
 - `Command.run` parses `--log-level` into `References.MinimumLogLevel`, a root running no command provides that reference, and a telemetry layer inside the handler holds no level of its own
-- stdout and stderr hold logs for the supervisor or container that owns their file, `Logger.toFile` serves a tool reading its own records back
+- `stdout` and `stderr` hold logs for the supervisor or container that owns their file, `Logger.toFile` serves a tool reading its own records back
 - `Effect.annotateLogs` covers one effect, `Effect.annotateLogsScoped` the rest of a scope, and `Effect.withLogSpan(label)` times each line
 - Spans take `{ attributes, links, parent, kind, sampled, level }`, and spans under `Tracer.MinimumTraceLevel` drop with their children
 - Request spans take `<method> <target>` names over a low-cardinality target (a route, a URI template), each concrete value an attribute

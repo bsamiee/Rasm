@@ -455,7 +455,7 @@ where
 
 pub(super) fn archive_error(entry: &str) -> impl Fn(ZipError) -> IfcError { move |source| IfcError::Archive { entry: entry.into(), source } }
 
-// --- [TREE]
+// --- [TREES]
 
 pub(super) fn local_name(xot: &Xot, node: Node) -> &str { xot.element(node).map_or("", |element| xot.local_name_str(element.name())) }
 

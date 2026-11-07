@@ -31,12 +31,14 @@ type PresetName = Annotated[str, msgspec.Meta(pattern=r"[^\W_]")]
 class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     """Record type presets under `presets/<extension id>/<key>` of every host preset path, user files overriding stock by stem."""
 
+    # --- [STATE]
+
     key: Key
     form: TypeForm[T]
     stock: Mapping[str, T] = MappingProxyType({})
     validated: Option[Callable[[T], Outcome[T]]] = Nothing
 
-    # --- [LISTING]
+    # --- [LISTINGS]
 
     def _subdirectory(self, identity: Identity) -> str:
         """Returns the preset subdirectory every host preset path holds for this key."""

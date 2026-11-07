@@ -14,6 +14,7 @@ using Rhino.Render;
 namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class WorkerPlatform {
     public static readonly WorkerPlatform MacOs = new("darwin", static script => ["-nosplash", $"-runscript={script}"]);
@@ -44,6 +45,9 @@ internal sealed record FlamencoTypes(FlamencoTypes.JobType[] JobTypes) {
 internal sealed partial class FlamencoContext : JsonSerializerContext;
 
 internal sealed record QueueJob(int RhinoVersion, string Copy, Seq<QueueJob.Entry> Entries) {
+
+    // --- [SCHEMA]
+
     internal static readonly JsonTypeInfo<QueueJob> Info = ArchivableDictionaries.Info<QueueJob>();
 
     internal sealed record Entry(QueuedEntry Queued, string Folder, NamePart Stem, bool Overwrite, Seq<Output> Outputs);
@@ -51,6 +55,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, Seq<QueueJob.Entr
     internal sealed record Output(SequenceNumber Frame, OutputTarget Target, Seq<NamePart> Scope, Option<OutputVersion> Version, Seq<NamePart> Parts);
 
     // --- [OUTBOUND]
+
     internal static QueueJob Of(RenderBatch batch, string copy) =>
         new(RhinoApp.ExeVersion, copy, [.. batch.Entries.Map(static entry => Entried(entry, entry.Outputs.Map(static output => new Output(
             output.Name.Number.IfNone(SequenceNumber.MinValue), output.Target, output.Name.Scope,
@@ -63,6 +68,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, Seq<QueueJob.Entr
     private static Entry Entried<TPath>(QueueEntry<TPath> entry, Seq<Output> outputs) => new(entry.Queued, entry.Folder, entry.Stem, entry.Overwrite, [.. outputs]);
 
     // --- [INBOUND]
+
     internal IO<RenderBatch> Batch(RhinoDoc doc) =>
         from settings in use(RenderSettingsSources.Snapshot(doc))
         from entries in IO.lift(Entries.Map(static (entry, index) => (Entry: entry, Index: index))

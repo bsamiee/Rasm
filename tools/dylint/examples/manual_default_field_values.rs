@@ -386,8 +386,6 @@ impl Default for Tuple {
 }
 
 mod model {
-    // --- [MODELS] ----------------------------------------------------------------------
-
     #[derive(Debug)]
     pub struct Config {
         pub attempts: u8,
@@ -395,11 +393,12 @@ mod model {
 }
 
 mod producer {
-    // --- [CONSTANTS] -------------------------------------------------------------------
+
+    // --- [CONSTANTS]
 
     const PRIVATE_LIMIT: u8 = 6;
 
-    // --- [MODELS] ----------------------------------------------------------------------
+    // --- [MODELS]
 
     impl Default for super::model::Config {
         fn default() -> Self { Self { attempts: PRIVATE_LIMIT } }
@@ -411,13 +410,13 @@ mod converted {
 
     use ::std::string::String;
 
-    // --- [TYPES] -----------------------------------------------------------------------
+    // --- [TYPES]
 
     trait From {
         fn from(value: &str) -> Self;
     }
 
-    // --- [MODELS] ----------------------------------------------------------------------
+    // --- [MODELS]
 
     impl From for String {
         fn from(_: &str) -> Self {

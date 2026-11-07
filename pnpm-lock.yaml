@@ -1,3 +1,161 @@
+---
+lockfileVersion: '9.0'
+
+importers:
+
+  .:
+    configDependencies: {}
+    packageManagerDependencies:
+      pnpm:
+        specifier: 12.18.0
+        version: 12.18.0
+
+packages:
+
+  '@pnpm/exe.android-arm64@12.18.0':
+    resolution: {integrity: sha512-fOF6IwgvnUKEmVedGqiAsNPfN2Ry8GvaqzSQOiF3RJFbpBfPKO/6YT54s1GjToyYinRxw9preHHPe4y2N3SzhA==}
+    cpu: [arm64]
+    os: [android]
+
+  '@pnpm/exe.android-x64@12.18.0':
+    resolution: {integrity: sha512-6OiolnaCsB3/GcJ9XNrenbUH3zFHRJ+5QynrMUUEyThbgnnCzWxa199hpQlOmxN4rAXuYQ0IYgWFNUZxyzg31Q==}
+    cpu: [x64]
+    os: [android]
+
+  '@pnpm/exe.darwin-arm64@12.18.0':
+    resolution: {integrity: sha512-zkq+4YzVIX39ETYLyC3W7LY7MpHEU/J3nRhHl4i2yPld2Cf2+rEKRh3ejJ4AmaQ77HHJLCktY4Z3jq0fpcxFXg==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@pnpm/exe.darwin-x64@12.18.0':
+    resolution: {integrity: sha512-qMsL9qx92unOTa6hgkfiTJv8ceZaTx0IQg7InhYDVX2ZrTECujaVEEVypnJK5m3eGUsP1KD7Y4qIgleCwfRsYw==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@pnpm/exe.freebsd-x64@12.18.0':
+    resolution: {integrity: sha512-/9vy/4ms52cU4MjZ5NhHd6N2d9L9W0kARf5/ff2tweAHu0VeUzs/0qp/7ZHFuddm2Wa/m0AKQoPum9AVUCqKsw==}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@pnpm/exe.linux-arm64-musl@12.18.0':
+    resolution: {integrity: sha512-Vp+TIMPPyackVCXkOdEKH/RmAn/r07EcIyrgZYQK7VrkksqZOie0GnWIx+85mPqeFEYCRtXIZAFJ9L4ceTndDg==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@pnpm/exe.linux-arm64@12.18.0':
+    resolution: {integrity: sha512-2dpyVBCHT+FfpuQh9i+7MXAqNWYLCvD5vYr5p6Eimxoga8USLnjbUgyj72AOrO0hjc5ri3TEFP3jiyBHjkSZpQ==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-ppc64@12.18.0':
+    resolution: {integrity: sha512-BBOOOfNJ2QwIIya3eKqOjiN4WNTszfRz7HCvw9XggcT7+ftMjNP8XJ/GfW+ltCBeUFR9d8WBVsr2m/NLjX2CZQ==}
+    cpu: [ppc64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-riscv64@12.18.0':
+    resolution: {integrity: sha512-7kMN77xSOYJX8GPSH5RbNAc5oM61LMmcSUukDDUwllnZPXm8GRPskCNsTWy8SCw01Kr1FB+5SwGNMiTdiziLNQ==}
+    cpu: [riscv64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-s390x@12.18.0':
+    resolution: {integrity: sha512-htuSCpEcmDzhKoJqXbPkvfr176dBHU0QIF5mWcRiqxRXAB/1JoYiMYotfjWpk+ztgpB9qlx4XnWlLFAf7gzc6g==}
+    cpu: [s390x]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-x64-musl@12.18.0':
+    resolution: {integrity: sha512-Uj+vzfIQ62kDP10x36yHZIXVs5ohdNtiPYwn5FhCLlNScHPo0OAI+ShGDtLofiBXKE7umu71Jmjm7N8a8zVcDw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@pnpm/exe.linux-x64@12.18.0':
+    resolution: {integrity: sha512-OJ+X2wcraldCwj75pCIerWARQSRpdfj0eBTs/2ODyhfeW46ylOnjTIE/GKra6Mn6E72/gBmXS8igrUioa+F9fQ==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.win32-arm64@12.18.0':
+    resolution: {integrity: sha512-wEY6jiACGcbhhi5yD59doHqNTndS7AaujaPmtWAu1DKkHru2hy5fJ9yUGecW72Ypaw2/I3BEprfMOopap2NQtw==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@pnpm/exe.win32-x64@12.18.0':
+    resolution: {integrity: sha512-5FJkghO7RLRkQpWxeVEygW9XsmnNuxzPfXbgwFWCHsFyFhpDn/vOdL88ToQEM0Kt5igdW5s6U0/IDH8Dvkt3pg==}
+    cpu: [x64]
+    os: [win32]
+
+  pnpm@12.18.0:
+    resolution: {integrity: sha512-nXiC1dyCFH7PxOBiqjSDTgrQKWcQoYN6ERWuASEn02txCeMhrBWYod0KZVl2gbHpmRfhLtDXSerpEYeUM2O+sw==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+snapshots:
+
+  '@pnpm/exe.android-arm64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.android-x64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.darwin-arm64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.darwin-x64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.freebsd-x64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-arm64-musl@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-arm64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-ppc64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-riscv64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-s390x@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-x64-musl@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-x64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.win32-arm64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.win32-x64@12.18.0':
+    optional: true
+
+  pnpm@12.18.0:
+    optionalDependencies:
+      '@pnpm/exe.android-arm64': 12.18.0
+      '@pnpm/exe.android-x64': 12.18.0
+      '@pnpm/exe.darwin-arm64': 12.18.0
+      '@pnpm/exe.darwin-x64': 12.18.0
+      '@pnpm/exe.freebsd-x64': 12.18.0
+      '@pnpm/exe.linux-arm64': 12.18.0
+      '@pnpm/exe.linux-arm64-musl': 12.18.0
+      '@pnpm/exe.linux-ppc64': 12.18.0
+      '@pnpm/exe.linux-riscv64': 12.18.0
+      '@pnpm/exe.linux-s390x': 12.18.0
+      '@pnpm/exe.linux-x64': 12.18.0
+      '@pnpm/exe.linux-x64-musl': 12.18.0
+      '@pnpm/exe.win32-arm64': 12.18.0
+      '@pnpm/exe.win32-x64': 12.18.0
+
+---
 lockfileVersion: '9.0'
 
 settings:
@@ -431,21 +589,9 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.6.5
-      '@cloudflare/build-output-utils':
-        specifier: 'catalog:'
-        version: 0.9.10
-      '@cloudflare/config':
-        specifier: 'catalog:'
-        version: 0.30.2
-      '@cloudflare/vite-plugin':
-        specifier: 'catalog:'
-        version: 2.0.0-beta.v.12(@types/node@26.6.6)(vite@8.3.6)(workerd@1.20261104.1)
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
         version: 1.6.0(@types/node@26.6.6)(vitest@5.1.0)
-      '@decimalturn/toml-patch':
-        specifier: 'catalog:'
-        version: 3.3.2
       '@effect/atom-react':
         specifier: 'catalog:'
         version: 4.1.2(effect@4.1.2)(react@19.3.0)(scheduler@0.28.0)
@@ -467,54 +613,21 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.2(effect@4.1.2)(vitest@5.1.0)
-      '@nx/devkit':
-        specifier: 'catalog:'
-        version: 24.0.4(nx@24.0.4)
       '@nx/dotnet':
         specifier: 'catalog:'
         version: 24.0.4(nx@24.0.4)
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.65.0-alpha-2026-11-01
-      '@pulumi/cloudflare':
-        specifier: 'catalog:'
-        version: 6.24.0-alpha.1793370025(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
-      '@pulumi/command':
-        specifier: 'catalog:'
-        version: 1.4.0-alpha.1793425298(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
-      '@pulumi/docker':
-        specifier: 'catalog:'
-        version: 5.3.0-alpha.1793426566(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
-      '@pulumi/docker-build':
-        specifier: 'catalog:'
-        version: 0.1.0-alpha.1793426269(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
-      '@pulumi/github':
-        specifier: 'catalog:'
-        version: 6.16.0-alpha.1793373074(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
-      '@pulumi/minio':
-        specifier: 'catalog:'
-        version: 1.0.0-alpha.1789107308(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
-      '@pulumi/postgresql':
-        specifier: 'catalog:'
-        version: 3.19.0-alpha.1793376798(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
-      '@pulumi/pulumi':
-        specifier: 3.274.0-alpha.x95dc869
-        version: 3.274.0-alpha.x95dc869(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
-      '@pulumi/random':
-        specifier: 'catalog:'
-        version: 4.22.0-alpha.1792650729(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
       '@rasm/applications':
         specifier: workspace:*
         version: link:libs/typescript/macos/applications
-      '@rasm/automation':
-        specifier: workspace:*
-        version: link:libs/typescript/creative-cloud/automation
-      '@rasm/cep':
-        specifier: workspace:*
-        version: link:libs/typescript/creative-cloud/cep
       '@rasm/database':
         specifier: workspace:*
         version: link:libs/typescript/data/database
+      '@rasm/eng':
+        specifier: workspace:*
+        version: link:eng/typescript
       '@rasm/hosting':
         specifier: workspace:*
         version: link:libs/typescript/web/hosting
@@ -524,9 +637,6 @@ importers:
       '@rasm/ui':
         specifier: workspace:*
         version: link:libs/typescript/web/ui
-      '@rasm/uxp':
-        specifier: workspace:*
-        version: link:libs/typescript/creative-cloud/uxp
       '@storybook/addon-docs':
         specifier: 'catalog:'
         version: 11.0.0-beta.0(@types/react@19.3.0)(storybook@11.0.0-beta.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.0))
@@ -536,15 +646,6 @@ importers:
       '@testcontainers/postgresql':
         specifier: 'catalog:'
         version: 12.2.1(supports-color@7.2.0)
-      '@tree-sitter-grammars/tree-sitter-toml':
-        specifier: 'catalog:'
-        version: 0.7.0
-      '@tree-sitter-grammars/tree-sitter-xml':
-        specifier: 'catalog:'
-        version: https://codeload.github.com/tree-sitter-grammars/tree-sitter-xml/tar.gz/5000ae8f22d11fbe93939b05c1e37cf21117162d
-      '@tree-sitter-grammars/tree-sitter-yaml':
-        specifier: 'catalog:'
-        version: https://codeload.github.com/tree-sitter-grammars/tree-sitter-yaml/tar.gz/7708026449bed86239b1cd5bce6e3c34dbca6415
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -554,15 +655,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.3.0(@types/react@19.3.0)
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 6.2.1(@rolldown/plugin-babel@0.3.0(@babel/core@7.29.7(supports-color@7.2.0))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.3.0)(vite@8.3.6))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.156.0)(vite@8.3.6)
       '@vitest/browser':
         specifier: 'catalog:'
         version: 5.1.0(vite@8.3.6)(vitest@5.1.0)
-      '@vitest/browser-playwright':
-        specifier: 'catalog:'
-        version: 5.1.0(playwright@1.65.0-alpha-2026-11-01)(vite@8.3.6)(vitest@5.1.0)
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 5.1.0(@vitest/browser@5.1.0)(vitest@5.1.0)
@@ -584,24 +679,12 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.2
-      fast-xml-builder:
-        specifier: 'catalog:'
-        version: 1.3.1
-      fast-xml-parser:
-        specifier: 'catalog:'
-        version: 5.11.2
       json5:
         specifier: 'catalog:'
         version: 2.2.3
-      jsonc-parser:
-        specifier: 'catalog:'
-        version: 3.3.1
       jszip:
         specifier: 'catalog:'
         version: 3.10.2
-      minimatch:
-        specifier: 'catalog:'
-        version: 11.0.3
       npm-check-updates:
         specifier: 'catalog:'
         version: 23.1.1
@@ -623,60 +706,18 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.3.0(react@19.3.0)
-      refa:
-        specifier: 'catalog:'
-        version: 0.12.1
-      rolldown:
-        specifier: 'catalog:'
-        version: 1.3.0
       sharp:
         specifier: 'catalog:'
         version: 0.35.5(@types/node@26.6.6)
-      shell-quote:
-        specifier: 'catalog:'
-        version: 1.12.0
       storybook:
         specifier: 'catalog:'
         version: 11.0.0-beta.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.0)
       testcontainers:
         specifier: 'catalog:'
         version: 12.2.1(supports-color@7.2.0)
-      tree-sitter-bash:
-        specifier: 'catalog:'
-        version: 0.25.1
-      tree-sitter-c-sharp:
-        specifier: 'catalog:'
-        version: https://codeload.github.com/tree-sitter/tree-sitter-c-sharp/tar.gz/8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5
-      tree-sitter-java:
-        specifier: 'catalog:'
-        version: 0.23.5
-      tree-sitter-javascript:
-        specifier: 'catalog:'
-        version: 0.25.0
-      tree-sitter-postgres:
-        specifier: 'catalog:'
-        version: 19.0.0-beta.4.1
-      tree-sitter-python:
-        specifier: 'catalog:'
-        version: 0.25.0
-      tree-sitter-rust:
-        specifier: 'catalog:'
-        version: https://codeload.github.com/tree-sitter/tree-sitter-rust/tar.gz/77a3747266f4d621d0757825e6b11edcbf991ca5
-      tree-sitter-sqlite3:
-        specifier: 'catalog:'
-        version: 0.1.0
-      tree-sitter-swift:
-        specifier: 'catalog:'
-        version: https://codeload.github.com/alex-pinkus/tree-sitter-swift/tar.gz/9e3b87f66f1fd2f3b931376fd3723ab788e337c3
-      tree-sitter-typescript:
-        specifier: 'catalog:'
-        version: 0.23.2
       typescript:
         specifier: 'catalog:'
         version: 7.1.0-dev.20261105.1
-      verkit:
-        specifier: 'catalog:'
-        version: 0.5.0
       vite:
         specifier: 'catalog:'
         version: 8.3.6(@types/node@26.6.6)(@vitejs/devtools@0.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
@@ -686,9 +727,6 @@ importers:
       vitest-browser-react:
         specifier: 'catalog:'
         version: 2.3.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@5.1.0)
-      yaml:
-        specifier: 'catalog:'
-        version: 3.0.0-2
 
   apps/creative-cloud/atelier:
     dependencies:
@@ -938,9 +976,6 @@ importers:
       '@types/validator':
         specifier: 'catalog:'
         version: 13.15.10
-      '@vitest/browser-playwright':
-        specifier: 'catalog:'
-        version: 5.1.0(playwright@1.65.0-alpha-2026-11-01)(vite@8.3.6)(vitest@5.1.0)
       cf:
         specifier: 'catalog:'
         version: 1.0.0-beta.28(@types/node@26.6.6)
@@ -953,6 +988,107 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.3.6(@types/node@26.6.6)(@vitejs/devtools@0.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
+
+  eng/typescript:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.2(effect@4.1.2)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.0.4(nx@24.0.4)
+      '@rasm/automation':
+        specifier: workspace:*
+        version: link:../../libs/typescript/creative-cloud/automation
+      '@rasm/cep':
+        specifier: workspace:*
+        version: link:../../libs/typescript/creative-cloud/cep
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:../../libs/typescript/creative-cloud/uxp
+      dependency-cruiser:
+        specifier: 'catalog:'
+        version: 18.8.0-beta-2
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.2
+      jsonc-parser:
+        specifier: 'catalog:'
+        version: 3.3.1
+      nx:
+        specifier: 'catalog:'
+        version: 24.0.4
+      verkit:
+        specifier: 'catalog:'
+        version: 0.5.0
+      yaml:
+        specifier: 'catalog:'
+        version: 3.0.0-2
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+
+  infra:
+    dependencies:
+      '@cloudflare/build-output-utils':
+        specifier: 'catalog:'
+        version: 0.9.10
+      '@cloudflare/config':
+        specifier: 'catalog:'
+        version: 0.30.2
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.2(effect@4.1.2)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.0.4(nx@24.0.4)
+      '@pulumi/cloudflare':
+        specifier: 'catalog:'
+        version: 6.24.0-alpha.1793370025(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/command':
+        specifier: 'catalog:'
+        version: 1.4.0-alpha.1793425298(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/docker':
+        specifier: 'catalog:'
+        version: 5.3.0-alpha.1793426566(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/docker-build':
+        specifier: 'catalog:'
+        version: 0.1.0-alpha.1793426269(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/github':
+        specifier: 'catalog:'
+        version: 6.16.0-alpha.1793373074(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/minio':
+        specifier: 'catalog:'
+        version: 1.0.0-alpha.1789107308(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/postgresql':
+        specifier: 'catalog:'
+        version: 3.19.0-alpha.1793376798(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/pulumi':
+        specifier: 3.274.0-alpha.x95dc869
+        version: 3.274.0-alpha.x95dc869(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/random':
+        specifier: 'catalog:'
+        version: 4.22.0-alpha.1792650729(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
+      '@rasm/eng':
+        specifier: workspace:*
+        version: link:../eng/typescript
+      '@rasm/hosting':
+        specifier: workspace:*
+        version: link:../libs/typescript/web/hosting
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.2
+      shell-quote:
+        specifier: 'catalog:'
+        version: 1.12.0
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.6(@types/node@26.6.6)(@vitejs/devtools@0.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
 
   libs/typescript/ai/mcp:
     dependencies:
@@ -1206,6 +1342,9 @@ importers:
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../../web/hosting
+      '@rasm/test-support':
+        specifier: workspace:*
+        version: link:../../../../tests/typescript/support
       '@testcontainers/postgresql':
         specifier: 'catalog:'
         version: 12.2.1(supports-color@10.2.2)
@@ -1218,6 +1357,9 @@ importers:
       testcontainers:
         specifier: 'catalog:'
         version: 12.2.1(supports-color@10.2.2)
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.6(@types/node@26.6.6)(@vitejs/devtools@0.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@8.3.6)
@@ -1286,6 +1428,9 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.2(effect@4.1.2)(vitest@5.1.0)
+      '@rasm/test-support':
+        specifier: workspace:*
+        version: link:../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1344,6 +1489,9 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.2(effect@4.1.2)(vitest@5.1.0)
+      '@rasm/test-support':
+        specifier: workspace:*
+        version: link:../../../../tests/typescript/support
       '@types/culori':
         specifier: 'catalog:'
         version: 4.0.1
@@ -1402,6 +1550,9 @@ importers:
       '@effect/atom-react':
         specifier: 'catalog:'
         version: 4.1.2(effect@4.1.2)(react@19.3.0)(scheduler@0.28.0)
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 6.2.1(@rolldown/plugin-babel@0.3.0(@babel/core@7.29.7(supports-color@10.2.2))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@babel/runtime@7.29.7)(rolldown@1.3.0)(vite@8.3.6))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.156.0)(vite@8.3.6)
       effect:
         specifier: 'catalog:'
         version: 4.1.2
@@ -1427,9 +1578,6 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.3.0(@types/react@19.3.0)
-      '@vitest/browser-playwright':
-        specifier: 'catalog:'
-        version: 5.1.0(playwright@1.65.0-alpha-2026-11-01)(vite@8.3.6)(vitest@5.1.0)
       react-dom:
         specifier: 'catalog:'
         version: 19.3.0(react@19.3.0)
@@ -1495,6 +1643,9 @@ importers:
 
   tests/typescript/support:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.2(effect@4.1.2)(redis@6.2.1(@opentelemetry/api@1.10.0))
       '@storybook/addon-a11y':
         specifier: 'catalog:'
         version: 11.0.0-beta.0(storybook@11.0.0-beta.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.0))
@@ -1504,6 +1655,134 @@ importers:
       '@storybook/addon-vitest':
         specifier: 'catalog:'
         version: 11.0.0-beta.0(@vitest/browser-playwright@5.1.0)(@vitest/browser@5.1.0)(react@19.3.0)(storybook@11.0.0-beta.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.0))(vitest@5.1.0)
+      '@vitest/browser-playwright':
+        specifier: 'catalog:'
+        version: 5.1.0(playwright@1.65.0-alpha-2026-11-01)(vite@8.3.6)(vitest@5.1.0)
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.2
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.6(@types/node@26.6.6)(@vitejs/devtools@0.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@8.3.6)
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+
+  tools/ast-grep:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.2(effect@4.1.2)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      '@rasm/eng':
+        specifier: workspace:*
+        version: link:../../eng/typescript
+      '@tree-sitter-grammars/tree-sitter-toml':
+        specifier: 'catalog:'
+        version: 0.7.0
+      '@tree-sitter-grammars/tree-sitter-xml':
+        specifier: 'catalog:'
+        version: https://codeload.github.com/tree-sitter-grammars/tree-sitter-xml/tar.gz/5000ae8f22d11fbe93939b05c1e37cf21117162d
+      '@tree-sitter-grammars/tree-sitter-yaml':
+        specifier: 'catalog:'
+        version: https://codeload.github.com/tree-sitter-grammars/tree-sitter-yaml/tar.gz/7708026449bed86239b1cd5bce6e3c34dbca6415
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.2
+      refa:
+        specifier: 'catalog:'
+        version: 0.12.1
+      tree-sitter-bash:
+        specifier: 'catalog:'
+        version: 0.25.1
+      tree-sitter-c-sharp:
+        specifier: 'catalog:'
+        version: https://codeload.github.com/tree-sitter/tree-sitter-c-sharp/tar.gz/8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5
+      tree-sitter-java:
+        specifier: 'catalog:'
+        version: 0.23.5
+      tree-sitter-javascript:
+        specifier: 'catalog:'
+        version: 0.25.0
+      tree-sitter-postgres:
+        specifier: 'catalog:'
+        version: 19.0.0-beta.4.1
+      tree-sitter-python:
+        specifier: 'catalog:'
+        version: 0.25.0
+      tree-sitter-rust:
+        specifier: 'catalog:'
+        version: https://codeload.github.com/tree-sitter/tree-sitter-rust/tar.gz/77a3747266f4d621d0757825e6b11edcbf991ca5
+      tree-sitter-sqlite3:
+        specifier: 'catalog:'
+        version: 0.1.0
+      tree-sitter-swift:
+        specifier: 'catalog:'
+        version: https://codeload.github.com/alex-pinkus/tree-sitter-swift/tar.gz/9e3b87f66f1fd2f3b931376fd3723ab788e337c3
+      tree-sitter-typescript:
+        specifier: 'catalog:'
+        version: 0.23.2
+      yaml:
+        specifier: 'catalog:'
+        version: 3.0.0-2
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+
+  tools/nx:
+    dependencies:
+      '@cloudflare/config':
+        specifier: 'catalog:'
+        version: 0.30.2
+      '@decimalturn/toml-patch':
+        specifier: 'catalog:'
+        version: 3.3.2
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.2(effect@4.1.2)(redis@6.2.1(@opentelemetry/api@1.10.0))
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.0.4(nx@24.0.4)
+      '@rasm/eng':
+        specifier: workspace:*
+        version: link:../../eng/typescript
+      '@rasm/test-support':
+        specifier: workspace:*
+        version: link:../../tests/typescript/support
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.2
+      fast-xml-builder:
+        specifier: 'catalog:'
+        version: 1.3.1
+      fast-xml-parser:
+        specifier: 'catalog:'
+        version: 5.11.2
+      jsonc-parser:
+        specifier: 'catalog:'
+        version: 3.3.1
+      minimatch:
+        specifier: 'catalog:'
+        version: 11.0.3
+      nx:
+        specifier: 'catalog:'
+        version: 24.0.4
+      rolldown:
+        specifier: 'catalog:'
+        version: 1.3.0
+      shell-quote:
+        specifier: 'catalog:'
+        version: 1.12.0
+      typescript:
+        specifier: 'catalog:'
+        version: 7.1.0-dev.20261105.1
+      yaml:
+        specifier: 'catalog:'
+        version: 3.0.0-2
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -7582,7 +7861,7 @@ snapshots:
       '@babel/code-frame': 7.29.7
       '@babel/generator': 7.29.8
       '@babel/helper-compilation-targets': 7.29.7
-      '@babel/helper-module-transforms': 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@10.2.2)
+      '@babel/helper-module-transforms': 7.29.7(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
       '@babel/helpers': 7.29.7
       '@babel/parser': 7.29.9
       '@babel/template': 7.29.7
@@ -7633,12 +7912,12 @@ snapshots:
       lru-cache: 5.1.1
       semver: 6.3.1
 
-  '@babel/helper-define-polyfill-provider@0.6.8(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)':
+  '@babel/helper-define-polyfill-provider@0.6.8(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)':
     dependencies:
-      '@babel/core': 7.29.7(supports-color@7.2.0)
+      '@babel/core': 7.29.7(supports-color@10.2.2)
       '@babel/helper-compilation-targets': 7.29.7
       '@babel/helper-plugin-utils': 7.29.7
-      debug: 4.4.3(supports-color@7.2.0)
+      debug: 4.4.3(supports-color@10.2.2)
       lodash.debounce: 4.0.8
       resolve: 1.22.12
     transitivePeerDependencies:
@@ -7661,9 +7940,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@babel/helper-module-transforms@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@10.2.2)':
+  '@babel/helper-module-transforms@7.29.7(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)':
     dependencies:
-      '@babel/core': 7.29.7(supports-color@7.2.0)
+      '@babel/core': 7.29.7(supports-color@10.2.2)
       '@babel/helper-module-imports': 7.29.7(supports-color@10.2.2)
       '@babel/helper-validator-identifier': 7.29.7
       '@babel/traverse': 7.29.8(supports-color@10.2.2)
@@ -7697,14 +7976,14 @@ snapshots:
     dependencies:
       '@babel/types': 7.29.8
 
-  '@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)':
+  '@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)':
     dependencies:
-      '@babel/core': 7.29.7(supports-color@7.2.0)
-      '@babel/helper-module-imports': 7.29.7(supports-color@7.2.0)
+      '@babel/core': 7.29.7(supports-color@10.2.2)
+      '@babel/helper-module-imports': 7.29.7(supports-color@10.2.2)
       '@babel/helper-plugin-utils': 7.29.7
-      babel-plugin-polyfill-corejs2: 0.4.17(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)
-      babel-plugin-polyfill-corejs3: 0.13.0(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)
-      babel-plugin-polyfill-regenerator: 0.6.8(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)
+      babel-plugin-polyfill-corejs2: 0.4.17(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
+      babel-plugin-polyfill-corejs3: 0.13.0(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
+      babel-plugin-polyfill-regenerator: 0.6.8(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
       semver: 6.3.1
     transitivePeerDependencies:
       - supports-color
@@ -8583,24 +8862,24 @@ snapshots:
 
   '@nodable/entities@3.1.0': {}
 
-  '@npmcli/agent@4.0.2(supports-color@7.2.0)':
+  '@npmcli/agent@4.0.2(supports-color@10.2.2)':
     dependencies:
       agent-base: 7.1.4
-      http-proxy-agent: 7.0.2(supports-color@7.2.0)
-      https-proxy-agent: 7.0.6(supports-color@7.2.0)
+      http-proxy-agent: 7.0.2(supports-color@10.2.2)
+      https-proxy-agent: 7.0.6(supports-color@10.2.2)
       lru-cache: 11.5.3
-      socks-proxy-agent: 8.0.5(supports-color@7.2.0)
+      socks-proxy-agent: 8.0.5(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
 
-  '@npmcli/arborist@9.9.1(supports-color@7.2.0)':
+  '@npmcli/arborist@9.9.1(supports-color@10.2.2)':
     dependencies:
       '@gar/promise-retry': 1.0.3
       '@isaacs/string-locale-compare': 1.1.0
       '@npmcli/fs': 5.0.0
       '@npmcli/installed-package-contents': 4.0.0
       '@npmcli/map-workspaces': 5.0.3
-      '@npmcli/metavuln-calculator': 9.0.3(supports-color@7.2.0)
+      '@npmcli/metavuln-calculator': 9.0.3(supports-color@10.2.2)
       '@npmcli/name-from-folder': 4.0.0
       '@npmcli/node-gyp': 5.0.0
       '@npmcli/package-json': 7.0.5
@@ -8618,8 +8897,8 @@ snapshots:
       npm-install-checks: 8.0.0
       npm-package-arg: 13.0.2
       npm-pick-manifest: 11.0.3
-      npm-registry-fetch: 19.1.1(supports-color@7.2.0)
-      pacote: 21.5.1(supports-color@7.2.0)
+      npm-registry-fetch: 19.1.1(supports-color@10.2.2)
+      pacote: 21.5.1(supports-color@10.2.2)
       parse-conflict-json: 5.0.1
       proc-log: 6.1.0
       proggy: 4.0.0
@@ -8659,11 +8938,11 @@ snapshots:
       glob: 13.0.6
       minimatch: 10.2.6
 
-  '@npmcli/metavuln-calculator@9.0.3(supports-color@7.2.0)':
+  '@npmcli/metavuln-calculator@9.0.3(supports-color@10.2.2)':
     dependencies:
       cacache: 20.0.4
       json-parse-even-better-errors: 5.0.0
-      pacote: 21.5.1(supports-color@7.2.0)
+      pacote: 21.5.1(supports-color@10.2.2)
       proc-log: 6.1.0
       semver: 7.8.5
     transitivePeerDependencies:
@@ -8794,20 +9073,20 @@ snapshots:
       '@opentelemetry/sdk-trace': 2.11.0(@opentelemetry/api@1.10.0)
       '@opentelemetry/semantic-conventions': 1.44.0
 
-  '@opentelemetry/instrumentation-grpc@0.220.0(@opentelemetry/api@1.10.0)(supports-color@7.2.0)':
+  '@opentelemetry/instrumentation-grpc@0.220.0(@opentelemetry/api@1.10.0)(supports-color@10.2.2)':
     dependencies:
       '@opentelemetry/api': 1.10.0
-      '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.10.0)(supports-color@7.2.0)
+      '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.10.0)(supports-color@10.2.2)
       '@opentelemetry/semantic-conventions': 1.44.0
     transitivePeerDependencies:
       - supports-color
 
-  '@opentelemetry/instrumentation@0.220.0(@opentelemetry/api@1.10.0)(supports-color@7.2.0)':
+  '@opentelemetry/instrumentation@0.220.0(@opentelemetry/api@1.10.0)(supports-color@10.2.2)':
     dependencies:
       '@opentelemetry/api': 1.10.0
       '@opentelemetry/api-logs': 0.220.0
       import-in-the-middle: 3.5.1
-      require-in-the-middle: 8.0.1(supports-color@7.2.0)
+      require-in-the-middle: 8.0.1(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
 
@@ -9197,74 +9476,74 @@ snapshots:
 
   '@protobufjs/utf8@1.1.2': {}
 
-  '@pulumi/cloudflare@6.24.0-alpha.1793370025(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)':
+  '@pulumi/cloudflare@6.24.0-alpha.1793370025(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)':
     dependencies:
-      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/command@1.4.0-alpha.1793425298(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)':
+  '@pulumi/command@1.4.0-alpha.1793425298(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)':
     dependencies:
-      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/docker-build@0.1.0-alpha.1793426269(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)':
+  '@pulumi/docker-build@0.1.0-alpha.1793426269(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)':
     dependencies:
-      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/docker@5.3.0-alpha.1793426566(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)':
+  '@pulumi/docker@5.3.0-alpha.1793426566(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)':
     dependencies:
-      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
       semver: 7.8.5
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/github@6.16.0-alpha.1793373074(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)':
+  '@pulumi/github@6.16.0-alpha.1793373074(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)':
     dependencies:
-      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/minio@1.0.0-alpha.1789107308(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)':
+  '@pulumi/minio@1.0.0-alpha.1789107308(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)':
     dependencies:
-      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/postgresql@3.19.0-alpha.1793376798(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)':
+  '@pulumi/postgresql@3.19.0-alpha.1793376798(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)':
     dependencies:
-      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/pulumi@3.274.0-alpha.x95dc869(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)':
+  '@pulumi/pulumi@3.274.0-alpha.x95dc869(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)':
     dependencies:
       '@grpc/grpc-js': 1.14.5
       '@logdna/tail-file': 2.2.0
-      '@npmcli/arborist': 9.9.1(supports-color@7.2.0)
+      '@npmcli/arborist': 9.9.1(supports-color@10.2.2)
       '@opentelemetry/api': 1.10.0
       '@opentelemetry/core': 2.12.0(@opentelemetry/api@1.10.0)
       '@opentelemetry/exporter-trace-otlp-grpc': 0.220.0(@opentelemetry/api@1.10.0)
       '@opentelemetry/exporter-zipkin': 2.11.0(@opentelemetry/api@1.10.0)
-      '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.10.0)(supports-color@7.2.0)
-      '@opentelemetry/instrumentation-grpc': 0.220.0(@opentelemetry/api@1.10.0)(supports-color@7.2.0)
+      '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.10.0)(supports-color@10.2.2)
+      '@opentelemetry/instrumentation-grpc': 0.220.0(@opentelemetry/api@1.10.0)(supports-color@10.2.2)
       '@opentelemetry/resources': 2.12.0(@opentelemetry/api@1.10.0)
       '@opentelemetry/sdk-trace-base': 2.12.0(@opentelemetry/api@1.10.0)
       '@opentelemetry/sdk-trace-node': 2.12.0(@opentelemetry/api@1.10.0)
@@ -9286,9 +9565,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@pulumi/random@4.22.0-alpha.1792650729(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)':
+  '@pulumi/random@4.22.0-alpha.1792650729(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)':
     dependencies:
-      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@7.2.0)(typescript@7.1.0-dev.20261105.1)
+      '@pulumi/pulumi': 3.274.0-alpha.x95dc869(supports-color@10.2.2)(typescript@7.1.0-dev.20261105.1)
     transitivePeerDependencies:
       - supports-color
       - ts-node
@@ -9423,14 +9702,14 @@ snapshots:
   '@rolldown/binding-win32-x64-msvc@1.3.0':
     optional: true
 
-  '@rolldown/plugin-babel@0.3.0(@babel/core@7.29.7(supports-color@7.2.0))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.3.0)(vite@8.3.6)':
+  '@rolldown/plugin-babel@0.3.0(@babel/core@7.29.7(supports-color@10.2.2))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@babel/runtime@7.29.7)(rolldown@1.3.0)(vite@8.3.6)':
     dependencies:
-      '@babel/core': 7.29.7(supports-color@7.2.0)
+      '@babel/core': 7.29.7(supports-color@10.2.2)
       artichokie: 0.4.5
       picomatch: 4.0.7
       rolldown: 1.3.0
     optionalDependencies:
-      '@babel/plugin-transform-runtime': 7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)
+      '@babel/plugin-transform-runtime': 7.29.7(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
       '@babel/runtime': 7.29.7
       vite: 8.3.6(@types/node@26.6.6)(@vitejs/devtools@0.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
     optional: true
@@ -9528,21 +9807,21 @@ snapshots:
 
   '@sigstore/protobuf-specs@0.5.2': {}
 
-  '@sigstore/sign@4.1.1(supports-color@7.2.0)':
+  '@sigstore/sign@4.1.1(supports-color@10.2.2)':
     dependencies:
       '@gar/promise-retry': 1.0.3
       '@sigstore/bundle': 4.0.0
       '@sigstore/core': 3.2.1
       '@sigstore/protobuf-specs': 0.5.2
-      make-fetch-happen: 15.0.6(supports-color@7.2.0)
+      make-fetch-happen: 15.0.6(supports-color@10.2.2)
       proc-log: 6.1.0
     transitivePeerDependencies:
       - supports-color
 
-  '@sigstore/tuf@4.0.2(supports-color@7.2.0)':
+  '@sigstore/tuf@4.0.2(supports-color@10.2.2)':
     dependencies:
       '@sigstore/protobuf-specs': 0.5.2
-      tuf-js: 4.1.0(supports-color@7.2.0)
+      tuf-js: 4.1.0(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
 
@@ -10111,12 +10390,12 @@ snapshots:
       - srvx
     optional: true
 
-  '@vitejs/plugin-react@6.2.1(@rolldown/plugin-babel@0.3.0(@babel/core@7.29.7(supports-color@7.2.0))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.3.0)(vite@8.3.6))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.156.0)(vite@8.3.6)':
+  '@vitejs/plugin-react@6.2.1(@rolldown/plugin-babel@0.3.0(@babel/core@7.29.7(supports-color@10.2.2))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@babel/runtime@7.29.7)(rolldown@1.3.0)(vite@8.3.6))(babel-plugin-react-compiler@1.0.0)(oxc-transform-react@0.156.0)(vite@8.3.6)':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.3.6(@types/node@26.6.6)(@vitejs/devtools@0.8.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
     optionalDependencies:
-      '@rolldown/plugin-babel': 0.3.0(@babel/core@7.29.7(supports-color@7.2.0))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0))(@babel/runtime@7.29.7)(rolldown@1.3.0)(vite@8.3.6)
+      '@rolldown/plugin-babel': 0.3.0(@babel/core@7.29.7(supports-color@10.2.2))(@babel/plugin-transform-runtime@7.29.7(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@babel/runtime@7.29.7)(rolldown@1.3.0)(vite@8.3.6)
       babel-plugin-react-compiler: 1.0.0
       oxc-transform-react: 0.156.0
 
@@ -10342,29 +10621,29 @@ snapshots:
 
   b4a@1.9.0: {}
 
-  babel-plugin-polyfill-corejs2@0.4.17(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0):
+  babel-plugin-polyfill-corejs2@0.4.17(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2):
     dependencies:
       '@babel/compat-data': 7.29.7
-      '@babel/core': 7.29.7(supports-color@7.2.0)
-      '@babel/helper-define-polyfill-provider': 0.6.8(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)
+      '@babel/core': 7.29.7(supports-color@10.2.2)
+      '@babel/helper-define-polyfill-provider': 0.6.8(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
       semver: 6.3.1
     transitivePeerDependencies:
       - supports-color
     optional: true
 
-  babel-plugin-polyfill-corejs3@0.13.0(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0):
+  babel-plugin-polyfill-corejs3@0.13.0(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2):
     dependencies:
-      '@babel/core': 7.29.7(supports-color@7.2.0)
-      '@babel/helper-define-polyfill-provider': 0.6.8(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)
+      '@babel/core': 7.29.7(supports-color@10.2.2)
+      '@babel/helper-define-polyfill-provider': 0.6.8(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
       core-js-compat: 3.50.0
     transitivePeerDependencies:
       - supports-color
     optional: true
 
-  babel-plugin-polyfill-regenerator@0.6.8(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0):
+  babel-plugin-polyfill-regenerator@0.6.8(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2):
     dependencies:
-      '@babel/core': 7.29.7(supports-color@7.2.0)
-      '@babel/helper-define-polyfill-provider': 0.6.8(@babel/core@7.29.7(supports-color@7.2.0))(supports-color@7.2.0)
+      '@babel/core': 7.29.7(supports-color@10.2.2)
+      '@babel/helper-define-polyfill-provider': 0.6.8(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
     optional: true
@@ -11177,17 +11456,17 @@ snapshots:
 
   http-cache-semantics@4.2.0: {}
 
-  http-proxy-agent@7.0.2(supports-color@7.2.0):
+  http-proxy-agent@7.0.2(supports-color@10.2.2):
     dependencies:
       agent-base: 7.1.4
-      debug: 4.4.3(supports-color@7.2.0)
+      debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
 
-  https-proxy-agent@7.0.6(supports-color@7.2.0):
+  https-proxy-agent@7.0.6(supports-color@10.2.2):
     dependencies:
       agent-base: 7.1.4
-      debug: 4.4.3(supports-color@7.2.0)
+      debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
 
@@ -11533,10 +11812,10 @@ snapshots:
       '@babel/types': 7.29.8
       source-map-js: 1.2.2
 
-  make-fetch-happen@15.0.6(supports-color@7.2.0):
+  make-fetch-happen@15.0.6(supports-color@10.2.2):
     dependencies:
       '@gar/promise-retry': 1.0.3
-      '@npmcli/agent': 4.0.2(supports-color@7.2.0)
+      '@npmcli/agent': 4.0.2(supports-color@10.2.2)
       '@npmcli/redact': 4.0.0
       cacache: 20.0.4
       http-cache-semantics: 4.2.0
@@ -11747,11 +12026,11 @@ snapshots:
       npm-package-arg: 13.0.2
       semver: 7.8.5
 
-  npm-registry-fetch@19.1.1(supports-color@7.2.0):
+  npm-registry-fetch@19.1.1(supports-color@10.2.2):
     dependencies:
       '@npmcli/redact': 4.0.0
       jsonparse: 1.3.1
-      make-fetch-happen: 15.0.6(supports-color@7.2.0)
+      make-fetch-happen: 15.0.6(supports-color@10.2.2)
       minipass: 7.1.3
       minipass-fetch: 5.0.2
       minizlib: 3.1.0
@@ -11986,7 +12265,7 @@ snapshots:
   package-manager-detector@1.9.0:
     optional: true
 
-  pacote@21.5.1(supports-color@7.2.0):
+  pacote@21.5.1(supports-color@10.2.2):
     dependencies:
       '@gar/promise-retry': 1.0.3
       '@npmcli/git': 7.0.2
@@ -12000,9 +12279,9 @@ snapshots:
       npm-package-arg: 13.0.2
       npm-packlist: 10.0.4
       npm-pick-manifest: 11.0.3
-      npm-registry-fetch: 19.1.1(supports-color@7.2.0)
+      npm-registry-fetch: 19.1.1(supports-color@10.2.2)
       proc-log: 6.1.0
-      sigstore: 4.1.1(supports-color@7.2.0)
+      sigstore: 4.1.1(supports-color@10.2.2)
       ssri: 13.0.1
       tar: 7.5.22
     transitivePeerDependencies:
@@ -12380,9 +12659,9 @@ snapshots:
 
   require-from-string@2.0.2: {}
 
-  require-in-the-middle@8.0.1(supports-color@7.2.0):
+  require-in-the-middle@8.0.1(supports-color@10.2.2):
     dependencies:
-      debug: 4.4.3(supports-color@7.2.0)
+      debug: 4.4.3(supports-color@10.2.2)
       module-details-from-path: 1.0.4
     transitivePeerDependencies:
       - supports-color
@@ -12564,13 +12843,13 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  sigstore@4.1.1(supports-color@7.2.0):
+  sigstore@4.1.1(supports-color@10.2.2):
     dependencies:
       '@sigstore/bundle': 4.0.0
       '@sigstore/core': 3.2.1
       '@sigstore/protobuf-specs': 0.5.2
-      '@sigstore/sign': 4.1.1(supports-color@7.2.0)
-      '@sigstore/tuf': 4.0.2(supports-color@7.2.0)
+      '@sigstore/sign': 4.1.1(supports-color@10.2.2)
+      '@sigstore/tuf': 4.0.2(supports-color@10.2.2)
       '@sigstore/verify': 3.1.1
     transitivePeerDependencies:
       - supports-color
@@ -12587,10 +12866,10 @@ snapshots:
 
   smol-toml@1.9.0: {}
 
-  socks-proxy-agent@8.0.5(supports-color@7.2.0):
+  socks-proxy-agent@8.0.5(supports-color@10.2.2):
     dependencies:
       agent-base: 7.1.4
-      debug: 4.4.3(supports-color@7.2.0)
+      debug: 4.4.3(supports-color@10.2.2)
       socks: 2.8.10
     transitivePeerDependencies:
       - supports-color
@@ -12994,11 +13273,11 @@ snapshots:
       fsevents: 2.3.3
     optional: true
 
-  tuf-js@4.1.0(supports-color@7.2.0):
+  tuf-js@4.1.0(supports-color@10.2.2):
     dependencies:
       '@tufjs/models': 4.1.0
-      debug: 4.4.3(supports-color@7.2.0)
-      make-fetch-happen: 15.0.6(supports-color@7.2.0)
+      debug: 4.4.3(supports-color@10.2.2)
+      make-fetch-happen: 15.0.6(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
 

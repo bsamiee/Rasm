@@ -15,6 +15,8 @@ pub(crate) struct Pass {
 
 lint!(default Pass; MANUAL_DROP_GUARD: "one-field structs with a `Drop` impl that calls the generic closure they hold");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_impl_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx ImplItem<'tcx>) {
         if let ImplItemKind::Fn(_, _) = item.kind

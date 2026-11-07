@@ -1,6 +1,6 @@
 import { Array, Data, Option, Order, pipe, Struct } from 'effect';
 import type { SvgPathCommand } from 'harfbuzzjs';
-import type { ShapedText } from '#/shaping/shaped-text';
+import type { ShapedText } from '#/shaping/shaped-text.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

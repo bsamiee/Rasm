@@ -3,7 +3,7 @@ import { type Event, getEventsSince, subscribe, writeSnapshot } from '@parcel/wa
 import { Array, Effect, FileSystem, flow, Option, Order, PlatformError, Queue, Stream, String, Trie } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { escape } from 'minimatch';
-import { Exited } from '#/exited';
+import { Exited } from '#/exited.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

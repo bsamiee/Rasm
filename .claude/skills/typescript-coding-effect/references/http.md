@@ -96,7 +96,7 @@ Stream schemas (`HttpApiSchema.StreamUint8Array({ maxBytes })`, `StreamNdjson({ 
 `HttpApiClient.make(Api, options)` derives the client, and a service with a `make` holding it derives its shape:
 
 ```ts
-class Ledger extends Context.Service<Ledger>()('@app/ledger/Ledger', {
+class Ledger extends Context.Service<Ledger>()('@app/ledger', {
     make: Effect.flatMap(
         Config.schema(Schema.Struct({ baseUrl: Schema.URL, timeout: Schema.DurationFromString, base: Schema.DurationFromString, retries: Schema.Int }), 'ledger'),
         ({ baseUrl, timeout, base, retries }) => HttpApiClient.make(Api, { baseUrl, transformClient: flow(HttpClient.timeout(timeout), HttpClient.retryTransient({ schedule: Schedule.exponential(base), times: retries })) }),

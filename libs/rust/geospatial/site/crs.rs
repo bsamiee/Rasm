@@ -209,7 +209,11 @@ impl Crs {
 
     fn projjson<T>(&self, proj: &Proj) -> Result<T, SiteError>
     where T: DeserializeOwned {
-        serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(&proj.to_projjson(None, None, None).map_err(self.failed())?)).map_err(self.converted())
+        let text = proj.to_projjson(None, None, None).map_err(self.failed())?;
+        let mut document = serde_json::Deserializer::from_str(&text);
+        serde_path_to_error::deserialize(&mut document)
+            .and_then(|decoded| document.end().map(|()| decoded).map_err(|source| serde_path_to_error::Error::new(serde_path_to_error::Track::new().path(), source)))
+            .map_err(self.converted())
     }
 
     fn refused(&self) -> impl Fn(ProjCreateError) -> SiteError { move |source| SiteError::Create { operation: Operation::Crs(self.clone()), source } }

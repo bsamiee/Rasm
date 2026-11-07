@@ -40,6 +40,8 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
     exposure window from `low` over `span` stops with a tangent-continuous toe at (`toe_x`, `toe_y`) and a shoulder `across` and `up` the rest of the window.
     """
 
+    # --- [STATE]
+
     space: ClassVar[str] = REC709_SCENE
     pre_exposure: Finite = 4.3
     pre_filter: tuple[Unit, Unit, Unit] = (1.0, 1.0, 1.0)
@@ -139,7 +141,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
 
         return catch(lambda: np.linalg.solve(matrix, right.reshape(-1, 3).T), exception=np.linalg.LinAlgError)().map(finished).map_error(partial(Fault.of, Reason.FAILED, str(matrix)))
 
-    # --- [TABLE]
+    # --- [TABLES]
 
     def transform(self) -> Outcome[PyOpenColorIO.GroupTransform]:
         """Builds the tetrahedral table of `developed` over the lattice."""

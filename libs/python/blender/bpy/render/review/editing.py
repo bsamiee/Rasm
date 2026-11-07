@@ -72,6 +72,8 @@ class Flipping(bpy.types.PropertyGroup):
 class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Commands, corner cage, and flip buttons over the shown image's chart, the buttons drawn under the `across` and `upright` glyphs."""
 
+    # --- [STATE]
+
     horizontal: Icon
     vertical: Icon
     charting: ClassVar[Charting] = Charting()
@@ -310,7 +312,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             ).map(lambda at: Matrix.Translation((*at, 0.0)))
         )
 
-    # --- [ROWS]
+    # --- [SECTIONS]
 
     @property
     def mirrors(self) -> tuple[tuple[Mirror, Icon, tuple[int, int]], ...]:

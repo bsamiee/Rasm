@@ -4,4 +4,4 @@ import { Illustrator } from '@rasm/illustrator';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default cep(import.meta.dirname, { ...Illustrator, ...atelierBuild(import.meta.dirname) });
+export default cep(import.meta.dirname, { ...Illustrator, ...atelierBuild });

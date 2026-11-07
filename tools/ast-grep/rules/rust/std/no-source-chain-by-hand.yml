@@ -10,11 +10,6 @@ utils:
                 - has: {field: body, any: [{pattern: $X.source()}, {pattern: (*$X).source()}, {pattern: 'Error::source($X)'}, {pattern: 'Error::source(*$X)'}]}
             - kind: scoped_identifier
               regex: '^((::)?(std|core)::error::)?Error::source$'
-    successors:
-        kind: call_expression
-        all:
-            - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?successors$'}
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: Some($E)}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: source-step}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
     cursor-loop:
         kind: while_expression
         all:
@@ -30,7 +25,7 @@ utils:
 rule:
     kind: 'call_expression, while_expression'
     any:
-        - matches: successors
+        - matches: {rust-successors: {seed: {pattern: Some($E)}, step: {matches: source-step}}}
         - matches: cursor-loop
 message: '`$E$CURRENT` walks its error source chain by hand'
 note: 'Iterate `<error>.sources()` on the `&dyn Error` (`#![feature(error_iter)]`)'

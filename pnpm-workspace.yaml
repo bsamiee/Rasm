@@ -1,122 +1,144 @@
 # --- [WORKSPACE] ------------------------------------------------------------------------
+
 packages:
     - 'libs/typescript/*/*'
     - 'apps/**'
     - 'tests/typescript/*'
     - 'plugins/*'
+    - 'eng/typescript'
+    - 'infra'
+    - 'tools/ast-grep'
+    - 'tools/nx'
 catalogMode: strict
 saveExact: true
 minimumReleaseAge: 0
-managePackageManagerVersions: false
 
 # --- [CATALOG] --------------------------------------------------------------------------
+
 catalog:
-    # --- [EFFECT_RUNTIME]
+
+    # --- [CORE]
+
     effect: 4.1.2
     '@effect/platform-node': 4.1.2
     '@effect/platform-bun': 4.1.2
     '@effect/platform-browser': 4.1.2
-    '@effect/opentelemetry': 4.1.2
-    # --- [SERIALIZATION_MESSAGING]
+
+    # --- [SERIALIZATION]
+
     jsesc: 3.1.0 # JavaScript literals for Acrobat scripts
     '@types/jsesc': 3.0.3
     '@solana/codecs': 8.7.0-canary-20261102161207 # Bidirectional binary format declarations for Adobe palette exchange
-    hash-wasm: 4.12.0
     '@bufbuild/protobuf': 2.16.0
     '@bufbuild/protovalidate': 1.3.0
-    '@connectrpc/connect': 2.3.0
-    '@connectrpc/connect-web': 2.3.0
     '@msgpack/msgpack': 3.1.3
-    vscode-languageserver-protocol: 3.18.5 # Typed LSP requests and stdio connection for argus MCP server
-    vscode-languageserver-textdocument: 1.0.16
     rfc6902: 5.4.0
-    fast-xml-builder: 1.3.1
-    fast-xml-parser: 5.11.2
-    '@xmldom/xmldom': 0.9.12 # Namespace-preserving XMP document updates
-    cheerio: 1.2.0 # HTML parser for Acrobat accessibility report rows and server-rendered page templates
-    parse5: 8.0.1 # Serializer for MCP application documents
-    '@leeoniya/ufuzzy': 1.0.19 # Typo-tolerant ranking of MCP completion values and missed-name candidates
+    avsc: 5.7.9
+    '@oslojs/encoding': 1.1.0
+
+    # --- [PARSING]
+
     plist: 5.0.0 # Property-list parser and builder
     yaml: 3.0.0-2
     jsonc-parser: 3.3.1 # VS Code's JSONC parser and comment-preserving edits for settings and project files
     json5: 2.2.3 # Xcode project file parser
     '@decimalturn/toml-patch': 3.3.2 # TOML edits keeping layout and comments
-    avsc: 5.7.9
-    cloudevents: 10.0.0
-    mqtt: 5.16.1
-    '@electric-sql/d2mini': 0.1.8
-    '@electric-sql/d2ts': 0.1.8
-    '@opentelemetry/semantic-conventions': 1.44.0
-    # --- [SECURITY_IDENTITY]
+    chevrotain: 13.2.0
+    ts-morph: 28.0.0 # TypeScript syntax tree reads and edits through compiler API
+    acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
+    acorn-walk: 8.3.5 # ESTree syntax tree walker
+    astring: 1.9.0 # JavaScript source text from ESTree syntax trees
+
+    # --- [MARKUP]
+
+    fast-xml-builder: 1.3.1
+    fast-xml-parser: 5.11.2
+    '@xmldom/xmldom': 0.9.12 # Namespace-preserving XMP document updates
+    cheerio: 1.2.0 # HTML parser for Acrobat accessibility report rows and server-rendered page templates
+    parse5: 8.0.1 # Serializer for MCP application documents
+    isomorphic-dompurify: 4.6.0
+
+    # --- [TEXT]
+
+    validator: 13.15.35
+    '@types/validator': 13.15.10
+    shell-quote: 1.12.0 # POSIX shell argument encoding for version-group commands
+
+    # --- [SEARCH]
+
+    '@leeoniya/ufuzzy': 1.0.19 # Typo-tolerant ranking of MCP completion values and missed-name candidates
+
+    # --- [FILES]
+
+    chokidar: 6.0.0
+    '@parcel/watcher': 2.6.0
+    jszip: 3.10.2
+    minimatch: 11.0.3
+    package-directory: 8.2.0 # Nearest package directory from existing or generated paths
+
+    # --- [HASHING]
+
+    hash-wasm: 4.12.0
+    '@node-rs/argon2': 2.2.2
+    '@noble/hashes': 2.4.0
+
+    # --- [AUTHENTICATION]
+
     jose: 6.2.14
     openid-client: 6.8.8
     '@simplewebauthn/browser': 14.0.0
     '@simplewebauthn/server': 14.0.3
     otplib: 13.6.0
     '@otplib/core': 13.6.0
-    '@node-rs/argon2': 2.2.2
-    '@noble/hashes': 2.4.0
-    '@oslojs/encoding': 1.1.0
+
+    # --- [SECRETS]
+
     '@dopplerhq/node-sdk': 1.3.0
-    # --- [DATA_STORAGE]
-    '@effect/sql-pg': 4.1.2
-    '@effect/sql-sqlite-node': 4.1.2
-    '@effect/sql-sqlite-bun': 4.1.2
-    '@effect/sql-sqlite-wasm': 4.1.2
-    '@effect/sql-libsql': 4.1.2
-    '@effect/sql-d1': 4.1.2
-    '@effect/sql-mysql2': 4.1.2
-    '@effect/sql-mssql': 4.1.2
-    '@effect/sql-clickhouse': 4.1.2
-    '@effect/sql-sqlite-do': 4.1.2
-    '@pgsql/traverse': 18.8.3
-    '@pgsql/types': 18.0.0
-    pgsql-parser: 18.3.3
-    sqlite-vec: 0.1.10-alpha.4 # `vec0` vector tables loaded into Node SQLite
-    '@duckdb/duckdb-wasm': "1.33.1-dev110.0"
-    '@qualithm/arrow-flight-client': 0.2.2
-    parquet-wasm: 0.9.0
+
+    # --- [FEATURE_FLAGS]
+
+    '@openfeature/server-sdk': 1.23.0
+
+    # --- [REMOTE_PROCEDURE_CALLS]
+
+    '@connectrpc/connect': 2.3.0
+    '@connectrpc/connect-web': 2.3.0
+    vscode-languageserver-protocol: 3.18.5 # Typed LSP requests and stdio connection for argus MCP server
+    vscode-languageserver-textdocument: 1.0.16
+    '@connectrpc/connect-node': 2.3.0
+
+    # --- [TRANSFER]
+
     '@aws-sdk/client-s3': 3.1161.0
     '@aws-sdk/s3-request-presigner': 3.1161.0
     '@aws-sdk/lib-storage': 3.1161.0
     '@tus/server': 2.4.6
     '@tus/s3-store': 2.0.9
-    sharp: 0.35.5
-    '@gltf-transform/core': 4.5.1
-    '@gltf-transform/extensions': 4.5.1
-    '@gltf-transform/functions': 4.5.1
-    ktx-parse: 2.0.0
-    meshoptimizer: 1.3.0
-    watlas: 1.0.1
     webdav: 5.11.0
     basic-ftp: 6.2.4
     partial-content: 5.0.0
-    chokidar: 6.0.0
-    '@parcel/watcher': 2.6.0
-    # --- [SERVICES_OBSERVABILITY]
+    '@uppy/core': 6.3.1
+    '@uppy/dashboard': 6.0.2
+    '@uppy/react': 6.1.0
+    '@uppy/xhr-upload': 6.0.1
+    tus-js-client: 5.0.0-pre3
+
+    # --- [MESSAGING]
+
+    cloudevents: 10.0.0
+    mqtt: 5.16.1
     '@nats-io/nats-core': "3.4.1-0"
     '@nats-io/transport-node': "3.4.1-0"
     '@nats-io/jetstream': "3.4.1-0"
     '@nats-io/kv': "3.4.1-0"
     '@nats-io/obj': "3.4.1-0"
-    '@connectrpc/connect-node': 2.3.0
-    chevrotain: 13.2.0
     nodemailer: 10.3.1
     '@types/nodemailer': 8.0.2
-    validator: 13.15.35
-    '@types/validator': 13.15.10
-    hucre: 1.3.0
-    jspdf: 4.2.1
-    jszip: 3.10.2
-    '@effect/ai-anthropic': 4.1.2
-    '@effect/ai-openai': 4.1.2
-    '@effect/ai-openrouter': 4.1.2
-    '@effect/ai-openai-compat': 4.1.2
-    '@effect/ai-cloudflare': 4.1.2
-    '@effect/ai-typesafe': 4.1.2
-    '@modelcontextprotocol/ext-apps': 2.1.0 # MCP application protocol and browser client
-    '@panzoom/panzoom': 4.6.2 # Pan and zoom gestures over snapshots
-    '@openfeature/server-sdk': 1.23.0
+
+    # --- [OBSERVABILITY]
+
+    '@effect/opentelemetry': 4.1.2
+    '@opentelemetry/semantic-conventions': 1.44.0
     '@opentelemetry/api': 1.10.0
     '@opentelemetry/context-async-hooks': 3.0.0
     '@opentelemetry/context-zone': 3.0.0
@@ -152,22 +174,25 @@ catalog:
     '@opentelemetry/instrumentation-user-interaction': 0.68.0
     '@opentelemetry/instrumentation-xml-http-request': 0.300.0
     '@pyroscope/nodejs': 0.7.0
-    idb-keyval: 6.3.0
+    web-vitals: 6.2.3
+
+    # --- [LANGUAGE_MODELS]
+
+    '@effect/ai-anthropic': 4.1.2
+    '@effect/ai-openai': 4.1.2
+    '@effect/ai-openrouter': 4.1.2
+    '@effect/ai-openai-compat': 4.1.2
+    '@effect/ai-cloudflare': 4.1.2
+    '@effect/ai-typesafe': 4.1.2
+    '@modelcontextprotocol/ext-apps': 2.1.0 # MCP application protocol and browser client
+
+    # --- [USER_INTERFACE]
+
+    '@panzoom/panzoom': 4.6.2 # Pan and zoom gestures over snapshots
     nuqs: 2.10.2
-    workbox-build: 7.4.1
-    workbox-window: 7.4.1
-    # --- [WEB_UI]
     '@dnd-kit/helpers': 0.5.3
     '@dnd-kit/react': 0.5.3
-    '@embedpdf/core-geometry': 3.0.0-next.19
-    '@embedpdf/engine': 3.0.0-next.19
-    '@embedpdf/react': 3.0.0-next.19
-    '@uppy/core': 6.3.1
-    '@uppy/dashboard': 6.0.2
-    '@uppy/react': 6.1.0
-    '@uppy/xhr-upload': 6.0.1
     embla-carousel-react: 9.0.0-rc04
-    pdfjs-dist: 6.4.299
     react-zoom-pan-pinch: 4.2.0
     react: 19.3.0
     react-dom: 19.3.0
@@ -177,7 +202,6 @@ catalog:
     react-aria-components: 3.0.0-nightly-99e610236-261006
     react-stately: 3.50.0
     '@react-aria/live-announcer': 3.5.1
-    babel-plugin-react-compiler: 1.0.0
     react-compiler-runtime: 1.0.0
     react-error-boundary: 6.1.6
     scheduler: 0.28.0
@@ -187,8 +211,11 @@ catalog:
     '@tanstack/react-virtual': 3.14.24
     '@tanstack/store': 0.11.2
     '@use-gesture/react': 10.3.1
-    lucide-react: 1.66.0
-    bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
+    react-resizable-panels: 4.16.0
+    outlay: 1.4.1 # Content-sized web grid tracks
+
+    # --- [STYLING]
+
     class-variance-authority: 0.7.1
     clsx: 2.1.1
     tailwindcss: 4.3.3
@@ -196,12 +223,18 @@ catalog:
     tailwindcss-react-aria-components: 3.0.0-nightly-99e610236-261006
     tailwind-merge: 3.7.0-dev.8396cc3d1f18c143a608a08ce8d2ca7487aa7b75
     tw-animate-css: 1.4.0
-    isomorphic-dompurify: 4.6.0
-    tus-js-client: 5.0.0-pre3
-    react-resizable-panels: 4.16.0
-    '@xyflow/react': 13.0.0-next.0
-    elkjs: 0.12.1
-    outlay: 1.4.1 # Content-sized web grid tracks
+
+    # --- [ICONS]
+
+    lucide-react: 1.66.0
+    bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
+
+    # --- [ANIMATION]
+
+    motion: 14.9.0
+
+    # --- [RICH_TEXT]
+
     prosemirror-model: 1.25.12
     prosemirror-state: 1.4.4
     prosemirror-view: 1.42.9
@@ -214,26 +247,64 @@ catalog:
     prosemirror-gapcursor: 1.4.1
     prosemirror-dropcursor: 1.8.4
     prosemirror-collab: 1.3.1
-    motion: 14.9.0
-    d3: 7.9.0
-    d3-array: 3.2.5 # Nearest guide bisection on one axis
-    '@types/d3-array': 3.2.2
-    uplot: 1.6.32
-    '@observablehq/plot': 0.6.18-alpha.1
-    '@visx/scale': 4.0.0
-    '@visx/shape': 4.0.0
-    '@visx/axis': 4.0.0
-    '@visx/group': 4.0.0
-    '@visx/responsive': 4.0.0
-    '@perspective-dev/client': 5.6.1
-    '@perspective-dev/viewer': 5.6.1
-    '@perspective-dev/viewer-datagrid': 5.6.1
-    '@perspective-dev/viewer-charts': 5.6.1
-    web-vitals: 6.2.3
-    # --- [SPATIAL_RENDERING]
-    three: 0.187.0
-    '@types/three': 0.187.0
-    three-mesh-bvh: 0.9.17
+
+    # --- [SERVICE_WORKERS]
+
+    workbox-build: 7.4.1
+    workbox-window: 7.4.1
+
+    # --- [DATA_STORAGE]
+
+    '@electric-sql/d2mini': 0.1.8
+    '@electric-sql/d2ts': 0.1.8
+    '@effect/sql-pg': 4.1.2
+    '@effect/sql-sqlite-node': 4.1.2
+    '@effect/sql-sqlite-bun': 4.1.2
+    '@effect/sql-sqlite-wasm': 4.1.2
+    '@effect/sql-libsql': 4.1.2
+    '@effect/sql-d1': 4.1.2
+    '@effect/sql-mysql2': 4.1.2
+    '@effect/sql-mssql': 4.1.2
+    '@effect/sql-clickhouse': 4.1.2
+    '@effect/sql-sqlite-do': 4.1.2
+    '@pgsql/traverse': 18.8.3
+    '@pgsql/types': 18.0.0
+    pgsql-parser: 18.3.3
+    sqlite-vec: 0.1.10-alpha.4 # `vec0` vector tables loaded into Node SQLite
+    idb-keyval: 6.3.0
+
+    # --- [COLUMNAR]
+
+    '@duckdb/duckdb-wasm': "1.33.1-dev110.0"
+    '@qualithm/arrow-flight-client': 0.2.2
+    parquet-wasm: 0.9.0
+    apache-arrow: 21.2.0
+
+    # --- [SOLVERS]
+
+    '@lume/kiwi': 0.4.4
+
+    # --- [GRAPHS]
+
+    '@xyflow/react': 13.0.0-next.0
+    elkjs: 0.12.1
+
+    # --- [GEOMETRY]
+
+    watlas: 1.0.1
+    flatbush: 4.7.0 # Static spatial index for snap candidates
+    clipper2-ts: 2.0.1-18 # Polygon offset and boolean operations for trap and bleed outlines
+
+    # --- [INTERCHANGE]
+
+    '@gltf-transform/core': 4.5.1
+    '@gltf-transform/extensions': 4.5.1
+    '@gltf-transform/functions': 4.5.1
+    ktx-parse: 2.0.0
+    meshoptimizer: 1.3.0
+
+    # --- [GEOSPATIAL]
+
     maplibre-gl: 6.16.0
     '@deck.gl/core': 9.4.0
     '@deck.gl/geo-layers': 9.4.0
@@ -245,16 +316,35 @@ catalog:
     '@loaders.gl/core': "5.0.0-beta.2"
     '@loaders.gl/las': "5.0.0-alpha.14"
     '@geoarrow/deck.gl-geoarrow': 0.4.2
-    apache-arrow: 21.2.0
-    '@google/model-viewer': 4.4.0
-    '@lume/kiwi': 0.4.4
     '@turf/turf': 7.4.0
     '@types/geojson': 7946.0.16
-    flatbush: 4.7.0 # Static spatial index for snap candidates
-    clipper2-ts: 2.0.1-18 # Polygon offset and boolean operations for trap and bleed outlines
+
+    # --- [GRAPHICS]
+
+    three: 0.187.0
+    '@types/three': 0.187.0
+    three-mesh-bvh: 0.9.17
+    '@google/model-viewer': 4.4.0
     '@webgpu/types': 0.1.74
     typegpu: 0.12.9
+
+    # --- [COLOR]
+
+    colorjs.io: 0.7.1
+    '@texel/color': 1.1.11 # Cusp gamut mapping, Okhsl and Okhsv over RGB gamuts
+    culori: 4.0.2 # Deficiency filters, monotone splines, nearest color
+    '@types/culori': 4.0.1
+    color-space: 3.5.0 # Conformance vectors, CIECAM16, ICC v2 profile writer
+    spectral.js: 3.0.0 # Kubelka-Munk pigment mixing over reflectance
+    jscolorengine: 1.7.1 # ICC profile decode, rendering intents, black point, proofing
+
+    # --- [IMAGING]
+
+    sharp: 0.35.5
+    image-size: 2.0.4 # Image width and height read from encoded bytes
+
     # --- [TYPOGRAPHY]
+
     icu: 2.4.0 # ICU4X Unicode properties, joining types, and scripts compiled to WebAssembly
     harfbuzzjs: 1.6.4 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
     fontkit: 2.0.4
@@ -275,15 +365,32 @@ catalog:
     '@quran.ws/text': 0.1.0 # Mushaf text, marks, pages, lines, and words
     '@quran.ws/tajwid-rules': 0.1.0 # Tajweed rule and hukm names
     '@quran.ws/tajwid-annotations': 0.1.0 # Tajweed spans pinned to a Mushaf edition
-    # --- [COLOR]
-    colorjs.io: 0.7.1
-    '@texel/color': 1.1.11 # Cusp gamut mapping, Okhsl and Okhsv over RGB gamuts
-    culori: 4.0.2 # Deficiency filters, monotone splines, nearest color
-    '@types/culori': 4.0.1
-    color-space: 3.5.0 # Conformance vectors, CIECAM16, ICC v2 profile writer
-    spectral.js: 3.0.0 # Kubelka-Munk pigment mixing over reflectance
-    jscolorengine: 1.7.1 # ICC profile decode, rendering intents, black point, proofing
+
+    # --- [VISUALIZATION]
+
+    d3: 7.9.0
+    d3-array: 3.2.5 # Nearest guide bisection on one axis
+    '@types/d3-array': 3.2.2
+    uplot: 1.6.32
+    '@observablehq/plot': 0.6.18-alpha.1
+    '@visx/scale': 4.0.0
+    '@visx/shape': 4.0.0
+    '@visx/axis': 4.0.0
+    '@visx/group': 4.0.0
+    '@visx/responsive': 4.0.0
+    '@perspective-dev/client': 5.6.1
+    '@perspective-dev/viewer': 5.6.1
+    '@perspective-dev/viewer-datagrid': 5.6.1
+    '@perspective-dev/viewer-charts': 5.6.1
+
     # --- [DOCUMENTS]
+
+    hucre: 1.3.0
+    jspdf: 4.2.1
+    '@embedpdf/core-geometry': 3.0.0-next.19
+    '@embedpdf/engine': 3.0.0-next.19
+    '@embedpdf/react': 3.0.0-next.19
+    pdfjs-dist: 6.4.299
     papersizes-guide: 1.1.0 # Named paper formats with their standards
     fraction.js: 5.3.4 # Exact ratios of declared dimensions
     printing-services: 1.5.1 # Cover dimensions and print service constants
@@ -292,21 +399,20 @@ catalog:
     kura-pdf: 1.2.1 # PDF/X and PDF/A conversion and preflight
     kura-pdf-wasm: 1.2.1
     page-validation-wasm: 0.12.1 # PDF/A and PDF/UA rule check
-    '@wasm-zoo/ghostscript': 0.7.2 # Ghostscript plate rasters and ink coverage
+    '@wasm-zoo/ghostscript': 0.7.2 # Ghostscript plate rasters and CMYK colorant coverage
+
     # --- [ADOBE_HOSTS]
+
     types-for-adobe: 7.2.6
     '@adobe-uxp-types/uxp': 0.1.4
     '@adobe-uxp-types/photoshop': 0.1.8
     '@types/photoshop': 27.11.0
     '@adobe/premierepro': 27.0.0-beta.57
     indesign-uxp-types: 1.0.0
-    ts-morph: 28.0.0 # TypeScript syntax tree reads and edits through compiler API
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
-    acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
-    acorn-walk: 8.3.5 # ESTree syntax tree walker
-    astring: 1.9.0 # JavaScript source text from ESTree syntax trees
-    image-size: 2.0.4 # Image width and height read from encoded bytes
+
     # --- [INFRASTRUCTURE]
+
     '@pulumi/pulumi': "3.274.0-alpha.x95dc869"
     '@pulumi/kubernetes': "4.35.0-alpha.1793428903"
     '@pulumi/aws': "7.53.0-alpha.1793427939"
@@ -331,65 +437,28 @@ catalog:
     '@pulumi/esc-sdk': 0.14.0
     '@pulumi/pulumiservice': "1.6.0-alpha.1792787233"
     '@pulumiverse/acme': "0.18.1"
-    # --- [TESTING]
-    vitest: 5.1.0
-    '@effect/vitest': 4.1.2
-    fast-check: 4.10.2
-    '@vitest/coverage-v8': 5.1.0
-    '@vitest/browser': 5.1.0
-    '@vitest/browser-playwright': 5.1.0
-    vitest-browser-react: 2.3.0
-    '@playwright/test': 1.65.0-alpha-2026-11-01
-    playwright: 1.65.0-alpha-2026-11-01
-    '@axe-core/playwright': 4.14.1-e9cf392.0.sha-e9cf392
-    axe-core: 4.14.0-canary.c50bf8e
-    storybook: 11.0.0-beta.0
-    '@storybook/react-vite': 11.0.0-beta.0
-    '@storybook/addon-vitest': 11.0.0-beta.0
-    '@storybook/addon-a11y': 11.0.0-beta.0
-    '@storybook/addon-docs': 11.0.0-beta.0
-    '@cloudflare/vitest-plugin': 1.6.0
-    testcontainers: 12.2.1
-    '@testcontainers/postgresql': 12.2.1
-    # --- [TOOLING]
+
+    # --- [COMPILERS]
+
+    '@effect/tsgo': 0.67.4 # Effect diagnostics for native TypeScript compiler and language server
+    typescript: 7.1.0-dev.20261105.1 # Native TypeScript release `@effect/tsgo` supports
+    '@swc/wasm': 1.16.21
+    tslib: 2.9.1
+    '@types/node': 26.6.6
+
+    # --- [BUILD]
+
+    babel-plugin-react-compiler: 1.0.0
     '@cloudflare/vite-plugin': 2.0.0-beta.v.12
     '@cloudflare/workers-types': 5.20261106.1
     '@openai/sites-vite-plugin': 0.2.0
     '@cloudflare/build-output-utils': 0.9.10 # Build Output tree reader for hosting programs
     '@cloudflare/config': 0.30.2 # `cloudflare.config.ts` uncached loader and parser for sync generators
     cf: 1.0.0-beta.28 # `cloudflare.config.ts` definitions and local resource commands against Vite plugin state
-    '@effect/tsgo': 0.67.4 # Effect diagnostics for native TypeScript compiler and language server
-    typescript: 7.1.0-dev.20261105.1 # Native TypeScript release `@effect/tsgo` supports
-    '@effect/docgen': 4.1.2
-    '@effect/openapi-generator': 4.1.2
-    '@effect/graphql-generator': 4.1.2
     nx: 24.0.4
     '@nx/devkit': 24.0.4
     '@nx/dotnet': 24.0.4
     '@nx/playwright': 24.0.4
-    '@ast-grep/napi': 0.51.1 # Structural search and rewrite over syntax trees from Node
-    minimatch: 11.0.3
-    package-directory: 8.2.0 # Nearest package directory from existing or generated paths
-    shell-quote: 1.12.0 # POSIX shell argument encoding for version-group commands
-    '@biomejs/biome': 2.6.5
-    dependency-cruiser: 18.8.0-beta-2 # Library root entry load closures, first release driving native TypeScript 7.1
-    '@tree-sitter-grammars/tree-sitter-xml': github:tree-sitter-grammars/tree-sitter-xml#5000ae8f22d11fbe93939b05c1e37cf21117162d
-    tree-sitter-bash: 0.25.1
-    tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit whose grammar holds C# 14 `extension` declarations, newest release 0.23.5 stops at C# 13
-    tree-sitter-java: 0.23.5
-    tree-sitter-javascript: 0.25.0
-    tree-sitter-postgres: 19.0.0-beta.4.1
-    tree-sitter-python: 0.25.0
-    tree-sitter-rust: github:tree-sitter/tree-sitter-rust#v0.24.2
-    tree-sitter-sqlite3: 0.1.0
-    '@tree-sitter-grammars/tree-sitter-toml': 0.7.0
-    '@tree-sitter-grammars/tree-sitter-yaml': github:tree-sitter-grammars/tree-sitter-yaml#v0.7.2 # Release ast-grep 0.51.1 bundles, npm stops at 0.7.1
-    tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#9e3b87f66f1fd2f3b931376fd3723ab788e337c3
-    tree-sitter-typescript: 0.23.2
-    refa: 0.12.1
-    '@swc/wasm': 1.16.21
-    tslib: 2.9.1
-    '@types/node': 26.6.6
     vite-plugin-static-copy: 4.1.1
     vite: 8.3.6
     '@vitejs/plugin-react': 6.2.1
@@ -411,19 +480,72 @@ catalog:
     '@vitejs/devtools-kit': 0.8.0
     vite-plugin-svgr: 5.2.0
     vite-plugin-webfont-dl: 3.13.1
+
+    # --- [GENERATORS]
+
+    '@effect/docgen': 4.1.2
+    '@effect/openapi-generator': 4.1.2
+    '@effect/graphql-generator': 4.1.2
+
+    # --- [LINTING]
+
+    '@ast-grep/napi': 0.51.1 # Structural search and rewrite over syntax trees from Node
+    '@biomejs/biome': 2.6.5
+    dependency-cruiser: 18.8.0-beta-2 # Library root entry load closures, first release driving native TypeScript 7.1
+    '@tree-sitter-grammars/tree-sitter-xml': github:tree-sitter-grammars/tree-sitter-xml#5000ae8f22d11fbe93939b05c1e37cf21117162d
+    tree-sitter-bash: 0.25.1
+    tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit whose grammar holds C# 14 `extension` declarations, newest release 0.23.5 stops at C# 13
+    tree-sitter-java: 0.23.5
+    tree-sitter-javascript: 0.25.0
+    tree-sitter-postgres: 19.0.0-beta.4.1
+    tree-sitter-python: 0.25.0
+    tree-sitter-rust: github:tree-sitter/tree-sitter-rust#v0.24.2
+    tree-sitter-sqlite3: 0.1.0
+    '@tree-sitter-grammars/tree-sitter-toml': 0.7.0
+    '@tree-sitter-grammars/tree-sitter-yaml': github:tree-sitter-grammars/tree-sitter-yaml#v0.7.2 # Release ast-grep 0.51.1 bundles, npm stops at 0.7.1
+    tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#9e3b87f66f1fd2f3b931376fd3723ab788e337c3
+    tree-sitter-typescript: 0.23.2
+    refa: 0.12.1
+
+    # --- [VERSIONING]
+
     '@octokit/rest': 22.0.1
-    '@modelcontextprotocol/inspector': 2.13.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
     actions-up: 2.0.0
     npm-check-updates: 23.1.1
     verkit: 0.5.0 # Semantic version comparison and range selection
     '@renovatebot/pep440': 6.0.0 # PEP 440 version comparison
 
+    # --- [TESTING]
+
+    vitest: 5.1.0
+    '@effect/vitest': 4.1.2
+    fast-check: 4.10.2
+    '@vitest/coverage-v8': 5.1.0
+    '@vitest/browser': 5.1.0
+    '@vitest/browser-playwright': 5.1.0
+    vitest-browser-react: 2.3.0
+    '@playwright/test': 1.65.0-alpha-2026-11-01
+    playwright: 1.65.0-alpha-2026-11-01
+    '@axe-core/playwright': 4.14.1-e9cf392.0.sha-e9cf392
+    axe-core: 4.14.0-canary.c50bf8e
+    storybook: 11.0.0-beta.0
+    '@storybook/react-vite': 11.0.0-beta.0
+    '@storybook/addon-vitest': 11.0.0-beta.0
+    '@storybook/addon-a11y': 11.0.0-beta.0
+    '@storybook/addon-docs': 11.0.0-beta.0
+    '@cloudflare/vitest-plugin': 1.6.0
+    testcontainers: 12.2.1
+    '@testcontainers/postgresql': 12.2.1
+    '@modelcontextprotocol/inspector': 2.13.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
+
 # --- [CATALOGS] -------------------------------------------------------------------------
+
 catalogs:
     docgen:
         typescript: npm:typescript@6.0.3 # Compiler API for Storybook prop docgen, default catalog `typescript` exports none
 
 # --- [OVERRIDES] ------------------------------------------------------------------------
+
 overrides:
     '@pulumi/pulumi': 'catalog:'
     cloudevents>uuid: 14.0.2
@@ -448,12 +570,14 @@ overrides:
     '@vitejs/plugin-react>@rolldown/plugin-babel': 'catalog:'
 
 # --- [PEER_DEPENDENCIES] ----------------------------------------------------------------
+
 peerDependencyRules:
     allowedVersions:
         '@loaders.gl/core': '>=4.4.0'
         '@axe-core/playwright>playwright-core': '>=1.0.0-0'
 
 # --- [BUILDS] ---------------------------------------------------------------------------
+
 allowBuilds:
     '@datadog/pprof': true
     '@launchql/protobufjs': false
@@ -486,5 +610,6 @@ allowBuilds:
     tree-sitter-typescript: false
 
 # --- [SKILLS] ---------------------------------------------------------------------------
+
 skills:
     dirs: []

@@ -8,6 +8,7 @@ using Rasm.UI.Styling;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Timing {
     private Timing(Key role) => Role = role;
@@ -39,7 +40,9 @@ public sealed record Lane<TItem>(Key Key, string Label, Seq<TItem> Items) where 
 }
 
 public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lanes, Func<TItem, Key> Keyed, Lens<TItem, Timing> Timed, Func<Edit<Lane<TItem>>, IO<Unit>> Edited) where TItem : notnull {
+
     // --- [STATE]
+
     public Option<Part.Viewport> Navigation { get; init; }
     public Option<float> Playhead { get; init; }
     public Option<Func<Edit<float>, IO<Unit>>> Scrubbed { get; init; }
@@ -51,7 +54,8 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
     public Func<Lane<TItem>, Seq<View>> Toggles { get; init; } = static _ => [];
     public Seq<View> Corner { get; init; }
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     public View Drawn {
         get {
             Option<Part.Viewport> navigation = Navigation.Map(static viewport => viewport with { Free = [PhysicalAxis.Horizontal] });
@@ -151,6 +155,7 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
             : new View.Pin(point.At, new View.Box()) { Role = Roles.Grip, Align = UnitPoint.Center };
 
     // --- [HANDLES]
+
     private Points<Seq<TItem>> Handled(HashMap<Key, (int Item, int Handle)> slots) =>
         new(items => Placed(items).Map(static held => held.Point), (items, targets, _) =>
             toHashMap(targets.Map(target => (Slot: slots[target.Key], target.At)).GroupBy(static target => target.Slot.Item).Select(static group => (group.Key, Moves: toSeq(group)))) switch {
@@ -162,6 +167,7 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
         items.Map((item, index) => Timed.Get(item).Handles.Map((along, handle) => (At: new Vector2(along, (float)Fraction.Half), Item: index, Handle: handle))).Flatten()
             .Map(static (held, index) => (new HandlePoint(new Key.Ordinal((uint)index), held.At), held.Item, held.Handle));
 
-    // --- [READ]
+    // --- [READS]
+
     private static View Needle(float at) => new View.Mark(new Figure.Path([new Vector2(at, (float)Fraction.MinValue), new Vector2(at, (float)Fraction.MaxValue)])) { Role = Roles.Needle };
 }

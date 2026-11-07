@@ -7,7 +7,7 @@ import { HttpClient, HttpClientResponse } from 'effect/http';
 import nx from 'nx/package.json' with { type: 'json' };
 import { findMaxSatisfying } from 'verkit';
 import { CST, parseDocument, Scalar, YAMLMap } from 'yaml';
-import { runCommand } from '#/eng/typescript/run-command';
+import { runCommand } from '#/run-command.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

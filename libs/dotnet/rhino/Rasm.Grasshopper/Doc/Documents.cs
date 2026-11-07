@@ -11,8 +11,11 @@ using Grasshopper2.UI.Canvas;
 namespace Rasm.Grasshopper.Doc;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Solutions {
-    // --- [RUNS]
+
+    // --- [EXECUTION]
+
     public static IO<Solution> Run(Document document, SolutionMode mode) =>
         (from source in use(static env => CancellationTokenSource.CreateLinkedTokenSource(env.Token))
          from token in cancelToken
@@ -57,7 +60,9 @@ public static class Solutions {
 }
 
 public static class Documents {
+
     // --- [FILES]
+
     public static IO<Document> Load(string path, bool resolvePlugins = true, bool trackFiles = false, Seq<Document> blocking = default) =>
         (from held in atomIO(Option<Document>.None)
          from opened in IO.lift(() => {
@@ -103,6 +108,7 @@ public static class Documents {
         select document;
 
     // --- [NODES]
+
     public static IO<byte[]> Store(Document document, FileContents contents) =>
         from node in IO.lift(static () => GrasshopperIO.DataBase.Node.Create("Document"))
         from stored in IO.lift(() => document.Store(node, contents))
@@ -113,6 +119,7 @@ public static class Documents {
         IO.lift(() => new Document(GrasshopperIO.IO.ReadNodeFromByteArray(bytes, pathHint: null)));
 
     // --- [RELEASE]
+
     public static IO<Unit> Pop(DocumentBag bag, Document document, bool accept) =>
         from head in IO.lift(() => GrasshopperFault.Unless(bag.All.Any(stack => stack.Head == document), GrasshopperReason.Missing, document))
         from hidden in IO.lift(() => { document.Display.Enabled = false; })
@@ -120,6 +127,7 @@ public static class Documents {
         select unit;
 
     // --- [PROGRAMS]
+
     public static IO<Map<string, ITree>> Evaluate(Document document, Map<string, ITree> inputs) =>
         (from inner in use(() => GrasshopperIO.IO.Duplicate(document), static held => held.Close())
          from host in use(static () => Document.NewInertDocument(), static held => held.Close())

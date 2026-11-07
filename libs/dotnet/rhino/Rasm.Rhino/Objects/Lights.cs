@@ -12,6 +12,7 @@ using Wacton.Unicolour;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Emission(Color4f Light, double Luminance);
 
 [ComplexValueObject]
@@ -130,8 +131,11 @@ public sealed record LightState(Guid Id, LightSpec Spec);
 public sealed record ManagedLight(LightState Light, bool Solo, string Description);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Lights {
+
     // --- [EMISSION]
+
     public static Emission Peaked(double red, double green, double blue) =>
         Peaked(new Unicolour(Configuration.Default, ColourSpace.RgbLinear, red, green, blue));
 
@@ -165,7 +169,8 @@ public static class Lights {
          from held in Products.Many(() => effects, required: false)
          select Some(flow.PostProcessGamma).Filter(_ => held.Exists(static data => data.Id == PostEffectUuids.Gamma && data.On && data.Shown))).Bracket();
 
-    // --- [STAGE]
+    // --- [STAGES]
+
     public static Stage<Light> Stage(RhinoDoc doc, Guid id) =>
         Stages.Geometry<Light>() switch {
             var geometry => geometry with {
@@ -188,6 +193,7 @@ public static class Lights {
     }
 
     // --- [READS]
+
     public static Fin<LightState> State(Light light) =>
         Conversions.Required(LightShape.Of(light)).Map(shape => new LightState(light.Id, new LightSpec(
             Conversions.Present(light.Name), light.IsEnabled, shape, new LightColor.Rgb(light.Diffuse), light.Intensity, LightPower.Of(light), light.ShadowIntensity, light.AttenuationVector)));
@@ -202,6 +208,7 @@ public static class Lights {
              .Map(light => State(light).Map(state => new ManagedLight(state, client.GetLightSolo(light), client.LightDescription(light)))).Strict().Partition()).Bracket();
 
     // --- [WRITES]
+
     public static IO<Guid> Add(RhinoDoc doc, LightSpec spec, Option<ObjectAttributes> attributes) =>
         (from gamma in PreProcessGamma(doc)
          from staged in use(static () => new Light())
@@ -218,7 +225,8 @@ public static class Lights {
     public static IO<LightObject> Found(RhinoDoc doc, Guid id) =>
         Products.Accepted(() => doc.Lights.Find(id, ignoreDeleted: true) switch { var index => (index >= 0, index) }).Map(index => doc.Lights[index]);
 
-    // --- [RECONCILE]
+    // --- [RECONCILIATION]
+
     public static IO<Seq<(string Slot, Guid Id, bool Created)>> Reconcile(RhinoDoc doc, KeyName group, Seq<(string Slot, LightSpec Spec)> lights) =>
         from unique in IO.lift(Conversions.Unique(lights, static light => light.Slot, StringComparer.Ordinal))
         let key = $"{Session.PlugIn.Id:N}.{group}"

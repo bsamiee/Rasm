@@ -32,7 +32,8 @@ import java.util.stream.Stream;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public final class Functions {
-    // --- [GRAPH]
+
+    // --- [GRAPHS]
 
     public static final Comparator<Function> BY_ENTRY =
             Comparator.comparing(Function::getEntryPoint);
@@ -128,7 +129,7 @@ public final class Functions {
                 .distinct();
     }
 
-    // --- [DECOMPILE]
+    // --- [DECOMPILATION]
 
     public static SequencedMap<Function, Report.Result<DecompileResults>> decompile(
             Program program,

@@ -21,6 +21,7 @@ type _Step = str | int | tuple[str]
 type RnaPath = tuple[_Step, ...]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [PATHS]
 
 
@@ -200,7 +201,7 @@ def rooted[K: Native](root: type[K], context: bpy.types.Context) -> Outcome[K]:
     return root_in(root, context).to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.context", member=Block.of_seq(_members(root)).try_head().default_value(root.__name__)))
 
 
-# --- [READERS]
+# --- [READS]
 
 
 @catch(exception=SyntaxError)

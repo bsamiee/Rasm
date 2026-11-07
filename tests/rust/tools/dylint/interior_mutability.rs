@@ -4,58 +4,58 @@ snapshots! {
 fn interior_mutable_static(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: `static HITS` holds interior mutable `Atomic<u32>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:19:8
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:27:8
        |
-    19 | static HITS: AtomicU32 = AtomicU32::new(0);
+    27 | static HITS: AtomicU32 = AtomicU32::new(0);
        |        ^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
        = note: `#[warn(interior_mutable_static)]` on by default
 
     warning: `static ROOT` holds interior mutable `OnceLock<String>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:21:8
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:29:8
        |
-    21 | static ROOT: OnceLock<String> = OnceLock::new();
+    29 | static ROOT: OnceLock<String> = OnceLock::new();
        |        ^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static ORIGIN` holds interior mutable `OnceLock<String>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:23:12
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:31:12
        |
-    23 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
+    31 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
        |            ^^^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static COUNTER` holds interior mutable `Atomic<u32>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:27:8
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:35:8
        |
-    27 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
+    35 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
        |        ^^^^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static SHARED` holds interior mutable `Mutex<Vec<u8>>` in `Arc<Mutex<Vec<u8>>>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:29:8
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:37:8
        |
-    29 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+    37 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
        |        ^^^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static VISITS` holds interior mutable `Cell<u32>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:36:12
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:44:12
        |
-    36 |     static VISITS: Cell<u32> = const { Cell::new(0) };
+    44 |     static VISITS: Cell<u32> = const { Cell::new(0) };
        |            ^^^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static CALLS` holds interior mutable `Atomic<u32>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:40:10
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:48:10
        |
-    40 | counter!(CALLS);
+    48 | counter!(CALLS);
        |          ^^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
@@ -69,58 +69,58 @@ fn interior_mutable_static(found: &str) {
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static HITS` holds interior mutable `Atomic<u32>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:19:8
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:27:8
        |
-    19 | static HITS: AtomicU32 = AtomicU32::new(0);
+    27 | static HITS: AtomicU32 = AtomicU32::new(0);
        |        ^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
        = note: `#[warn(interior_mutable_static)]` on by default
 
     warning: `static ROOT` holds interior mutable `OnceLock<String>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:21:8
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:29:8
        |
-    21 | static ROOT: OnceLock<String> = OnceLock::new();
+    29 | static ROOT: OnceLock<String> = OnceLock::new();
        |        ^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static ORIGIN` holds interior mutable `OnceLock<String>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:23:12
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:31:12
        |
-    23 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
+    31 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
        |            ^^^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static COUNTER` holds interior mutable `Atomic<u32>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:27:8
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:35:8
        |
-    27 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
+    35 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
        |        ^^^^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static SHARED` holds interior mutable `Mutex<Vec<u8>>` in `Arc<Mutex<Vec<u8>>>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:29:8
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:37:8
        |
-    29 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+    37 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
        |        ^^^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static VISITS` holds interior mutable `Cell<u32>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:36:12
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:44:12
        |
-    36 |     static VISITS: Cell<u32> = const { Cell::new(0) };
+    44 |     static VISITS: Cell<u32> = const { Cell::new(0) };
        |            ^^^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it
 
     warning: `static CALLS` holds interior mutable `Atomic<u32>`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:40:10
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:48:10
        |
-    40 | counter!(CALLS);
+    48 | counter!(CALLS);
        |          ^^^^^
        |
        = help: build the value in `main` and pass it to each operation that reads or writes it

@@ -5,6 +5,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union<Surface, Brep>(SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class UnrollSource;
 
@@ -24,8 +25,11 @@ public sealed record SquishResult(
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Flattening {
-    // --- [UNROLL]
+
+    // --- [UNROLLING]
+
     public static IO<UnrollResult> Unroll(Tolerances tolerances, UnrollSource source, Option<double> explode, Seq<Curve> curves, Seq<Point3d> points, Seq<TextDot> dots) =>
         from unroller in IO.lift(() => {
             Unroller created = source.Switch(surface: static surface => new Unroller(surface), brep: static brep => new Unroller(brep));
@@ -45,7 +49,8 @@ public static class Flattening {
             Conversions.Rows(unrolled.Out.Points),
             flatDots.Map(dot => (Dot: dot, Source: Conversions.Present(unroller.FollowingGeometryIndex(dot)))).Strict());
 
-    // --- [SQUISH]
+    // --- [SQUISHING]
+
     public static IO<SquishResult> Squish(SquishSource source, SquishParameters parameters, Seq<GeometryBase> marks) =>
         from squisher in use(static () => new Squisher())
         from squished in source.Switch(
@@ -71,7 +76,8 @@ public static class Flattening {
         from kept in Products.Each(slots.Somes().Map(static mark => Products.Of(() => mark)))
         select (Flat: flat, Marks: slots);
 
-    // --- [UNWRAP]
+    // --- [UNWRAPPING]
+
     public static IO<Seq<Mesh>> Unwrap(Seq<Mesh> meshes, MeshUnwrapMethod method, Option<Plane> symmetry) =>
         from copies in Products.Each(meshes.Map(static mesh => Products.Of(mesh.DuplicateMesh)))
         from unwrapped in (from unwrapper in use(() => new MeshUnwrapper(copies))

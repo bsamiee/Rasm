@@ -63,6 +63,7 @@ pub(crate) mod manual_from_utf8_lossy_owned;
 pub(crate) mod manual_partition;
 pub(crate) mod manual_path_is_empty;
 pub(crate) mod manual_retain_back;
+pub(crate) mod manual_set_operator;
 pub(crate) mod manual_slice_as_array;
 pub(crate) mod manual_type_changing_struct_update;
 pub(crate) mod manual_upcast;

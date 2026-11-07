@@ -1,5 +1,5 @@
 import { atomic } from '@rasm/database';
-import { unavailable } from '@rasm/hosting';
+import { HostingError } from '@rasm/hosting';
 import { Array, Effect, Function, Match, Schema, SchemaGetter } from 'effect';
 import { HttpApiBuilder, HttpApiSchema } from 'effect/http-api';
 import { SqlClient, SqlSchema } from 'effect/sql';
@@ -41,7 +41,7 @@ const readDocument = Effect.fn('readDocument')(
             }),
         }),
         Effect.catchTag('NoSuchElementError', Effect.die),
-        Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
+        Effect.catchTag(['SqlError', 'SchemaError'], HostingError.unavailable),
     ),
 );
 const storeDraft = SqlSchema.findOne({
@@ -75,7 +75,7 @@ const writeDocument = Effect.fn('writeDocument')(
         );
     },
     Effect.catchTag('NoSuchElementError', Effect.die),
-    Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
+    Effect.catchTag(['SqlError', 'SchemaError'], HostingError.unavailable),
 );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -5,11 +5,9 @@
     "description": "Background agent control of Adobe applications",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
-        "#/package.json": "./package.json"
+        "#/*": "./*"
     },
     "exports": {
-        ".": "./atelier-link.ts",
         "./plugin.config": "./plugin.config.ts"
     },
     "bin": "./main.ts",

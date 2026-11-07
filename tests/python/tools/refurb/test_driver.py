@@ -1,10 +1,10 @@
 """Source decoding, traversal, and diagnostic ownership across checker runs."""
 
+from os import devnull
+from sys import getrecursionlimit
 from textwrap import dedent
 lazy from itertools import chain, repeat
-lazy from os import devnull
 lazy from pathlib import Path
-lazy from sys import getrecursionlimit
 
 from mypy.errorcodes import ASSIGNMENT, ErrorCode, SYNTAX
 import pytest
@@ -12,12 +12,11 @@ from refurb.error import Error
 from refurb.settings import load_settings
 lazy import msgspec
 lazy from mypy.nodes import MypyFile
-lazy from refurb.checks.readability.no_copy_with_merge import ErrorInfo as MergeError
-lazy from refurb.checks.readability.no_len_cmp import ErrorInfo as LengthError
+lazy from refurb.checks.readability import no_copy_with_merge, no_len_cmp
 
-from tools.refurb.__main__ import checked
 from tools.refurb.defaults import ErrorRestatedDefaultError
 lazy from tests.python.tools.refurb.conftest import Findings
+lazy from tools.refurb.__main__ import checked
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -59,7 +58,7 @@ def test_findings_keep_source_filename(tmp_path: Path) -> None:
         path.write_text("def read(*, width: int = 80) -> int:\n    if len([width]) == 0:\n        return 0\n    return width\nread(width=80)\n", encoding="utf-8")
     found = checked(load_settings(list(map(str, paths))))
     assert [(error.filename, error.line) for error in found if isinstance(error, ErrorRestatedDefaultError)] == [(str(path), 5) for path in paths]
-    assert [(error.filename, error.line) for error in found if isinstance(error, LengthError)] == [(str(path), 2) for path in paths]
+    assert [(error.filename, error.line) for error in found if isinstance(error, no_len_cmp.ErrorInfo)] == [(str(path), 2) for path in paths]
 
 
 def test_driver_visits_a_deep_expression_without_losing_its_tail(tmp_path: Path) -> None:
@@ -97,7 +96,7 @@ def test_repeated_runs_keep_all_nested_merge_findings(tmp_path: Path) -> None:
     path = tmp_path / "merge.py"
     path.write_text("combined = dict(a=1).copy() | {'b': 2} | dict(c=3).copy()\n", encoding="utf-8")
     for _ in range(2):
-        assert [(error.line, error.column) for error in checked(load_settings([str(path)])) if isinstance(error, MergeError)] == [(1, 11), (1, 41)]
+        assert [(error.line, error.column) for error in checked(load_settings([str(path)])) if isinstance(error, no_copy_with_merge.ErrorInfo)] == [(1, 11), (1, 41)]
 
 
 def test_inline_source_keeps_findings_ignores_and_debug() -> None:

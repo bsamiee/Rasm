@@ -13,8 +13,11 @@ using Grasshopper2.Undo.Actions;
 namespace Rasm.Grasshopper.Doc;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Edits {
+
     // --- [HISTORY]
+
     public static IO<A> Commit<A>(Document document, VerbNoun name, Func<ActionList, IO<A>> body) =>
         from actions in IO.lift(static () => ActionList.Empty)
         from value in body(actions).Catch(error => Closed(document, actions, name, record => record.Undo(document)) >> IO.fail<A>(error)).As()
@@ -73,7 +76,8 @@ public static class Edits {
             if (record.Response.HasFlag(Effects.ExpireDisplay) || record.Response.HasFlag(Effects.InvalidateDisplay)) document.Display.UpdateDisplay();
         }));
 
-    // --- [GRAPH]
+    // --- [GRAPHS]
+
     public static IO<Unit> Connect(IParameter source, IParameter target, ActionList actions, int atSource = int.MaxValue, int atTarget = int.MaxValue) =>
         from shared in IO.lift(() => GrasshopperFault.Unless(source.Document is not null && source.Document == target.Document, GrasshopperReason.Invalid, (source.Nomen.Name, target.Nomen.Name)))
         from wired in IO.lift(() => target.Inputs.Forwards.Contains(source.InstanceId) && source.Outputs.Forwards.Contains(target.InstanceId)

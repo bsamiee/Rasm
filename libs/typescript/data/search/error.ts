@@ -1,10 +1,12 @@
+import uFuzzy from '@leeoniya/ufuzzy';
 import { Array, Effect, Equivalence, Function, flow, Option, Predicate, pipe, Schema } from 'effect';
-import { rank } from '#/rank';
+import { Digits } from '#/digits.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const COLLATOR = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'accent' });
 const LISTING = new Intl.ListFormat('en');
+const FUZZY = new uFuzzy({ intraMode: 1, unicode: true, interSplit: "[^\\p{L}\\p{Nd}']+", interBound: '[^\\p{L}\\p{Nd}]', intraSplit: '\\p{Ll}\\p{Lu}', intraBound: '\\p{L}\\p{Nd}|\\p{Nd}\\p{L}|\\p{Ll}\\p{Lu}', intraChars: "[\\p{L}\\p{Nd}']", intraContr: "'\\p{L}{1,2}\\b" });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -14,6 +16,10 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
     candidates: Schema.Array(Schema.String).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
 }) {
     static readonly named = Equivalence.make((left: string, right: string) => COLLATOR.compare(left, right) === 0);
+    static readonly rank = (query: string, candidates: readonly string[]): readonly string[] => {
+        const [found, info, order] = FUZZY.search(candidates.map(Digits.fold), Digits.fold(query), 0, Number.POSITIVE_INFINITY);
+        return found === null ? candidates : (info === null ? found : order.map((position) => Array.getUnsafe(info.idx, position))).map((index) => Array.getUnsafe(candidates, index));
+    };
     static readonly #shown = <A>(candidates: readonly A[], names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): readonly string[] => Array.dedupe(Array.map(candidates, flow(names, Array.headNonEmpty)));
     static readonly matching: {
         <A>(subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): (candidates: Iterable<A>) => Effect.Effect<readonly A[], Unmatched>;
@@ -45,7 +51,7 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
         const refused = `No ${this.subject}${Option.match(this.query, { onNone: () => '', onSome: (query) => ` matching ${query}` })}`;
         const shown = pipe(
             this.query,
-            Option.map((query) => rank(query, this.candidates)),
+            Option.map((query) => Unmatched.rank(query, this.candidates)),
             Option.filter(Array.isReadonlyArrayNonEmpty),
             Option.getOrElse(() => this.candidates),
             Array.take(listed),

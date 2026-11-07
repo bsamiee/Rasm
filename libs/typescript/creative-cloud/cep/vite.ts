@@ -10,8 +10,8 @@ import { load } from 'cheerio';
 import { Array, Effect, FileSystem, flow, Record, Struct } from 'effect';
 import { build, type Plugin } from 'rolldown';
 import { type ConfigEnv, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { ExtensionManifest } from '#/extension-manifest';
-import { lower } from '#/lower';
+import { lower } from '#/lower.ts';
+import { ExtensionManifest } from '#/manifest.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -53,9 +53,9 @@ const faceIcons = Effect.fnUntraced(function* (glyph: string) {
     const folder = 'icons';
     const size = 23;
     const files = yield* Effect.forEach(
-        Array.cartesian(Record.toEntries(ExtensionManifest.inks), SCALES),
-        Effect.fnUntraced(function* ([[name, ink], { factor, suffix }]) {
-            return { fileName: `${folder}/${name}${suffix}.png`, source: yield* paint(glyph, ink, size * factor) };
+        Array.cartesian(Record.toEntries(ExtensionManifest.fills), SCALES),
+        Effect.fnUntraced(function* ([[name, fill], { factor, suffix }]) {
+            return { fileName: `${folder}/${name}${suffix}.png`, source: yield* paint(glyph, fill, size * factor) };
         }),
         { concurrency: 'unbounded' },
     );
@@ -98,7 +98,7 @@ const cep = (directory: string, { host, script: hostScript, parameters, config =
                 },
             } satisfies Rolldown.Plugin;
             return mergeConfig(
-                bundle({
+                bundle(directory, {
                     builder: { sharedConfigBuild: true },
                     define: link === undefined ? {} : (yield* dialed(link)).define,
                     build: { rolldownOptions: { preserveEntrySignatures: 'exports-only', output: { format: 'iife' } } },

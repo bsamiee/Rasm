@@ -286,14 +286,15 @@ fn placed(surface: &mut Surface<'_>, content: &Content, placement: Placement, op
 fn fill(color: &Color, opacity: Opacity, rule: FillRule) -> Fill { Fill { paint: paint(color), opacity: normalized(opacity), rule } }
 
 fn paint(color: &Color) -> Paint {
-    let inks = |ink: &rasm_linework::Cmyk| cmyk::Color::new(ink.cyan, ink.magenta, ink.yellow, ink.black);
+    let cmyk_color = |value: &rasm_linework::Cmyk| cmyk::Color::new(value.cyan, value.magenta, value.yellow, value.black);
     match color {
         Color::Srgb(value) => {
             let [red, green, blue, _] = value.to_rgba8().to_u8_array();
             rgb::Color::new(red, green, blue).into()
         }
-        Color::Cmyk(ink) => inks(ink).into(),
-        Color::Spot { name, tint, alternate } => color::Color::from(separation::Color::new(*tint, SeparationSpace::new(SeparationColorant::Custom(name.to_string()), inks(alternate).into()))).into(),
+        Color::Cmyk(value) => cmyk_color(value).into(),
+        Color::Spot { name, tint, alternate } =>
+            color::Color::from(separation::Color::new(*tint, SeparationSpace::new(SeparationColorant::Custom(name.to_string()), cmyk_color(alternate).into()))).into(),
     }
 }
 

@@ -49,6 +49,8 @@ if TYPE_CHECKING:
 class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Render queue commands, status timer, section with its progress row, and the preference its setup commands sit beside, each frame running through `render` and each plan revised through `planning`."""
 
+    # --- [STATE]
+
     sets: RenderSet[C]
     render: Render = native
     planning: Option[Callable[[Identity, Plan], Outcome[Plan]]] = Nothing
@@ -100,11 +102,6 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
         return tuple(Operator.of(Empty, icon=Some(icon), options=frozenset())(BoundBody(self.bound, step)) for step, icon in steps)
 
     # --- [BINDING]
-
-    @property
-    def prerequisites(self) -> tuple[Declaration, ...]:
-        """Queue store, session state, and render productions with render set, frame size, and routing bindings read."""
-        return (self.record, QUEUES, RENDER_ORIGINS, *self.sets.prerequisites, FrameSize.attachment, *RoutingRow.prerequisites)
 
     def bound(self, identity: Identity) -> Outcome[Dispatcher]:
         """Binds dispatcher to identity stores, render sets, routing, render, planning, and queue preference."""
@@ -170,6 +167,11 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
         return Preference(key=self.key, form=QueuePreferences, rows=(rows.Layout(rows=tuple(rows.OperatorButton(target=command) for command in self.setup), container=Some(rows.aligned)),))
 
     # --- [REGISTRATION]
+
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Queue store, session state, and render productions with render set, frame size, and routing bindings read."""
+        return (self.record, QUEUES, RENDER_ORIGINS, *self.sets.prerequisites, FrameSize.attachment, *RoutingRow.prerequisites)
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Registers commands and native queue observation across file loads."""

@@ -13,6 +13,7 @@ using Rhino.Render;
 namespace Darkroom.Review;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record RenderingState(Guid Session, string Engine, Guid EngineId, Duration Elapsed, Option<string> Note) {
     internal static readonly JsonTypeInfo<RenderingState> Info = ArchivableDictionaries.Info<RenderingState>();
 }
@@ -32,7 +33,11 @@ public sealed record Rendering(Rimage Image, PixelExtent Extent, Instant Saved, 
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public static class RenderHistory {
+
+    // --- [STATE]
+
     private sealed record Ledger(Option<string> Folder, HashMap<string, Rendering> Renderings) {
         public static Ledger Empty { get; } = new(None, HashMap<string, Rendering>());
     }
@@ -40,7 +45,8 @@ public static class RenderHistory {
     private static readonly AsyncSemaphore Recording = new(1);
     private static readonly Ref<Ledger> Held = Ref(Ledger.Empty);
 
-    // --- [ACQUISITION]
+    // --- [REGISTRATION]
+
     public static IO<Unit> Load { get; } =
         from recording in use(static () => Recording)
         from saved in Subscriptions.On<ImageFileEventArgs>(static h => ImageFile.Saved += h, static h => ImageFile.Saved -= h).Attach(static args => Forked(Saved(args)))
@@ -49,6 +55,7 @@ public static class RenderHistory {
         select unit;
 
     // --- [READS]
+
     public static HostEvent<Unit> Changed { get; } = Subscriptions.Changed(Held).Choose(static _ => Some(unit));
 
     public static IO<Seq<Rendering>> Renderings =>
@@ -57,6 +64,7 @@ public static class RenderHistory {
         select toSeq(ledger.Renderings.Values.OrderByDescending(static rendering => rendering.Saved).ThenBy(static rendering => rendering.Image.FileName, StringComparer.Ordinal)).Take(keep);
 
     // --- [WRITES]
+
     public static IO<Rendering> Annotated(Rendering rendering, Option<string> note) =>
         (from entered in use(IO.liftAsync(static environment => Recording.EnterAsync(environment.Token)))
          from state in IO.lift(rendering.State.ToFin(new DarkroomFault((FormattableString)$"render state of {rendering.Image.FileName}", DarkroomReason.Missing)))
@@ -73,6 +81,7 @@ public static class RenderHistory {
     private static IO<Ledger> Swapped(Func<Ledger, Ledger> change) => atomicIO(() => Held.Swap(change));
 
     // --- [EVENTS]
+
     private static IO<Unit> Forked(IO<Unit> work) => work.Fork().Bind(static forked => forked.Await);
 
     private static IO<Unit> Saved(ImageFileEventArgs args) =>
@@ -96,6 +105,7 @@ public static class RenderHistory {
         select unit;
 
     // --- [FILES]
+
     private static IO<Unit> Scanned(string folder) =>
         (from entered in use(IO.liftAsync(static environment => Recording.EnterAsync(environment.Token)))
          from fileNames in IO.lift(() => toSeq(Directory.EnumerateFiles(folder, "*.rimage")).Strict())

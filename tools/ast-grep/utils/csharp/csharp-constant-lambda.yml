@@ -7,7 +7,7 @@ utils:
         any:
             - kind: boolean_literal
             - kind: default_expression
-              not: {has: {field: type, not: {kind: predefined_type, regex: '^bool$'}}}
+              not: {has: {field: type, not: {pattern: bool}}}
     literal-operand:
         any:
             - matches: literal

@@ -196,7 +196,7 @@ def export_cdl(call: Call[Exported]) -> Outcome[Answer]:
     )
 
 
-# --- [LOOKUP]
+# --- [LOOKUPS]
 
 
 def _parts(identity: Identity, record: Lookup, config: PyOpenColorIO.Config) -> Outcome[_Parts]:
@@ -237,7 +237,6 @@ lookup: Final = CompositorEffect(
     source=FromFile(extensions=LutFormat.readable_suffixes, of=lambda path: Lookup(source=path)),
     registers=(TILES, Operator(form=Named, run=lookup_reload)),
 )
-
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

@@ -130,7 +130,8 @@ pub struct Run {
 }
 
 impl Run {
-    // --- [LIFETIME]
+    // --- [LIFECYCLE]
+
     pub async fn execute<Output, Failure>(
         output_root: &Path,
         budget: Duration,
@@ -242,6 +243,7 @@ impl Run {
     }
 
     // --- [PATHS_AND_TIME]
+
     #[must_use]
     pub fn directory(&self) -> &Path { &self.directory }
 
@@ -254,6 +256,7 @@ impl Run {
     pub async fn cancelled(&self) { self.stopping.cancelled().await; }
 
     // --- [PROCESSES]
+
     pub async fn command(&self, mut command: Command, active_case: Option<&Path>) -> io::Result<NonZero<u32>> {
         let program = PathBuf::from(command.as_std().get_program());
         let stem = program.file_stem().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "program has no file name"))?;
@@ -326,6 +329,7 @@ impl Run {
     }
 
     // --- [EVIDENCE]
+
     pub async fn record(&self, name: &str, details: impl Serialize) -> io::Result<()> { self.append(name, details, None).await }
 
     pub async fn fault(&self, name: &str, details: impl Serialize, error: &str) -> io::Result<()> {

@@ -46,7 +46,6 @@ class Mode(Enum):
 
 type _Wipe = tuple[Compare, Rect, tuple[float, float]]
 
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _MODES: Final = enum_choices(Mode)
@@ -164,13 +163,13 @@ class CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
 class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Before frame over images of `kinds` under each screen's compare, with its split handle, header toggles, and show, mirror, and swap commands."""
 
+    # --- [STATE]
+
     key: Key
     icon: Icon
     read: Callable[[Identity, Metrics], Outcome[Option[Texture[tuple[str, str]]]]]
     kinds: tuple[str, ...] = ("RENDER_RESULT",)
     refreshes: Callable[[Identity], tuple[Refresh, ...] | Outcome[tuple[Refresh, ...]]] = lambda _identity: ()
-
-    # --- [STATE]
 
     @cached_property
     def state(self) -> Attachment[Compare]:
@@ -221,7 +220,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Command swapping the sides, keyed `swap_<key>`."""
         return Operator.of(Empty, condition=Some(self.shown), options=frozenset(), icon=Some("ARROW_LEFTRIGHT"), named=Some(f"swap_{self.key}"))(self.swap_sides)
 
-    # --- [HANDLE]
+    # --- [HANDLES]
 
     @staticmethod
     def compared(attached: Attached[Compare], context: bpy.types.Context) -> Option[Compare]:
@@ -262,7 +261,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         return self.wiped(attached, context).starmap(split).default_value(Ok(None))
 
-    # --- [ROWS]
+    # --- [SECTIONS]
 
     @property
     def header(self) -> tuple[Layout]:

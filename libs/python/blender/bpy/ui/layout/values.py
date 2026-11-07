@@ -118,6 +118,8 @@ class _Lock(bpy.types.PropertyGroup):
 class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict=True):
     """Preset catalog applying, saving, importing, exporting, replacing, renaming, deleting, and stepping through presets of the current values."""
 
+    # --- [STATE]
+
     preset: Preset[T]
     current: Callable[[bpy.types.Context], Outcome[T]]
     matches: Callable[[bpy.types.Context, tuple[T, ...]], Outcome[tuple[bool, ...]]]
@@ -214,7 +216,7 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
         )
         return paired(_user(self.preset, identity, stem), free).bind(lambda pair: self.preset.renamed(*pair)).map(lambda _: operators.Done())
 
-    # --- [ROW]
+    # --- [DRAWING]
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the stepping, save, and import buttons beneath the entries read each redraw."""
@@ -239,6 +241,8 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
                 identity.reports.faulted(operator_button(line, identity, Placement(commands[command], chosen), {"text": "", "icon": command.icon}))
         layout.separator()
         footer(layout.row(align=True), holder, context)
+
+    # --- [REGISTRATION]
 
     def acquisitions(self, _identity: Identity, /) -> Acquisitions:
         """Acquires the extension preset path and the command operators."""
@@ -296,6 +300,8 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
 
     `fields` replace the property rows a section draws for the named form members.
     """
+
+    # --- [STATE]
 
     attachment: Attachment[_T_co]
     host: Option[Member] = Nothing
@@ -424,7 +430,7 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
             .map(lambda change: change.default_value(operators.Unchanged(reason="No value changed")))
         )
 
-    # --- [ROW]
+    # --- [DRAWING]
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the preset catalog, member locks, clipboard and history steps, and one restore and forget row per history entry."""
@@ -476,6 +482,8 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
                 )
             )
 
+    # --- [REGISTRATION]
+
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
         """Acquires the command operators and the preset catalog over the bound attachment."""
         return self.listing(identity).map(lambda listing: (*self.commands.values(), *listing.to_list()))
@@ -483,7 +491,7 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [NAMING]
+# --- [NAMES]
 
 
 def menu_key[T: msgspec.Struct](preset: Preset[T], /) -> Key:

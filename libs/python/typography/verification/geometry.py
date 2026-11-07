@@ -14,7 +14,7 @@ lazy from pathops import PathOp
 
 lazy from typography.faces.glyphs import Joining, Outline, Side
 lazy from typography.faces.names import GlyphName
-lazy from typography.outlines.measure import column_ink, gap
+lazy from typography.outlines.measure import column_coverage, gap
 lazy from typography.outlines.paths import area, bounds, Box, combined, iou, meets, offset, pieces, transformed, union
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.runs import Binary
@@ -24,6 +24,7 @@ lazy from typography.shaping.runs import Binary
 type Breach = tuple[str, float | str, float | str]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [EXTENTS]
 
 
@@ -51,9 +52,9 @@ def _split(binary: Binary, nuqta: float, glyph: str, /) -> tuple[Outline, tuple[
 
 
 def _letter(binary: Binary, form: str, language: str, /) -> str:
-    """Inked glyph the letter of a form run shapes to, the joiners before it and the marks after it passed over."""
+    """Drawn glyph the letter of a form run shapes to, the joiners before it and the marks after it passed over."""
     cluster = len(form.encode()) - len(form.lstrip("\N{ZERO WIDTH JOINER}").encode())
-    return next((placed.glyph for placed, _ in binary.inked(form, language) if placed.cluster == cluster and placed.glyph not in binary.marks), binary.order[0])
+    return next((placed.glyph for placed, _ in binary.placed_extents(form, language) if placed.cluster == cluster and placed.glyph not in binary.marks), binary.order[0])
 
 
 # --- [MARKS]
@@ -73,19 +74,19 @@ def clearance(binary: Binary, corpus: Corpus, floor: float, /) -> tuple[Breach, 
     split, boxes, minimum = cache(partial(_split, binary, _nuqta(binary))), cache(bounds), floor * binary.face.upem
 
     @cache
-    def grown(ink: Outline, reach: float, /) -> Outline:
-        return offset(ink, reach) if reach else ink
+    def grown(outline: Outline, reach: float, /) -> Outline:
+        return offset(outline, reach) if reach else outline
 
     def clashes(text: str, language: str, /) -> tuple[tuple[tuple[str, ...], float, float], ...]:
-        inked, held = binary.inked(text, language), binary.marks
+        extents, held = binary.placed_extents(text, language), binary.marks
         return tuple(  # ty: ignore[unsound-return-statement]
             (tuple(sorted((placed.glyph, other.glyph))), apart / binary.face.upem, reach / binary.face.upem)
             for placed, piece, reaches in (
-                *((placed, binary.outline(placed.glyph), (minimum, 0.0)) for placed, _ in inked if placed.glyph in held),
-                *((placed, piece, (0.0, None)) for placed, _ in inked if placed.glyph not in held for piece in split(placed.glyph)[1]),
+                *((placed, binary.outline(placed.glyph), (minimum, 0.0)) for placed, _ in extents if placed.glyph in held),
+                *((placed, piece, (0.0, None)) for placed, _ in extents if placed.glyph not in held for piece in split(placed.glyph)[1]),
             )
             if (box := boxes(piece))
-            for other, extent in inked
+            for other, extent in extents
             if other is not placed
             and (reach := reaches[other.cluster == placed.cluster]) is not None
             and box.shifted(placed.x, placed.y).grown(reach) & extent
@@ -108,7 +109,7 @@ def mark_line(binary: Binary, corpus: Corpus, tolerance: float, /) -> tuple[Brea
             for code in corpus.letters
             for language in corpus.languages
             for index, form in enumerate(corpus.forms(code))
-            if len(bottoms := tuple(box.ymin for stack in above for placed, box in binary.inked(corpus.forms(code, stack)[index], language) if placed.glyph in held)) > 1
+            if len(bottoms := tuple(box.ymin for stack in above for placed, box in binary.placed_extents(corpus.forms(code, stack)[index], language) if placed.glyph in held)) > 1
             and (spread := max(bottoms) - min(bottoms)) > tolerance * binary.face.upem
         )
     )
@@ -117,8 +118,8 @@ def mark_line(binary: Binary, corpus: Corpus, tolerance: float, /) -> tuple[Brea
 # --- [LETTERS]
 
 
-def ligature_ink(binary: Binary, ratio: float, /) -> tuple[Breach, ...]:
-    """Ink of each GSUB ligature against its components' summed ink and its span against its advance, zero references meeting either bound."""
+def ligature_area(binary: Binary, ratio: float, /) -> tuple[Breach, ...]:
+    """Filled area of each GSUB ligature against its components' summed area and its span against its advance, zero references meeting either bound."""
     font = binary.tables
     ligatures = dict.fromkeys(
         (rule.LigGlyph, (first, *rule.Component))
@@ -134,7 +135,7 @@ def ligature_ink(binary: Binary, ratio: float, /) -> tuple[Breach, ...]:
             for glyph, parts in ligatures
             for target in (binary.order[font.getGlyphID(glyph)],)
             for whole, box in ((math.fsum(area(binary.outline(binary.order[font.getGlyphID(part)])) for part in parts), binary.extent(target)),)
-            for measure, measured, reference in (("ink", area(binary.outline(target)), whole), ("span", box.width if box else 0.0, font["hmtx"][glyph][0]))
+            for measure, measured, reference in (("area", area(binary.outline(target)), whole), ("span", box.width if box else 0.0, font["hmtx"][glyph][0]))
             if measured < ratio * reference
             for value in (measured / reference,)
         )
@@ -208,7 +209,7 @@ def join_parity(binary: Binary, corpus: Corpus, /) -> tuple[Breach, ...]:
 
 
 def seam(binary: Binary, corpus: Corpus, band: tuple[float, float], sizes: tuple[int, ...], /) -> tuple[Breach, ...]:
-    """Ink of each seam column composited glyph by glyph against the merged outline, per pixel cell at each size, held inside a band.
+    """Filled area of each seam column composited glyph by glyph against the merged outline, per pixel cell at each size, held inside a band.
 
     Args:
         binary: Build to shape.
@@ -220,7 +221,7 @@ def seam(binary: Binary, corpus: Corpus, band: tuple[float, float], sizes: tuple
         The lowest and highest column ratio of each line and size outside the band.
     """
 
-    def ratios(inks: tuple[tuple[Outline, Box], ...], box: Box, size: int, /) -> tuple[float, ...]:
+    def ratios(outlines: tuple[tuple[Outline, Box], ...], box: Box, size: int, /) -> tuple[float, ...]:
         unit = binary.face.upem / size
         bottom, top = math.floor(box.ymin / unit), math.ceil(box.ymax / unit)
         rows = top - bottom
@@ -228,9 +229,9 @@ def seam(binary: Binary, corpus: Corpus, band: tuple[float, float], sizes: tuple
             composited / whole
             for column in range(math.floor(box.xmin / unit), math.ceil(box.xmax / unit))
             for strip in (Box(xmin=column * unit, ymin=bottom * unit, xmax=(column + 1) * unit, ymax=top * unit),)
-            if len(parts := tuple(part for ink, extent in inks if extent & strip and (part := combined(ink, (strip.contour,), PathOp.INTERSECTION)))) > 1
-            if (whole := math.fsum(column_ink(union(*parts), strip, rows, "y")))
-            for composited in (math.fsum(1 - math.prod(1 - cell for cell in row) for row in zip(*(column_ink(part, strip, rows, "y") for part in parts), strict=False)),)
+            if len(parts := tuple(part for outline, extent in outlines if extent & strip and (part := combined(outline, (strip.contour,), PathOp.INTERSECTION)))) > 1
+            if (whole := math.fsum(column_coverage(union(*parts), strip, rows, "y")))
+            for composited in (math.fsum(1 - math.prod(1 - cell for cell in row) for row in zip(*(column_coverage(part, strip, rows, "y") for part in parts), strict=False)),)
         )
 
     return tuple(
@@ -238,15 +239,15 @@ def seam(binary: Binary, corpus: Corpus, band: tuple[float, float], sizes: tuple
         for text in corpus.seam
         for runs in (
             tuple(
-                (inks, box)
+                (outlines, box)
                 for language in corpus.languages
-                for inks in (tuple((transformed(binary.outline(placed.glyph), Offset(placed.x, placed.y)), extent) for placed, extent in binary.inked(text, language)),)
-                for box in (_hull(extent for _, extent in inks),)
+                for outlines in (tuple((transformed(binary.outline(placed.glyph), Offset(placed.x, placed.y)), extent) for placed, extent in binary.placed_extents(text, language)),)
+                for box in (_hull(extent for _, extent in outlines),)
                 if box is not None
             ),
         )
         for size in sizes
-        for found in (tuple(*ratios(inks, box, size) for inks, box in runs),)
+        for found in (tuple(*ratios(outlines, box, size) for outlines, box in runs),)
         for measured, limit, side in ((min(found, default=1.0), band[0], 1), (max(found, default=1.0), band[1], -1))
         if side * (measured - limit) < 0
     )
@@ -268,7 +269,7 @@ def metrics(binary: Binary, original: Binary, corpus: Corpus, pitch: tuple[float
         pitch: Least and greatest line pitch in em, `None` for the original's pitch.
 
     Returns:
-        The line pitch outside its band and each win metric short of the ink.
+        The line pitch outside its band and each win metric short of the outline extent.
     """
     upm, line, os2 = binary.face.upem, _pitch(binary), binary.tables["OS/2"]
     low, high = pitch or (_pitch(original),) * 2
@@ -279,8 +280,8 @@ def metrics(binary: Binary, original: Binary, corpus: Corpus, pitch: tuple[float
             (text, box)
             for text in (*corpus.lines, *corpus.matrix)
             for language in corpus.languages
-            for inked in (binary.inked(text, language),)
-            if all(placed.glyph != binary.order[0] for placed, _ in inked) and (box := _hull(extent for _, extent in inked))
+            for extents in (binary.placed_extents(text, language),)
+            if all(placed.glyph != binary.order[0] for placed, _ in extents) and (box := _hull(extent for _, extent in extents))
         ),
     )
     top, bottom = max(extents, key=lambda extent: extent[1].ymax, default=None), min(extents, key=lambda extent: extent[1].ymin, default=None)
@@ -308,4 +309,4 @@ def reachable(binary: Binary, corpus: Corpus, shapers: tuple[str, ...], /) -> tu
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Breach", "clearance", "distinct", "identity", "join_parity", "ligature_ink", "mark_line", "metrics", "reachable", "seam"]
+__all__ = ["Breach", "clearance", "distinct", "identity", "join_parity", "ligature_area", "mark_line", "metrics", "reachable", "seam"]

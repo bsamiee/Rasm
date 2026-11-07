@@ -1,5 +1,5 @@
 import { SourceMap } from 'node:module';
-import { HostError } from '@rasm/automation/error';
+import { HostError } from '@rasm/automation';
 import { type JscTarget, transformSync } from '@swc/wasm';
 import { parse } from 'acorn';
 import { simple } from 'acorn-walk';

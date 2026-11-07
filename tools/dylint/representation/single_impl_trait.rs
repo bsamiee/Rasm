@@ -23,6 +23,8 @@ pub(crate) struct Pass {
 
 lint!(default Pass; SINGLE_IMPL_TRAIT: "crate-private traits with one implementor");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
         if let ItemKind::Trait { .. } = item.kind

@@ -18,6 +18,9 @@ Code treats each crate as part of the language:
 - Packages and hosts are used directly, with no layer that restates or wraps them, and a conversion between packages' types is no such layer
 - Every type, export, and helper states something nothing else does
 - Deep nesting reshapes into a match over the discriminant, a table, or a relation
+- Error cases exist where a caller branches on them, every other failure joins its owner's error
+- Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
+- Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
 - Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 - Varying values and methods are parameters, a caller choosing among a result's methods (percentile or BCa) in place of a callee fixing the costlier
 
@@ -45,10 +48,13 @@ Function signatures are contracts, parameter types state every value a function 
 - Shares, locks, imports, and nightly features one configuration reads sit under its `cfg` or `cfg_attr`, the plain owned value standing elsewhere
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), a table holds only values no rule derives
 - Facts a dependency or the build states come from it, a protocol version from its package's constant and a crate name from `env!("CARGO_PKG_NAME")`
+- Facts a loaded handle answers (`subtypes_for_supertype`) are asked of it, never decoded from a file it generated
+- Packages are called through their public API at the installed release, a private member's fact stated once at its owner with its pinned source
+- Package members composing stages (`regex_syntax::Parser::parse` parsing then translating) replace the stages where no step reads the intermediate value
 - Field defaults a dependency states only on a value with drop glue (`Stroke::new(width).join`) stay literals, a const default being unable to drop it
 - Values an input holds (a mesh's cached `local_aabb`) are read from it by the step using them, never recomputed
 - Steps read the value they name, never a summary beside it (a filter's root level, not its most verbose directive)
-- Values describing an output (a resampled rate) derive from the output produced, never from the request it rounds
+- Values describing an output (a resampled rate, a translated class's character set) derive from it, never from the request or a call flag
 - Strings hold text a person reads or a wire's fixed token, a kind, key, or name derives from its owner (a type, a member, a clap `Arg`)
 - Choices a caller names are an enum parameter, `bool` holds a computed fact
 - Data sits in structs and enums, behavior in functions, and an inherent method exists only where it keeps its type's invariant
@@ -102,8 +108,10 @@ pub fn profile(readings: &[Reading]) -> Profile {
 - Iterator pipelines hold every traversal, a named adapter (`minmax`, `counts_by`, `unique_by`, `coalesce`, `dedup`) in place of a `fold` or a buffer pass (`Vec::dedup`, `sort`, `retain`)
 - Orders a source keeps (`Acyclic::nodes_iter`) are read in place of a sort
 - `fold` holds a reduction no member names, never a side collection a second pass zips back by index
+- Set operations yielding a set take their operator (`&held & &stated`, `|`, `-`, `^`) in place of `intersection(..).copied().collect()`
 - Adjacent pairs (`array_windows`, `map_windows`, `circular_tuple_windows` closing a ring) and a bounded range per pair (`series` under `take_while`) state a step reading its predecessor
 - Values depending on more than one subject come from one `match` over their tuple or an arm guard, and a subject one arm alone reads sits in its guard
+- Tuple scrutinees evaluate every member before the match, a member with a side effect sits in a `let` chain ahead of it
 - Steps every arm shares (reversing a graph for a direction) run once before the `match`
 - Arms and closures of a combinator choosing a value (`map_or`, `map_or_else`, `unwrap_or_else`, `Some(x).filter(p).unwrap_or_else(f)`) nest no decision
 - `let ... else` binds a refutable pattern and diverges otherwise, `if let` chains join conditions and bindings in one test
@@ -111,7 +119,7 @@ pub fn profile(readings: &[Reading]) -> Profile {
 - Side effects under an `Option` or condition run in `if let` or `if`, in place of `into_iter().for_each`, a flattened `bool::then`, or an item-blind `filter`
 - `Option::is_some_and`, `Option::is_none_or`, and `map_or_default` test or project a present value in one call, `Result::is_ok_and` and `is_err_and` test a result without `ok()` discarding its error
 - Builder steps over an `Option` or iterator fold its items into the builder with the method path as the step (`limit.map(NonZero::get).into_iter().fold(builder, Builder::limit)`), a fallible setter through `try_fold`
-- `&mut` setters over `Option`s run as one `try_for_each` over `(value, method)` pairs, a method taking `IntoIterator` receiving the `Option` whole
+- `&mut` setters over `Option`s run as one `fold`, fallible ones one `try_for_each`, over `(value, method)` pairs, the first method cast `as fn(..)` typing the table, a method taking `IntoIterator` receiving the `Option` whole
 - `LazyCell` locals defer a value only some inputs read
 - Values built lazily per element are a `OnceLock` in the element's tuple or record, an index-matched parallel collection only under a foreign bound (kiddo `Content: Copy`)
 
@@ -131,8 +139,9 @@ pub fn notice(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> No
 }
 ```
 
-- Matches over a workspace enum list every variant in place of a forwarding catch-all (`error => Err(error)`), a new variant failing each match that handles it
+- Matches over an enum without `#[non_exhaustive]`, workspace or foreign, list every variant in place of a catch-all (`_ => Ok(())`), a new variant failing each match handling it
 - Arms read what their own pattern binds, a nested match re-reading a value its outer arm narrowed lists variants that never reach it
+- Arms no value reaches go with the shape admitting them, a type narrowed at construction in place of an `unreachable!` arm kept for a lint
 - Wildcard arms stay for a foreign `#[non_exhaustive]` enum, range arms over a primitive list each remaining range
 - Workspace struct patterns name every field, `field: _` marking one the arm ignores, and foreign structs (`#[non_exhaustive]`, wide records) take `{ field, .. }`
 - `if let` guards bind from a second refutable pattern inside an arm
@@ -156,7 +165,7 @@ Stack bounds include native callees and implicit `Drop`, `Clone`, or equality tr
 
 ## [03]-[TYPES]
 
-Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting a type's values exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts. Tuples and closures hold intermediate values no consumer names. Aliases name one generic instantiation a consumer or a module's signatures repeat (`TypedUuid<OrderKind>`), a package alias (`UnitVector3<f64>`) standing for each instantiation it names, and a removed alias leaves its target written at each use, never a package alias of another instantiation in its place.
+Types make every constructible value valid, and a consumer receives a value that needs no further check. Counting a type's values exposes unneeded states: a struct multiplies its fields' counts, an enum adds its variants' counts, `Option<T>` adds one. Std, package, and host types (`NonZero`, `Range`, `Timestamp`, `NEVec`, `EnumMap`) state most concepts. Tuples and closures hold intermediate values no consumer names, a record naming fields a person or foreign program writes. Aliases name one generic instantiation a consumer or a module's signatures repeat (`TypedUuid<OrderKind>`), a package alias (`UnitVector3<f64>`) standing for each instantiation it names, and a removed alias leaves its target written at each use, never a package alias of another instantiation in its place.
 
 ### [03.1]-[ALGEBRAIC_TYPES]
 
@@ -177,9 +186,10 @@ pub enum Delivery {
 - Data every variant shares sits in a struct beside a field holding the enum, variants sharing fields are one variant over an enum of the rest
 - Variants differing only by a tag are one struct keyed by a fieldless enum, and fields named per key (`early_start`, `late_start`) one `EnumMap`
 - Flags, `Option` fields, and `Option` tuples one state reads become one variant per valid state, a setting one variant reads sitting inside it
+- Results of more than one kind about one subject are one `Vec` of their enum, never a record holding a list or an `Option` per kind
 - `Option` fields read only together (`address.zip(port)`) are one `Option` of a record
 - Shapes a package enum states take it (`EitherOrBoth` for one side or both, `Either` for a choice), each side holding the value a consumer reads, never raw package fields
-- `Result` holds failure alone, a refused input ignored with a warning counting as one
+- `Result` holds failure alone, and a refused input is one failure, never a warning, a `filter_map` skip over a lookup, or a lookup's `None` folded into no constraint
 - Enums fit a growing set of operations, a trait fits a growing set of cases
 - Absence and failure stay separate when a consumer responds differently to each
 - Inputs owed once per element (a start per chain) arrive whole, a shortfall refused in place of a callee draw the caller cannot see
@@ -335,10 +345,12 @@ pub enum LedgerError {
 - Absent message fields render as what absence means (a package default)
 - Messages branching on a field or listing a variant's `NEVec` (a subject and `Report::new` per item) render through `#[error("{}", fmt::from_fn(..))]`, plain values through `Itertools::format` or `format_with`
 - Fields named `source` hold the typed foreign error a variant wraps, and a serializer's refusal is a variant of its `type Error` in place of `custom` text
-- Refusals the crate decides are variants naming their subject, in place of a dependency's text variant (`Other(format!(..))`) under `#[from]`
+- Refusals the crate decides are variants naming their subject, never a dependency's text variant (`Other(format!(..))`) under `#[from]` or a `FromStr` `Err = String` naming that subject
+- Text a foreign error adds beyond the variant's subject (a position, a token) is a field the message prints, a `String` filling no `#[source]`
 - Foreign errors mapping to one variant with no subject take `#[error(transparent)]` and `#[from]`, or `map_err(<Variant>)` beside a sibling holding that source with an operation
 - Zero-sized foreign errors (`SetLoggerError`) map to a unit variant through `map_err(|SetLoggerError { .. }| ..)`
 - Foreign errors holding a value (`TryFromIntError` its kind) are the `source` field of a variant naming the caller's subject
+- Foreign errors a crate keeps unnameable (a private module's parse error) reach their `source` field through `type <Name> = impl Error + Send + Sync + 'static` under `#[define_opaque]`, never erased into `Box<dyn Error>`
 - Boundaries `map_err` a foreign error into its variant beside an operation field and the subject it omits (a path or key, never a callee value)
 - Foreign errors omitting no subject reach their variant through `From` and `?`, as does the crate error a foreign call returns from a crate callback
 - Calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
@@ -350,8 +362,8 @@ pub enum LedgerError {
 - Callers convert an `NEVec` of crate errors through `into_nonempty_iter().map(E::from).collect()`
 - Functions returning `Result<_, NEVec<CrateError>>` take one `impl From<CrateError> for NEVec<CrateError>`, a single-error step lifting through `?` with no `map_err(NEVec::new)`
 - Variants over an `NEVec` filled at more than one site take one `impl From<NEVec<..>> for <Error>`, sites binding through `.ok()?`
-- Discards match each error variant they drop (`Err(EmailError::LenCharMaxViolated)`) or record the failure as an event
-- `Err(_)`, `Err(<Type> { .. })`, and `if let` on `Ok` or `Validated::Good` drop every failure unnamed, `Err(Vec { .. })` staying for a returned value that is no error
+- Discards match each error variant they drop (`Err(EmailError::LenCharMaxViolated)`, `NoContent | MultipleNode` as absence) or record the failure as an event
+- `Err(_)`, `Err(<Type> { .. })`, `is_err`, and `if let` on `Ok` or `Validated::Good` drop every failure unnamed, `Err(Vec { .. })` staying for a returned value that is no error
 - Errors of one fieldless variant (a nutype `<Name>Error`) reach `None` through `ok()`, clippy `manual_ok_err` rejecting a `match` naming it
 - Consumers branch on variants, one per cause a caller fixes (a silent reference apart from an empty window), message text is for people
 
@@ -388,7 +400,7 @@ Traits state a capability a consumer needs. Associated types state an output the
 
 Static dispatch can duplicate code across instantiations; dynamic dispatch supports runtime selection. Native planners returning `Arc<dyn Fft<T>>` can select SIMD implementations that a replacement scalar implementation loses.
 
-- Async capabilities reaching `Send`-required tasks declare `-> impl Future<Output = T> + Send`; other bounds follow consumers
+- Async capabilities of a public trait declare `-> impl Future<Output = T> + Send`, a crate-private trait's bounds follow its consumers
 - Implementors use `async fn`, or `ready(..)` when the body awaits no work
 - `#[auto_impl(&, Arc)]` implements a capability for its references and shared handles from one implementation
 - Associated types set to `impl Trait` name an implementor's iterator or future, a boxed `dyn Future` stays for a `dyn` consumer

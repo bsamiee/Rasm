@@ -54,6 +54,7 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Apply extends GhidraScript {
+
     // --- [ROWS]
 
     enum Kind {
@@ -315,7 +316,7 @@ public class Apply extends GhidraScript {
         };
     }
 
-    // --- [RUN]
+    // --- [EXECUTION]
 
     @Override
     public void run() throws Exception {

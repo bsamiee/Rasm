@@ -1,5 +1,5 @@
 import type { AgentStatus, EngineInterface, Register } from 'claude-code';
-import type { Instance, Routes } from '../decision.ts';
+import type { Instance, Routes } from '#/decision.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -38,19 +38,19 @@ def _ribbons(outline: Outline, start: tuple[float, float], end: tuple[float, flo
 
 
 def swept(skeleton: Outline, width: float, angle: float, /, *, closed: bool = False) -> Outline:
-    """Returns the ink of a broad nib `width` units wide held at `angle` degrees and drawn along each skeleton contour."""
+    """Returns the outline of a broad nib `width` units wide held at `angle` degrees and drawn along each skeleton contour."""
     degrees = remainder(angle, 360.0)
     half = (cosdg(degrees) * width / 2, sindg(degrees) * width / 2)  # ty: ignore[no-matching-overload]
     return union(*_ribbons(skeleton, (-half[0], -half[1]), half, closed=closed))
 
 
 def extruded(outline: Outline, vector: tuple[float, float], /) -> Outline:
-    """Returns the ink an outline covers moving along a vector, every edge swept by it, the solid a shadow face casts."""
+    """Returns the area an outline sweeps moving along a vector, every edge swept by it, the solid a shadow face casts."""
     return union(outline, transformed(outline, Offset(*vector)), *_ribbons(outline, (0.0, 0.0), vector, closed=True))
 
 
 def monoline(skeleton: Outline, width: float, /, *, closed: bool = False) -> Outline:
-    """Returns the ink of a round pen `width` units across drawn along each skeleton contour, its ends and joins the pen's own arcs."""
+    """Returns the outline of a round pen `width` units across drawn along each skeleton contour, its ends and joins the pen's own arcs."""
     path = pathops.Path()
     trace(path.getPen(), skeleton, closed=closed)
     path.stroke(width, pathops.LineCap.ROUND_CAP, pathops.LineJoin.ROUND_JOIN, 1.0)

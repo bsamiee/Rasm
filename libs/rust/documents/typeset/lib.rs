@@ -106,6 +106,7 @@ pub enum TypesetError {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 // --- [TRANSPORT]
+
 #[derive(Debug, Clone)]
 pub struct HttpDownloader(pub Client);
 
@@ -164,6 +165,7 @@ fn failure(span: &Span, error: io::Error) -> io::Error {
 }
 
 // --- [FILES]
+
 #[derive(Debug, Default)]
 pub struct Files {
     pub root: Option<FsRoot>,
@@ -214,7 +216,8 @@ fn read(root: &FsRoot, path: &VirtualPath) -> FileResult<Bytes> {
     })
 }
 
-// --- [PROJECT]
+// --- [PROJECTS]
+
 #[derive(derive_more::Debug)]
 pub struct Project<F = Box<FileStore<Files>>> {
     pub library: LazyHash<Library>,
@@ -279,6 +282,7 @@ where
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [FONTS]
+
 #[must_use]
 pub fn fonts<B>(buffers: B) -> Validated<Vec<(Font, FontInfo)>, TypesetError>
 where
@@ -305,6 +309,7 @@ where
 }
 
 // --- [INPUTS]
+
 fn decode<O>(encoded: &[u8], element: Option<usize>) -> Result<O, TypesetError>
 where O: DeserializeOwned {
     serde_path_to_error::deserialize(&mut rmp_serde::Deserializer::from_read_ref(encoded).with_human_readable()).map_err(|source| TypesetError::Deserialize { element, source })
@@ -323,7 +328,8 @@ where I: Serialize + ?Sized {
     library(inputs, project.library.features.clone(), &mut Vec::new()).map(|library| project.library = library)
 }
 
-// --- [COMPILE]
+// --- [COMPILATION]
+
 pub fn compile<T>(world: &dyn DiagnosticWorld, max_age: usize) -> Result<Warned<T>, TypesetError>
 where T: Output {
     let compiled = compiled::<T>(world);
@@ -412,6 +418,7 @@ where
 }
 
 // --- [DIAGNOSTICS]
+
 #[must_use]
 pub fn report(world: &dyn DiagnosticWorld, diagnostics: &[SourceDiagnostic], format: DiagnosticFormat) -> String {
     let detached = |diagnostic: &SourceDiagnostic| SourceDiagnostic {
@@ -460,6 +467,7 @@ fn typst_error(world: &dyn DiagnosticWorld, diagnostics: &[SourceDiagnostic]) ->
 }
 
 // --- [PACKAGES]
+
 #[must_use]
 pub fn package_closure<L>(files: &mut FileStore<L>) -> HashSet<PackageSpec>
 where L: FileLoader {

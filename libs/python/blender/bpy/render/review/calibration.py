@@ -97,6 +97,8 @@ class Calibrated(msgspec.Struct, frozen=True, kw_only=True):
 class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Scene calibration over the sampled charts `charts` edits, its fit warned past `ceiling` condition, `actions` drawn beside its file commands, its scene values seeded by `seed`."""
 
+    # --- [STATE]
+
     charts: ChartEditing
     actions: tuple[RowContent, ...] = ()
     ceiling: float = 1e4

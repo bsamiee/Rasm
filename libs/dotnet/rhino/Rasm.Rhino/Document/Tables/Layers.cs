@@ -8,6 +8,7 @@ using SuperLinq;
 namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record LayerRef {
     public sealed record Row(ComponentRef<Layer> Address) : LayerRef;
@@ -69,7 +70,11 @@ public abstract partial record LinetypeRef {
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
+
 public static class Layers {
+
+    // --- [ROWS]
+
     public static TableKind<Layer> Kind { get; } = new(
         static doc => doc.Layers,
         Layer.GetDefaultLayerProperties,
@@ -91,37 +96,6 @@ public static class Layers {
         Sort = Some<Action<RhinoDoc, Seq<int>>>(static (doc, indices) => doc.Layers.Sort(indices)),
     };
 
-    // --- [RESOLUTION]
-    public static IO<Layer> Resolve(RhinoDoc doc, LayerRef address) =>
-        address.Switch(
-            doc,
-            row: static (document, row) => Rows.Find(document.Layers, row.Address),
-            path: static (document, path) => IO.lift(() =>
-                Conversions.Present(document.Layers.FindByFullPath(path.FullPath, RhinoMath.UnsetIntIndex)).Bind(index => Optional(document.Layers.FindIndex(index)))
-                    .ToFin(new RhinoFault(path.FullPath, RhinoReason.Missing))),
-            current: static (document, _) => IO.lift(() => document.Layers.CurrentLayer));
-
-    public static IO<Option<Seq<Guid>>> Selected(RhinoDoc doc) =>
-        IO.lift(() => Conversions.Present(doc.Layers.GetSelected(out List<int> indices), toSeq(indices).Map(index => doc.Layers[index].Id).Strict()));
-
-    // --- [MERGE]
-    public static IO<Unit> Merge(RhinoDoc doc, LayerRef source, LayerRef target) =>
-        from merged in Resolve(doc, source)
-        from kept in Resolve(doc, target)
-        from acyclic in IO.lift(RhinoFault.Unless(merged.Id != kept.Id && !Below(merged, kept.Id), RhinoReason.Invalid, (merged.FullPath, kept.FullPath)))
-        from moved in new ObjectTarget.Lookup(table => table.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, IncludeLights = true, LayerIndexFilter = merged.Index }))
-            .Each(doc, found => {
-                using ObjectAttributes staged = found.Attributes.Duplicate();
-                staged.LayerIndex = kept.Index;
-                return doc.Objects.ModifyAttributes(found, staged, quiet: true);
-            })
-        from adopted in Conversions.Rows(merged.GetChildren(allChildren: false))
-            .TraverseM(child => Rows.Edit(doc, Kind, new ComponentRef<Layer>.ById(child.Id), [Rows.Set<Layer, Guid>(static row => row.ParentLayerId, static (row, id) => row.ParentLayerId = id, kept.Id)]))
-            .As()
-        from removed in Rows.Remove(doc, Kind, merged, Prune.Delete)
-        select unit;
-
-    // --- [TREE]
     private static Fin<Seq<string>> Preorder(Seq<string> keys) =>
         Products.Each(toSeq((keys.Bind(Lineage) + keys).Distinct(StringComparer.OrdinalIgnoreCase)), static (key, index) =>
                 RhinoFault.Unless(ModelComponent.IsValidComponentName(Layer.GetLeafName(key)), RhinoReason.Unqualified, key, index).Map(_ => key))
@@ -149,4 +123,36 @@ public static class Layers {
 
     private static bool Below(Layer layer, Guid candidate) =>
         Conversions.Rows(layer.GetChildren(allChildren: true)).Exists(child => child.Id == candidate);
+
+    // --- [RESOLUTION]
+
+    public static IO<Layer> Resolve(RhinoDoc doc, LayerRef address) =>
+        address.Switch(
+            doc,
+            row: static (document, row) => Rows.Find(document.Layers, row.Address),
+            path: static (document, path) => IO.lift(() =>
+                Conversions.Present(document.Layers.FindByFullPath(path.FullPath, RhinoMath.UnsetIntIndex)).Bind(index => Optional(document.Layers.FindIndex(index)))
+                    .ToFin(new RhinoFault(path.FullPath, RhinoReason.Missing))),
+            current: static (document, _) => IO.lift(() => document.Layers.CurrentLayer));
+
+    public static IO<Option<Seq<Guid>>> Selected(RhinoDoc doc) =>
+        IO.lift(() => Conversions.Present(doc.Layers.GetSelected(out List<int> indices), toSeq(indices).Map(index => doc.Layers[index].Id).Strict()));
+
+    // --- [MERGE]
+
+    public static IO<Unit> Merge(RhinoDoc doc, LayerRef source, LayerRef target) =>
+        from merged in Resolve(doc, source)
+        from kept in Resolve(doc, target)
+        from acyclic in IO.lift(RhinoFault.Unless(merged.Id != kept.Id && !Below(merged, kept.Id), RhinoReason.Invalid, (merged.FullPath, kept.FullPath)))
+        from moved in new ObjectTarget.Lookup(table => table.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, IncludeLights = true, LayerIndexFilter = merged.Index }))
+            .Each(doc, found => {
+                using ObjectAttributes staged = found.Attributes.Duplicate();
+                staged.LayerIndex = kept.Index;
+                return doc.Objects.ModifyAttributes(found, staged, quiet: true);
+            })
+        from adopted in Conversions.Rows(merged.GetChildren(allChildren: false))
+            .TraverseM(child => Rows.Edit(doc, Kind, new ComponentRef<Layer>.ById(child.Id), [Rows.Set<Layer, Guid>(static row => row.ParentLayerId, static (row, id) => row.ParentLayerId = id, kept.Id)]))
+            .As()
+        from removed in Rows.Remove(doc, Kind, merged, Prune.Delete)
+        select unit;
 }

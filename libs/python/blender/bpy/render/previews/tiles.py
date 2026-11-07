@@ -101,12 +101,12 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
     Slots name tiles within the collection.
     """
 
+    # --- [STATE]
+
     rows: OfferedEffects
     closing: Option[CompositorEffect] = Nothing
     isolated: bool = False
     preview: PreviewScene = PreviewScene()
-
-    # --- [STATE]
 
     @cached_property
     def states(self) -> Resource[defaultdict[Handle[bpy.types.Scene], _TileState]]:
@@ -279,7 +279,7 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
         )
         return paired(accumulated(erased), plans, lighting.prepared()).bind(lambda parts: scheduled(parts[1], parts[2]))
 
-    # --- [LIFECYCLE]
+    # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns tile state, previews, the queue feed, the preview scene, and the reader retaining each render's captured source Combined pass as its scene's proxy.

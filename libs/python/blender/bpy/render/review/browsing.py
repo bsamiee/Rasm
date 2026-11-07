@@ -84,6 +84,8 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     Stored and shown buffers compare through the scene's OCIO viewing pipeline; the view layer ahead of effects passes through `view`, its exposure holding any gain the effects apply.
     """
 
+    # --- [STATE]
+
     icon: Icon
     view: Callable[[Identity, bpy.types.Scene], Outcome[DisplayView]] = lambda _identity, scene: Ok(viewed(scene))
     gates: tuple[Threshold, ...] = (
@@ -395,7 +397,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Command opening the history folder."""
         return Operator.of(Empty, options=frozenset())(self.open_history_folder)
 
-    # --- [ROWS]
+    # --- [SECTIONS]
 
     def section(self) -> Section:
         """Returns the Render History section: the before frame source, the gallery, the picked render's note, the difference tint, and the command groups."""

@@ -52,7 +52,7 @@
         "hk.pkl": "analyzers.globalconfig, periphery.json, periphery.yml, pmd.xml, squawk.toml, stubtest.ini, yamllint.yaml",
         "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
         "nx.json": ".editorconfig, .shellcheckrc, sgconfig.yml",
-        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, tsconfig.web.json, vite.shared.ts, vitest.config.ts",
+        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, tsconfig.web.json, vitest.config.ts",
         "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "pixi.lock, uv.lock",
         "README.md": "LICENSE, TODO.md",

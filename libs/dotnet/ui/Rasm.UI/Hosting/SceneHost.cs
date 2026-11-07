@@ -7,8 +7,11 @@ using SkiaSharp;
 namespace Rasm.UI.Hosting;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class SceneHost : IAsyncDisposable {
+
     // --- [STATE]
+
     private sealed class Raster(SKSurface surface, SKImageInfo info, PaintCache cache, float scale, SKPoint origin) : IDisposable {
         private readonly SKRegion damage = new(info.Rect);
         private readonly SKMatrix device = SKMatrix.CreateScaleTranslation(scale, scale, -origin.X * scale, -origin.Y * scale);
@@ -67,13 +70,15 @@ public sealed class SceneHost : IAsyncDisposable {
     public Option<Mount> Current => Volatile.Read(ref session).Current;
 
     // --- [DERIVED]
+
     public IO<Duration> Now => IO.lift(() => clock.GetElapsedTime(0L).ToDuration());
 
     public Option<SKSize> Preferred(SKSize offered) => Current.Map(held => held.Scene.Preferred(offered));
 
     private Seq<Seq<Key>> Animated => toSeq(rasters.Values).Bind(static held => held.Cache.Animated).Distinct();
 
-    // --- [SESSION]
+    // --- [SESSIONS]
+
     public IO<Unit> Show(View next) =>
         Changed(held => held.View.Exists(prior => ReferenceEquals(prior, next)) ? None : Some(held with { View = Some(next) }), (current, now) => current.Show(next, now));
 
@@ -101,7 +106,8 @@ public sealed class SceneHost : IAsyncDisposable {
         from applied in Applied(held => held.Stepped(held.Current.Map(current => (Fin<Mount>)current.Tick(now, animated))))
         select unit;
 
-    // --- [OUTPUT]
+    // --- [OUTPUTS]
+
     private IO<bool> Applied(Func<Session, (Session Next, Option<Fin<Mount>> Moved)> step) =>
         IO.lift(() => Stored(held => step(held) switch { var (next, moved) => (moved.Exists(static changed => changed.IsFail) ? held : next, (next.Running, Moved: moved)) }))
             .Bind(stepped => stepped.Moved.Match(Some: moved => IO.lift(moved).Bind(mount => Emitted(stepped.Running, mount)), None: static () => IO.pure(value: false)));
@@ -134,6 +140,7 @@ public sealed class SceneHost : IAsyncDisposable {
         select unit;
 
     // --- [TIMER]
+
     private IO<Unit> Scheduled(Option<Duration> deadline) =>
         from context in IO.syncContext
         from now in Now
@@ -147,7 +154,8 @@ public sealed class SceneHost : IAsyncDisposable {
         _ = IO.lift(() => Volatile.Read(ref session).Running).Bind(static running => running.Traverse(static run => run(true)).As()).Post().Run(environment);
     }
 
-    // --- [PAINT]
+    // --- [DRAWING]
+
     public IO<Option<SKSurface>> Paint(float scale, Option<Seq<Key>> popup = default) =>
         from held in IO.lift(() => Volatile.Read(ref session))
         from now in Now
@@ -173,6 +181,7 @@ public sealed class SceneHost : IAsyncDisposable {
     }
 
     // --- [RELEASE]
+
     private T Stored<T>(Func<Session, (Session Next, T Result)> change) {
         lock (gate) {
             (Session next, T result) = change(session);

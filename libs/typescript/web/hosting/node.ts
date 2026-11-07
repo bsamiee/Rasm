@@ -7,11 +7,11 @@ import { Config, ConfigProvider, Effect, Layer, Logger, Record, Result, Schema, 
 import { FetchHttpClient, HttpEffect, HttpMiddleware, HttpRouter, HttpServerResponse, HttpStaticServer } from 'effect/http';
 import { Otlp, OtlpSerialization } from 'effect/observability';
 import { s3Store, s3UploadStore } from 'partial-content/s3';
-import { hostingMode } from '#/cloudflare';
-import { HostingError } from '#/error';
-import { nodeBundle } from '#/node-bundle';
-import { ObjectStorage } from '#/object-storage';
-import { Template } from '#/template';
+import { hostingMode } from '#/cloudflare.ts';
+import { HostingError } from '#/error.ts';
+import { nodeBundle } from '#/node-bundle.ts';
+import { ObjectStorage } from '#/object-storage.ts';
+import { Template } from '#/template.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -10,6 +10,7 @@ using Rasm.Grasshopper.Doc;
 namespace Rasm.Grasshopper;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class Preference<T> {
     private readonly Func<T, IO<Unit>> write;
     private readonly Option<Func<IO<Unit>, IO<Unit>>> follow;
@@ -48,8 +49,11 @@ public sealed class Preference<T> {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Preferences {
-    // --- [HOST]
+
+    // --- [HOSTS]
+
     public static Preference<T> Of<T>(Settings.Setting<T> setting) =>
         new(
             IO.lift(() => setting.Value),
@@ -63,6 +67,7 @@ public static class Preferences {
             changed.Map<Func<IO<Unit>, IO<Unit>>>(static subscription => notify => Hooks.On(subscription.Add, subscription.Remove, notify)));
 
     // --- [STORES]
+
     public static Preference<T> Plugin<T>(GrasshopperIO.Name key, T fallback) where T : notnull =>
         Keyed(static () => Hooks.Session.Values, key, fallback, static set => IO.lift(set) >> Hooks.Saved);
 
@@ -86,7 +91,8 @@ public static class Preferences {
                 args => when(string.Equals(args.Key, name, StringComparison.OrdinalIgnoreCase), notify).As()))));
     }
 
-    // --- [CODEC]
+    // --- [CODECS]
+
     private const string Element = "Value";
 
     private static NTuple Packed<T>(T value) where T : notnull =>

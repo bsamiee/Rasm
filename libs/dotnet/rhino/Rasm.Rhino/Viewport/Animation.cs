@@ -10,6 +10,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class AnimationQuality {
     public static readonly AnimationQuality Draft = new("preview", renderFull: false, renderPreview: false);
@@ -64,8 +65,8 @@ public sealed record AnimationOutput(FolderPath Folder, FileExtension Extension,
 public sealed record AnimationSequence(AnimationKind Kind, int Frames, string ViewportName, Option<Guid> DisplayMode, Option<AnimationOutput> Output, AnimationQuality Quality);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Animations {
-    // --- [DOCUMENT]
     public static IO<Option<AnimationSequence>> Read(RhinoDoc doc) =>
         Products.Of(() => doc.AnimationProperties).Bind(static held => IO.lift(Kind(held).Bind(found => found.Traverse(kind => Sequence(held, kind)).As()))).Bracket();
 

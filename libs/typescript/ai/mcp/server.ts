@@ -1,6 +1,6 @@
-import { rank } from '@rasm/search';
-import { Array, Cause, Context, Deferred, Duration, Effect, type Exit, flow, Layer, Match, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, type Scope, UndefinedOr } from 'effect';
-import { McpProtocol, McpSchema, McpServer, Tool } from 'effect/ai';
+import { Unmatched } from '@rasm/search';
+import { Array, Cause, Context, Deferred, Duration, Effect, type Exit, Function, flow, Layer, Match, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, type Scope, Stream, UndefinedOr } from 'effect';
+import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import { FindMyWay, Headers, HttpRouter, HttpServerRequest, HttpServerResponse, HttpTraceContext } from 'effect/http';
 import { NetAddress } from 'effect/net';
 
@@ -23,6 +23,24 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
     static readonly Visible = Context.Reference<Effect.Effect<boolean, Error>>('@rasm/mcp/Server/Visible', { defaultValue: () => Effect.succeed(true) });
     static readonly ToolCall = Context.Reference<{ readonly add: (block: McpSchema.ContentBlock) => Effect.Effect<void>; readonly respond: (refusal: Error) => Effect.Effect<void> }>('@rasm/mcp/Server/ToolCall', { defaultValue: () => ({ add: () => Effect.void, respond: () => Effect.void }) });
     static readonly orInternalError = Effect.mapError(({ message }: Error) => McpSchema.InternalError.make({ message }));
+    static readonly progress = <A>(report: (value: A, index: number) => Omit<typeof McpSchema.ProgressNotification.payloadSchema.Type, 'progressToken' | '_meta'>) =>
+        Effect.fnUntraced(function* <E, R>(self: Stream.Stream<A, E, R>) {
+            const [server, request] = yield* Effect.all([McpServer.McpServer, Effect.serviceOption(McpSchema.McpRequestContext)]);
+            const token = Option.flatMap(request, ({ requestMetadata }) => Schema.decodeUnknownOption(McpSchema.ProgressToken)(requestMetadata?.progressToken));
+            return Option.match(token, { onNone: () => self, onSome: (progressToken) => Stream.mapEffect(self, (value, index) => Effect.as(server.notifications['notifications/progress']({ progressToken, ...report(value, index) }), value)) });
+        }, Stream.unwrap);
+    static readonly registerTool = Effect.fnUntraced(function* <P extends Schema.Top, S extends Schema.Top, R>(
+        tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: typeof Schema.Never; readonly failureMode: Tool.FailureMode }>,
+        handle: (parameters: P['Type']) => Effect.Effect<S['Type'], Error, R>,
+    ) {
+        const context = yield* Effect.context<R>();
+        const [parameters, success]: readonly [Schema.Codec<Effect.Effect<unknown, Error>, unknown, P['DecodingServices'], P['EncodingServices']>, Schema.Codec<unknown, unknown, S['DecodingServices'], S['EncodingServices']>] = [
+            Schema.toCodecJson(tool.parametersSchema).pipe(Schema.decodeTo(Schema.Any, { decode: SchemaGetter.transform((given: P['Type']) => Effect.provideContext(handle(given), context)), encode: SchemaGetter.forbiddenEncoding })),
+            Schema.toCodecJson(tool.successSchema),
+        ];
+        const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance() }).annotateMerge(tool.annotations));
+        yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
+    });
     static readonly layer = ({ scheme, retention }: { readonly scheme: typeof Server.Scheme.Type; readonly retention: Duration.Duration }) =>
         Layer.effect(McpServer.McpServer)(
             Effect.gen(function* () {
@@ -34,7 +52,7 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
                     <C, R>(complete: (input: string, context: C) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError, R>) =>
                     (input: string, context: C) =>
                         Effect.map(complete(input, context), ({ completion: { values }, ...rest }) => {
-                            const ordered = rank(input, values);
+                            const ordered = Unmatched.rank(input, values);
                             return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered, total: ordered.length } });
                         });
                 return McpServer.McpServer.of({

@@ -314,11 +314,11 @@ Labels:
 
 ast-grep-mcp runs one CLI process per tool call and hands the rule or pattern through unchanged:
 
-| [INDEX] | [TOOL]                 | [COMMAND]                                                  | [RETURNS]                           |
-| :-----: | :--------------------- | :--------------------------------------------------------- | :---------------------------------- |
-|  [01]   | `dump_syntax_tree`     | `run --pattern <code> --lang <l> --debug-query=<format>`   | Tree the CLI prints on stderr       |
-|  [03]   | `find_code`            | `run --pattern <code> [--lang <l>] --json=stream <folder>` | Text or match objects               |
-|  [04]   | `find_code_by_rule`    | `scan --inline-rules <yaml> --json=stream <folder>`        | Text or match objects               |
+| [INDEX] | [TOOL]              | [COMMAND]                                                  | [RETURNS]                     |
+| :-----: | :------------------ | :--------------------------------------------------------- | :---------------------------- |
+|  [01]   | `dump_syntax_tree`  | `run --pattern <code> --lang <l> --debug-query=<format>`   | Tree the CLI prints on stderr |
+|  [02]   | `find_code`         | `run --pattern <code> [--lang <l>] --json=stream <folder>` | Text or match objects         |
+|  [03]   | `find_code_by_rule` | `scan --inline-rules <yaml> --json=stream <folder>`        | Text or match objects         |
 
 - `severity: error` in a rule's YAML fails `scan`-backed tools on any match, the CLI exits 1 and the server raises it
 - `format` takes `pattern`, `cst`, or `ast`, `pattern` finds a metavariable that parsed as a different node

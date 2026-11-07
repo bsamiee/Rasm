@@ -65,6 +65,8 @@ class PreviewKey(msgspec.Struct, frozen=True, kw_only=True):
 class Previews:
     """Preview collection of one extension and the finished request per slot, pixelless requests included."""
 
+    # --- [STATE]
+
     __slots__ = ("_serials", "collection", "held")
 
     def __init__(self, collection: bpy.utils.previews.ImagePreviewCollection) -> None:
@@ -84,7 +86,7 @@ class Previews:
         with closing(bpy.utils.previews.new()) as collection:
             yield cls(collection)
 
-    # --- [READING]
+    # --- [READS]
 
     def get(self, slot: Hashable) -> Option[bpy.types.ImagePreview]:
         """Returns the slot's native preview, Nothing while it holds no pixels."""
@@ -94,7 +96,7 @@ class Previews:
         """Returns the finished request's preview or pixelless result, Nothing for an absent or stale request."""
         return Some(held.serial.map(lambda serial: self.collection[str(serial)])) if (held := self.held.get(slot)) is not None and held.finished == key else Nothing
 
-    # --- [WRITING]
+    # --- [WRITES]
 
     def written(self, slot: Hashable, key: Hashable, plane: Option[npt.NDArray[np.float32]]) -> Outcome[Option[int]]:
         """Writes top-first RGBA into the slot's image and icon buffers at full size, or drops the slot for no pixels, then records the finished request."""

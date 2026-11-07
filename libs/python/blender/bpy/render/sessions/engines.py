@@ -92,6 +92,8 @@ class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 class Engine(msgspec.Struct, frozen=True, kw_only=True):
     """Render engine with explicit native flag overrides and callbacks, labeled by its key."""
 
+    # --- [STATE]
+
     combined: ClassVar[EnginePass] = EnginePass(name=COMBINED, chanid="RGBA")
     key: Key
     render: Callable[[bpy.types.RenderEngine, bpy.types.Depsgraph], Iterable[Outcome[Tile]]]

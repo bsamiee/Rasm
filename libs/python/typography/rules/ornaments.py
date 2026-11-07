@@ -6,11 +6,10 @@ import msgspec
 lazy from fontTools.misc.transform import Offset
 
 from typography.faces.declaration import Em, Ratio
-from typography.rules.measures import Rule
+from typography.rules.measures import centred, middle, Rule
 lazy from typography.faces.glyphs import Glyph, Ornament, Outline, Source
 lazy from typography.faces.names import GlyphName
 lazy from typography.outlines.paths import bounds, Box, iou, transformed
-lazy from typography.rules.measures import centred, middle
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -20,7 +19,7 @@ type _Art = tuple[Glyph, Box, Outline]
 
 
 class Ornaments(Rule, frozen=True, kw_only=True):
-    """Ornament art on Private Use code points from the first: glyphs the original maps at text code points outside the Private Use Area removed, copies of one drawing at `same` overlap merged, bearings evened except on tiles with ink crossing their advance, and word spaces set to `space`."""
+    """Ornament art on Private Use code points from the first: glyphs the original maps at text code points outside the Private Use Area removed, copies of one drawing at `same` overlap merged, bearings evened except on tiles with outlines crossing their advance, and word spaces set to `space`."""
 
     first: int
     space: Em = 0.217

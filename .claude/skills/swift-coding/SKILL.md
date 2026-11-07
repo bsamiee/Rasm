@@ -14,7 +14,9 @@ Code uses each module's types wherever they state a value:
 - Packages and hosts are used directly through what they provide
 - Every type, export, and helper states something nothing else does, and a helper with one reader or a forwarder merges into its caller
 - Values that vary are parameters, a value every caller passes alike folds into its owner, and a field no reader acts on goes
-- Names come from domain vocabulary and members of the packages in use, and a file takes the name of the concept it holds
+- Error cases exist where a caller branches on them, every other failure joins its owner's error
+- Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
+- Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
 - Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:

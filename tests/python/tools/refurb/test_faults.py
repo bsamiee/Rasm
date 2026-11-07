@@ -2,8 +2,8 @@
 
 from textwrap import dedent
 
-from tools.refurb.faults import ErrorMisusedExpressionError
 lazy from tests.python.tools.refurb.conftest import Findings
+lazy from tools.refurb.faults import ErrorMisusedExpressionError
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

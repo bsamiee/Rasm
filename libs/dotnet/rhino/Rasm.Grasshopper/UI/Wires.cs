@@ -11,6 +11,7 @@ using SuperLinq;
 namespace Rasm.Grasshopper.UI;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public interface IWireRoute {
     public static abstract Polyline Route(PointF source, PointF target);
 
@@ -20,7 +21,11 @@ public interface IWireRoute {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class RoutedWire<TRoute> : WireShape where TRoute : IWireRoute {
+
+    // --- [STATE]
+
     private readonly Polyline line;
     private readonly float opacity;
 
@@ -35,6 +40,7 @@ public sealed class RoutedWire<TRoute> : WireShape where TRoute : IWireRoute {
     }
 
     // --- [GEOMETRY]
+
     public override RectangleF Bounds => line.BoundingBox switch {
         var box => RectangleF.FromSides((float)box.Min.X, (float)box.Min.Y, (float)box.Max.X, (float)box.Max.Y),
     };
@@ -64,6 +70,7 @@ public sealed class RoutedWire<TRoute> : WireShape where TRoute : IWireRoute {
         };
 
     // --- [DRAWING]
+
     public override void Draw(Graphics graphics, Pen edge) {
         if (opacity <= 0f) return;
         using Pen? faded = opacity < 1f && edge.Brush is SolidBrush solid
@@ -78,6 +85,7 @@ public sealed class RoutedWire<TRoute> : WireShape where TRoute : IWireRoute {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public sealed class StraightRoute : IWireRoute {
     public static Polyline Route(PointF source, PointF target) => new([source.To3d(), target.To3d()]);
 }
@@ -100,7 +108,9 @@ public sealed class OrthogonalRoute : IWireRoute {
 }
 
 public static class Wires {
+
     // --- [ROUTES]
+
     private static readonly IO<Unit> Redrawn = IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw()));
 
     public static IO<Unit> Route<TRoute>() where TRoute : IWireRoute =>
@@ -112,6 +122,7 @@ public static class Wires {
         select unit;
 
     // --- [HIGHLIGHTS]
+
     public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires) =>
         Hooks.On<CanvasPaintEventArgs>(h => canvas.BeforePaintWires += h, h => canvas.BeforePaintWires -= h, args =>
             (from state in use(args.Graphics.ProjectionState)

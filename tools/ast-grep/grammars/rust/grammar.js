@@ -1,5 +1,5 @@
 import rust from 'tree-sitter-rust/grammar.js';
-import { after, before, chain, choiceOf, drop, extend, located, named, optionalOf, reaches, replace, string, symbol, widen } from '#/tools/ast-grep/grammars/derive.js';
+import { after, before, chain, choiceOf, drop, extend, located, named, optionalOf, reaches, replace, string, symbol, widen } from '#/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

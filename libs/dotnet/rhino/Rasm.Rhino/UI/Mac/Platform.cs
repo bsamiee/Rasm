@@ -15,6 +15,7 @@ using Rasm.Rhino.UI.Mac;
 namespace Rasm.Rhino.UI.Mac;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class FrameTarget(Func<Duration, bool> tick) : NSObject {
     private const string Frame = "frame:";
 
@@ -25,7 +26,9 @@ internal sealed class FrameTarget(Func<Duration, bool> tick) : NSObject {
 }
 
 internal sealed class AppKitPlatform : IHostPlatform {
-    // --- [CHANGE]
+
+    // --- [CHANGES]
+
     public HostEvent<Unit> Changed { get; } =
         Subscriptions.Merged(Observed(NSColor.Notifications.ObserveSystemColorsChanged), Observed(NSApplication.Notifications.ObserveDidChangeScreenParameters));
 
@@ -33,6 +36,7 @@ internal sealed class AppKitPlatform : IHostPlatform {
         new(label, deliver => use(() => observe((_, _) => Session.Start(deliver(unit), label))).Map(unit));
 
     // --- [FONTS]
+
     private readonly AtomHashMap<(float Size, bool Bold), Font> faces = AtomHashMap<(float Size, bool Bold), Font>();
 
     public IO<Unit> Digits(Control control) =>
@@ -40,6 +44,7 @@ internal sealed class AppKitPlatform : IHostPlatform {
             NSFont.MonospacedDigitSystemFontOfSize(common.Font.Size, common.Font.Bold ? NSFontWeight.Bold : NSFontWeight.Regular))))));
 
     // --- [FRAMES]
+
     public IO<Func<bool, IO<Unit>>> FrameLink(Control view, Func<Duration, bool> tick) =>
         from host in IO.lift(() => Conversions.Required(view.GetContainerView()))
         from target in use(() => new FrameTarget(tick))
@@ -49,6 +54,7 @@ internal sealed class AppKitPlatform : IHostPlatform {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public sealed class AppKitInitializer : IPlatformInitializer {
     public void Initialize(Platform platform) => platform.Add<IHostPlatform>(static () => new AppKitPlatform());
 }

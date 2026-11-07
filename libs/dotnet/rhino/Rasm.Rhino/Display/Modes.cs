@@ -12,6 +12,7 @@ using UUIDNext;
 namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record DisplayModeDefinition(string Name, Guid Base) {
     public Seq<Action<DisplayModeDescription>> Edits { get; init; }
     public Seq<ModeKey> Keys { get; init; }
@@ -23,11 +24,15 @@ public sealed record DisplayModeSpec(IO<Seq<DisplayModeDefinition>> Modes) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class DisplayModes {
+
     // --- [IDENTITY]
+
     public static Guid Id(Guid owner, DisplayModeDefinition mode) => Uuid.NewNameBased(owner, mode.Name);
 
-    // --- [ACQUISITION]
+    // --- [REGISTRATION]
+
     public static IO<Unit> Declared(DisplayModeSpec spec) =>
         from loaded in Reconcile(spec)
         from opened in when(!spec.Successors.IsEmpty, Subscriptions.Watched<DocumentOpenEventArgs>(static (watcher, h) => watcher.EndOpenDocument += h).Documents()
@@ -38,7 +43,8 @@ public static class DisplayModes {
     private static HashMap<Guid, Guid> Successors(Guid owner, DisplayModeSpec spec) =>
         toHashMap(spec.Successors.AsIterable().Map(pair => (Uuid.NewNameBased(owner, pair.Key), Id(owner, pair.Value))));
 
-    // --- [RECONCILE]
+    // --- [RECONCILIATION]
+
     private const string Order = "Order";
     private const string DerivedFrom = "DerivedFrom";
 
@@ -148,6 +154,7 @@ public static class DisplayModes {
         select retired.Map(static mode => mode.Id);
 
     // --- [FILES]
+
     public static IO<HashMap<(string Section, string Key), string>> Keys(Guid id) => With(id, Exported);
 
     private static IO<HashMap<(string Section, string Key), string>> Exported(DisplayModeDescription mode) =>
@@ -162,6 +169,7 @@ public static class DisplayModes {
                 .Finally(IO.lift(() => folder.Delete(recursive: true))));
 
     // --- [HOLDERS]
+
     private static IO<Unit> Reassigned(HashMap<Guid, Guid> moves) =>
         IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments())).Bind(documents => Products.Each(documents.Map(doc => Reassigned(doc, moves)))).Map(unit);
 
@@ -198,6 +206,7 @@ public static class DisplayModes {
     }
 
     // --- [SIGNALS]
+
     private static readonly Atom<Option<Guid>> Raised = Atom(Option<Guid>.None);
 
     private static readonly HostEvent<DisplayModeChangedEventArgs> DisplayModeChanged =
@@ -215,11 +224,13 @@ public static class DisplayModes {
 
     private static Unit Raise(Seq<Guid> ids) => ids.Iter(static id => ignore(Raised.Swap(_ => Some(id))));
 
-    // --- [TABLE]
+    // --- [TABLES]
+
     public static IO<TValue> With<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> body) =>
         Products.Of(() => DisplayModeDescription.GetDisplayMode(id)).Bind(body).Bracket();
 
     // --- [MATERIALS]
+
     private static readonly Seq<TextureType> Slotted = [TextureType.Bitmap, TextureType.Emap, TextureType.Transparency];
 
     public static Fin<Unit> CopyFrom(DisplayAttributeMaterial slot, Material material) =>

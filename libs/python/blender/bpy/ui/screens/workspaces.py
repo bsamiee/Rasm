@@ -49,6 +49,8 @@ class Activation(msgspec.Struct, frozen=True, kw_only=True):
 class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
     """Saved copy of a source workspace, from the open file or appended from `library`, with mode, scene pin, add-on filter, tab reorder operator, and the tool its mode starts with as the idname and toolbar space `wm.tool_set_by_id` takes."""
 
+    # --- [STATE]
+
     key: Key
     name: str
     source: str
@@ -59,7 +61,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
     order: Option[Operation] = Nothing
     tool: "Option[tuple[str, rna_enums.SpaceTypeItems]]" = Nothing
 
-    # --- [OWNERSHIP]
+    # --- [REGISTRATION]
 
     @property
     def ownership(self) -> Ownership[bpy.types.WorkSpace]:

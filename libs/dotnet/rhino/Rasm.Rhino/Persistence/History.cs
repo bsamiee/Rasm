@@ -9,6 +9,7 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record HistoryLimits(int Capacity, Duration Window) {
     public static HistoryLimits Default { get; } = new(10, Duration.FromSeconds(5));
 }
@@ -16,7 +17,9 @@ public sealed record HistoryLimits(int Capacity, Duration Window) {
 public sealed record HistoryEntry(BigInteger Serial, ValueDiff Diff, Instant At);
 
 public sealed record ValueHistory {
+
     // --- [STATE]
+
     private ValueHistory(Seq<HistoryEntry> done, Seq<HistoryEntry> undone, BigInteger next) => (Done, Undone, Next) = (done, undone, next);
 
     public const uint TypeCode = 0x4849_5354u;
@@ -27,6 +30,7 @@ public sealed record ValueHistory {
     private BigInteger Next { get; }
 
     // --- [TRANSITIONS]
+
     public ValueHistory Committed(ValueDiff diff, Instant at, HistoryLimits limits) =>
         diff.Changes.IsEmpty ? this : Done.Head
             .Filter(head => Undone.IsEmpty && toHashSet(head.Diff.Changes.Keys) == toHashSet(diff.Changes.Keys)
@@ -54,7 +58,8 @@ public sealed record ValueHistory {
         Done.Find(entry => entry.Serial == serial)
             .Map(_ => Done.TakeWhile(entry => entry.Serial >= serial).Fold(ValueDiff.Empty, static (later, entry) => entry.Diff.Then(later)).Inverse().After());
 
-    // --- [ARCHIVE]
+    // --- [ARCHIVES]
+
     private const string DoneKey = "Done";
     private const string UndoneKey = "Undone";
     private const string BeforeKey = "Before";
@@ -117,9 +122,13 @@ public abstract partial record HistoryScope {
 
 public sealed record HistoryFrame(HistoryLimits Limits, TimeProvider Clock)
     : ArchiveFrame<HashMap<Guid, ValueHistory>>(ValueHistory.TypeCode, ValueHistory.Codec, HashMap<Guid, ValueHistory>(), Histories, Restored) {
+
+    // --- [STATE]
+
     public Atom<HashMap<Guid, ValueHistory>> Registry { get; } = Atom(HashMap<Guid, ValueHistory>());
 
-    // --- [ARCHIVE]
+    // --- [ARCHIVES]
+
     private static IO<HashMap<Guid, ValueHistory>> Histories(RhinoDoc doc, FileWriteOptions options) =>
         options.WriteAsTemplate ? IO.pure(HashMap<Guid, ValueHistory>()) : HistoryScope.Of(doc).Map(static registry => registry.Value);
 
@@ -128,11 +137,15 @@ public sealed record HistoryFrame(HistoryLimits Limits, TimeProvider Clock)
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group, HistoryScope Scope, HistoryLimits Limits, TimeProvider Clock) {
+
     // --- [READS]
+
     public IO<ValueHistory> History => Scope.Histories.Map(histories => histories.Value.Find(Id).IfNone(ValueHistory.Empty));
 
     // --- [WRITES]
+
     public IO<ValueDiff> Commit(ValueSet incoming, HashSet<EntryKey> locks) => Written(incoming, locks).Bind(Commit);
 
     public IO<ValueDiff> Commit(ValueDiff diff) =>
@@ -163,6 +176,7 @@ public sealed record HistoryBinding(Guid Id, string Caption, BindingGroup Group,
         select unit;
 
     // --- [STEPS]
+
     public IO<ValueDiff> Undo => Stepped(identity, static diff => diff.Inverse());
 
     public IO<ValueDiff> Redo => Stepped(static history => history.Swapped, identity);

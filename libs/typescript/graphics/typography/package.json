@@ -5,12 +5,12 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*"
     },
     "exports": {
         ".": "./index.ts",
-        "./quran": "./quran.ts",
-        "./shaping": "./shaping/index.ts"
+        "./shaping": "./shaping/index.ts",
+        "./quran": "./quran.ts"
     },
     "dependencies": {
         "@quran.ws/text": "catalog:",

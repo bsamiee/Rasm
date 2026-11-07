@@ -2,8 +2,8 @@
 
 from textwrap import dedent
 
-from tools.refurb.defaults import ErrorRestatedDefaultError
 lazy from tests.python.tools.refurb.conftest import Findings
+lazy from tools.refurb.defaults import ErrorRestatedDefaultError
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

@@ -279,7 +279,7 @@ fn main() {
 mod shadowed_option {
     use super::VecDeque;
 
-    // --- [TYPES] -----------------------------------------------------------------------
+    // --- [TYPES]
 
     trait Presence {
         fn is_some(self) -> bool;
@@ -289,7 +289,7 @@ mod shadowed_option {
         fn is_some(self) -> bool { false }
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     pub(super) fn trim(mut recent: VecDeque<u32>, kept: usize) -> VecDeque<u32> {
         while recent.len() > kept && recent.pop_front().is_some() {}

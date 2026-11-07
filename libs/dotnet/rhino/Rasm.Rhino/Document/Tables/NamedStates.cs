@@ -9,6 +9,7 @@ using SuperLinq;
 namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<string>(SkipIParsable = true)]
 [ValidationError<RhinoFault>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -45,7 +46,9 @@ public abstract record NamedRestore(NamedTable Table, StateName Name) {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record NamedChange {
+
     // --- [CHANGES]
+
     public NamedTable Table => Switch(
         save: static save => save.State.Table,
         restore: static restore => restore.Target.Table,
@@ -75,6 +78,7 @@ public abstract partial record NamedChange {
     public sealed record Import(NamedTable Source, InputPath Path, Option<Seq<StateName>> Names) : NamedChange;
 
     // --- [PLANNING]
+
     public static Fin<Seq<NamedChange>> Plan(Seq<NamedEntry> held, Seq<NamedState> desired, Seq<NamedTable> prune) =>
         (held.ToLookup(static entry => entry.Table), desired.ToLookup(static state => state.Table), toHashSet(prune)) switch {
             var (entries, states, pruned) => toSeq(states.Select(static group => group.Key).Concat(entries.Select(static group => group.Key)).Distinct())
@@ -89,7 +93,8 @@ public abstract partial record NamedChange {
                     order: static _ => Option<NamedChange>.None))),
         };
 
-    // --- [APPLY]
+    // --- [APPLICATION]
+
     public static IO<Seq<Committed<Seq<NamedEvent>>>> Apply(RhinoDoc doc, Seq<NamedTable> tables, Seq<NamedChange> changes) =>
         from held in NamedTable.Read(doc, tables)
         from valid in IO.lift(changes.Fold(Fin.Succ(held), static (entries, change) => entries.Bind(change.Projected)))
@@ -185,8 +190,11 @@ public sealed record NamedEvent {
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
+
 public sealed class NamedTable(string name, IEqualityComparer<string> comparer) {
+
     // --- [CAPABILITIES]
+
     public static HostEvent<Option<uint>> DocumentProperties { get; } =
         ReadModels.Marks(Documents.PropertiesChanged.Documents());
 
@@ -219,6 +227,7 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
     public override string ToString() => name;
 
     // --- [ROWS]
+
     public Option<NamedEntry> Find(Seq<NamedEntry> entries, string entry) =>
         entries.Find(held => held.Table == this && Comparer.Equals(held.Name, entry));
 
@@ -246,6 +255,7 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
             doc => Read(doc, tables));
 
     // --- [HOLDS]
+
     public static IO<T> Within<T>(RhinoDoc doc, Seq<NamedTable> tables, Option<Guid> viewport, IO<T> body) =>
         tables.Fold(IO.pure(Seq<NamedWrite>()), (held, table) =>
                 from writes in held
@@ -254,6 +264,7 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
             .Bind(writes => body.Finally(NamedWrite.Undone(writes)));
 
     // --- [EXCHANGE]
+
     public static IO<StepOutcome> Export(RhinoDoc doc, Seq<NamedEntry> entries, OutputPath path) =>
         from rows in IO.lift(() => toSeq(entries.GroupBy(static entry => entry.Table))
             .Traverse(static held => held.Key.Supported(held.Key.Archive).Map(archive => (Archive: archive, Entries: toSeq(held))))

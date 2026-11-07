@@ -5,11 +5,11 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*"
     },
     "exports": {
-        ".": "./uxp-manifest.ts",
-        "./uxp": "./uxp/index.ts",
+        ".": "./manifest.ts",
+        "./plugin": "./plugin.ts",
         "./vite": "./vite.ts"
     },
     "dependencies": {

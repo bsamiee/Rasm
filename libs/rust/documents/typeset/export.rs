@@ -47,7 +47,8 @@ pub struct Export<I> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [EXPORT]
+// --- [EXPORTS]
+
 #[must_use]
 pub fn paged(
     world: &dyn DiagnosticWorld,
@@ -186,6 +187,7 @@ pub fn timestamp(now: &Zoned) -> Option<Timestamp> {
 }
 
 // --- [RASTER]
+
 fn extent(page: &Page, options: &RenderOptions) -> Size {
     let bleed = if options.render_bleed { page.bleed } else { Sides::default() };
     page.frame.size() + bleed.sum_by_axis()

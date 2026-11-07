@@ -9,6 +9,7 @@ using SuperLinq;
 namespace Rasm.UI.Input;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
 internal abstract partial record Gesture {
     internal KeyModifiers Modifiers { get; init; } = KeyModifiers.Empty;
@@ -66,7 +67,9 @@ internal sealed record Receiver<TState>(Func<TState, TState, bool> Same, Func<Ed
 }
 
 internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Receivers, CursorShape Cursor) where TState : notnull {
+
     // --- [STATE]
+
     internal Func<TState, Gesture, Option<TState>> Step { get; init; } = static (_, _) => None;
     internal Func<TState, TState> Released { get; init; } = static state => state;
     internal Func<TState, Option<Vector2>> Detent { get; init; } = static _ => None;
@@ -77,7 +80,8 @@ internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Recei
     private bool Dragging { get; init; }
     private HashSet<int> Opened { get; init; }
 
-    // --- [EMIT]
+    // --- [STEPS]
+
     internal Option<Reply> Began(Gesture first) => Step(Start, first).Map(state => Continued(state, Drags(first)));
 
     internal Option<Reply> Stepped(Gesture gesture) => Stepped(start => Step(start, gesture));

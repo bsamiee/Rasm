@@ -10,11 +10,11 @@ import { Resource, Route, registerRpcGroup, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Array, Context, Duration, Effect, flow, Number, Option, Path, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
-import { AbsolutePath } from '#/absolute-path';
-import { Adobe } from '#/adobe';
-import { Capture } from '#/features/applications';
-import { Libraries, library, type listening } from '#/libraries';
-import type { routes } from '#/routes';
+import { AbsolutePath } from '#/absolute-path.ts';
+import { Adobe } from '#/adobe.ts';
+import { Capture } from '#/features/applications.ts';
+import { Libraries, library, type listening } from '#/libraries.ts';
+import type { routes } from '#/routes.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

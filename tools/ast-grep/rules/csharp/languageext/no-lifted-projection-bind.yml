@@ -4,7 +4,7 @@ severity: error
 ignores: ['tools/roslyn/**']
 utils:
     overload-return:
-        any: [{kind: predefined_type, regex: '^void$'}, {matches: {csharp-generic-type: {name: {regex: '^(?:Fin|Either)$'}, list: {kind: type_argument_list}}}}]
+        any: [{pattern: void}, {matches: {csharp-generic-type: {name: {regex: '^(?:Fin|Either)$'}, list: {kind: type_argument_list}}}}]
     declared-value:
         kind: invocation_expression
         all:

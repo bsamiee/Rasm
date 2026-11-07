@@ -10,8 +10,11 @@ using Topten.RichTextKit.Utils;
 namespace Rasm.UI.Automation;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record AutomationElement(Seq<Key> Id, AccessRole Role, Accessible Accessible, Seq<Act> Actions, HashSet<Condition> Conditions, SKRect Frame, Seq<AutomationElement> Children) {
-    // --- [PROJECT]
+
+    // --- [PROJECTION]
+
     internal static Seq<AutomationElement> Projected(Scene scene) => Projected(scene, scene.Layout.Cons(scene.Layers), None, Accessible.Empty, Trampoline.Pure).Run();
 
     internal static Seq<AutomationElement> Flattened(Seq<AutomationElement> tree) => tree.Bind(static root => toSeq(SuperEnumerable.TraverseDepthFirst(root, static element => element.Children)));
@@ -83,6 +86,7 @@ public sealed record AutomationElement(Seq<Key> Id, AccessRole Role, Accessible 
         toSeq(SuperEnumerable.TraverseDepthFirst(layout, static node => node.Children)).Choose(static node => node.TextNode.Map(static text => text.Typeset.Text.Content));
 
     // --- [ACTIONS]
+
     private static Seq<Act> Offered(Scene scene, PartOwner owner, Seq<Key> path) =>
         toSeq(Act.Items).Filter(act => act.Offered && owner.Part.Performed(new Gesture.Perform(act), new HitTarget(scene, owner, path)).IsSome);
 }

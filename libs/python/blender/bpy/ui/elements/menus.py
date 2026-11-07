@@ -68,6 +68,8 @@ class Pie(msgspec.Struct, frozen=True, kw_only=True):
 class Menu(msgspec.Struct, frozen=True, kw_only=True):
     """Extension menu with poll condition, titled after its key unless `title` states otherwise."""
 
+    # --- [STATE]
+
     key: Key
     description: str
     body: Dropdown | Submenus | Pie
@@ -81,7 +83,7 @@ class Menu(msgspec.Struct, frozen=True, kw_only=True):
         """Placement buttons and keymaps open the menu through, as a pie for a pie body."""
         return Placement(PopupTarget(self.key, PopupKind.PIE if isinstance(self.body, Pie) else PopupKind.MENU))
 
-    # --- [ACQUISITION]
+    # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns submenus, row acquisitions, then the menu class built when the interface tier opens."""

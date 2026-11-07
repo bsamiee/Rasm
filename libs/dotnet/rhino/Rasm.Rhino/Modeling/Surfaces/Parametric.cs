@@ -6,6 +6,7 @@ using Rasm.Spatial;
 namespace Rasm.Rhino.Modeling.Surfaces;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ParametricSurface {
     public sealed record Ruled(Func<double, Point3d> Directrix, Func<double, Vector3d> Ruling, Interval U, Interval V) : ParametricSurface;
@@ -33,8 +34,8 @@ public abstract partial record ParametricSurface {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SurfaceLowerings {
-    // --- [CLOSED_FORMS]
     extension(PolynomialPatch patch) {
         public IO<NurbsSurface> ToNurbs(Plane frame) =>
             from net in IO.lift(() => patch.Net switch { var grid => (grid.X, grid.Y, grid.Z, grid.W) })

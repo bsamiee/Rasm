@@ -8,6 +8,8 @@ use crate::{expanded_externally, upcast};
 
 lint!(MANUAL_UPCAST: "trait methods returning `self` as an object of a supertrait or of `Any`");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx TraitItem<'tcx>) {
         if let TraitItemKind::Fn(signature, _) = item.kind

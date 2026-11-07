@@ -5,9 +5,7 @@
     "description": "Language servers as agent code navigation and diagnostics",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
-        "#/package.json": "./package.json",
-        "#/.lsp.json": "./.lsp.json"
+        "#/*": "./*"
     },
     "bin": "./main.ts",
     "dependencies": {

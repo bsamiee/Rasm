@@ -191,6 +191,7 @@ pub enum Setting {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 // --- [EQUATIONS]
+
 struct Equations<'network> {
     network: Cow<'network, Network>,
     sensors: Vec<NodeIndex>,
@@ -474,7 +475,8 @@ impl LinearOpTranspose for Free<'_> {
     fn transpose_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { self.sparsity() }
 }
 
-// --- [INSTANCE]
+// --- [INSTANCES]
+
 #[derive(derive_more::Debug, derive_more::AsRef)]
 pub struct Instance {
     #[debug(skip)]

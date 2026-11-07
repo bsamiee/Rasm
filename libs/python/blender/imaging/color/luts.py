@@ -90,40 +90,7 @@ _HALF_HIGH: Final = math.log2(float(np.finfo(np.float16).max))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
-
-class LutFormat(msgspec.Struct, frozen=True, kw_only=True):
-    """OCIO format name with file extension."""
-
-    name: str
-    extension: str
-
-    @classmethod
-    def of(cls, formats: Iterable[tuple[str, str]]) -> tuple[Self, ...]:
-        """Returns records of format pairs in input order."""
-        return tuple(cls(name=name, extension=extension) for name, extension in formats)
-
-    @classmethod
-    def bakeable(cls) -> tuple[Self, ...]:
-        """Returns formats `Baker` writes."""
-        return cls.of(PyOpenColorIO.Baker.getFormats())
-
-    @classmethod
-    def writable(cls) -> tuple[Self, ...]:
-        """Returns formats `GroupTransform` writes exactly."""
-        return cls.of(PyOpenColorIO.GroupTransform.GetWriteFormats())
-
-    @classmethod
-    def readable(cls) -> tuple[Self, ...]:
-        """Returns formats `FileTransform` reads."""
-        return cls.of(PyOpenColorIO.FileTransform.getFormats())
-
-    @classmethod
-    def readable_suffixes(cls) -> tuple[str, ...]:
-        """Returns the distinct file suffixes of the formats `FileTransform` reads, in format order."""
-        return tuple(dict.fromkeys(f".{row.extension}" for row in cls.readable()))
-
-
-# --- [SPACINGS]
+# --- [LATTICES]
 
 
 class Uniform(Case, frozen=True, kw_only=True):
@@ -167,8 +134,6 @@ class Rational(Case, frozen=True):
 
 type Spacing = Uniform | Logarithmic | Rational
 
-# --- [LATTICES]
-
 
 class Lattice(msgspec.Struct, frozen=True, kw_only=True):
     """Cube edge length and node spacing."""
@@ -197,6 +162,41 @@ class Lattice(msgspec.Struct, frozen=True, kw_only=True):
         table = PyOpenColorIO.Lut3DTransform(gridSize=self.size, interpolation=PyOpenColorIO.INTERP_TETRAHEDRAL)
         table.setData(np.ascontiguousarray(outputs.reshape(self.size, self.size, self.size, 3).transpose(2, 1, 0, 3)).reshape(-1))
         return PyOpenColorIO.GroupTransform(transforms=[*self.spacing.shaper.to_list(), table])
+
+
+# --- [FILES]
+
+
+class LutFormat(msgspec.Struct, frozen=True, kw_only=True):
+    """OCIO format name with file extension."""
+
+    name: str
+    extension: str
+
+    @classmethod
+    def of(cls, formats: Iterable[tuple[str, str]]) -> tuple[Self, ...]:
+        """Returns records of format pairs in input order."""
+        return tuple(cls(name=name, extension=extension) for name, extension in formats)
+
+    @classmethod
+    def bakeable(cls) -> tuple[Self, ...]:
+        """Returns formats `Baker` writes."""
+        return cls.of(PyOpenColorIO.Baker.getFormats())
+
+    @classmethod
+    def writable(cls) -> tuple[Self, ...]:
+        """Returns formats `GroupTransform` writes exactly."""
+        return cls.of(PyOpenColorIO.GroupTransform.GetWriteFormats())
+
+    @classmethod
+    def readable(cls) -> tuple[Self, ...]:
+        """Returns formats `FileTransform` reads."""
+        return cls.of(PyOpenColorIO.FileTransform.getFormats())
+
+    @classmethod
+    def readable_suffixes(cls) -> tuple[str, ...]:
+        """Returns the distinct file suffixes of the formats `FileTransform` reads, in format order."""
+        return tuple(dict.fromkeys(f".{row.extension}" for row in cls.readable()))
 
 
 class LutOutput(msgspec.Struct, frozen=True, kw_only=True):

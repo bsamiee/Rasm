@@ -2,9 +2,9 @@ import { Array, Context, Effect, Function, flow, Option, Predicate, Record, Resu
 import { McpSchema, McpServer, Tool } from 'effect/ai';
 import { Url, UrlParams } from 'effect/http';
 import type { Rpc, RpcGroup } from 'effect/rpc';
-import { Resource } from '#/resource';
-import { Route } from '#/route';
-import { Server } from '#/server';
+import { Resource } from '#/resource.ts';
+import { Route } from '#/route.ts';
+import { Server } from '#/server.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

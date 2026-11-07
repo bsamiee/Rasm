@@ -4,6 +4,7 @@ use core::{
     num::{NonZero, ParseIntError, TryFromIntError},
 };
 
+use clap::ColorChoice;
 use dylint_non_exhaustive::{DroppedError, OpenError, SingleError};
 use tokio::sync::oneshot;
 
@@ -17,6 +18,8 @@ enum Failure {
     Missing,
     #[error("the reply channel closed")]
     Closed,
+    #[error("unknown color {color}")]
+    Color { color: String },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -40,6 +43,12 @@ fn destructured(text: &str) -> Result<u16, Failure> { text.parse::<u16>().map_er
 fn kept(text: &str) -> Result<u16, Failure> { parse(text).map_err(Failure::Parse) }
 
 fn read(text: &str) -> Result<u16, Failure> { parse(text).map_err(|error| Failure::Parse(error)) }
+
+fn text_restated(name: &str) -> Result<ColorChoice, Failure> { name.parse().map_err(|_: String| Failure::Color { color: name.to_owned() }) }
+
+fn text_dropped(name: &str) -> Result<ColorChoice, Failure> { name.parse().map_err(|_: String| Failure::Missing) }
+
+fn text_retried(name: &str) -> Result<ColorChoice, Failure> { name.parse().or_else(|_: String| Err(Failure::Color { color: name.to_owned() })) }
 
 async fn received(answer: oneshot::Receiver<u16>) -> Result<u16, Failure> { answer.await.map_err(|_closed| Failure::Closed) }
 
@@ -127,6 +136,7 @@ async fn main() {
     black_box(&(sender.send(1), received(answer).await));
     black_box(&external());
     black_box(&[named("1"), ignored("1"), retried("2"), retried_named("3"), destructured("1"), kept("4"), read("5"), recovered("6"), port(vec![0, 80])]);
+    black_box(&[text_restated("auto"), text_dropped("never"), text_retried("always")]);
     black_box(&(
         [unsigned(1), negative_only(-2), implicit(3), composed(4), two_sided(-5), opaque(|| u16::try_from(6_i32)), reserved(Err(Reserved))],
         translated(7),

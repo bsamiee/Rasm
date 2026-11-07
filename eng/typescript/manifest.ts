@@ -1,19 +1,18 @@
-import { Array, Cause, Effect, FileSystem, Option, Path, Record, Schema } from 'effect';
-import { TextFormat } from '#/eng/typescript/text-format';
+import { Array, Effect, FileSystem, Option, Path, Record, Schema, SchemaGetter } from 'effect';
+import { TextFormat } from '#/text-format.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const VITEST_INTEGRATION_TESTS = '**/*.integration.test.{ts,tsx}';
+const EXTENDSCRIPT_TYPES = 'types-for-adobe';
+const XCCONFIG_ROW = { separator: '\n', keyValueSeparator: ' = ' } as const;
 const XCODE_REQUIREMENT = 'up-to-next-major-version';
-const XCCONFIG_ASSIGNMENT = ' = ';
-const XCCONFIG_ROW = new RegExp(`^[A-Z_][A-Z0-9_]*${XCCONFIG_ASSIGNMENT}.*$`, 'gmu');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Strings = Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
-const Daemon = Schema.Struct({ run: Schema.OptionFromOptionalKey(Schema.String), boot: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))) }).pipe(Schema.encodeKeys({ boot: 'boot_start' }));
 const XcodeRemote = Schema.Struct({ kind: Schema.Literal('remote'), repository: Schema.String, version: Schema.StructWithRest(Schema.Struct({ [XCODE_REQUIREMENT]: Schema.optionalKey(Schema.String) }), [Schema.Record(Schema.String, Schema.Json)]) });
 const XcodeLocal = Schema.Struct({ kind: Schema.Literal('local'), path: Schema.String });
+const Daemon = Schema.Struct({ run: Schema.OptionFromOptionalKey(Schema.String), boot: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))) }).pipe(Schema.encodeKeys({ boot: 'boot_start' }));
 const AstGrepLanguage = Schema.Struct({ libraryPath: Schema.String, extensions: Schema.Array(Schema.String), languageSymbol: Schema.optionalKey(Schema.String), expandoChar: Schema.optionalKey(Schema.String), outlineRules: Schema.OptionFromOptionalKey(Schema.String) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -23,9 +22,11 @@ const decodeFile = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, strin
     return yield* Effect.flatMap(fs.readFileString(path.join(...segments)), Schema.decodeEffect(schema));
 });
 const manifest = <A>(file: string, schema: Schema.Codec<A, string>) => ({ file, schema, read: (directory: string) => decodeFile(schema, directory, file) });
-const libraryRoot = ({ sideEffects, bin, exports }: typeof Package.schema.Type) => Option.filter(Record.get(exports, '.'), () => Option.contains(sideEffects, false) && Option.isNone(bin));
-const extendScriptEntry = ({ exports }: typeof Package.schema.Type) => Record.get(exports, './extendscript');
-const suitePath = (path: Path.Path, base: string, directory: string) => (directory === base || directory.startsWith(`${base}${path.sep}`) ? directory : path.join(base, ...directory.split(path.sep).filter((segment, index) => index !== 1 || segment !== path.basename(base))));
+const librarySurface = ({ sideEffects, bin, exports, devDependencies }: typeof Package.schema.Type) =>
+    Option.map(
+        Option.filter(Record.pop(exports, '.'), () => Option.contains(sideEffects, false) && Option.isNone(bin)),
+        ([root, others]) => ({ root, entries: Object.values(others), extendscript: Record.has(devDependencies, EXTENDSCRIPT_TYPES) ? Object.values(others) : [] }),
+    );
 const members = Effect.fnUntraced(function* (root: string, file: string) {
     const [fs, path, { packages }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Workspace.read(root)]);
     return Array.flatten(yield* Effect.forEach(packages, (glob) => fs.glob(path.join(glob, file), { root, exclude: ['**/node_modules/**'] }), { concurrency: 'unbounded' }));
@@ -56,17 +57,8 @@ const Mise = {
     declared: Schema.Array(Schema.Struct({ name: Schema.String, source: Schema.NullOr(Schema.String) })),
 };
 const MiseLock = manifest('.config/mise.lock', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ tools: Schema.Record(Schema.Literals(['hk', 'pnpm']), Schema.NonEmptyArray(Schema.Struct({ version: Schema.String }))) }))));
-const Workspace = manifest('pnpm-workspace.yaml', TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.String) }))));
-const Xcconfig = manifest(
-    'Xcode.xcconfig',
-    TextFormat('xcconfig', (text) =>
-        Record.fromIterableWith([...text.matchAll(XCCONFIG_ROW)], ([row]) => {
-            const [key, value] = Array.splitAt(row.split(XCCONFIG_ASSIGNMENT), 1);
-            return [key.join(XCCONFIG_ASSIGNMENT), value.join(XCCONFIG_ASSIGNMENT)];
-        }),
-    ).pipe(Schema.decodeTo(Schema.Struct({ DEVELOPMENT_TEAM: Schema.String }))),
-);
-const Xcode = manifest(
+const Xcconfig = manifest('Xcode.xcconfig', Schema.String.pipe(Schema.decodeTo(Schema.Record(Schema.String, Schema.String), { decode: SchemaGetter.splitKeyValue(XCCONFIG_ROW), encode: SchemaGetter.joinKeyValue(XCCONFIG_ROW) }), Schema.decodeTo(Schema.Struct({ DEVELOPMENT_TEAM: Schema.String }))));
+const XcodeProject = manifest(
     'project.xcproj',
     TextFormat.Json5.pipe(
         Schema.decodeTo(
@@ -84,25 +76,7 @@ const Xcode = manifest(
         ),
     ),
 );
-const XcodeProject = {
-    ...Xcode,
-    signing: Effect.fnUntraced(function* (directory: string) {
-        const [{ targets, packages }, path] = yield* Effect.all([Xcode.read(directory), Path.Path]);
-        const [root, target] = [path.dirname(directory), path.parse(directory).name];
-        const missing = (setting: string) => () => new Cause.IllegalArgumentError(`${directory} target ${target} has no ${setting}`);
-        const { settings } = yield* Effect.fromOption(
-            Array.findFirst(targets, ({ name }) => name === target),
-            () => new Cause.IllegalArgumentError(`${directory} has no ${target} target`),
-        );
-        const [identifier, entitlements, local] = yield* Effect.all([
-            Effect.fromOption(settings.PRODUCT_BUNDLE_IDENTIFIER, missing('PRODUCT_BUNDLE_IDENTIFIER')),
-            Effect.fromOption(Option.fromNullishOr(settings.CODE_SIGN_ENTITLEMENTS), missing('CODE_SIGN_ENTITLEMENTS')),
-            Effect.fromOption(Array.findFirst(packages, Schema.is(XcodeLocal)), () => new Cause.IllegalArgumentError(`${directory} names no local package`)),
-        ]);
-        const { DEVELOPMENT_TEAM } = yield* Xcconfig.read(path.join(root, local.path));
-        return { identifier, entitlements: path.join(root, entitlements), team: DEVELOPMENT_TEAM };
-    }),
-};
+const Workspace = manifest('pnpm-workspace.yaml', TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.String) }))));
 const Sgconfig = {
     ...manifest(
         'sgconfig.yml',
@@ -123,4 +97,4 @@ const Sgconfig = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ClaudeHooks, decodeFile, extendScriptEntry, Installed, libraryRoot, Mise, MiseLock, members, Package, Sgconfig, suitePath, VITEST_INTEGRATION_TESTS, Workspace, XCODE_REQUIREMENT, Xcconfig, XcodeProject, XcodeRemote };
+export { ClaudeHooks, decodeFile, Installed, librarySurface, Mise, MiseLock, members, Package, Sgconfig, Workspace, XCODE_REQUIREMENT, Xcconfig, XcodeProject, XcodeRemote };

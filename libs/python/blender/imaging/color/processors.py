@@ -248,7 +248,7 @@ def converted_image(config: PyOpenColorIO.Config, target: str, file: ImageFile, 
     return called(transformed, target)
 
 
-# --- [READINGS]
+# --- [READS]
 
 
 def basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.float64]]:

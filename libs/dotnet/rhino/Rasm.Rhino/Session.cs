@@ -10,8 +10,11 @@ using Rhino.Runtime;
 namespace Rasm.Rhino;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public static partial class Session {
+
     // --- [STATE]
+
     private sealed record Bound(Either<Skin, PlugIn> Host, Assembly Assembly, ILoggerFactory Loggers, ILogger Logger, EnvIO Scope, JoinableTaskCollection Pending);
 
     internal static readonly JoinableTaskContext Threading = Eto.Forms.Application.Instance.Invoke(static () =>
@@ -30,7 +33,8 @@ public static partial class Session {
     private static T Read<T>(Func<Bound, T> read) =>
         State.Value.Map(read).IfNone(static () => throw new InvalidOperationException($"{typeof(Session).Assembly.GetName().Name} holds no bound session"));
 
-    // --- [LIFETIME]
+    // --- [LIFECYCLE]
+
     public static IO<Unit> Bind(PlugIn plugIn, Seq<Action<ILoggingBuilder>> logging) => Opened(Right(plugIn), plugIn.GetType(), logging);
 
     public static IO<Unit> Bind(Skin skin, Seq<Action<ILoggingBuilder>> logging) => Opened(Left(skin), skin.GetType(), logging);
@@ -60,7 +64,8 @@ public static partial class Session {
         }) >> IO.fail<Unit>(new RhinoFault(category, RhinoReason.Taken))).As()
         select unit;
 
-    // --- [RUNS]
+    // --- [EXECUTION]
+
     public static Fin<T> RunSafe<T>(IO<T> effect, CancellationToken token) => Threading.Factory.Run(() => RunSafeAsync(effect, token));
 
     public static Task<Fin<T>> RunSafeAsync<T>(IO<T> effect, CancellationToken token, IDisposable? owned = null) =>
@@ -87,6 +92,7 @@ public static partial class Session {
         }).Task);
 
     // --- [THREADS]
+
     extension<T>(IO<T> effect) {
         public IO<T> OnUiThread() =>
             IO.liftVAsync(async environment => {
@@ -105,6 +111,7 @@ public static partial class Session {
     }
 
     // --- [LOGS]
+
     public static Unit Failed(Error error, [CallerMemberName] string member = "") => Failed(Logger, error, member);
 
     public static string Messages(Error error) => string.Join(Environment.NewLine, Causes(error).Map(static cause => cause.Message));
@@ -130,7 +137,9 @@ public static partial class Session {
 
 [ProviderAlias("CommandWindow")]
 internal sealed class CommandWindowLoggerProvider : ILoggerProvider, ISupportExternalScope {
+
     // --- [STATE]
+
     private readonly Channel<string> lines = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
     private readonly Atom<IExternalScopeProvider> scopes = Atom<IExternalScopeProvider>(new LoggerExternalScopeProvider());
     private readonly JoinableTask drain;
@@ -142,6 +151,7 @@ internal sealed class CommandWindowLoggerProvider : ILoggerProvider, ISupportExt
             .AsTask());
 
     // --- [LOGGERS]
+
     public ILogger CreateLogger(string categoryName) => new CommandWindowLogger(categoryName, this);
 
     public void SetScopeProvider(IExternalScopeProvider scopeProvider) => _ = scopes.Swap(_ => scopeProvider);
@@ -151,6 +161,7 @@ internal sealed class CommandWindowLoggerProvider : ILoggerProvider, ISupportExt
     internal void Write(string line) => _ = lines.Writer.TryWrite(line);
 
     // --- [RELEASE]
+
     public void Dispose() {
         _ = lines.Writer.TryComplete();
         drain.Join();

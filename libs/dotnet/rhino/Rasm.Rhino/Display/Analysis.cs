@@ -10,11 +10,15 @@ using Wacton.Unicolour;
 namespace Rasm.Rhino.Display;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public delegate double VertexMeasure(RhinoObject obj, int meshIndex, Mesh mesh, int vertex);
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record FalseColorScale(Interval Range, Seq<ColorStop> Stops) {
-    // --- [TABLE]
+
+    // --- [TABLES]
+
     public Option<Func<double, Color>> Tabulate() =>
         Stops.OrderBy(static stop => stop.Position).ToArray() switch {
             [] => None,
@@ -27,6 +31,7 @@ public sealed record FalseColorScale(Interval Range, Seq<ColorStop> Stops) {
         };
 
     // --- [LEGEND]
+
     public Option<UserInterfaceGrid> Legend(string heading, int rows, Func<double, string> label) =>
         Tabulate().Map(color => ViewportControls.Grid(Some(heading), toSeq(Enumerable.Range(0, int.Max(rows, 2)))
             .Map(row => Range.ParameterAt(1d - (row / (double)(int.Max(rows, 2) - 1))))
@@ -60,7 +65,9 @@ public sealed record FalseColorScale(Interval Range, Seq<ColorStop> Stops) {
 
 [Union]
 public abstract partial record AnalysisDefinition {
-    // --- [DEFINITION]
+
+    // --- [DEFINITIONS]
+
     private AnalysisDefinition(LocalizeStringPair name, VisualAnalysisMode.AnalysisStyle style) => (Name, Style) = (name, style);
 
     public LocalizeStringPair Name { get; }
@@ -70,6 +77,7 @@ public abstract partial record AnalysisDefinition {
     public Option<Func<bool, IO<Unit>>> UserInterface { get; init; }
 
     // --- [STYLES]
+
     public sealed record FalseColor(LocalizeStringPair Name, VertexMeasure Measure, Func<FalseColorScale> Scale) : AnalysisDefinition(Name, VisualAnalysisMode.AnalysisStyle.FalseColor);
 
     public sealed record Texture(LocalizeStringPair Name, Func<RhinoObject, Action<DisplayPipelineAttributes>> SetUp) : AnalysisDefinition(Name, VisualAnalysisMode.AnalysisStyle.Texture);
@@ -82,7 +90,9 @@ public abstract partial record AnalysisDefinition {
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class CurvatureFit {
+
     // --- [FITS]
+
     public static readonly CurvatureFit Auto = new(
         IO.lift(static () => VisualAnalysisMode.CurvatureColorAutoRange()),
         static (meshes, state) => RhinoFault.Unless(CurvatureAnalysisSettings.CalculateCurvatureAutoRange(meshes, ref state), RhinoReason.Declined, meshes.Count).Map(_ => state));
@@ -92,6 +102,7 @@ public sealed partial class CurvatureFit {
         static (meshes, state) => RhinoFault.Unless(CurvatureAnalysisSettings.CalculateCurvatureMaxRange(meshes, state), RhinoReason.Declined, meshes.Count).Map(_ => state));
 
     // --- [RANGES]
+
     public IO<Unit> Adjust { get; }
 
     public IO<CurvatureAnalysisSettingsState> Fit(Seq<Mesh> meshes, Option<CurvatureAnalysisSettings.CurvatureStyle> style = default) =>
@@ -105,12 +116,16 @@ public sealed partial class CurvatureFit {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class AnalysisModes {
+
     // --- [REGISTRATION]
+
     public static IO<Guid> Register<TMode>() where TMode : DefinedAnalysisMode<TMode>, IDefined<AnalysisDefinition>, new() =>
         Products.Of(static () => VisualAnalysisMode.Register(typeof(TMode))).Map(static mode => mode.Id);
 
     // --- [OBJECTS]
+
     public static IO<Unit> Enable(RhinoDoc doc, Seq<RhinoObject> objects, Guid mode, bool enabled, RedrawPolicy redraw) =>
         from found in Products.Of(() => VisualAnalysisMode.Find(mode))
         from shown in Commits.WithinRedraw(doc, redraw, IO.lift(() => Products.Each(objects, (obj, index) =>
@@ -128,8 +143,11 @@ public static class AnalysisModes {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public abstract class DefinedAnalysisMode<TSelf> : VisualAnalysisMode where TSelf : DefinedAnalysisMode<TSelf>, IDefined<AnalysisDefinition> {
+
     // --- [STATE]
+
     private readonly AnalysisDefinition definition;
     private readonly Option<Action<RhinoObject, DisplayPipeline>> drawObject;
     private readonly Option<Action<RhinoObject, GeometryBase, DisplayPipeline>> drawGeometry;
@@ -141,7 +159,8 @@ public abstract class DefinedAnalysisMode<TSelf> : VisualAnalysisMode where TSel
         (drawObject, drawGeometry) = (wires.Bind(static held => held.DrawObject), wires.Bind(static held => held.DrawGeometry));
     }
 
-    // --- [DEFINITION]
+    // --- [DEFINITIONS]
+
     public sealed override string Name => definition.Name.Local;
     public sealed override AnalysisStyle Style => definition.Style;
     public sealed override bool ShowIsoCurves => definition.ShowIsoCurves.IfNone(base.ShowIsoCurves);
@@ -151,6 +170,7 @@ public abstract class DefinedAnalysisMode<TSelf> : VisualAnalysisMode where TSel
     public sealed override bool ObjectSupportsAnalysisMode(RhinoObject obj) => definition.Supports.Match(Some: supports => supports(obj), None: () => base.ObjectSupportsAnalysisMode(obj));
 
     // --- [APPEARANCE]
+
     protected sealed override void SetUpDisplayAttributes(RhinoObject obj, DisplayPipelineAttributes attributes) =>
         definition.Switch(
             (Object: obj, Attributes: attributes),
@@ -181,6 +201,7 @@ public abstract class DefinedAnalysisMode<TSelf> : VisualAnalysisMode where TSel
     }
 
     // --- [DRAWING]
+
     protected sealed override void DrawCurveObject(CurveObject curve, DisplayPipeline pipeline) {
         if (drawObject.Case is Action<RhinoObject, DisplayPipeline> draw)
             draw(curve, pipeline);

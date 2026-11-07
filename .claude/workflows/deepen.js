@@ -21,7 +21,7 @@ const { hosts, languages } = await workflow('languages')
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
 const WORKFLOWS = '/Users/bardiasamiee/.claude/rasm/workflows'
 const OUTLINE = 'ast-grep outline'
-const RETURN = 'Return (structured) files you edited, added or deleted, and changes reaching other files.'
+const RETURN = 'Return (structured) files you edited, added or deleted, changes reaching other files, facts you verified with their source (installed release, source path, host behavior), and errors you met (a checker conflict, a build error, a logic defect a live run caught).'
 const MODES = {
   deepen: {
     facets: [
@@ -38,7 +38,7 @@ const MODES = {
     ],
     finding: 'what it removes or adds, and one doing neither is dropped',
     lean: ', leaning to deepen: capability the plan rows, inputs and packages hold that the files still lack, narrow or hand-write lands as general logic at full depth, extending its categories where the domain justifies, in the existing file or a new one held to the same bar',
-    verdict: 'Growth against base names the capability that needs it, and growth naming none is reverted.',
+    verdict: 'Growth against base names a capability absent at base, in its smallest form, and growth naming none is reverted.',
     report: 'strongest changes',
   },
   reduce: {
@@ -75,13 +75,14 @@ const NOUNS = {
 const PATHS = { type: 'array', items: { type: 'string' } }
 const FINDINGS = { type: 'array', items: { type: 'object', properties: { files: PATHS, change: { type: 'string' } }, required: ['files', 'change'] } }
 const FOUND = { type: 'object', properties: { findings: FINDINGS }, required: ['findings'] }
-const EDITED = { type: 'object', properties: { files: PATHS, spanning: FINDINGS }, required: ['files', 'spanning'] }
+const EDITED = { type: 'object', properties: { files: PATHS, spanning: FINDINGS, facts: PATHS, errors: PATHS }, required: ['files', 'spanning', 'facts', 'errors'] }
 const REPORTED = { type: 'object', properties: { files: PATHS, report: { type: 'string' } }, required: ['files', 'report'] }
 const MAPPED = { type: 'object', properties: { groups: { type: 'array', items: PATHS } }, required: ['groups'] }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [ARGS]
+
 const within = (path, roots) => roots.some((root) => path === root || path.startsWith(`${root}/`))
 const trimmed = (path) => path.replace(/^\.\//, '').replace(/\/+$/, '')
 const strings = (value) => Array.isArray(value) && value.every((item) => typeof item === 'string')
@@ -106,6 +107,7 @@ const rowed = PLAN !== null && MODE !== 'build'
 const FINISHED = text(args.finished) ? await workflow({ scriptPath: args.finished }) : {}
 
 // --- [PROMPTS]
+
 const relative = (path) => trimmed(path.replace(`${REPO}/`, ''))
 const union = (...lists) => [...new Set(lists.flat().map(relative))]
 const located = (finding) => ({ ...finding, files: finding.files.map(relative) })
@@ -135,6 +137,7 @@ const apart = exclude.length > 0 ? `, except files under ${exclude.join(', ')}` 
 const counted = (count, noun) => `${count} ${noun[PLURALS.select(count)]}`
 
 // --- [LOSSES]
+
 const lost = []
 const spent = { agents: 0 }
 const note = (label, why) => {
@@ -150,21 +153,24 @@ const once = (prompt, opts) => {
 }
 
 // --- [STAGES]
+
 const advance = (state, result) => {
   if (!result) return state
   const files = result.files.map(relative)
-  return { ...state, files: union(state.files, files), edited: union(state.edited, files), spanning: [...state.spanning, ...result.spanning.map(located)] }
+  return { ...state, files: union(state.files, files), edited: union(state.edited, files), spanning: [...state.spanning, ...result.spanning.map(located)], facts: [...state.facts, ...result.facts], errors: [...state.errors, ...result.errors] }
 }
+const fresh = (files) => ({ files, edited: [], spanning: [], facts: [], errors: [] })
+const carried = (state) => [...(state.facts.length > 0 ? [`Verified facts, challengeable with evidence alone:\n${listed(state.facts)}\n`] : []), ...(state.errors.length > 0 ? [`Errors the pass before met:\n${listed(state.errors)}\n`] : [])].join('')
 const editor = (state, changes, label, phase, origin = '', bound = own(state.files)) => once(`${brief(state.files)}
 Editor for ${state.files.join(', ')}. ${origin}Apply deletions first, rewrite a file whole where its changes reshape it, and refuse each change that reads as a shuffle or a regression.
 ${listed(changes)}
 ${bound} ${RETURN}`, { label, phase, schema: EDITED }).then((result) => advance(state, result))
 const adversary = (phase, lean, tier) => (state, item) => once(`${brief(state.files)}
 Adversary over ${state.files.join(', ')}. ${diff(state.files)} Finish or revert each shuffle, restore each regression, and rebuild them in place${lean}.
-${own(state.files)} ${RETURN}`, { label: `challenge:${item.tag}:${tier}`, phase, model: 'opus', schema: EDITED }).then((result) => advance(state, result))
+${carried(state)}${own(state.files)} ${RETURN}`, { label: `challenge:${item.tag}:${tier}`, phase, model: 'opus', schema: EDITED }).then((result) => advance(state, result))
 const verdict = (phase) => (state, item) => once(`${brief(state.files)}
 Verdict over ${state.files.join(', ')}. ${diff(state.files)} Judge each hunk: finish or revert each shuffle and restore each regression, in place.
-${own(state.files)} ${RETURN}`, { label: `verdict:${item.tag}`, phase, schema: EDITED }).then((result) => advance(state, result))
+${carried(state)}${own(state.files)} ${RETURN}`, { label: `verdict:${item.tag}`, phase, schema: EDITED }).then((result) => advance(state, result))
 const finish = (challenge, judge) => [adversary(challenge, mode.lean, 1), adversary(challenge, ', leaning to collapse existing declarations into stronger logic', 2), verdict(judge)]
 const owned = (group) => (finding) => finding.files.every((path) => group.files.includes(path))
 const reader = (group) => once(`${brief(group.files)}
@@ -185,7 +191,7 @@ const ordered = (items) => items.map((item, index) => ({ ...item, needs: items.s
 const distinct = (findings) => [...new Map(findings.map((finding) => [`${union(finding.files).toSorted().join(' ')} ${finding.change}`, finding])).values()]
 const merged = (findings, tag) => ordered([...Map.groupBy(distinct(findings), (finding) => union(finding.files).toSorted().join(' ')).values()].map((found, index) => ({ files: union(found[0].files), findings: found, id: `${tag}:${index + 1}`, tag: `${tag}:${index + 1}`, label: `edit:${tag}:${index + 1}` })))
 const moving = (files) => `Edit ${files.join(', ')}, files you add beside them and the consumers of each API your changes move${apart}, and return each other change reaching another file as a finding.`
-const cross = (set) => editor({ files: set.files, edited: [], spanning: [] }, set.findings.map((finding) => finding.change), set.label, 'Cross-group',
+const cross = (set) => editor(fresh(set.files), set.findings.map((finding) => finding.change), set.label, 'Cross-group',
   'Changes spanning file groups, found before the groups changed: apply each that holds against the current files. ', moving(set.files))
   .then((state) => state.edited.length === 0 ? state : finish('Cross-group', 'Cross-group').reduce((prior, stage) => prior.then((held) => stage(held, set)), Promise.resolve(state)))
 const crossing = (sets) => pumped(sets, cross).then((done) => [...done.values()])
@@ -223,12 +229,12 @@ const written = (packages, plan) => pumped(packages.map((pkg) => ({ ...pkg, labe
 Writer for package ${pkg.id} (${pkg.title}): write what ${plan} section "${pkg.section}" states, editing only ${pkg.files.join(', ')}.${reads.length > 0 ? `\nPackages it reads, written:\n${listed(reads)}` : ''}
 Return (structured) the files you edited and a summary in at most 15 lines.`, { label: pkg.label, phase: 'Write', schema: { type: 'object', properties: { summary: { type: 'string' }, files: PATHS }, required: ['summary', 'files'] } })
 }).then((done) => [...done.values()].flatMap((result) => result.files.map(relative)))
-const landed = (group) => pumped(group.slices, (slice) => editor({ files: slice.files, edited: [], spanning: [] }, slice.rows, slice.label, 'Edit',
+const landed = (group) => pumped(group.slices, (slice) => editor(fresh(slice.files), slice.rows, slice.label, 'Edit',
   `Read ${['these files', ...group.reads].join(', ')} whole as they stand, then land each row of ${PLAN} below. `))
-  .then((done) => [...done.values()].reduce((state, result) => ({ files: union(state.files, result.files), edited: union(state.edited, result.edited), spanning: [...state.spanning, ...result.spanning] }),
-    { files: group.files, edited: [], spanning: [] }))
+  .then((done) => [...done.values()].reduce((state, result) => ({ files: union(state.files, result.files), edited: union(state.edited, result.edited), spanning: [...state.spanning, ...result.spanning], facts: [...state.facts, ...result.facts], errors: [...state.errors, ...result.errors] }),
+    fresh(group.files)))
 const local = (group) => (found) => {
-  const state = { files: group.files, edited: [], spanning: found.filter((finding) => !owned(group)(finding)) }
+  const state = { ...fresh(group.files), spanning: found.filter((finding) => !owned(group)(finding)) }
   const changes = found.filter(owned(group)).map((finding) => finding.change)
   return changes.length > 0 ? editor(state, changes, `edit:${group.tag}`, 'Edit') : state
 }

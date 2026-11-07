@@ -1,9 +1,9 @@
 import { Array, Duration, Effect, Option, type Predicate } from 'effect';
-import { Verdict } from '#/decision';
-import { appOf, WATCHER } from '#/instances';
-import { absent, all, BACKGROUNDED, type Call, dropped, edited, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, unwrap, type Verdicts, when, within } from '#/policies/fix';
-import type { Word } from '#/shell/script';
-import type { Site } from '#/shell/site';
+import { Verdict } from '#/decision.ts';
+import { appOf, WATCHER } from '#/instances.ts';
+import { absent, all, BACKGROUNDED, type Call, dropped, edited, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, unwrap, type Verdicts, when, within } from '#/policies/fix.ts';
+import type { Word } from '#/shell/script.ts';
+import type { Site } from '#/shell/site.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ const REAPING = new Set(['wait', 'kill']);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [WATCH]
+// --- [WATCHING]
 
 const watchAction = ({ request }: Call, names: readonly string[]): string => {
     const shown = names.length === 0 ? ['<app>'] : names.map(quote);
@@ -145,7 +145,7 @@ const tailedTask: Fix = (site, call) => {
     );
 };
 
-// --- [SCRIPT]
+// --- [SCRIPTS]
 
 const jobbed = ({ analysis, request }: Call): Verdicts => {
     const [job, ...more] = analysis.jobs;

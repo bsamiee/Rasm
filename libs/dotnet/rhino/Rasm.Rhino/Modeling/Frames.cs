@@ -6,6 +6,7 @@ using Rhino;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Alignment {
     public Option<(SweepFrame Frame, Vector3d Normal)> Host => Switch(
@@ -162,6 +163,9 @@ public sealed record Station(double Parameter, double Normalized, Plane Frame);
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Frames {
+
+    // --- [CASES]
+
     public sealed record Through(Seq<Plane> At) : Frames;
 
     public sealed record Linear : Frames {
@@ -196,6 +200,7 @@ public abstract partial record Frames {
     public sealed record OnSurface(Surface Surface, Seq<Point2d> At) : Frames;
 
     // --- [STATIONS]
+
     public Fin<Seq<Station>> Stations(Tolerances tolerances) =>
         Switch(
             tolerances,
@@ -216,7 +221,8 @@ public abstract partial record Frames {
 
     public Fin<Seq<Plane>> Planes(Tolerances tolerances) => Stations(tolerances).Map(static stations => stations.Map(static station => station.Frame).Strict());
 
-    // --- [PLACEMENTS]
+    // --- [PLACEMENT]
+
     public Fin<Seq<(Station Station, Transform Xform)>> Placements(Tolerances tolerances, Plane basis, Placement placement) =>
         Stations(tolerances).Map(stations => stations.Map(station => (Station: station, Xform: placement.At(basis, station.Frame, station.Normalized))).Strict());
 

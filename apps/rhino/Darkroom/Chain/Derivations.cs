@@ -3,7 +3,11 @@ using Rasm.Rhino;
 namespace Darkroom.Chain;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class Derivations {
+
+    // --- [STATE]
+
     private readonly Derivations root;
     private readonly Option<Guid> owner;
     private readonly Lock sync;
@@ -12,12 +16,14 @@ public sealed class Derivations {
 
     public Derivations() => (root, owner, sync) = (this, None, new Lock());
 
+    // --- [SCOPES]
+
     private Derivations(Derivations root, Guid owner) => (this.root, this.owner, sync) = (root, Some(owner), root.sync);
 
-    // --- [SCOPES]
     public Derivations Owned(Guid kind) => new(root, kind);
 
     // --- [VALUES]
+
     public TValue Derived<TKey, TValue>(TKey key, Func<TKey, TValue> derive) where TKey : notnull where TValue : notnull {
         lock (sync) {
             return root.derived.Find((owner, derive)).Filter(kept => kept.Key.Equals(key)).Map(static kept => (TValue)kept.Value).IfNone(() => {
@@ -29,6 +35,7 @@ public sealed class Derivations {
     }
 
     // --- [RESOURCES]
+
     public Fin<TResult> Held<TKey, TResource, TResult>(TKey key, Func<TKey, Fin<TResource>> open, Func<TResource, Fin<TResult>> run)
         where TKey : notnull
         where TResource : IDisposable {

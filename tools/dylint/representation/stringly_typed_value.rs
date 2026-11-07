@@ -65,6 +65,12 @@ impl Pass {
     }
 }
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn tag<'tcx>(cx: &LateContext<'tcx>, value: &'tcx Expr<'tcx>) -> Option<Symbol> {
+    if let Some(Constant::Str(text)) = ConstEvalCtxt::new(cx).eval(peel_hir_expr_while(peel_blocks(value), |inner| text_view(cx, inner))) { Some(Symbol::intern(&text)) } else { None }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
@@ -230,10 +236,4 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             });
         }
     }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn tag<'tcx>(cx: &LateContext<'tcx>, value: &'tcx Expr<'tcx>) -> Option<Symbol> {
-    if let Some(Constant::Str(text)) = ConstEvalCtxt::new(cx).eval(peel_hir_expr_while(peel_blocks(value), |inner| text_view(cx, inner))) { Some(Symbol::intern(&text)) } else { None }
 }

@@ -13,6 +13,7 @@ using Rhino.Input.Custom;
 namespace Rasm.Rhino.Commands;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ViewFrame(ViewportTarget Viewport, Plane ConstructionPlane);
 
 public sealed record PointPick(Point3d Point, LengthUnit Unit, Option<ViewFrame> View);
@@ -151,14 +152,18 @@ public abstract partial record StageStep<TStage, TValue> {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class CallbackGetTransform(RhinoDoc document, Func<RhinoViewport, PointPick, Transform> calculate) : GetTransform {
     public override Transform CalculateTransform(RhinoViewport viewport, Point3d point) =>
         calculate(viewport, new PointPick(point, Viewports.Units(document, Some(viewport)), Some(Getters.Located(viewport))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Getters {
+
     // --- [ROUTES]
+
     public static bool Retried(Error error) =>
         error.IsExpected && !Session.Cancellation(error) && !Results.Ends(error);
 
@@ -221,6 +226,7 @@ public static class Getters {
     private static IO<T> Unhandled<T>(object value) => IO.fail<T>(new RhinoFault(value.GetType(), RhinoReason.Mismatched));
 
     // --- [POINTS]
+
     public static IO<T> Point<T>(RhinoDoc doc, PointRequest<T> request, Func<WorldPick, IO<T>> picked) =>
         Pointed(static () => new GetPoint(), doc, request, getter => getter.Get(request.Released), getter => new Route<T>(GetResult.Point, World(getter, doc, picked)));
 
@@ -272,6 +278,7 @@ public static class Getters {
     internal static ViewFrame Located(RhinoViewport viewport) => new(new ViewportTarget.Id(viewport.Id), viewport.ConstructionPlane());
 
     // --- [OBJECTS]
+
     public static IO<T> Objects<T>(RhinoDoc doc, ObjectRequest<T> request, Func<Seq<ObjRef>, IO<T>> selected) =>
         Run(
             static () => new GetObject(),
@@ -288,7 +295,8 @@ public static class Getters {
                 request.End.Switch(onEnter: static _ => 0, atMinimum: static _ => -1, atCount: static count => count.Maximum));
         });
 
-    // --- [ENTRY]
+    // --- [ENTRIES]
+
     public static IO<T> Number<T>(RhinoDoc doc, EntryRequest<GetNumber, double, T> request, Func<Entered<double>, IO<T>> entered) =>
         Number(doc, request, identity, identity, entered);
 
@@ -333,7 +341,8 @@ public static class Getters {
             }),
             getter => Seq(new Route<T>(GetResult.Number, IO.lift(() => new Entered<TValue>(read(getter.Number()), getter.GotDefault())).Bind(entered))));
 
-    // --- [DRAG]
+    // --- [DRAGS]
+
     public static IO<T> DragList<T>(Seq<ObjRef> references, bool feedback, Func<TransformObjectList, IO<T>> body) =>
         Listed(list => IO.lift(() => references.Iter(list.Add)), feedback, body);
 
@@ -352,10 +361,12 @@ public static class Getters {
          select value).Bracket();
 
     // --- [STAGES]
+
     public static IO<TValue> Stages<TStage, TValue>(TStage entry, Func<TStage, StageKit<TStage, TValue>, IO<StageStep<TStage, TValue>>> prompt) =>
         Monad.recur(new StageTrail<TStage>(entry, []), trail => StageStep<TStage, TValue>.Transition(trail, prompt)).As();
 
-    // --- [AWAIT]
+    // --- [WAITING]
+
     public static IO<T> Await<T>(RhinoDoc doc, string prompt, Option<string> progress, Func<IProgress<double>, IO<T>> work) =>
         (from getter in use(() => new GetCancel { ProgressReporting = progress.IsSome, ProgressMessage = Conversions.Unset(progress) })
          from answer in IO.liftAsync(async () => {

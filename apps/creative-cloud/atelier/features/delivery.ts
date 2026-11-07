@@ -1,10 +1,10 @@
 import process from 'node:process';
-import type { RunningInstance } from '@rasm/applications/contract';
+import type { RunningInstance } from '@rasm/applications';
 import { hosts, registered, replaced } from '@rasm/automation/installer';
-import { UxpManifest } from '@rasm/uxp/manifest';
+import { UxpManifest } from '@rasm/uxp';
 import { Array, Effect, FileSystem, Option, Path, Predicate, Result, Schema, Stream, String, SubscriptionRef } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { Adobe } from '#/adobe';
+import { Adobe } from '#/adobe.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

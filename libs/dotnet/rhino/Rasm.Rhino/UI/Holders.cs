@@ -13,6 +13,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HolderRow {
     public Seq<View.Section> Sections =>
@@ -26,8 +27,11 @@ public abstract partial record HolderRow {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class HostedSection : IDisposable {
+
     // --- [STATE]
+
     private readonly EtoCollapsibleSection section;
     private readonly Seq<Command<Invoke>> actions;
     private readonly Option<Guid> data;
@@ -48,6 +52,7 @@ internal sealed class HostedSection : IDisposable {
     internal bool Hidden => body.Exists(static held => held.Hidden);
 
     // --- [CALLBACKS]
+
     internal Option<IHeaderButtonHandler> Header =>
         actions.IsEmpty
             ? None
@@ -81,6 +86,7 @@ internal sealed class HostedSection : IDisposable {
             });
 
     // --- [RELEASE]
+
     public void Dispose() {
         _ = Session.Run(IO.lift(scope.DisposeResources));
         scope.Dispose();
@@ -108,7 +114,9 @@ internal sealed class HeaderButtons(Control section, Seq<CommandFace> faces, Fun
 }
 
 internal sealed class DefinedSection : EtoCollapsibleSection3, ICollapsibleSection {
+
     // --- [STATE]
+
     private readonly View.Section row;
     private readonly Guid id;
     private readonly HostedSection hosted;
@@ -119,6 +127,7 @@ internal sealed class DefinedSection : EtoCollapsibleSection3, ICollapsibleSecti
     }
 
     // --- [IDENTITY]
+
     Guid ICollapsibleSection.Id => id;
 
     public override string SettingsTag => id.ToString("D", CultureInfo.InvariantCulture);
@@ -136,6 +145,7 @@ internal sealed class DefinedSection : EtoCollapsibleSection3, ICollapsibleSecti
     public override IHeaderButtonHandler NewHeaderButtonHandler() => hosted.Header.IfNone(base.NewHeaderButtonHandler);
 
     // --- [CALLBACKS]
+
     internal Option<SectionHolder> Holder { get; private set; }
 
     public override void OnAttachedToHolder(ICollapsibleSectionHolder2 holder) {
@@ -148,6 +158,7 @@ internal sealed class DefinedSection : EtoCollapsibleSection3, ICollapsibleSecti
     public override void UpdateView(uint flags) => _ = hosted.Reread;
 
     // --- [RELEASE]
+
     protected override void Dispose(bool disposing) {
         if (disposing) hosted.Dispose();
         base.Dispose(disposing);
@@ -155,12 +166,15 @@ internal sealed class DefinedSection : EtoCollapsibleSection3, ICollapsibleSecti
 }
 
 internal sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
+
     // --- [STATE]
+
     private readonly Option<int> above;
 
     private SectionHolder(Option<int> above) => this.above = above;
 
-    // --- [HOLD]
+    // --- [HOLDS]
+
     internal static IO<SectionHolder> Hold(HolderRow holder, RowScope scope) =>
         from stack in use(() => new SectionHolder(holder.Switch(stacked: static _ => Option<int>.None, filled: static filled => Some(filled.Above.Count))), Detached)
         from sections in holder.Sections.TraverseM(row => IO.lift(() => stack.Add(new DefinedSection(row, row.Identity.GUID, expanded: true, _ => ViewBody.Realize(row, row.Actions, scope))))).As()
@@ -179,6 +193,7 @@ internal sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
     }
 
     // --- [CALLBACKS]
+
     internal static IO<Unit> HolderVisible(Control content, bool visible) =>
         content switch {
             SectionHolder stack => Products.Each(toSeq(stack.Sections).Choose(static section => Optional(section as EtoCollapsibleSection2))
@@ -191,6 +206,7 @@ internal sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
         IO.lift(() => Optional(content.Parent as DefinedSection).Bind(static section => section.Holder).Iter(static holder => holder.Fit()));
 
     // --- [LAYOUT]
+
     private Unit Fit() =>
         above.Iter(count => SetFullHeightSection(SectionAt(VisibleFullHeightIndex(toSeq(Sections).Strict(), count))));
 
@@ -206,8 +222,11 @@ internal sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SectionCommands {
+
     // --- [ACTIONS]
+
     public static Command<Invoke>.Run Values { get; } =
         new(new CommandFace("section-values", "Values") { Icon = Some(IconResource.Options) },
             new Invoke.Popup(static scope => Historied(scope).Bind(history => Listing(history, scope))));
@@ -219,6 +238,7 @@ public static class SectionCommands {
     private static IO<HistoryBinding> Historied(RowScope scope) => IO.lift(() => scope.History.ToFin(new RhinoFault("section value history", RhinoReason.Missing)));
 
     // --- [VALUES]
+
     private static IO<Seq<Seq<Command<Invoke>>>> Listing(HistoryBinding history, RowScope scope) =>
         from held in history.History
         let pastes = Clipboard.Instance.ContainsText

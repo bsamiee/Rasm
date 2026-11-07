@@ -77,7 +77,7 @@ impl FromStr for Path {
     }
 }
 
-// --- [WIRE]
+// --- [WIRES]
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Layer {

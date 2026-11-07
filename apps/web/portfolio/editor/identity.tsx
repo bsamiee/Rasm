@@ -1,11 +1,11 @@
 import { useAtomSet } from '@effect/atom-react';
-import { User } from '@rasm/hosting/user';
-import { Field } from '@rasm/ui/field';
+import { User } from '@rasm/hosting';
+import { Field } from '@rasm/ui';
 import { Optic } from 'effect';
 import type { Atom } from 'effect/reactivity';
-import { draft, hero, portfolio } from '#/client/state';
-import { PlacementFields } from '#/editor/placement-fields';
-import { MediaFigure } from '#/media/media-figure';
+import { PlacementFields } from '#/editor/placement-fields.tsx';
+import { draft, hero, portfolio } from '#/editor/state.ts';
+import { MediaFigure } from '#/media/media-figure.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

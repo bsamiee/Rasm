@@ -12,6 +12,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<Offset>(SkipFactoryMethods = true)]
 public sealed partial class StandardOffset : IMinMaxValue<StandardOffset> {
     public static StandardOffset MinValue { get; } = new(Offset.FromHours(-12));
@@ -37,15 +38,11 @@ public sealed partial class DaylightSaving : IMinMaxValue<DaylightSaving> {
 }
 
 public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset Standard, Option<DaylightSaving> Saving) {
-    private const double RiseAltitude = -0.833d;
-    private const double HourAccuracy = 1e-6d;
-    private const int RootIterations = 100;
 
-    private static readonly DateInterval Dated = new(new LocalDate(1971, 1, 1), new LocalDate(2105, 12, 31));
+    // --- [SITES]
 
     public Offset Wall => (Offset)Standard + Offset.FromSeconds(Minutes * NodaConstants.SecondsPerMinute);
 
-    // --- [SITES]
     public static Fin<SunSite> Read(Sun sun) =>
         (GeoCoordinate.From(sun.Latitude, sun.Longitude),
          StandardOffset.Validated(Offset.FromSeconds((int)Math.Round(sun.TimeZone * NodaConstants.SecondsPerHour, MidpointRounding.ToEven))),
@@ -65,7 +62,8 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset St
         Products.Accepted(static () => (Sun.Here(out double latitude, out double longitude), (Latitude: latitude, Longitude: longitude)))
             .Bind(located => IO.lift(GeoCoordinate.From(located.Latitude, located.Longitude).Bind(place => Placed(place, north, moment))));
 
-    // --- [DOCUMENT]
+    // --- [DOCUMENTS]
+
     public static LocalDateTime Moment(Sun sun) => LocalDateTime.FromDateTime(sun.GetDateTime(DateTimeKind.Local)).With(TimeAdjusters.TruncateToSecond);
 
     public IO<Unit> Write(Sun sun) =>
@@ -83,7 +81,8 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset St
 
     public Instant InstantOf(LocalDateTime local) => local.WithOffset(Wall).ToInstant();
 
-    // --- [SAMPLES]
+    // --- [SAMPLING]
+
     public IO<SunSample> Sample(LocalDateTime local) =>
         Observed(sun => Universal(InstantOf(local)).Map(utc => {
             sun.SetDateTime(utc, DateTimeKind.Utc);
@@ -102,6 +101,13 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset St
         RhinoFault.Unless(Dated.Contains(at.InUtc().Date), RhinoReason.Outside, at).Map(_ => DateTime.SpecifyKind(at.ToDateTimeUtc(), DateTimeKind.Unspecified));
 
     // --- [DAYS]
+
+    private const double RiseAltitude = -0.833d;
+    private const double HourAccuracy = 1e-6d;
+    private const int RootIterations = 100;
+
+    private static readonly DateInterval Dated = new(new LocalDate(1971, 1, 1), new LocalDate(2105, 12, 31));
+
     public Fin<SunDay> Day(LocalDate date) =>
         from dated in RhinoFault.Unless(Dated.Contains(date), RhinoReason.Outside, date)
         let altitude = fun((double hour) => Sun.AltitudeFromValues(
@@ -138,6 +144,9 @@ public sealed record SunDay(Instant Noon, NodaTime.Interval Daylight, NodaTime.I
 [ComplexValueObject]
 [ValidationError<RhinoFault>]
 public sealed partial class SunWindow {
+
+    // --- [STATE]
+
     public LocalDateTime Start { get; }
 
     public LocalDateTime End { get; }
@@ -155,6 +164,7 @@ public sealed partial class SunWindow {
     }
 
     // --- [WINDOWS]
+
     public static Fin<SunWindow> Day(LocalDate date, LocalTime from, LocalTime until, Period step) =>
         Validated(date.At(from), date.At(until), step);
 
@@ -176,6 +186,7 @@ public sealed partial class SunWindow {
             .As();
 
     // --- [ANIMATION]
+
     public static Fin<Option<SunWindow>> Read(AnimationProperties properties) =>
         (properties.CaptureType, Start: new LocalDateTime(properties.StartYear, properties.StartMonth, properties.StartDay, properties.StartHour, properties.StartMinutes, properties.StartSeconds),
             End: new LocalDateTime(properties.EndYear, properties.EndMonth, properties.EndDay, properties.EndHour, properties.EndMinutes, properties.EndSeconds)) switch {

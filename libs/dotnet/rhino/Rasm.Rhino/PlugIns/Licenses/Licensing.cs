@@ -7,6 +7,7 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.PlugIns.Licenses;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record LicenseDefinition(
     LicenseCapabilities Capabilities,
     Option<string> TextMask,
@@ -14,8 +15,11 @@ public sealed record LicenseDefinition(
     Func<Option<LicenseLease>, IO<Unit>> LeaseChanged);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Licensing {
-    // --- [REQUEST]
+
+    // --- [REQUESTS]
+
     public static IO<Unit> Request(LicenseDefinition license, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense) =>
         from glyph in IO.lift(static () => IconResource.PlugIn(Session.Assembly))
         from icon in glyph.Traverse(static art => Icons.DrawingIcon(art, IconSlot.Banner)).As()
@@ -23,11 +27,13 @@ public static class Licensing {
         select unit;
 
     // --- [STATUS]
+
     public static HostEvent<Option<LicenseStatus>> Status(Guid productId) =>
         Subscriptions.On<LicenseStateChangedEventArgs>(static h => RhinoApp.LicenseStateChanged += h, static h => RhinoApp.LicenseStateChanged -= h)
             .Choose(_ => Some(Optional(LicenseUtils.GetOneLicenseStatus(productId))));
 
     // --- [CALLBACKS]
+
     private static ValidateProductKeyDelegate Validator(Func<string, IO<LicenseData>> validate) =>
         (productKey, out licenseData) => {
             (ValidateResult result, licenseData) = Session.Run(

@@ -8,15 +8,19 @@ using Rhino;
 namespace Rasm.Grasshopper;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public sealed record GrasshopperPlugin {
-    // --- [DECLARATION]
+
+    // --- [DECLARATIONS]
+
     public required ILoggerFactory Loggers { get; init; }
     public Seq<IO<Unit>> Types { get; init; }
     public Seq<GrasshopperTheme> Themes { get; init; }
     public Seq<Command> Commands { get; init; }
     public Seq<Func<Plugin, IO<Unit>>> Lifetimes { get; init; }
 
-    // --- [HOST]
+    // --- [HOSTS]
+
     public static IIcon Icon(Plugin plugin) => DataTypes.Icon(plugin.Assembly, "icon") ?? StandardIcons.LetterDisc(plugin.Name);
 
     public void Load(Plugin plugin) =>

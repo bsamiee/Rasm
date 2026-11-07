@@ -613,6 +613,89 @@ fn manual_retain_back(found: &str) {
     ");
 }
 
+fn manual_set_operator(found: &str) {
+    insta::assert_snapshot!(found, @"
+    warning: `intersection` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:17:81
+       |
+    17 | fn intersected(held: &BTreeSet<u32>, stated: &BTreeSet<u32>) -> BTreeSet<u32> { held.intersection(stated).copied().collect() }
+       |                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `held & stated`
+       |
+       = note: `#[warn(manual_set_operator)]` on by default
+    applicability MachineApplicable: write the set operator
+
+    warning: `union` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:19:74
+       |
+    19 | fn united(held: BTreeSet<u32>, stated: BTreeSet<u32>) -> BTreeSet<u32> { held.union(&stated).copied().collect() }
+       |                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `&held | &stated`
+    applicability MachineApplicable: write the set operator
+
+    warning: `difference` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:21:89
+       |
+    21 | fn subtracted(held: &BTreeSet<String>, stated: &BTreeSet<String>) -> BTreeSet<String> { held.difference(stated).cloned().collect() }
+       |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `held - stated`
+    applicability MachineApplicable: write the set operator
+
+    warning: `symmetric_difference` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:23:77
+       |
+    23 | fn toggled(held: &BTreeSet<u32>, stated: &BTreeSet<u32>) -> BTreeSet<u32> { held.symmetric_difference(stated).copied().collect() }
+       |                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `held ^ stated`
+    applicability MachineApplicable: write the set operator
+
+    warning: `intersection` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:25:73
+       |
+    25 | fn hashed(held: &HashSet<u32>, stated: &HashSet<u32>) -> HashSet<u32> { held.intersection(stated).copied().collect() }
+       |                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `held & stated`
+    applicability MachineApplicable: write the set operator
+
+    warning: `union` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:27:80
+       |
+    27 | fn joined(held: HashSet<String>, stated: HashSet<String>) -> HashSet<String> { held.union(&stated).cloned().collect() }
+       |                                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `&held | &stated`
+    applicability MachineApplicable: write the set operator
+
+    warning: `difference` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:29:74
+       |
+    29 | fn removed(held: &HashSet<u32>, stated: &HashSet<u32>) -> HashSet<u32> { held.difference(stated).copied().collect() }
+       |                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `held - stated`
+    applicability MachineApplicable: write the set operator
+
+    warning: `symmetric_difference` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:31:74
+       |
+    31 | fn swapped(held: &HashSet<u32>, stated: &HashSet<u32>) -> HashSet<u32> { held.symmetric_difference(stated).copied().collect() }
+       |                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `held ^ stated`
+    applicability MachineApplicable: write the set operator
+
+    warning: `intersection` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:33:78
+       |
+    33 | fn mutated(held: &mut HashSet<u32>, stated: &HashSet<u32>) -> HashSet<u32> { held.intersection(stated).copied().collect() }
+       |                                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `&*held & stated`
+    applicability MachineApplicable: write the set operator
+
+    warning: `intersection` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:35:81
+       |
+    35 | fn nested(held: &Rc<BTreeSet<u32>>, stated: &&BTreeSet<u32>) -> BTreeSet<u32> { held.intersection(stated).copied().collect() }
+       |                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `&**held & *stated`
+    applicability MachineApplicable: write the set operator
+
+    warning: `intersection` collects a set by hand
+      --> tools/dylint/examples/manual_set_operator.rs:37:78
+       |
+    37 | ...> { Iterator::collect(Iterator::copied(BTreeSet::intersection(&held, stated))) }
+       |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the set operator: `&held & stated`
+    applicability MachineApplicable: write the set operator
+    ");
+}
+
 fn manual_slice_as_array(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: fallible conversion checks the length of `slice` to view it as `&[u8; 4]`
@@ -850,9 +933,9 @@ fn manual_type_changing_struct_update(found: &str) {
 fn manual_upcast(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: `into_display` returns `self` as `dyn Display`, which trait upcasting converts from `dyn BoxedView`
-       --> tools/dylint/examples/duplicate_body.rs:499:45
+       --> tools/dylint/examples/duplicate_body.rs:486:45
         |
-    499 |         fn into_display(self: Box<Self>) -> Box<dyn Display>;
+    486 |         fn into_display(self: Box<Self>) -> Box<dyn Display>;
         |                                             ^^^^^^^^^^^^^^^^
         |
         = help: delete the method and coerce `dyn BoxedView` to `dyn Display` at each call site

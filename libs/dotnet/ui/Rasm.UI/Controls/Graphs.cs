@@ -14,6 +14,7 @@ using Topten.RichTextKit;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Port(Key Key, DataSeries Type) {
     public Option<string> Label { get; init; }
     public bool Many { get; init; }
@@ -45,7 +46,9 @@ public abstract partial record Group {
 
 public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<TNode, string> Title, Vector2 Row, PlotPlane View, Part.Viewport Navigation)
     where TNode : notnull {
+
     // --- [STATE]
+
     private static readonly Seq<View> Gridlines = toSeq(PhysicalAxis.Items).Bind(static along => Seq<View>(
         new View.Mark(new Figure.Grid(along) { Major = false }) { Role = Roles.GridFine },
         new View.Mark(new Figure.Grid(along)) { Role = Roles.Grid }));
@@ -72,7 +75,8 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     public Option<Interpolation> Curve { get; init; }
     public Key Role { get; init; } = Roles.Well;
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     public View Drawn {
         get {
             Seq<Node> nodes = Nodes.Map(node => new Node(node, Key(node), Title(node), Inputs(node), Outputs(node))).Strict();
@@ -124,6 +128,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
         };
 
     // --- [FACES]
+
     private View.Pin Faced(Node node, SKRect box, Seq<Slot> members, HashMap<Socket, Slot> slots, Seq<Key> keys) {
         HashSet<Condition> marks = Conditions(node.Item);
         Seq<View> ports = members.Map(slot => (View)Ported(slot, slots, keys));
@@ -180,6 +185,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
         Selected.Map(selected => selected(edit.Map(_ => Selection.Navigated(keys, node, extend: false)).As())).IfNone(unitIO);
 
     // --- [WIRES]
+
     private Option<View> Connection(Wire wire, HashMap<Socket, Slot> slots) =>
         from start in slots.Find(wire.From).Filter(static slot => slot.Output)
         from end in slots.Find(wire.To)
@@ -224,6 +230,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
         select new Socket(node, port);
 
     // --- [LAYOUT]
+
     private Points<HashMap<Key, Vector2>> Positions(Seq<Key> keys) =>
         new(positions => keys.Choose(key => positions.Find(key).Map(at => new HandlePoint(key, at))),
             (positions, targets, _) => (

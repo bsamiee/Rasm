@@ -58,7 +58,13 @@ Words that fail take the current term for what they name, real field terms (SIMD
 |  [30]   | `pluggable`, `publication-quality`, `settled` (fact)              | Delete                                                           |
 |  [31]   | `toolkit`, `suite` (after a package name), `hard-won`             | Delete                                                           |
 
-Names and divider labels in code, build, and rule files use language or domain terms:
+Names in code, build, and rule files come from their subject:
+1. Names state what the code is, in place of what it does to data
+2. Subjects belong to a field (a language, a domain), and names and divider labels take that field's own terms
+3. Categories name the field spanning their present and anticipated packages, packages sharing only a mechanism belong to separate fields
+4. Packages hold one concern of their field whole, named by the term its practitioners use, and modules name the concepts inside it
+
+Names outside their declaration take these forms:
 - Renames use language tooling and update every reference, test, file, and folder
 - Prose writes code names in backticks with exact spelling, a tool use as its command (`ruff check`), and tool or product names used as words plain
 - Names, control labels, and text another system resolves or emits stay exact, reports name each coupling
@@ -183,14 +189,12 @@ Tables use bracket headers and an `[INDEX]` column:
 
 ## [05]-[COMMENTS]
 
-Comments state intent or constraint code cannot show:
+Code files hold section dividers and tool directives alone, laid out by `CLAUDE.md` file organization. Comments in config files and Markdown state intent or constraint their content cannot show:
 - Sentences stay whole within language line length; intent needing another line goes
-- Consecutive full-line comments merge into one, a comment that repeats its code goes
+- Consecutive full-line comments merge into one, a comment that repeats its content goes
 - Inline comments stay and get the same removals
-- Test comments name case shape as a noun phrase, then its deciding fact
 - Comments naming a value's ported source go once the source leaves the repository or names a file the repository does not hold
 - Structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
-- Section dividers follow `CLAUDE.md` file organization
 - Doc summaries state returns or behavior without repeating member names; remarks keep one fact per sentence
 - Messages and output fields derive event details and known causes from values, then give agents one available action after a comma
 - Commit subjects open `<type>(<project>): ` with an imperative subject, `!` before the colon marks a breaking change
@@ -211,7 +215,9 @@ Rewrite of an existing file:
 
 Guidance and message edits rewrite or delete owning lines and widen categories for new cases. Appended restatements are regressions. New text uses direct positive statements without framing or validation language.
 
-Run `scripts/prose.py`: `check` reports findings, `fix` writes fixes and reports remaining findings:
+`scripts/prose.py` fixes format Markdown blocks and tables, normalize dividers, delete empty sections and lone subsections, and set one blank line beside each divider except gaps the file's formatter owns. Reports cover code comments outside dividers and directives, sections out of `CLAUDE.md` table order, and wording.
+
+Run `scripts/prose.py`: `check` reports findings at their lines on disk, `fix` writes fixes and reports remaining findings:
 
 ```bash
 python "${CLAUDE_SKILL_DIR}/scripts/prose.py" check <path>...

@@ -91,6 +91,8 @@ class Applied(msgspec.Struct, frozen=True, kw_only=True):
 class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
     """Assignable values keyed by owner path under struct type, each value named by its member path under that owner."""
 
+    # --- [STATE]
+
     struct: str
     tree: Tree[Value, RnaPath, RnaPath]
 
@@ -246,6 +248,8 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
 class Capture[W]:
     """One walk of a source into value tree rows under a value reader, a native walk holding compounds whole and keying top-level rows by ID session."""
+
+    # --- [STATE]
 
     __slots__ = ("enclosing", "expanded", "inactive", "native", "owned", "owner", "owners", "read", "roots", "seen", "selection", "source", "valued")
 
@@ -468,6 +472,7 @@ class Capture[W]:
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [WALKS]
 
 

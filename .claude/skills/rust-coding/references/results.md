@@ -28,18 +28,18 @@ Each unlisted unit reports its own `Refused`, an empty schedule passes, and cons
 
 ## [03]-[BINDING]
 
-Steps reading joined values bind through `.ok()?`, and later dependent steps bind in one `try` block over the crate error, lifted once by `map_err(NEVec::new)`:
+Steps reading joined values bind through `.ok()?`, and later dependent steps bind through `?`:
 
 ```rust
 pub fn cleared(headroom: &OrdMap<UnitId, u32>, form: &BidForm) -> Result<(OrdMap<UnitId, u32>, Bid), NEVec<MarketError>> {
     let bid = bid(form).ok()?;
     let refused = |reason| MarketError::Refused { unit: form.unit, reason };
-    let left = try { headroom.get(&form.unit).ok_or_else(|| refused(Refusal::Missing))?.checked_sub(bid.volume.into_inner()).ok_or_else(|| refused(Refusal::Short))? }.map_err(NEVec::new)?;
+    let left = headroom.get(&form.unit).ok_or_else(|| refused(Refusal::Missing))?.checked_sub(bid.volume.into_inner()).ok_or_else(|| refused(Refusal::Short))?;
     Ok((headroom.update(form.unit, left), bid))
 }
 ```
 
-Each dependent step names the reason its absence or underflow means, and one closure joins the subject every reason refuses. Absence becomes a default (`unwrap_or_default`) only where the domain defines one: a count of nothing is zero, and a missing headroom entry is a refusal. `update` returns a successor sharing structure with an unchanged `headroom`.
+`MarketError` holds `impl From<MarketError> for NEVec<MarketError>` over `nev![value]`, each `?` lifting through it. Each dependent step names the reason its absence or underflow means, and one closure joins the subject every reason refuses. Absence becomes a default (`unwrap_or_default`) only where the domain defines one: a count of nothing is zero, and a missing headroom entry is a refusal. `update` returns a successor sharing structure with an unchanged `headroom`.
 
 ## [04]-[EARLY_EXIT]
 

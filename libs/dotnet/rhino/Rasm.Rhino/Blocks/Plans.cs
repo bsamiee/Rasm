@@ -9,6 +9,7 @@ using Rhino.DocObjects.Tables;
 namespace Rasm.Rhino.Blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record PlannedMember {
     private PlannedMember(Option<ObjectAttributes> attributes) => Attributes = attributes;
@@ -23,8 +24,11 @@ public abstract partial record PlannedMember {
 public sealed record PlannedDefinition(DefinitionMetadata Metadata, Point3d BasePoint, Seq<PlannedMember> Members);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Plans {
-    // --- [PROGRAM]
+
+    // --- [PROGRAMS]
+
     public static IO<Seq<RowPlan<InstanceDefinition, PlannedDefinition>>> Plan(RhinoDoc doc, Seq<PlannedDefinition> planned, Prune prune) =>
         from rows in IO.lift(() => Conversions.Rows(doc.InstanceDefinitions.GetList(ignoreDeleted: true)).Filter(static row => !row.IsReference).Strict())
         from matched in IO.lift(Rows.Plan(rows, planned, static row => row.Name, static spec => spec.Metadata.Name, StringComparer.OrdinalIgnoreCase, prune,
@@ -47,6 +51,7 @@ public static class Plans {
             select plan);
 
     // --- [ORDER]
+
     private static Fin<Seq<PlannedDefinition>> Ordered(Seq<PlannedDefinition> planned) =>
         toHashMap<EqStringOrdinalIgnoreCase, string, PlannedDefinition>(planned.Map(static row => (row.Metadata.Name, row))) switch {
             var byName => planned.Map(static row => row.Metadata.Name)
@@ -57,6 +62,7 @@ public static class Plans {
         };
 
     // --- [CHANGES]
+
     private static IO<Unit> Applied(RhinoDoc doc, RowPlan<InstanceDefinition, PlannedDefinition> step) =>
         step.Switch(
             doc,
@@ -93,6 +99,7 @@ public static class Plans {
          select GeometryBase.GeometryEquals(placed, stored)).Bracket();
 
     // --- [MEMBERS]
+
     private static Option<GeometryBase> Resolved(InstanceDefinitionTable table, PlannedMember member) =>
         member.Switch(
             table,

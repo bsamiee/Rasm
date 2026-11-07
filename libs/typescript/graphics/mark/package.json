@@ -1,11 +1,11 @@
 {
     "name": "@rasm/mark",
     "private": true,
-    "description": "One SVG master painted and rastered per surface through usvg and resvg",
+    "description": "One SVG master painted with a fill color and opacity, and rastered per size, through usvg and resvg",
     "sideEffects": false,
     "type": "module",
     "exports": {
-        ".": "./mark.ts"
+        ".": "./fill.ts"
     },
     "dependencies": {
         "effect": "catalog:"

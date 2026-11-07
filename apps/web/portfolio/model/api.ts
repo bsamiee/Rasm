@@ -1,7 +1,7 @@
 import { Array, Option, Result, Schema, SchemaTransformation } from 'effect';
 import { HttpApi, HttpApiClient, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, HttpApiSchema } from 'effect/http-api';
-import { type Asset, AssetId, uploadLimit } from '#/model/asset';
-import { PortfolioData, StoredPortfolio } from '#/model/portfolio';
+import { type Asset, AssetId, uploadLimit } from '#/model/asset.ts';
+import { PortfolioData, StoredPortfolio } from '#/model/portfolio.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

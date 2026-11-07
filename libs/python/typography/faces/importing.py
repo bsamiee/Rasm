@@ -15,7 +15,7 @@ lazy from fontTools.otlLib.builder import LOOKUP_FLAG_USE_MARK_FILTERING_SET
 lazy from fontTools.pens.filterPen import DecomposingFilterPen
 lazy from fontTools.ttLib import TTFont, TTLibError
 lazy from fontTools.ttLib.tables.otBase import BaseTable
-lazy from fontTools.ttLib.tables.otTables import Coverage as Covered, ExtensionPos, ExtensionSubst, LigatureSubst, SingleSubst  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
+lazy from fontTools.ttLib.tables.otTables import Coverage, ExtensionPos, ExtensionSubst, LigatureSubst, SingleSubst  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
 lazy from fontTools.unicodedata import script_extension
 
 lazy from typography.faces.declaration import Face, Faces, OrnamentFace
@@ -25,7 +25,8 @@ lazy from typography.faces.layout import Ligatures, Lookups, Single
 lazy from typography.faces.names import Form, GlyphName
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-# --- [READ]
+
+# --- [READS]
 
 
 def _lookups(font: TTFont, tag: Literal["GSUB", "GPOS"], /) -> tuple[tuple[int, frozendict[str, frozendict[tuple[str, str], bool]], BaseTable], ...]:
@@ -58,7 +59,7 @@ def _subtables(lookup: BaseTable, /) -> tuple[BaseTable, ...]:
     return tuple(subtable.ExtSubTable if isinstance(subtable, ExtensionPos | ExtensionSubst) else subtable for subtable in lookup.SubTable)  # ty: ignore[unsound-return-statement]
 
 
-# --- [NAMING]
+# --- [NAMES]
 
 
 def _named(
@@ -121,11 +122,11 @@ def _anchors(font: TTFont, named: dict[str, GlyphName], /) -> dict[str, dict[str
     found: dict[str, dict[str, tuple[float, float]]] = {}
     for sub in tuple(*_subtables(lookup) for _, _, lookup in _lookups(font, "GPOS")):
         match sub:
-            case BaseTable(MarkCoverage=Covered(glyphs=marks), MarkArray=BaseTable(MarkRecord=records), BaseCoverage=Covered(glyphs=bases), BaseArray=BaseTable(BaseRecord=rows)):
+            case BaseTable(MarkCoverage=Coverage(glyphs=marks), MarkArray=BaseTable(MarkRecord=records), BaseCoverage=Coverage(glyphs=bases), BaseArray=BaseTable(BaseRecord=rows)):
                 attached = tuple((glyph, "", row.BaseAnchor) for glyph, row in zip(bases, rows))
-            case BaseTable(MarkCoverage=Covered(glyphs=marks), MarkArray=BaseTable(MarkRecord=records), LigatureCoverage=Covered(glyphs=bases), LigatureArray=BaseTable(LigatureAttach=rows)):
+            case BaseTable(MarkCoverage=Coverage(glyphs=marks), MarkArray=BaseTable(MarkRecord=records), LigatureCoverage=Coverage(glyphs=bases), LigatureArray=BaseTable(LigatureAttach=rows)):
                 attached = tuple((glyph, f"_{index}", component.LigatureAnchor) for glyph, row in zip(bases, rows) for index, component in enumerate(row.ComponentRecord, 1))
-            case BaseTable(Mark1Coverage=Covered(glyphs=marks), Mark1Array=BaseTable(MarkRecord=records), Mark2Coverage=Covered(glyphs=bases), Mark2Array=BaseTable(Mark2Record=rows)):
+            case BaseTable(Mark1Coverage=Coverage(glyphs=marks), Mark1Array=BaseTable(MarkRecord=records), Mark2Coverage=Coverage(glyphs=bases), Mark2Array=BaseTable(Mark2Record=rows)):
                 attached = tuple((glyph, "", row.Mark2Anchor) for glyph, row in zip(bases, rows))
             case _:
                 continue
@@ -140,7 +141,7 @@ def _anchors(font: TTFont, named: dict[str, GlyphName], /) -> dict[str, dict[str
     return found
 
 
-# --- [SOURCE]
+# --- [SOURCES]
 
 
 def _source(font: TTFont, face: Faces, /) -> Source:

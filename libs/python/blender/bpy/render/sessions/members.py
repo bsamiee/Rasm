@@ -88,6 +88,8 @@ class Category(msgspec.Struct, frozen=True, kw_only=True):
 class Members(msgspec.Struct, frozen=True, kw_only=True):
     """Stores and resolved descriptors every set operation reads."""
 
+    # --- [STATE]
+
     identity: Identity
     sets: Attached[Sets]
     scenes: Attached[SceneMembership]
@@ -240,7 +242,7 @@ def _dropped(source: bpy.types.Scene, scenes: tuple[bpy.types.Scene, ...]) -> Ou
     return tallied(edits, tuple(("INFO", f"Removed {name}") for edit in edits for name in edit.to_option().to_list()))
 
 
-# --- [SYNC]
+# --- [SYNCHRONIZATION]
 
 
 def transfers(

@@ -7,7 +7,6 @@ publish.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
-# --- [LIB]
 [lib]
 path    = "lib.rs"
 test    = false
@@ -16,10 +15,9 @@ bench   = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
-# --- [RUNTIME]
 [dependencies]
 derive_more                        = { workspace = true }
-fs-err                             = { workspace = true }
+fs-err                             = { workspace = true, features = ["tokio"] }
 itertools                          = { workspace = true }
 jiff                               = { workspace = true }
 nonempty-collections               = { workspace = true }

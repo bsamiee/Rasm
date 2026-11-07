@@ -5,13 +5,16 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/*": "./*.tsx"
+        "#/*": "./*"
     },
     "exports": {
-        ".": "./index.ts"
+        ".": "./index.ts",
+        "./vite": "./vite.ts",
+        "./stories/*": "./.storybook/*.stories.tsx"
     },
     "dependencies": {
         "@effect/atom-react": "catalog:",
+        "@vitejs/plugin-react": "catalog:",
         "effect": "catalog:",
         "lucide-react": "catalog:",
         "react": "catalog:",
@@ -22,7 +25,6 @@
         "@storybook/react-vite": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
-        "@vitest/browser-playwright": "catalog:",
         "react-dom": "catalog:",
         "storybook": "catalog:",
         "typescript": "catalog:docgen",

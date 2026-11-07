@@ -37,7 +37,7 @@ from blender.records.faults import accumulated, Fault, Faults, Ok, Outcome, Reas
 from blender.records.stores import content_hash
 from blender.rendering.outputs.naming import Output
 
-from ..formation.display import displayed_frame  # ruff: ignore[relative-imports]
+from ..formation.display import displayed_frame
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

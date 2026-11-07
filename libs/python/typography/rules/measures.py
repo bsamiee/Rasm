@@ -1,4 +1,4 @@
-"""Measurements rules share: glyphs by code point, the original's placement in source units, glyph maps, ink strips, and nuqta groups."""
+"""Measurements rules share: glyphs by code point, the original's placement in source units, glyph maps, outline strips, and nuqta groups."""
 
 # mypy: disable-error-code="no-untyped-call"
 
@@ -12,10 +12,9 @@ lazy from expression import Option, Result
 lazy from expression.extra.result import catch
 lazy from fontTools.misc.transform import Transform
 
-from typography.faces.names import Form
+from typography.faces.names import Form, GlyphName
 lazy from typography.faces.faults import Fault, Outcome, paired, Reason
 lazy from typography.faces.glyphs import Anchor, Component, Glyph, Letter, Outline, role, Source
-lazy from typography.faces.names import GlyphName
 lazy from typography.outlines.paths import area, bounds, Box, pieces, strip, transformed, union
 lazy from typography.shaping.runs import Binary
 
@@ -27,6 +26,7 @@ class Rule(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [GLYPHS]
 
 
@@ -47,14 +47,14 @@ def made(name: GlyphName, advance: float, /, *, contours: Outline = (), componen
     )
 
 
-def inked(source: Source, code: int, /) -> Outcome[tuple[Glyph, Box]]:
-    """Returns the isolated glyph of a code point with its ink extent, `ABSENT` naming the key the face lacks or draws blank."""
+def bounded_glyph(source: Source, code: int, /) -> Outcome[tuple[Glyph, Box]]:
+    """Returns the isolated glyph of a code point with its outline extent, `ABSENT` naming the key the face lacks or draws blank."""
     return (
         source
         .glyph(source.key(code))
         .map(lambda glyph: source.drawn(glyph.name.text))
         .bind(lambda glyph: Option.of_optional(bounds(glyph.contours)).map(lambda box: (glyph, box)))
-        .to_result_with(lambda: Fault.of(Reason.ABSENT, source.face.stem, member=f"ink of {key(code)}"))
+        .to_result_with(lambda: Fault.of(Reason.ABSENT, source.face.stem, member=f"outline of {key(code)}"))
     )
 
 
@@ -90,27 +90,27 @@ def mapped(source: Source, matrices: Mapping[str, Transform], /) -> Source:
 
 
 def placement(source: Source, original: Binary, stem: int, /) -> Outcome[tuple[Glyph, Box, Transform]]:
-    """Acquires the source stem, its ink box and the map from its original height and foot together."""
+    """Acquires the source stem, its outline box and the map from its original height and foot together."""
     return paired(
-        inked(source, stem),
+        bounded_glyph(source, stem),
         Option
         .of_optional(original.encoded.get(stem))
         .bind(lambda name: Option.of_optional(original.extent(name)))
-        .to_result_with(lambda: Fault.of(Reason.ABSENT, "original", member=f"ink of {key(stem)}")),
+        .to_result_with(lambda: Fault.of(Reason.ABSENT, "original", member=f"outline of {key(stem)}")),
     ).map(lambda pair: (*pair[0], Transform(scale := pair[0][1].height / pair[1].height, 0, 0, scale, 0, pair[0][1].ymin - scale * pair[1].ymin)))
 
 
-def text_ink(original: Binary, text: str, /) -> Outline:
-    """Returns the ink of text shaped on a binary, `.notdef` glyphs left out."""
+def text_outline(original: Binary, text: str, /) -> Outline:
+    """Returns the outline of text shaped on a binary, `.notdef` glyphs left out."""
     run = original.shaped(text)
     return union(*(contours for placed, contours in zip(run.placed, original.drawn(run), strict=True) if placed.glyph != original.order[0]))
 
 
-# --- [INK]
+# --- [OUTLINES]
 
 
 def band(source: Source, /) -> tuple[float, float] | None:
-    """Returns the join band, the median ink extent at the joining edges of the medial forms, `None` for a face without them."""
+    """Returns the join band, the median outline extent at the joining edges of the medial forms, `None` for a face without them."""
     edges = tuple(
         box
         for own in source.glyphs
@@ -123,7 +123,7 @@ def band(source: Source, /) -> tuple[float, float] | None:
 
 
 def centred(contours: Outline, advance: float, /) -> Outline:
-    """Returns contours moved to center their ink across an advance."""
+    """Returns contours moved to center their outline across an advance."""
     match bounds(contours):
         case Box() as box:
             return transformed(contours, box.centered(advance))
@@ -155,4 +155,4 @@ def middle(values: tuple[float, ...], /, default: float = 0.0) -> float:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Rule", "band", "centred", "dotted", "inked", "key", "made", "mapped", "middle", "nuqta", "placement", "text_ink"]
+__all__ = ["Rule", "band", "bounded_glyph", "centred", "dotted", "key", "made", "mapped", "middle", "nuqta", "placement", "text_outline"]

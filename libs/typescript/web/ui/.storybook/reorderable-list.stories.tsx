@@ -1,7 +1,7 @@
 import { type ComponentProps, useState } from 'react';
 import { fn } from 'storybook/test';
-import preview from '#/.storybook/preview';
-import { ReorderableList } from '#/reorderable-list';
+import preview from '#/.storybook/preview.ts';
+import { ReorderableList } from '#/reorderable-list.tsx';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

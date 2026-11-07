@@ -96,6 +96,54 @@ impl<'tcx> Pass<'tcx> {
 
 lint!(Pass<'_>; DUPLICATE_TYPE: "local types and variants that repeat another type's fields or variants, and variants that repeat each other's fields");
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn converted<'tcx>(cx: &LateContext<'tcx>, value: &'tcx Expr<'tcx>) -> &'tcx Expr<'tcx> {
+    let conversion = |item: Option<DefId>| matches!(item.and_then(|item| associated_trait(cx.tcx, item)).opt_diag_name(cx), Some(sym::Clone | sym::From | sym::Into | sym::ToOwned));
+    peel_hir_expr_while(value, |inner| match inner.kind {
+        ExprKind::MethodCall(_, receiver, [], _) if conversion(cx.typeck_results().type_dependent_def_id(inner.hir_id)) => Some(receiver),
+        ExprKind::Call(_, [argument]) if conversion(fn_def_id(cx, inner)) => Some(argument),
+        _ => None,
+    })
+}
+
+fn fields<'tcx>(tcx: TyCtxt<'tcx>, owner: DefId, variant: &'tcx VariantDef) -> Option<Vec<(&'tcx ty::FieldDef, Ty<'tcx>)>> {
+    let args = GenericArgs::identity_for_item(tcx, owner);
+    let declared = tcx.mk_type_list_from_iter(variant.fields.iter().map(|field| field.ty(tcx, args).skip_normalization()));
+    let held = normalized(tcx, owner, Unnormalized::new(declared))?;
+    Some(iter::zip(variant.fields.iter(), held.iter()).collect())
+}
+
+fn current(tcx: TyCtxt<'_>, item: DefId) -> bool {
+    tcx.lookup_deprecation(item).is_none() && tcx.lookup_stability(item).is_none_or(|stability| !stability.level.is_unstable() || tcx.features().enabled(stability.feature))
+}
+
+fn path(tcx: TyCtxt<'_>, item: DefId) -> Option<String> {
+    let parents = tcx.visible_parent_map(());
+    if item.is_local() {
+        return Some(tcx.item_name(item).to_string());
+    }
+    let mut walked = FxHashSet::default();
+    if iter::successors(parents.get(&item), |module| parents.get(module)).take_while(|&&module| walked.insert(module)).all(|&module| current(tcx, module)) {
+        return Some(tcx.def_path_str(item));
+    }
+    let mut queue = VecDeque::from([(item.krate.as_def_id(), tcx.crate_name(item.krate).to_string())]);
+    let mut seen = FxHashSet::default();
+    while let Some((module, prefix)) = queue.pop_front() {
+        for child in tcx.module_children(module).iter().filter(|child| child.vis.is_public()) {
+            let named = format!("{prefix}::{}", child.ident);
+            match child.res.opt_def_id() {
+                Some(def) if def == item => return Some(named),
+                Some(def) if tcx.def_kind(def) == DefKind::Mod && current(tcx, def) && seen.insert(def) => queue.push_back((def, named)),
+                Some(_) | None => {}
+            }
+        }
+    }
+    None
+}
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         fn matched<'tcx>(cx: &LateContext<'tcx>, arm: &'tcx Arm<'tcx>, source: AdtDef<'tcx>) -> Option<MatchedArm<'tcx>> {
@@ -794,50 +842,4 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
             }
         }
     }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn converted<'tcx>(cx: &LateContext<'tcx>, value: &'tcx Expr<'tcx>) -> &'tcx Expr<'tcx> {
-    let conversion = |item: Option<DefId>| matches!(item.and_then(|item| associated_trait(cx.tcx, item)).opt_diag_name(cx), Some(sym::Clone | sym::From | sym::Into | sym::ToOwned));
-    peel_hir_expr_while(value, |inner| match inner.kind {
-        ExprKind::MethodCall(_, receiver, [], _) if conversion(cx.typeck_results().type_dependent_def_id(inner.hir_id)) => Some(receiver),
-        ExprKind::Call(_, [argument]) if conversion(fn_def_id(cx, inner)) => Some(argument),
-        _ => None,
-    })
-}
-
-fn fields<'tcx>(tcx: TyCtxt<'tcx>, owner: DefId, variant: &'tcx VariantDef) -> Option<Vec<(&'tcx ty::FieldDef, Ty<'tcx>)>> {
-    let args = GenericArgs::identity_for_item(tcx, owner);
-    let declared = tcx.mk_type_list_from_iter(variant.fields.iter().map(|field| field.ty(tcx, args).skip_normalization()));
-    let held = normalized(tcx, owner, Unnormalized::new(declared))?;
-    Some(iter::zip(variant.fields.iter(), held.iter()).collect())
-}
-
-fn current(tcx: TyCtxt<'_>, item: DefId) -> bool {
-    tcx.lookup_deprecation(item).is_none() && tcx.lookup_stability(item).is_none_or(|stability| !stability.level.is_unstable() || tcx.features().enabled(stability.feature))
-}
-
-fn path(tcx: TyCtxt<'_>, item: DefId) -> Option<String> {
-    let parents = tcx.visible_parent_map(());
-    if item.is_local() {
-        return Some(tcx.item_name(item).to_string());
-    }
-    let mut walked = FxHashSet::default();
-    if iter::successors(parents.get(&item), |module| parents.get(module)).take_while(|&&module| walked.insert(module)).all(|&module| current(tcx, module)) {
-        return Some(tcx.def_path_str(item));
-    }
-    let mut queue = VecDeque::from([(item.krate.as_def_id(), tcx.crate_name(item.krate).to_string())]);
-    let mut seen = FxHashSet::default();
-    while let Some((module, prefix)) = queue.pop_front() {
-        for child in tcx.module_children(module).iter().filter(|child| child.vis.is_public()) {
-            let named = format!("{prefix}::{}", child.ident);
-            match child.res.opt_def_id() {
-                Some(def) if def == item => return Some(named),
-                Some(def) if tcx.def_kind(def) == DefKind::Mod && current(tcx, def) && seen.insert(def) => queue.push_back((def, named)),
-                Some(_) | None => {}
-            }
-        }
-    }
-    None
 }

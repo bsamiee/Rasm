@@ -528,12 +528,12 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
     }
     let refusing = |reason| NEVec::new(CadError::Refused { subject: subject.clone(), reason });
     let misshapen = |source| NEVec::new(CadError::Geometry { subject: subject.clone(), source });
-    let inked = |color: &rasm_linework::Color, opacity: Opacity| match color {
+    let dxf_color = |color: &rasm_linework::Color, opacity: Opacity| match color {
         rasm_linework::Color::Srgb(srgb) => {
             let Rgba8 { r, g, b, a: _ } = srgb.to_rgba8();
             Ok((Color::from_rgb(r, g, b), Transparency::from_percent(1.0 - opacity.into_inner())))
         }
-        rasm_linework::Color::Cmyk(_) | rasm_linework::Color::Spot { name: _, tint: _, alternate: _ } => Err(refusing(Refusal::Ink)),
+        rasm_linework::Color::Cmyk(_) | rasm_linework::Color::Spot { name: _, tint: _, alternate: _ } => Err(refusing(Refusal::DeviceColor)),
     };
     let weighted = |width: Width| {
         (u8::MIN..=LineWeight::Default.to_dwg_index())
@@ -554,17 +554,17 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
     };
     let mut lettered = |text: &rasm_linework::Text, color: &rasm_linework::Color, opacity: Opacity| -> Result<Vec<EntityType>, NEVec<CadError>> {
         let (entity, style) = text::written(text, unit);
-        let ink = inked(color, opacity)?;
+        let colored = dxf_color(color, opacity)?;
         if !document.text_styles.contains(&style.name) {
             let name = style.name.clone();
             let handle = document.allocate_handle();
             document.text_styles.add(TextStyle { handle, ..style }).map_err(|source| NEVec::new(CadError::Drawing { operation: Operation::Table(name), source }))?;
         }
-        Ok(vec![styled(entity, ink, LineWeight::ByLayer, String::new())])
+        Ok(vec![styled(entity, colored, LineWeight::ByLayer, String::new())])
     };
     match element {
         Element::Stroke { path, pen, linetype } => {
-            let ink = inked(&pen.color, pen.opacity)?;
+            let colored = dxf_color(&pen.color, pen.opacity)?;
             let named = linetype
                 .map(|linetype| -> Result<String, NEVec<CadError>> {
                     let offset = match linetype.alignment {
@@ -591,14 +591,14 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
             let weight = weighted(pen.width);
             let mut path = path.into_inner();
             path.apply_affine(unit);
-            Ok(curves::curves(&path).into_iter().map(|entity| styled(entity, ink, weight, named.clone().unwrap_or_default())).collect())
+            Ok(curves::curves(&path).into_iter().map(|entity| styled(entity, colored, weight, named.clone().unwrap_or_default())).collect())
         }
         Element::Fill { region, color, opacity } => {
-            let ink = inked(&color, opacity)?;
-            placed(&region).map(|region| vec![styled(EntityType::Hatch(Box::new(Hatch { paths: curves::loops(&region), ..Hatch::solid() })), ink, LineWeight::ByLayer, String::new())])
+            let colored = dxf_color(&color, opacity)?;
+            placed(&region).map(|region| vec![styled(EntityType::Hatch(Box::new(Hatch { paths: curves::loops(&region), ..Hatch::solid() })), colored, LineWeight::ByLayer, String::new())])
         }
         Element::Hatch { region, pattern, placement, pen } => {
-            let ink = inked(&pen.color, pen.opacity)?;
+            let colored = dxf_color(&pen.color, pen.opacity)?;
             let drawing = unit * *placement;
             let [across_x, across_y, up_x, up_y, _, _] = drawing.as_coeffs();
             let (across, up) = (Vec2::new(across_x, across_y), Vec2::new(up_x, up_y));
@@ -628,7 +628,7 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
                 placed(&region).map(|region| {
                     let hatch =
                         Hatch { paths: curves::loops(&region), pattern: HatchPattern { lines, ..HatchPattern::new(rows) }, pattern_type: HatchPatternType::Custom, is_solid: false, ..Hatch::new() };
-                    vec![styled(EntityType::Hatch(Box::new(hatch)), ink, weighted(pen.width), String::new())]
+                    vec![styled(EntityType::Hatch(Box::new(hatch)), colored, weighted(pen.width), String::new())]
                 })
             } else {
                 Err(refusing(Refusal::Skew))

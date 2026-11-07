@@ -89,6 +89,8 @@ impl<'tcx> Pass<'tcx> {
 
 lint!(Pass<'_>; DUPLICATE_TRAIT_CONSTANT: "trait constants that every impl sets to the same value");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
         let tcx = cx.tcx;

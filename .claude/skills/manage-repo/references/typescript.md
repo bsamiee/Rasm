@@ -22,15 +22,16 @@ pnpm resolves catalog versions, the Effect compiler checks projects, and Biome l
 - Nx and the editor use the compiler in `.cache/typescript`, which pnpm links to the SDK selected by `@effect/tsgo/lib/getExePath`
 - `nx run <project>:typecheck:tsc` checks one project incrementally into `.cache/tsc/<project>` and hashes its `extends` chain and ignored `typeRoots` declarations
 - Project `tsconfig.json` extends `tsconfig.base.json`, `tsconfig.web.json` for a web host, or host platform library `tsconfig.json` stating host `lib` and `types`
-- Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
 - Root `tsconfig.json` checks project `*.config.ts` and `.storybook/main.ts` files, base `exclude` keeps `${configDir}/*.config.ts` out of projects
-- Library `exports` list `.` and one entry per runtime or dependency (`./node`, `./uxp`), sync generator `barrels` in `tools/nx` writing each `index.ts`
-- `lint:dependency-cruiser` follows a library root entry's static load closure through installed packages and rejects a built-in or unexported module, a non-module file (stylesheet, `.node`, `.wasm`), or another library entry, `process.getBuiltinModule` probes and runtime globals stay out of a load closure
-- Packages whose installed load chain ships wasm or a Node addon fail that closure, and any npm package fails an `./extendscript` entry's closure
+- Library `exports` list `.` and one entry per runtime or dependency (`./node`, `./uxp`)
+- `lint:dependency-cruiser` follows a library root entry's static load closure through installed packages
+- Load closures fail on a built-in or unexported module, a non-module file (stylesheet, `.node`, `.wasm`), or another library entry
+- `process.getBuiltinModule` probes and runtime globals stay out of a load closure
+- Packages whose installed load chain ships wasm or a Node addon fail that closure
+- Npm packages fail the closure of an entry in a package listing `types-for-adobe`
 - Each importer's `typecheck:tsc` checks a root entry's types under its own `lib` and `types`, a hooks plugin's `typecheck:claude` under the engine's types alone and `lint:claude` its load closure through `claude plugin validate`
 - ExtendScript code sits in programs listing `types-for-adobe` alone, a CEP panel program holds `dom` and no ExtendScript globals
-- Package self-imports are extensionless where `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
-- Apps whose folders mix `.ts` and `.tsx` map `"#/*": "./*"` and import with extensions
+- Packages map `"#/*": "./*"`, and self-imports name the file with its extension (`#/editor/state.ts`)
 - `tsc` compiles sibling source under importer options, importers list each typings package and `paths` row it needs
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
 - Project `types` replaces an extended list, a project adding an entry restates the list it extends
@@ -55,7 +56,7 @@ pnpm resolves catalog versions, the Effect compiler checks projects, and Biome l
 
 [VITE]:
 - Browser projects run in current browsers alone, `cloudflareWorker` builds at `esnext` over Vite's `baseline-widely-available` default with `strictExecutionOrder`, chunks of a `lazyBarrel` client build otherwise run out of source order
-- Root `vite.shared.ts` `react` holds React Compiler options for apps and Storybook, `hostedLayout` the Node output, Worker state, and ephemeral mode each `cloudflareWorker` app spreads from its directory
+- `@rasm/ui/vite` `react` holds React Compiler options for apps, Storybook, and component tests
 - Run `pnpm exec vite` from the app directory for the development server
 - Web builds keep project-local `dist`, where `sites()` copies `.openai/hosting.json` with no relocation setting
 - From the app directory, `ANALYZE=true pnpm exec vite build --configLoader native` writes the build and Rolldown reports under `node_modules/.rolldown/report`
@@ -65,13 +66,14 @@ pnpm resolves catalog versions, the Effect compiler checks projects, and Biome l
 
 [WORKERS]:
 - `cloudflare.config.ts` declares an app's Worker with `entrypoint` at its product module, or a library suite's test Worker with bindings alone
-- Worker declarations take `compatibilityDate` from `@rasm/hosting/cloudflare`, whose `hostedWorker` passes every `WorkerConfig` member through over the assets, owner, and access bindings and the `hostingMode` values, a `disposable` Worker holding no domain or fetch route
+- Worker declarations take `compatibilityDate` from `@rasm/hosting/cloudflare`
+- `@rasm/hosting/cloudflare` `hostedWorker` passes every `WorkerConfig` member through over the assets, owner, and access bindings and `hostingMode` values, a `disposable` Worker holding no domain or fetch route
 - Cloudflare plugin hooks (`config`, `configResolved`, `configureServer`) take app type, output, and requests in every Vite server
-- `@rasm/hosting/vite` `cloudflareWorker({ plugins, hosts, head, nodeEntry, nodeOutDir, state })` drops every hosting plugin when Storybook sets `STORYBOOK`
-- Cloudflare plugin keeps state at `hostedLayout` `state.path`, `.cache/cloudflare/<project path>`, its `state.ephemeralMode`, Playwright's `e2e`, keeping bindings in memory
+- `@rasm/hosting/vite` `cloudflareWorker({ directory, plugins, hosts, head, nodeEntry })` derives Node output and Worker state from `directory` under Vite's `searchForWorkspaceRoot`, and drops every hosting plugin when Storybook sets `STORYBOOK`
+- Cloudflare plugin keeps state at `.cache/cloudflare/<project path>`, and mode `e2e`, the one Playwright runs, keeps bindings in memory
 - Build Output stays in `.cloudflare/output` the specification fixes, `.cloudflare/types` stays where `cf workers types` takes no path setting
 - Target `types` writes `Cloudflare.Env` and runtime types for the compatibility date to ignored `.cloudflare/types`, `typecheck:tsc` depends on it
-- Worker projects include their generated `.cloudflare/types/index.d.ts` declarations.
+- Worker projects include their generated `.cloudflare/types/index.d.ts` declarations
 
 [STORYBOOK]:
 - Run `pnpm exec storybook dev --ci` from the project directory to serve stories without opening a browser

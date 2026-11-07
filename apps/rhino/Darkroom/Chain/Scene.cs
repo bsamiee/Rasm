@@ -13,7 +13,11 @@ using Rhino.DocObjects;
 namespace Darkroom.Chain;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ChainScene {
+
+    // --- [STATE]
+
     public static ChainScene Unframed { get; } = new();
 
     public static ColorEncoding Working { get; } = new(Gamut.StandardRgb, new Transfer.Linear());
@@ -27,10 +31,12 @@ public sealed record ChainScene {
     public Option<Length> FocalLength { get; init; }
 
     // --- [CONTEXT]
+
     public PassContext Context(PixelExtent extent, HashMap<GuideChannel, PixelFrame> guides, Derivations derivations, Option<OutputDepth> depth, GaussLegendreRule integration) =>
         new(extent, Working.Gamut, Display, depth, Working.Transfer, 0d, Camera, guides, Time, Lights, derivations, integration);
 
-    // --- [HOST]
+    // --- [HOSTS]
+
     public static IO<ChainScene> Sourced(RhinoDoc doc, PixelExtent extent, Option<Duration> time) =>
         (from source in use(() => new Rhino.Render.RenderSourceView(doc))
          from view in Products.Of(source.GetViewInfo)

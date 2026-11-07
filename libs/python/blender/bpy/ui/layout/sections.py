@@ -150,6 +150,8 @@ class Section(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruf
 class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
     """Realized section that a panel and a layout panel both draw."""
 
+    # --- [STATE]
+
     section: Section[bpy.types.PropertyGroup]
     name: str
     enable: Option[tuple[ResolvedMember, RowDraw]]
@@ -164,7 +166,7 @@ class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
         """Whether the section draws one layout panel per collection item."""
         return isinstance(self.section.holder.to_optional(), Items)
 
-    # --- [PANEL]
+    # --- [PANELS]
 
     @property
     def draw_header(self) -> Option[RowDraw]:
@@ -264,7 +266,7 @@ class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [WALK]
+# --- [WALKS]
 
 
 def sections_in(rows: Iterable[object]) -> tuple[Section, ...]:

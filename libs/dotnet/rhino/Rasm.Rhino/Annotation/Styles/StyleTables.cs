@@ -15,6 +15,7 @@ using Rhino.DocObjects.Tables;
 namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record StyleSpec {
     public Seq<(string Name, Func<HatchPattern> Spec)> HatchPatterns { get; init; }
     public Seq<(string Name, LinetypeDefinition Spec)> Linetypes { get; init; }
@@ -62,15 +63,20 @@ public sealed record StyleRows(
 public sealed record ReconciledStyles(StyleRows Written, HashSet<ComponentIdentity> Removed);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class StyleTables {
+
     // --- [NAMES]
+
     internal static string Sized(string stem, LineWidth width) => string.Create(CultureInfo.InvariantCulture, $"{stem} {width.Width.Millimeters.ToDouble():0.00}");
 
     // --- [STRINGS]
+
     internal static IO<Unit> Strung(Func<NameValueCollection> read, Func<string, string, bool> write, HashMap<EqStringOrdinalIgnoreCase, string, string> wanted) =>
         IO.lift(() => UserStrings.Of(read())).Bind(held => UserStrings.Write(held, write, UserStrings.Replacing(held, wanted)));
 
     // --- [ORDER]
+
     private static Seq<RowPlan<DimensionStyle, (string Name, DimensionStyleSpec Spec)>> WriteOrder(Seq<RowPlan<DimensionStyle, (string Name, DimensionStyleSpec Spec)>> plan) =>
         (from dependent in plan
          from spec in Spec(dependent).ToSeq()
@@ -94,7 +100,8 @@ public static class StyleTables {
     private static Option<TRow> Row<TRow, TSpec>(RowPlan<TRow, TSpec> step) =>
         step.Switch(create: static _ => None, change: static change => Some(change.Row), remove: static remove => Some(remove.Row), order: static _ => None);
 
-    // --- [GRAPH]
+    // --- [GRAPHS]
+
     public static IO<ArrayBidirectionalGraph<ComponentIdentity, SEquatableEdge<ComponentIdentity>>> Graph(RhinoDoc doc) =>
         from rows in IO.lift(() => (Conversions.Rows<ModelComponent>(doc.HatchPatterns) + Conversions.Rows<ModelComponent>(doc.Linetypes)
                 + Conversions.Rows<ModelComponent>(doc.SectionStyles) + Conversions.Rows<ModelComponent>(doc.DimStyles))
@@ -113,7 +120,8 @@ public static class StyleTables {
     private static SEquatableEdge<ComponentIdentity> Edge(ModelComponent dependency, ModelComponent dependent) =>
         new(new ComponentIdentity(dependency.Id, dependency.ComponentType), new ComponentIdentity(dependent.Id, dependent.ComponentType));
 
-    // --- [PRUNE]
+    // --- [PRUNING]
+
     private static IO<HashSet<Guid>> DimensionStylesInUse(RhinoDoc doc) =>
         from users in IO.lift(() => Conversions.Rows(doc.Objects.GetObjectList(new ObjectEnumeratorSettings {
             ObjectTypeFilter = ObjectType.Annotation | ObjectType.ClipPlane, HiddenObjects = true, ReferenceObjects = true, IdefObjects = true,
@@ -137,6 +145,7 @@ public static class StyleTables {
             .As();
 
     // --- [WRITES]
+
     private static IO<Seq<(string Name, int Index)>> Applied<T, TSpec>(
         RhinoDoc doc, TableKind<T> kind, Seq<RowPlan<T, (string Name, TSpec Spec)>> plan, Func<Option<T>, TSpec, IO<T>> staged, Func<T, T, IO<bool>> unchanged)
         where T : ModelComponent =>
@@ -165,7 +174,8 @@ public static class StyleTables {
             from written in write(row, spec)
             select row;
 
-    // --- [PROGRAM]
+    // --- [PROGRAMS]
+
     public static IO<StylePlan> Plan(RhinoDoc doc, StyleSpec spec) =>
         IO.lift(() =>
             (Planned(TableKinds.HatchPatterns.Live(doc), spec.HatchPatterns, spec.Prune), Planned(TableKinds.Linetypes.Live(doc), spec.Linetypes, spec.Prune),

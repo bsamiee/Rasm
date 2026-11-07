@@ -1,7 +1,7 @@
 import { Array, Effect, Option, Result, Schema, String } from 'effect';
-import { HookError, Host } from '#/host';
-import type { Program } from '#/shell/programs';
-import type { Word } from '#/shell/script';
+import { HookError, Host } from '#/host.ts';
+import type { Program } from '#/shell/programs.ts';
+import type { Word } from '#/shell/script.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -128,7 +128,7 @@ const grammarOf = Effect.fnUntraced(function* (program: string, row: Program, pr
     return String.isEmpty(String.trim(stdout)) ? { ...NO_GRAMMAR, options: overlay } : exportedGrammar(yield* Effect.mapError(Schema.decodeEffect(Export)(stdout), HookError.of('carapace')), new Map(), overlay);
 });
 
-// --- [PARSE]
+// --- [PARSING]
 
 const optionOf = (text: string, grammar: Grammar, row: Program): Option.Option<Reading> => {
     const cut = text.indexOf('=');
@@ -193,7 +193,7 @@ const advanced = (word: Word, cursor: Cursor, words: readonly Word[], row: Progr
     });
 };
 
-const parsed = (words: readonly Word[], grammar: Grammar, row: Program): Parsed => {
+const parseArguments = (words: readonly Word[], grammar: Grammar, row: Program): Parsed => {
     const start: Cursor = { at: 0, grammar, pending: row.wraps === '--' ? [] : (row.wraps ?? []), operated: false, ended: false, separated: false, subcommand: '' };
     const steps = Array.unfold(start, (cursor) => Option.map(Option.fromNullishOr(words[cursor.at]), (word) => advanced(word, cursor, words, row)));
     return {
@@ -207,4 +207,4 @@ const parsed = (words: readonly Word[], grammar: Grammar, row: Program): Parsed 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Grammar, grammarOf, type Item, NO_GRAMMAR, type Parsed, parsed };
+export { type Grammar, grammarOf, type Item, NO_GRAMMAR, type Parsed, parseArguments };

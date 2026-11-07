@@ -1,16 +1,15 @@
 """Apparent size: script glyphs scaled to the stem height within the marked span cap, every glyph moved onto the new units per em."""
 
 import msgspec
+lazy from fontTools.misc import transform
 lazy from fontTools.misc.roundTools import otRound
-lazy from fontTools.misc.transform import Scale as Scaling
 lazy from fontTools.unicodedata import script_extension
 
 from typography.faces.declaration import Em, Script
-from typography.rules.measures import Rule
+from typography.rules.measures import mapped, placement, Rule, text_outline
 lazy from typography.faces.faults import Outcome
 lazy from typography.faces.glyphs import Source
 lazy from typography.outlines.paths import bounds
-lazy from typography.rules.measures import mapped, placement, text_ink
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.runs import Binary
 
@@ -33,9 +32,9 @@ def scaled(source: Source, rule: Scale, /, *, original: Binary, corpus: Corpus) 
     """Scales script glyphs to the stem height, the marked corpus spanning at most the cap, and moves every glyph onto the new units per em.
 
     Returns:
-        Ok(scaled source), `ABSENT` for a face without an inked stem.
+        Ok(scaled source), `ABSENT` for a face without a drawn stem.
     """
-    span = max((box.height for line in corpus.marked if (box := bounds(text_ink(original, line)))), default=0.0)
+    span = max((box.height for line in corpus.marked if (box := bounds(text_outline(original, line)))), default=0.0)
     return placement(source, original, rule.script.stem).map(
         lambda held: _onto(source, min(rule.height * source.upm / held[1].ymax if rule.height is not None else 1.0, rule.cap * source.upm / (held[2].xx * span) if span else 1.0), rule)
     )
@@ -50,7 +49,7 @@ def _onto(source: Source, factor: float, rule: Scale, /) -> Source:
         glyphs=mapped(
             source,
             {
-                glyph.name.text: Scaling(factor * unit if glyph.name.codes and all(rule.script.scripts & set(script_extension(chr(code))) for code in glyph.name.codes) else unit)  # type: ignore[no-untyped-call]
+                glyph.name.text: transform.Scale(factor * unit if glyph.name.codes and all(rule.script.scripts & set(script_extension(chr(code))) for code in glyph.name.codes) else unit)  # type: ignore[no-untyped-call]
                 for glyph in source.glyphs
             },
         ).glyphs,

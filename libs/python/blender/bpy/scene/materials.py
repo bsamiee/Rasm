@@ -171,7 +171,7 @@ AOVS: Final[Mapping[DataPass, Expr]] = MappingProxyType({
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [CLASSIFY]
+# --- [CLASSIFICATION]
 
 
 def map_kind(path: str) -> Option[MapKind]:
@@ -196,7 +196,7 @@ def classified(paths: tuple[str, ...]) -> Outcome[dict[MapKind, str]]:
     ).map(dict)
 
 
-# --- [GRAPH]
+# --- [GRAPHS]
 
 
 def material_graph(setup: ShadingSetup) -> Outcome[Graph]:

@@ -10,9 +10,10 @@ import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Key
+from blender.bpy.nodes.changes import NodeGroup
 from blender.bpy.nodes.desired import item_key
 from blender.bpy.nodes.graphs import Expr, math, mixed
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, NodeGroup, Socket
+from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.view_layers.passes import EMISSION, ENVIRONMENT, Family, OCCLUSION, PassFlags, PassRequest
 from blender.bpy.render.view_layers.sources import lobed

@@ -1,11 +1,11 @@
-import { AfterEffects } from '@rasm/aftereffects/contract';
-import type { Installation } from '@rasm/applications/contract';
+import { AfterEffects } from '@rasm/aftereffects';
+import type { Installation } from '@rasm/applications';
 import { Peer } from '@rasm/automation/peer';
-import { Illustrator } from '@rasm/illustrator/contract';
-import { InDesign } from '@rasm/indesign/contract';
-import { Photoshop } from '@rasm/photoshop/contract';
+import { Illustrator } from '@rasm/illustrator';
+import { InDesign } from '@rasm/indesign';
+import { Photoshop } from '@rasm/photoshop';
 import { Array, Layer } from 'effect';
-import { atelierLink } from '#/atelier-link';
+import { atelierLink } from '#/atelier-link.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

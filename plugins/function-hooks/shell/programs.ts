@@ -1,4 +1,4 @@
-import type { Fix } from '#/policies/fix';
+import type { Fix, Policy } from '#/policies/fix.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -46,11 +46,10 @@ interface Program {
     readonly headless?: readonly string[];
     readonly fixes?: readonly Fix[];
 }
-type Programs = Readonly<Record<string, Program>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PROGRAMS: Programs = {
+const PROGRAMS: Policy['programs'] = {
     sudo: { aliases: ['doas'], wraps: [[]] },
     env: { wraps: [[]] },
     command: { informational: ['-v'], wraps: [[]] },
@@ -91,4 +90,4 @@ const PROGRAMS: Programs = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { PROGRAMS, type Program, type Programs };
+export { PROGRAMS, type Program };

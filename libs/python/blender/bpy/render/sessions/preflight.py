@@ -1,7 +1,6 @@
 """Render dispatch conditions, asset audits, and resource measurements."""
 
-import functools
-from functools import cached_property, partial
+from functools import cache, cached_property, partial
 from math import prod
 import os
 from pathlib import Path
@@ -144,6 +143,8 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Returns audit operators for registration."""
         return self.operators
 
+    # --- [SECTIONS]
+
     @cached_property
     def section(self) -> Section:
         """Audit buttons and Find Missing Files."""
@@ -193,7 +194,7 @@ def shader_kinds() -> tuple[type[bpy.types.ShaderNode], ...]:
     return tuple(kind for kind in map(partial(getattr, bpy.types), dir(bpy.types)) if isinstance(kind, type) and issubclass(kind, bpy.types.ShaderNode) and kind is not bpy.types.ShaderNode)
 
 
-@functools.cache
+@cache
 def shader_rows(kinds: tuple[type[bpy.types.ShaderNode], ...]) -> tuple[tuple[str, str, str], ...]:
     """Returns enum rows of shader classes, cached so the host's dynamic enum reads keep their strings."""
     return tuple((kind.__name__, rna.name, rna.description) for kind in kinds for rna in (definition(kind),))

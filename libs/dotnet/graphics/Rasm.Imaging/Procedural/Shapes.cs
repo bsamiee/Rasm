@@ -6,12 +6,17 @@ using UnitsNet;
 namespace Rasm.Imaging.Procedural;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed class DistanceField {
+
+    // --- [STATE]
+
     private readonly Func<Vector2, (float Distance, float Width)> sample;
 
     private DistanceField(Func<Vector2, (float Distance, float Width)> sample) => this.sample = sample;
 
     // --- [PRIMITIVES]
+
     public static DistanceField Empty { get; } = new(static _ => (float.PositiveInfinity, 0f));
 
     public static DistanceField Ellipse(Vector2 half, float exponent) =>
@@ -75,6 +80,7 @@ public sealed class DistanceField {
     }
 
     // --- [COMPOSITION]
+
     public DistanceField Placed(Vector2 center, Angle rotation) =>
         (Matrix3x2.CreateTranslation(-center) * Matrix3x2.CreateRotation(-(float)rotation.Radians)) switch { var local => new(point => sample(Vector2.Transform(point, local))) };
 
@@ -99,6 +105,7 @@ public sealed class DistanceField {
         };
 
     // --- [EVALUATION]
+
     public float Distance(Vector2 point) => sample(point).Distance;
 
     public float Coverage(Vector2 point, float growth, float band) =>
@@ -118,6 +125,7 @@ public sealed class DistanceField {
         T.Clamp((x - edge0) / (edge1 - edge0), T.Zero, T.One) switch { var t => t * t * t * ((t * ((T.CreateTruncating(6) * t) - T.CreateTruncating(15))) + T.CreateTruncating(10)) };
 
     // --- [FRAMES]
+
     public static Matrix3x2 Frame(PixelExtent extent, Vector2 center, Angle rotation) =>
         Matrix3x2.CreateTranslation(new Vector2(0.5f) - center) * Matrix3x2.CreateScale(1f / extent.ShortSide) * Matrix3x2.CreateRotation((float)rotation.Radians) * Matrix3x2.CreateScale(1f, -1f);
 
@@ -128,6 +136,7 @@ public sealed class DistanceField {
         };
 
     // --- [GEOMETRY]
+
     private static Vector2 Segment(Vector2 point, Vector2 start, Vector2 end) =>
         (end - start, point - start) switch {
             var (edge, reach) => reach - (edge * (edge == Vector2.Zero ? 0f : float.Clamp(Vector2.Dot(reach, edge) / edge.LengthSquared(), 0f, 1f))),

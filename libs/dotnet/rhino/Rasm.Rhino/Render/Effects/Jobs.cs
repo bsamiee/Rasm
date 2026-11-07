@@ -6,12 +6,17 @@ using Rhino.Render.PostEffects;
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class EffectJob(Func<Rectangle, PostEffectJobChannels, IO<Unit>> work) : PostEffectJob {
+
+    // --- [CALLBACKS]
+
     public override PostEffectJob Clone() => new EffectJob(work);
 
     public override bool Execute(Rectangle rect, PostEffectJobChannels access) => Session.Run(work(rect, access).Map(static _ => true), failed: false);
 
-    // --- [RUNS]
+    // --- [EXECUTION]
+
     public static IO<Unit> Run<TState>(PostEffect effect, PostEffectPipeline pipeline, Rectangle rect, TState state, EffectDefinition<TState> definition) where TState : notnull =>
         from held in IO.lift(() => (Channels.Extent(pipeline), definition.Scope(state)) switch {
             var (extent, scope) => (Extent: extent, Area: scope.Area(extent, rect), scope.Parallel, Rendering: pipeline.IsRendering, Channels: definition.Channels(state)),

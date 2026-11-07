@@ -14,8 +14,11 @@ using SuperLinq;
 namespace Rasm.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Mount {
+
     // --- [STATE]
+
     private Mount(Host host, Scene scene) => (Host, Scene, Routing, Tree) = (host, scene, Routing.Idle, AutomationElement.Projected(scene));
 
     public Host Host { get; internal init; }
@@ -42,6 +45,7 @@ public sealed record Mount {
     internal Duration LastTick { get; init; }
 
     // --- [DERIVED]
+
     public Option<Seq<Key>> Captured => Routing.Capture.Map(static capture => capture.Owner);
 
     public Option<Seq<Key>> Focused => Routing.Focus.Map(static focus => focus.Element);
@@ -73,6 +77,7 @@ public sealed record Mount {
     internal Seq<PlacedLayer> Dismissible => Layers.Filter(static held => held.Dismisses);
 
     // --- [TRANSITIONS]
+
     public static Fin<Mount> Create(Host host, StyleSheet sheet, View view, Shaping shaping) =>
         Scene.Of(Cascade.Root(host.Theme, sheet, host.Root), view, host, shaping).Map(static scene => scene.Revealed(None).Scene).Map(scene => new Mount(host, scene) switch {
             var mount => mount with { Output = mount.WithEffects(mount.Watched(None)).Output with { Damage = [SKRect.Create(host.Size)] } },
@@ -109,6 +114,7 @@ public sealed record Mount {
     }
 
     // --- [COMPLETION]
+
     private Mount Completed(Mount routed, Duration now) {
         Mount done = routed.Then(static next => next.Opening()).Then(next => next.Revealing(this)).Then(next => next.Pruning(this)).Then(next => next.Layering(this)).Then(static next => next.Hovering())
             .Then(next => next.Nearing(this)).Then(next => next.Fragmenting(this)).Then(next => next.Watching(this)).Then(next => next.Tweening(this, now));
@@ -217,7 +223,8 @@ public sealed record Mount {
             (from hovered in plot.Hovered where before.Bind(static held => held.Plotted) != after.Plotted select hovered(after.Plotted)).ToSeq()
             + (from pointed in plot.Pointed where before.Bind(static held => held.Near) != after.Near select pointed(after.Near)).ToSeq());
 
-    // --- [ROUTE]
+    // --- [ROUTES]
+
     internal Mount Unhandled => this with { Output = Output.Empty };
 
     internal Mount Handled => this with { Output = Output with { Effects = Some(Output.Effects.IfNone([])) } };
@@ -231,6 +238,7 @@ public sealed record Mount {
     internal Mount Otherwise(Func<Mount, Mount> next) => Output.Effects.IsSome ? this : Then(next);
 
     // --- [LAYERS]
+
     internal Mount Toggled(PlacedLayer held, Option<SKPoint> at) =>
         at.Filter(_ => held.Layer.Trigger.Exists(static trigger => trigger.AtPointer)) switch {
             var pointed when Opened.ContainsKey(held.Layout.Path) && pointed.IsNone => Closed([held]).Handled,
@@ -248,6 +256,7 @@ public sealed record Mount {
             .Exists(prefix => Scene.Index.Find(prefix).Exists(static layout => layout.View.Accessible.Role.Exists(static role => role.Picks)))));
 
     // --- [FOCUS]
+
     internal Option<Focus> Focusing(Option<Seq<Key>> element, bool traversed) =>
         element.Map(target => Routing.Focus.Filter(focus => focus.Element == target).IfNone(() => new Focus(target, traversed)));
 
@@ -260,7 +269,8 @@ public sealed record Mount {
         Scene.Index.Find(stop).Bind(layout => (layout.Lead.ToSeq() + layout.Preorder.Map(static held => held.Path))
             .Find(entry => Elements.ContainsKey(entry) && Scene.Owner(entry).Exists(owner => owner.Path == stop)));
 
-    // --- [LOOKUP]
+    // --- [LOOKUPS]
+
     internal Option<Scroller> Thumb(Seq<Key> path) => Scene.Scroller(path).Filter(scroller => scroller.Owner != path);
 
     internal bool Inert(Seq<Key> path) => path.Inits.Exists(Scene.Inert.Contains);

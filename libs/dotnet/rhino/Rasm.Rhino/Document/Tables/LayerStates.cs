@@ -8,21 +8,26 @@ using Rhino.PlugIns;
 namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record LayerStateMask(RestoreLayerProperties Properties, bool ModelProperties, bool ViewportProperties) {
+
+    // --- [STATE]
+
     private const RestoreLayerProperties ViewportGroup =
         RestoreLayerProperties.ViewportVisible | RestoreLayerProperties.ViewportColor | RestoreLayerProperties.ViewportPrintColor | RestoreLayerProperties.ViewportPrintWidth;
-
-    private const string PropertiesKey = nameof(RestoreLayerProperties);
-    private const string ModelKey = "ModelPropertiesChecked";
-    private const string ViewportKey = "ViewportPropertiesChecked";
-    private const string SettingsNode = "LayerStates";
 
     public static LayerStateMask Default { get; } = new(RestoreLayerProperties.All, ModelProperties: true, ViewportProperties: true);
 
     public RestoreLayerProperties Effective =>
         Properties & ((ModelProperties ? ~ViewportGroup : RestoreLayerProperties.None) | (ViewportProperties ? ViewportGroup : RestoreLayerProperties.None));
 
-    // --- [PANEL]
+    // --- [PANELS]
+
+    private const string PropertiesKey = nameof(RestoreLayerProperties);
+    private const string ModelKey = "ModelPropertiesChecked";
+    private const string ViewportKey = "ViewportPropertiesChecked";
+    private const string SettingsNode = "LayerStates";
+
     public static IO<LayerStateMask> Read(RhinoDoc doc) =>
         Panel.Map(owner => (owner.Section, Settings: owner.Settings.TryGetChild(SettingsNode, out PersistentSettings node) ? Some(node) : None) switch {
             var (section, settings) => new LayerStateMask(
@@ -77,7 +82,11 @@ public sealed record LayerStateRestore(StateName Name, Option<LayerStateMask> Ma
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
+
 public static class LayerStates {
+
+    // --- [ROWS]
+
     public static NamedTable Table { get; } = new(nameof(LayerStates), StringComparer.Ordinal) {
         Entries = Entries,
         Rename = Rename,
@@ -86,7 +95,6 @@ public static class LayerStates {
         Import = Some(Import),
     };
 
-    // --- [ROWS]
     private static IO<Seq<NamedEntry>> Entries(RhinoDoc doc) =>
         IO.lift(() => Conversions.Rows(doc.NamedLayerStates.Names).Map(static name => new NamedEntry(Table, name, None)).Strict());
 
@@ -101,7 +109,8 @@ public static class LayerStates {
         from held in Aside(doc, entry.Name)
         select new NamedWrite(Renamed(doc, held, entry.Name), Deleted(doc, held));
 
-    // --- [SAVE]
+    // --- [SAVES]
+
     internal static IO<NamedWrite> Saved(RhinoDoc doc, string name, Option<Guid> viewport) =>
         from prior in IO.lift(() => Conversions.Present(doc.NamedLayerStates.FindName(name)))
         from held in prior.Traverse(_ => Aside(doc, name)).As()
@@ -111,13 +120,15 @@ public static class LayerStates {
             Products.Each(Seq(Deleted(doc, name), held.Traverse(stored => Renamed(doc, stored, name)).As().Map(static _ => unit))).Map(static _ => unit),
             held.Traverse(stored => Deleted(doc, stored)).As().Map(static _ => unit));
 
-    // --- [HOLD]
+    // --- [HOLDS]
+
     private static IO<NamedWrite> Hold(RhinoDoc doc, Option<Guid> viewport) =>
         from name in IO.lift(static () => Guid.NewGuid().ToString())
         from saved in IO.lift(Conversions.Required(Conversions.Present(doc.NamedLayerStates.Save(name, Conversions.Unset(viewport)))))
         select new NamedWrite(Restored(doc, name, RestoreLayerProperties.All, viewport), Deleted(doc, name));
 
-    // --- [IMPORT]
+    // --- [IMPORTS]
+
     private static IO<NamedWrite> Import(RhinoDoc doc, InputPath path, Option<Seq<StateName>> names) =>
         from whole in IO.lift(() => RhinoFault.Unless(names.IsNone, RhinoReason.Unsupported, names))
         from filed in (from headless in Products.Of(static () => RhinoDoc.CreateHeadless(file3dmTemplatePath: null))
@@ -132,7 +143,8 @@ public static class LayerStates {
             Products.Each(filed.Map(name => Deleted(doc, name)) + held.Map(stored => Renamed(doc, stored.Aside, stored.Name))).Map(static _ => unit),
             Products.Each(held.Map(stored => Deleted(doc, stored.Aside))).Map(static _ => unit));
 
-    // --- [HOST]
+    // --- [HOSTS]
+
     internal static IO<int> Index(RhinoDoc doc, string name) =>
         IO.lift(() => Conversions.Present(doc.NamedLayerStates.FindName(name)).ToFin(Table.Missing(name)));
 

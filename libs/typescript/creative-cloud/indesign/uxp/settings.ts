@@ -2,8 +2,8 @@ import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDe
 import { Digits } from '@rasm/search';
 import { Settings } from '@rasm/typography';
 import { Array, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
-import { InDesignModel } from '#/uxp/indesign-model';
-import { STYLISTIC_SETS } from '#/uxp/internal/dictionary';
+import { STYLISTIC_SETS } from '#/internal/dictionary.ts';
+import { Model } from '#/uxp/model.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -214,7 +214,7 @@ class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: 
         const encoded = yield* Schema.encodeEffect(schema.mapFields(Struct.map(Schema.optionalKey)))(written);
         const members: Record.ReadonlyRecord<string, unknown> = Object.fromEntries(Object.values(Struct.omit(encoded, ['features'])).flatMap(Object.entries));
         const featured = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(encoded.features), (tags) => featureMembers(target, tags)));
-        return yield* InDesignModel.write(target, { ...retained(target, members, trips), ...Option.getOrElse(featured, Record.empty) });
+        return yield* Model.write(target, { ...retained(target, members, trips), ...Option.getOrElse(featured, Record.empty) });
     });
 }
 
@@ -235,15 +235,15 @@ const sections = ({ pointSize, paragraphDirection, side = 'SINGLE_SIDED' }: type
     return { trips, schema: InDesignSettings.mapFields(Struct.assign({ alignment: alignment(sided), leading: leading(pointSize) })) };
 };
 const placement = Effect.fnUntraced(function* (target: Placed) {
-    const { text, item } = yield* InDesignModel;
+    const { text, item } = yield* Model;
     const page = () => Option.flatMap(text(target) ? Array.head(target.parentTextFrames) : Option.none(), (holder) => Option.fromNullishOr(item(holder) ? holder.parentPage : holder.parent.parentPage));
-    return yield* InDesignModel.picked(Placement, target, () => Record.getSomes({ side: Option.map(page(), Struct.get('side')) }));
+    return yield* Model.picked(Placement, target, () => Record.getSomes({ side: Option.map(page(), Struct.get('side')) }));
 });
 const held = Effect.fnUntraced(function* (target: Placed, placed: typeof Placement.Type) {
-    const { picked } = yield* InDesignModel;
+    const { picked } = yield* Model;
     const { schema } = sections(placed);
     const pick = (row: Schema.Top) => picked(row, target);
-    return Settings.make(yield* InDesignModel.read(schema, `settings of ${target.toSpecifier()}`, () => Record.map(schema.fields, pick)));
+    return Settings.make(yield* Model.read(schema, `settings of ${target.toSpecifier()}`, () => Record.map(schema.fields, pick)));
 });
 const retained = (target: Text | TextDefault, members: Record.ReadonlyRecord<string, unknown>, trips: typeof ROUND_TRIPS) =>
     Record.map(members, (written, member) => {
@@ -253,7 +253,7 @@ const retained = (target: Text | TextDefault, members: Record.ReadonlyRecord<str
     });
 const featureMembers = (target: Text | TextDefault, { capitalization, opentypeFeatures = [], ...flags }: typeof features.Encoded) =>
     Effect.map(
-        InDesignModel.read(heldFeatures, `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] })),
+        Model.read(heldFeatures, `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] })),
         ({ capitalization: current, existing }) => {
             const replaced = Record.toEntries({ ...Record.map(Record.fromEntries(existing), () => 0), ...Record.fromEntries(opentypeFeatures) });
             return {

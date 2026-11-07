@@ -1,5 +1,5 @@
-import { unavailable } from '@rasm/hosting';
-import { Template } from '@rasm/hosting/server';
+import { HostingError } from '@rasm/hosting';
+import { Template } from '@rasm/hosting/template';
 import { Effect, Struct } from 'effect';
 import { HttpRouter } from 'effect/http';
 import { readDocument } from '#/server/documents.ts';
@@ -15,7 +15,7 @@ const page = HttpRouter.add(
         () => Effect.all({ published: Effect.map(readDocument('published'), Struct.get('data')), session: OwnerAccount.session }, { concurrency: 'unbounded' }),
         Effect.flatMap((bootstrap) => Template.render(shell, bootstrap)),
         Effect.map(OwnerAccount.sessionScoped),
-        Effect.catchTag('HostingError', unavailable),
+        Effect.catchTag('HostingError', HostingError.unavailable),
     ),
 );
 

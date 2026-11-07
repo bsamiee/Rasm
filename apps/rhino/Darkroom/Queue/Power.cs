@@ -10,6 +10,7 @@ using Rasm.Rhino;
 namespace Darkroom.Queue;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 [Flags]
 internal enum ExecutionState : uint {
     None = 0,
@@ -19,14 +20,18 @@ internal enum ExecutionState : uint {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal static partial class SafeNativeMethods {
+
     // --- [POWER]
+
     [LibraryImport("kernel32")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [SupportedOSPlatform("windows")]
     internal static partial ExecutionState SetThreadExecutionState(ExecutionState flags);
 
     // --- [ARGUMENTS]
+
     [LibraryImport("/usr/lib/libSystem.B.dylib")]
     [SupportedOSPlatform("macos")]
     private static partial nint _NSGetArgv();
@@ -40,6 +45,7 @@ internal static partial class SafeNativeMethods {
         [.. Enumerable.Range(0, Marshal.ReadInt32(_NSGetArgc())).Select(static index => Marshal.PtrToStringUTF8(Marshal.ReadIntPtr(Marshal.ReadIntPtr(_NSGetArgv()), index * nint.Size))!)];
 
     // --- [MEMORY]
+
     [LibraryImport("/usr/lib/libSystem.B.dylib", SetLastError = true)]
     [SupportedOSPlatform("macos")]
     private static partial int getrusage(int who, Span<long> usage);
@@ -53,8 +59,11 @@ internal static partial class SafeNativeMethods {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class MachinePower {
-    // --- [HOLD]
+
+    // --- [HOLDS]
+
     public static IO<T> HeldAwake<T>(IO<T> run) =>
         OperatingSystem.IsWindows()
             ? HeldAwakeOnWindows(run)
@@ -76,6 +85,7 @@ public static class MachinePower {
          select value).Bracket();
 
     // --- [SHUTDOWN]
+
     public static IO<Unit> ShutDown =>
         OperatingSystem.IsWindows()
             ? (from shutdown in use(Started("shutdown", ["/s", "/t", "60"]))
@@ -85,6 +95,7 @@ public static class MachinePower {
             : use(Started("osascript", ["-e", "delay 60", "-e", """tell application "System Events" to shut down"""])).Map(static _ => unit).Bracket();
 
     // --- [PROCESSES]
+
     private static IO<Process> Started(string program, Seq<string> arguments) =>
         IO.lift(() => Conversions.Required(Process.Start(new ProcessStartInfo(program, arguments) { UseShellExecute = false, CreateNoWindow = true })));
 

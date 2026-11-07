@@ -79,7 +79,7 @@ pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<Rgba
     let mut pixmap = Pixmap::new(context.width(), context.height());
     let mut resources = Resources::new();
     let mut image = RgbaImage::new(columns, rows);
-    let mut inks = Vec::new();
+    let mut press_samples = Vec::new();
     (0..rows).step_by(usize::from(tile)).flat_map(|y| (0..columns).step_by(usize::from(tile)).map(move |x| (x, y))).try_for_each(|(x, y)| {
         let [across, down] = [side(x, columns), side(y, rows)];
         context.reset_and_resize(across, down);
@@ -92,9 +92,9 @@ pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<Rgba
         }
         let pixels = pixmap.data_as_u8_slice_mut();
         if let Some([forward, back]) = &proof {
-            inks.resize(pixels.len(), 0);
-            forward.transform(pixels, &mut inks)?;
-            back.transform(&inks, pixels)?;
+            press_samples.resize(pixels.len(), 0);
+            forward.transform(pixels, &mut press_samples)?;
+            back.transform(&press_samples, pixels)?;
         }
         let samples = FlatSamples { samples: pixels, layout: SampleLayout::row_major_packed(<Rgba<u8> as Pixel>::CHANNEL_COUNT, across.into(), down.into()), color_hint: None };
         image.copy_from(&samples.as_view::<Rgba<u8>>().map_err(ImageError::from)?, x, y).map_err(PdfError::from)

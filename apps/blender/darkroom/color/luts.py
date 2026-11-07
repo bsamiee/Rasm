@@ -1,6 +1,5 @@
 """Darkroom LUTs: the chain's render-enabled pointwise entries sampled through the compositor into a LUT file, a tone entry sampled into an installed view, and strip modifier bakes."""
 
-# ruff: file-ignore[relative-imports]
 from contextlib import nullcontext
 from functools import partial
 from typing import Final

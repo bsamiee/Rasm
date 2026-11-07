@@ -31,6 +31,8 @@ final class Hang: Sendable {
 
 @MainActor
 final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDataSource {
+    // --- [STATE]
+
     private let settings: Settings
     private let held: Hang?
     private let logger: Logger = Logger(for: ApplicationDelegate.self)

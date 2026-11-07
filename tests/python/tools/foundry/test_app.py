@@ -1,6 +1,7 @@
 """CLI binding, help, independent input faults, and JSON line output."""
 
 from datetime import timedelta
+from functools import partial
 from pathlib import Path
 
 from cyclopts.exceptions import CycloptsError
@@ -27,9 +28,11 @@ def test_help_lists_actions_and_exits_successfully(capsys: pytest.CaptureFixture
 def test_optional_positionals_and_options_bind_the_same_typed_call(tmp_path: Path) -> None:
     """Publication supports both CLI forms without a forwarding command layer, the output folder an option alone."""
     declaration, destination, output = tmp_path / "set.toml", tmp_path / "published", tmp_path / "build"
-    _, positional, _ = app.parse_args(["publish", str(declaration), "Test", str(destination), "--output", str(output)])
+    command, positional, _ = app.parse_args(["publish", str(declaration), "Test", str(destination), "--output", str(output)])
     _, options, _ = app.parse_args(["publish", str(declaration), "--name", "Test", "--destination", str(destination), "--output", str(output)])
-    assert positional.args == options.args == (Action.PUBLISH, declaration, "Test", destination)
+    assert isinstance(command, partial)
+    assert command.args == (Action.PUBLISH,)
+    assert positional.args == options.args == (declaration, "Test", destination)
     assert positional.kwargs == options.kwargs == {"output": output}
     with pytest.raises(CycloptsError):
         app(["build", str(declaration)], result_action="return_value", exit_on_error=False, print_error=False)

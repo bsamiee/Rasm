@@ -1,16 +1,13 @@
-import { Installation, Launch, Launched, Perform, Screenshot, State, WindowID } from '@rasm/applications/contract';
+import { Installation, Launch, Launched, Perform, Screenshot, State, WindowID } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
-import { HostError } from '@rasm/automation/error';
-import { Content } from '@rasm/mcp/content';
-import { Resource } from '@rasm/mcp/resource';
-import { Route } from '@rasm/mcp/route';
-import { Server } from '@rasm/mcp/server';
+import { HostError } from '@rasm/automation';
+import { Content, Resource, Route, Server } from '@rasm/mcp';
 import { Context, Effect, FileSystem, Path, Record, Result, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { imageSize } from 'image-size';
-import { Adobe } from '#/adobe';
-import type { routes } from '#/routes';
-import type { status } from '#/status';
+import { Adobe } from '#/adobe.ts';
+import type { routes } from '#/routes.ts';
+import type { status } from '#/status.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

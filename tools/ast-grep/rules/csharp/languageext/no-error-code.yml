@@ -29,7 +29,7 @@ utils:
                     - nthChild: {position: 2, ofRule: {kind: argument}}
                     - matches: csharp-positional-argument
                 - has: {field: name, regex: '^code$'}
-            - not: {has: {any: [{kind: integer_literal, regex: '^0$'}, {matches: library-code}]}}
+            - not: {has: {any: [{pattern: '0'}, {matches: library-code}]}}
     numbered-code:
         kind: argument
         all:

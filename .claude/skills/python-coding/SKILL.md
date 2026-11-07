@@ -12,6 +12,9 @@ Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, c
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Every type, export, and helper states a fact nothing else does, a helper with one reader, forwarder, or alias merges into its owner
 - Values that vary are parameters, a value every caller passes alike folds into its owner
+- Error cases exist where a caller branches on them, every other failure joins its owner's error
+- Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
+- Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
 - Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:
@@ -229,7 +232,7 @@ Input boundaries select the result type and functions keep it. One boundary conv
 
 ### [04.1]-[ERRORS]
 
-Exceptions mark a violated precondition or a third-party raise a boundary converts. Native factories bind `Ok` to `Faults` and `Error` to absent success. `Nothing` preserves Expression's singleton through a line-specific correction of its `Option[Any]` annotation. One `Fault` record serves every package, its `reason` an enum member holding the message template. `Fault.of` returns the non-empty tuple every fault builder needs:
+Exceptions mark a violated precondition or a third-party raise a boundary converts. Native factories bind `Ok` to `Faults`, `Error` to absent success, and `Nothing` to absence, an `Option[Never]` equal to Expression's `Option[Any]` singleton. One `Fault` record serves every package, its `reason` an enum member holding the message template. `Fault.of` returns the non-empty tuple every fault builder needs:
 
 ```python
 type Faults = tuple[Fault, *tuple[Fault, ...]]
@@ -237,7 +240,7 @@ type Outcome[T] = Result[T, Faults]
 
 Ok = Result[Never, Faults].Ok
 Error = Result[Never, Never].Error
-Nothing: Option[Never] = expression.Nothing  # ty: ignore[unsound-assignment]
+Nothing = Option[Never].Nothing()
 
 
 class Reason(StrEnum):
@@ -424,13 +427,13 @@ class Lease(msgspec.Struct, frozen=True, kw_only=True):
 
 ## [06]-[MODULES]
 
-Each module holds one owner, and imports point down its layers. Names a class statement, base, decorator, or record annotation reads import eagerly, and every other import is `lazy`:
+Each module holds one owner, and imports point down its layers, absolute from its package root:
 
 ```python
 import msgspec
 lazy import numpy as np
 
-lazy from .faults import Ok, Outcome
+lazy from signals.faults import Ok, Outcome
 
 
 class Window(msgspec.Struct, frozen=True, kw_only=True):
@@ -441,13 +444,46 @@ def smoothed(window: Window, values: np.ndarray, /) -> Outcome[np.ndarray]:
     return Ok(np.convolve(values, np.full(window.width, 1 / window.width), mode="same"))
 ```
 
-`msgspec` loads with the module for the base `Window` reads, and `numpy`, `Ok`, and `Outcome` load at the first call reading them:
-- `lazy` imports sit at module top level, and one inside `try` or a function raises `SyntaxError`
-- `__all__` lists what importers compose, and names one module reads alone take a `_` prefix
+`msgspec` loads with the module for the base `Window` reads, `numpy` and `Ok` load at the first call, and `Outcome` at the first read of the function's annotations:
+- Sources take one statement, `import <module>` read through attributes or `from <module> import <names>`
+- Imports bind each name as its source declares it or as its import convention aliases it (`np`)
+- Names another import or definition holds read through their module (`msgspec.Struct`)
+- Names a module defines take no import of the same name
+- `__all__` lists names the module defines for importers to compose, names one module reads alone take a `_` prefix, and no module re-exports another's names
 - Unused public capability stays exported
-- Files existing to break an import cycle merge, and the cycle goes at its root
 - Annotations stay unquoted, runtime readers call `annotationlib.get_annotations`
 - Entry modules hold boundary code alone in import-safe top-level code, `to_process` and `to_interpreter` workers re-import them
+- Use `blender-coding` for imports under Blender's Python 3.13
 - Use `python-coding-cyclopts` for command-line applications
 - Use `python-document` for docstrings
 - Use `clean-prose` for names, messages, and descriptions
+
+### [06.1]-[LAZINESS]
+
+`lazy` binds a proxy and loads its module at the first read of the name, a saving only for a module nothing loads at startup or import time (`sys`, `os`, `abc`, a module an eager import loads):
+- Import-time reads (base, decorator, default argument, module constant, class body) reify a name, and its import stays eager
+- Records read their field annotations at class creation (`msgspec.Struct`, dataclass, `NamedTuple`), and those names reify there
+- Function annotations and `type` alias values reify at their first read
+- `lazy import a.b.c` binds `a`, and a read of `a.b.c.X` loads `a`, `a.b`, then `a.b.c`
+- Failed loads raise at the first read, chained to the `lazy` statement, and each later read retries
+- `lazy` imports raise `SyntaxError` inside `try`, a function, or a class body, and as `lazy from <module> import *`
+- Names type checking alone reads take a `lazy` import in place of a `TYPE_CHECKING` block
+- `-X lazy_imports=all` and `sys.set_lazy_imports_filter` set process policy at an application entry point, never in a library
+- `python -X importtime` prints each module's self and cumulative microseconds after its children, a lazy import under the read that reified it
+
+### [06.2]-[DYNAMIC_IMPORTS]
+
+Modules a value names at runtime load through the standard library member owning their case:
+
+| [INDEX] | [CASE]                 | [MEMBER]                                                                 |
+| :-----: | :--------------------- | :----------------------------------------------------------------------- |
+|  [01]   | Module name            | `importlib.import_module(name)`, `package=` for a relative name          |
+|  [02]   | `<module>:<attribute>` | `pkgutil.resolve_name`                                                   |
+|  [03]   | Installed plugin       | `importlib.metadata.entry_points(group=<group>)`, then `EntryPoint.load` |
+|  [04]   | Package data file      | `importlib.resources.files(<module>).joinpath(<part>, ...)`              |
+|  [05]   | Platform module        | Module-level `if sys.platform == "<platform>":` branch                   |
+
+- `importlib.util.find_spec("<package>.<module>")` runs the package's `__init__.py`, a top-level name alone probes without import
+- `importlib.util.LazyLoader` defers a module a runtime value names, `lazy` covers every name the source spells
+- `importlib.reload` re-executes into the same module object, and names a `from` import bound keep their old objects
+- Platform branches type-check under mypy for the `--platform` value alone and under ty for every platform `python-platform = "all"` selects

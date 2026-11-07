@@ -1,4 +1,4 @@
-"""Anchors from ink: mark anchors at the original's clearance in a vowel and a wide class, ligature component anchors and carets, composite marks attached, `calt` dot groups moved clear of a joined neighbor, and `mark` lifts of marks clear of neighbors."""
+"""Anchors from outlines: mark anchors at the original's clearance in a vowel and a wide class, ligature component anchors and carets, composite marks attached, `calt` dot groups moved clear of a joined neighbor, and `mark` lifts of marks clear of neighbors."""
 
 # mypy: disable-error-code="no-untyped-call"
 
@@ -11,16 +11,15 @@ import msgspec
 lazy from fontTools.misc.roundTools import otRound
 lazy from fontTools.misc.transform import Offset, Transform
 lazy from ufo2ft.filters.propagateAnchors import AnchorData, anchors_traversing_components, get_xy_rotation, rename_anchor_for_scale
-lazy from ufoLib2.objects import Component as UfoComponent
+lazy from ufoLib2.objects import Component
 
 from typography.faces.declaration import Em, Ratio, Script
-from typography.rules.measures import Rule
+from typography.rules.measures import dotted, middle, nuqta, placement, Rule
 lazy from typography.faces.faults import Outcome
 lazy from typography.faces.glyphs import Anchor, Glyph, Letter, Ligature, Mark, Outline, Side, Source
 lazy from typography.faces.layout import Adjustment, Chain, Contextual, Lifts
 lazy from typography.outlines.measure import gap
 lazy from typography.outlines.paths import area, bounds, Box, pieces, strip, transformed, union
-lazy from typography.rules.measures import dotted, middle, nuqta, placement
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.runs import Binary
 
@@ -28,7 +27,7 @@ lazy from typography.shaping.runs import Binary
 
 
 class Anchors(Rule, frozen=True, kw_only=True):
-    """Anchors from ink at the original's vowel clearance, the vowel class over a column `wide` vowels across and wider marks over the widest, spaces anchored like the stem and joining glyph, dots held `dots` off a joined neighbor, and lifts up to `lifts` (non-joining, joined)."""
+    """Anchors from outlines at the original's vowel clearance, the vowel class over a column `wide` vowels across and wider marks over the widest, spaces anchored like the stem and joining glyph, dots held `dots` off a joined neighbor, and lifts up to `lifts` (non-joining, joined)."""
 
     script: Script
     stack: Em
@@ -39,11 +38,12 @@ class Anchors(Rule, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [CLEARANCE]
 
 
 def _clearances(original: Binary, corpus: Corpus, vowels: tuple[int, int], /) -> tuple[float, float]:
-    """Median ink gap of the above vowel over and the below vowel under each form of each corpus letter shaped on the original, in its units."""
+    """Median outline gap of the above vowel over and the below vowel under each form of each corpus letter shaped on the original, in its units."""
     marked = original.marks
     over, under = (
         middle(
@@ -68,7 +68,7 @@ def _clearances(original: Binary, corpus: Corpus, vowels: tuple[int, int], /) ->
 
 
 def _anchors(glyph: Glyph, x: float, above: float, below: float, widths: tuple[float, float], suffix: str = "", /) -> tuple[Anchor, ...]:
-    """Top and bottom anchors of the vowel and wide classes over and under the ink column of each width at x."""
+    """Top and bottom anchors of the vowel and wide classes over and under the outline column of each width at x."""
     return tuple(
         anchor
         for tier, width in zip(("", "wide"), widths, strict=False)
@@ -79,7 +79,7 @@ def _anchors(glyph: Glyph, x: float, above: float, below: float, widths: tuple[f
 
 
 def _based(glyph: Glyph, above: float, below: float, widths: tuple[float, float], stem: Box, /) -> Glyph:
-    """Anchors a base's marks over its own ink, a ligature's over each component arm read above 0.8 of the stem height with a caret between arms, or at equal shares of its advance where arms and components differ in count."""
+    """Anchors a base's marks over its own outline, a ligature's over each component arm read above 0.8 of the stem height with a caret between arms, or at equal shares of its advance where arms and components differ in count."""
     match bounds(glyph.contours), glyph.role:
         case None, _:
             return glyph
@@ -108,7 +108,7 @@ def _based(glyph: Glyph, above: float, below: float, widths: tuple[float, float]
 
 
 def _marked(glyph: Glyph, stack: float, wide: float, /) -> Glyph:
-    """Anchors a mark at its ink foot, in the wide class past the wide width, and marks stacked on it the stack gap past its head in both classes."""
+    """Anchors a mark at its outline foot, in the wide class past the wide width, and marks stacked on it the stack gap past its head in both classes."""
     match bounds(glyph.contours), glyph.role:
         case Box(middle=(x, _), ymin=ymin, ymax=ymax, width=width), Mark(side=side):
             name, (foot, head) = side.anchor, (ymin, ymax + stack) if side is Side.ABOVE else (ymax, ymin - stack)
@@ -120,14 +120,14 @@ def _marked(glyph: Glyph, stack: float, wide: float, /) -> Glyph:
 # --- [NEIGHBOURS]
 
 
-def _near(ink: Box, other: Box, shift: float, reach: float, /) -> bool:
+def _near(own: Box, other: Box, shift: float, reach: float, /) -> bool:
     """Whether another box moved by a shift stands within a reach of a box."""
-    return (ink.grown(reach) & other.shifted(shift, 0)) is not None
+    return (own.grown(reach) & other.shifted(shift, 0)) is not None
 
 
-def _short(ink: Outline, other: Outline, shift: float, reach: float, /) -> float:
-    """How far ink stands inside the reach of other ink moved by a shift."""
-    return max(reach - gap(ink, transformed(other, Offset(shift, 0))), 0.0)
+def _short(own: Outline, other: Outline, shift: float, reach: float, /) -> float:
+    """How far an outline stands inside the reach of another outline moved by a shift."""
+    return max(reach - gap(own, transformed(other, Offset(shift, 0))), 0.0)
 
 
 def _cleared(source: Source, rule: Anchors, /) -> tuple[tuple[Glyph, ...], tuple[Contextual, ...]]:
@@ -176,7 +176,7 @@ def _lifts(source: Source, rule: Anchors, /) -> tuple[Lifts, ...]:
             for anchor in glyph.anchor("_top").to_list()
         )
     )
-    placed = {glyph.name.text: (ink, box) for glyph in letters for top in glyph.anchor("top").to_list() for ink in (transformed(stack, Offset(top.x, top.y)),) if (box := bounds(ink))}
+    placed = {glyph.name.text: (outline, box) for glyph in letters for top in glyph.anchor("top").to_list() for outline in (transformed(stack, Offset(top.x, top.y)),) if (box := bounds(outline))}
     boxes = {glyph.name.text: box for glyph in letters if (box := bounds(glyph.contours))}
     lifted = sorted(
         (owner.name.text, after, otRound(min(math.ceil(short / step) * step if step else short, rule.lifts[first.name.form.left] * source.upm)), other.name.text)
@@ -199,10 +199,10 @@ def _lifts(source: Source, rule: Anchors, /) -> tuple[Lifts, ...]:
 
 
 def anchored(source: Source, rule: Anchors, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
-    """Sets every base, ligature, and mark anchor from ink at the original's mark clearance, attaches composite marks, and adds the `calt` dot alternates and neighbor lifts.
+    """Sets every base, ligature, and mark anchor from outlines at the original's mark clearance, attaches composite marks, and adds the `calt` dot alternates and neighbor lifts.
 
     Returns:
-        Ok(anchored source with its alternates and lifts), `ABSENT` for a face without an inked stem.
+        Ok(anchored source with its alternates and lifts), `ABSENT` for a face without a drawn stem.
     """
     script = rule.script
     return placement(source, original, script.stem).map(lambda held: _positioned(source, rule, held[1], held[2].xx, _clearances(original, corpus, script.vowels)))
@@ -261,7 +261,7 @@ def _positioned(source: Source, rule: Anchors, stem: Box, scale: float, clearanc
         propagate = partial(
             anchors_traversing_components,
             glyph_name=name,
-            components=[UfoComponent(part.name, part.transform) for part in glyph.components],
+            components=[Component(part.name, part.transform) for part in glyph.components],
             is_mark=isinstance(glyph.role, Mark),
             is_ligature=isinstance(glyph.role, Ligature),
             done_anchors=propagated,

@@ -15,9 +15,10 @@ from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.paths import Struct
 from blender.bpy.data.rna.properties import case_choices, choices, enum_choices, EnumItem
 from blender.bpy.extension.identity import Key
+from blender.bpy.nodes.changes import NodeGroup
 from blender.bpy.nodes.desired import item_key
 from blender.bpy.nodes.graphs import Expr, group_input
-from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
+from blender.bpy.nodes.interfaces import Interface, Socket
 from blender.bpy.render.compositor.effects import CompositorRecord, Entry
 from blender.bpy.render.compositor.entries import Pinned, StackEnd
 from blender.bpy.render.compositor.masks import Blend

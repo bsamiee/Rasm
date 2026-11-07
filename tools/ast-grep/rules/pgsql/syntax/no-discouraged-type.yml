@@ -16,7 +16,7 @@ rule:
             - {matches: stored, kind: character, regex: '(?i-u)^(?:n(?:ational[\t\n\v\f\r ]+)?)?char(?:acter)?$'}
             - {matches: stored, kind: ConstDatetime, regex: '(?i-u)^timestamp', not: {regex: '(?i-u)(?-u:\b)with[\t\n\v\f\r ]'}}
             - {matches: stored, kind: ConstDatetime, regex: '(?i-u)^time(?-u:\b)[\t\n\v\f\r (0-9)]*with[\t\n\v\f\r ]'}
-            - {matches: stored, kind: ConstDatetime, has: {kind: integer_literal, regex: '^0$'}}
+            - {matches: stored, kind: ConstDatetime, has: {pattern: '0'}}
             - {kind: func_expr_common_subexpr, regex: '(?i-u)^current_time(?-u:\b)'}
         - pattern: $TYPE
 message: '`$TYPE` stores a value PostgreSQL documents as a trap'

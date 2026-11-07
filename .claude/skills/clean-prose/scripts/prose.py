@@ -1,224 +1,237 @@
 """Checks and fixes Markdown and source comments."""
 
+from functools import cache, partial, reduce
 from pathlib import Path
-from typing import override
-lazy from bisect import bisect_right
-lazy from collections.abc import Callable, Iterable, Iterator
-lazy from functools import reduce
-lazy from itertools import accumulate, groupby, pairwise, starmap, takewhile
+import sys
+lazy from bisect import bisect_left, bisect_right
+lazy from collections.abc import Callable, Iterable, Iterator, Sequence
+lazy from itertools import accumulate, count, pairwise, starmap, takewhile
 lazy import shlex
-lazy import subprocess
-lazy import sys
+lazy import time
 
-from cyclopts import App
-from cyclopts.types import ExistingPath
-from markdown_it import MarkdownIt
-from markdown_it.tree import SyntaxTreeNode
-from mdit_py_plugins.front_matter import front_matter_plugin
 import msgspec
+from msgspec.structs import replace
+from pygments.token import Comment, is_token_subtype, Punctuation, String, Text
 import regex
+lazy import anyio
+lazy import anyio.to_process
+lazy from cyclopts import App
+lazy from cyclopts.types import ExistingPath
+lazy from markdown_it import MarkdownIt
 lazy from markdown_it.helpers import parseLinkDestination, parseLinkLabel, parseLinkTitle
 lazy from markdown_it.rules_block.table import escapedSplit
 lazy from markdown_it.rules_inline import StateInline
 lazy from markdown_it.token import Token
-lazy from pygments.lexers import get_lexer_for_filename
-lazy from pygments.token import Comment, is_token_subtype
-lazy from wcwidth import wcswidth
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type _Comments = tuple[_Directive | _Divider, ...]
-type _MappedNode = tuple[SyntaxTreeNode, tuple[int, int]]
+lazy from markdown_it.tree import SyntaxTreeNode
+lazy from mdit_py_plugins.front_matter import front_matter_plugin
+lazy import pygments.lexers
+lazy from wcwidth import width
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+_LINE_COMMENT = regex.compile(r"(?P<marker>\p{P}+) (?P<body>--- (?P<label>\[[^\]]+\])(?P<fill> -+)?|\S.*)")
+_DIRECTIVE = regex.compile(r"@?[a-z][a-z0-9-]*(?::|-(?:ignore|disable|enable|expect-error|nocheck)\b| (?:disable|enable)\b)|noqa\b|<(?:reference|amd-module)\b")
 _LEADER = regex.compile(r"(?P<chain>\[[^\]]*\](?:-\[[^\]]*\])*)(?:\((?P<path>[^)]*)\):|:?) ")
-_DIVIDER = regex.compile(r"--- (?P<label>\[[^\]]+\]).*?(?P<fill> -+)?")
-_DIRECTIVE = regex.compile(r"@?[a-z][a-z0-9-]*(?::|-(?:ignore|disable|enable|expect-error|nocheck)\b| (?:disable|enable)\b)|noqa\b")
-_LEAVES = frozenset({"paragraph", "heading", "fence", "code_block", "table", "html_block", "hr", "front_matter", "definition"})
-_ALIGNS = frozendict({"text-align:center": (":-:", "^"), "text-align:right": ("-:", ">")})
-_WIDTH = 150
-_MARKDOWN = MarkdownIt("commonmark", {"inline_definitions": True, "store_labels": True}).enable("table").use(front_matter_plugin).disable("text_join")
+_LABEL = regex.compile(r"\[[^\]]*\]")
+_NONWORD = regex.compile(r"\W+")
+_EMOJI = regex.compile(r"(?(DEFINE)(?<emoji>\p{Extended_Pictographic}[\p{Emoji_Modifier}\ufe0f]*\u200d?)) (?&emoji)+|(?&emoji)+ ?")
+_TERMINAL_PUNCTUATION = regex.compile(r"(?<=[^\s.,;!?])[.,;!?]+$")
+_LINE_BREAK = regex.compile(r"[ \t]*\\?\n[ \t]*")
+_MULTILEVEL_NUMBER = regex.compile(r"\d+(?:\.\w+)+\.(?= )")
+_ARTICLE = regex.compile(r"(?i)\A(?:a|an|the)\s+\S")
+_LOWERCASE = regex.compile(r"\A\p{Ll}")
+_BACKTICK_STRING = regex.compile(r"`+")
+_BRACKETS = frozenset("()[]{}")
+_COLUMN_LIMIT = 150
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class _Edit(msgspec.Struct, frozen=True, order=True):
-    """0-based half-open line range and replacement lines."""
-
     start: int
     stop: int
     lines: tuple[str, ...]
 
 
-class _Text(msgspec.Struct, frozen=True):
-    """Prose unit at a 0-based line, source after its leader, code spans excluded from prose, and capitalization rule."""
-
-    line: int
-    raw: str
-    prose: str
-    capital: bool
+class _Line(msgspec.Struct, frozen=True):
+    open_brackets: str
+    last_token_type: tuple[str, ...]
 
 
-class _Comment(msgspec.Struct, frozen=True):
-    line: int
-    indent: str
-    marker: str
+class _Comment(_Line, frozen=True):
+    fixed: str
 
 
-class _Directive(_Comment, frozen=True):
-    body: str
-
-    def fixed(self) -> str:
-        return f"{self.indent}{self.marker} {self.body}"
-
-
-class _Remark(_Directive, frozen=True):
-    @override
-    def fixed(self) -> str:
-        return f"{self.indent}{self.marker} {_unpunctuated(_strip_emoji(self.body))}"
+class _ProseComment(_Comment, frozen=True):
+    text: str
 
 
 class _Divider(_Comment, frozen=True):
     label: str
     full: bool
 
-    def fixed(self) -> str:
-        """File-level full dividers end at column 90; other dividers omit fill."""
-        line = f"{self.indent}{self.marker} --- {_label(self.label)}"
-        return f"{line} ".ljust(90, "-") if self.full and not self.indent else line
 
-
-class _Doc[T](msgspec.Struct, frozen=True):
+class _Doc[Node](msgspec.Struct, frozen=True):
+    language: _Language[Node]
     path: Path
+    section_order: frozendict[str, int]
     lines: tuple[str, ...]
-    parts: T
-    edits: int = 0
+    origin: tuple[int, ...]
+    nodes: tuple[Node, ...]
+    edit_count: int = 0
 
 
-class _Grammar[T](msgspec.Struct, frozen=True):
-    parse: Callable[[Path, tuple[str, ...]], T]
-    texts: Callable[[_Doc[T]], Iterable[_Text]]
-    fixes: tuple[Callable[[_Doc[T]], Iterable[_Edit]], ...]
-    reports: frozendict[Callable[[_Doc[T]], Iterable[tuple[int, str]]], str]
+class _Language[Node](msgspec.Struct, frozen=True):
+    parse: Callable[[_Language[Node], tuple[str, ...]], tuple[Node, ...]]
+    reparse: Callable[[_Doc[Node], Sequence[_Edit]], tuple[Node, ...]]
+    prose: tuple[Callable[[_Doc[Node]], Iterable[tuple[int, str, str, bool]]], ...]
+    fixes: tuple[Callable[[_Doc[Node]], Iterable[_Edit]], ...]
+    reports: frozendict[str, Callable[[_Doc[Node]], Iterable[tuple[int, str]]]]
+    lexer: str = ""
+    marker: str = ""
+    mask: Callable[[str], str] = str
+    formatter_gaps: tuple[Callable[[_Doc[Node], int, int], bool], ...] = ()
 
-    def lint(self, path: Path) -> _Doc[tuple[str, ...]]:
-        """Returns normalized file lines, edit count, and `path:line: message` findings in line order."""
-
-        def edited(doc: _Doc[T], fix: Callable[[_Doc[T]], Iterable[_Edit]]) -> _Doc[T]:
-            match sorted(edit for edit in fix(doc) if edit.lines != doc.lines[edit.start : edit.stop]):
-                case []:
-                    return doc
-                case changed:
-                    lines = (*(*(*doc.lines[start : edit.start], *edit.lines) for start, edit in zip((0, *(edit.stop for edit in changed)), changed)), *doc.lines[changed[-1].stop :])
-                    return msgspec.structs.replace(doc, lines=lines, parts=self.parse(doc.path, lines), edits=doc.edits + len(changed))
-
+    def lint(self, section_order: frozendict[str, int], path: Path) -> tuple[tuple[str, ...], tuple[tuple[int, int, str], ...], int]:
         with path.open(encoding="utf-8") as file:
             lines = tuple(line.removesuffix("\n") for line in file)
-        doc = reduce(edited, self.fixes, _Doc(path, lines, self.parse(path, lines)))
-        texts = [*self.texts(doc)]
-        ran = (*((message, report(doc)) for report, message in self.reports.items()), *((message, [(t.line, s) for t in texts for s in report(t)]) for report, message in _TEXTS.items()))
-        hits = sorted(((line, message.format(subject)) for message, found in ran for line, subject in found), key=lambda hit: hit[0])
-        return _Doc(path, doc.lines, tuple(f"{path}:{line + 1}: {message}\n" for line, message in hits), doc.edits)
+        doc = reduce(_edited, self.fixes, _Doc(self, path, section_order, lines, tuple(range(len(lines) + 1)), self.parse(self, lines)))
+        texts = [*source(doc) for source in self.prose]
+        wording = ((message, [(n, word) for n, raw, prose, entry in texts for word in check(raw, prose, entry)]) for message, check in _WORDING.items())
+        reported = (*((message, report(doc)) for message, report in self.reports.items()), *wording)
+        findings = sorted(((n, message.format(subject)) for message, subjects in reported for n, subject in subjects), key=lambda finding: finding[0])
+        return doc.lines, tuple((doc.origin[n], n, message) for n, message in findings), doc.edit_count
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [EDITS]
+
+
+def _spliced[T](items: tuple[T, ...], edits: Sequence[_Edit], replacement: Callable[[_Edit], Iterable[T]]) -> tuple[T, ...]:
+    return (*(*(*items[start : edit.start], *replacement(edit)) for start, edit in zip((0, *(edit.stop for edit in edits)), edits)), *items[edits[-1].stop :])
+
+
+def _edited[Node](doc: _Doc[Node], fix: Callable[[_Doc[Node]], Iterable[_Edit]]) -> _Doc[Node]:
+    match sorted(edit for edit in fix(doc) if edit.lines != doc.lines[edit.start : edit.stop]):
+        case []:
+            return doc
+        case edits:
+            origin = _spliced(doc.origin, edits, lambda edit: (doc.origin[edit.start],) * len(edit.lines))
+            spliced = replace(doc, lines=_spliced(doc.lines, edits, lambda edit: edit.lines), origin=origin, edit_count=doc.edit_count + len(edits))
+            return replace(spliced, nodes=doc.language.reparse(spliced, edits))
+
 
 # --- [TEXT]
 
 
 def _label(word: str) -> str:
-    """Numeric labels use `[NN]`, other labels use `[UPPER_SNAKE]`."""
-    inner = regex.sub(r"\W+", "_", word.strip("[] ")).strip("_").upper()
-    return f"[{int(inner):02}]" if inner.isdecimal() else f"[{inner}]"
+    name = _NONWORD.sub("_", word.strip("[] ")).strip("_").upper()
+    return f"[{int(name):02}]" if name.isdecimal() else f"[{name}]"
 
 
-def _strip_emoji(s: str) -> str:
-    """Text without emoji and one space beside each."""
-    pictograph = "(?:\\p{Extended_Pictographic}[\\p{Emoji_Modifier}\ufe0f]*\u200d?)+"
-    return regex.sub(rf" {pictograph}|{pictograph} ?", "", s)
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
 
 
-def _unpunctuated(s: str) -> str:
-    return regex.sub(r"(?<=[^\s.,;!?])[.,;!?]+$", "", s)
+@cache
+def _markdown_it() -> MarkdownIt:
+    return MarkdownIt("commonmark", {"inline_definitions": True, "store_labels": True, "tasklists": True}).enable("table").use(front_matter_plugin).disable("text_join")
 
 
 def _token_sources(inline: SyntaxTreeNode) -> list[tuple[Token, str, bool]]:
-    """Token/source slices in order; reference regions retain identifier spelling."""
-    text, children = inline.content, [*child.to_tokens() for child in inline.children]
+    text, tokens = inline.content, [*child.to_tokens() for child in inline.children]
 
-    def closed(label: int) -> int:
-        opened = len(text) - len(text[label + 2 :].lstrip(" \t\n"))
-        destination = parseLinkDestination(text, opened, len(text))
-        after = len(text) - len(text[destination.pos if destination.ok else opened :].lstrip(" \t\n"))
-        title = parseLinkTitle(text, after, len(text))
-        return text.index(")", title.pos if title.ok else after) + 1
+    def label_end(start: int) -> int:
+        return parseLinkLabel(StateInline(text, _markdown_it(), {}, []), start)
 
-    def referenced(label: int) -> int:
-        if not text.startswith("[", label + 1):
-            return label + 1
-        ending = parseLinkLabel(StateInline(text, _MARKDOWN, {}, []), label + 1)
-        return label + 1 if ending < 0 else ending + 1
+    def reference_end(label: int) -> int:
+        return label + 1 if (closing := label_end(label + 1) if text.startswith("[", label + 1) else -1) < 0 else closing + 1
 
-    at = 0
+    def inline_link_end(label: int) -> int:
+        destination_start = len(text) - len(text[label + 2 :].lstrip(" \t\n"))
+        destination = parseLinkDestination(text, destination_start, len(text))
+        title_start = len(text) - len(text[destination.pos if destination.ok else destination_start :].lstrip(" \t\n"))
+        title = parseLinkTitle(text, title_start, len(text))
+        return text.index(")", title.pos if title.ok else title_start) + 1
+
+    offset = 0
     previous: Token | None = None
-    references: list[bool] = []
+    reference_links: list[bool] = []
     sources: list[tuple[Token, str, bool]] = []
-    for child in children:
-        own_reference = "label" in child.meta
-        if child.type == "link_open":
-            references.append(own_reference)
-        reference = any(references) or (child.type == "image" and own_reference)
-        match previous, child:
+    for token in tokens:
+        is_reference = "label" in token.meta
+        if token.type == "link_open":
+            reference_links.append(is_reference)
+        in_reference = any(reference_links) or (token.type == "image" and is_reference)
+        match previous, token:
             case Token(type="link_open", markup="autolink"), Token(type="text"):
-                stop = at
-            case _, Token(type="code_inline", markup=run):
-                _, rest = regex.split(rf"(?<!`){run}(?!`)", text[text.index(run, at) + len(run) :], maxsplit=1)
-                stop = len(text) - len(rest)
+                end = offset
+            case _, Token(type="code_inline", markup=backticks):
+                end = next(closing.end() for closing in _BACKTICK_STRING.finditer(text, text.index(backticks, offset) + len(backticks)) if len(closing[0]) == len(backticks))
             case _, Token(type="link_open", markup="autolink"):
-                stop = text.index(">", at)
+                end = text.index(">", offset)
             case _, Token(type="link_close", markup="autolink"):
-                references.pop()
-                stop = text.index(">", at) + 1
+                reference_links.pop()
+                end = text.index(">", offset) + 1
             case _, Token(type="link_open"):
-                stop = text.index("[", at) + 1
+                end = text.index("[", offset) + 1
             case _, Token(type="link_close"):
-                label = text.index("]", at)
-                stop = referenced(label) if references.pop() else closed(label)
+                label = text.index("]", offset)
+                end = reference_end(label) if reference_links.pop() else inline_link_end(label)
             case _, Token(type="image"):
-                label = parseLinkLabel(StateInline(text, _MARKDOWN, {}, []), text.index("![", at) + 1)
-                stop = referenced(label) if own_reference else closed(label)
+                label = label_end(text.index("![", offset) + 1)
+                end = reference_end(label) if is_reference else inline_link_end(label)
             case _, Token(type="text" | "html_inline", content=content):
-                stop = text.index(content, at) + len(content)
+                end = text.index(content, offset) + len(content)
             case _, Token(type="softbreak" | "hardbreak"):
-                stop = text.index("\n", at) + 1
-            case _, Token(markup=mark):
-                stop = text.index(mark, at) + len(mark)
-        sources.append((child, text[at:stop], reference))
-        at, previous = stop, child
+                end = text.index("\n", offset) + 1
+            case _, Token(markup=markup):
+                end = text.index(markup, offset) + len(markup)
+        sources.append((token, text[offset:end], in_reference))
+        offset, previous = end, token
     return sources
 
 
 def _prose(inline: SyntaxTreeNode) -> str:
-    """Inline content without code spans."""
-    return "".join(s for child, s, _ in _token_sources(inline) if child.type != "code_inline")
+    return "".join(source for token, source, _ in _token_sources(inline) if token.type != "code_inline")
+
+
+def _plain_text(inline: SyntaxTreeNode, *, entry: bool, rewrite: Callable[[str], str] = lambda s: _EMOJI.sub("", s)) -> str:
+    sources = _token_sources(inline)
+    text = "".join(source if in_reference else "" if token.tag in {"em", "strong"} else rewrite(source) if token.type == "text" else source for token, source, in_reference in sources)
+    return _TERMINAL_PUNCTUATION.sub("", text) if entry and sources and sources[-1][0].type == "text" else text
+
+
+def _rows(table: SyntaxTreeNode) -> list[list[SyntaxTreeNode]]:
+    return [[*cell.children for cell in row.children] for part in table.children for row in part.children]
+
+
+def _code_spans(path: Path, column: str, matches: Callable[[SyntaxTreeNode, dict[str, SyntaxTreeNode]], bool]) -> list[str]:
+    tables = (node for node in SyntaxTreeNode(_markdown_it().parse(path.read_text(encoding="utf-8"))).walk() if node.type == "table")
+    rows = ((table, {name.content: cell for name, cell in zip(head, row)}) for table in tables for head, *body in (_rows(table),) for row in body)
+    return [node.content for table, row in rows if matches(table, row) for node in row[column].walk() if node.type == "code_inline"]
+
+
+@cache
+def _enumeration_words() -> regex.Pattern[str]:
+    words = _code_spans(Path(__file__).parents[1] / "references" / "word-map.md", "[WORDS]", lambda _, row: "[CATEGORY]" in row and row["[CATEGORY]"].content == "Enumeration")
+    return regex.compile(rf"(?i)(?<!\ba )\b(?:{'|'.join(map(regex.escape, words))})\b(?!-\w)")
 
 
 # --- [MARKDOWN]
 
 
-def _parsed(_path: Path, lines: tuple[str, ...]) -> SyntaxTreeNode:
-    return SyntaxTreeNode(_MARKDOWN.parse("\n".join(lines)))
+def _parsed(_language: _Language[SyntaxTreeNode], lines: tuple[str, ...]) -> tuple[SyntaxTreeNode, ...]:
+    return (*SyntaxTreeNode(_markdown_it().parse("\n".join(lines))).walk(),)
 
 
-def _ranged(nodes: Iterable[SyntaxTreeNode]) -> Iterator[_MappedNode]:
-    """Native mapped nodes and line ranges in selection order."""
-    return ((node, span) for node in nodes if (span := node.map) is not None)
+def _mapped(nodes: Iterable[SyntaxTreeNode], *types: str) -> Iterator[tuple[SyntaxTreeNode, tuple[int, int]]]:
+    return ((node, span) for node in nodes if node.type in types and (span := node.map) is not None)
 
 
-def _inlines(root: SyntaxTreeNode) -> Iterator[tuple[SyntaxTreeNode, *_MappedNode]]:
-    """Blocks, inline children and native line ranges in page order."""
-    return ((block, inline, span) for block in root.walk() for inline, span in _ranged(child for child in block.children if child.type == "inline"))
+def _inlines(nodes: Iterable[SyntaxTreeNode]) -> Iterator[tuple[SyntaxTreeNode, SyntaxTreeNode, tuple[int, int]]]:
+    return ((block, inline, span) for block in nodes for inline, span in _mapped(block.children, "inline"))
 
 
 def _starts_item(block: SyntaxTreeNode) -> bool:
@@ -226,319 +239,371 @@ def _starts_item(block: SyntaxTreeNode) -> bool:
 
 
 def _leader(inline: SyntaxTreeNode) -> regex.Match[str] | None:
-    """Prose leader match whose prefix contains no native reference."""
-    matched = _LEADER.match(inline.content)
-    return matched if matched is not None and sum(len(source) for _, source, _ in takewhile(lambda piece: not piece[2], _token_sources(inline))) >= matched.end() else None
-
-
-def _grid(table: SyntaxTreeNode) -> list[list[SyntaxTreeNode]]:
-    """Cell inlines by row, header first."""
-    return [[*cell.children for cell in row.children] for part in table.children for row in part.children]
+    found = _LEADER.match(inline.content)
+    return found if found is not None and sum(len(source) for _, source, _ in takewhile(lambda token_source: not token_source[2], _token_sources(inline))) >= found.end() else None
 
 
 def _inline_edit(doc: _Doc[SyntaxTreeNode], inline: SyntaxTreeNode, span: tuple[int, int], text: str) -> _Edit:
-    """Single-line replacement preserving the first line's prefix and last line's suffix."""
     start, stop = span
-    first, last, opening, closing = doc.lines[start], doc.lines[stop - 1], inline.content.partition("\n")[0], inline.content.rpartition("\n")[2]
-    return _Edit(start, stop, (f"{first[: first.rfind(opening)]}{text}{last[last.rfind(closing) + len(closing) :]}",))
+    first, last, first_text, last_text = doc.lines[start], doc.lines[stop - 1], inline.content.partition("\n")[0], inline.content.rpartition("\n")[2]
+    return _Edit(start, stop, (f"{first[: first.rfind(first_text)]}{text}{last[last.rfind(last_text) + len(last_text) :]}",))
 
 
-def _plain_text(inline: SyntaxTreeNode, *, item: bool) -> str:
-    """Inline source without emphasis markers and emoji, an item ending in text without closing punctuation."""
-    pieces = _token_sources(inline)
-    out = "".join(s if reference else "" if child.tag in {"em", "strong"} else _strip_emoji(s) if child.type == "text" else s for child, s, reference in pieces)
-    return _unpunctuated(out) if item and pieces and pieces[-1][0].type == "text" else out
-
-
-def _trimmed(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """Trims trailing prose whitespace, preserving code and reference definitions."""
-    verbatim = {*range(*span) for _, span in _ranged(node for node in doc.parts.walk() if node.type in {"fence", "code_block", "definition"})}
-    return (_Edit(n, n + 1, (line.rstrip(),)) for n, line in enumerate(doc.lines) if n not in verbatim)
-
-
-def _joined(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """Joins paragraph continuation lines with one space."""
-    return (_inline_edit(doc, inline, span, " ".join(line.strip() for line in inline.content.split("\n"))) for block, inline, span in _inlines(doc.parts) if block.type == "paragraph")
-
-
-def _plain(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    return (_inline_edit(doc, inline, span, _plain_text(inline, item=_starts_item(block))) for block, inline, span in _inlines(doc.parts) if block.type not in {"th", "td"})
-
-
-def _leaders(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """Number cards from `[01]` among siblings with target stems; normalize other bracket leaders."""
-    for node in (node for node in doc.parts.walk() if node.type in {"bullet_list", "ordered_list"}):
-        n = 0
-        for inline, span in _ranged(*block.children for item in node.children for block in item.children[:1] if block.type == "paragraph"):
-            match _leader(inline):
-                case None:
-                    continue
-                case m if m["path"] is not None:
-                    n += 1
-                    text = f"[{n:02}]-{_label(Path(m['path']).stem)}({m['path']}): {inline.content[m.end() :]}"
-                case m:
-                    text = f"{'-'.join(map(_label, regex.findall(r'\[[^\]]*\]', m['chain'])))}: {inline.content[m.end() :]}"
-            yield _inline_edit(doc, inline, span, text)
-
-
-def _headings(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """Number `##` headings as `[NN]` and `###` headings as `[NN.N]` within their parent."""
-    h2 = h3 = 0
-    for heading, span in _ranged(node for node in doc.parts.children if node.type == "heading" and node.tag in {"h2", "h3"} and any(inline.content for inline in node.children)):
-        h2, h3 = (h2 + 1, 0) if heading.tag == "h2" else (h2, h3 + 1)
-        title = regex.sub(r"^\[[\d.]+\]-", "", "".join(inline.content for inline in heading.children))
-        tokens = title if any(child.type in {"link", "image"} for child in heading.walk()) else "-".join(regex.findall(r"\[[^\]]+\]", title) or [_label(title)])
-        yield _Edit(*span, (f"{'#' * int(heading.tag[1])} [{h2:02}{f'.{h3}' if h3 else ''}]-{tokens}",))
-
-
-def _labels(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """`[TOKEN]` label paragraphs closed with `:` before a list or table."""
-    return (
-        _inline_edit(doc, inline, span, f"{inline.content}:")
-        for block, inline, span in _inlines(doc.parts)
-        if block.type == "paragraph"
-        and block.next_sibling is not None
-        and block.next_sibling.type in {"bullet_list", "ordered_list", "table"}
-        and regex.fullmatch(r"\[[A-Z_]+\]", inline.content)
-        and not any(child.type == "link" for child in inline.children)
-    )
-
-
-def _overflow_rows(doc: _Doc[SyntaxTreeNode], table: SyntaxTreeNode) -> list[int]:
-    """Parser drops excess cells; source rows retain overflow diagnostics."""
-    head, *body = (span[0] for _, span in _ranged(row for row in table.walk() if row.type == "tr"))
-    columns = len(escapedSplit(doc.lines[head].strip()))
+def _excess_rows(doc: _Doc[SyntaxTreeNode], table: SyntaxTreeNode) -> list[int]:
+    header, *body = (span[0] for _, span in _mapped(table.walk(), "tr"))
+    columns = len(escapedSplit(doc.lines[header].strip()))
     return [n for n in body if len(escapedSplit(doc.lines[n].strip())) > columns]
 
 
+def _headings(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
+    h2 = h3 = 0
+    for heading, span in _mapped((node for node in doc.nodes[0].children if node.tag in {"h2", "h3"} and any(inline.content for inline in node.children)), "heading"):
+        h2, h3 = (h2 + 1, 0) if heading.tag == "h2" else (h2, h3 + 1)
+        title = regex.sub(r"^\[[\d.]+\]-", "", "".join(inline.content for inline in heading.children))
+        labels = title if any(node.type in {"link", "image"} for node in heading.walk()) else "-".join(_LABEL.findall(title) or [_label(title)])
+        yield _Edit(*span, (f"{'#' * int(heading.tag[1])} [{h2:02}{f'.{h3}' if h3 else ''}]-{labels}",))
+
+
 def _tables(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """Formats non-overflowing tables with bracket headers, aligned cells, and an index for multiple rows or an existing index column."""
-
-    def rendered(table: SyntaxTreeNode, span: tuple[int, int]) -> _Edit:
-        start, stop = span
-        head, *rows = _grid(table)
-        names = [
-            "".join(s if reference else "" if child.tag in {"em", "strong"} else _label(s) if child.type == "text" and s.strip() else s for child, s, reference in _token_sources(inline))
-            for inline in head
-        ]
-        body = [[_plain_text(inline, item=True) for inline in row] for row in rows]
-        aligns = [_ALIGNS.get(str(cell.attrGet("style")), (":-", "<")) for cell in table.walk() if cell.type == "th"]
-        match names:
-            case ["[INDEX]", *rest]:
-                names, aligns, body, indexed = rest, aligns[1:], [row[1:] for row in body], True
-            case _:
-                indexed = len(body) > 1
-        grid = [[c.replace("|", "\\|") for c in row] for row in ([["[INDEX]", *names], *([f"[{n:02}]", *row] for n, row in enumerate(body, 1))] if indexed else [names, *body])]
-        marks = [_ALIGNS["text-align:center"], *aligns] if indexed else aligns
-        widths = [max(len(mark), *map(wcswidth, column)) for (mark, _), column in zip(marks, zip(*grid))]
+    for table, (start, stop) in ((table, span) for table, span in _mapped(doc.nodes, "table") if not _excess_rows(doc, table)):
+        head, *rows = _rows(table)
+        headers = [_plain_text(inline, entry=False, rewrite=lambda s: _label(s) if s.strip() else s) for inline in head]
+        cells = [[_plain_text(inline, entry=True) for inline in row] for row in rows]
+        aligns = [{"text-align:center": (":-:", "^"), "text-align:right": ("-:", ">")}.get(str(cell.attrGet("style")), (":-", "<")) for cell in table.walk() if cell.type == "th"]
+        indexed = headers[:1] == ["[INDEX]"] or len(cells) > 1
+        headers, aligns, cells = (headers[1:], aligns[1:], [row[1:] for row in cells]) if headers[:1] == ["[INDEX]"] else (headers, aligns, cells)
+        grid = [[cell.replace("|", "\\|") for cell in row] for row in ([["[INDEX]", *headers], *([f"[{n:02}]", *row] for n, row in enumerate(cells, 1))] if indexed else [headers, *cells])]
+        delimiters = [(":-:", "^"), *aligns] if indexed else aligns
+        widths = [max(len(delimiter), *map(width, column)) for (delimiter, _), column in zip(delimiters, zip(*grid))]
         indent = doc.lines[start][: len(doc.lines[start]) - len(doc.lines[start].lstrip(" >"))]
-        named, *piped = (f"{indent}| {' | '.join(format(c, f'{spec}{w + len(c) - wcswidth(c)}') for (_, spec), c, w in zip(marks, row, widths))} |" for row in grid)
-        rule = f"{indent}| {' | '.join(mark.replace('-', '-' * (w - len(mark) + 1)) for (mark, _), w in zip(marks, widths))} |"
-        return _Edit(start, stop, (named, rule, *piped))
-
-    return (rendered(node, span) for node, span in _ranged(node for node in doc.parts.walk() if node.type == "table") if not _overflow_rows(doc, node))
+        header, *body = (f"{indent}| {' | '.join(format(cell, f'{spec}{column_width + len(cell) - width(cell)}') for (_, spec), cell, column_width in zip(delimiters, row, widths))} |" for row in grid)
+        delimiter_row = f"{indent}| {' | '.join(delimiter.replace('-', '-' * (column_width - len(delimiter) + 1)) for (delimiter, _), column_width in zip(delimiters, widths))} |"
+        yield _Edit(start, stop, (header, delimiter_row, *body))
 
 
-def _spacing(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """One blank follows headings and surrounds tables; labels touch their lists, other gaps keep at most one blank, and file ends keep none."""
-    leaves = [*_ranged(node for node in doc.parts.walk() if node.type in _LEAVES)]
+def _block_spacing(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
+    blocks = [*_mapped(doc.nodes, "paragraph", "heading", "fence", "code_block", "table", "html_block", "hr", "front_matter", "definition")]
 
-    def gap(a: _MappedNode | None, b: _MappedNode | None) -> _Edit:
-        start, stop = a[1][1] if a else 0, b[1][0] if b else len(doc.lines)
-        match a[0] if a else None, b[0] if b else None:
+    def gap(above: tuple[SyntaxTreeNode, tuple[int, int]] | None, below: tuple[SyntaxTreeNode, tuple[int, int]] | None) -> _Edit:
+        start, stop = above[1][1] if above else 0, below[1][0] if below else len(doc.lines)
+        match above[0] if above else None, below[0] if below else None:
             case (None, _) | (_, None):
-                need = 0
+                blanks = 0
             case (SyntaxTreeNode(type="heading" | "table"), _) | (_, SyntaxTreeNode(type="table")):
-                need = 1
-            case _, SyntaxTreeNode() as item if _starts_item(item) and doc.lines[start - 1].endswith(":"):
-                need = 0
+                blanks = 1
+            case _, SyntaxTreeNode() as block if _starts_item(block) and doc.lines[start - 1].endswith(":"):
+                blanks = 0
             case _:
-                need = min(stop - start, 1)
-        return _Edit(start, stop, ("",) * need if not "".join(doc.lines[start:stop]).strip() else doc.lines[start:stop])
+                blanks = min(stop - start, 1)
+        return _Edit(start, stop, ("",) * blanks if not "".join(doc.lines[start:stop]).strip() else doc.lines[start:stop])
 
-    return starmap(gap, pairwise((None, *leaves, None)))
-
-
-def _markdown_texts(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Text]:
-
-    def text(block: SyntaxTreeNode, inline: SyntaxTreeNode, span: tuple[int, int]) -> _Text:
-        lead = _leader(inline) if block.type == "paragraph" else None
-        return _Text(span[0], inline.content[lead.end() if lead else 0 :], _prose(inline), capital=block.type in {"th", "td"} or _starts_item(block))
-
-    return starmap(text, _inlines(doc.parts))
-
-
-def _h1s(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
-    """Reports repeated H1s and titles outside `[TOKEN]` form."""
-    ones = [(span[0], inline.content) for node, span in _ranged(node for node in doc.parts.children if node.type == "heading" and node.tag == "h1") for inline in node.children]
-    return [(n, doc.lines[n]) for k, (n, title) in enumerate(ones) if k or title != _label(title)]
-
-
-def _ordinals(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
-    """Paragraph lines opening with a dotted number marker."""
-    paragraphs = _ranged(node for node in doc.parts.walk() if node.type == "paragraph")
-    return [(n, m[0]) for _, span in paragraphs for n in range(*span) if (m := regex.match(r"\d+(?:\.\w+)+\.(?= )", doc.lines[n].lstrip()))]
-
-
-def _dead_links(doc: _Doc[SyntaxTreeNode]) -> Iterator[tuple[int, str]]:
-    for _, inline, span in _inlines(doc.parts):
-        for node in inline.walk():
-            match node:
-                case SyntaxTreeNode(type="link", attrs={"href": str(target)}) | SyntaxTreeNode(type="image", attrs={"src": str(target)}) if (
-                    (target := _MARKDOWN.normalizeLinkText(target).partition("#")[0]) and ":" not in target and not (doc.path.parent / target).exists()
-                ):
-                    yield span[0], target
-
-
-def _overflows(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
-    return [(n, "") for node in doc.parts.walk() if node.type == "table" for n in _overflow_rows(doc, node)]
-
-
-def _wide(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
-    """Code spans do not count toward list widths; complete table rows do."""
-    items = [
-        (n, "List item") for block, inline, span in _inlines(doc.parts) if _starts_item(block) and wcswidth(doc.lines[n := span[0]]) - wcswidth(inline.content) + wcswidth(_prose(inline)) > _WIDTH
-    ]
-    tables = _ranged(node for node in doc.parts.walk() if node.type == "table")
-    return [*items, *((span[0], "Table") for _, span in tables if any(wcswidth(line) > _WIDTH for line in doc.lines[slice(*span)]))]
-
-
-def _enumerations(root: SyntaxTreeNode) -> list[str]:
-    """Code spans from `[WORDS]` cells whose `[CATEGORY]` is `Enumeration`."""
-
-    def words(head: list[SyntaxTreeNode], row: list[SyntaxTreeNode]) -> list[str]:
-        match {name.content: cell for name, cell in zip(head, row)}:
-            case {"[CATEGORY]": SyntaxTreeNode(content="Enumeration"), "[WORDS]": cell}:
-                return [child.content for child in cell.walk() if child.type == "code_inline"]
-            case _:
-                return []
-
-    return [*words(head, row) for table in root.walk() if table.type == "table" for head, *body in (_grid(table),) for row in body]
+    return starmap(gap, pairwise((None, *blocks, None)))
 
 
 # --- [SOURCE]
 
 
-def _comments(path: Path, lines: tuple[str, ...]) -> _Comments:
-    """Full-line single-line comments at 0-based source lines, classified by the filename's lexer as directive, remark, or divider."""
-    starts = [*accumulate((len(line) + 1 for line in lines), initial=0)]
-
-    def classified(line: int, at: int, value: str) -> _Comments:
-        indent = lines[line][: at - starts[line]]
-        match regex.fullmatch(r"(?P<marker>\p{P}+) (?P<body>\S.*?)\s*", value) if not indent.strip() else None:
-            case None:
-                return ()
-            case comment if divider := _DIVIDER.fullmatch(comment["body"]):
-                return (_Divider(line, indent, comment["marker"], divider["label"], full=divider["fill"] is not None),)
-            case comment:
-                return ((_Directive if _DIRECTIVE.match(comment["body"]) else _Remark)(line, indent, comment["marker"], comment["body"]),)
-
-    tokens = get_lexer_for_filename(path.name, stripnl=False, ensurenl=False).get_tokens_unprocessed("".join(f"{line}\n" for line in lines))
-    runs = groupby(tokens, key=lambda token: (is_token_subtype(token[1], Comment.Single), bisect_right(starts, token[0]) - 1))
-    return tuple(*classified(line, min(offsets), "".join(values)) for (comment, line), run in runs if comment for offsets, _, values in [zip(*run)])
+def _masked_raw_strings(text: str) -> str:
+    return regex.sub(r'(?s)(\$*("{4,}))(?!")(.*?)\2(?!")', lambda raw: f"{raw[1]}{regex.sub(r'[^\n]', ' ', raw[3])}{raw[2]}", text)
 
 
-def _comment_edits(doc: _Doc[_Comments]) -> Iterator[_Edit]:
-    return (_Edit(note.line, note.line + 1, (note.fixed(),)) for note in doc.parts)
+def _comment(marker: str, line: str, open_brackets: str, last_token_type: tuple[str, ...]) -> _Comment:
+    indent = line[: _indent(line)]
+    match _LINE_COMMENT.fullmatch(line.strip()):
+        case None:
+            return _Comment(open_brackets, last_token_type, line)
+        case comment if comment["label"]:
+            label, full = _label(comment["label"]), comment["fill"] is not None and not indent
+            prefix = f"{indent}{comment['marker']} --- {label}"
+            return _Divider(open_brackets, last_token_type, f"{prefix} -".ljust(90, "-") if full else prefix, label, full)
+        case comment if len(comment["marker"]) > len(marker) or _DIRECTIVE.match(comment["body"]):
+            return _Comment(open_brackets, last_token_type, f"{indent}{comment['marker']} {comment['body']}")
+        case comment:
+            return _ProseComment(open_brackets, last_token_type, f"{indent}{comment['marker']} {_TERMINAL_PUNCTUATION.sub('', _EMOJI.sub('', comment['body']))}", comment["body"])
 
 
-def _empty_sections(doc: _Doc[_Comments]) -> Iterator[_Edit]:
-    """Delete dividers with no content before the next equal/higher divider, following blanks, and trailing blanks after a deletion."""
-    dividers = {note.line: note for note in doc.parts if isinstance(note, _Divider)}
-    content = section = following = solid = len(doc.lines)
-    drops: set[int] = set()
+def _lexed(language: _Language[_Line], lines: tuple[str, ...]) -> tuple[_Line, ...]:
+    line_offsets = (*accumulate((len(line) + 1 for line in lines), initial=0),)
+    tokens = [*pygments.lexers.get_lexer_by_name(language.lexer).get_tokens_unprocessed(language.mask("".join(f"{line}\n" for line in lines)))]
+    token_offsets = [offset for offset, _, _ in tokens]
+    brackets = [(offset, char) for offset, token_type, value in tokens if not _BRACKETS.isdisjoint(value) and is_token_subtype(token_type, Punctuation) for char in value if char in _BRACKETS]
+    bracket_stacks, bracket_offsets = [*accumulate((char for _, char in brackets), lambda stack, char: stack + char if char in "([{" else stack[:-1], initial="")], [offset for offset, _ in brackets]
+
+    def lexed_line(start: int, line: str) -> _Line:
+        open_brackets, text_start, first_token = bracket_stacks[bisect_left(bracket_offsets, start)], start + _indent(line), bisect_right(token_offsets, start + _indent(line)) - 1
+        last_token_type = tokens[bisect_right(token_offsets, start + len(line.rstrip()) - 1) - 1][1] if line.strip() else Text
+        is_comment = (
+            line.strip() and token_offsets[first_token] == text_start and (is_token_subtype(tokens[first_token][1], Comment.Single) or is_token_subtype(tokens[first_token][1], Comment.Hashbang))
+        )
+        return _comment(language.marker, line, open_brackets, last_token_type) if is_comment else _Line(open_brackets, last_token_type)
+
+    return tuple(map(lexed_line, line_offsets, lines, strict=False))
+
+
+def _lines_after_edits(doc: _Doc[_Line], edits: Sequence[_Edit]) -> tuple[_Line, ...]:
+    return _spliced(doc.nodes, edits, lambda edit: doc.nodes[edit.start : edit.stop] if len(edit.lines) == edit.stop - edit.start else (_Line("", Text),) * len(edit.lines))
+
+
+def _dividers(doc: _Doc[_Line]) -> list[tuple[int, _Divider]]:
+    return [(n, node) for n, node in enumerate(doc.nodes) if isinstance(node, _Divider)]
+
+
+def _empty_sections(doc: _Doc[_Line]) -> Iterator[_Edit]:
+    next_content = next_section = next_divider = next_nonblank = len(doc.lines)
+    deleted: set[int] = set()
     for n in (n for n in reversed(range(len(doc.lines))) if doc.lines[n].strip()):
-        match dividers.get(n):
+        match doc.nodes[n]:
             case _Divider(full=full):
-                if content >= (section if full else following):
-                    drops.update(range(n, solid))
-                section = n if full else section
-                following = solid = n
-            case None:
-                content = solid = n
-    tail = {*takewhile(lambda n: n in drops or not doc.lines[n].strip(), reversed(range(len(doc.lines))))} if drops else set()
-    return (_Edit(n, n + 1, ()) for n in drops | tail)
+                if next_content >= (next_section if full else next_divider):
+                    deleted.update(range(n, next_nonblank))
+                next_section = n if full else next_section
+                next_divider = next_nonblank = n
+            case _:
+                next_content = next_nonblank = n
+    trailing = {*takewhile(lambda n: n in deleted or not doc.lines[n].strip(), reversed(range(len(doc.lines))))} if deleted else set()
+    return (_Edit(n, n + 1, ()) for n in deleted | trailing)
 
 
-def _comment_texts(doc: _Doc[_Comments]) -> Iterator[_Text]:
-    return (_Text(note.line, note.body, _prose(SyntaxTreeNode(_MARKDOWN.parseInline(note.body))[0]), capital=True) for note in doc.parts if isinstance(note, _Remark))
+def _lone_subsections(doc: _Doc[_Line]) -> list[_Edit]:
+    indents = [_indent(line) if line.strip() else -1 for line in doc.lines]
+    dividers = _dividers(doc)
+    subsections = [(section, indents[n], n) for (n, divider), section in zip(dividers, accumulate((n if divider.full else -1 for n, divider in dividers), max)) if not divider.full and section >= 0]
+    keys = [key for *key, _ in subsections]
+    return [_Edit(n, n + 1 + (doc.lines[n + 1 : n + 2] == ("",)), ()) for section, indent, n in subsections if keys.count([section, indent]) == 1 and indent not in indents[section + 1 : n]]
 
 
-def _repeated_labels(doc: _Doc[_Comments]) -> list[tuple[int, str]]:
-    """Only full dividers share a file-wide label namespace."""
-    first: dict[str, int] = {}
-    return [(note.line, note.label) for note in doc.parts if isinstance(note, _Divider) and note.full and first.setdefault(note.label, note.line) != note.line]
+def _divider_spacing(doc: _Doc[_Line]) -> Iterator[_Edit]:
+    nonblank = [n for n, line in enumerate(doc.lines) if line.strip()]
+    dividers = {n for n in nonblank if isinstance(doc.nodes[n], _Divider)}
+    first_divider = min(dividers, default=len(doc.lines))
+    comment_preamble = all(isinstance(doc.nodes[n], _Comment) for n in nonblank if n < first_divider)
+    return (
+        _Edit(above + 1, below, ("",) * int(below != first_divider or not comment_preamble))
+        for above, below in pairwise(nonblank)
+        if (above in dividers or below in dividers) and not any(formatter_gap(doc, above, below) for formatter_gap in doc.language.formatter_gaps)
+    )
 
 
-def _orphan_dividers(doc: _Doc[_Comments]) -> list[tuple[int, str]]:
-    """Subdividers require a preceding full divider."""
-    return [(note.line, note.label) for note in takewhile(lambda note: not note.full, (note for note in doc.parts if isinstance(note, _Divider)))]
+# --- [FORMATTER_GAPS]
+
+
+def _neighbor_matches(pattern: str, doc: _Doc[_Line], above: int, below: int, *, divider_below: bool, token_type: tuple[str, ...] | None = None) -> bool:
+    divider, neighbor = (below, above) if divider_below else (above, below)
+    return isinstance(doc.nodes[divider], _Divider) and (token_type is None or doc.nodes[neighbor].last_token_type == token_type) and regex.search(pattern, doc.lines[neighbor].rstrip()) is not None
+
+
+def _in_brackets(brackets: str, comma_brackets: str, doc: _Doc[_Line], above: int, below: int) -> bool:
+    open_brackets = doc.nodes[below].open_brackets
+    return bool(innermost := open_brackets[-1:]) and (
+        innermost in brackets or (innermost in comma_brackets and any(doc.nodes[n].open_brackets == open_brackets and doc.lines[n].rstrip().endswith(",") for n in (above, below)))
+    )
+
+
+def _first_in_block(doc: _Doc[_Line], above: int, below: int) -> bool:
+    header = next((m for m in range(above, -1, -1) if doc.lines[m].strip() and not doc.nodes[m].open_brackets), above)
+    return (
+        isinstance(doc.nodes[below], _Divider)
+        and doc.lines[above].rstrip().endswith(":")
+        and not regex.match(r"(?:async\s+)?def\b", doc.lines[header].lstrip())
+        and _indent(doc.lines[below]) > _indent(doc.lines[header])
+    )
+
+
+def _top_level_blank_lines(doc: _Doc[_Line], above: int, below: int) -> bool:
+    is_statement = lambda m: bool(doc.lines[m][:1].strip()) and not doc.nodes[m].open_brackets and not isinstance(doc.nodes[m], _Comment)
+    return (
+        below - above == 3
+        and any(isinstance(doc.nodes[n], _Divider) and not _indent(doc.lines[n]) for n in (above, below))
+        and not all(isinstance(doc.nodes[n], _Comment) for n in (above, below))
+        and any(
+            m is not None and regex.match(r"@|(?:async\s+)?def\b|class\b", doc.lines[m])
+            for m in (next(filter(is_statement, range(above, -1, -1)), None), next(filter(is_statement, range(below, len(doc.lines))), None))
+        )
+    )
+
+
+def _keep_chomping(doc: _Doc[_Line], above: int, below: int) -> bool:
+    nonblank = [m for m in range(above, -1, -1) if doc.lines[m].strip()]
+    header = next((m for m, indent in zip(nonblank[1:], accumulate((_indent(doc.lines[m]) for m in nonblank), min)) if _indent(doc.lines[m]) < indent), below)
+    return doc.nodes[header].last_token_type == Punctuation.Indicator and doc.lines[header].rstrip().endswith("+")
 
 
 # --- [REGISTRY] -------------------------------------------------------------------------
 
-_COUNTED = regex.compile(
-    rf"(?i)(?<!\ba )\b(?:{'|'.join(map(regex.escape, _enumerations(SyntaxTreeNode(_MARKDOWN.parse((Path(__file__).parents[1] / 'references' / 'word-map.md').read_text(encoding='utf-8'))))))})\b(?!-\w)"
-)
-_TEXTS: frozendict[Callable[[_Text], list[str]], str] = frozendict({
-    (lambda t: regex.findall(r"(?i)\A(?:a|an|the)\s+\S", t.raw)): "Article opener",
-    (lambda t: regex.findall(r"\A\p{Ll}", t.raw) if t.capital else []): "Lowercase opener",
-    (lambda t: _COUNTED.findall(t.prose)): "Visible item count `{}`",
+_WORDING: frozendict[str, Callable[[str, str, bool], list[str]]] = frozendict({
+    "Opens with an article": lambda raw, _prose, _entry: _ARTICLE.findall(raw),
+    "Opens with a lowercase letter": lambda raw, _prose, entry: _LOWERCASE.findall(raw) if entry else [],
+    "Enumeration word `{}`": lambda _raw, prose, _entry: _enumeration_words().findall(prose),
 })
-_PAGES = _Grammar(
+_MARKDOWN: _Language[SyntaxTreeNode] = _Language(
     _parsed,
-    _markdown_texts,
-    (_trimmed, _joined, _plain, _leaders, _headings, _labels, _tables, _spacing),
+    lambda doc, _: _parsed(doc.language, doc.lines),
+    (
+        lambda doc: (
+            (span[0], inline.content[leader.end() if (leader := _leader(inline) if block.type == "paragraph" else None) else 0 :], _prose(inline), block.type in {"th", "td"} or _starts_item(block))
+            for block, inline, span in _inlines(doc.nodes)
+        ),
+    ),
+    (
+        lambda doc: (
+            _Edit(n, n + 1, (line.rstrip(),))
+            for verbatim in ({*range(span[0] + (node.type == "fence"), span[1] - (node.type == "fence")) for node, span in _mapped(doc.nodes, "fence", "code_block", "definition")},)
+            for n, line in enumerate(doc.lines)
+            if n not in verbatim
+        ),
+        lambda doc: (_inline_edit(doc, inline, span, _LINE_BREAK.sub(" ", inline.content)) for block, inline, span in _inlines(doc.nodes) if block.type == "paragraph"),
+        lambda doc: (_inline_edit(doc, inline, span, _plain_text(inline, entry=_starts_item(block))) for block, inline, span in _inlines(doc.nodes) if block.type not in {"th", "td"}),
+        lambda doc: (
+            _inline_edit(doc, inline, span, f"{leader}: {inline.content[found.end() :]}")
+            for list_node, card_numbers in ((node, count(1)) for node in doc.nodes if node.type in {"bullet_list", "ordered_list"})
+            for inline, span in _mapped((child for item in list_node.children for block in item.children[:1] if block.type == "paragraph" for child in block.children), "inline")
+            if (found := _leader(inline)) is not None
+            for leader in (f"[{next(card_numbers):02}]-{_label(Path(found['path']).stem)}({found['path']})" if found["path"] is not None else "-".join(map(_label, _LABEL.findall(found["chain"]))),)
+        ),
+        _headings,
+        lambda doc: (
+            _inline_edit(doc, inline, span, f"{inline.content}:")
+            for block, inline, span in _inlines(doc.nodes)
+            if block.type == "paragraph" and block.next_sibling is not None and block.next_sibling.type in {"bullet_list", "ordered_list", "table"}
+            if regex.fullmatch(r"\[[A-Z_]+\]", inline.content) and not any(child.type == "link" for child in inline.children)
+        ),
+        _tables,
+        _block_spacing,
+    ),
     frozendict({
-        _h1s: "Extra or malformed H1 `{}`",
-        _ordinals: "Invalid list marker `{}`",
-        _dead_links: "Missing target `{}`",
-        _overflows: "Table row has excess cells",
-        _wide: f"{{}} exceeds {_WIDTH} columns",
+        "H1 `{}` is extra or not a `[TOKEN]` label": lambda doc: [
+            (n, doc.lines[n])
+            for index, (n, title) in enumerate((span[0], inline.content) for node, span in _mapped(doc.nodes[0].children, "heading") if node.tag == "h1" for inline in node.children)
+            if index or title != _label(title)
+        ],
+        "Number `{}` is not a list marker": lambda doc: [
+            (n, number[0]) for _, span in _mapped(doc.nodes, "paragraph") for n in range(*span) if (number := _MULTILEVEL_NUMBER.match(doc.lines[n].lstrip()))
+        ],
+        "Target `{}` does not exist": lambda doc: (
+            (span[0], target)
+            for _, inline, span in _inlines(doc.nodes)
+            for node in inline.walk()
+            if node.type in {"link", "image"} and isinstance(href := node.attrs.get("href" if node.type == "link" else "src"), str)
+            if (target := _markdown_it().normalizeLinkText(href).partition("#")[0]) and ":" not in target and not (doc.path.parent / target).exists()
+        ),
+        "Table row has more cells than its header": lambda doc: [(n, "") for table, _ in _mapped(doc.nodes, "table") for n in _excess_rows(doc, table)],
+        f"{{}} exceeds {_COLUMN_LIMIT} columns": lambda doc: [
+            *(
+                (n, "List item")
+                for block, inline, span in _inlines(doc.nodes)
+                if _starts_item(block) and width(doc.lines[n := span[0]]) - width(inline.content) + width(_prose(inline)) > _COLUMN_LIMIT
+            ),
+            *((span[0], "Table") for _, span in _mapped(doc.nodes, "table") if any(width(line) > _COLUMN_LIMIT for line in doc.lines[slice(*span)])),
+        ],
     }),
 )
-_CODE = _Grammar(_comments, _comment_texts, (_comment_edits, _empty_sections), frozendict({_repeated_labels: "Repeated section label `{}`", _orphan_dividers: "Subsection `{}` precedes any section"}))
+_CONFIG: _Language[_Line] = _Language(
+    _lexed,
+    _lines_after_edits,
+    (lambda doc: ((n, node.text, _prose(SyntaxTreeNode(_markdown_it().parseInline(node.text))[0]), True) for n, node in enumerate(doc.nodes) if isinstance(node, _ProseComment)),),
+    (lambda doc: (_Edit(n, n + 1, (node.fixed,)) for n, node in enumerate(doc.nodes) if isinstance(node, _Comment)), _empty_sections, _lone_subsections, _divider_spacing),
+    frozendict({
+        "Section `{}` repeats": lambda doc: [
+            (n, divider.label) for first_lines in (dict[str, int](),) for n, divider in _dividers(doc) if divider.full and first_lines.setdefault(divider.label, n) != n
+        ],
+        "Subsection `{}` precedes any section": lambda doc: [
+            (n, divider.label) for dividers in (_dividers(doc),) for n, divider in dividers[: next((index for index, (_, divider) in enumerate(dividers) if divider.full), len(dividers))]
+        ],
+        "Section `{}` is out of `CLAUDE.md` order": lambda doc: [
+            (n, label)
+            for ranks in ([(n, divider.label, doc.section_order[divider.label]) for n, divider in _dividers(doc) if divider.full and divider.label in doc.section_order],)
+            for (n, label, rank), highest in zip(ranks, accumulate((rank for *_, rank in ranks), max, initial=-1))
+            if rank < highest
+        ],
+    }),
+    marker="#",
+)
+_CODE = replace(
+    _CONFIG,
+    prose=(),
+    reports=frozendict({**_CONFIG.reports, "Comment `{}` is not a divider or directive": lambda doc: [(n, node.text) for n, node in enumerate(doc.nodes) if isinstance(node, _ProseComment)]}),
+)
+_C_STYLE = replace(_CODE, marker="//")
+_ECMASCRIPT = replace(
+    _C_STYLE, formatter_gaps=(partial(_neighbor_matches, r"[{[(]$|^\s*(?:case\b.*|default\s*):$|\btype\b.*=$", divider_below=True), partial(_neighbor_matches, r"^\s*\|", divider_below=False))
+)
+_LANGUAGES: frozendict[str, _Language[SyntaxTreeNode] | _Language[_Line]] = frozendict({
+    ".md": _MARKDOWN,
+    ".py": replace(
+        _CODE,
+        lexer="python",
+        formatter_gaps=(_first_in_block, partial(_in_brackets, "([{", ""), _top_level_blank_lines, partial(_neighbor_matches, r"^[\s\x1c-\x1f]", divider_below=True, token_type=String.Doc)),
+    ),
+    ".sh": replace(_CODE, lexer="bash"),
+    ".nix": replace(_CODE, lexer="nix"),
+    ".toml": replace(_CONFIG, lexer="toml", formatter_gaps=(partial(_neighbor_matches, r"^\[.*\]$|\[$", divider_below=True),)),
+    ".yml": replace(_CONFIG, lexer="yaml", formatter_gaps=(_keep_chomping,)),
+    ".yaml": replace(_CONFIG, lexer="yaml", formatter_gaps=(_keep_chomping,)),
+    ".cs": replace(_C_STYLE, lexer="csharp", mask=_masked_raw_strings),
+    ".ts": replace(_ECMASCRIPT, lexer="typescript"),
+    ".tsx": replace(_ECMASCRIPT, lexer="tsx"),
+    ".mts": replace(_ECMASCRIPT, lexer="typescript"),
+    ".cts": replace(_ECMASCRIPT, lexer="typescript"),
+    ".js": replace(_ECMASCRIPT, lexer="javascript"),
+    ".jsx": replace(_ECMASCRIPT, lexer="jsx"),
+    ".java": replace(_C_STYLE, lexer="java"),
+    ".swift": replace(_C_STYLE, lexer="swift", formatter_gaps=(partial(_neighbor_matches, r"\{$", divider_below=True),)),
+    ".sql": replace(_CODE, lexer="tsql", marker="--"),
+    ".lua": replace(_CODE, lexer="lua", marker="--"),
+    ".rs": replace(_C_STYLE, lexer="rust", formatter_gaps=(partial(_neighbor_matches, r"^(?!\s*(?:pub(?:\([^)]*\))?\s+)?mod\b).*[{[(]$", divider_below=True), partial(_in_brackets, "([", "{"))),
+})
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def _linted(paths: tuple[Path, ...]) -> list[_Doc[tuple[str, ...]]]:
-    """Lint named files or Git-visible folder contents, Markdown first, excluding symlinks; no paths selects the working directory."""
-    named, folders = [p for p in paths if p.is_file()], [p for p in paths if p.is_dir()]
-    listed = subprocess.check_output(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *folders], text=True) if folders or not named else ""
-    found = [f for f in sorted({*named, *(Path(f) for f in listed.split("\0") if f)}) if f.is_file() and not f.is_symlink()]
-    return [
-        *(_PAGES.lint(f) for f in found if f.suffix == ".md"),
-        *(_CODE.lint(f) for f in found if f.suffix in {".py", ".sh", ".toml", ".nix", ".yml", ".yaml", ".cs", ".ts", ".tsx", ".js", ".jsx", ".java", ".swift", ".sql", ".lua"}),
-    ]
+def _lint(section_order: frozendict[str, int], path: Path) -> tuple[tuple[str, ...], tuple[tuple[int, int, str], ...], int]:
+    return _LANGUAGES[path.suffix].lint(section_order, path)
 
 
-def check(*paths: ExistingPath) -> int:
-    """Report fix commands and remaining findings; exit 1 for either."""
-    linted = _linted(paths)
-    found = [*d.parts for d in linted]
-    total = sum(d.edits for d in linted)
+async def _linted(paths: tuple[Path, ...]) -> list[tuple[Path, tuple[str, ...], tuple[tuple[int, int, str], ...], int]]:
+    scope = paths or (Path(),)
+    toplevel = await anyio.run_process(["git", "rev-parse", "--show-toplevel"], check=False)
+    match toplevel.returncode:
+        case 0:
+            files = await anyio.run_process(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *scope, ":(exclude,attr:linguist-generated=true)"])
+            claude_md = Path(toplevel.stdout.decode().strip()) / "CLAUDE.md"
+            is_sections_table = lambda table, _: (lead_in := table.previous_sibling) is not None and lead_in.type == "paragraph" and lead_in.children[0].content.startswith("[SECTIONS]:")
+            candidates = [Path(name) for name in files.stdout.decode().split("\0") if name]
+            section_order = frozendict(zip(_code_spans(claude_md, "[LABEL]", is_sections_table) if claude_md.is_file() else (), count()))
+        case _:
+            candidates, section_order = [*(*(path.rglob("*") if path.is_dir() else (path,)) for path in scope)], frozendict()
+    lintable = sorted((path for path in {*candidates} if path.suffix in _LANGUAGES and path.is_file() and not path.is_symlink()), key=lambda path: (path.suffix != ".md", path))
+    deadline = 2 * time.process_time()
+    in_process = [_lint(section_order, path) for path in takewhile(lambda _: time.process_time() < deadline, lintable)]
+    in_workers = await anyio.amap(lambda path: anyio.to_process.run_sync(_lint, section_order, path), lintable[len(in_process) :])
+    return [(path, *result) for path, result in zip(lintable, (*in_process, *in_workers))]
+
+
+async def check(*paths: ExistingPath) -> int:
+    """Report findings at their lines on disk and a fix command per fixable file; exit 1 when any exist."""
+    results = await _linted(paths)
+    findings = [f"{path}:{origin + 1}: {message}\n" for path, _, file_findings, _ in results for origin, _, message in file_findings]
+    fixable = sum(edit_count for *_, edit_count in results)
     sys.stdout.writelines((
-        *(f"{d.path}: {d.edits} fixable, {shlex.join((sys.executable, sys.argv[0], 'fix', str(d.path)))}\n" for d in linted if d.edits),
-        *found,
-        f"Found {len(found) + total} findings, {total} fixable\n",
+        *(f"{path}: {edit_count} fixable, run {shlex.join((sys.executable, sys.argv[0], 'fix', str(path)))}\n" for path, _, _, edit_count in results if edit_count),
+        *findings,
+        f"{len(findings) + fixable} findings, {fixable} fixable\n",
     ))
-    return int(bool(found or total))
+    return int(bool(findings or fixable))
 
 
-def fix(*paths: ExistingPath) -> int:
-    """Write fixes and report remaining findings; exit 1 when findings remain."""
-    linted = _linted(paths)
-    for d in (d for d in linted if d.edits):
-        d.path.write_text("".join(f"{line}\n" for line in d.lines), encoding="utf-8")
-    left = [*d.parts for d in linted]
-    sys.stdout.writelines((*left, f"Fixed {sum(d.edits for d in linted)}, {len(left)} remaining\n"))
-    return int(bool(left))
+async def fix(*paths: ExistingPath) -> int:
+    """Write fixes and report remaining findings; exit 1 when any remain."""
+    results = await _linted(paths)
+    for path, lines, _, _ in (result for result in results if result[3]):
+        path.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
+    remaining = [f"{path}:{line + 1}: {message}\n" for path, _, findings, _ in results for _, line, message in findings]
+    sys.stdout.writelines((*remaining, f"{sum(edit_count for *_, edit_count in results)} fixed, {len(remaining)} remaining\n"))
+    return int(bool(remaining))
 
-
-app = App(help=__doc__)
-app.command(check)
-app.command(fix)
 
 if __name__ == "__main__":
+    app = App(help=__doc__)
+    app.command(check)
+    app.command(fix)
     app()

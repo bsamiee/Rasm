@@ -1,12 +1,12 @@
 import { env } from 'cloudflare:workers';
 import { D1Client } from '@effect/sql-d1';
-import { Catalog } from '@rasm/database/catalog';
-import { CloudflareAccess } from '@rasm/hosting/cloudflare-access';
+import { Catalog } from '@rasm/database';
+import { CloudflareAccess } from '@rasm/hosting';
 import { Template } from '@rasm/hosting/template';
 import { r2Storage, serveWorker } from '@rasm/hosting/worker';
 import { Layer } from 'effect';
-import { app } from '#/server/app';
-import { catalog } from '#/server/catalog';
+import { app } from '#/server/app.ts';
+import { catalog } from '#/server/catalog.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

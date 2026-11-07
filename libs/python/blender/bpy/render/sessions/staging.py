@@ -26,10 +26,10 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration, Handler
 from blender.bpy.nodes import functions
 from blender.bpy.nodes.addressing import InterfaceKeys, owned
-from blender.bpy.nodes.changes import made
+from blender.bpy.nodes.changes import made, NodeGroup
 from blender.bpy.nodes.desired import INPUTS, member_paths
 from blender.bpy.nodes.graphs import Expr, group_input, rgba, vector
-from blender.bpy.nodes.interfaces import Interface, NodeGroup
+from blender.bpy.nodes.interfaces import Interface
 from blender.bpy.nodes.trees import base_socket, created, DATA_TYPES, endpoints, group_set, group_tree, linked, links_of, nested, socket_at
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
 from blender.bpy.render.compositor.coordinates import dimensions, FrameSpace
@@ -92,6 +92,8 @@ class _Authored(msgspec.Struct, frozen=True, kw_only=True):
 
 class _Job:
     """Staged render of one scene owning its capture files, replay tiles, prepared groups, and temporary data until its scope exits."""
+
+    # --- [STATE]
 
     __slots__ = ("config", "files", "identity", "precision", "prepared", "rasters", "replay", "scene", "scope", "sources")
 
@@ -441,7 +443,7 @@ class _Job:
 
         return (self.image(target, images).map(Some) if images else Ok(Nothing)).bind(grouped).bind(placed)
 
-    # --- [LIFETIME]
+    # --- [LIFECYCLE]
 
     @staticmethod
     def restored(groups: tuple[_Authored, ...]) -> Outcome[None]:

@@ -9,14 +9,13 @@ import { Image } from '@pulumi/docker-build';
 import { getIamPolicyDocumentOutput, IamServiceAccount, Provider, S3Bucket } from '@pulumi/minio';
 import { asset, type Input, interpolate, jsonStringify, secret } from '@pulumi/pulumi';
 import { RandomPassword } from '@pulumi/random';
+import { CloudflareAccess, User } from '@rasm/hosting';
 import { disposableName, hostingMode, ownerBinding } from '@rasm/hosting/cloudflare';
-import { CloudflareAccess } from '@rasm/hosting/cloudflare-access';
 import { nodeBundle } from '@rasm/hosting/node-bundle';
-import { User } from '@rasm/hosting/user';
 import { Array, Cause, Config, Effect, Function, Match, Option, Path, Predicate, Record, Redacted, String, Struct } from 'effect';
 import { quote } from 'shell-quote';
 import type { ResolvedConfig } from 'vite';
-import { postgresRoles } from '#/infra/postgres-roles';
+import { postgresRoles } from '#/postgres-roles.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -3,7 +3,7 @@ import { layer } from '@effect/vitest';
 import { s3Storage } from '@rasm/hosting/node';
 import { Context, Effect, Layer } from 'effect';
 import { GenericContainer, PullPolicy, Wait } from 'testcontainers';
-import { cases } from '#/tests/typescript/libs/web/hosting/cases';
+import { cases } from '#/tests/typescript/libs/web/hosting/cases.ts';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

@@ -7,6 +7,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record CameraMove(ViewportSet Viewports, CameraPose To, Duration Span, Func<double, double> Progress, RedrawPolicy Redraw) {
     internal Reduced<double> Sample(Duration elapsed) =>
         (Span > Duration.Zero ? double.Min(elapsed / Span, 1d) : 1d) switch {
@@ -38,6 +39,7 @@ internal sealed record MotionState(Seq<ViewportMotion> Viewports, CameraPose To,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed record Motion(RhinoDoc Document, CameraMove Move, Func<Sink<Duration>, IO<Unit>> Frames, Conduit<Duration, Duration> Ticks, Ref<MotionState> State) {
     public IO<(MotionState Prior, MotionState Next)> Transition(Func<MotionState, MotionState> next) =>
         atomicIO(() => {
@@ -100,8 +102,11 @@ public sealed class MotionHandle {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Motions {
+
     // --- [SOURCES]
+
     public static Func<Sink<Duration>, IO<Unit>> Timer(Duration period, TimeProvider time) =>
         ticks => use(() => new UITimer((_, _) => Session.Run(ticks.Post(time.GetElapsedTime(0L).ToDuration()))) { Interval = period.TotalSeconds }, static timer => {
             timer.Stop();
@@ -110,6 +115,7 @@ public static class Motions {
             .Bind(static timer => IO.lift(timer.Start));
 
     // --- [POSES]
+
     public static Fin<CameraPose> Interpolated(CameraPose from, CameraPose to, double progress) =>
         (RhinoFault.Unless(Quaternion.Slerp(Quaternion.Rotation(Plane.WorldXY, from.Frame), Quaternion.Rotation(Plane.WorldXY, to.Frame), progress).GetRotation(out Plane turned),
                     RhinoReason.Invalid, progress)
@@ -149,7 +155,8 @@ public static class Motions {
             perspective: static (at, goal) => new CameraLens.Perspective(Angle.FromRadians(Quantities.Exact(double.Lerp(at.Held.Radians.ToDouble(), goal.Angle.Radians.ToDouble(), at.Progress)))),
             twoPoint: static (at, goal) => (CameraLens)(goal with { Angle = Angle.FromRadians(Quantities.Exact(double.Lerp(at.Held.Radians.ToDouble(), goal.Angle.Radians.ToDouble(), at.Progress))) }));
 
-    // --- [DRIVE]
+    // --- [DRIVING]
+
     public static IO<MotionHandle> Drive(RhinoDoc document, CameraMove move, Func<Sink<Duration>, IO<Unit>> frames) =>
         from rows in Viewports.Resolve(document, move.Viewports)
         from motions in rows.TraverseM(static row => Cameras.Read(row.Viewport).Map(pose => new ViewportMotion(row, pose))).As()

@@ -42,7 +42,7 @@ class _CellPattern(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# --- [GEOMETRIES]
+# --- [GEOMETRY]
 
 _ORIGIN: Final = Socket(key="origin", kind=bpy.types.NodeSocketVector2D, description="Point the parameter grows from in frame fractions", default_value=(0.5, 0.5))
 _TURN: Final = Socket(key="angle", kind=bpy.types.NodeSocketFloatAngle, description="Turn of the parameter's axes")
@@ -173,7 +173,7 @@ class Shapes(CompositorRecord, frozen=True, kw_only=True):
             switched(whole, switched(invert, coverage(signed, Some(region.width), softness, pixel, growth), coverage(signed, Nothing, softness, pixel, growth)), 1.0 - invert) for growth in growths
         )
 
-    # --- [PAINT]
+    # --- [DRAWING]
 
     def _painted(self, shell: GraphInputs, frame: FrameSpace) -> tuple[Expr, Expr]:
         """Returns the frame-fixed fill color and its alpha coverage, the gradient's coverage zero past black ramp ends."""

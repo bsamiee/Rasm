@@ -6,8 +6,7 @@ from enum import StrEnum
 import functools
 import pathlib
 from types import MappingProxyType
-import typing
-from typing import Annotated, Final, Literal, Self
+from typing import Annotated, Final, get_args, Literal, Self
 
 from expression import Option, Some
 from expression.extra.result import catch
@@ -24,7 +23,6 @@ from blender.records.fields import Case
 from blender.records.stores import committed
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
 
 type Subsampling = Literal["4:4:4", "4:2:2", "4:2:0", "4:1:1"]
 
@@ -220,7 +218,7 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def compressions(self) -> tuple[Compression, ...]:
         """Compressions the writer accepts: each plain codec, and every other case at its defaults."""
-        cases = (*(Plain(codec=codec) for codec in Codec), *(kind() for kind in typing.get_args(Compression.__value__) if kind is not Plain))
+        cases = (*(Plain(codec=codec) for codec in Codec), *(kind() for kind in get_args(Compression.__value__) if kind is not Plain))
         return tuple(form for form in cases if self.name in form.writers)  # ty: ignore[unsound-return-statement]
 
     def stored(self, depth: Depth) -> Outcome[Depth]:

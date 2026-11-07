@@ -17,8 +17,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Tier
 from blender.bpy.nodes.addressing import InterfaceKeys, owned
-from blender.bpy.nodes.changes import made, valued
-from blender.bpy.nodes.interfaces import NodeGroup
+from blender.bpy.nodes.changes import made, NodeGroup, valued
 from blender.bpy.nodes.trees import created, endpoints, group_set, linked, links_of, native, ordered, tree_of
 from blender.bpy.ui.drawing.handlers import draw_handler
 from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason

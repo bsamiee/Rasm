@@ -5,7 +5,7 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*"
     },
     "exports": {
         ".": "./contract.ts",

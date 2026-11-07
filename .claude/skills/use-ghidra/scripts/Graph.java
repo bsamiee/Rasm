@@ -16,8 +16,6 @@ import java.util.function.Predicate;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Graph extends GhidraScript {
-    // --- [RUN]
-
     @Override
     public void run() throws Exception {
         Path out = new Arguments.Usage(getScriptName(), "<out>").only(getScriptArgs());

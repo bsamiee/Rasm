@@ -2,9 +2,9 @@ import { Config, Effect, Layer, Option, Schema } from 'effect';
 import { SecureRandom, Signature } from 'effect/crypto';
 import { FetchHttpClient, Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Jwks, Jwt } from 'effect/jose';
-import type { accessBinding } from '#/cloudflare';
-import { unavailable } from '#/unavailable';
-import { User } from '#/user';
+import type { accessBinding } from '#/cloudflare.ts';
+import { HostingError } from '#/error.ts';
+import { User } from '#/user.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ class CloudflareAccess extends Schema.Class<CloudflareAccess, { readonly brand: 
                 Effect.flatMap((token) => Jwt.verifyWithKeySet(Claims, token, { issuer, audience, algorithms: ['RS256'] })),
                 Effect.flatMap(({ claims }) => Effect.orDie(Schema.encodeEffect(User.headers)(claims))),
                 Effect.map((identity) => Headers.setAll(anonymous, identity)),
-                Effect.catchReason('JoseError', 'KeySetUnavailable', unavailable, () => Effect.succeed(anonymous)),
+                Effect.catchReason('JoseError', 'KeySetUnavailable', HostingError.unavailable, () => Effect.succeed(anonymous)),
                 Effect.catchTag(['NoSuchElementError', 'SchemaError'], () => Effect.succeed(anonymous)),
             );
             return yield* Effect.provideService(app, HttpServerRequest.HttpServerRequest, request.modify({ headers }));

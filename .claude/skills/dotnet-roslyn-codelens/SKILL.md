@@ -7,7 +7,7 @@ description: "Use when reading, diagnosing, or refactoring a file in a .NET solu
 
 Covers the roslyn-codelens MCP server over a loaded solution. Tools resolve every symbol through the compilation, and text search matches characters and misses aliases, partial types, generic instantiations, and metadata symbols.
 
-The server starts with no solution, a task's first call is `mcp__roslyn-codelens__list_solutions`, and `mcp__roslyn-codelens__load_solution` with the solution's absolute path follows when it lists none.
+Tasks open with `mcp__roslyn-codelens__list_solutions` on a server that starts with no solution, and `mcp__roslyn-codelens__load_solution` with the solution's absolute path follows when it lists none.
 
 ## [01]-[TOOL_SELECTION]
 
@@ -27,75 +27,75 @@ Before `Read` on a `.cs` file, the wanted view decides:
 
 ## [02]-[TOOL_INDEX]
 
-| [INDEX] | [TOOL]                                             | [USE_WHEN]                                                                      |
-| :-----: | :------------------------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `mcp__roslyn-codelens__find_implementations`       | "What implements this interface?" / "What extends this class?"                  |
-|  [02]   | `mcp__roslyn-codelens__find_callers`               | "Who calls this method?" / "What depends on this?"                              |
-|  [03]   | `mcp__roslyn-codelens__find_event_subscribers`     | "Who subscribes to this event?"                                                 |
-|  [04]   | `mcp__roslyn-codelens__find_references`            | "Where is this symbol used?" / "Who writes to it?" (`kinds` filter)             |
-|  [05]   | `mcp__roslyn-codelens__find_tests_for_symbol`      | "What tests cover this method?" / "Which tests will break if I change X?"       |
-|  [06]   | `mcp__roslyn-codelens__get_test_summary`           | "What does this test suite cover?"                                              |
-|  [07]   | `mcp__roslyn-codelens__find_uncovered_symbols`     | "Which public members does no test reach?"                                      |
-|  [08]   | `mcp__roslyn-codelens__go_to_definition`           | "Where is this defined?" / "Jump to source"                                     |
-|  [09]   | `mcp__roslyn-codelens__search_symbols`             | "Find types or methods matching this name"                                      |
-|  [10]   | `mcp__roslyn-codelens__get_type_hierarchy`         | "What is the inheritance chain?"                                                |
-|  [11]   | `mcp__roslyn-codelens__get_symbol_context`         | "Give me everything about this type"                                            |
-|  [12]   | `mcp__roslyn-codelens__get_public_api_surface`     | "What is the public API of this library?"                                       |
-|  [13]   | `mcp__roslyn-codelens__find_breaking_changes`      | "Will this break consumers?"                                                    |
-|  [14]   | `mcp__roslyn-codelens__get_di_registrations`       | "Where is this registered?" / "What is the DI lifetime?"                        |
-|  [15]   | `mcp__roslyn-codelens__get_project_dependencies`   | "What does this project reference?"                                             |
-|  [16]   | `mcp__roslyn-codelens__get_nuget_dependencies`     | "What packages does this project use?" / "What is the assembly name?"           |
-|  [17]   | `mcp__roslyn-codelens__find_reflection_usage`      | "Is this used dynamically?"                                                     |
-|  [18]   | `mcp__roslyn-codelens__find_attribute_usages`      | "Find all [Authorize] controllers" / "What holds this attribute?"               |
-|  [19]   | `mcp__roslyn-codelens__find_obsolete_usage`        | "What calls an `[Obsolete]` member?" / "Which deprecations are pending?"        |
-|  [20]   | `mcp__roslyn-codelens__get_diagnostics`            | "Are there compiler errors?" / "Show warnings"                                  |
-|  [21]   | `mcp__roslyn-codelens__get_code_fixes`             | "How do I fix this warning?"                                                    |
-|  [22]   | `mcp__roslyn-codelens__trust_solution`             | "Authorize analyzers for another solution"                                      |
-|  [23]   | `mcp__roslyn-codelens__list_trusted_paths`         | "Is this solution trusted?"                                                     |
-|  [24]   | `mcp__roslyn-codelens__revoke_trust`               | "Withdraw analyzer trust for this path"                                         |
-|  [25]   | `mcp__roslyn-codelens__get_code_actions`           | "What refactorings are available here?"                                         |
-|  [26]   | `mcp__roslyn-codelens__apply_code_action`          | "Apply this refactoring" / "Extract method"                                     |
-|  [27]   | `mcp__roslyn-codelens__rename_symbol`              | "Rename this symbol everywhere" / "Change this name across the solution"        |
-|  [28]   | `mcp__roslyn-codelens__change_signature`           | "Add, remove, or reorder a parameter and fix all the callers"                   |
-|  [29]   | `mcp__roslyn-codelens__resolve_stack_trace`        | "Where did this exception come from?" / "Resolve this stack trace"              |
-|  [30]   | `mcp__roslyn-codelens__find_unused_symbols`        | "Is there dead code?"                                                           |
-|  [31]   | `mcp__roslyn-codelens__get_complexity_metrics`     | "Which methods are too complex?" / "What do I refactor first?"                  |
-|  [32]   | `mcp__roslyn-codelens__find_naming_violations`     | "Check naming conventions"                                                      |
-|  [33]   | `mcp__roslyn-codelens__find_async_violations`      | "Are there async bugs?" / "Find sync-over-async"                                |
-|  [34]   | `mcp__roslyn-codelens__find_disposable_misuse`     | "Are there resource leaks?" / "Find a missing `using`"                          |
-|  [35]   | `mcp__roslyn-codelens__get_exception_flow`         | "What can escape this method?" / "Where does this exception get caught?"        |
-|  [36]   | `mcp__roslyn-codelens__find_throw_sites`           | "Where is this exception type thrown?"                                          |
-|  [37]   | `mcp__roslyn-codelens__find_catch_blocks`          | "Who catches this?" / "What is swallowing exceptions?"                          |
-|  [38]   | `mcp__roslyn-codelens__find_large_classes`         | "Find classes that need splitting"                                              |
-|  [39]   | `mcp__roslyn-codelens__find_god_objects`           | "Which classes are doing too much?"                                             |
-|  [40]   | `mcp__roslyn-codelens__find_circular_dependencies` | "Are there circular dependencies?"                                              |
-|  [41]   | `mcp__roslyn-codelens__check_architecture`         | "Is anything violating our layering?" / "Does Api reference Infrastructure?"    |
-|  [42]   | `mcp__roslyn-codelens__get_project_health`         | "How is this project doing?" / "Top hotspots across all dimensions"             |
-|  [43]   | `mcp__roslyn-codelens__get_source_generators`      | "What source generators are active?"                                            |
-|  [44]   | `mcp__roslyn-codelens__get_generated_code`         | "Show generated code"                                                           |
-|  [45]   | `mcp__roslyn-codelens__inspect_external_assembly`  | "What does this NuGet package expose?" / "Show me the API of X assembly"        |
-|  [46]   | `mcp__roslyn-codelens__peek_il`                    | "Show IL for this method" / "What does this external method do?"                |
-|  [47]   | `mcp__roslyn-codelens__list_solutions`             | "What solutions are loaded?"                                                    |
-|  [48]   | `mcp__roslyn-codelens__load_solution`              | "Load this .sln or .slnx at run time"                                           |
-|  [49]   | `mcp__roslyn-codelens__unload_solution`            | "Free memory for this solution"                                                 |
-|  [50]   | `mcp__roslyn-codelens__set_active_solution`        | "Switch to project B"                                                           |
-|  [51]   | `mcp__roslyn-codelens__rebuild_solution`           | "Reload the solution" / "Diagnostics are stale"                                 |
-|  [52]   | `mcp__roslyn-codelens__start_background_task`      | "Run a long rebuild without blocking"                                           |
-|  [53]   | `mcp__roslyn-codelens__get_task_status`            | "Check on a queued background task"                                             |
-|  [54]   | `mcp__roslyn-codelens__list_running_tasks`         | "Which background tasks are running?"                                           |
-|  [55]   | `mcp__roslyn-codelens__analyze_data_flow`          | "Which variables are read or written here?"                                     |
-|  [56]   | `mcp__roslyn-codelens__analyze_control_flow`       | "Is this code reachable?"                                                       |
-|  [57]   | `mcp__roslyn-codelens__analyze_change_impact`      | "What breaks if I change this?"                                                 |
-|  [58]   | `mcp__roslyn-codelens__get_type_overview`          | "Give me everything about this type in one call"                                |
-|  [59]   | `mcp__roslyn-codelens__analyze_method`             | "Show signature, callers, and outgoing calls"                                   |
-|  [60]   | `mcp__roslyn-codelens__get_method_source`          | "Show me this method's body" / "Give me the source of these members"            |
-|  [61]   | `mcp__roslyn-codelens__get_overloads`              | "What overloads does this method have?"                                         |
-|  [62]   | `mcp__roslyn-codelens__get_extension_methods`      | "What can I call on this type?" / "Is there an extension for X?"                |
-|  [63]   | `mcp__roslyn-codelens__get_instantiation_options`  | "How do I construct this?" / "Why can I not `new` this up?"                     |
-|  [64]   | `mcp__roslyn-codelens__get_operators`              | "What operators does this type define?"                                         |
-|  [65]   | `mcp__roslyn-codelens__get_call_graph`             | "Transitive callers or callees, depth-bounded"                                  |
-|  [66]   | `mcp__roslyn-codelens__get_file_overview`          | "What types are in this file?"                                                  |
-|  [67]   | `mcp__roslyn-codelens__generate_test_skeleton`     | "Scaffold a test class for this type or method"                                 |
+| [INDEX] | [TOOL]                                             | [USE_WHEN]                                                                   |
+| :-----: | :------------------------------------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `mcp__roslyn-codelens__find_implementations`       | "What implements this interface?" / "What extends this class?"               |
+|  [02]   | `mcp__roslyn-codelens__find_callers`               | "Who calls this method?" / "What depends on this?"                           |
+|  [03]   | `mcp__roslyn-codelens__find_event_subscribers`     | "Who subscribes to this event?"                                              |
+|  [04]   | `mcp__roslyn-codelens__find_references`            | "Where is this symbol used?" / "Who writes to it?" (`kinds` filter)          |
+|  [05]   | `mcp__roslyn-codelens__find_tests_for_symbol`      | "What tests cover this method?" / "Which tests will break if I change X?"    |
+|  [06]   | `mcp__roslyn-codelens__get_test_summary`           | "What does this test suite cover?"                                           |
+|  [07]   | `mcp__roslyn-codelens__find_uncovered_symbols`     | "Which public members does no test reach?"                                   |
+|  [08]   | `mcp__roslyn-codelens__go_to_definition`           | "Where is this defined?" / "Jump to source"                                  |
+|  [09]   | `mcp__roslyn-codelens__search_symbols`             | "Find types or methods matching this name"                                   |
+|  [10]   | `mcp__roslyn-codelens__get_type_hierarchy`         | "What is the inheritance chain?"                                             |
+|  [11]   | `mcp__roslyn-codelens__get_symbol_context`         | "Give me everything about this type"                                         |
+|  [12]   | `mcp__roslyn-codelens__get_public_api_surface`     | "What is the public API of this library?"                                    |
+|  [13]   | `mcp__roslyn-codelens__find_breaking_changes`      | "Will this break consumers?"                                                 |
+|  [14]   | `mcp__roslyn-codelens__get_di_registrations`       | "Where is this registered?" / "What is the DI lifetime?"                     |
+|  [15]   | `mcp__roslyn-codelens__get_project_dependencies`   | "What does this project reference?"                                          |
+|  [16]   | `mcp__roslyn-codelens__get_nuget_dependencies`     | "What packages does this project use?" / "What is the assembly name?"        |
+|  [17]   | `mcp__roslyn-codelens__find_reflection_usage`      | "Is this used dynamically?"                                                  |
+|  [18]   | `mcp__roslyn-codelens__find_attribute_usages`      | "Find all [Authorize] controllers" / "What holds this attribute?"            |
+|  [19]   | `mcp__roslyn-codelens__find_obsolete_usage`        | "What calls an `[Obsolete]` member?" / "Which deprecations are pending?"     |
+|  [20]   | `mcp__roslyn-codelens__get_diagnostics`            | "Are there compiler errors?" / "Show warnings"                               |
+|  [21]   | `mcp__roslyn-codelens__get_code_fixes`             | "How do I fix this warning?"                                                 |
+|  [22]   | `mcp__roslyn-codelens__trust_solution`             | "Authorize analyzers for another solution"                                   |
+|  [23]   | `mcp__roslyn-codelens__list_trusted_paths`         | "Is this solution trusted?"                                                  |
+|  [24]   | `mcp__roslyn-codelens__revoke_trust`               | "Withdraw analyzer trust for this path"                                      |
+|  [25]   | `mcp__roslyn-codelens__get_code_actions`           | "What refactorings are available here?"                                      |
+|  [26]   | `mcp__roslyn-codelens__apply_code_action`          | "Apply this refactoring" / "Extract method"                                  |
+|  [27]   | `mcp__roslyn-codelens__rename_symbol`              | "Rename this symbol everywhere" / "Change this name across the solution"     |
+|  [28]   | `mcp__roslyn-codelens__change_signature`           | "Add, remove, or reorder a parameter and fix all the callers"                |
+|  [29]   | `mcp__roslyn-codelens__resolve_stack_trace`        | "Where did this exception come from?" / "Resolve this stack trace"           |
+|  [30]   | `mcp__roslyn-codelens__find_unused_symbols`        | "Is there dead code?"                                                        |
+|  [31]   | `mcp__roslyn-codelens__get_complexity_metrics`     | "Which methods are too complex?" / "What do I refactor first?"               |
+|  [32]   | `mcp__roslyn-codelens__find_naming_violations`     | "Check naming conventions"                                                   |
+|  [33]   | `mcp__roslyn-codelens__find_async_violations`      | "Are there async bugs?" / "Find sync-over-async"                             |
+|  [34]   | `mcp__roslyn-codelens__find_disposable_misuse`     | "Are there resource leaks?" / "Find a missing `using`"                       |
+|  [35]   | `mcp__roslyn-codelens__get_exception_flow`         | "What can escape this method?" / "Where does this exception get caught?"     |
+|  [36]   | `mcp__roslyn-codelens__find_throw_sites`           | "Where is this exception type thrown?"                                       |
+|  [37]   | `mcp__roslyn-codelens__find_catch_blocks`          | "Who catches this?" / "What is swallowing exceptions?"                       |
+|  [38]   | `mcp__roslyn-codelens__find_large_classes`         | "Find classes that need splitting"                                           |
+|  [39]   | `mcp__roslyn-codelens__find_god_objects`           | "Which classes are doing too much?"                                          |
+|  [40]   | `mcp__roslyn-codelens__find_circular_dependencies` | "Are there circular dependencies?"                                           |
+|  [41]   | `mcp__roslyn-codelens__check_architecture`         | "Is anything violating our layering?" / "Does Api reference Infrastructure?" |
+|  [42]   | `mcp__roslyn-codelens__get_project_health`         | "How is this project doing?" / "Top hotspots across all dimensions"          |
+|  [43]   | `mcp__roslyn-codelens__get_source_generators`      | "What source generators are active?"                                         |
+|  [44]   | `mcp__roslyn-codelens__get_generated_code`         | "Show generated code"                                                        |
+|  [45]   | `mcp__roslyn-codelens__inspect_external_assembly`  | "What does this NuGet package expose?" / "Show me the API of X assembly"     |
+|  [46]   | `mcp__roslyn-codelens__peek_il`                    | "Show IL for this method" / "What does this external method do?"             |
+|  [47]   | `mcp__roslyn-codelens__list_solutions`             | "What solutions are loaded?"                                                 |
+|  [48]   | `mcp__roslyn-codelens__load_solution`              | "Load this .sln or .slnx at run time"                                        |
+|  [49]   | `mcp__roslyn-codelens__unload_solution`            | "Free memory for this solution"                                              |
+|  [50]   | `mcp__roslyn-codelens__set_active_solution`        | "Switch to project B"                                                        |
+|  [51]   | `mcp__roslyn-codelens__rebuild_solution`           | "Reload the solution" / "Diagnostics are stale"                              |
+|  [52]   | `mcp__roslyn-codelens__start_background_task`      | "Run a long rebuild without blocking"                                        |
+|  [53]   | `mcp__roslyn-codelens__get_task_status`            | "Check on a queued background task"                                          |
+|  [54]   | `mcp__roslyn-codelens__list_running_tasks`         | "Which background tasks are running?"                                        |
+|  [55]   | `mcp__roslyn-codelens__analyze_data_flow`          | "Which variables are read or written here?"                                  |
+|  [56]   | `mcp__roslyn-codelens__analyze_control_flow`       | "Is this code reachable?"                                                    |
+|  [57]   | `mcp__roslyn-codelens__analyze_change_impact`      | "What breaks if I change this?"                                              |
+|  [58]   | `mcp__roslyn-codelens__get_type_overview`          | "Give me everything about this type in one call"                             |
+|  [59]   | `mcp__roslyn-codelens__analyze_method`             | "Show signature, callers, and outgoing calls"                                |
+|  [60]   | `mcp__roslyn-codelens__get_method_source`          | "Show me this method's body" / "Give me the source of these members"         |
+|  [61]   | `mcp__roslyn-codelens__get_overloads`              | "What overloads does this method have?"                                      |
+|  [62]   | `mcp__roslyn-codelens__get_extension_methods`      | "What can I call on this type?" / "Is there an extension for X?"             |
+|  [63]   | `mcp__roslyn-codelens__get_instantiation_options`  | "How do I construct this?" / "Why can I not `new` this up?"                  |
+|  [64]   | `mcp__roslyn-codelens__get_operators`              | "What operators does this type define?"                                      |
+|  [65]   | `mcp__roslyn-codelens__get_call_graph`             | "Transitive callers or callees, depth-bounded"                               |
+|  [66]   | `mcp__roslyn-codelens__get_file_overview`          | "What types are in this file?"                                               |
+|  [67]   | `mcp__roslyn-codelens__generate_test_skeleton`     | "Scaffold a test class for this type or method"                              |
 
 ## [03]-[TOOL_REFERENCE]
 

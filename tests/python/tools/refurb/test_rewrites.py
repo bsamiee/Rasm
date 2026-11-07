@@ -6,24 +6,15 @@ lazy from collections import defaultdict
 
 from hypothesis import example, given, strategies
 import pytest
-from refurb.checks.builtin.no_ignored_enumerate import ErrorInfo as EnumerateError
-from refurb.checks.builtin.no_slice_copy import ErrorInfo as SliceError
-from refurb.checks.builtin.writelines import ErrorInfo as WriteError
-from refurb.checks.flow.no_with_assign import ErrorInfo as WithError
-from refurb.checks.iterable.implicit_readlines import ErrorInfo as ReadlinesError
-from refurb.checks.readability.no_copy_with_merge import ErrorInfo as MergeError
-from refurb.checks.readability.no_len_cmp import ErrorInfo as LengthError
-from refurb.checks.readability.no_or_default import ErrorInfo as DefaultError
-from refurb.checks.readability.no_temp_class_object import ErrorInfo as ConstructorError
-from refurb.checks.readability.use_isinstance_bool import ErrorInfo as BoolError
-from refurb.checks.secrets.simplify_token_function import ErrorInfo as TokenError
-from refurb.checks.shlex.use_join import ErrorInfo as JoinError
-from refurb.checks.string.no_multiline_lstrip import ErrorInfo as NewlineError
-from refurb.checks.string.simplify_strip import ErrorInfo as StripError
-from refurb.checks.string.startswith import ErrorInfo as PrefixError
-from refurb.checks.third_party.fastapi.simplify_query import ErrorInfo as QueryError
+from refurb.checks.builtin import no_ignored_enumerate, no_slice_copy, writelines
+from refurb.checks.flow import no_with_assign
+from refurb.checks.iterable import implicit_readlines
+from refurb.checks.readability import no_copy_with_merge, no_len_cmp, no_or_default, no_temp_class_object, use_isinstance_bool
+from refurb.checks.secrets import simplify_token_function
+from refurb.checks.shlex import use_join
+from refurb.checks.string import no_multiline_lstrip, simplify_strip, startswith
+from refurb.checks.third_party.fastapi import simplify_query
 lazy from mypy.nodes import ArgKind, CallExpr, MemberExpr, StrExpr
-lazy from refurb.checks.string import no_multiline_lstrip
 lazy from refurb.error import Error
 lazy from refurb.settings import Settings
 
@@ -54,7 +45,7 @@ def test_prefix_replacements_preserve_evaluation(findings: Findings) -> None:
                 'ab'.startswith('a') or 'ab'.startswith(prefix),
             )
     """)
-    assert [error.line for error in findings(source, PrefixError)] == [11]
+    assert [error.line for error in findings(source, startswith.ErrorInfo)] == [11]
 
 
 def test_container_replacements_preserve_values_and_consumption(findings: Findings) -> None:
@@ -96,9 +87,9 @@ def test_container_replacements_preserve_values_and_consumption(findings: Findin
         constructed = [1, 2][:], bytearray(b'ab')[:]
         observed = copied(Counted([1, 2]), bytearray(b'ab'), (1, 2))
     """)
-    found = findings(source, LengthError, SliceError)
-    assert [error.line for error in found if isinstance(error, LengthError)] == [22, 23, 24]
-    assert [(error.line, error.column) for error in found if isinstance(error, SliceError)] == [(35, 14), (35, 25)]
+    found = findings(source, no_len_cmp.ErrorInfo, no_slice_copy.ErrorInfo)
+    assert [error.line for error in found if isinstance(error, no_len_cmp.ErrorInfo)] == [22, 23, 24]
+    assert [(error.line, error.column) for error in found if isinstance(error, no_slice_copy.ErrorInfo)] == [(35, 14), (35, 25)]
 
 
 def test_loop_replacements_keep_observed_bindings(findings: Findings) -> None:
@@ -137,7 +128,7 @@ def test_loop_replacements_keep_observed_bindings(findings: Findings) -> None:
                 for class_line in ('a', 'b'):
                     handle.write(class_line)
     """)
-    assert [error.line for error in findings(source, WriteError)] == [23]
+    assert [error.line for error in findings(source, writelines.ErrorInfo)] == [23]
 
 
 def test_assignment_replacements_require_nonsuppressing_contexts(findings: Findings) -> None:
@@ -178,7 +169,7 @@ def test_assignment_replacements_require_nonsuppressing_contexts(findings: Findi
         with nullcontext(*arguments):
             expanded = 'new'
     """)
-    assert [error.line for error in findings(source, WithError)] == [5]
+    assert [error.line for error in findings(source, no_with_assign.ErrorInfo)] == [5]
 
 
 def test_readlines_replacements_require_fresh_buffers(findings: Findings) -> None:
@@ -194,7 +185,7 @@ def test_readlines_replacements_require_fresh_buffers(findings: Findings) -> Non
             for line in StringIO('a\\nb').readlines():
                 last = line
     """)
-    assert [error.line for error in findings(source, ReadlinesError)] == [9]
+    assert [error.line for error in findings(source, implicit_readlines.ErrorInfo)] == [9]
 
 
 def test_defaults_preserve_mutable_aliases_and_signed_zero(findings: Findings) -> None:
@@ -206,7 +197,7 @@ def test_defaults_preserve_mutable_aliases_and_signed_zero(findings: Findings) -
         empty: frozenset[int] = frozenset()
         distinct_empty = empty or frozenset()
     """)
-    assert [(error.line, error.column) for error in findings(source, DefaultError)] == [(3, 52)]
+    assert [(error.line, error.column) for error in findings(source, no_or_default.ErrorInfo)] == [(3, 52)]
 
 
 def test_enumerate_replacements_preserve_mutable_iteration(findings: Findings) -> None:
@@ -292,7 +283,7 @@ def test_enumerate_replacements_preserve_mutable_iteration(findings: Findings) -
                 del value
                 print('body')
     """)
-    assert [error.line for error in findings(source, EnumerateError)] == [11, 25, 44, 49, 50, 56]
+    assert [error.line for error in findings(source, no_ignored_enumerate.ErrorInfo)] == [11, 25, 44, 49, 50, 56]
 
 
 def test_constructor_replacements_preserve_initialization(findings: Findings) -> None:
@@ -340,7 +331,7 @@ def test_constructor_replacements_preserve_initialization(findings: Findings) ->
 
         decorated = Wrapped().value()
     """)
-    assert [error.line for error in findings(source, ConstructorError)] == [23]
+    assert [error.line for error in findings(source, no_temp_class_object.ErrorInfo)] == [23]
 
 
 def test_merge_replacements_keep_left_snapshot(findings: Findings) -> None:
@@ -357,13 +348,13 @@ def test_merge_replacements_keep_left_snapshot(findings: Findings) -> None:
         constructed = dict(a=1).copy() | {'b': 2}
         constructed_right = changed() | {'b': 2}.copy()
     """)
-    assert [error.line for error in findings(source, MergeError)] == [10, 11]
+    assert [error.line for error in findings(source, no_copy_with_merge.ErrorInfo)] == [10, 11]
 
 
 def test_newline_replacements_reach_each_native_method(findings: Findings) -> None:
     """The compiler and public visitor retain each safe multiline strip, lstrip, and rstrip replacement."""
     source = 'both = """\nx\n""".strip()\nleading = """\nx  """.lstrip()\ntrailing = """  x\n""".rstrip()\n'
-    assert [(error.line, error.column) for error in findings(source, NewlineError)] == [(1, 7), (4, 10), (6, 11)]
+    assert [(error.line, error.column) for error in findings(source, no_multiline_lstrip.ErrorInfo)] == [(1, 7), (4, 10), (6, 11)]
 
 
 @pytest.mark.parametrize("chars", [None, "\n"])
@@ -412,7 +403,7 @@ def test_strip_replacements_preserve_sequential_removal(findings: Findings) -> N
 
         observed = stripped(Text(' -x- '))
     """)
-    assert [error.line for error in findings(source, StripError)] == [12, 13, 14, 15]
+    assert [error.line for error in findings(source, simplify_strip.ErrorInfo)] == [12, 13, 14, 15]
 
 
 def test_token_conversion_preserves_generation_length(findings: Findings) -> None:
@@ -424,7 +415,7 @@ def test_token_conversion_preserves_generation_length(findings: Findings) -> Non
         bytes_slice = token_bytes()[:100]
         hex_slice = token_hex()[:100]
     """)
-    assert [error.line for error in findings(source, TokenError)] == [4]
+    assert [error.line for error in findings(source, simplify_token_function.ErrorInfo)] == [4]
 
 
 def test_join_replacements_preserve_generator_bindings(findings: Findings) -> None:
@@ -440,7 +431,7 @@ def test_join_replacements_preserve_generator_bindings(findings: Findings) -> No
                 " ".join(shlex.quote(prefix) for value in arguments if value),
             )
     """)
-    assert [error.line for error in findings(source, JoinError)] == [7, 8, 9]
+    assert [error.line for error in findings(source, use_join.ErrorInfo)] == [7, 8, 9]
 
 
 def test_join_replacements_keep_destructuring(findings: Findings) -> None:
@@ -451,7 +442,7 @@ def test_join_replacements_keep_destructuring(findings: Findings) -> None:
         def render(pairs: list[tuple[str, str]]) -> str:
             return " ".join(shlex.quote(first) for first, second in pairs)
     """)
-    assert findings(source, JoinError) == ()
+    assert findings(source, use_join.ErrorInfo) == ()
 
 
 def test_bool_replacements_preserve_equality_and_evaluation(findings: Findings) -> None:
@@ -473,7 +464,7 @@ def test_bool_replacements_preserve_equality_and_evaluation(findings: Findings) 
                 next_flag() is True or next_flag() is False,
             )
     """)
-    assert [error.line for error in findings(source, BoolError)] == [13, 14]
+    assert [error.line for error in findings(source, use_isinstance_bool.ErrorInfo)] == [13, 14]
 
 
 def test_query_replacements_keep_scalar_parameters(findings: Findings) -> None:
@@ -500,4 +491,4 @@ def test_query_replacements_keep_scalar_parameters(findings: Findings) -> None:
         ) -> None:
             pass
     """)
-    assert [error.line for error in findings(source, QueryError)] == [13, 14, 15, 16]
+    assert [error.line for error in findings(source, simplify_query.ErrorInfo)] == [13, 14, 15, 16]

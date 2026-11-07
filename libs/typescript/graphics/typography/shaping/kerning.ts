@@ -1,10 +1,10 @@
 import { Array, Effect, Option, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { JoiningGroup } from 'icu';
-import { Settings } from '#/settings';
-import type { Face } from '#/shaping/face';
-import { Profile } from '#/shaping/internal/profile';
-import { ShapedText } from '#/shaping/shaped-text';
-import { Word } from '#/shaping/word';
+import { Settings } from '#/settings.ts';
+import type { Face } from '#/shaping/face.ts';
+import { Profile } from '#/shaping/internal/profile.ts';
+import { ShapedText } from '#/shaping/shaped-text.ts';
+import { Word } from '#/shaping/word.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

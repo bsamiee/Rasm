@@ -7,6 +7,7 @@ using UnitsNet;
 namespace Rasm.Rhino.Document;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record GeoCoordinate {
     private GeoCoordinate(Angle latitude, Angle longitude) => (Latitude, Longitude) = (latitude, longitude);
 
@@ -51,8 +52,11 @@ public sealed record Georeference {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Earth {
-    // --- [STAGE]
+
+    // --- [STAGES]
+
     public static Stage<EarthAnchorPoint> Stage(RhinoDoc doc, Seq<RowEdit<EarthAnchorPoint>> edits) =>
         new(
             Copy: _ => IO.lift(() => doc.EarthAnchorPoint),
@@ -63,6 +67,7 @@ public static class Earth {
         IO.lift(() => doc.EarthAnchorPoint).Bind(live => Edits.Apply(Stage(doc, edits), live, edits.Map(static edit => edit.Write)));
 
     // --- [EDITS]
+
     public static Seq<RowEdit<EarthAnchorPoint>> Located(EarthLocation location) => [
         Rows.Set<EarthAnchorPoint, double>(static anchor => anchor.EarthBasepointLatitude, static (anchor, held) => anchor.EarthBasepointLatitude = held, location.Place.Latitude.Degrees.ToDouble()),
         Rows.Set<EarthAnchorPoint, double>(static anchor => anchor.EarthBasepointLongitude, static (anchor, held) => anchor.EarthBasepointLongitude = held, location.Place.Longitude.Degrees.ToDouble()),

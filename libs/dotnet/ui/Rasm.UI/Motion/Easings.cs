@@ -3,6 +3,7 @@ using MathNet.Numerics.RootFinding;
 namespace Rasm.UI.Motion;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class Easing {
     public static Easing Linear { get; } = new(0d, 0d, 1d, 1d);
@@ -41,7 +42,9 @@ public sealed partial class Easing {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TimingCurve {
-    // --- [SAMPLE]
+
+    // --- [SAMPLING]
+
     internal abstract Option<(double Progress, double Rate)> At(Duration elapsed);
 
     internal virtual TimingCurve WithVelocity(double velocity) => this;
@@ -64,6 +67,7 @@ public abstract partial record TimingCurve {
     }
 
     // --- [CASES]
+
     public sealed record Instant : TimingCurve {
         internal override Option<(double Progress, double Rate)> At(Duration elapsed) => None;
     }

@@ -2,8 +2,8 @@ import { load } from 'cheerio/slim';
 import { Cause, Context, Duration, Effect, Exit, Function, Layer, Option, Record, Schema } from 'effect';
 import { HttpServerResponse } from 'effect/http';
 import { renderToReadableStream } from 'react-dom/server';
-import { HostingError } from '#/hosting-error';
-import type { Shell } from '#/shell';
+import { HostingError } from '#/error.ts';
+import type { Shell } from '#/shell.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -11,7 +11,7 @@ const POLICY = { 'default-src': ["'self'"], 'object-src': ["'none'"], 'base-uri'
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Template extends Context.Service<Template, { readonly template: Effect.Effect<string, HostingError> }>()('@rasm/hosting/server/template') {
+class Template extends Context.Service<Template, { readonly template: Effect.Effect<string, HostingError> }>()('@rasm/hosting/template') {
     static readonly layer = (assets: { readonly fetch: (request: Request) => Promise<Response> }) =>
         Layer.effect(
             Template,

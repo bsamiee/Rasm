@@ -38,7 +38,7 @@ const dialing = (query: Record.ReadonlyRecord<string, string>) =>
 
 - `RpcServer` turns every socket error but a close into a defect, and `run` logs each die before `Effect.exit` ends the connection
 - One `RpcGroup` is the whole contract, and typed failures reach the caller through its error schema, `Cause` errors through a `Schema.declare` with `toCodecJson`
-- Host packages split a `contract` entry the peer and build import in Node, holding no host module, from a `host` entry exporting the link layer
+- Host packages hold the contract the peer and build import in Node in a runtime-neutral `contract` module, and export the link layer from their host entry (`@rasm/photoshop/uxp`, `@rasm/indesign/uxp`)
 - Served calls and panel actions run one at a time through the permit and preference scope the group middleware applies
 - Handlers returning `Rpc.fork` answer while a host call runs
 - Group middleware holds host state for each call and covers calls added before `middleware`, and a forked call joins with `add` after it

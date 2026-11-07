@@ -1,7 +1,7 @@
 import { Array, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { type Font, MetricsTag } from 'harfbuzzjs';
-import type { Tables } from '#/shaping/internal/tables';
-import type { ShapedText } from '#/shaping/shaped-text';
+import type { Tables } from '#/shaping/internal/tables.ts';
+import type { ShapedText } from '#/shaping/shaped-text.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -47,8 +47,8 @@ class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('
         });
     };
 
-    underlined({ ink }: Pick<ShapedText, 'ink'>) {
-        return Option.map(this.underline, (stroke) => Option.match(ink, { onNone: () => stroke, onSome: ({ minY }) => ({ ...stroke, position: Math.min(stroke.position, minY - stroke.thickness - stroke.thickness / 2) }) }));
+    underlined({ extents }: Pick<ShapedText, 'extents'>) {
+        return Option.map(this.underline, (stroke) => Option.match(extents, { onNone: () => stroke, onSome: ({ minY }) => ({ ...stroke, position: Math.min(stroke.position, minY - stroke.thickness - stroke.thickness / 2) }) }));
     }
     scripted(position: 'superscript' | 'subscript', size: number) {
         return Option.map(this[position], ({ size: scale, offset }) => ({ size: size * scale.y, shift: size * offset.y * (position === 'superscript' ? 1 : -1) }));

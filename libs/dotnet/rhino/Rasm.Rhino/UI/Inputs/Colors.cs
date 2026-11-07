@@ -11,6 +11,7 @@ using Rhino.UI.Theme;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ColorRamp {
     private ColorRamp(Seq<ColorStop> stops, bool stepped) => (Stops, Stepped) = (toSeq(stops.OrderBy(static stop => stop.Position)), stepped);
 
@@ -50,6 +51,9 @@ public sealed record ColorSource(DisplayAndPrintColorSourceMode Source, System.D
 public sealed record ColorPair(ColorSource Display, ColorSource Print);
 
 internal sealed record RampShown(ColorRamp Ramp) {
+
+    // --- [STATE]
+
     public Option<(int Current, int Opening)> Picked { get; init; }
 
     public Option<(int At, int Opening, ColorStop Held)> Chosen(ColorRamp ramp) =>
@@ -58,6 +62,7 @@ internal sealed record RampShown(ColorRamp Ramp) {
         select (picked.Current, picked.Opening, held);
 
     // --- [GEOMETRY]
+
     public static double Position(PointF at, float width) => double.Clamp(at.X / float.Max(width, 1f), 0d, 1d);
 
     public Option<int> Nearest(PointF at, SizeF size) =>
@@ -67,7 +72,8 @@ internal sealed record RampShown(ColorRamp Ramp) {
 
     private static float Marker(float height) => height / 4f;
 
-    // --- [PAINT]
+    // --- [DRAWING]
+
     public void Paint(Graphics graphics, RectangleF bounds, ThemeZone zone) {
         float marker = Marker(bounds.Height);
         RectangleF band = new(0f, 0f, bounds.Width, float.Max(bounds.Height - (marker * 2f), 1f));

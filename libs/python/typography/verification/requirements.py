@@ -7,22 +7,22 @@ lazy from functools import partial
 lazy from pathlib import Path
 lazy import re
 
-from expression.extra.result import catch
 import msgspec
+lazy from expression.extra.result import catch
 lazy from fontTools.ufoLib import UFOReader
 lazy from fontTools.ufoLib.errors import UFOLibError
 lazy import ots
 
-from typography.faces.declaration import Band, Em, Ratio
-lazy from typography.faces.coverage import Coverage as Covered
-lazy from typography.faces.declaration import Contour, Face, Faces, OrnamentFace, PROFILE, Ringed, Segmented, Shadow, Sheared
+from typography.faces.declaration import Band, Contour, Em, Face, Faces, OrnamentFace, PROFILE, Ratio, Ringed, Segmented, Shadow, Sheared
+lazy import typography.faces.coverage
 lazy from typography.faces.faults import Fault, Ok, Outcome, ran, Reason, stored
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.expectations import encoded, expected
 lazy from typography.shaping.runs import Binary
-lazy from typography.verification.geometry import Breach, clearance, distinct, identity, join_parity, ligature_ink, mark_line, metrics, reachable, seam
+lazy from typography.verification.geometry import Breach, clearance, distinct, identity, join_parity, ligature_area, mark_line, metrics, reachable, seam
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
 # --- [REQUIREMENTS]
 
 
@@ -66,8 +66,8 @@ class MarkLine(_Requirement, frozen=True, kw_only=True):
     tolerance: Em = 0.04
 
 
-class LigatureInk(_Requirement, frozen=True, kw_only=True):
-    """Each ligature holds a ratio of its components' ink and spans that ratio of its advance."""
+class LigatureArea(_Requirement, frozen=True, kw_only=True):
+    """Each ligature holds a ratio of its components' filled area and spans that ratio of its advance."""
 
     ratio: Ratio = 0.5
 
@@ -77,7 +77,7 @@ class JoinParity(_Requirement, frozen=True, kw_only=True):
 
 
 class Seam(_Requirement, frozen=True, kw_only=True):
-    """Seam columns composited glyph by glyph stay inside a band of the merged outline's ink at each pixel size."""
+    """Seam columns composited glyph by glyph stay inside a band of the merged outline's filled area at each pixel size."""
 
     band: tuple[Ratio, Ratio] = (0.87, 1.58)
     sizes: tuple[Annotated[int, msgspec.Meta(ge=1)], ...] = (12, 16, 24, 96)
@@ -99,7 +99,7 @@ class Identity(_Requirement, frozen=True, kw_only=True):
     """Dots and hamzas of each letter form the original draws meet the original's, piece for piece."""
 
 
-type Requirements = Sanitized | Profile | Expectations | Reachable | Coverage | MarkClearance | MarkLine | LigatureInk | JoinParity | Seam | Distinct | Metrics | Identity
+type Requirements = Sanitized | Profile | Expectations | Reachable | Coverage | MarkClearance | MarkLine | LigatureArea | JoinParity | Seam | Distinct | Metrics | Identity
 
 # --- [FINDINGS]
 
@@ -134,6 +134,7 @@ class _Report(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [REQUIREMENTS]
 
 
@@ -158,7 +159,7 @@ def requirements(face: Faces, /) -> tuple[Requirements, ...]:
                 Coverage(),
                 MarkClearance(gap=genre.clearance),
                 MarkLine(),
-                LigatureInk(),
+                LigatureArea(),
                 JoinParity(),
                 *((Seam(),) if drawn else ()),
                 Distinct(),
@@ -169,7 +170,7 @@ def requirements(face: Faces, /) -> tuple[Requirements, ...]:
             return (Sanitized(), Profile(excluded=("opentype/monospace",)), Coverage(), Metrics())
 
 
-def covering(face: Faces, source: Path, /) -> Outcome[Covered]:
+def covering(face: Faces, source: Path, /) -> Outcome[typography.faces.coverage.Coverage]:
     """Returns the code points a built face answers for, a genre's for a text face and the mappings its written UFO states for an ornament face.
 
     Args:
@@ -186,7 +187,7 @@ def covering(face: Faces, source: Path, /) -> Outcome[Covered]:
             return (
                 catch(lambda: UFOReader(source).getGlyphSet().getUnicodes(), exception=UFOLibError)()
                 .map_error(partial(Fault.of, Reason.UNREADABLE, str(source)))
-                .map(lambda mapped: Covered(required=frozenset(*codes for codes in mapped.values()), excluded=(), blocks=frozenset()))
+                .map(lambda mapped: typography.faces.coverage.Coverage(required=frozenset(*codes for codes in mapped.values()), excluded=(), blocks=frozenset()))
             )
 
 
@@ -233,7 +234,7 @@ def _breached(checks: Outcome[tuple[Check, ...]], selected: Callable[[Check], bo
 
 
 def _measured(
-    requirement: Requirements, binary: Binary, /, *, coverage: Covered, original: Binary, corpus: Corpus, path: Path, approved: Path, checks: Outcome[tuple[Check, ...]]
+    requirement: Requirements, binary: Binary, /, *, coverage: typography.faces.coverage.Coverage, original: Binary, corpus: Corpus, path: Path, approved: Path, checks: Outcome[tuple[Check, ...]]
 ) -> tuple[Breach, ...]:
     shaping = "shaping/"
     match requirement:
@@ -254,8 +255,8 @@ def _measured(
             return clearance(binary, corpus, floor)
         case MarkLine(tolerance=tolerance):
             return mark_line(binary, corpus, tolerance)
-        case LigatureInk(ratio=ratio):
-            return ligature_ink(binary, ratio)
+        case LigatureArea(ratio=ratio):
+            return ligature_area(binary, ratio)
         case JoinParity():
             return join_parity(binary, corpus)
         case Seam(band=band, sizes=sizes):
@@ -269,7 +270,16 @@ def _measured(
 
 
 def verified(
-    binary: Binary, requirements: tuple[Requirements, ...], /, *, coverage: Covered, original: Binary, corpus: Corpus, path: Path, approved: Path, checks: Outcome[tuple[Check, ...]]
+    binary: Binary,
+    requirements: tuple[Requirements, ...],
+    /,
+    *,
+    coverage: typography.faces.coverage.Coverage,
+    original: Binary,
+    corpus: Corpus,
+    path: Path,
+    approved: Path,
+    checks: Outcome[tuple[Check, ...]],
 ) -> tuple[Finding, ...]:
     """Measures every requirement of a build independently and accumulates their findings, an empty tuple passing.
 
@@ -318,7 +328,7 @@ __all__ = [
     "Finding",
     "Identity",
     "JoinParity",
-    "LigatureInk",
+    "LigatureArea",
     "MarkClearance",
     "MarkLine",
     "Metrics",

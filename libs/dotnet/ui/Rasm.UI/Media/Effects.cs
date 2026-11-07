@@ -6,17 +6,14 @@ using Wacton.Unicolour;
 namespace Rasm.UI.Media;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 internal delegate SKRuntimeEffect? Compiler(string sksl, out string errors);
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record RuntimeEffect {
-    private const string Clock = "time";
-    private const string Pointer = "pointer";
-    private const string Size = "size";
-    private const string Radii = "corners";
 
-    private static readonly Seq<string> Implicit = [Size, Clock, Radii, Pointer];
-    private static readonly SKPoint Away = new(float.PositiveInfinity, float.PositiveInfinity);
+internal sealed record RuntimeEffect {
+
+    // --- [STATE]
 
     private RuntimeEffect(SKRuntimeEffect program, HashMap<string, ColorValue> colors, HashMap<string, Metric> floats, HashMap<string, Material> children) =>
         (Program, Colors, Floats, Children) = (program, colors, floats, children);
@@ -33,6 +30,9 @@ internal sealed record RuntimeEffect {
     internal bool Pointing => Program.Uniforms.Contains(Pointer, StringComparer.Ordinal) || Children.Values.Exists(static child => child.Pointing);
 
     // --- [VALIDATION]
+
+    private static readonly Seq<string> Implicit = [Size, Clock, Radii, Pointer];
+
     internal static Fin<RuntimeEffect> Validated(Compiler compile, string sksl, HashMap<string, ColorValue> colors, HashMap<string, Metric> floats, HashMap<string, Material> children) =>
         compile(sksl, out string errors) switch {
             null => new UIFault(errors, UIReason.Refused),
@@ -64,6 +64,14 @@ internal sealed record RuntimeEffect {
         }).Run().MapFail(error => new UIFault(toSeq(colors.Keys.Concat(floats.Keys)), UIReason.Refused, Inner: error));
 
     // --- [BINDING]
+
+    private const string Clock = "time";
+    private const string Pointer = "pointer";
+    private const string Size = "size";
+    private const string Radii = "corners";
+
+    private static readonly SKPoint Away = new(float.PositiveInfinity, float.PositiveInfinity);
+
     internal Option<T> Bound<T>(PaintTarget target, SKMatrix local, Func<SKRuntimeEffect, SKRuntimeEffectUniforms, SKRuntimeEffectChildren, T> build) =>
         Colors.AsIterable().ToSeq().Traverse(pair => target.Resolve(pair.Value).Map(color => (pair.Key, color))).As().Bind(colors => {
             using SKRuntimeEffectChildren bound = new(Program);
@@ -147,7 +155,9 @@ internal sealed record PaintTarget(SKColorSpace Space, SKRect Frame, Func<ColorV
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Filter {
-    // --- [CHAIN]
+
+    // --- [CHAINS]
+
     internal static readonly PaintTarget Probe = new(SKColorSpace.CreateSrgb(), SKRect.Create(1f, 1f), static _ => None, static metric => metric.Default, static _ => None);
 
     internal static readonly Func<Seq<Filter>, float> Outset = memo<Seq<Filter>, float>(static filters => Chained(filters, Probe).Map(Reach).IfNone(0f));
@@ -168,6 +178,7 @@ public abstract partial record Filter {
             }) | input);
 
     // --- [REACH]
+
     internal static float Reach(SKImageFilter graph) {
         using SKImageFilter owned = graph;
         using SKPaint probe = new() { ImageFilter = owned };
@@ -176,6 +187,7 @@ public abstract partial record Filter {
     }
 
     // --- [CASES]
+
     public sealed record Css : Filter {
         private Css(FilterFunction function, float amount) => (Function, Amount) = (function, amount);
 
@@ -281,6 +293,7 @@ public sealed record Shadow(ColorValue Color, float Blur) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Blenders {
     public static SKBlender Plus { get; } = SKBlender.CreateBlendMode(SKBlendMode.Plus);
     public static SKBlender PlusDarker { get; } = Built("half4 main(half4 src, half4 dst) { half a = src.a + dst.a - (src.a * dst.a); return half4(max(half3(0.0), a - (dst.a - dst.rgb) - (src.a - src.rgb)), a); }");

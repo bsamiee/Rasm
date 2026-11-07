@@ -64,6 +64,8 @@ class Writing(bpy.types.PropertyGroup):
 class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Strip LUT outputs baked from the active strip's modifiers in its sequencer space."""
 
+    # --- [STATE]
+
     lattices: ClassVar[Ownership[bpy.types.Scene]] = Ownership(kind=bpy.types.Scene, key="lattice", saved=Saved.NEVER, single=False)
     modifiers: ClassVar[Descriptor[bpy.types.CollectionProperty]] = Descriptor[bpy.types.CollectionProperty](
         root=bpy.types.WorkSpace,
@@ -148,6 +150,8 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 return self.sequenced(call, active, space)
             case _:
                 return Error(Fault.of(Reason.ABSENT, repr(self.modifiers.root), member=rna(self.modifiers.owner)))
+
+    # --- [REGISTRATION]
 
     def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns lattice ownership, read stamps, and the strip bake command."""

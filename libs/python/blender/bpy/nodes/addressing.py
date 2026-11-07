@@ -82,6 +82,11 @@ class InterfaceKeys(msgspec.Struct, frozen=True, kw_only=True):
 
         return {key: item for key, entry, _, _ in interface.walked() for item in (resolved.get(key),) if item is not None and matched(entry, item)}
 
+    def retained(self, interface: Interface, /) -> dict[Key, str]:
+        """Live socket identifiers by stored key of the items `kept` matches against `interface`."""
+        kept = self.kept(interface)
+        return {key: identifier for key, identifier in self.sockets.items() if key in kept}
+
     def item[T: bpy.types.NodeTreeInterfaceItem](self, key: Key, kind: type[T], /) -> Outcome[T]:
         """Live item at stored key as `kind`, `absent` fault naming the key otherwise."""
         identifier = self.stored.get(key)

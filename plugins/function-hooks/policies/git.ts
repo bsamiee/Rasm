@@ -1,9 +1,9 @@
 import { Array, Effect, Option, Predicate } from 'effect';
-import type { Host } from '#/host';
-import { removed } from '#/policies/files';
-import { all, type Call, type Fix, folderOf, has, holds, inserted, type Policy, perSubcommand, redirected, refusal, refuse, respell, subject, unresolved, when, whole } from '#/policies/fix';
-import type { Word } from '#/shell/script';
-import type { Site } from '#/shell/site';
+import type { Host } from '#/host.ts';
+import { removed } from '#/policies/files.ts';
+import { all, type Call, type Fix, folderOf, has, holds, inserted, type Policy, perSubcommand, redirected, refusal, refuse, respell, subject, unresolved, when, whole } from '#/policies/fix.ts';
+import type { Word } from '#/shell/script.ts';
+import type { Site } from '#/shell/site.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

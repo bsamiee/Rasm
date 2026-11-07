@@ -1,6 +1,6 @@
 import { Array, Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { type Change, Instance } from '#/decision';
-import { Host } from '#/host';
+import { type Change, Instance } from '#/decision.ts';
+import { Host } from '#/host.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

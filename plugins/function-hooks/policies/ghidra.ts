@@ -1,7 +1,7 @@
 import { Array, Effect, Option } from 'effect';
-import type { Host } from '#/host';
-import { BACKGROUNDED, edited, type Fix, inserted, type Policy, quote, refusal, silent, unassign, when } from '#/policies/fix';
-import type { Site } from '#/shell/site';
+import type { Host } from '#/host.ts';
+import { BACKGROUNDED, edited, type Fix, inserted, type Policy, quote, refusal, silent, unassign, when } from '#/policies/fix.ts';
+import type { Site } from '#/shell/site.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

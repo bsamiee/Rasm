@@ -43,7 +43,7 @@ _VARIATION: Final = Socket(key="variation", kind=bpy.types.NodeSocketFloatFactor
 _CUTOFF_DISTANCE: Final = Socket(key="distance", kind=bpy.types.NodeSocketFloat, description="Ray distance in meters past which samples keep light", min_value=0.0, default_value=1000.0)
 _CUTOFF: Final = InterfacePanel.of("cutoff", Interface(inputs=(_CUTOFF_DISTANCE,)), description="Ray distance past which samples keep light", toggle=Some(False))
 
-# --- [FIELD]
+# --- [FIELDS]
 
 _FIRE: Final = Perlin(texture=textures.Noise(noise_dimensions="4D", scale=2.5, detail=4.0, distortion=1.0), stretch=2.0, cut=textures.MapRange(from_min=0.17))
 _GLOW: Final = Emission(spectrum=Incandescence(cool=800.0), intensity=0.0)

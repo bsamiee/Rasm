@@ -16,8 +16,11 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.PlugIns;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class PlugInBody {
+
     // --- [STATE]
+
     private readonly PlugInDefinition definition;
     private readonly ViewCatalog catalog;
 
@@ -28,6 +31,7 @@ internal sealed class PlugInBody {
     }
 
     // --- [IDENTITY]
+
     public PlugInLoadTime LoadTime =>
         definition.LoadTime.IfNone(() =>
             definition.Modes.IsSome || !definition.Themes.IsEmpty ? PlugInLoadTime.AtStartup
@@ -36,6 +40,7 @@ internal sealed class PlugInBody {
             : PlugInLoadTime.WhenNeeded);
 
     // --- [LIFECYCLE]
+
     public LoadReturnCode Load(Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense, ref string errorMessage) {
         (LoadReturnCode code, errorMessage) = Session.RunSafe(
                 Loading(getLicense).Scoped().Map(static _ => (LoadReturnCode.Success, ""))
@@ -70,9 +75,11 @@ internal sealed class PlugInBody {
             select unit)));
 
     // --- [HELP]
+
     public bool DisplayHelp() => Session.Run(definition.Help.Map(static topic => topic.Show.Map(value: true)).IfNone(IO.pure(value: false)), failed: false);
 
-    // --- [ARCHIVE]
+    // --- [ARCHIVES]
+
     public bool ShouldCallWriteDocument(FileWriteOptions options) =>
         Session.Run(DocumentArchive.ShouldWrite(definition.Frames, options), failed: false);
 
@@ -84,8 +91,11 @@ internal sealed class PlugInBody {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public static class AssemblyLoading {
+
     // --- [INITIALIZATION]
+
     public static readonly Unit Initialized = Initialize(typeof(AssemblyLoading).Assembly);
 
     private static Unit Initialize(Assembly copy) {
@@ -99,6 +109,7 @@ public static class AssemblyLoading {
     }
 
     // --- [NATIVE_LIBRARIES]
+
     private static nint Library(string frameworks, string name) {
         string path = Path.Join(frameworks, $"lib{name}.dylib");
         using RiskyAction risky = new(path);

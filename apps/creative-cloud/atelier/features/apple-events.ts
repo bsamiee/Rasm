@@ -1,12 +1,10 @@
-import { Execute, Terms } from '@rasm/applications/contract';
+import { Execute, Terms } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
-import { Content } from '@rasm/mcp/content';
-import { Resource } from '@rasm/mcp/resource';
-import { Route } from '@rasm/mcp/route';
+import { Content, Resource, Route } from '@rasm/mcp';
 import { Array, Effect, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
-import { Adobe } from '#/adobe';
-import type { routes } from '#/routes';
+import { Adobe } from '#/adobe.ts';
+import type { routes } from '#/routes.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

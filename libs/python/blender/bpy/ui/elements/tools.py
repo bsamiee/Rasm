@@ -66,6 +66,8 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
     `group` opens a flyout group led by the first tool, and `separator` draws a separator before the entry.
     """
 
+    # --- [STATE]
+
     space: "rna_enums.SpaceTypeItems"
     tools: tuple[Tool[S], *tuple[Tool[S], ...]]
     mode: Option[str] = Nothing

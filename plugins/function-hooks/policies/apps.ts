@@ -1,10 +1,10 @@
 import { constants } from 'node:os';
 import { Array, Effect, Option, Predicate, Schema } from 'effect';
-import { WATCHER } from '#/instances';
-import { type Call, type Fix, has, type Policy, quote, refusal, refuse, stages, when, whole, within } from '#/policies/fix';
-import type { Program } from '#/shell/programs';
-import type { Word } from '#/shell/script';
-import { Shell } from '#/shell/site';
+import { WATCHER } from '#/instances.ts';
+import { type Call, type Fix, has, type Policy, quote, refusal, refuse, stages, when, whole, within } from '#/policies/fix.ts';
+import type { Program } from '#/shell/programs.ts';
+import type { Word } from '#/shell/script.ts';
+import { Shell } from '#/shell/site.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ const appBundles = ({ text }: Word, cwd: Option.Option<string>, identifying: boo
 const headlessPath = ([bundle, ...others]: readonly string[], [info]: readonly (typeof BundleInfo.Type)[], rest: readonly Word[], programs: ReadonlyMap<string, Program>): Option.Option<string> =>
     bundle !== undefined && others.length === 0 && info !== undefined && !new Set(rest.map(({ text }) => text)).isDisjointFrom(new Set(programs.get(info.CFBundleExecutable)?.headless)) ? Option.some(quote(`${bundle}/Contents/MacOS/${info.CFBundleExecutable}`)) : Option.none();
 
-// --- [OPEN]
+// --- [LAUNCHES]
 
 const launched = (named: readonly string[], waits: readonly string[], allowed: readonly string[]): Fix =>
     Effect.fnUntraced(function* (site, call) {

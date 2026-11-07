@@ -19,8 +19,6 @@ use crate::{Alphabet, Constraint, IfcError, bind};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-// --- [IDENTIFIERS]
-
 impl_typed_uuid_kinds! {
     kinds = {
         Topic = {},

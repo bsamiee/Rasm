@@ -32,7 +32,7 @@ from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outco
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# --- [TRANSFORM]
+# --- [TRANSFORMS]
 
 _TRAVEL: Final = Socket(key="travel", kind=bpy.types.NodeSocketVector2D, description="Translation across exposure", default_value=(0.0, 0.0))
 _TURN: Final = Socket(key="turn", kind=bpy.types.NodeSocketFloatAngle, description="Turn across exposure")
@@ -213,8 +213,6 @@ class Projection(CompositorRecord, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [POSES]
 
 
 def _pin_quad(values: Mapping[Key, Value]) -> Outcome[Option[Quad]]:

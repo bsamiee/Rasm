@@ -1,11 +1,11 @@
-import { basename, join } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import { Config, Effect, FileSystem, Schema } from 'effect';
 import type { HttpRouter } from 'effect/http';
 import type { NetAddress } from 'effect/net';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { mergeConfig, type UserConfig } from 'vite';
-import { Peer } from '#/peer';
-import { Version } from '#/requests';
+import { mergeConfig, searchForWorkspaceRoot, type UserConfig } from 'vite';
+import { Peer } from '#/peer.ts';
+import { Version } from '#/requests.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -37,7 +37,10 @@ const dialed = Effect.fnUntraced(function* ({ path, redial, listen }: Link) {
     const dialing: ImportMetaEnv['LINK'] = { endpoint: `${origin}${path}`, redial };
     return { origin, define: { 'import.meta.env.LINK': yield* Effect.orDie(Schema.encodeEffect(Defined)(dialing)) } };
 });
-const bundle = (config: UserConfig): UserConfig => mergeConfig({ build: { emptyOutDir: false, rolldownOptions: { experimental: { lazyBarrel: true }, output: { codeSplitting: false } } } }, config);
+const bundle = (directory: string, config: UserConfig): UserConfig => {
+    const root = searchForWorkspaceRoot(directory);
+    return mergeConfig({ build: { outDir: join(root, '.artifacts', relative(root, directory)), emptyOutDir: false, rolldownOptions: { experimental: { lazyBarrel: true }, output: { codeSplitting: false } } } }, config);
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

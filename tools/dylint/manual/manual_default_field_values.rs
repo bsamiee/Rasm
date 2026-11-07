@@ -30,6 +30,8 @@ use crate::{associated_trait, expanded_externally, impl_owner};
 
 lint!(MANUAL_DEFAULT_FIELD_VALUES: "hand-written `Default` impls building each field of a local struct from a constant, directly or through a constructor");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_fn(&mut self, cx: &LateContext<'tcx>, _: FnKind<'tcx>, _: &'tcx FnDecl<'tcx>, body: &'tcx Body<'tcx>, span: Span, function: LocalDefId) {
         if let Some(implementation) = cx.tcx.trait_impl_of_assoc(function.to_def_id())

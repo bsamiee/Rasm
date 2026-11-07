@@ -46,6 +46,8 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
     `keywords` are `template_list` parameters, `sort_lock` held while the list drags and `rows` left to the host beside its entry buttons.
     """
 
+    # --- [STATE]
+
     key: Key
     collection: Member
     active: Option[Member] = Nothing
@@ -92,33 +94,7 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
 
         return self._resolved(identity).bind(lambda parts: parts[2].resolved(bpy.types.IntProperty).map(lambda selection: partial(pick, parts[0], selection)))
 
-    # --- [ROW]
-
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
-        """Acquires the attachment, own selection index, drag operator, list class, and row context menu."""
-
-        def drag_item(_call: Call[Empty]) -> Outcome[Answer]:
-            """Drags the active item by list rows, Escape restoring its row."""
-            return Ok(Done())
-
-        def built(name: str, collection: ResolvedMember[bpy.types.CollectionProperty], active: Option[ResolvedMember], selection: Member[type[Struct]]) -> Acquisitions:
-            pointer = active.filter(lambda bound: not isinstance(bound.descriptor.prop, bpy.types.IntProperty))
-            index = pointer.map(
-                lambda bound: declared(bpy.props.IntProperty(options={"HIDDEN", "SKIP_SAVE"}), Callbacks(get=partial(_selected, collection, bound), set=partial(_written, collection, bound)))
-            ).or_else_with(lambda: Some(bpy.props.IntProperty(options={"HIDDEN"})).filter(lambda _: active.is_none()))
-            dragging = _dragging(self.move, collection)
-            begin = partial(_began, self.where, name, collection.descriptor.prop.identifier, str(selection.path[-1]))
-            modal = Modal(gesture=Gesture.DRAG_Y, begin=begin, preview=partial(_previewed, self.move), restore=partial(_restored, self.move))
-            return (
-                *self.attachment.to_list(),
-                *acquired(self.children),
-                *((Tier.ATTACHMENTS, pointed(selection.root, rna(selection.path), prop)) for prop in index.to_list()),
-                *((Operator[Empty](form=Empty, run=drag_item, invoke=Some(modal), options=frozenset({"INTERNAL", "UNDO"}), named=Some(self._drag_key)),) if dragging else ()),
-                (Tier.INTERFACE, Classes(build=partial(self._classes, identity, name, collection, pointer, dragging=dragging))),
-                *(((Tier.APPENDS, self._menu(identity, name)),) if self.menu else ()),
-            )
-
-        return self._resolved(identity).map(lambda parts: built(identity.name(bpy.types.UIList, self.key), *parts))
+    # --- [DRAWING]
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the list with its entry buttons and side column, absent rows while no owner holds the collection."""
@@ -187,6 +163,32 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
         return paired(self.collection.located(identity), pointing).bind(lambda pair: resolved(*pair))
 
     # --- [REGISTRATION]
+
+    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
+        """Acquires the attachment, own selection index, drag operator, list class, and row context menu."""
+
+        def drag_item(_call: Call[Empty]) -> Outcome[Answer]:
+            """Drags the active item by list rows, Escape restoring its row."""
+            return Ok(Done())
+
+        def built(name: str, collection: ResolvedMember[bpy.types.CollectionProperty], active: Option[ResolvedMember], selection: Member[type[Struct]]) -> Acquisitions:
+            pointer = active.filter(lambda bound: not isinstance(bound.descriptor.prop, bpy.types.IntProperty))
+            index = pointer.map(
+                lambda bound: declared(bpy.props.IntProperty(options={"HIDDEN", "SKIP_SAVE"}), Callbacks(get=partial(_selected, collection, bound), set=partial(_written, collection, bound)))
+            ).or_else_with(lambda: Some(bpy.props.IntProperty(options={"HIDDEN"})).filter(lambda _: active.is_none()))
+            dragging = _dragging(self.move, collection)
+            begin = partial(_began, self.where, name, collection.descriptor.prop.identifier, str(selection.path[-1]))
+            modal = Modal(gesture=Gesture.DRAG_Y, begin=begin, preview=partial(_previewed, self.move), restore=partial(_restored, self.move))
+            return (
+                *self.attachment.to_list(),
+                *acquired(self.children),
+                *((Tier.ATTACHMENTS, pointed(selection.root, rna(selection.path), prop)) for prop in index.to_list()),
+                *((Operator[Empty](form=Empty, run=drag_item, invoke=Some(modal), options=frozenset({"INTERNAL", "UNDO"}), named=Some(self._drag_key)),) if dragging else ()),
+                (Tier.INTERFACE, Classes(build=partial(self._classes, identity, name, collection, pointer, dragging=dragging))),
+                *(((Tier.APPENDS, self._menu(identity, name)),) if self.menu else ()),
+            )
+
+        return self._resolved(identity).map(lambda parts: built(identity.name(bpy.types.UIList, self.key), *parts))
 
     def _classes(
         self, identity: Identity, name: str, collection: ResolvedMember[bpy.types.CollectionProperty], pointer: Option[ResolvedMember], *, dragging: bool
@@ -369,7 +371,7 @@ def _grouped[T: bpy.types.PropertyGroup](attached: Attached[T], draw: RowDraw, l
     draw(layout, getattr(holder, attached.name), context)
 
 
-# --- [DRAG]
+# --- [DRAGS]
 
 
 def _active(name: str, /) -> str:

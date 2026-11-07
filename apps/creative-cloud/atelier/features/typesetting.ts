@@ -1,16 +1,16 @@
 import { Kerns, type Runs, Typeset } from '@rasm/indesign';
-import { progress, Route, registerTool } from '@rasm/mcp';
+import { Route, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Settings } from '@rasm/typography';
 import { Quran } from '@rasm/typography/quran';
 import { Face, Kerning, Symbols, Word } from '@rasm/typography/shaping';
 import { Array, Cause, Effect, Equal, FileSystem, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
-import { AbsolutePath } from '#/absolute-path';
-import { Adobe } from '#/adobe';
-import { AvailableFace } from '#/available-face';
-import { applicationFont } from '#/features/fonts';
-import type { routes } from '#/routes';
+import { AbsolutePath } from '#/absolute-path.ts';
+import { Adobe } from '#/adobe.ts';
+import { AvailableFace } from '#/available-face.ts';
+import { applicationFont } from '#/features/fonts.ts';
+import type { routes } from '#/routes.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -112,7 +112,7 @@ const kerned = Effect.fnUntraced(function* (client: Client, { target, rules, mod
     );
     const kerns = yield* Stream.fromIterable(ordered).pipe(
         Stream.map(({ span, face }) => ({ font: span.font, kerns: rules.kerns(face, span.text).map(Struct.evolve({ index: Number.sum(span.start) })) })),
-        progress(({ font }, at) => ({ progress: at + 1, total: ordered.length, message: font })),
+        Server.progress(({ font }, at) => ({ progress: at + 1, total: ordered.length, message: font })),
         Stream.runCollect,
     );
     return yield* client('kerns', { target: found.specifier, restore, kerns: kerns.flatMap(Struct.get('kerns')) });
@@ -137,14 +137,14 @@ const typesetting = Effect.fnUntraced(function* ({ serving }: Effect.Success<Ret
     });
     yield* Route(serving('kerns'))(KerningTool, (parameters, { client }) => kerned(client, parameters));
     yield* Route(serving('typeset'))(TypesetTool, (parameters, { client }) => typeset(client, parameters));
-    yield* registerTool(
+    yield* Server.registerTool(
         QuranTool,
         Effect.fnUntraced(function* ({ source, selection, face: name, numberingSystem, separator }) {
             const [quran, face] = yield* Effect.all([read(source), faceOf(name)]);
             return { text: yield* quran.text(selection, separator, face, Settings.make({ numberingSystem })) };
         }),
     );
-    yield* registerTool(
+    yield* Server.registerTool(
         SymbolsTool,
         Effect.fnUntraced(function* ({ file, face: name }) {
             const [symbols, face] = yield* Effect.all([Effect.flatMap(files.readFileString(file), Symbols.decode), faceOf(name)]);

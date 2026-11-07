@@ -4,6 +4,7 @@ using Rhino.Geometry.Collections;
 namespace Rasm.Rhino.Modeling.Surfaces;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class SurfaceDirection {
     public static readonly SurfaceDirection U = new(0, static surface => surface.KnotsU, static (surface, degree) => surface.IncreaseDegreeU(degree));
@@ -61,8 +62,11 @@ public sealed partial class HermiteGrid {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SurfaceConstruction {
+
     // --- [FROM_POINTS]
+
     public static IO<NurbsSurface> FromPoints(PointGrid grid, int uDegree, int vDegree, PointSurface method) =>
         method.Switch(
             (Grid: grid, U: uDegree, V: vDegree),
@@ -70,6 +74,7 @@ public static class SurfaceConstruction {
             controlPoints: static (at, _) => Products.Of(() => NurbsSurface.CreateFromPoints(at.Grid.Points, at.Grid.UCount, at.Grid.VCount, at.U, at.V)));
 
     // --- [HERMITE]
+
     public static IO<NurbsSurface> Hermite(HermiteGrid grid) =>
         from hermite in Products.Of(() => new HermiteSurface(grid.U.Values.Count, grid.V.Values.Count))
         from filled in IO.lift(() => Filled(hermite, grid))
@@ -89,7 +94,8 @@ public static class SurfaceConstruction {
         return unit;
     }
 
-    // --- [REFIT]
+    // --- [REFITTING]
+
     public static IO<(NurbsSurface A, NurbsSurface B)> MakeCompatible(Surface a, Surface b) =>
         from answered in IO.lift(() => (Accepted: NurbsSurface.MakeCompatible(a, b, out NurbsSurface first, out NurbsSurface second), First: first, Second: second))
         from first in Products.Maybe(() => answered.First, nameof(NurbsSurface.MakeCompatible))
@@ -100,6 +106,7 @@ public static class SurfaceConstruction {
         select compatible;
 
     // --- [REVOLUTION]
+
     public static IO<RevSurface> Hyperboloid(Plane frame, double waist, double axial, Interval span) =>
         Products.Of(() => RevSurface.Create(
             new Line(frame.PointAt(waist, waist * span.T0, axial * span.T0), frame.PointAt(waist, waist * span.T1, axial * span.T1)),

@@ -9,10 +9,12 @@ Covers functional TypeScript on Effect modules, with a native construct where no
 
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
-- Packages and hosts are used directly through what they provide
-- Every type, export, and helper inside and outside each module states something nothing else does
+- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
+- Every type, export, and helper states something nothing else does, a helper with one reader, forwarder, or alias merges into its owner
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
-- Names come from domain vocabulary and members of packages in use, a file takes its concept's name
+- Error cases exist where a caller branches on them, every other failure joins its owner's error
+- Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
+- Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
 - Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:
@@ -292,7 +294,6 @@ Packages are libraries, which export values and choose no runtime, or programs, 
 - Project `dependencies` rows and `imports` entries name what the project's own files import, a package a builder or dependency loads staying out
 - JSON fixed at build (a repository or dependency manifest) imports `with { type: 'json' }`, a read and decode standing for files changing after build
 - Modules loaded by name are a table of `() => import('<path>')` thunks typed by the import, a schema over the loaded module restating it
-- Wrappers, forwarders, and aliases merge into the declaration they pass through, an entry's re-exports being the one forward
 - Modules export named declarations, a default export stands where a host loads one
 - Members only their owner reads stay module-private, a published one letting a consumer change the owner's state
 - Types, schemas, and operations of one concept share one name under one `export { X }`, a `thing`, `ThingView`, or `thingFor` beside it restating them

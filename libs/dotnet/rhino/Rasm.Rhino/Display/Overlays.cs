@@ -4,10 +4,13 @@ using Rhino.Display;
 namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Overlay(BoundingBox Bounds, Action<DisplayPipeline> Draw);
 
 public sealed record RenderState(Action<DisplayPipeline, Action<DisplayPipeline>> Draw) {
+
     // --- [STATES]
+
     public static RenderState DepthTest(bool enabled) => Pushed(pipeline => pipeline.PushDepthTesting(enabled), static pipeline => pipeline.PopDepthTesting());
 
     public static RenderState DepthWrite(bool enabled) => Pushed(pipeline => pipeline.PushDepthWriting(enabled), static pipeline => pipeline.PopDepthWriting());
@@ -43,7 +46,8 @@ public sealed record RenderState(Action<DisplayPipeline, Action<DisplayPipeline>
             }
         });
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     public Action<DisplayPipeline> Around(Action<DisplayPipeline> draw) => pipeline => Draw(pipeline, draw);
 
     public static Action<DisplayPipeline> Around(Seq<RenderState> states, Action<DisplayPipeline> draw) =>
@@ -72,8 +76,8 @@ public sealed record RenderState(Action<DisplayPipeline, Action<DisplayPipeline>
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Overlays {
-    // --- [RETAINED]
     public static IO<Unit> Show(Atom<Seq<Overlay>> overlays, Func<Action<DrawEventArgs>, ConduitChannel> stage, ConduitBinding binding, RedrawPolicy redraw) =>
         from enabled in Conduits.Enable(
             new ConduitDefinition(Seq(

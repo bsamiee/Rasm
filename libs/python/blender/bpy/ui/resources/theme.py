@@ -49,11 +49,13 @@ class Checker(msgspec.Struct, frozen=True, kw_only=True):
 class Metrics(msgspec.Struct, frozen=True, kw_only=True):
     """Interface scale and pixel size with Blender's derived sizes."""
 
+    # --- [STATE]
+
     scale: float
     pixel_size: int
     preferences: bpy.types.Preferences
 
-    # --- [READING]
+    # --- [READS]
 
     @classmethod
     def read(cls) -> Self:
@@ -62,7 +64,7 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
         display = preferences.system.ui_scale
         return cls(scale=display if display > 0.0 else preferences.view.ui_scale, pixel_size=int(preferences.system.pixel_size), preferences=preferences)
 
-    # --- [SIZING]
+    # --- [SIZES]
 
     def scaled(self, value: float) -> np.float32:
         """Multiplies by interface scale in float32."""
@@ -101,7 +103,7 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
         """Returns device-pixel line width."""
         return max(1.0, float(np.float32(width) * self.pixel_size))
 
-    # --- [STYLING]
+    # --- [STYLES]
 
     def font(self, style: bpy.types.ThemeFontStyle, factor: float = 1.0) -> float:
         """Returns a theme font style's size times `factor` in device pixels."""
@@ -116,11 +118,13 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
 class Theme(msgspec.Struct, frozen=True, kw_only=True):
     """Theme colors of one editor region."""
 
+    # --- [STATE]
+
     space: "rna_enums.SpaceTypeItems"
     region: "rna_enums.RegionTypeItems"
     preferences: bpy.types.Preferences
 
-    # --- [READING]
+    # --- [READS]
 
     @property
     def editor(self) -> bpy.types.ThemeSpaceGeneric | bpy.types.ThemeSpaceGradient:

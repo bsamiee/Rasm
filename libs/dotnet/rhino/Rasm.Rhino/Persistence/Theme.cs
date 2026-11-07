@@ -14,6 +14,7 @@ using Wacton.Unicolour;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class Zone {
     public static readonly Zone Frame = new(static () => ThemeSettings.Frame);
@@ -73,7 +74,9 @@ public abstract partial record ColorModifier {
 }
 
 public sealed record RhinoTheme(string Name) {
-    // --- [DECLARATION]
+
+    // --- [DECLARATIONS]
+
     public Func<ThemeKey, Option<ColorBinding>> Colors { get; init; } = static _ => None;
 
     public Seq<IO<IO<Unit>>> Overrides { get; init; }
@@ -84,7 +87,8 @@ public sealed record RhinoTheme(string Name) {
     public static Preference<string> Current { get; } =
         Preferences.Of(IO.lift(static () => Stored).Bind(static stored => stored.Read), static name => IO.lift(static () => Stored).Bind(stored => stored.Write(name)));
 
-    // --- [APPLY]
+    // --- [APPLICATION]
+
     public IO<IO<Unit>> Apply =>
         from restore in Preferences.Swap(Seq(Colored.Map(static colored => colored.Restore)) + Overrides + Seq(Current.Swap(Name)))
         from flushed in Flush
@@ -168,6 +172,7 @@ public sealed record RhinoTheme(string Name) {
         };
 
     // --- [PALETTE]
+
     private const double ContrastAccuracy = 1e-4;
     private const int ContrastIterations = 64;
 
@@ -236,6 +241,7 @@ public sealed record RhinoTheme(string Name) {
     }
 
     // --- [MODIFIERS]
+
     private static Fin<Unicolour> Modified(Unicolour color, ColorModifier modifier, Func<ThemeKey, Fin<Unicolour>> value) =>
         modifier.Switch(
             (Color: color, Value: value),
@@ -267,6 +273,7 @@ public sealed record RhinoTheme(string Name) {
         };
 
     // --- [SIGNALS]
+
     private static readonly HostEvent<Unit> ThemeChanged =
         Subscriptions.On<EventHandler, EventArgs>(static h => ThemeSettings.ThemeChanged += h, static h => ThemeSettings.ThemeChanged -= h, static handler => handler.Invoke).Choose(static _ => Some(unit));
 
@@ -274,6 +281,7 @@ public sealed record RhinoTheme(string Name) {
         Subscriptions.Merged(ThemeChanged, Preferences.AppSettingsChanged).Attach(_ => Running.Bind(react));
 
     // --- [DERIVATION]
+
     public static Func<ThemeKey, Option<ColorBinding>> Tinted(Unicolour neutral, Unicolour accent) =>
         key => key is ThemeKey.Entry ? Some<ColorBinding>(new ColorBinding.Inherit(key, [new ColorModifier.Tint(neutral, accent)])) : None;
 }

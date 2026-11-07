@@ -306,8 +306,6 @@ async fn main() {
 }
 
 mod parameter_patterns {
-    // --- [OPERATIONS] ------------------------------------------------------------------
-
     pub(super) const fn first((value, _): (u8, u8)) -> u8 { value }
 
     pub(super) const fn last((_, value): (u8, u8)) -> u8 { value }
@@ -318,8 +316,6 @@ mod parameter_patterns {
 }
 
 mod typed_closures {
-    // --- [OPERATIONS] ------------------------------------------------------------------
-
     pub(super) fn byte_input() -> Option<u32> { (|value: u8| value.checked_add(1).map(u32::from))(255) }
 
     pub(super) fn word_input() -> Option<u32> { (|value: u16| value.checked_add(1).map(u32::from))(255) }
@@ -330,7 +326,8 @@ mod typed_closures {
 }
 
 mod trait_methods {
-    // --- [TYPES] -----------------------------------------------------------------------
+
+    // --- [TYPES]
 
     trait First {
         fn value(&self) -> u32 { 1 }
@@ -340,19 +337,17 @@ mod trait_methods {
         fn value(&self) -> u32 { 2 }
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     impl First for u8 {}
     impl First for u16 {}
     impl Last for u8 {}
     impl Last for u16 {}
 
-    // --- [COMPOSITION] -----------------------------------------------------------------
+    // --- [COMPOSITION]
 
     pub(super) mod first {
         use super::First;
-
-        // --- [OPERATIONS] --------------------------------------------------------------
 
         pub(crate) fn value(value: &u8) -> u32 { value.value() }
     }
@@ -360,15 +355,11 @@ mod trait_methods {
     pub(super) mod last {
         use super::Last;
 
-        // --- [OPERATIONS] --------------------------------------------------------------
-
         pub(crate) fn value(value: &u8) -> u32 { value.value() }
     }
 }
 
 mod contracts {
-    // --- [OPERATIONS] ------------------------------------------------------------------
-
     pub(super) fn runtime(value: u32) -> u32 { value }
 
     pub(super) const fn constant(value: u32) -> u32 { value }
@@ -397,8 +388,6 @@ mod contracts {
 mod parameter_drops {
     use core::{cell::RefCell, mem::DropGuard};
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
-
     pub(super) fn values() -> Vec<&'static str> {
         struct Fields<T> {
             first: T,
@@ -426,8 +415,6 @@ mod parameter_drops {
 
 mod stateful_binary {
     use core::cell::Cell;
-
-    // --- [OPERATIONS] ------------------------------------------------------------------
 
     pub(super) fn ordered(state: &Cell<u8>, left: u8, right: u8) -> bool { state.replace(left) == state.replace(right) }
 
@@ -465,7 +452,7 @@ mod default_relocation {
 
     use super::{Circle, Square};
 
-    // --- [TYPES] -----------------------------------------------------------------------
+    // --- [TYPES]
 
     trait Counted {
         fn count(values: &[u8]) -> usize;
@@ -499,13 +486,13 @@ mod default_relocation {
         fn into_display(self: Box<Self>) -> Box<dyn Display>;
     }
 
-    // --- [MODELS] ----------------------------------------------------------------------
+    // --- [MODELS]
 
     struct SendBound<T: Send + ?Sized>(Box<T>);
 
     struct LifetimeBound<'a, T: ?Sized + 'a>(&'a T);
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     impl Counted for Square {
         fn count(values: &[u8]) -> usize { values.len() }

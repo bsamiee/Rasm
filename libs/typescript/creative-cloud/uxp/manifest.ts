@@ -5,7 +5,7 @@ import { Record, Schema, Struct } from 'effect';
 
 const VERSION = { current: 5, addon: 6 } as const;
 const THEMES = { lightest: 'light', light: 'light', medium: 'dark', dark: 'dark', darkest: 'dark' } as const;
-const INKS = Record.map({ light: { color: '#000000', opacity: 0.8 }, dark: { color: '#FFFFFF', opacity: 0.8 } } as const, (ink, name) => ({ ...ink, theme: Struct.keys(THEMES).filter((theme) => THEMES[theme] === name) }));
+const FILLS = Record.map({ light: { color: '#000000', opacity: 0.8 }, dark: { color: '#FFFFFF', opacity: 0.8 } } as const, (fill, name) => ({ ...fill, theme: Struct.keys(THEMES).filter((theme) => THEMES[theme] === name) }));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -78,7 +78,7 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     static readonly version = VERSION;
     static readonly Theme = Schema.Literals(Struct.keys(THEMES));
     static readonly themes = THEMES;
-    static readonly inks = INKS;
+    static readonly fills = FILLS;
     static readonly json = Schema.fromJsonString(UxpManifest);
     static readonly file = 'manifest.json';
     static readonly target = 'es2022';

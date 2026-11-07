@@ -11,7 +11,7 @@ type RequestFailure = Atom.Failure<typeof saveRequest>['error'] | Atom.Failure<t
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { error: E; conflict?: string; onField?: (path: readonly PropertyKey[]) => void } & ([Extract<E, { readonly _tag: 'Conflict' }>] extends [never] ? unknown : { conflict: string })) => (
-    <div className="border-accent-text bg-surface border-l-3 p-4 text-sm" role="alert">
+    <div className="border-accent-text bg-background-muted border-l-3 p-4 text-sm" role="alert">
         {Match.value<RequestFailure>(error).pipe(
             Match.tag('SchemaError', ({ issue }) => (
                 <>

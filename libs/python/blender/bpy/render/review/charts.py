@@ -82,6 +82,8 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
     Patch fills and reference edges pass through the selected OCIO viewing pipeline. Calibration samples remain explicit pre-effects measurements.
     """
 
+    # --- [STATE]
+
     charts: ClassVar[Attachment[ChartImage]] = Attachment(key="chart", form=ChartImage, owner=bpy.types.Image)
     placed: ClassVar[Stored[PlacedChart]] = Stored(name="placed", decoder=msgspec.msgpack.Decoder(PlacedChart))
     views: ClassVar[Ownership[bpy.types.Image]] = Ownership(kind=bpy.types.Image, key="chart_view", saved=Saved.USED)

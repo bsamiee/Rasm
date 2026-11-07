@@ -48,7 +48,7 @@ const Overview = ({ title, compositions, selected, onSelect }: { title: string; 
                                     >
                                         {compositions.map((composition, slide) => (
                                             <GridListItem
-                                                className="group hover:bg-surface focus-visible:outline-accent-text selected:border-accent-text cursor-pointer border border-transparent p-2 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2"
+                                                className="group hover:bg-background-muted focus-visible:outline-accent-text selected:border-accent-text cursor-pointer border border-transparent p-2 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2"
                                                 id={slide}
                                                 key={composition.id}
                                                 textValue={compositionLabel(composition)}

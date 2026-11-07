@@ -1,5 +1,5 @@
 import toml from '@tree-sitter-grammars/tree-sitter-toml/grammar.js';
-import { after, any, chain, drop, extend, located, replace, rewrite, string } from '#/tools/ast-grep/grammars/derive.js';
+import { after, any, chain, drop, extend, located, replace, rewrite, string } from '#/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -253,13 +253,13 @@ Entry-point modules hold one `App`, one registration by import path per command 
 """Run host executables in prepared folders."""
 
 from pathlib import Path
-lazy import sys
+import sys
 
 from cyclopts import App, Parameter, config
 lazy from expression import Result
 lazy import msgspec
 
-lazy from .faults import EXITS, Outcome
+lazy from hosts.faults import EXITS, Outcome
 
 
 def exited(result: Outcome[object] | None, /) -> int:

@@ -249,9 +249,9 @@ const serve = <E, F>({
     commands = {},
     panels = {},
 }: {
-    readonly link?: (extension: string) => Layer.Layer<never, E, Uxp | UxpPlugin | Path.Path>;
-    readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | UxpPlugin>>;
-    readonly panels?: Record.ReadonlyRecord<string, (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp | UxpPlugin>) => void) => Effect.Effect<void, F, Scope.Scope | Uxp | UxpPlugin>>;
+    readonly link?: (extension: string) => Layer.Layer<never, E, Uxp | Plugin | Path.Path>;
+    readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
+    readonly panels?: Record.ReadonlyRecord<string, (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp | Plugin>) => void) => Effect.Effect<void, F, Scope.Scope | Uxp | Plugin>>;
 }): void => {
     const hosted = Uxp.layer({ uxp, fs });
     const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
@@ -261,8 +261,8 @@ const serve = <E, F>({
             Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints),
         ]);
         const linked = link === undefined ? Layer.empty : Layer.launch(link(decoded.id)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
-        const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(UxpPlugin)(decoded)), Layer.provideMerge(hosted)));
-        const run = <X>(effect: Effect.Effect<unknown, X, Uxp | UxpPlugin>): Promise<void> => runtime.runPromise(Effect.asVoid(reported(effect)));
+        const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(Plugin)(decoded)), Layer.provideMerge(hosted)));
+        const run = <X>(effect: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(reported(effect)));
         const [handled, shown] = yield* Effect.all([
             Effect.all(
                 Record.map(
@@ -292,7 +292,7 @@ const serve = <E, F>({
 };
 ```
 
-`Uxp` is the service holding `uxp` and `fs`, `Uxp.layer` merges it with the host `Clock` layer, `Logger.LogToStderr` set `true`, and Effect's `Path.layer`: hosts record `console.error` at error level in their log file where Effect's default logger writes `console.log`, and an entry's top-level `runFork` or `runSyncExit` logs under the same reference by providing the layer outside its `tapCause`. `Plugin` holds the manifest `Manifest.json` decodes from the plugin folder, and a failed read fails `PlatformError` as Effect's `FileSystem.readFileString` does. `link` takes the manifest `id` as its extension, and its launch forks inside the runtime's layer, where a failed or dropped link logs while commands and panels run. `Layer.provideMerge` keeps the host `Clock` in runtime context, where `runPromise` otherwise reads Effect's default clock. One `Effect.all` under `runtime.scope` allocates each command's `FiberHandle` and each panel's `ScopedRef`. Reruns interrupt the running command, and `cancel` clears it. `@adobe-uxp-types/uxp` declares `cancel` for future use. Panels receive `fork`, a `FiberSet.makeRuntime` runner in the shown scope for synchronous host callbacks that logs each run's failure once and ignores it. `show` replaces the shown scope and `hide` closes it, interrupting every fork, and `dispose` closes every scope the layers opened, where `Effect.forkDetach` fibers outlive it. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, its throw logs as a defect, and `runFork` calls it before `main` returns.
+`Uxp` is the service holding `uxp` and `fs`, `Uxp.layer` merges it with the host `Clock` layer, `Logger.LogToStderr` set `true`, and Effect's `Path.layer`: hosts record `console.error` at error level in their log file where Effect's default logger writes `console.log`, and an entry's top-level `runFork` or `runSyncExit` logs under the same reference by providing the layer outside its `tapCause`. `Plugin` holds the manifest `UxpManifest.json` decodes from the plugin folder, and a failed read fails `PlatformError` as Effect's `FileSystem.readFileString` does. `link` takes the manifest `id` as its extension, and its launch forks inside the runtime's layer, where a failed or dropped link logs while commands and panels run. `Layer.provideMerge` keeps the host `Clock` in runtime context, where `runPromise` otherwise reads Effect's default clock. One `Effect.all` under `runtime.scope` allocates each command's `FiberHandle` and each panel's `ScopedRef`. Reruns interrupt the running command, and `cancel` clears it. `@adobe-uxp-types/uxp` declares `cancel` for future use. Panels receive `fork`, a `FiberSet.makeRuntime` runner in the shown scope for synchronous host callbacks that logs each run's failure once and ignores it. `show` replaces the shown scope and `hide` closes it, interrupting every fork, and `dispose` closes every scope the layers opened, where `Effect.forkDetach` fibers outlive it. `@adobe-uxp-types/uxp` merges `setup`'s parameter with `entrypoints`, failing records without `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. Decoded `setup` runs through `call` with `entrypoints` as receiver, its throw logs as a defect, and `runFork` calls it before `main` returns.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
@@ -300,7 +300,8 @@ const serve = <E, F>({
 - `show` renders from state `main` built, and panel visibility reaches `document` as a `uxpcommand` event
 - Panels act through the served contract's handlers with payloads its request classes build, and each write names its undo step from the payload
 - Panels hold host controls alone, and actions redraw from returned state and disable controls when host state offers nothing to act on
-- `document.theme` holds `getCurrent` and `onUpdated` in every host, `UxpPlugin.theme` streams it, and each panel root takes the host ink as text color, InDesign holding no `--uxp-host-*` value and no `matchMedia` and painting text black
+- `document.theme` holds `getCurrent` and `onUpdated` in every host, `Plugin.theme` streams it, and each panel root takes the theme fill of `UxpManifest.fills` as text color
+- InDesign holds no `--uxp-host-*` value and no `matchMedia`, and paints text black
 - Controls hold typed values as `[label, value]` tuples, reading `Array.get(options, element.selectedIndex)` and showing one by `selectedIndex`
 
 ## [09]-[MANIFESTS]
@@ -324,7 +325,8 @@ One manifest serves one host. Host package contracts state `host` (`app` of `ID`
 - `entrypoints` rows name a `panel` or `command` `id` with `label.default`, `description`, and `hostUIContext`, and hosts refuse a manifest naming neither `main` nor an entrypoint
 - Entrypoint ids and labels sit in one `as const` table the build maps into `entrypoints`, and `main` checks handler records with `satisfies Record<keyof typeof <table>, unknown>`
 - Icon rows state a base `path` with `scale`, and hosts resolve `<base>@<scale>x.<extension>` for each factor
-- Panel icons are 23-pixel `toolbar` PNGs at 1x and 2x, plugin icons 24-pixel `pluginList` SVGs the plugins panel reads at that size, one row per ink with `medium` in the dark group as Adobe's manifests place it
+- Panel icons are 23-pixel `toolbar` PNGs at 1x and 2x, plugin icons 24-pixel `pluginList` SVGs the plugins panel reads at that size
+- Icons take one row per theme fill, `medium` in the dark group as Adobe's manifests place it
 - InDesign paints an inherited `<svg>` fill black, and plugin icons hold `fill` on each element
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
 - Storage providers hold no `unlinkSync`, and a temporary file's native storage entry deletes it through `delete()`

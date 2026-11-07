@@ -1,11 +1,10 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, describe, it } from '@effect/vitest';
-import { Catalog } from '@rasm/database/catalog';
-import { Relation } from '@rasm/database/relation';
+import { Catalog, Relation } from '@rasm/database';
 import { Effect, FileSystem, Layer, Path, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
-import { cases } from '#/tests/typescript/libs/data/database/cases';
+import { cases } from '#/tests/typescript/libs/data/database/cases.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

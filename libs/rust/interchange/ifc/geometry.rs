@@ -200,7 +200,7 @@ impl Attribute for Opacity {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [DECODE]
+// --- [DECODING]
 
 pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> Result<Vec<Instance>, NEVec<IfcError>> {
     type Decode<'form> = &'form dyn Fn(&Composed) -> Validated<Option<Shape>, IfcError>;
@@ -403,7 +403,7 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
         .collect())
 }
 
-// --- [ENCODE]
+// --- [ENCODING]
 
 pub fn shape_attribute(node: &Path, shape: &Shape) -> Result<(Box<str>, Option<Value>), IfcError> {
     match shape {

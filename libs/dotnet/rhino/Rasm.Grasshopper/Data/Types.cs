@@ -23,6 +23,7 @@ using UUIDNext;
 namespace Rasm.Grasshopper.Data;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public interface IGeometric<TSelf> where TSelf : IGeometric<TSelf> {
     public static abstract Seq<GeometryBase> Geometry(TSelf value);
 
@@ -32,15 +33,20 @@ public interface IGeometric<TSelf> where TSelf : IGeometric<TSelf> {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public abstract class ValueAssistant<T>(string name, Seq<Preset<T>> presets = default) : TypeAssistant<T>(name) {
+
     // --- [CONTROLS]
+
     public abstract Option<Control> CreateValueControl(ValueParameter<T> parameter);
 
     public virtual Seq<Preset<T>> Presets { get; } = presets;
 }
 
 public sealed class ValueParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
+
     // --- [CONSTRUCTION]
+
     public ValueParameter() : base(new Nomen(typeof(T).Name, "")) { }
 
     public ValueParameter(string name, string userName, string info, Access access = Access.Item) : base(name, userName, info, access) { }
@@ -48,9 +54,11 @@ public sealed class ValueParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId 
     public ValueParameter(GrasshopperIO.IReader reader) : base(reader) { }
 
     // --- [IDENTITY]
+
     public Guid CustomIoId => DataTypes.IoId(typeof(ValueParameter<T>));
 
     // --- [PRESENTATION]
+
     public override bool DisplayCapable => TypeAssistant.ZupportsDraw;
 
     public override IPresets PresetsWeak {
@@ -75,17 +83,21 @@ internal class ValueAssistant<TValue, TKey, TError>(ITypeAssistant<TKey> key, Op
     where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>
     where TKey : notnull
     where TError : class, IValidationError<TError> {
+
     // --- [IDENTITY]
+
     public override IIcon Icon => DataTypes.Icon(typeof(TValue).Assembly, typeof(TValue).Name) ?? key.Icon;
 
     public override IEnumerable<string> Constructors => [Name];
 
     // --- [VALUES]
+
     public override TValue Copy(TValue instance) => instance;
 
     public override string DescribePrimary(Pear<TValue> pear) => key.DescribePrimary(Garden.Pear(pear.Item.ToValue(), pear.Meta));
 
     // --- [TEXT]
+
     public override string Format(TValue instance) => key.Format(instance.ToValue());
 
     public override Result<TValue> Parse(string constructor, string text, Pear<TValue> existing) =>
@@ -97,6 +109,7 @@ internal class ValueAssistant<TValue, TKey, TError>(ITypeAssistant<TKey> key, Op
         };
 
     // --- [PERSISTENCE]
+
     public override bool Write(GrasshopperIO.IWriter writer, GrasshopperIO.Name location, TValue instance) => key.Write(writer, location, instance.ToValue());
 
     public override bool Read(GrasshopperIO.IReader reader, GrasshopperIO.Name location, out TValue instance) {
@@ -106,6 +119,7 @@ internal class ValueAssistant<TValue, TKey, TError>(ITypeAssistant<TKey> key, Op
     }
 
     // --- [CONTROLS]
+
     public override Option<Control> CreateValueControl(ValueParameter<TValue> parameter) => control.Map(create => create(parameter));
 }
 
@@ -113,13 +127,16 @@ internal sealed class GeometricAssistant<TValue, TKey, TError>(ITypeAssistant<TK
     where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IGeometric<TValue>
     where TKey : notnull
     where TError : class, IValidationError<TError> {
+
     // --- [PREVIEW]
+
     public override void Draw(Pear<TValue> pear, DisplayBag bag) =>
         TValue.Geometry(pear.Item).Iter(shape => Optional(TypeAssistantServer.FindByValue(shape)).Iter(assistant => assistant.Draw(Garden.IPear(shape, pear.Meta), bag)));
 
     public override IEnumerable<GeometryBase> ToGeometry(Pear<TValue> pear) => TValue.Geometry(pear.Item);
 
-    // --- [SPACE]
+    // --- [SPACES]
+
     public override BoundingBox BoundingBox(TValue instance) =>
         TValue.Geometry(instance).Fold(Rhino.Geometry.BoundingBox.Unset, static (box, shape) => Rhino.Geometry.BoundingBox.Union(box, shape.GetBoundingBox(accurate: true)));
 
@@ -136,6 +153,7 @@ internal sealed class GeometricAssistant<TValue, TKey, TError>(ITypeAssistant<TK
     }
 
     // --- [MEASURES]
+
     public override bool Length(TValue instance, out double length) {
         Option<double> measured = Measured(instance, static (assistant, shape) => assistant.Length(shape, out double value) ? Some(value) : None);
         length = measured.IfNone(0d);
@@ -165,11 +183,14 @@ internal sealed class MasterIcon(IIcon lit, IIcon dim) : AbstractIcon(IconType.V
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Conversions<TValue, TKey, TError>
     where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>
     where TKey : notnull
     where TError : class, IValidationError<TError> {
+
     // --- [VALIDATION]
+
     public static Either<TError, TValue> Validated(TKey key) =>
         TValue.Validate(key, CultureInfo.InvariantCulture, out TValue? value) switch {
             null => Right(value!),
@@ -179,17 +200,20 @@ internal static class Conversions<TValue, TKey, TError>
     public static string Rejected(TError error) => error is Error fault ? fault.Message : string.Create(CultureInfo.InvariantCulture, $"{error}");
 
     // --- [INBOUND]
+
     [Merit(Merit.Direct)]
     [Explanation("Validates key as value")]
     public static void Inbound(TKey source, out TValue target) =>
         target = Validated(source).IfLeft(static error => throw ConversionRepository.CustomError(typeof(TKey), typeof(TValue), Rejected(error)));
 
     // --- [OUTBOUND]
+
     [Merit(Merit.Direct)]
     [Explanation("Reads value key")]
     public static void Outbound(TValue source, out TKey target) => target = source.ToValue();
 
     // --- [REGISTRATION]
+
     public static IO<Unit> Registered { get; } = unless(typeof(TKey) == typeof(string), Register(typeof(Conversions<TValue, TKey, TError>))).As();
 
     public static IO<Unit> Register(params Seq<Type> owners) =>
@@ -201,10 +225,13 @@ internal static class NumberConversions<TValue, TKey, TError>
     where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>
     where TKey : struct, INumber<TKey>
     where TError : class, IValidationError<TError> {
+
     // --- [KEYS]
+
     public static bool Integral { get; } = typeof(TKey).GetInterfaces().Any(static contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IBinaryInteger<>));
 
     // --- [INBOUND]
+
     [Merit(Merit.Direct)]
     [Explanation("Validates number as key, rounding integer keys")]
     public static void Inbound(double source, out TValue target) =>
@@ -219,6 +246,7 @@ internal static class NumberConversions<TValue, TKey, TError>
     public static void Inbound(BigInteger source, out TValue target) => Conversions<TValue, TKey, TError>.Inbound(TKey.CreateChecked(source), out target);
 
     // --- [OUTBOUND]
+
     [Merit(Merit.Direct)]
     [Explanation("Reads value key as number")]
     public static void Outbound(TValue source, out double target) => target = double.CreateChecked(source.ToValue());
@@ -228,12 +256,16 @@ internal static class NumberConversions<TValue, TKey, TError>
     public static void Outbound(TValue source, out int target) => IntegerConversions.Convert(double.CreateChecked(source.ToValue()), out target);
 
     // --- [REGISTRATION]
+
     public static IO<Unit> Registered { get; } = Conversions<TValue, TKey, TError>.Register(typeof(NumberConversions<TValue, TKey, TError>), typeof(Conversions<TValue, TKey, TError>));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public static class DataTypes {
+
     // --- [ROWS]
+
     public static IO<Unit> Value<TValue, TKey, TError>()
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>
         where TKey : notnull
@@ -297,6 +329,7 @@ public static class DataTypes {
         select unit;
 
     // --- [IDENTITY]
+
     private static readonly Func<(Assembly Assembly, string Name), Option<IIcon>> Icons = memoUnsafe(static ((Assembly Assembly, string Name) source) =>
         Art(source.Assembly, source.Name).Map(lit => (IIcon)new MasterIcon(lit, Art(source.Assembly, $"{source.Name}_darkmode").IfNone(lit))));
 

@@ -260,6 +260,8 @@ class Readback(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
     """Owned preview scene and reused data its renders stage, each render running through `render`."""
 
+    # --- [STATE]
+
     render: Render | StagedRender = native
     scene: ClassVar[Ownership[bpy.types.Scene]] = Ownership(kind=bpy.types.Scene, key="preview_scene", saved=Saved.NEVER)
     world: ClassVar[Ownership[bpy.types.World]] = Ownership(kind=bpy.types.World, key="preview_world", saved=Saved.NEVER)
@@ -268,7 +270,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
     capture: ClassVar[Ownership[bpy.types.NodeTree]] = Ownership(kind=bpy.types.CompositorNodeTree, key="preview_capture", saved=Saved.NEVER)
     value: ClassVar[Key] = "value"
 
-    # --- [STAGING]
+    # --- [STAGES]
 
     @staticmethod
     def engine(scene: bpy.types.Scene) -> Outcome[Snapshot]:

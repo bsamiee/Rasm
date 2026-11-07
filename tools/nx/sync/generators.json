@@ -5,11 +5,6 @@
             "schema": "./schema.json",
             "description": "Writes Xcode.xcconfig, .swiftlint.yml, Directory.Build.props, .config/mise.toml and Pixi platform rows from package.json and Package.swift, and .config/hk.pkl package URLs from .config/mise.lock"
         },
-        "barrels": {
-            "factory": "./packages/barrels.ts#barrels",
-            "schema": "./schema.json",
-            "description": "Writes each library's index.ts barrels from its package.json exports and modules"
-        },
         "injection-utils": {
             "factory": "./ast-grep/injection-utils.ts#injectionUtils",
             "schema": "./schema.json",

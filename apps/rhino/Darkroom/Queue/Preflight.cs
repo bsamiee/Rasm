@@ -14,6 +14,7 @@ using Rhino.Render;
 namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record PreflightFinding {
     public Error Error => Switch(
@@ -74,10 +75,13 @@ public abstract partial record PreflightFinding {
 }
 
 public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFinding> Cautions, Map<int, ulong> Memory) {
+
     // --- [VERDICT]
+
     public Fin<Unit> Verdict => Refusals.Traverse(static refusal => Fin.Fail<Unit>(refusal.Error)).As().Map(static _ => unit);
 
-    // --- [CHECK]
+    // --- [CHECKS]
+
     public static IO<Preflight> Check(QueueContext context, RhinoDoc doc, QueuePlan plan, QueueTarget target) =>
         from statistics in DocumentStatistics.Read(doc)
         from links in Links.Closure(new LinkedModel.Opened(doc.RuntimeSerialNumber))
@@ -91,6 +95,7 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
         select Judged(target, plan, doc, named, statistics, links, prompts, channels, run, host, disk, textures);
 
     // --- [READS]
+
     private static Seq<PreflightFinding> Entered(RhinoDoc doc, Seq<NamedEntry> named, QueueEntry<Unit> entry, int index) =>
         (Held(doc, named, entry.Queued) ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.SourceRefused(index, entry.Queued.Source, DarkroomReason.Unviewed)))
         + (entry.Queued.Overscan is 0d || entry.Queued.Source is RenderSettings.RenderingSources.ActiveViewport
@@ -124,7 +129,8 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
     private static Seq<string> Paths(Seq<Material> materials) =>
         materials.Bind(static material => Conversions.Rows(material.GetTextures())).Choose(static texture => Conversions.Present(texture.FileName)).Distinct().Strict();
 
-    // --- [JUDGE]
+    // --- [JUDGMENT]
+
     private static Preflight Judged(
         QueueTarget target, QueuePlan plan, RhinoDoc doc, Seq<NamedEntry> named, DocumentStatistics statistics, LinkClosure links, bool prompts,
         Option<Seq<RenderWindow.StandardChannels>> channels, Option<RunState> run, Host host, Disk disk, Textures textures) =>

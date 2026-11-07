@@ -6,6 +6,7 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record HistoryKey<T>(Func<RhinoDoc, HistoryRecord, T, IO<Unit>> Write, Func<ReplayHistoryData, IO<T>> Read) where T : notnull {
     public HistoryKey<(T First, TNext Second)> Zip<TNext>(HistoryKey<TNext> next) where TNext : notnull =>
         new(
@@ -19,8 +20,8 @@ public sealed record HistoryKey<T>(Func<RhinoDoc, HistoryRecord, T, IO<Unit>> Wr
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class HistoryKeys {
-    // --- [KEYS]
     public static HistoryKey<bool> Bool(int id) => Plain((record, value) => record.SetBool(id, value), data => (data.TryGetBool(id, out bool value), value));
 
     public static HistoryKey<int> Int(int id) => Plain((record, value) => record.SetInt(id, value), data => (data.TryGetInt(id, out int value), value));

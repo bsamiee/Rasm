@@ -1,4 +1,4 @@
-import type { Completion } from '@rasm/cep/contract';
+import type { Completion } from '@rasm/cep';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

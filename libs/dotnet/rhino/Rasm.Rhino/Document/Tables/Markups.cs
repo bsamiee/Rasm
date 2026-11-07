@@ -6,6 +6,7 @@ using Rhino.DocObjects.Tables;
 namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record MarkupState(StateName Name, RhinoView Source, Seq<GeometryPair> Geometry) : NamedState(Markups.Table, Name) {
     internal override IO<NamedWrite> Save(RhinoDoc doc) =>
         from ended in Markups.Ended(doc)
@@ -26,7 +27,11 @@ public sealed record MarkupRestore(StateName Name) : NamedRestore(Markups.Table,
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
+
 public static class Markups {
+
+    // --- [ROWS]
+
     public static NamedTable Table { get; } = new(nameof(Markups), Rows.Names<Markup>()) {
         Marks = [ReadModels.Marks(Subscriptions.On<MarkupTableEventArgs>(static h => RhinoDoc.MarkupTableEvent += h, static h => RhinoDoc.MarkupTableEvent -= h).Documents(static args => args.Document))],
         Entries = static doc => Rows.Listed(doc.Markups).Map(static rows => rows.Map(Entry)),
@@ -42,7 +47,11 @@ public static class Markups {
                 .Map(Entry))),
     };
 
-    // --- [HOLD]
+    private static NamedEntry Entry(Markup row) =>
+        new(Table, row.Name, Conversions.Present(row.Id));
+
+    // --- [HOLDS]
+
     internal static IO<NamedWrite> Hold(RhinoDoc doc) =>
         from view in Products.Of(() => doc.Views.ActiveView)
         from held in IO.lift(() => new ViewInfo(view.ActiveViewport))
@@ -50,7 +59,8 @@ public static class Markups {
             Commits.WithinRedraw(doc, new RedrawPolicy.View(view), Ended(doc) >> Products.Accepted(() => view.ActiveViewport.PushViewInfo(held, includeTraceImage: true))),
             IO.lift(held.Dispose));
 
-    // --- [HOST]
+    // --- [HOSTS]
+
     internal static IO<int> Index(RhinoDoc doc, string name) =>
         IO.lift(() => Conversions.Present(doc.Markups.Find(name)).ToFin(Table.Missing(name)));
 
@@ -59,7 +69,4 @@ public static class Markups {
 
     internal static IO<Unit> Ended(RhinoDoc doc) =>
         IO.lift(() => doc.MarkupMode is not MarkupMode.None).Bind(active => when(active, Products.Accepted(() => doc.Markups.Cancel())).As());
-
-    private static NamedEntry Entry(Markup row) =>
-        new(Table, row.Name, Conversions.Present(row.Id));
 }

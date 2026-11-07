@@ -20,7 +20,7 @@ lazy from typography.outlines.paths import area, Axis, bounds, Box, combined, dr
 
 
 class Moments(msgspec.Struct, frozen=True, kw_only=True):
-    """Ink center of mass and principal axis direction in degrees within [-90, 90]."""
+    """Outline center of mass and principal axis direction in degrees within [-90, 90]."""
 
     centre: tuple[float, float]
     angle: float
@@ -47,9 +47,9 @@ def stroke(outline: Outline, /) -> float:
 
 
 def restroked(outline: Outline, pen: float, /) -> Outline:
-    """Returns a geometric offset locally fitting the requested mean stroke, empty ink kept empty.
+    """Returns a geometric offset locally fitting the requested mean stroke, an empty outline kept empty.
 
-    Fits squared stroke error between the ink's erosion radius and outward growth by the target pen. Topology changes can leave the closest local fit short of the target.
+    Fits squared stroke error between the outline's erosion radius and outward growth by the target pen. Topology changes can leave the closest local fit short of the target.
     """
     match bounds(outline):
         case None:
@@ -60,7 +60,7 @@ def restroked(outline: Outline, pen: float, /) -> Outline:
 
 
 def counters(outline: Outline, /) -> tuple[Outline, ...]:
-    """Returns bounded empty regions, retaining ink islands and nested holes with their original curves."""
+    """Returns bounded empty regions, retaining filled islands and nested holes with their original curves."""
     holes = union(*((hole,) for _, *holes in pieces(outline) for hole in holes))
     return pieces(combined(holes, outline, PathOp.DIFFERENCE))
 
@@ -71,7 +71,7 @@ def counter(outline: Outline, /) -> float:
 
 
 def moments(outline: Outline, /) -> Moments:
-    """Returns the center of mass and principal axis of the outline's ink from its first and second moments."""
+    """Returns the center of mass and principal axis of the outline's filled area from its first and second moments."""
     pen = StatisticsPen()
     draw(pen, outline)
     return Moments(centre=(float(pen.meanX), float(pen.meanY)), angle=math.degrees(0.5 * math.atan2(2 * pen.covariance, pen.varianceX - pen.varianceY)))
@@ -98,8 +98,8 @@ def _strung(edges: tuple[tuple[tuple[float, float], tuple[float, float]], ...], 
 def inradius(outline: Outline, /) -> float:
     """Returns the largest inscribed circle's radius, 0 for edges enclosing no area, retaining holes and islands."""
     match build_area(_strung(_flattened(outline)[1])):
-        case Polygon() | MultiPolygon() as ink:
-            return float(maximum_inscribed_circle(ink, tolerance=0.25).length)
+        case Polygon() | MultiPolygon() as filled:
+            return float(maximum_inscribed_circle(filled, tolerance=0.25).length)
         case _:
             return 0.0
 
@@ -136,11 +136,11 @@ def gap(a: Outline, b: Outline, /, axis: Axis | None = None) -> float:
 # --- [COVERAGE]
 
 
-def column_ink(outline: Outline, box: Box, columns: int, /, axis: Axis = "x") -> tuple[float, ...]:
-    """Returns the inked fraction of each of `columns` equal strips laid across a box along an axis, left to right or bottom to top."""
+def column_coverage(outline: Outline, box: Box, columns: int, /, axis: Axis = "x") -> tuple[float, ...]:
+    """Returns the filled fraction of each of `columns` equal strips laid across a box along an axis, left to right or bottom to top."""
     return tuple(area(combined(outline, (strip.contour,), PathOp.INTERSECTION)) / (strip.width * strip.height) for strip in box.strips(columns, axis))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Moments", "column_ink", "counter", "counters", "gap", "inradius", "moments", "perimeter", "restroked", "stroke"]
+__all__ = ["Moments", "column_coverage", "counter", "counters", "gap", "inradius", "moments", "perimeter", "restroked", "stroke"]

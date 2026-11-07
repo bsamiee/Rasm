@@ -1,5 +1,5 @@
+import { illegalArgument, readProperty, recordKeys } from '@rasm/extendscript';
 import { fileFromUrl, handleEnvelope, reflectionOf, specifierStep } from '@rasm/extendscript/handler';
-import { illegalArgument, readProperty, recordKeys } from '@rasm/extendscript/reply';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

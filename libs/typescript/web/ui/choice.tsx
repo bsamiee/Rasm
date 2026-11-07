@@ -1,7 +1,7 @@
 import { Array, Option, Struct } from 'effect';
 import { ChevronDown } from 'lucide-react';
 import { Button, type Key, Label, ListBox, ListBoxItem, Popover, RadioButton, RadioField, RadioGroup, type RadioGroupProps, Select, type SelectProps, SelectValue } from 'react-aria-components';
-import { Field } from '#/field';
+import { Field } from '#/field.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

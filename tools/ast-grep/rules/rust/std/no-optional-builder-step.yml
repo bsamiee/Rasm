@@ -1,6 +1,31 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: rustlang
 severity: error
+utils:
+    guarded-step:
+        kind: expression_statement
+        has:
+            kind: if_expression
+            all:
+                - has: {field: condition, pattern: {context: 'if let Some($ITEM) = $_OPTION {}', selector: let_condition}}
+                - has:
+                    field: consequence
+                    all:
+                        - has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'line_comment, block_comment'}}}, pattern: '$BUILDER.$STEP($ITEM);'}
+                        - not: {has: {nthChild: {position: 2, ofRule: *code}}}
+                - not: {has: {field: alternative, kind: else_clause}}
+    preceding-step:
+        kind: expression_statement
+        has:
+            kind: if_expression
+            all:
+                - has: {field: condition, pattern: {context: 'if let Some($PREVIOUS) = $_OPTION {}', selector: let_condition}}
+                - has:
+                    field: consequence
+                    all:
+                        - has: {nthChild: {position: 1, ofRule: *code}, pattern: '$BUILDER.$_STEP($PREVIOUS);'}
+                        - not: {has: {nthChild: {position: 2, ofRule: *code}}}
+                - not: {has: {field: alternative, kind: else_clause}}
 rule:
     any:
         - kind: match_expression
@@ -9,6 +34,8 @@ rule:
             - pattern: 'match $OPTION { None => $BUILDER, Some($ITEM) => $BUILDER.$STEP($$$ARGS), }'
         - kind: if_expression
           pattern: 'if let Some($ITEM) = $OPTION { $BUILDER.$STEP($$$ARGS) } else { $BUILDER }'
+        - matches: guarded-step
+          follows: {stopBy: *code, matches: preceding-step}
         - kind: call_expression
           all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^fold$'}}
@@ -16,12 +43,12 @@ rule:
                 field: arguments
                 all:
                     - has:
-                        nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}
+                        nthChild: {position: 2, ofRule: *code}
                         kind: closure_expression
                         any:
                             - pattern: '|$BUILDER, $ITEM| $BUILDER.$STEP($ITEM)'
                             - pattern: '|$BUILDER, $ITEM| $BUILDER.$STEP($ITEM.$CONVERT())'
-                    - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
+                    - not: {has: {nthChild: {position: 3, ofRule: *code}}}
 constraints:
     BUILDER: {kind: identifier}
     ITEM: {kind: identifier}

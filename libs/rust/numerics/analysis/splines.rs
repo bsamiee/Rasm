@@ -68,7 +68,8 @@ pub struct Spline {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [FIT]
+// --- [FITS]
+
 pub fn grid<D>(axes: NESlice<'_, GridAxis<'_>>, values: ArrayView<'_, f64, D>, hooks: SearchHooks<'_>) -> Result<Spline, NEVec<AnalysisError>>
 where D: Dimension {
     let smoothed = |sites: ArrayView1<'_, f64>, weights: Option<ArrayView1<'_, f64>>, lanes: ArrayView2<'_, f64>, smooth: Option<f64>| -> Result<(Array2<f64>, Option<f64>), AnalysisError> {
@@ -210,6 +211,7 @@ pub fn curve(observations: &Observations, method: Method, period: Option<f64>, h
 }
 
 // --- [READINGS]
+
 fn falling(exponent: usize, times: usize) -> f64 { (exponent.strict_sub(times).strict_add(1)..=exponent).map(convert::<usize, f64>).product() }
 
 pub fn evaluate(spline: &Spline, sites: DMatrixView<'_, f64>, readings: &[Reading], extrapolation: Extrapolation) -> Result<DVector<f64>, NEVec<AnalysisError>> {

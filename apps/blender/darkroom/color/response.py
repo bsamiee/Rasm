@@ -1,6 +1,5 @@
 """Darkroom tone response: the render-enabled tone and formation entries sampled through the compositor at middle gray across the compositing log window, charted over the Viewer image under a header switch."""
 
-# ruff: file-ignore[relative-imports]
 from collections.abc import Generator
 from contextlib import contextmanager, nullcontext
 from functools import partial
@@ -82,6 +81,8 @@ _COLUMNS: Final = Resource[dict[Handle[bpy.types.Screen], int]](made=lambda _ide
 
 class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
     """Response of the render-enabled entries of `kinds` at middle gray scaled across the compositing log window, closed through the scene view without a formation entry, and guided through the encoding view of the formed display."""
+
+    # --- [STATE]
 
     kinds: frozenset[Key]
     levels: ClassVar[tuple[float, ...]] = (*(GRAY * 2.0**stop for stop in range(-4, 3)), 1.0)
@@ -185,7 +186,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
             .bind(lambda chart: signal.fired() if _LATEST[identity].published((request.scene.uid, request.columns), token, chart) else Ok(None))
         )
 
-    # --- [LIFETIME]
+    # --- [REGISTRATION]
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:

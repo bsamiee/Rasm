@@ -12,6 +12,7 @@ using Rhino.UI.Theme;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record CurveChannel(string Name, string Caption, Seq<Vector2> Points, Func<float, float> Fit, NumberRange Across, NumberRange Along, Func<Edit<Seq<Vector2>>, IO<Unit>> Edited) {
     public static readonly Lens<Vector2, float> X = Lens<Vector2, float>.New(static point => point.X, static x => point => point with { X = x });
     public static readonly Lens<Vector2, float> Y = Lens<Vector2, float>.New(static point => point.Y, static y => point => point with { Y = y });
@@ -42,6 +43,9 @@ public sealed record CurveChannel(string Name, string Caption, Seq<Vector2> Poin
 }
 
 internal sealed record CurvePlot(CurveChannel Channel) {
+
+    // --- [STATE]
+
     public Seq<Func<float, float>> References { get; init; }
     public Option<Seq<float>> Underlay { get; init; }
     public Option<int> Picked { get; init; }
@@ -51,6 +55,7 @@ internal sealed record CurvePlot(CurveChannel Channel) {
     public static float Handle => SystemFonts.Label().LineHeight / 4f;
 
     // --- [GEOMETRY]
+
     public Vector2 Plotted(PointF at, SizeF size) =>
         new((float)(Channel.Across.Low + (at.X / float.Max(size.Width - 1f, 1f) * (Channel.Across.High - Channel.Across.Low))),
             (float)(Channel.Along.High - (at.Y / float.Max(size.Height - 1f, 1f) * (Channel.Along.High - Channel.Along.Low))));
@@ -64,7 +69,8 @@ internal sealed record CurvePlot(CurveChannel Channel) {
             var near => near.Head.Map(_ => near.MinBy(static held => held.Distance).Index),
         };
 
-    // --- [PAINT]
+    // --- [DRAWING]
+
     public void Paint(Graphics graphics, RectangleF bounds, ThemeZone zone) {
         RectangleF frame = new(0f, 0f, bounds.Width - 1f, bounds.Height - 1f);
         graphics.FillRectangle(zone.Entry.Enabled.Background, frame);
@@ -94,11 +100,16 @@ internal sealed record CurvePlot(CurveChannel Channel) {
 }
 
 public sealed record CurveRow(IterableNE<CurveChannel> Channels) : IRow<CurveRow> {
+
+    // --- [STATE]
+
     public Option<Func<string, IO<Seq<float>>>> Pick { get; init; }
 
     public RowShape Shape { get; init; } = RowShape.Block;
 
     public CurveChannel Channel(string name) => toSeq(Channels).Find(channel => string.Equals(channel.Name, name, StringComparison.Ordinal)).IfNone(Channels.Head);
+
+    // --- [REALIZATION]
 
     public static IO<RowCells> Realize(IO<CurveRow> latest, LocalizeStringPair label, RowScope scope) =>
         from first in latest
@@ -209,6 +220,7 @@ public sealed record CurveRow(IterableNE<CurveChannel> Channels) : IRow<CurveRow
     ];
 
     // --- [POINTS]
+
     private static IO<Unit> Inserted(IO<CurveChannel> active, Surface<CurvePlot> view, Seq<float> xs) =>
         from channel in active
         let placed = xs.Fold((channel.Points, At: Option<int>.None), (inserted, x) =>

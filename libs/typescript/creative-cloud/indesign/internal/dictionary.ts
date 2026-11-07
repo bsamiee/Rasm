@@ -1,7 +1,6 @@
 import indesign, { type InDesignDOMObject, type MenuAction } from 'adobe:indesign';
-import { HostError } from '@rasm/automation/error';
-import { ObjectModel } from '@rasm/automation/requests';
-import { Unmatched } from '@rasm/search/error';
+import { HostError, ObjectModel } from '@rasm/automation';
+import { Unmatched } from '@rasm/search';
 import { Array, Effect, flow, Match, Number, Option, Record, Schema, SchemaGetter, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

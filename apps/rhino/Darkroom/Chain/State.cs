@@ -9,6 +9,7 @@ using Rhino.Render.PostEffects;
 namespace Darkroom.Chain;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ChainEntry(Guid Kind, bool On, float Mix);
 
 public sealed record EffectRow<TState>(TState Default, Func<TState, PassContext, Fin<Option<PixelPass>>> Pass) {
@@ -43,16 +44,19 @@ public sealed record EffectKind(
 }
 
 public sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
+
+    // --- [CATALOG]
+
     private static readonly Lazy<(HashMap<Guid, (EffectKind Kind, int Index)> Kinds, ChainState Default)> Declared = new(static () => (
         toHashMap(Kinds.Ordered.Map(static (kind, index) => (kind.Id, (kind, index)))),
         new ChainState([.. Kinds.Ordered.Filter(static kind => kind.Listed).Map(static kind => new ChainEntry(kind.Id, On: true, kind.Mix.IfNone(1f)))], ValueSet.Empty)));
 
-    // --- [CATALOG]
     public static ChainState Default => Declared.Value.Default;
 
     public static Fin<EffectKind> Kind(Guid id) => Cataloged(id).Map(static held => held.Kind);
 
-    // --- [CHAIN]
+    // --- [CHAINS]
+
     private Fin<Seq<(EffectKind Kind, float Mix)>> Running =>
         Entries.Filter(static entry => entry.On).Traverse(static entry => Kind(entry.Kind).Map(kind => (Kind: kind, entry.Mix))).As()
             .Map(static runs => toSeq(runs.OrderBy(static run => run.Kind.Stage)));
@@ -71,6 +75,7 @@ public sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
             .Choose(static step => step.Pass is PixelPass.Point point ? Some(point) : None));
 
     // --- [TRANSITIONS]
+
     public Fin<ChainState> Added(Guid kind) =>
         Cataloged(kind).Map(held => Entries.Exists(entry => entry.Kind == kind) ? this
             : this with { Entries = Inserted(Entries, new ChainEntry(kind, On: true, held.Kind.Mix.IfNone(1f)), entry => Placed(entry.Kind).Exists(other => other.CompareTo((held.Kind.Stage, held.Index)) > 0)) });
@@ -122,7 +127,8 @@ public sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
     private static Seq<ChainEntry> Inserted(Seq<ChainEntry> entries, ChainEntry entry, Func<ChainEntry, bool> after) =>
         entries.Span(held => !after(held)) switch { var (before, following) => [.. before, entry, .. following] };
 
-    // --- [DOCUMENT]
+    // --- [DOCUMENTS]
+
     public static IO<ChainState> Read(RhinoDoc doc) => EffectList.State(new EffectSource.Document(doc), typeof(DarkroomEffect).GUID, Default);
 }
 
@@ -137,6 +143,9 @@ public sealed partial class ChainMembership {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChainEdit {
+
+    // --- [CASES]
+
     public sealed record Membership(Guid Kind, ChainMembership Change) : ChainEdit;
 
     public sealed record Toggle(Guid Kind, bool On) : ChainEdit;
@@ -151,7 +160,8 @@ public abstract partial record ChainEdit {
 
     public sealed record Restore(ChainState State) : ChainEdit;
 
-    // --- [COMMIT]
+    // --- [COMMITS]
+
     private Option<Guid> Target => Switch<Option<Guid>>(
         membership: static edit => edit.Kind,
         toggle: static edit => edit.Kind,
@@ -180,6 +190,7 @@ public abstract partial record ChainEdit {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class EffectRow {
     public static EffectRow<TState> Of<TState>() where TState : IPixelStage<TState> =>
         new(TState.Default, TState.Pass) { Looks = TState.Looks, Channels = TState.Channels, Continued = TState.Continued };

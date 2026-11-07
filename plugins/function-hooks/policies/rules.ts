@@ -1,23 +1,23 @@
 import { Effect, Layer, Option, Record } from 'effect';
-import { decisionOf, type Request, unjudged, Verdict } from '#/decision';
-import { Host } from '#/host';
-import { WATCHER } from '#/instances';
-import { APPS } from '#/policies/apps';
-import { FILES } from '#/policies/files';
-import { all, type Call, type Policy } from '#/policies/fix';
-import { GHIDRA } from '#/policies/ghidra';
-import { GIT } from '#/policies/git';
-import { TASKS } from '#/policies/tasks';
-import { WAITS } from '#/policies/waits';
-import { PROGRAMS, type Programs } from '#/shell/programs';
-import { analyzed, Shell } from '#/shell/site';
+import { decisionOf, type Request, unjudged, Verdict } from '#/decision.ts';
+import { Host } from '#/host.ts';
+import { WATCHER } from '#/instances.ts';
+import { APPS } from '#/policies/apps.ts';
+import { FILES } from '#/policies/files.ts';
+import { all, type Call, type Policy } from '#/policies/fix.ts';
+import { GHIDRA } from '#/policies/ghidra.ts';
+import { GIT } from '#/policies/git.ts';
+import { TASKS } from '#/policies/tasks.ts';
+import { WAITS } from '#/policies/waits.ts';
+import { PROGRAMS } from '#/shell/programs.ts';
+import { analyzed, Shell } from '#/shell/site.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const POLICIES: readonly Policy[] = [APPS, FILES, WAITS, GIT, GHIDRA, TASKS, { programs: PROGRAMS }];
 const EVERY = POLICIES.flatMap(({ every = [] }) => every);
 const CALLS = POLICIES.flatMap(({ calls = [] }) => calls);
-const MERGED = POLICIES.reduce<Programs>((rows, { programs }) => Record.union(rows, programs, (held, added) => ({ ...held, ...added, fixes: [...(held.fixes ?? []), ...(added.fixes ?? [])] })), {});
+const MERGED = POLICIES.reduce<Policy['programs']>((rows, { programs }) => Record.union(rows, programs, (held, added) => ({ ...held, ...added, fixes: [...(held.fixes ?? []), ...(added.fixes ?? [])] })), {});
 const PROGRAMS_BY_NAME = new Map(Record.toEntries(MERGED).flatMap(([name, row]) => [name, ...(row.aliases ?? [])].map((alias) => [alias, row] as const)));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

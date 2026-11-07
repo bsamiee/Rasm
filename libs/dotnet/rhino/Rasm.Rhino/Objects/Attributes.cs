@@ -6,9 +6,12 @@ using Rhino.Render;
 namespace Rasm.Rhino.Objects;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class MeshModifier {
+
     // --- [KINDS]
+
     public static readonly MeshModifier Displacement = new(static modifiers => modifiers.Displacement is not null);
     public static readonly MeshModifier EdgeSoftening = new(static modifiers => modifiers.EdgeSoftening is not null);
     public static readonly MeshModifier Thickening = new(static modifiers => modifiers.Thickening is not null);
@@ -16,13 +19,17 @@ public sealed partial class MeshModifier {
     public static readonly MeshModifier ShutLining = new(static modifiers => modifiers.ShutLining is not null);
 
     // --- [PRESENCE]
+
     [UseDelegateFromConstructor]
     public partial bool IsAttached(File3dmMeshModifiers modifiers);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class AttributeEdits {
-    // --- [STAGE]
+
+    // --- [STAGES]
+
     public static Stage<ObjectAttributes> Stage(RhinoDoc doc, RhinoObject target, bool quiet) =>
         new(
             Copy: static live => Products.Of(() => live.Duplicate()),
@@ -36,6 +43,7 @@ public static class AttributeEdits {
             .TraverseM(static edit => edit).As();
 
     // --- [STEPS]
+
     public static Seq<Step<ObjectAttributes>> UserStrings(HashMap<string, Option<string>> edits) =>
         toSeq<(string Key, Option<string> Value)>(edits).Map(static edit => Steps.Of<ObjectAttributes>(staged => Conversions.Present(staged.GetUserString(edit.Key)) == edit.Value.Bind(Conversions.Present)
             || edit.Value.Match(Some: text => staged.SetUserString(edit.Key, text), None: () => staged.DeleteUserString(edit.Key)))).Strict();
@@ -64,6 +72,7 @@ public static class AttributeEdits {
         });
 
     // --- [FACTS]
+
     extension(ObjectAttributes attributes) {
         public bool HasCustomLinetype {
             get {

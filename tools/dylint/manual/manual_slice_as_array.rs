@@ -25,6 +25,8 @@ use crate::{associated_trait, expanded_externally, suggest};
 
 lint!(MANUAL_SLICE_AS_ARRAY: "`try_into` and `try_from` conversions checking a slice's length to view it as an array");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let text = |part: &Expr<'_>| snippet(cx, part.span, "..");

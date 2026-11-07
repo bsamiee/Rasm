@@ -5,8 +5,7 @@ files: ['**/rhino/**']
 utils:
     element:
         any:
-            - kind: predefined_type
-              regex: '^string$'
+            - pattern: string
             - kind: identifier
               pattern: $ELEMENT
               inside:

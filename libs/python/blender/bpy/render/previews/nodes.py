@@ -76,6 +76,8 @@ class ThumbnailExport(bpy.types.PropertyGroup):
 class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Row of per-node previews over every node editor under the node previews preference, its commands built once."""
 
+    # --- [STATE]
+
     retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
     preview: PreviewScene = PreviewScene()
     signal: Signal = msgspec.field(default_factory=Signal)
@@ -371,7 +373,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             )
         )
 
-    # --- [REGISTRATION]
+    # --- [SECTIONS]
 
     def section(self, header: tuple[Row, ...] = ()) -> Section:
         """Returns node previews section: the commands and the active node settings."""
@@ -395,6 +397,8 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 ),
             ),
         )
+
+    # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns preview declarations, state, resources, overlay, and handlers, updates of a scene under a preview render left to the render."""

@@ -8,6 +8,7 @@ requires-python = ">=3.13"
 
 dependencies = [
     # --- [CORE]
+
     "expression",                                         # Results, options, and collections of every library package
     "makefun",                                            # Callback signatures for Blender's declared host slots
     "msgspec",                                            # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
@@ -17,19 +18,23 @@ dependencies = [
     "typing-inspection",                                  # Annotation metadata and generic type-alias inspection
     "tzdata",                                             # IANA time zones for zoneinfo on platforms without a database
 
-    # --- [STORAGE]
+    # --- [HASHING]
+
     "cbor2",                                              # Canonical binary content hashing with unbounded integers
 
     # --- [FILES]
+
     "blender-asset-tracer; python_full_version < '3.14'", # Blend file packs with paths rewritten across linked libraries
 
     # --- [MATHEMATICS]
+
     "networkx",                                           # Strongly connected rename groups and their condensation order
     "numpy",                                              # Arrays for image planes, previews, and analysis
     "pvlib; python_full_version < '3.15'",                # Solar position, refraction, and horizon event times
     "scipy",                                              # Color algebra, vector quadrature, FFT sizing, and zoom
 
     # --- [IMAGING]
+
     "coloraide",                                          # Color spaces, interpolation, compositing, filters, contrast, and gamut fitting of interface themes
     "colour-science",                                     # CIE observer datasets
     "imagecodecs",                                        # In-memory JPEG encoding and decoding for compressed image generations
@@ -40,7 +45,8 @@ dependencies = [
     "scikit-image",                                       # Structural similarity over image comparison planes
     "tifffile",                                           # Linear Raw DNG and TIFF containers for layered documents
 
-    # --- [NETWORK]
+    # --- [HTTP]
+
     "httpx2",                                             # HTTP for batch render targets and notices
     "tenacity",                                           # Batch target retries over configured domain retry policies
 ]

@@ -1,6 +1,6 @@
 import { Predicate, Record } from 'effect';
 import csharp from 'tree-sitter-c-sharp/grammar.js';
-import { after, any, children, choiceOf, classes, constants, extend, named, optionalOf, reaches, replace, rewrite, spans, string, symbol, widen } from '#/tools/ast-grep/grammars/derive.js';
+import { after, any, children, choiceOf, classes, constants, extend, named, optionalOf, reaches, replace, rewrite, spans, string, symbol, widen } from '#/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

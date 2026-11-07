@@ -15,10 +15,11 @@ import PyOpenColorIO
 
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes import functions
+from blender.bpy.nodes.changes import NodeGroup
 from blender.bpy.nodes.desired import item_key, MenuItem, MenuItems
 from blender.bpy.nodes.functions import grouped
 from blender.bpy.nodes.graphs import Expr, group_input, math, menu, mixed, Scalar, switched, Term, vector, xyz
-from blender.bpy.nodes.interfaces import DesiredItem, Interface, InterfacePanel, NodeGroup, Socket, StockInput
+from blender.bpy.nodes.interfaces import DesiredItem, Interface, InterfacePanel, Socket, StockInput
 from blender.bpy.render.compositor.colors import COLOR_INPUT, converted, hsy, logarithmic, straight, with_alpha
 from blender.bpy.render.compositor.coordinates import FrameSpace, shorter
 from blender.bpy.render.compositor.inputs import read
@@ -61,7 +62,7 @@ _SHAPED: Final = MenuItem(name="Shape", description="Box or ellipse with feather
 _QUALIFIED: Final = MenuItem(name="Qualifier", description="Pixels selected by HSY hue, saturation, and luminance")
 _TRANSITIONED: Final = MenuItem(name="Transition", description="Spatial wipe revealing a layer as completion rises")
 
-# --- [SHAPE]
+# --- [SHAPES]
 
 _OUTLINE: Final = Socket(key="outline", kind=bpy.types.NodeSocketMenu, description="Box or ellipse", default_value=_ELLIPSE.name, items=OUTLINES.items)
 _POSITION: Final = Socket(key="position", kind=bpy.types.NodeSocketVector2D, description="Center in frame fractions", default_value=(0.5, 0.5))
@@ -86,7 +87,7 @@ _LUMINANCE_BAND: Final = InterfacePanel.of(
 )
 QUALIFIER: Final = Interface(panels=(_HUE, _SATURATION, _LUMINANCE_BAND))
 
-# --- [TRANSITION]
+# --- [TRANSITIONS]
 
 _COMPLETION: Final = Socket(key="completion", kind=bpy.types.NodeSocketFloatFactor, description="Travel share, 0 hidden and 1 shown", default_value=0.5)
 _ANGLE: Final = Socket(key="angle", kind=bpy.types.NodeSocketFloatAngle, description="Travel direction, 0 running left to right")

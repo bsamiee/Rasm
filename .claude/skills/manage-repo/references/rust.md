@@ -25,7 +25,8 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 ## [03]-[CATALOG]
 
-- Catalog rows take crate default features and add each non-default feature the crate's role needs, a row adding none is a version string
+- Catalog rows take crate default features and add each non-default feature every consumer needs, a row adding none is a version string
+- Features some consumers need sit on those consumers' rows beside `workspace = true`, the catalog row holds none of them
 - `default-features = false` sits only where a default fails a build or run, harms all members, or duplicates a TLS, crypto, runtime, or clock crate
 - Restricted rows add back only defaults their role needs that no dependency turns on, their comment stating the fact that excludes others
 - Members inherit catalog rows whole through `workspace = true`, `feature-unification = "workspace"` builds each member under workspace features
@@ -63,7 +64,8 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Members add `build.rs` for work no manifest key or crate does, a build script compiles and runs before its crate on every cold build
 - Cargo targets that compile pass `--locked`, a stale `Cargo.lock` fails the run in place of a rewrite
 - Cargo targets that compile take `parallelism: false`, each cargo run spreads its units across every core through its own jobserver
-- Clippy and Dylint read the `dev` profile, a workspace wrapper keys member units apart and every wrapper shares dependency, proc macro, and build script units, a profile of their own builds and runs each again
+- Clippy and Dylint read the `dev` profile, a profile of their own builds and runs each shared unit again
+- Workspace wrappers key member units apart, every wrapper shares dependency, proc macro, and build script units
 - `cargo dylint` builds its library into `dylint/libraries` and passes `--target-dir dylint/target` under the target directory, `build.build-dir` keeps units in one folder whatever target directory a run names
 - `build.fingerprint = "content"` marks a dep-info path holding no checksum (a directory) stale on every run
 - Cargo configs hold no `fine-grain-locking`, concurrent runs dirtying shared units deadlock on unit locks
@@ -71,8 +73,9 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 ## [06]-[MEMBERS]
 
 - Members declare `name`, `edition.workspace = true`, their target, and `[lints] workspace = true`, Cargo assumes edition 2015 and no lints otherwise
-- `[workspace.package]` states `edition` and `publish = false`, the two keys every member shares
-- Members inherit both and state no other package metadata, Cargo reads `version` as `0.0.0` and `cargo_common_metadata` skips an unpublished package
+- `[workspace.package]` states `edition` and `publish = false`, keys every member shares
+- Members inherit both, `cargo_common_metadata` skips an unpublished package
+- Member `[dependencies]` rows list what the crate's code imports, a row no code imports leaves with that code, and its catalog row stays
 - `description` sits on a member whose code reads it, `clap::command!()` and `#[command(about)]` take it as the command `about`
 - Executables state their version on their `clap` command, the commit describe string `install` compiles in as `RASM_VERSION`, else `0.0.0`, and libraries read `Command::get_version` for `service.version` and MCP identity
 - Members name their crate root beside `Cargo.toml` through `[lib] path` or `[[bin]] path`, Cargo discovers targets under `src/` alone
@@ -81,7 +84,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 ## [07]-[CHECKERS]
 
 - Clippy is the workspace's type check over its library and binary targets, a separate `cargo check` repeats its compile
-- Clippy and Dylint run once at the root under `--workspace`, per-package runs repeat `cargo metadata` and hold the build folder lock in turn for units a workspace run answers fresh
+- Clippy and Dylint run once at root under `--workspace`, per-package runs repeat `cargo metadata` and hold build folder lock in turn for units a workspace run finds fresh
 - Joins stay on `futures::future::join` until a rust-analyzer release resolves the def-site helper macro of `core::future::join!`
 - `check.allTargets` and `check.extraArgs` check a saved example or binary alone by `--example` or `--bin`, an override runs one command per save
 - VS Code sets `cargo.targetDir` and Argus sets `CARGO_BUILD_TARGET_DIR` to keep each client's outputs separate
@@ -92,7 +95,8 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - `rustfmt.toml` sets `edition` and `style_edition`, plain `rustfmt` reads neither from `Cargo.toml`
 - `rustfmt.toml` fails the check on each line it cannot fit in `max_width`
 - Comment wrapping keys stay unset, they split section dividers
-- Dylint `orphan_module` fails on a `.rs` file or `mod.rs` folder in a module's folder that no module declares when its crate next compiles, `cargo modules orphans` loads the whole workspace through rust-analyzer per package
+- Dylint `orphan_module` fails on a `.rs` file or `mod.rs` folder in a module's folder no module declares when its crate next compiles
+- `cargo modules orphans` loads the whole workspace through rust-analyzer per package
 
 ## [08]-[UPGRADES]
 

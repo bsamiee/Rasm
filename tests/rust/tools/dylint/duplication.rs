@@ -85,86 +85,86 @@ fn duplicate_body(found: &str) {
         = help: delete `second` and call `first` at each call site
 
     warning: `contracts::renamed` repeats the body and signature of `contracts::borrowed`
-       --> tools/dylint/examples/duplicate_body.rs:386:5
+       --> tools/dylint/examples/duplicate_body.rs:377:5
         |
-    386 |     pub(super) fn renamed<'other>(value: &'other str) -> &'other str { value }
+    377 |     pub(super) fn renamed<'other>(value: &'other str) -> &'other str { value }
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `contracts::borrowed` declared here
-       --> tools/dylint/examples/duplicate_body.rs:384:5
+       --> tools/dylint/examples/duplicate_body.rs:375:5
         |
-    384 |     pub(super) fn borrowed<'a>(value: &'a str) -> &'a str { value }
+    375 |     pub(super) fn borrowed<'a>(value: &'a str) -> &'a str { value }
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: delete `contracts::renamed` and call `contracts::borrowed` at each call site
 
     warning: `contracts::renamed_outlives` repeats the body and signature of `contracts::outlives`
-       --> tools/dylint/examples/duplicate_body.rs:394:5
+       --> tools/dylint/examples/duplicate_body.rs:385:5
         |
-    394 |     pub(super) fn renamed_outlives<'a: 'b, 'b>(first: &'a str, second: &'b str) -> (&'a str, &'b str) { (first, second) }
+    385 |     pub(super) fn renamed_outlives<'a: 'b, 'b>(first: &'a str, second: &'b str) -> (&'a str, &'b str) { (first, second) }
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `contracts::outlives` declared here
-       --> tools/dylint/examples/duplicate_body.rs:392:5
+       --> tools/dylint/examples/duplicate_body.rs:383:5
         |
-    392 |     pub(super) fn outlives<'long: 'short, 'short>(first: &'long str, second: &'short str) -> (&'long str, &'short str) { (first, se...
+    383 |     pub(super) fn outlives<'long: 'short, 'short>(first: &'long str, second: &'short str) -> (&'long str, &'short str) { (first, se...
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: delete `contracts::renamed_outlives` and call `contracts::outlives` at each call site
 
     warning: `parameter_drops::values::renamed` repeats the body and signature of `parameter_drops::values::declared`
-       --> tools/dylint/examples/duplicate_body.rs:412:9
+       --> tools/dylint/examples/duplicate_body.rs:401:9
         |
-    412 |         fn renamed<T>(Fields { first: _head, last: _tail }: Fields<T>, visit: impl FnOnce()) { visit() }
+    401 |         fn renamed<T>(Fields { first: _head, last: _tail }: Fields<T>, visit: impl FnOnce()) { visit() }
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `parameter_drops::values::declared` declared here
-       --> tools/dylint/examples/duplicate_body.rs:408:9
+       --> tools/dylint/examples/duplicate_body.rs:397:9
         |
-    408 |         fn declared<T>(Fields { first: _first, last: _last }: Fields<T>, visit: impl FnOnce()) { visit() }
+    397 |         fn declared<T>(Fields { first: _first, last: _last }: Fields<T>, visit: impl FnOnce()) { visit() }
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: delete `parameter_drops::values::renamed` and call `parameter_drops::values::declared` at each call site
 
     warning: `stateful_binary::repeated_calls` repeats the body and signature of `stateful_binary::ordered_calls`
-       --> tools/dylint/examples/duplicate_body.rs:442:5
+       --> tools/dylint/examples/duplicate_body.rs:429:5
         |
-    442 |     pub(super) fn repeated_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(left), state.replace(right)) }
+    429 |     pub(super) fn repeated_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(left), state.replace(right)) }
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `stateful_binary::ordered_calls` declared here
-       --> tools/dylint/examples/duplicate_body.rs:438:5
+       --> tools/dylint/examples/duplicate_body.rs:425:5
         |
-    438 |     pub(super) fn ordered_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(left), state.replace(right)) }
+    425 |     pub(super) fn ordered_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(left), state.replace(right)) }
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: delete `stateful_binary::repeated_calls` and call `stateful_binary::ordered_calls` at each call site
 
     warning: every `Counted` impl has the same `count` body
-       --> tools/dylint/examples/duplicate_body.rs:471:9
+       --> tools/dylint/examples/duplicate_body.rs:458:9
         |
-    471 |         fn count(values: &[u8]) -> usize;
+    458 |         fn count(values: &[u8]) -> usize;
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: repeated here
-       --> tools/dylint/examples/duplicate_body.rs:511:9
+       --> tools/dylint/examples/duplicate_body.rs:498:9
         |
-    511 |         fn count(values: &[u8]) -> usize { values.len() }
+    498 |         fn count(values: &[u8]) -> usize { values.len() }
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     ...
-    515 |         fn count(values: &[u8]) -> usize { values.len() }
+    502 |         fn count(values: &[u8]) -> usize { values.len() }
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: move the body into `Counted::count` as its default and delete `count` from each impl
 
     warning: every `Described` impl has the same `width` body
-       --> tools/dylint/examples/duplicate_body.rs:475:9
+       --> tools/dylint/examples/duplicate_body.rs:462:9
         |
-    475 |         fn width(value: &T) -> usize;
+    462 |         fn width(value: &T) -> usize;
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: repeated here
-       --> tools/dylint/examples/duplicate_body.rs:519:9
+       --> tools/dylint/examples/duplicate_body.rs:506:9
         |
-    519 |         fn width(value: &T) -> usize { value.to_string().len() }
+    506 |         fn width(value: &T) -> usize { value.to_string().len() }
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     ...
-    523 |         fn width(value: &T) -> usize { value.to_string().len() }
+    510 |         fn width(value: &T) -> usize { value.to_string().len() }
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: move the body into `Described::width` as its default and delete `width` from each impl
 
@@ -234,82 +234,82 @@ fn duplicate_trait_constant(found: &str) {
        = help: set the default of `Depth::DEPTH` to `4_u8` and delete `DEPTH` from each impl
 
     warning: every `Meta` impl sets `VALUE` to `5_u32`
-       --> tools/dylint/examples/duplicate_trait_constant.rs:125:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:128:9
         |
-    125 |         const VALUE: u32;
+    128 |         const VALUE: u32;
         |         ^^^^^^^^^^^^^^^^
         |
     note: set here
-       --> tools/dylint/examples/duplicate_trait_constant.rs:142:13
+       --> tools/dylint/examples/duplicate_trait_constant.rs:146:13
         |
-    142 |             const VALUE: u32 = LIMIT;
+    146 |             const VALUE: u32 = LIMIT;
         |             ^^^^^^^^^^^^^^^^
     ...
-    154 |             const VALUE: u32 = LIMIT;
+    159 |             const VALUE: u32 = LIMIT;
         |             ^^^^^^^^^^^^^^^^
         = help: set the default of `Meta::VALUE` to `5_u32` and delete `VALUE` from each impl
 
     warning: every `Other` impl sets `NAME` to `"shared"`
-       --> tools/dylint/examples/duplicate_trait_constant.rs:167:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:173:9
         |
-    167 |         const NAME: &'static str;
+    173 |         const NAME: &'static str;
         |         ^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: set here
-       --> tools/dylint/examples/duplicate_trait_constant.rs:173:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:179:9
         |
-    173 |         const NAME: &'static str = "shared";
+    179 |         const NAME: &'static str = "shared";
         |         ^^^^^^^^^^^^^^^^^^^^^^^^
     ...
-    177 |         const NAME: &'static str = "shared";
+    183 |         const NAME: &'static str = "shared";
         |         ^^^^^^^^^^^^^^^^^^^^^^^^
         = help: set the default of `Other::NAME` to `"shared"` and delete `NAME` from each impl
 
     warning: every `Own` impl sets `VALUE` to `<Self as Own>::NAME`
-       --> tools/dylint/examples/duplicate_trait_constant.rs:238:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:245:9
         |
-    238 |         const VALUE: &'static str;
+    245 |         const VALUE: &'static str;
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: set here
-       --> tools/dylint/examples/duplicate_trait_constant.rs:265:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:272:9
         |
-    265 |         const VALUE: &'static str = <Self as Own>::NAME;
+    272 |         const VALUE: &'static str = <Self as Own>::NAME;
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^
     ...
-    270 |         const VALUE: &'static str = <Self as Own>::NAME;
+    277 |         const VALUE: &'static str = <Self as Own>::NAME;
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: set the default of `Own::VALUE` to `<Self as Own>::NAME` and delete `VALUE` from each impl
 
     warning: every `Generic` impl sets `VALUE` to `T::NAME`
-       --> tools/dylint/examples/duplicate_trait_constant.rs:258:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:265:9
         |
-    258 |         const VALUE: &'static str;
+    265 |         const VALUE: &'static str;
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: set here
-       --> tools/dylint/examples/duplicate_trait_constant.rs:314:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:321:9
         |
-    314 |         const VALUE: &'static str = T::NAME;
+    321 |         const VALUE: &'static str = T::NAME;
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^
     ...
-    318 |         const VALUE: &'static str = T::NAME;
+    325 |         const VALUE: &'static str = T::NAME;
         |         ^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: set the default of `Generic::VALUE` to `T::NAME` and delete `VALUE` from each impl
 
     warning: every `Shortened` impl sets `VALUE` to `<Self as StaticSource>::NAME`
-       --> tools/dylint/examples/duplicate_trait_constant.rs:355:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:363:9
         |
-    355 |         const VALUE: &'a str;
+    363 |         const VALUE: &'a str;
         |         ^^^^^^^^^^^^^^^^^^^^
         |
     note: set here
-       --> tools/dylint/examples/duplicate_trait_constant.rs:393:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:401:9
         |
-    393 |         const VALUE: &'a str = <Self as StaticSource>::NAME;
+    401 |         const VALUE: &'a str = <Self as StaticSource>::NAME;
         |         ^^^^^^^^^^^^^^^^^^^^
     ...
-    397 |         const VALUE: &'a str = <Self as StaticSource>::NAME;
+    405 |         const VALUE: &'a str = <Self as StaticSource>::NAME;
         |         ^^^^^^^^^^^^^^^^^^^^
         = help: set the default of `Shortened::VALUE` to `<Self as StaticSource>::NAME` and delete `VALUE` from each impl
     "#);
@@ -577,104 +577,104 @@ fn duplicate_type(found: &str) {
         = help: use `AddressDto` in place of `Shim`
 
     warning: `NativeOrder` duplicates `std::cmp::Ordering`
-       --> tools/dylint/examples/duplicate_type.rs:611:5
+       --> tools/dylint/examples/duplicate_type.rs:612:5
         |
-    611 |     enum NativeOrder {
+    612 |     enum NativeOrder {
         |     ^^^^^^^^^^^^^^^^
         |
         = help: use `std::cmp::Ordering` in place of `NativeOrder`
 
     warning: `Echo` duplicates `contracts::Packet<N>`
-       --> tools/dylint/examples/duplicate_type.rs:624:5
+       --> tools/dylint/examples/duplicate_type.rs:625:5
         |
-    624 |     struct Echo<const N: usize> {
+    625 |     struct Echo<const N: usize> {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `Packet` declared here
-       --> tools/dylint/examples/duplicate_type.rs:618:5
+       --> tools/dylint/examples/duplicate_type.rs:619:5
         |
-    618 |     struct Packet<const N: usize> {
+    619 |     struct Packet<const N: usize> {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: use `contracts::Packet<N>` in place of `Echo`
 
     warning: `Numbered` duplicates `contracts::Unnumbered`
-       --> tools/dylint/examples/duplicate_type.rs:630:5
+       --> tools/dylint/examples/duplicate_type.rs:631:5
         |
-    630 |     struct Numbered<const N: usize> {
+    631 |     struct Numbered<const N: usize> {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `Unnumbered` declared here
-       --> tools/dylint/examples/duplicate_type.rs:636:5
+       --> tools/dylint/examples/duplicate_type.rs:637:5
         |
-    636 |     struct Unnumbered {
+    637 |     struct Unnumbered {
         |     ^^^^^^^^^^^^^^^^^
         = help: use `contracts::Unnumbered` in place of `Numbered`
 
     warning: `Defaulted` duplicates `contracts::Unnumbered`
-       --> tools/dylint/examples/duplicate_type.rs:642:5
+       --> tools/dylint/examples/duplicate_type.rs:643:5
         |
-    642 |     struct Defaulted<const N: usize = 4> {
+    643 |     struct Defaulted<const N: usize = 4> {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `Unnumbered` declared here
-       --> tools/dylint/examples/duplicate_type.rs:636:5
+       --> tools/dylint/examples/duplicate_type.rs:637:5
         |
-    636 |     struct Unnumbered {
+    637 |     struct Unnumbered {
         |     ^^^^^^^^^^^^^^^^^
         = help: use `contracts::Unnumbered` in place of `Defaulted`
 
     warning: `Strict` duplicates `contracts::Loose<T>`
-       --> tools/dylint/examples/duplicate_type.rs:648:5
+       --> tools/dylint/examples/duplicate_type.rs:649:5
         |
-    648 |     struct Strict<T: Clone> {
+    649 |     struct Strict<T: Clone> {
         |     ^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `Loose` declared here
-       --> tools/dylint/examples/duplicate_type.rs:654:5
+       --> tools/dylint/examples/duplicate_type.rs:655:5
         |
-    654 |     struct Loose<T> {
+    655 |     struct Loose<T> {
         |     ^^^^^^^^^^^^^^^
         = help: use `contracts::Loose<T>` in place of `Strict`
 
     warning: `Fixed` duplicates `contracts::Borrowed<'static>`
-       --> tools/dylint/examples/duplicate_type.rs:660:5
+       --> tools/dylint/examples/duplicate_type.rs:661:5
         |
-    660 |     struct Fixed {
+    661 |     struct Fixed {
         |     ^^^^^^^^^^^^
         |
     note: `Borrowed` declared here
-       --> tools/dylint/examples/duplicate_type.rs:666:5
+       --> tools/dylint/examples/duplicate_type.rs:667:5
         |
-    666 |     struct Borrowed<'a> {
+    667 |     struct Borrowed<'a> {
         |     ^^^^^^^^^^^^^^^^^^^
         = help: use `contracts::Borrowed<'static>` in place of `Fixed`
 
     warning: `Joined` duplicates `contracts::Forward<&'a str>`
-       --> tools/dylint/examples/duplicate_type.rs:672:5
+       --> tools/dylint/examples/duplicate_type.rs:673:5
         |
-    672 |     struct Joined<'a> {
+    673 |     struct Joined<'a> {
         |     ^^^^^^^^^^^^^^^^^
         |
     note: `Forward` declared here
-       --> tools/dylint/examples/duplicate_type.rs:573:5
+       --> tools/dylint/examples/duplicate_type.rs:574:5
         |
-    573 |     struct Forward<T> {
+    574 |     struct Forward<T> {
         |     ^^^^^^^^^^^^^^^^^
         = help: use `contracts::Forward<&'a str>` in place of `Joined`
 
     warning: `Renamed` repeats `Source` member by member
-       --> tools/dylint/examples/duplicate_type.rs:890:5
+       --> tools/dylint/examples/duplicate_type.rs:895:5
         |
-    890 |     enum Renamed {
+    895 |     enum Renamed {
         |     ^^^^^^^^^^^^
         |
     note: converted from `Source` here
-       --> tools/dylint/examples/duplicate_type.rs:932:9
+       --> tools/dylint/examples/duplicate_type.rs:937:9
         |
-    932 | /         match source {
-    933 | |             Source::Pair(first, last) => Renamed::Values(first, last),
-    934 | |             Source::Empty => Renamed::Finished,
-    935 | |         }
+    937 | /         match source {
+    938 | |             Source::Pair(first, last) => Renamed::Values(first, last),
+    939 | |             Source::Empty => Renamed::Finished,
+    940 | |         }
         | |_________^
         = help: use `Source` in place of `Renamed`
 

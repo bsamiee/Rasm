@@ -1,8 +1,8 @@
 """Structlog values lost to event text, positional arguments, or a discarded logger."""
 
 from pathlib import Path
+from sys import getrecursionlimit
 from textwrap import dedent
-lazy from sys import getrecursionlimit
 
 import pytest
 lazy from mypy.nodes import ArgKind, CallExpr, MemberExpr, NameExpr, OpExpr, StrExpr
@@ -13,7 +13,7 @@ from tools.refurb.events import check, ErrorLostLogFieldError
 lazy from tests.python.tools.refurb.conftest import Findings
 lazy from tools.refurb.findings import fullname
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 LOGGER = dedent("""
     import structlog

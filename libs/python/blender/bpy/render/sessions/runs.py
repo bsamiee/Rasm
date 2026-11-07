@@ -47,7 +47,7 @@ def _job_path(dispatcher: Dispatcher, scene: bpy.types.Scene) -> Outcome[OutputP
     return scope.read(scene).bind(lambda found: found.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(scene), member=scope.name)))
 
 
-# --- [PREPARE]
+# --- [PREPARATION]
 
 
 def prepared(dispatcher: Dispatcher, arguments: PrepareArguments, trailing: tuple[str, ...]) -> Outcome[Sent]:
@@ -158,7 +158,7 @@ def job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem:
     return session_loaded(bpy.ops.wm.open_mainfile, filepath=str(source)).bind(lambda _: scene_of(scope.scene)).bind(opened)
 
 
-# --- [RENDER]
+# --- [RENDERING]
 
 
 def frames[T](
@@ -232,7 +232,7 @@ def rendered(dispatcher: Dispatcher, run: Run) -> Outcome[tuple[FrameTime, ...]]
     return paired(RecordFile(path=Path(run.queue), form=RenderQueue).read(), dispatcher.preference.read(identity)).bind(lambda pair: ran(*pair))
 
 
-# --- [SUPERVISE]
+# --- [SUPERVISION]
 
 
 def supervised(dispatcher: Dispatcher, run: Run, trailing: tuple[str, ...]) -> Outcome[Progress]:

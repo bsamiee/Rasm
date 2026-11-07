@@ -1,4 +1,4 @@
-import { Format } from '@rasm/ui/format';
+import { Format } from '@rasm/ui';
 import { ByteSize, DateTime, Duration } from 'effect';
 import { expect, it } from 'vitest';
 

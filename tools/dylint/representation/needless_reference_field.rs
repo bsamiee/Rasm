@@ -22,6 +22,8 @@ pub(crate) struct Pass {
 
 lint!(default Pass; NEEDLESS_REFERENCE_FIELD: "shared reference fields read only to copy one field of their referent");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let ExprKind::Field(_, ident) = expr.kind else { return };

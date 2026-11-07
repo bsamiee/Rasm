@@ -7,6 +7,7 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Objects;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class SelectionChange {
     public static readonly SelectionChange Added = new();
@@ -21,6 +22,7 @@ public sealed partial class SelectionChange {
 internal enum SelectionOperation { Save, Select, Delete, Rename }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record NamedSelection(Guid Id, string Name, Seq<Guid> Objects, Seq<(Guid ObjectId, ComponentIndex Component)> SubObjects) {
     public static IO<Seq<NamedSelection>> Read(RhinoDoc doc) => Internals.SelectionModel(doc).Map(Internals.Selections);
 }
@@ -48,8 +50,11 @@ public sealed record NamedSelectionRestore(StateName Name, SelectionChange Chang
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
+
 public static class NamedSelections {
+
     // --- [MARKS]
+
     private const char Quote = '"';
 
     private static HostEvent<Option<uint>> Refreshed { get; } = new(
@@ -62,7 +67,8 @@ public static class NamedSelections {
                 .Attach(args => Products.Clear(watches, args.DocumentSerialNumber).Scoped(scope))
             select unit);
 
-    // --- [TABLE]
+    // --- [ROWS]
+
     public static NamedTable Table { get; } = new(nameof(NamedSelections), StringComparer.OrdinalIgnoreCase) {
         Marks = [Refreshed],
         Entries = static doc => NamedSelection.Read(doc).Map(static rows => rows.Map(Entry).Strict()),
@@ -82,7 +88,8 @@ public static class NamedSelections {
 
     private static NamedEntry Entry(NamedSelection row) => new(Table, row.Name, Some(row.Id));
 
-    // --- [SCRIPT]
+    // --- [SCRIPTS]
+
     internal static IO<Unit> Scripted(RhinoDoc doc, SelectionOperation option, params Seq<string> names) =>
         Documents.RunScript(doc, $"-_NamedSelections _{option} {string.Join(' ', names.Map(static name => $"{Quote}{name}{Quote}"))}", echo: false, display: None);
 
@@ -100,7 +107,8 @@ public static class NamedSelections {
     internal static IO<Unit> Reverted(RhinoDoc doc, Seq<(RhinoObject Object, bool Persistent)> held) =>
         IO.lift(doc.Objects.UnselectAll).Bind(_ => ObjectTarget.Reselected(held));
 
-    // --- [ROWS]
+    // --- [HOSTS]
+
     internal static IO<Seq<NamedSelection>> Found(RhinoDoc doc, string name) =>
         Named(doc, name).Bind(rows => IO.lift(rows.IsEmpty ? Table.Missing(name) : Fin.Succ(rows)));
 

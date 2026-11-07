@@ -1,8 +1,8 @@
 import { loadAndParseConfig } from '@cloudflare/config';
 import { globAsync, type Tree } from '@nx/devkit';
 import { Cause, Effect, Path, Record, Schema, Struct } from 'effect';
-import { syncGenerator } from '#/tools/nx/sync/tree';
-import { CLOUDFLARE_CONFIG } from '#/tools/nx/workspace';
+import { syncGenerator } from '#/sync/tree.ts';
+import { CLOUDFLARE_CONFIG } from '#/workspace.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

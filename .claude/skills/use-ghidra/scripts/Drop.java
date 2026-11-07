@@ -11,8 +11,6 @@ import java.util.Optional;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Drop extends GhidraScript {
-    // --- [RUN]
-
     @Override
     public void run() throws Exception {
         Arguments.Usage usage = new Arguments.Usage(getScriptName(), "<report> <path>...");

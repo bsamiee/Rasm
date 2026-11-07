@@ -5,7 +5,7 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*"
     },
     "exports": {
         ".": "./index.ts",
@@ -25,10 +25,12 @@
         "@effect/sql-sqlite-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/hosting": "workspace:*",
+        "@rasm/test-support": "workspace:*",
         "@testcontainers/postgresql": "catalog:",
         "@types/node": "catalog:",
         "cf": "catalog:",
         "testcontainers": "catalog:",
+        "vite": "catalog:",
         "vitest": "catalog:"
     }
 }

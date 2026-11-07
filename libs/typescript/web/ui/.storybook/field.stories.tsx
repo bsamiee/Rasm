@@ -1,5 +1,5 @@
-import preview from '#/.storybook/preview';
-import { Field } from '#/field';
+import preview from '#/.storybook/preview.ts';
+import { Field } from '#/field.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

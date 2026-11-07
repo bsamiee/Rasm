@@ -9,8 +9,11 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Content;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Contents {
+
     // --- [KINDS]
+
     public static TResult ByKind<TResult>(RenderContent content, Func<RenderMaterial, TResult> material, Func<RenderEnvironment, TResult> environment, Func<RenderTexture, TResult> texture) =>
         content switch {
             RenderMaterial found => material(found),
@@ -23,6 +26,7 @@ public static class Contents {
         ByKind(content, static _ => RenderContentKind.Material, static _ => RenderContentKind.Environment, static _ => RenderContentKind.Texture);
 
     // --- [ROWS]
+
     public static IO<Seq<RenderContent>> Rows(RhinoDoc doc, RenderContentKind kinds) =>
         IO.lift(() => Seq<(RenderContentKind Kind, IEnumerable<RenderContent> Table)>(
                 (RenderContentKind.Material, doc.RenderMaterials), (RenderContentKind.Environment, doc.RenderEnvironments), (RenderContentKind.Texture, doc.RenderTextures))
@@ -45,7 +49,8 @@ public static class Contents {
             Optional(content.FindChild(slot)).ToFin(new RhinoFault($"slot {slot} of {content.Id}", RhinoReason.Missing)))))
         select child;
 
-    // --- [LIFETIME]
+    // --- [LIFECYCLE]
+
     public static RenderContent? FromXml(string xml, RhinoDoc? doc) =>
         RenderContent.FromXml(xml, doc) switch {
             null => null,
@@ -58,6 +63,7 @@ public static class Contents {
     }
 
     // --- [FILES]
+
     public static IO<RenderContent> ReadFile(InputPath path) =>
         Products.Of(() => RenderContent.LoadFromFile(path));
 
@@ -65,6 +71,7 @@ public static class Contents {
         Products.Accepted(() => content.SaveToFile(path, embedded));
 
     // --- [TABLES]
+
     public static IO<Unit> Attach(RhinoDoc doc, RenderContent content) =>
         Products.Accepted(() => ByKind(content, doc.RenderMaterials.Add, doc.RenderEnvironments.Add, doc.RenderTextures.Add));
 
@@ -80,6 +87,7 @@ public static class Contents {
         IO.lift(() => doc.RenderMaterials.BeginChange(cc)) >> body.Finally(IO.lift(doc.RenderMaterials.EndChange));
 
     // --- [EDITS]
+
     public static Stage<RenderContent> Changing(RenderContent.ChangeContexts cc) =>
         new(
             Copy: live => IO.lift(() => live.BeginChange(cc)) >> Products.Released(live.EndChange) >> IO.pure(live),
@@ -93,6 +101,7 @@ public static class Contents {
         new(target => Products.Transfer(make, child => Products.Accepted(() => target.SetChild(child, slot), member)).Map(_ => target), member);
 
     // --- [CHOOSERS]
+
     public static IO<Guid> ShowContentInstanceBrowser(RhinoDoc doc, Option<Guid> selected, RenderContentKind kinds, RenderContent.ContentInstanceBrowserButtons buttons) =>
         IO.lift(() => {
             Guid chosen = Conversions.Unset(selected);

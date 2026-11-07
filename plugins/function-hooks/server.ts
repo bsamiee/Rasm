@@ -4,10 +4,10 @@ import { layer, layerHttpServices } from '@effect/platform-node/NodeHttpServer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { Array, Cause, Console, Effect, FileSystem, Function, Layer, Option, Path, Predicate, Ref, Schedule, type Schema } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
-import { Routes } from '#/decision';
-import { Host } from '#/host';
-import { observed, quit, watched } from '#/instances';
-import { decide, live } from '#/policies/rules';
+import { Routes } from '#/decision.ts';
+import { Host } from '#/host.ts';
+import { observed, quit, watched } from '#/instances.ts';
+import { decide, live } from '#/policies/rules.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

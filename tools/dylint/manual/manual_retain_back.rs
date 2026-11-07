@@ -24,6 +24,8 @@ use crate::{associated_trait, expanded_externally, impl_owner, suggest};
 
 lint!(MANUAL_RETAIN_BACK: "`pop_front` loops and `drain` calls keeping the last `n` elements of a `VecDeque`");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         fn deque_call<'hir>(cx: &LateContext<'_>, call: &'hir Expr<'hir>, name: Symbol) -> Option<(&'hir Expr<'hir>, &'hir [Expr<'hir>])> {

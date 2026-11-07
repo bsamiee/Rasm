@@ -59,6 +59,121 @@ lint!(Pass<'_>;
     PARAMETERIZABLE_BODY: "functions that repeat another function's body with other literals or constants, or with one other type"
 );
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn value(tcx: TyCtxt<'_>, function: LocalDefId) -> &Expr<'_> {
+    let value = peel_blocks(tcx.hir_body_owned_by(function).value);
+    match value.kind {
+        ExprKind::Closure(closure) if matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) => match tcx.hir_body(closure.body).value.kind {
+            ExprKind::Block(Block { expr: Some(tail), .. }, _) =>
+                peel_blocks(peel_hir_expr_while(tail, |inner| if let ExprKind::DropTemps(kept) = inner.kind { Some(peel_blocks(kept)) } else { None })),
+            _ => value,
+        },
+        _ => value,
+    }
+}
+
+fn substantive(tcx: TyCtxt<'_>, function: LocalDefId) -> bool {
+    let mut operations = 0_usize;
+    for_each_expr(tcx, value(tcx, function), |expr| {
+        if !matches!(expr.kind, ExprKind::Lit(_) | ExprKind::Path(_) | ExprKind::Block(..) | ExprKind::DropTemps(_) | ExprKind::AddrOf(..) | ExprKind::Closure(_)) {
+            operations = operations.saturating_add(1);
+        }
+        if operations > 1 { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }
+    })
+    .is_some()
+}
+
+fn bound_to_trait<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId, implemented: DefId) -> bool {
+    fn rebased<'tcx, T>(tcx: TyCtxt<'tcx>, value: T, arguments: GenericArgsRef<'tcx>, owner: Ty<'tcx>) -> T
+    where T: TypeFoldable<TyCtxt<'tcx>> {
+        substitute_types(tcx, EarlyBinder::bind(tcx, value).instantiate(tcx, arguments).skip_normalization(), |held| (held == owner).then_some(tcx.types.self_param))
+    }
+
+    let tcx = cx.tcx;
+    let (Some(declaration), Some(original_owner)) = (tcx.trait_item_of(function), owner(tcx, function)) else { return false };
+    if declaration.as_local().is_some_and(|declaration| tcx.parent_module_from_def_id(declaration) != tcx.parent_module_from_def_id(function)) {
+        return false;
+    }
+    let implementation = tcx.impl_trait_ref(tcx.parent(function.to_def_id())).instantiate_identity().skip_normalization();
+    let declared = GenericArgs::identity_for_item(tcx, declaration);
+    let inherited = tcx.generics_of(function).parent_count;
+    let arguments = GenericArgs::identity_for_item(tcx, function)
+        .iter()
+        .enumerate()
+        .map(|(index, argument)| {
+            if index >= inherited {
+                declared.get(tcx.generics_of(declaration).parent_count.strict_add(index.strict_sub(inherited))).copied()
+            } else {
+                implementation.args.iter().zip(declared).find_map(|(held, target)| (held == argument).then_some(target))
+            }
+        })
+        .collect::<Option<Vec<_>>>();
+    let Some(arguments) = arguments else { return false };
+    let arguments = tcx.mk_args(&arguments);
+    let owner = EarlyBinder::bind(tcx, original_owner).instantiate(tcx, arguments).skip_normalization();
+    if rebased(tcx, implementation, arguments, owner) != TraitRef::identity(tcx, implemented) {
+        return false;
+    }
+    let typeck = tcx.typeck(function);
+    let body_owner = tcx.erase_and_anonymize_regions(original_owner);
+    let declared_owner = tcx.erase_and_anonymize_regions(owner);
+    let param_env = tcx.param_env(declaration);
+    let known = tcx.liberate_late_bound_regions(declaration, tcx.fn_sig(declaration).instantiate_identity().skip_normalization()).inputs_and_output.iter().collect();
+    test_region_obligations(tcx, function, param_env, &known, |infcx| {
+        let obligations = ObligationCtxt::new(infcx);
+        let cause = ObligationCause::dummy();
+        let clauses = tcx.mk_clauses_from_iter(tcx.clauses_of(function).instantiate_identity(tcx).clauses.into_iter().map(ty::Unnormalized::skip_normalization));
+        obligations.register_obligations(rebased(tcx, clauses, arguments, owner).iter().map(|clause| Obligation::new(tcx, cause.clone(), param_env, clause)));
+        let unavailable = any_expr(tcx, tcx.hir_body_owned_by(function).value, |expr| {
+            let depends = |held: Ty<'tcx>| held.walk().filter_map(GenericArg::as_type).any(|held| held == body_owner);
+            let adjustments = typeck.expr_adjustments(expr);
+            let coerced = iter::once(typeck.expr_ty(expr)).chain(adjustments.iter().map(|adjustment| adjustment.target)).zip(adjustments).any(|(source, adjustment)| {
+                matches!(adjustment.kind, Adjust::Pointer(PointerCoercion::Unsize) | Adjust::Deref(DerefAdjustKind::Overloaded(_) | DerefAdjustKind::Pin) | Adjust::GenericReborrow(_))
+                    && (depends(source) || depends(adjustment.target))
+            });
+            let affected = iter::once(typeck.expr_ty(expr))
+                .chain(adjustments.iter().map(|adjustment| adjustment.target))
+                .filter(|&held| depends(held))
+                .map(|held| (held, rebased(tcx, held.peel_refs(), arguments, declared_owner)))
+                .collect::<Vec<_>>();
+            let resolved = typeck.type_dependent_def_id(expr.hir_id).or_else(|| expr.res(typeck).opt_def_id());
+            if matches!(expr.kind, ExprKind::Field(base, _) if typeck.expr_ty_adjusted(base).peel_refs() == body_owner)
+                || resolved.and_then(|item| impl_owner(tcx, item)).is_some_and(|implementor| implementor == original_owner)
+                || typeck.expr_ty_adjusted(expr).peel_refs() == body_owner && constructed(typeck, expr).is_some()
+                || coerced
+                || affected.iter().any(|(_, held)| held.has_erased_regions())
+            {
+                return true;
+            }
+            for (source, held) in affected {
+                obligations.register_obligation(Obligation::new(tcx, cause.clone(), param_env, ty::Binder::dummy(ty::ClauseKind::WellFormed(held.into()))));
+                match (source.is_ref(), tcx.lang_items().sized_trait()) {
+                    (true, _) => (),
+                    (false, Some(sized)) => obligations.register_bound(cause.clone(), param_env, held, sized),
+                    (false, None) => return true,
+                }
+            }
+            if let Some(called) = resolved.filter(|&called| matches!(tcx.def_kind(called), DefKind::Fn | DefKind::AssocFn | DefKind::Const | DefKind::AssocConst | DefKind::Static { .. }))
+                && let called_args = typeck.node_args(expr.hir_id)
+                && called_args.iter().filter_map(GenericArg::as_type).any(depends)
+            {
+                let called_args = rebased(tcx, called_args, arguments, declared_owner);
+                if called_args.has_erased_regions() {
+                    return true;
+                }
+                obligations.register_obligations(
+                    tcx.clauses_of(called).instantiate(tcx, called_args).clauses.into_iter().map(|clause| Obligation::new(tcx, cause.clone(), param_env, clause.skip_normalization())),
+                );
+            }
+            false
+        });
+        (!unavailable && obligations.evaluate_obligations_error_on_ambiguity().no_errors()).ok_or(())
+    })
+}
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
         fn families<'tcx, T, F>(bucket: &[(LocalDefId, T)], varied: F) -> FxIndexMap<LocalDefId, (Vec<LocalDefId>, Difference<'tcx>)>
@@ -392,117 +507,4 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
             parameterized(cx, root, &members, &form);
         }
     }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn value(tcx: TyCtxt<'_>, function: LocalDefId) -> &Expr<'_> {
-    let value = peel_blocks(tcx.hir_body_owned_by(function).value);
-    match value.kind {
-        ExprKind::Closure(closure) if matches!(closure.kind, ClosureKind::Coroutine(CoroutineKind::Desugared(_, CoroutineSource::Fn))) => match tcx.hir_body(closure.body).value.kind {
-            ExprKind::Block(Block { expr: Some(tail), .. }, _) =>
-                peel_blocks(peel_hir_expr_while(tail, |inner| if let ExprKind::DropTemps(kept) = inner.kind { Some(peel_blocks(kept)) } else { None })),
-            _ => value,
-        },
-        _ => value,
-    }
-}
-
-fn substantive(tcx: TyCtxt<'_>, function: LocalDefId) -> bool {
-    let mut operations = 0_usize;
-    for_each_expr(tcx, value(tcx, function), |expr| {
-        if !matches!(expr.kind, ExprKind::Lit(_) | ExprKind::Path(_) | ExprKind::Block(..) | ExprKind::DropTemps(_) | ExprKind::AddrOf(..) | ExprKind::Closure(_)) {
-            operations = operations.saturating_add(1);
-        }
-        if operations > 1 { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }
-    })
-    .is_some()
-}
-
-fn bound_to_trait<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId, implemented: DefId) -> bool {
-    fn rebased<'tcx, T>(tcx: TyCtxt<'tcx>, value: T, arguments: GenericArgsRef<'tcx>, owner: Ty<'tcx>) -> T
-    where T: TypeFoldable<TyCtxt<'tcx>> {
-        substitute_types(tcx, EarlyBinder::bind(tcx, value).instantiate(tcx, arguments).skip_normalization(), |held| (held == owner).then_some(tcx.types.self_param))
-    }
-
-    let tcx = cx.tcx;
-    let (Some(declaration), Some(original_owner)) = (tcx.trait_item_of(function), owner(tcx, function)) else { return false };
-    if declaration.as_local().is_some_and(|declaration| tcx.parent_module_from_def_id(declaration) != tcx.parent_module_from_def_id(function)) {
-        return false;
-    }
-    let implementation = tcx.impl_trait_ref(tcx.parent(function.to_def_id())).instantiate_identity().skip_normalization();
-    let declared = GenericArgs::identity_for_item(tcx, declaration);
-    let inherited = tcx.generics_of(function).parent_count;
-    let arguments = GenericArgs::identity_for_item(tcx, function)
-        .iter()
-        .enumerate()
-        .map(|(index, argument)| {
-            if index >= inherited {
-                declared.get(tcx.generics_of(declaration).parent_count.strict_add(index.strict_sub(inherited))).copied()
-            } else {
-                implementation.args.iter().zip(declared).find_map(|(held, target)| (held == argument).then_some(target))
-            }
-        })
-        .collect::<Option<Vec<_>>>();
-    let Some(arguments) = arguments else { return false };
-    let arguments = tcx.mk_args(&arguments);
-    let owner = EarlyBinder::bind(tcx, original_owner).instantiate(tcx, arguments).skip_normalization();
-    if rebased(tcx, implementation, arguments, owner) != TraitRef::identity(tcx, implemented) {
-        return false;
-    }
-    let typeck = tcx.typeck(function);
-    let body_owner = tcx.erase_and_anonymize_regions(original_owner);
-    let declared_owner = tcx.erase_and_anonymize_regions(owner);
-    let param_env = tcx.param_env(declaration);
-    let known = tcx.liberate_late_bound_regions(declaration, tcx.fn_sig(declaration).instantiate_identity().skip_normalization()).inputs_and_output.iter().collect();
-    test_region_obligations(tcx, function, param_env, &known, |infcx| {
-        let obligations = ObligationCtxt::new(infcx);
-        let cause = ObligationCause::dummy();
-        let clauses = tcx.mk_clauses_from_iter(tcx.clauses_of(function).instantiate_identity(tcx).clauses.into_iter().map(ty::Unnormalized::skip_normalization));
-        obligations.register_obligations(rebased(tcx, clauses, arguments, owner).iter().map(|clause| Obligation::new(tcx, cause.clone(), param_env, clause)));
-        let unavailable = any_expr(tcx, tcx.hir_body_owned_by(function).value, |expr| {
-            let depends = |held: Ty<'tcx>| held.walk().filter_map(GenericArg::as_type).any(|held| held == body_owner);
-            let adjustments = typeck.expr_adjustments(expr);
-            let coerced = iter::once(typeck.expr_ty(expr)).chain(adjustments.iter().map(|adjustment| adjustment.target)).zip(adjustments).any(|(source, adjustment)| {
-                matches!(adjustment.kind, Adjust::Pointer(PointerCoercion::Unsize) | Adjust::Deref(DerefAdjustKind::Overloaded(_) | DerefAdjustKind::Pin) | Adjust::GenericReborrow(_))
-                    && (depends(source) || depends(adjustment.target))
-            });
-            let affected = iter::once(typeck.expr_ty(expr))
-                .chain(adjustments.iter().map(|adjustment| adjustment.target))
-                .filter(|&held| depends(held))
-                .map(|held| (held, rebased(tcx, held.peel_refs(), arguments, declared_owner)))
-                .collect::<Vec<_>>();
-            let resolved = typeck.type_dependent_def_id(expr.hir_id).or_else(|| expr.res(typeck).opt_def_id());
-            if matches!(expr.kind, ExprKind::Field(base, _) if typeck.expr_ty_adjusted(base).peel_refs() == body_owner)
-                || resolved.and_then(|item| impl_owner(tcx, item)).is_some_and(|implementor| implementor == original_owner)
-                || typeck.expr_ty_adjusted(expr).peel_refs() == body_owner && constructed(typeck, expr).is_some()
-                || coerced
-                || affected.iter().any(|(_, held)| held.has_erased_regions())
-            {
-                return true;
-            }
-            for (source, held) in affected {
-                obligations.register_obligation(Obligation::new(tcx, cause.clone(), param_env, ty::Binder::dummy(ty::ClauseKind::WellFormed(held.into()))));
-                match (source.is_ref(), tcx.lang_items().sized_trait()) {
-                    (true, _) => (),
-                    (false, Some(sized)) => obligations.register_bound(cause.clone(), param_env, held, sized),
-                    (false, None) => return true,
-                }
-            }
-            if let Some(called) = resolved.filter(|&called| matches!(tcx.def_kind(called), DefKind::Fn | DefKind::AssocFn | DefKind::Const | DefKind::AssocConst | DefKind::Static { .. }))
-                && let called_args = typeck.node_args(expr.hir_id)
-                && called_args.iter().filter_map(GenericArg::as_type).any(depends)
-            {
-                let called_args = rebased(tcx, called_args, arguments, declared_owner);
-                if called_args.has_erased_regions() {
-                    return true;
-                }
-                obligations.register_obligations(
-                    tcx.clauses_of(called).instantiate(tcx, called_args).clauses.into_iter().map(|clause| Obligation::new(tcx, cause.clone(), param_env, clause.skip_normalization())),
-                );
-            }
-            false
-        });
-        (!unavailable && obligations.evaluate_obligations_error_on_ambiguity().no_errors()).ok_or(())
-    })
 }

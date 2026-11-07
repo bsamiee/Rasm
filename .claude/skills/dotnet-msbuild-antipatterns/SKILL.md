@@ -379,12 +379,10 @@ GOOD:
 <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
 ```
 
-### [03.7]-[AP-17]-[ERROR]-[PROJECTREFERENCE_CYCLE_OR_UPWARD_EDGE]
+### [03.7]-[AP-17]-[ERROR]-[PROJECTREFERENCE_UPWARD_EDGE]
 
-- SMELL: Projects referencing each other, or a library referencing an application, tool, or test project
-- WHY:
-    - Cycles fail restore with `MSB4006` naming `_GenerateRestoreProjectPathWalk`
-    - Upward edges build with no MSBuild check, STYLE until a validation target errors on them
+- SMELL: A library referencing an application, tool, or test project
+- WHY: Upward edges build with no MSBuild check, STYLE until a validation target errors on them
 - RULE:
     - Every edge points to a lower layer
     - Validation targets before `PrepareForBuild` error on a `ProjectReference` outside the layer root

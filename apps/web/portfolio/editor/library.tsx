@@ -57,7 +57,7 @@ const Library = ({
                 >
                     {(asset) => (
                         <GridListItem className="border-line focus-visible:outline-accent-text selected:border-accent-text min-w-0 cursor-pointer border p-3 outline-none focus-visible:outline-2" id={asset.id} textValue={asset.name}>
-                            <div className="media-h-30 bg-surface pointer-events-none grid aspect-4/3 place-items-center">
+                            <div className="media-h-30 bg-background-muted pointer-events-none grid aspect-4/3 place-items-center">
                                 {Asset.match(asset, {
                                     pdf: () => <FileText className="text-muted size-6" />,
                                     video: () => <Film className="text-muted size-6" />,
@@ -89,7 +89,7 @@ const Library = ({
                                 <h4 className="text-lg tracking-tight wrap-anywhere outline-none" id={`${idPrefix}place`} tabIndex={-1}>
                                     {asset.name}
                                 </h4>
-                                <div className="media-h-70 bg-surface grid place-items-center p-3">
+                                <div className="media-h-70 bg-background-muted grid place-items-center p-3">
                                     <MediaFigure active={true} placement={placement} presentation="expandable" priority={false} renderMedia={true} />
                                 </div>
                                 <div className="actions">

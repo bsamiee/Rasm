@@ -1,15 +1,14 @@
 import { Array, Effect, Function, Number, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Buffer, BufferFlag, ClusterLevel, Direction, Feature, GlyphClass, GlyphFlag, otTagToLanguage, otTagToScript, shape } from 'harfbuzzjs';
-import { Tag } from '#/internal/tag';
-import { Settings } from '#/settings';
-import type { Face } from '#/shaping/face';
-import { Word } from '#/shaping/word';
+import { Settings } from '#/settings.ts';
+import type { Face } from '#/shaping/face.ts';
+import { Word } from '#/shaping/word.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const GlyphFlags = Schema.Literals(Struct.keys(Struct.omit(GlyphFlag, ['DEFINED'])));
 const GlyphClasses = Schema.Literals(Struct.keys(GlyphClass));
-const Bounds = Schema.Struct(Struct.Record(['minX', 'minY', 'maxX', 'maxY'], Schema.Finite)).annotate({ description: 'Ink box in em from run origin, y up' });
+const Bounds = Schema.Struct(Struct.Record(['minX', 'minY', 'maxX', 'maxY'], Schema.Finite)).annotate({ description: 'Union of HarfBuzz glyph extents in em from run origin, y up' });
 const FeatureString = Schema.String.pipe(
     Schema.decodeTo(Schema.instanceOf(Feature), {
         decode: SchemaGetter.transformEffect((given: string, options) => Effect.fromOption(Option.fromUndefinedOr(Feature.fromString(given)), () => new SchemaIssue.InvalidValue({ message: `Invalid HarfBuzz feature ${given}` }, given, options))),
@@ -37,8 +36,8 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
         features: Schema.Array(FeatureString)
             .annotate({ description: 'HarfBuzz features (tag, -tag, tag=value, tag[start:end] in UTF-16 offsets) after settings features' })
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
-        language: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems tag (SRB, TRK), script default when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-        script: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems script (cyrl, arab), detected from text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        language: Schema.OptionFromOptionalKey(Settings.Tag.annotate({ description: 'layout.languageSystems tag (SRB, TRK), script default when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        script: Schema.OptionFromOptionalKey(Settings.Tag.annotate({ description: 'layout.languageSystems script (cyrl, arab), detected from text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         direction: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(Struct.omit(Direction, ['INVALID']))).annotate({ description: 'Script direction when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         clusterLevel: Schema.Literals(Struct.keys(Struct.omit(ClusterLevel, ['DEFAULT'])))
             .annotate({ description: 'HarfBuzz cluster level, MONOTONE_CHARACTERS when absent' })
@@ -48,11 +47,11 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
     });
     static readonly enclosing = (boxes: readonly (typeof Bounds.Type)[]) =>
-        Option.map(Option.liftPredicate(boxes, Array.isReadonlyArrayNonEmpty), (inked) => ({
-            minX: Math.min(...inked.map(Struct.get('minX'))),
-            minY: Math.min(...inked.map(Struct.get('minY'))),
-            maxX: Math.max(...inked.map(Struct.get('maxX'))),
-            maxY: Math.max(...inked.map(Struct.get('maxY'))),
+        Option.map(Option.liftPredicate(boxes, Array.isReadonlyArrayNonEmpty), (enclosed) => ({
+            minX: Math.min(...enclosed.map(Struct.get('minX'))),
+            minY: Math.min(...enclosed.map(Struct.get('minY'))),
+            maxX: Math.max(...enclosed.map(Struct.get('maxX'))),
+            maxY: Math.max(...enclosed.map(Struct.get('maxY'))),
         }));
     static readonly converted = (run: typeof ShapedText.Run.Type, settings: Settings): typeof ShapedText.Run.Type => {
         const offset = (at: number) => (at > run.text.length ? at : settings.digits(run.text.slice(0, at)).length);
@@ -114,7 +113,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
     get advance() {
         return Math.hypot(Number.sumAll(this.glyphs.map(Struct.get('xAdvance'))), Number.sumAll(this.glyphs.map(Struct.get('yAdvance'))));
     }
-    get ink(): Option.Option<typeof Bounds.Type> {
+    get extents(): Option.Option<typeof Bounds.Type> {
         const [, boxes] = Array.mapAccum(this.glyphs, { x: 0, y: 0 }, (pen, { xAdvance, yAdvance, xOffset, yOffset, extents }) => [
             { x: pen.x + xAdvance, y: pen.y + yAdvance },
             Option.map(
@@ -129,7 +128,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
     }
 
     box({ x, y }: { readonly x: number; readonly y: number }) {
-        return Option.map(this.ink, ({ minX, minY, maxX, maxY }) => ({ minX: minX - x, minY: minY - y, maxX: maxX + x, maxY: maxY + y }));
+        return Option.map(this.extents, ({ minX, minY, maxX, maxY }) => ({ minX: minX - x, minY: minY - y, maxX: maxX + x, maxY: maxY + y }));
     }
 }
 

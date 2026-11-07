@@ -2,8 +2,7 @@
 
 from collections.abc import Callable, Mapping
 from contextlib import ExitStack
-import functools
-from functools import partial
+from functools import partial, reduce
 import itertools
 from typing import Final
 
@@ -22,11 +21,11 @@ from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import functions
 from blender.bpy.nodes.addressing import owned
-from blender.bpy.nodes.changes import reconciled
+from blender.bpy.nodes.changes import NodeGroup, reconciled
 from blender.bpy.nodes.desired import FrameNode, Graph, INPUTS, item_key, Members, Node
 from blender.bpy.nodes.functions import lowered
 from blender.bpy.nodes.graphs import Expr, group_input, math, switched
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, NodeGroup
+from blender.bpy.nodes.interfaces import Interface, InterfacePanel
 from blender.bpy.nodes.trees import DATA_TYPES, new_group, ordered_items
 from blender.bpy.render.compositor import masks
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT, with_alpha
@@ -112,6 +111,8 @@ class _Unit(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
     """Layer stacks bound to one extension: the offered effects and term filter while one is declared, the store of each layer's structure by key, the layer rows owning each layer's name, flags, and order, the view attachment, and pass flags."""
+
+    # --- [STATE]
 
     identity: Identity
     rows: OfferedEffects
@@ -252,7 +253,7 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
 
         return self.selected(context).bind(edited)
 
-    # --- [GRAPH]
+    # --- [GRAPHS]
 
     def stages(self, tree: bpy.types.NodeTree) -> Outcome[tuple[StageTarget, ...]]:
         """Reads CPU targets in layer and effect execution order, retaining each native group instance path."""
@@ -395,7 +396,7 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
                     return done.map(placed)
 
                 ordered = sorted(entries, key=lambda held: self.rows.rank(held[1]))
-                return functools.reduce(step, ordered, Ok(source)).map(lambda chain: switched(outer(EFFECTS), source, chain))
+                return reduce(step, ordered, Ok(source)).map(lambda chain: switched(outer(EFFECTS), source, chain))
 
             def covered(original: Expr, content: Expr, panel: InterfacePanel) -> Outcome[_Unit]:
                 keyed = masks.coverage(layer.blend.masks, original, aspect, scale, lambda inner: outer(LAYER_BLEND, MASKS, inner), config)
@@ -408,7 +409,7 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
                 )
 
                 def weighed(factors: tuple[Expr, ...]) -> Outcome[_Unit]:
-                    mask = Option.of_optional(functools.reduce(lambda held, factor: held * factor, factors) if factors else None)
+                    mask = Option.of_optional(reduce(lambda held, factor: held * factor, factors) if factors else None)
                     opacity = outer(LAYER_BLEND, OPACITY.key)
                     weight = mask.map(lambda held: math("MULTIPLY", opacity, held)).default_value(opacity)
                     items = ((layer_key, content), *((layer.mask_part, held) for held in mask.to_list()))

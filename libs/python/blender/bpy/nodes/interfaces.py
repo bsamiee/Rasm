@@ -1,4 +1,4 @@
-"""Group interfaces declared directly, from records, or from stock node inputs, and owned groups of a graph and an interface."""
+"""Group interfaces declared directly, from records, or from stock node inputs."""
 
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import ExitStack
@@ -18,12 +18,10 @@ import msgspec.structs
 import numpy as np
 from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
-from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import definition, RnaPath
-from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.nodes.desired import Content, Graph, item_key, MenuItem, MenuItems
+from blender.bpy.extension.identity import Key
+from blender.bpy.nodes.desired import Content, item_key, MenuItem, MenuItems
 from blender.bpy.nodes.trees import base_socket, interface_of, new_group, socket_at
 from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 
@@ -309,26 +307,6 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
         )
 
 
-class NodeGroup(msgspec.Struct, frozen=True, kw_only=True):
-    """Owned node group of a graph, interface, and saved state."""
-
-    key: Key
-    name: str
-    graph: Graph
-    interface: Interface = Interface()
-    saved: Saved = Saved.USED
-    single: bool = True
-
-    @property
-    def ownership(self) -> Ownership[bpy.types.NodeTree]:
-        """Group tree ownership row."""
-        return Ownership(kind=self.graph.kind, key=self.key, saved=self.saved, single=self.single)
-
-    def acquisitions(self, _identity: Identity) -> Acquisitions:
-        """Returns group ownership row, then every nested group's row."""
-        return (self.ownership, *self.graph.groups)
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -499,4 +477,4 @@ def _nested(value: object, /) -> TypeGuard[msgspec.Struct]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DesiredItem", "Interface", "InterfacePanel", "NodeGroup", "Socket", "Socketed", "StockInput", "decoded", "fielded"]
+__all__ = ["DesiredItem", "Interface", "InterfacePanel", "Socket", "Socketed", "StockInput", "decoded", "fielded"]

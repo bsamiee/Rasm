@@ -6,7 +6,7 @@ import { bundle, dialed, type Link, release } from '@rasm/automation/vite';
 import { paint } from '@rasm/mark';
 import { Array, Effect, FileSystem, Record, Schema, String, Struct } from 'effect';
 import { defaultClientConditions, defaultServerConditions, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { UxpManifest } from '#/uxp-manifest';
+import { UxpManifest } from '#/manifest.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -34,15 +34,15 @@ const SPECIES = { toolbar: { size: 23, scale: [1, 2], raster: true }, pluginList
 const icons = Effect.fnUntraced(function* (master: string, species: keyof typeof SPECIES, stem: string) {
     const { size, scale, raster } = SPECIES[species];
     const folder = 'icons';
-    const inks = Record.toEntries(UxpManifest.inks);
+    const fills = Record.toEntries(UxpManifest.fills);
     const files = yield* Effect.forEach(
-        Array.cartesian(inks, scale),
-        Effect.fnUntraced(function* ([[name, ink], factor]) {
-            return { fileName: `${folder}/${stem}-${name}${raster ? `@${factor}x.png` : '.svg'}`, source: yield* paint(master, ink, raster ? size * factor : undefined) };
+        Array.cartesian(fills, scale),
+        Effect.fnUntraced(function* ([[name, fill], factor]) {
+            return { fileName: `${folder}/${stem}-${name}${raster ? `@${factor}x.png` : '.svg'}`, source: yield* paint(master, fill, raster ? size * factor : undefined) };
         }),
         { concurrency: 'unbounded' },
     );
-    return { icons: Array.map(inks, ([name, { theme }]) => ({ width: size, height: size, path: `${folder}/${stem}-${name}.${raster ? 'png' : 'svg'}`, scale, theme, species: [species] })), files };
+    return { icons: Array.map(fills, ([name, { theme }]) => ({ width: size, height: size, path: `${folder}/${stem}-${name}.${raster ? 'png' : 'svg'}`, scale, theme, species: [species] })), files };
 });
 const panelEntry = (directory: string) =>
     Effect.fnUntraced(function* ([id, row]: readonly [string, Entries<'panel', 'icons'>[string]]) {
@@ -53,7 +53,7 @@ const panelEntry = (directory: string) =>
 const uxpScript = (directory: string, config: UserConfig): UserConfig => {
     const encoding = fileURLToPath(import.meta.resolve('@exodus/bytes/encoding-lite.js'));
     return mergeConfig(
-        bundle({
+        bundle(directory, {
             build: {
                 ssr: join(directory, `${ENTRY}.ts`),
                 emptyOutDir: true,

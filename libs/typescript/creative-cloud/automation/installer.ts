@@ -2,7 +2,7 @@ import process from 'node:process';
 import { Automation } from '@rasm/applications/node';
 import { Array, Config, Effect, FileSystem, Option, Path, Predicate, Record, Schema, Stream, String } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { HostError } from '#/error';
+import { HostError } from '#/error.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

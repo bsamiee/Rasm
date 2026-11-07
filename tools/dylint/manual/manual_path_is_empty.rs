@@ -19,6 +19,8 @@ impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { view: path(tcx, PathNS::Value, "std::path::Path::as_os_str"), empty: path(tcx, PathNS::Value, "std::ffi::OsStr::is_empty") } }
 }
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         if let ExprKind::MethodCall(_, viewed, [], _) | ExprKind::Call(_, [viewed]) = expr.kind

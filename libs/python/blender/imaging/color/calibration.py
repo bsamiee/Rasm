@@ -113,7 +113,7 @@ _CEILING: Final = 1.0 / (3 * float(np.finfo(np.float64).eps))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
-# --- [PLACEMENTS]
+# --- [PLACEMENT]
 
 
 class Reversed(Case, frozen=True, kw_only=True):

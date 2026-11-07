@@ -21,8 +21,11 @@ using Rasm.Grasshopper.UI;
 namespace Rasm.Grasshopper.Doc;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed class WireGraph {
+
     // --- [CONSTRUCTION]
+
     private readonly IMutableBidirectionalGraph<AdjacencyGraph<Guid, SEquatableEdge<Guid>>, CondensedEdge<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>> components;
     private readonly HashMap<Guid, string> labels;
 
@@ -62,6 +65,7 @@ public sealed class WireGraph {
          select new WireEnds(source, parameter.InstanceId)).Strict();
 
     // --- [QUERIES]
+
     public Seq<Seq<Guid>> Cycles() =>
         toSeq(components.Vertices)
             .Filter(static component => component.EdgeCount > 0)
@@ -85,6 +89,7 @@ public sealed class WireGraph {
         });
 
     // --- [LAYERS]
+
     public Seq<Seq<Guid>> Layers() {
         if (components.IsEdgesEmpty)
             return Graph.IsVerticesEmpty ? [] : Seq(toSeq(Graph.Vertices));
@@ -108,7 +113,9 @@ public sealed class WireGraph {
 
 [SmartEnum]
 public sealed partial class Relationship {
+
     // --- [ITEMS]
+
     public static readonly Relationship Inputs = new("Sources", static (_, connectivity, id) => toSeq(connectivity.FindImmediateInputs(id)).Map(static node => node.Id));
     public static readonly Relationship Outputs = new("Recipients", static (_, connectivity, id) => toSeq(connectivity.FindImmediateOutputs(id)).Map(static node => node.Id));
     public static readonly Relationship Neighbours = new("Neighbours", static (document, connectivity, id) => Inputs.Next(document, connectivity, id) + Outputs.Next(document, connectivity, id));
@@ -123,7 +130,8 @@ public sealed partial class Relationship {
     [UseDelegateFromConstructor]
     public partial Seq<Guid> Next(Document document, Connectivity connectivity, Guid id);
 
-    // --- [TRAVERSAL]
+    // --- [TRAVERSALS]
+
     public Seq<IDocumentObject> Reach(Document document, Seq<Guid> roots, int depth, Func<IDocumentObject, bool> through) {
         Connectivity connectivity = document.Objects.Connectivity;
         return Walked(roots, toHashSet(roots), depth, Seq<IDocumentObject>()).Run();
@@ -148,8 +156,11 @@ public sealed partial class Relationship {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Selections {
+
     // --- [SELECTION]
+
     public static IO<int> Select(Document document, Relationship relation, int depth, SelectionMode mode) =>
         IO.lift(() => (
             Prior: toHashSet(toSeq(document.Objects.PrimaryAndSecondary).Filter(static member => member.Selected).Map(static member => member.InstanceId)),
@@ -201,6 +212,7 @@ public static class Selections {
     }
 
     // --- [COMMANDS]
+
     public static Seq<Command> Commands =>
         (from relation in toSeq(Relationship.Items)
          from mode in toSeq(Enum.GetValues<SelectionMode>())

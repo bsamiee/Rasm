@@ -13,12 +13,11 @@ lazy from youseedee import ucd_data
 
 from typography.faces.coverage import Coverage
 from typography.faces.declaration import Derived, Script
-from typography.rules.measures import Rule
+from typography.rules.measures import dotted, made, nuqta, Rule
 lazy from typography.faces.glyphs import Component, Glyph, Joining, Mark, Outline, Source
 lazy from typography.faces.layout import Ligatures, Lookups, Single
 lazy from typography.faces.names import Form, GlyphName
 lazy from typography.outlines.paths import area, bounds, Box, pieces, transformed
-lazy from typography.rules.measures import dotted, made, nuqta
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -31,6 +30,7 @@ class Locale(Rule, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [GLYPHS]
 
 

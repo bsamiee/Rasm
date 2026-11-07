@@ -12,6 +12,7 @@ using SuperLinq;
 namespace Rasm.UI.Rendering;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record Context(SKMatrix Device, Func<StatePalette, Func<Seq<int>, SKColorF>> Palettes) {
     internal HashMap<Interaction, float> StateLayers { get; init; }
     internal Option<PlotFrame> Plot { get; init; }
@@ -31,8 +32,11 @@ internal sealed record Context(SKMatrix Device, Func<StatePalette, Func<Seq<int>
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Painter {
-    // --- [SCENE]
+
+    // --- [SCENES]
+
     internal sealed record Pass(PaintCache Cache, Scene Scene, HashMap<InteractionState, float> StateLayers, Animations Animations, HashSet<Seq<Key>> Live, Seq<Seq<Key>> Hovered, Option<SKPoint> Pointer, Duration Now) {
         internal float Clock => (float)Now.TotalSeconds;
 
@@ -91,6 +95,7 @@ internal static class Painter {
     }
 
     // --- [NODES]
+
     private static void DrawNode(SKCanvas canvas, Pass pass, LayoutNode layout, Context context, SKPoint at) {
         if (pass.Live.Contains(layout.Path) || (layout.View.Role.IsNone && !context.StateLayers.IsEmpty)) {
             Leaf leaf = pass.Cache.Leaves.GetOrAdd(layout, () => new Leaf(layout, pass));
@@ -166,6 +171,7 @@ internal static class Painter {
     private static Option<Matrix4x4> Turn(Pass pass, LayoutNode layout) => pass.Animations.Transforms.Find(layout.Path).Map(transform => layout.Turned(transform.At(pass.Now).Matrix, Vector2.Zero)) | layout.Transform;
 
     // --- [LEAVES]
+
     internal sealed class Leaf(LayoutNode layout, Pass frame) : SKDrawable {
         private Pass pass = frame;
         private Context parent = new(SKMatrix.Identity, frame.Cache.Palettes);
@@ -187,6 +193,7 @@ internal static class Painter {
     }
 
     // --- [ELEVATION]
+
     private static readonly SKPaint ClearPaint = new() { IsAntialias = true, BlendMode = SKBlendMode.Clear };
 
     private static Seq<(Shadow Shadow, SKColorF Color)> Shadows(Theme theme, RoleStyle style) =>
@@ -215,6 +222,7 @@ internal static class Painter {
     }
 
     // --- [BACKGROUND]
+
     private static bool Background(SKCanvas canvas, Pass pass, LayoutNode layout, Context context, SKRect frame, Outline shape) {
         RoleStyle style = layout.Style;
         if (pass.Scene.Backdrops.Contains(layout.Path)) {
@@ -234,6 +242,7 @@ internal static class Painter {
     }
 
     // --- [RING]
+
     private static void FocusRing(SKCanvas canvas, Pass pass, PlacedNode ring, float weight) {
         using SKAutoCanvasRestore restore = new(canvas);
         canvas.Concat(ring.Place.Transform);
@@ -245,6 +254,7 @@ internal static class Painter {
     }
 
     // --- [FADE]
+
     private static Option<SKPaint> EdgeFade(Pass pass, LayoutNode layout, SKRect viewport) =>
         from fade in layout.View.Role.IsSome ? Some(layout.Style.Metrics[Metric.EdgeFade]) : None
         where fade > 0f
@@ -255,6 +265,7 @@ internal static class Painter {
         select pass.Cache.FadeMask((viewport.Location, (SKPoint)scroll.Axis.With(viewport.Location, scroll.Axis.Of(viewport.Location) + length), hidden.Before, hidden.After, float.Min(fade, length / 2f) / length));
 
     // --- [CONTENT]
+
     private static void Content(SKCanvas canvas, Pass pass, LayoutNode layout, Context context, SKColorF under) =>
         layout.Switch(
             (Canvas: canvas, Pass: pass, Context: context, Under: under),
@@ -284,6 +295,7 @@ internal static class Painter {
         });
 
     // --- [IMAGES]
+
     private static void Image(SKCanvas canvas, Pass pass, LayoutNode layout, Context context, View.Image image) {
         SKRect content = layout.ContentBox;
         _ = pass.Cache.Frame(layout, image, pass.Now).Iter(source => {

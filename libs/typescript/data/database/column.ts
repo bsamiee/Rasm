@@ -1,5 +1,5 @@
 import { Array, Data, Equal, Filter, flow, Match, Option, Predicate, Record, Schema, SchemaAST, SchemaGetter, SchemaRepresentation, String, Struct } from 'effect';
-import type { RelationOptions } from '#/relation';
+import type { RelationOptions } from '#/relation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

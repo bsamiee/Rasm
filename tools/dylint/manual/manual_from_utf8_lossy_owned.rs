@@ -62,6 +62,8 @@ impl Pass {
     }
 }
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         if let ExprKind::MethodCall(_, lossy, [], _) | ExprKind::Call(_, [lossy]) = expr.kind

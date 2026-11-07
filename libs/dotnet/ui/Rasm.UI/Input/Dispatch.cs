@@ -10,9 +10,12 @@ using SuperLinq;
 namespace Rasm.UI.Input;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Dispatch {
     extension(Mount mount) {
+
         // --- [DISPATCH]
+
         internal Mount Dispatched(InputEvent input) =>
             input.Switch(
                 mount,
@@ -41,6 +44,7 @@ internal static class Dispatch {
         private Mount Replied(Reply reply, Func<Option<Track>, Routing> routed) => (mount with { Routing = routed(reply.Track) }).WithEffects(reply.Effects).Handled;
 
         // --- [POINTER]
+
         private Mount Stroked(InputEvent.Pointer pointer) =>
             pointer.Stroke.Value.Match(
                 Some: sample => mount.Pointed(Some(sample.At), pointer.Modifiers).Then(pointed => pointer.Stroke.Phase.Switch(
@@ -104,7 +108,8 @@ internal static class Dispatch {
                 Some: capture => mount with { Routing = mount.Routing with { Capture = None }, Output = new Output([], [], Some(capture.Cancelled)) },
                 None: () => mount.Unhandled);
 
-        // --- [DROP]
+        // --- [DROPS]
+
         private Mount Dropped(InputEvent.Drop drop) =>
             (from transfer in drop.Transfer.Value
              where drop.Transfer.Phase != EditPhase.Cancel
@@ -134,6 +139,7 @@ internal static class Dispatch {
         }
 
         // --- [STREAM]
+
         private Mount Notched(SKPoint at, Gesture notch) =>
             mount.Sampled(notch, _ => mount.Prioritized(mount.Scene.Hit(at), notch, (next, owner, over) => next.Performed(owner, over, notch), static (next, scroll, scrollers) => next.Slid(scrollers, scroll, latches: false)));
 
@@ -220,7 +226,8 @@ internal static class Dispatch {
                 }).WithEffects(latch.Cancelled),
                 None: () => mount.Unhandled);
 
-        // --- [PERFORM]
+        // --- [ACTIONS]
+
         private Mount Targeted(InputEvent.Perform perform) =>
             perform.Target.Switch(
                 (Mount: mount, Perform: perform, Gesture: new Gesture.Perform(perform.Act) { Modifiers = perform.Modifiers }),
@@ -284,6 +291,7 @@ internal static class Dispatch {
                 .IfNone(mount.Unhandled);
 
         // --- [LAYERS]
+
         private Mount Chained(Seq<(PartOwner Owner, Seq<Key> Hit)> chain, Option<Seq<Key>> over, Act act, Option<SKPoint> at, Func<Mount, PartOwner, Seq<Key>, Mount> ask) =>
             over.Bind(target => mount.Anchored(target, act)).Match(
                 Some: anchored => mount.FirstHandled(chain.TakeWhile(link => link.Owner.Path.Count > anchored.Depth), ask).Otherwise(next => next.Toggled(anchored.Layer, at)),
@@ -301,6 +309,7 @@ internal static class Dispatch {
             || ((held.Acts.IsEmpty || held.Acts.Exists(static act => act == Act.Press)) && held.Anchor.Bind(mount.Scene.Frame).Exists(frame => frame.Contains(at)));
 
         // --- [DATUM]
+
         private Option<Mount> Walked(Act act) =>
             from toward in act.Toward
             where toward.Along == PhysicalAxis.Horizontal

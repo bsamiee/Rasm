@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pythonlang
+severity: error
+rule:
+    kind: aliased_import
+    pattern: $ALIASED
+    all:
+        - has: {field: alias, pattern: $ALIAS}
+        - not: {has: {field: name, has: {kind: identifier, nthChild: {position: 1, reverse: true}, pattern: $ALIAS}}}
+        - not:
+            inside: {kind: import_statement}
+            any:
+                - has: {field: name, regex: '^(?:altair|dask\.array|dask\.dataframe|datetime|holoviews|matplotlib|matplotlib\.pyplot|networkx|numpy|numpy\.typing|pandas|panel|plotly\.express|plotly\.graph_objects|polars|pyarrow|scipy|seaborn|statsmodels\.api|sympy|tensorflow|tkinter|xarray|xml\.etree\.ElementTree)$'}
+                - pattern: {context: 'import geopandas as gpd', selector: aliased_import}
+message: '`$ALIASED` binds `$ALIAS` as another name for an imported module or member'
+note: 'Import the name as declared, or read `<module>.<name>` where another source exports the same name, and delete the alias'

@@ -10,7 +10,6 @@ from typing import ClassVar, Final, override, Self, TYPE_CHECKING
 import bpy
 from expression import Option, Result, Some, try_downcast
 import msgspec
-from msgspec import UNSET, UnsetType
 
 from blender.bpy.commands.operators import answered
 from blender.bpy.data.rna.descriptors import differing, Value
@@ -60,47 +59,47 @@ _EXTENSIONS: Final = MappingProxyType({
 class Colorspace(Settings, frozen=True, kw_only=True):
     """`ColorManagedInputColorspaceSettings` members."""
 
-    name: str | UnsetType = UNSET
+    name: str | msgspec.UnsetType = msgspec.UNSET
 
 
 class Stereo3dFormat(Settings, frozen=True, kw_only=True):
     """`Stereo3dFormat` members."""
 
-    display_mode: str | UnsetType = UNSET
-    anaglyph_type: str | UnsetType = UNSET
-    interlace_type: str | UnsetType = UNSET
-    use_interlace_swap: bool | UnsetType = UNSET
-    use_sidebyside_crosseyed: bool | UnsetType = UNSET
-    use_squeezed_frame: bool | UnsetType = UNSET
+    display_mode: str | msgspec.UnsetType = msgspec.UNSET
+    anaglyph_type: str | msgspec.UnsetType = msgspec.UNSET
+    interlace_type: str | msgspec.UnsetType = msgspec.UNSET
+    use_interlace_swap: bool | msgspec.UnsetType = msgspec.UNSET
+    use_sidebyside_crosseyed: bool | msgspec.UnsetType = msgspec.UNSET
+    use_squeezed_frame: bool | msgspec.UnsetType = msgspec.UNSET
 
 
 class OutputFormat(Settings, frozen=True, kw_only=True):
     """`ImageFormatSettings` members, the snapshot writer ordering governing members before those their writes reset."""
 
-    media_type: str | UnsetType = UNSET
-    file_format: str | UnsetType = UNSET
-    color_mode: str | UnsetType = UNSET
-    color_depth: str | UnsetType = UNSET
-    quality: int | UnsetType = UNSET
-    compression: int | UnsetType = UNSET
-    use_preview: bool | UnsetType = UNSET
-    exr_codec: str | UnsetType = UNSET
-    use_exr_interleave: bool | UnsetType = UNSET
-    use_jpeg2k_ycc: bool | UnsetType = UNSET
-    use_jpeg2k_cinema_preset: bool | UnsetType = UNSET
-    use_jpeg2k_cinema_48: bool | UnsetType = UNSET
-    jpeg2k_codec: str | UnsetType = UNSET
-    tiff_codec: str | UnsetType = UNSET
-    use_cineon_log: bool | UnsetType = UNSET
-    cineon_black: int | UnsetType = UNSET
-    cineon_white: int | UnsetType = UNSET
-    cineon_gamma: float | UnsetType = UNSET
-    views_format: str | UnsetType = UNSET
-    stereo_3d_format: Stereo3dFormat | UnsetType = UNSET
-    color_management: str | UnsetType = UNSET
-    view_settings: ViewSettings | UnsetType = UNSET
-    display_settings: DisplaySettings | UnsetType = UNSET
-    linear_colorspace_settings: Colorspace | UnsetType = UNSET
+    media_type: str | msgspec.UnsetType = msgspec.UNSET
+    file_format: str | msgspec.UnsetType = msgspec.UNSET
+    color_mode: str | msgspec.UnsetType = msgspec.UNSET
+    color_depth: str | msgspec.UnsetType = msgspec.UNSET
+    quality: int | msgspec.UnsetType = msgspec.UNSET
+    compression: int | msgspec.UnsetType = msgspec.UNSET
+    use_preview: bool | msgspec.UnsetType = msgspec.UNSET
+    exr_codec: str | msgspec.UnsetType = msgspec.UNSET
+    use_exr_interleave: bool | msgspec.UnsetType = msgspec.UNSET
+    use_jpeg2k_ycc: bool | msgspec.UnsetType = msgspec.UNSET
+    use_jpeg2k_cinema_preset: bool | msgspec.UnsetType = msgspec.UNSET
+    use_jpeg2k_cinema_48: bool | msgspec.UnsetType = msgspec.UNSET
+    jpeg2k_codec: str | msgspec.UnsetType = msgspec.UNSET
+    tiff_codec: str | msgspec.UnsetType = msgspec.UNSET
+    use_cineon_log: bool | msgspec.UnsetType = msgspec.UNSET
+    cineon_black: int | msgspec.UnsetType = msgspec.UNSET
+    cineon_white: int | msgspec.UnsetType = msgspec.UNSET
+    cineon_gamma: float | msgspec.UnsetType = msgspec.UNSET
+    views_format: str | msgspec.UnsetType = msgspec.UNSET
+    stereo_3d_format: Stereo3dFormat | msgspec.UnsetType = msgspec.UNSET
+    color_management: str | msgspec.UnsetType = msgspec.UNSET
+    view_settings: ViewSettings | msgspec.UnsetType = msgspec.UNSET
+    display_settings: DisplaySettings | msgspec.UnsetType = msgspec.UNSET
+    linear_colorspace_settings: Colorspace | msgspec.UnsetType = msgspec.UNSET
 
     @classmethod
     def exr(cls, output: Output, *, layered: bool) -> Outcome[Self]:
@@ -148,14 +147,16 @@ class FileItem(Settings, frozen=True, kw_only=True):
 
     name: str
     socket_type: "rna_enums.NodeSocketDataTypeItems"
-    vector_socket_dimensions: int | UnsetType = UNSET
-    override_node_format: bool | UnsetType = UNSET
-    save_as_render: bool | UnsetType = UNSET
-    format: OutputFormat | UnsetType = UNSET
+    vector_socket_dimensions: int | msgspec.UnsetType = msgspec.UNSET
+    override_node_format: bool | msgspec.UnsetType = msgspec.UNSET
+    save_as_render: bool | msgspec.UnsetType = msgspec.UNSET
+    format: OutputFormat | msgspec.UnsetType = msgspec.UNSET
 
 
 class FileItems(ItemContent, frozen=True, kw_only=True):
     """Semantic keys bound to native File Output items under their original requests."""
+
+    # --- [STATE]
 
     items: Mapping[Key, FileItem]
     _key: ClassVar[Key] = "file_items"

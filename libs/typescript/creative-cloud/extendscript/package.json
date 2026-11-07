@@ -5,11 +5,11 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*"
     },
     "exports": {
-        ".": "./runtime.ts",
-        "./extendscript": "./extendscript.ts"
+        ".": "./reply.ts",
+        "./handler": "./handler.ts"
     },
     "dependencies": {
         "@rasm/automation": "workspace:*",

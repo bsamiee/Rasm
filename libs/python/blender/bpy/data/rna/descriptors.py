@@ -71,6 +71,8 @@ DTYPES: Final[Mapping[type[bpy.types.Property], type[np.bool | np.int32 | np.flo
 class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]
     """Property definition from root type, no live data."""
 
+    # --- [STATE]
+
     root: type[Native]
     owner: RnaPath = ()
     prop: _P_co
@@ -413,6 +415,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [READS]
 
 
@@ -533,7 +536,7 @@ def sequenced[W](writes: Iterable[tuple[RnaPath, Native, Descriptor, W]]) -> tup
     )
 
 
-# --- [READERS]
+# --- [CONVERSIONS]
 
 
 def _converted[T](value: object, kind: TypeForm[T], subject: str) -> Outcome[T]:
@@ -546,6 +549,5 @@ def _converted[T](value: object, kind: TypeForm[T], subject: str) -> Outcome[T]:
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
-
 
 __all__ = ["DTYPES", "LEADING", "Descriptor", "Scalar", "Value", "assign", "custom_read", "differing", "effective", "sequenced", "stored", "written"]

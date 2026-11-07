@@ -7,6 +7,7 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public abstract record HistoryReplay(int Version) {
     public bool CopyOnReplace { get; init; }
 
@@ -16,7 +17,9 @@ public abstract record HistoryReplay(int Version) {
 }
 
 public sealed record HistoryDefinition<T>(int Version, HistoryKey<T> Inputs, Func<T, IO<Seq<GeometryBase>>> Build) : HistoryReplay(Version) where T : notnull {
-    // --- [RUN]
+
+    // --- [EXECUTION]
+
     public IO<Seq<Guid>> Run(RhinoDoc doc, Command command, T inputs, Option<ObjectAttributes> attributes) =>
         from added in (from record in use(() => new HistoryRecord(command, Version) { CopyOnReplaceObject = CopyOnReplace })
                        from built in Build(inputs)
@@ -27,6 +30,7 @@ public sealed record HistoryDefinition<T>(int Version, HistoryKey<T> Inputs, Fun
         select added;
 
     // --- [REPLAY]
+
     public override IO<Unit> Replay(ReplayHistoryData data) =>
         from version in IO.lift(() => RhinoFault.Unless(data.HistoryVersion == Version, RhinoReason.Mismatched, data.HistoryVersion))
         from inputs in Inputs.Read(data)
@@ -39,8 +43,11 @@ public sealed record HistoryDefinition<T>(int Version, HistoryKey<T> Inputs, Fun
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Histories {
+
     // --- [RESULTS]
+
     internal static Fin<Unit> Updated(ReplayHistoryResult result, GeometryBase geometry, int index) =>
         (geometry switch {
             Point point => Some(result.UpdateToPoint(point.Location, attributes: null)),
@@ -65,7 +72,8 @@ public static class Histories {
             Some: updated => RhinoFault.Unless(updated, RhinoReason.Declined, geometry.ObjectType, index),
             None: () => new RhinoFault(geometry.ObjectType, RhinoReason.Unsupported, index));
 
-    // --- [GRAPH]
+    // --- [GRAPHS]
+
     public static IO<ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>>> Graph(RhinoDoc doc, Guid id) =>
         Graphs.Reached(
                 id,

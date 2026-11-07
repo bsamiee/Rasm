@@ -15,6 +15,7 @@ using SuperLinq;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Decoration(int Line) {
     public Option<System.Range> Range { get; init; }
     public Option<Key> Role { get; init; }
@@ -26,7 +27,9 @@ public sealed record Decoration(int Line) {
 public sealed record Folding(Seq<System.Range> Ranges, HashSet<Key> Closed, Func<Edit<HashSet<Key>>, IO<Unit>> Toggled);
 
 public sealed record CodeView(Seq<string> Lines, Func<Seq<Key>, Part.Choice> Choice) {
+
     // --- [STATE]
+
     public Func<string, Seq<Span>> Tokens { get; init; } = static line => [line];
     public Seq<Decoration> Decorations { get; init; }
     public Search Find { get; init; } = Search.Everything;
@@ -37,7 +40,8 @@ public sealed record CodeView(Seq<string> Lines, Func<Seq<Key>, Part.Choice> Cho
 
     private Seq<System.Range> Folds => Folding.Map(folding => folding.Ranges.Map(range => Clamped(range, Lines.Count))).IfNone([]);
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     public View Drawn(CultureInfo culture) {
         HashSet<int> hidden = Folding.Map(folding => toHashSet(Folds.Filter(fold => folding.Closed.Contains(Line(fold.Start.Value))).Bind(static fold => Spanned((fold.Start.Value + 1)..fold.End)))).IfNone([]);
         return Drawn(culture, toSeq(Range(0, Lines.Count)).Filter(line => !hidden.Contains(line)).Map(static line => Some(line)), None);
@@ -52,6 +56,7 @@ public sealed record CodeView(Seq<string> Lines, Func<Seq<Key>, Part.Choice> Cho
         new View.Overlay(new View.Text([count.ToString(culture)]) { Opacity = Fraction.MinValue }, number.Map(at => (View)new View.Text([at.ToString(culture)]) { Align = new UnitPoint(Fraction.MaxValue, Fraction.Half) }).ToSeq());
 
     // --- [ROWS]
+
     internal View Drawn(CultureInfo culture, Seq<Option<int>> shown, Option<Seq<Key>> follows) {
         Seq<Row<Option<int>>> rows = shown.Map((line, index) => new Row<Option<int>>(line, Line(line.IfNone(Lines.Count + index)), 0, None)).Strict();
         HashMap<Key, Option<int>> lines = toHashMap(rows.Map(static row => (row.Key, row.Item)));
@@ -137,17 +142,22 @@ public sealed record Diff(Key Key, CodeView Original, CodeView Modified, Seq<(Sy
 }
 
 public sealed record Document(string Text) {
-    private const string Bullet = "•";
-    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UsePipeTables().Build();
 
     // --- [STATE]
+
     public Option<Func<Uri, IO<Unit>>> Followed { get; init; }
     public Func<Option<string>, string, Seq<Span>> Tokens { get; init; } = static (_, line) => [line];
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
+    private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UsePipeTables().Build();
+
     public View Drawn(CultureInfo culture) => Stacked(MarkdownParser.Parse(Text, Pipeline), culture);
 
     // --- [BLOCKS]
+
+    private const string Bullet = "•";
+
     private View.Flex Stacked(ContainerBlock container, CultureInfo culture) =>
         new(PhysicalAxis.Vertical, toSeq(container.AsEnumerable()).Choose(block => Drawn(block, culture))) { Role = Roles.Stack, Width = Sizing.Grow.Unit };
 
@@ -201,6 +211,7 @@ public sealed record Document(string Text) {
     }
 
     // --- [INLINES]
+
     private Seq<Span> Inlines(ContainerInline? container) => Optional(container).Map(held => Inlined(held, new Span(""))).IfNone([]);
 
     private Seq<Span> Inlined(ContainerInline container, Span style) =>

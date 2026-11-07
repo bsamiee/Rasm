@@ -1,10 +1,9 @@
 """Shaped runs of a compiled font through HarfBuzz, their `hb-shape` text, and the outlines they place."""
 
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cache, cached_property, partial
 from typing import Literal, override
 lazy from collections.abc import Callable, Iterable, Mapping, Sequence
-lazy from functools import cache, partial
 lazy from graphlib import TopologicalSorter
 lazy from io import BytesIO
 lazy from itertools import accumulate, groupby
@@ -25,7 +24,6 @@ lazy from typography.outlines.paths import bounds, Box, transformed
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Direction = Literal["ltr", "rtl", "ttb", "btt"]
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -77,9 +75,9 @@ class Binary[T: bytes | TTFont = bytes]:
     Native tables compile once when opened; later edits enter shaping through a new reader.
     """
 
-    data: T
-
     # --- [IDENTITY]
+
+    data: T
 
     @override
     def __eq__(self, other: object, /) -> bool:
@@ -91,7 +89,7 @@ class Binary[T: bytes | TTFont = bytes]:
         """Hashes the same byte value or native reader identity used by equality."""
         return hash(self.data) if isinstance(self.data, bytes) else object.__hash__(self)
 
-    # --- [READERS]
+    # --- [READS]
 
     @cached_property
     def face(self) -> Face:  # type: ignore[no-any-unimported]
@@ -245,8 +243,8 @@ class Binary[T: bytes | TTFont = bytes]:
         return measured
 
     @cached_property
-    def inked(self) -> Callable[[str, str], tuple[tuple[Placed, Box], ...]]:
-        """Shaped glyphs with ink extents at their positions, memoized for this binary."""
+    def placed_extents(self) -> Callable[[str, str], tuple[tuple[Placed, Box], ...]]:
+        """Shaped glyphs with their curve extents at their positions, memoized for this binary."""
 
         @cache
         def placed(text: str, language: str, /) -> tuple[tuple[Placed, Box], ...]:

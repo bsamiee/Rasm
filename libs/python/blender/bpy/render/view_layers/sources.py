@@ -12,7 +12,6 @@ from expression import Option, Result, Some
 from expression.extra.result import catch
 import mathutils
 import msgspec
-from msgspec import UNSET
 import numpy as np
 import numpy.typing as npt
 
@@ -22,9 +21,10 @@ from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import RnaPath, rooted
 from blender.bpy.data.rna.properties import choices, enum_choices, flagged
 from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.nodes.changes import NodeGroup
 from blender.bpy.nodes.functions import built, placed
 from blender.bpy.nodes.graphs import Expr, group_input, rgba, Term, xyz
-from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
+from blender.bpy.nodes.interfaces import Interface, Socket
 from blender.bpy.nodes.trees import base_socket, DATA_TYPES
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.outputs.formats import FileItem, FileItems, OutputFormat
@@ -131,6 +131,7 @@ class FileOutput(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [IDS]
 
 
@@ -480,10 +481,10 @@ def file_node(pathed: Pathed, path: OutputPath, layer: str, file_output: FileOut
         return FileItem(
             name=requested,
             socket_type=source.socket_type,
-            vector_socket_dimensions=source.dimensions.default_value(UNSET),
-            override_node_format=overridden.map(lambda _: True).default_value(UNSET),
-            save_as_render=overridden.map(lambda _: False).default_value(UNSET),
-            format=overridden.default_value(UNSET),
+            vector_socket_dimensions=source.dimensions.default_value(msgspec.UNSET),
+            override_node_format=overridden.map(lambda _: True).default_value(msgspec.UNSET),
+            save_as_render=overridden.map(lambda _: False).default_value(msgspec.UNSET),
+            format=overridden.default_value(msgspec.UNSET),
         )
 
     def node(paths: NodePaths) -> Expr:

@@ -8,6 +8,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -39,8 +40,11 @@ public sealed partial class PackageSource {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class AppSettings {
+
     // --- [COMMANDS]
+
     public static Preference<Option<(string Macro, bool Instant)>> Alias(string name) =>
         Preferences.Of(
             IO.lift(() => Optional(CommandAliasList.FindAlias(name)).Map(static alias => (alias.Macro, alias.Instant))),
@@ -75,6 +79,7 @@ public static class AppSettings {
             Some(Preferences.AppSettingsChanged));
 
     // --- [FILES]
+
     public static Preference<Option<InputPath>> TemplateFile { get; } = Location(static () => FileSettings.TemplateFile, static path => FileSettings.TemplateFile = path, InputPath.Of);
 
     public static Preference<Option<FolderPath>> TemplateFolder { get; } = Location(static () => FileSettings.TemplateFolder, static path => FileSettings.TemplateFolder = path, FolderPath.Of);
@@ -102,7 +107,8 @@ public static class AppSettings {
             path => IO.lift(() => write(Conversions.Unset(path.Map(static held => held.ToValue())))),
             Some(Preferences.AppSettingsChanged));
 
-    // --- [NUDGE]
+    // --- [NUDGES]
+
     public static IO<Unit> NudgeFollowsActiveDocument(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
         (from post in Mailboxes.Idle<Unit, Unit>(_ => IO.lift(static () => Optional(RhinoDoc.ActiveDoc)).Bind(active => active.Match(Some: doc => Nudge(doc, steps), None: static () => IO.pure(unit))))
          from attached in Subscriptions.Merged(

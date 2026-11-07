@@ -1,8 +1,7 @@
 """Compositor color graph operations: colorspace conversion, straight-color scopes and alpha forms, OCIO coordinate groups, chromaticity matrices, channel ordering, and luma-chroma planes."""
 
 from collections.abc import Callable
-import functools
-from functools import partial
+from functools import cache, partial
 from math import log
 from typing import Final, Literal
 
@@ -14,8 +13,9 @@ import PyOpenColorIO
 
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes import functions
+from blender.bpy.nodes.changes import NodeGroup
 from blender.bpy.nodes.graphs import Component, composed, directed, equal, Expr, group_input, inverted, math, matrix, mixed, rgba, Term, vector, where, xyz
-from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
+from blender.bpy.nodes.interfaces import Interface, Socket
 from blender.imaging.color.processors import lin_to_log, luma
 from blender.records.faults import Fault, Faults, Ok, Outcome, paired, Reason
 
@@ -29,7 +29,6 @@ _HSY_LOW_GAIN: Final = 5.0
 _HSY_FLOOR: Final = 0.07
 _HSY_OFFSET: Final = 0.15
 _HSY_GAIN: Final = 1.4
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -107,7 +106,7 @@ def hsy(config: PyOpenColorIO.Config, direction: PyOpenColorIO.TransformDirectio
     return grouped.map(lambda group: functions.placed(group, {COLOR_INPUT.key: image}, COLOR_RESULT.key))
 
 
-@functools.cache
+@cache
 def _logarithmic(direction: PyOpenColorIO.TransformDirection) -> Outcome[NodeGroup]:
     """Builds OCIO channel stop coordinates from LogCamera parameters."""
     transform = lin_to_log()
@@ -136,7 +135,7 @@ def _logarithmic(direction: PyOpenColorIO.TransformDirection) -> Outcome[NodeGro
     )
 
 
-@functools.cache
+@cache
 def _hsy(direction: PyOpenColorIO.TransformDirection, weights: tuple[float, ...]) -> Outcome[NodeGroup]:
     """HSY group of one direction and luma weight triple."""
     low_luma, high_luma = _HSY_RAMP

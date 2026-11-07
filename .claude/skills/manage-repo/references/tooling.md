@@ -4,7 +4,7 @@
 
 - Processes call tools by name, their shell or agent harness supplies mise's environment
 - `[tools]` rows name a registry short name or a backend such as `github:`, `pypi:`, `npm:`, or `cargo:`
-- Dylint uses its published binaries. Cargo Edit builds from its crate.
+- Dylint uses its published binaries. Cargo Edit builds from its crate
 - `dotnet:<id>` rows install a .NET tool package's command, `dotnet dnx` resolves the feed on each launch and keeps a CLI parent process beside the tool
 - `http:<tool>` rows install a release source archive for a tool with no registry entry and no release asset
 - `http:` rows reading a releases API set `version_order = "semver"`, mise takes the last entry of a listing ordered newest first
@@ -38,7 +38,8 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `experimental = true` under `[settings]` enables `[daemons]`, `[daemons_settings]` `namespace` names daemon IDs `rasm/<name>`
 - Rows declare `run` as a shell command opening with `exec`, mise runs it from `{{config_root}}` with project tools and `[env]`
 - `run` renders `{{ env.<NAME> }}` and `{{ vars.<name> }}` alone, a daemon reads its own port as `$PORT`
-- Row `env` tables reach pitchfork unrendered by mise and apply to the row's `mise x`, a value only the server reads (`XDG_CACHE_HOME`) sits in `run` as `exec env <NAME>=<value> <server>`, as an `env` row it moves mise's own cache
+- Row `env` tables reach pitchfork unrendered by mise and apply to the row's `mise x`
+- Values only the server reads (`XDG_CACHE_HOME`) sit in `run` as `exec env <NAME>=<value> <server>`, as an `env` row one moves mise's own cache
 - Fixed `port` rows export `<NAME>_PORT` to every mise process, `[env]` URL rows read it as `{{ env.<NAME>_PORT }}`
 - Rows with a `port` take `proxy = false`, mise otherwise exports a `<NAME>_URL` naming a proxy hostname nothing serves
 - Daemon names fold into exported variable names, a name another program reads as its own variable (`BLENDER_PORT`) takes a longer name
@@ -46,11 +47,13 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `boot_start = true` rows start under `pitchfork supervisor run --boot`
 - `COLIMA_HOME` and `DOCKER_CONFIG` keep VM and Docker state outside the checkout
 - Readiness without a timeout waits while the process runs, Docker times out when the VM boots without its engine
-- `rasm:docker` starts each platform file's `docker` row: Colima on macOS, `docker events` on Linux and Windows, where systemd or Docker Desktop runs the engine and an unreachable engine fails the start at once
+- `rasm:docker` starts each platform file's `docker` row: Colima on macOS, `docker events` on Linux and Windows
+- Systemd or Docker Desktop runs the engine on Linux and Windows, an unreachable engine fails the `docker` row's start at once
 - `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names socket inside the engine's host, Ryuk mounts it and fails on Colima's client socket path
-- PostgreSQL services with persisted data follow one major tag until an upgrade migrates their data.
+- PostgreSQL services with persisted data follow one major tag until an upgrade migrates their data
 - Harness rows hold service URLs and read no `[env]` value into MCP config
-- Servers speaking stdio alone run as `rasm-mcp-bridge -- <command>`, listening on `127.0.0.1` at the `PORT` the row exports, its `4s` default grace above the upstream's 3s stdin close and below the 5s stop timeout ending the upstream on every stop
+- Servers speaking stdio alone run as `rasm-mcp-bridge -- <command>`, listening on `127.0.0.1` at the `PORT` the row exports
+- Bridges hold a `4s` default grace above upstream's 3s stdin close and below 5s stop timeout, ending upstream on every stop
 - Bridge rows use `ready_http` with status `406` and a `5m` timeout to wait for the upstream handshake
 - `doppler run` rows take `--forward-signals=false`, the group's SIGTERM reaches the bridge once and a forwarded second signal abandons its drain
 - `roslyn-codelens` starts from `/` without a solution and gets `30s` to stop

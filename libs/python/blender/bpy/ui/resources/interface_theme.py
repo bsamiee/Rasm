@@ -38,6 +38,7 @@ type _Options = Mapping[str, Any]  # type: ignore[explicit-any]
 _LIGHTNESS: Final = tuple(np.linspace(0.0, 1.0, np.iinfo(np.uint8).max + 1).tolist())
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
 # --- [STEPS]
 
 
@@ -182,6 +183,7 @@ class InterfaceTheme(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [VALUES]
 
 
@@ -295,7 +297,7 @@ def _resolved(theme: InterfaceTheme, descriptors: Mapping[str, Descriptor], base
     return accumulated((*missed, *(known[key] for key in order if all(known[read].is_ok() for read in reads[key])))).map(lambda _: MappingProxyType({key: values[key] for key in bound}))
 
 
-# --- [SESSION]
+# --- [SESSIONS]
 
 
 def _roots(context: bpy.types.Context, /) -> tuple[Struct, ...]:

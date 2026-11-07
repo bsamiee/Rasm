@@ -1,8 +1,8 @@
 """Writes the one folder `pack` overlays on its stage, holding what an extension's declarations make: encoded icons, pinned upstream files, interface themes."""
 
+import os
 lazy from collections.abc import Iterable
 lazy from functools import partial
-lazy import os
 lazy from pathlib import Path
 
 import msgspec

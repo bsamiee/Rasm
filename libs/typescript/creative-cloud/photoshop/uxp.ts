@@ -3,10 +3,10 @@ import { type File, host } from 'adobe:uxp';
 import { ExecuteScript, HostError, ObjectModel, Reference } from '@rasm/automation';
 import { Peer } from '@rasm/automation/peer';
 import { Unmatched } from '@rasm/search';
-import { Uxp } from '@rasm/uxp/uxp';
+import { Uxp } from '@rasm/uxp/plugin';
 import { parse } from 'acorn';
 import { Array, Cause, Effect, Exit, flow, Layer, Match, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
-import { Photoshop } from '#/contract';
+import { Photoshop } from '#/contract.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -215,7 +215,7 @@ const handlers = Layer.merge(
     }),
     Layer.succeed(Photoshop.DisplayDialogs)((effect) => Effect.scoped(Effect.andThen(Uxp.preserve(app, { displayDialogs: constants.DialogModes.NONE }), effect))),
 );
-const linkPhotoshop = Peer.dial(
+const link = Peer.dial(
     Photoshop.Contract,
     handlers,
     Effect.gen(function* () {
@@ -232,4 +232,4 @@ const linkPhotoshop = Peer.dial(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { linkPhotoshop };
+export { link };

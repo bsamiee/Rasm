@@ -14,14 +14,16 @@ using SuperLinq;
 namespace Rasm.Imaging.Procedural;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Octaves(float Detail, float Roughness, float Lacunarity) {
     internal float Weight(int octave) => float.Min(1f, Detail - (octave - 1));
 }
 
 [SmartEnum<int>]
 public sealed partial class NoiseDimensions {
-    private const float Repeat = 100000f;
-    private const uint Impulses = 8u;
+
+    // --- [LATTICES]
+
     private static readonly ImmutableArray<Vector4>[] Corners = Offsets(0, 1);
     private static readonly ImmutableArray<Vector4>[] Near = Offsets(-1, 1);
     private static readonly ImmutableArray<Vector4>[] Wide = Offsets(-2, 2);
@@ -41,7 +43,41 @@ public sealed partial class NoiseDimensions {
     [UseDelegateFromConstructor]
     private partial float Slope(uint word, Vector4 offset);
 
+    private static NoiseDimensions Lattice(int rank, float scale, Func<uint, Vector4, float> slope) {
+        (Vector4 live, float peak) = (Mask(rank), 0f);
+        for (uint top = 0u; top < 32u; top++)
+            foreach (Vector4 corner in Corners[rank].AsSpan())
+                peak = float.Max(peak, float.Abs(slope(top << 27, ((2f * corner) - Vector4.One) * live)));
+        return new(rank, scale, Bound(scale * peak, rank + Corners[rank].Length + 4), slope);
+    }
+
+    internal static float Bound(double magnitude, int operations) {
+        double roundoff = (float.BitIncrement(1f) - 1f) / 2d;
+        double growth = double.Pow(1d / (1d - roundoff), operations);
+        double bound = (magnitude * growth) + (float.Epsilon / 2d * (growth - 1d) / roundoff);
+        return (float)bound switch { var rounded => rounded < bound ? float.BitIncrement(rounded) : rounded };
+    }
+
+    private static Vector4 Mask(int rank) => Vector4.Clamp(Vector4.Create(rank) - new Vector4(0f, 1f, 2f, 3f), Vector4.Zero, Vector4.One);
+
+    private static (Vector128<int> Cell, Vector4 Local) Split(Vector4 point) =>
+        Vector128.Floor(point.AsVector128()) switch { var floor => (Vector128.ConvertToInt32(floor), point - floor.AsVector4()) };
+
+    private static Vector128<int> Step(Vector4 offset) => Vector128.ConvertToInt32(offset.AsVector128());
+
+    private static Vector4 At(Vector128<int> cell, Vector4 local) => Vector128.ConvertToSingle(cell).AsVector4() + local;
+
+    private static ImmutableArray<Vector4>[] Offsets(int low, int high) {
+        return [.. Enumerable.Range(0, 5).Select(rank => ImmutableArray.CreateRange(
+            from w in Axis(rank, 3) from z in Axis(rank, 2) from y in Axis(rank, 1) from x in Axis(rank, 0) select new Vector4(x, y, z, w)))];
+
+        IEnumerable<int> Axis(int rank, int axis) => axis < rank ? Enumerable.Range(low, high - low + 1) : [0];
+    }
+
     // --- [GRADIENTS]
+
+    private const float Repeat = 100000f;
+
     public Vector4 White(Vector4 point, uint field) => CoordinateHash.Uniforms(Split(point * Live).Cell, field);
 
     public float Gradient(Vector4 point, uint field) {
@@ -65,6 +101,7 @@ public sealed partial class NoiseDimensions {
     }
 
     // --- [CELLS]
+
     public IEnumerable<(Vector128<int> Cell, Vector4 Site)> Sites(Vector4 low, Vector4 high, float randomness, uint field) {
         (Vector128<int> first, Vector128<int> last) = (Split((low - (randomness * Vector4.One)) * Live).Cell, Split(high * Live).Cell);
         return from w in Span(3) from z in Span(2) from y in Span(1) from x in Span(0)
@@ -148,6 +185,9 @@ public sealed partial class NoiseDimensions {
     }
 
     // --- [GABOR]
+
+    private const uint Impulses = 8u;
+
     public Vector2 Gabor(Vector4 point, float frequency, float anisotropy, float orientation, uint field) {
         (int rank, Vector4 live) = (GaborRank, Mask(GaborRank));
         (Vector128<int> cell, Vector4 local) = Split(point * Live * live);
@@ -180,6 +220,7 @@ public sealed partial class NoiseDimensions {
             };
 
     // --- [SPECTRAL]
+
     public static PixelFrame Spectral(PixelExtent extent, double exponent, double scale, double coverage, uint field) {
         static double Frequency(int index, int length) => (index <= length / 2 ? index : index - length) / (double)length;
         Size size = new(CvInvoke.GetOptimalDFTSize(int.Max(2, extent.Width)), CvInvoke.GetOptimalDFTSize(int.Max(2, extent.Height)));
@@ -210,38 +251,6 @@ public sealed partial class NoiseDimensions {
         using Mat pixels = specks.Header();
         CvInvoke.Merge(planes, pixels);
         return specks;
-    }
-
-    // --- [LATTICE]
-    private static NoiseDimensions Lattice(int rank, float scale, Func<uint, Vector4, float> slope) {
-        (Vector4 live, float peak) = (Mask(rank), 0f);
-        for (uint top = 0u; top < 32u; top++)
-            foreach (Vector4 corner in Corners[rank].AsSpan())
-                peak = float.Max(peak, float.Abs(slope(top << 27, ((2f * corner) - Vector4.One) * live)));
-        return new(rank, scale, Bound(scale * peak, rank + Corners[rank].Length + 4), slope);
-    }
-
-    internal static float Bound(double magnitude, int operations) {
-        double roundoff = (float.BitIncrement(1f) - 1f) / 2d;
-        double growth = double.Pow(1d / (1d - roundoff), operations);
-        double bound = (magnitude * growth) + (float.Epsilon / 2d * (growth - 1d) / roundoff);
-        return (float)bound switch { var rounded => rounded < bound ? float.BitIncrement(rounded) : rounded };
-    }
-
-    private static Vector4 Mask(int rank) => Vector4.Clamp(Vector4.Create(rank) - new Vector4(0f, 1f, 2f, 3f), Vector4.Zero, Vector4.One);
-
-    private static (Vector128<int> Cell, Vector4 Local) Split(Vector4 point) =>
-        Vector128.Floor(point.AsVector128()) switch { var floor => (Vector128.ConvertToInt32(floor), point - floor.AsVector4()) };
-
-    private static Vector128<int> Step(Vector4 offset) => Vector128.ConvertToInt32(offset.AsVector128());
-
-    private static Vector4 At(Vector128<int> cell, Vector4 local) => Vector128.ConvertToSingle(cell).AsVector4() + local;
-
-    private static ImmutableArray<Vector4>[] Offsets(int low, int high) {
-        return [.. Enumerable.Range(0, 5).Select(rank => ImmutableArray.CreateRange(
-            from w in Axis(rank, 3) from z in Axis(rank, 2) from y in Axis(rank, 1) from x in Axis(rank, 0) select new Vector4(x, y, z, w)))];
-
-        IEnumerable<int> Axis(int rank, int axis) => axis < rank ? Enumerable.Range(low, high - low + 1) : [0];
     }
 }
 
@@ -370,6 +379,7 @@ public sealed partial class WaveProfile {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class CoordinateHash {
     public static uint Branch<TField, TIndex>(TField field, TIndex index, uint stream = 0u) where TField : IBinaryInteger<TField> where TIndex : IBinaryInteger<TIndex> =>
         Pcg3d(uint.CreateTruncating(field), uint.CreateTruncating(index), stream).X;

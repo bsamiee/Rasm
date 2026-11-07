@@ -249,8 +249,6 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [VIEWER]
-
 
 def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: End) -> Outcome[None]:
     """Connects owned Viewer to target end and activates entry."""
@@ -312,7 +310,6 @@ def _shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, keyed: Ow
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 READ: Final = ViewerRead()
-
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

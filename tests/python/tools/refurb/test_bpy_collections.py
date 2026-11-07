@@ -1,12 +1,11 @@
 """Type tests against RNA collection structs."""
 
+from sys import getrecursionlimit
 from textwrap import dedent
 lazy from collections.abc import Callable
-lazy from sys import getrecursionlimit
 
-from mypy.nodes import OpExpr, TupleExpr
+from mypy.nodes import ARG_POS, Block, CallExpr, ClassDef, Expression, NameExpr, OpExpr, SymbolTable, TupleExpr, TypeInfo
 import pytest
-lazy from mypy.nodes import ARG_POS, Block, CallExpr, ClassDef, Expression, NameExpr, SymbolTable, TypeInfo
 lazy from refurb.error import Error
 
 from tools.refurb.bpy_collections import check, ErrorCollectionTypeTestError

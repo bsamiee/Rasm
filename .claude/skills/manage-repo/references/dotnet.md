@@ -4,7 +4,8 @@ MSBuild directory files and central package versions own every shared .NET decla
 
 ## [01]-[UPGRADES]
 
-- Upgrades move each `Directory.Packages.props` row holding a version, prereleases included, a non-host exact `[<version>]` row inside its major.minor, a host row to the installed host's version, and a row a Rhino project references no higher than the host's assembly
+- Upgrades move each `Directory.Packages.props` row holding a version, prereleases included, and a non-host exact `[<version>]` row inside its major.minor
+- Upgrades move host rows to installed host's version, and rows a Rhino project references no higher than host's assembly
 - Rows holding any other range stay
 - Releases come from nuget.org, the one `NuGet.config` source, a per-commit build on a dnceng feed (`dotnet-tools`) is no release
 - Version edits splice attribute text in place, `XmlDocument` or `ProjectRootElement` saves collapse row alignment
@@ -34,7 +35,7 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 - `Directory.Build.props` gives a foreign runtime its own `ArtifactsPath`, its restore rewrites `project.assets.json` for that runtime
 - `dotnet build` walks its own references, serial per Nx task and uncached: a restored output's new timestamp recompiles every consumer
 - Copy-local files hard link into the package folder
-- A runtime identifier turns on copy-local, a library holding one sets `CopyLocalLockFileAssemblies` false
+- Runtime identifiers enable copy-local, libraries holding one set `CopyLocalLockFileAssemblies` false
 - `~/.nuget/packages` stays machine-wide, `mise run clean` clears the NuGet HTTP cache
 - Solution restores read `RestoreUseStaticGraphEvaluation` from `Directory.Solution.props`, no project evaluates that file
 
@@ -72,18 +73,20 @@ Installed Rhino owns the host assembly set, its target framework, and how each U
 - Packages with an assembly in the host folder leave copy-local whole
 - Assembly version above the one `dotnetstart.*.deps.json` declares, or the host file's where it declares none, fails the build
 - `[<version>]` rows under `Label="Rhino Host"` hold packages the catalog sets above a host assembly version, and every package requiring them
-- SVG masters under `EmbeddedResources/` paint with `currentColor` and `class="accent"`, `PaintIcons` runs `usvg --stylesheet` with `IconLightStylesheet` and `IconDarkStylesheet` (default `eng/dotnet/rhino/icon-{light,dark}.css`, the inks of Rhino's toolbar set) into an embedded `<IconStem>.svg` and `<IconStem>_darkmode.svg`
-- A product states `TargetExt` (`.rhp`, or `.rhs` for a Windows skin with its `.rhw` beside it), `PlugInId`, `PlugInIcon` where the mark sits outside `EmbeddedResources/icon.svg`, `PlugInDescription` rows, `PackageTags` for Yak keywords, and `PlugInIconPlate`, `PlugInIconCorner`, `PlugInIconInset` over Rhino's dark panel plate
+- SVG masters under `EmbeddedResources/` paint with `currentColor` and `class="accent"`, `PaintIcons` runs `usvg --stylesheet` with `IconLightStylesheet` and `IconDarkStylesheet` (default `eng/dotnet/rhino/icon-{light,dark}.css`, the fill colors of Rhino's toolbar icons) into an embedded `<IconStem>.svg` and `<IconStem>_darkmode.svg`
+- Products state `TargetExt` (`.rhp`, or `.rhs` for a Windows skin with its `.rhw` beside it), `PlugInId`, and `PlugInIcon` where the mark sits outside `EmbeddedResources/icon.svg`
+- Products state `PlugInDescription` rows, `PackageTags` for Yak keywords, and `PlugInIconPlate`, `PlugInIconCorner`, `PlugInIconInset` over Rhino's dark panel plate
 - `EmbeddedResources/**` embeds under the file's own name
 - `PlugIn.ico`'s 256 PNG frame serves as the Yak `icon.png`, Package Manager draws it at 32 and 48 points
-- A direct `Grasshopper2` reference copies `Documentation/` or `Docs/` beside the plug-in and writes `<plug-in>.rhp.grasshopper-only`, keeping Rhino's package install off exported types it fails to load
-- A `Rasm.Rhino` reference marks a plug-in holding a Rhino plug-in class and writes no marker, `GrasshopperOnly` states the answer where that reference misleads
+- Direct `Grasshopper2` references copy `Documentation/` or `Docs/` beside the plug-in and write `<plug-in>.rhp.grasshopper-only`, keeping Rhino's package install off exported types it fails to load
+- `Rasm.Rhino` references mark a plug-in holding a Rhino plug-in class and write no marker, `GrasshopperOnly` states the answer where the reference misleads
 - Grasshopper 2's scan walks a plug-in type's base chain inside its own assembly, so a library cannot hold its `Plugin` base class
 - `EtoAssets` selects a `_darkmode` resource by name and renders inline `fill-dark` and `stroke-dark` as their light colors
-- A live toolbar draws an icon's `<dark>` element in dark mode, and `Rasm.Rui` writes each `_darkmode` resource there, `ToolbarFile.GetSvg` returning `<light>` for both modes
+- Live toolbars draw an icon's `<dark>` element in dark mode, and `Rasm.Rui` writes each `_darkmode` resource there, `ToolbarFile.GetSvg` returning `<light>` for both modes
 - Rhino opens `<plug-in>.rui` in place beside the registered `.rhp`, an installed package's from its version folder
 - `yak build` adds a `guid:` keyword for Grasshopper 2 plug-ins alone, `BuildYakPackage` sets it on every `yak spec` manifest
 - Yak packages contain the SDK's current publish files and generated manifest, and replace the platform archive after a successful build
-- `BuildYakPackage` `Inputs` hold publish files, imported project files, the Rhino files Yak and Compat read, and the `yq` version, a run skips while the archive and manifest are newer
+- `BuildYakPackage` `Inputs` hold publish files, imported project files, Rhino files Yak and Compat read, and the `yq` version
+- `BuildYakPackage` skips while its archive and manifest are newer than its `Inputs`
 - Rhino's bundled Compat checks the macOS plug-in entry assembly against installed host and published dependencies before Yak builds the archive
 - `MinVerIgnoreHeight` keeps a plug-in's version folder between release tags, so a reinstall keeps its registered path

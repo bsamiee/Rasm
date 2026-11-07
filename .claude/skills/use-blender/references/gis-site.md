@@ -181,17 +181,17 @@ curl -fsS -A '<application name>' -o <dir>/site.osm 'https://overpass-api.de/api
 ```
 
 ```python
-import BlenderGIS.operators.io_import_osm as osm
+from BlenderGIS.operators import io_import_osm
 import bpy
 
 dem = bpy.data.objects["<terrain>"]
-osm.OSMTAGS = osm.getTags()
+io_import_osm.OSMTAGS = io_import_osm.getTags()
 status = bpy.ops.importgis.osm_file(filepath="<dir>/site.osm", filterTags={"building", "highway"}, separate=True, useElevObj=True, objElevLst=str(list(bpy.context.scene.objects).index(dem)))
 result = {"status": sorted(status), "collections": {c.name: len(c.objects) for c in bpy.data.collections["OSM"].children}}
 ```
 
 - Box corners come from the terrain extent through `reprojPt(geo.crs, 4326, geo.crsx + <x>, geo.crsy + <y>)`
-- `osm.OSMTAGS = osm.getTags()` precedes each script call, `filterTags` validating against a list the dialog fills
+- `io_import_osm.OSMTAGS = io_import_osm.getTags()` precedes each script call, `filterTags` validating against a list the dialog fills
 - `separate` links one object per feature into a child collection per tag under `OSM`, tags as custom properties
 - Building height reads `height`, else `building:levels` times `levelHeight`, else `defaultHeight`, with flat roofs
 - OSM data stays inside terrain extent, features off the terrain sitting at its object z

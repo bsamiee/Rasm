@@ -567,7 +567,8 @@ fn main() {
 }
 
 mod contracts {
-    // --- [MODELS] ----------------------------------------------------------------------
+
+    // --- [MODELS]
 
     #[derive(Debug)]
     struct Forward<T> {
@@ -680,7 +681,7 @@ mod contracts {
         last: &'b str,
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     pub(super) fn values() -> usize {
         let (forward, reverse) = (Forward { first: String::from("first"), last: String::from("last") }, Reverse { last: String::from("last"), first: String::from("first") });
@@ -703,10 +704,11 @@ mod contracts {
             .strict_add(last::values())
     }
 
-    // --- [COMPOSITION] -----------------------------------------------------------------
+    // --- [COMPOSITION]
 
     mod first {
-        // --- [MODELS] ------------------------------------------------------------------
+
+        // --- [MODELS]
 
         #[derive(Debug)]
         pub(super) struct Record {
@@ -714,7 +716,7 @@ mod contracts {
             enabled: bool,
         }
 
-        // --- [OPERATIONS] --------------------------------------------------------------
+        // --- [OPERATIONS]
 
         pub(super) fn values() -> usize {
             let record = Record { secret: 1, enabled: true };
@@ -723,7 +725,8 @@ mod contracts {
     }
 
     mod last {
-        // --- [MODELS] ------------------------------------------------------------------
+
+        // --- [MODELS]
 
         #[derive(Debug)]
         pub(super) struct Record {
@@ -731,7 +734,7 @@ mod contracts {
             enabled: bool,
         }
 
-        // --- [OPERATIONS] --------------------------------------------------------------
+        // --- [OPERATIONS]
 
         pub(super) fn values() -> usize {
             let record = Record { secret: 2, enabled: false };
@@ -741,7 +744,8 @@ mod contracts {
 }
 
 mod distinct_behavior {
-    // --- [TYPES] -----------------------------------------------------------------------
+
+    // --- [TYPES]
 
     trait Code {
         const CODE: u8;
@@ -753,7 +757,7 @@ mod distinct_behavior {
 
     trait Format<T> {}
 
-    // --- [MODELS] ----------------------------------------------------------------------
+    // --- [MODELS]
 
     #[derive(Debug)]
     struct FirstCode {
@@ -803,7 +807,7 @@ mod distinct_behavior {
         minor: u8,
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     impl Code for FirstCode {
         const CODE: u8 = 1;
@@ -860,13 +864,14 @@ mod distinct_behavior {
 }
 
 mod mapped_fields {
-    // --- [TYPES] -----------------------------------------------------------------------
+
+    // --- [TYPES]
 
     trait Mode {
         fn mode(&self) -> bool;
     }
 
-    // --- [MODELS] ----------------------------------------------------------------------
+    // --- [MODELS]
 
     #[derive(Debug)]
     enum Source {
@@ -904,7 +909,7 @@ mod mapped_fields {
         end: u32,
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     impl Mode for DomainRange {
         fn mode(&self) -> bool { self.start < self.end }

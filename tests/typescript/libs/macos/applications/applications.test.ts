@@ -1,5 +1,5 @@
 import { assert, it } from '@effect/vitest';
-import { Execute, Installation, Launch, Launching, Perform, RunningInstance, Screenshot, State } from '@rasm/applications/contract';
+import { Execute, Installation, Launch, Launching, Perform, RunningInstance, Screenshot, State } from '@rasm/applications';
 import { Effect, Option, Record, Result, Schema, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

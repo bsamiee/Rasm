@@ -1,4 +1,4 @@
-import { focusElement } from '@rasm/ui/focus-element';
+import { focusElement } from '@rasm/ui';
 import { Effect, flow } from 'effect';
 import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-react';

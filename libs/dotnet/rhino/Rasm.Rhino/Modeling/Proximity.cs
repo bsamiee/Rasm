@@ -3,6 +3,7 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Closest(Point3d Point, Option<ComponentIndex> Component, Seq<double> Parameters, Option<Vector3d> Normal);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -55,8 +56,8 @@ public abstract partial record Interior {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Proximity {
-    // --- [NEAREST]
     public static Fin<Option<Closest>> Nearest(GeometryBase subject, Point3d query, Option<double> limit) =>
         subject switch {
             Curve curve => Found(curve.ClosestPoint(query, out double t, limit.IfNone(0d)), limit, () => new Closest(

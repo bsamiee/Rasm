@@ -22,6 +22,7 @@ using Rasm.Grasshopper.Data;
 namespace Rasm.Grasshopper.Components;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public interface IComponentDefinition<TSelf> where TSelf : Component<TSelf>, IComponentDefinition<TSelf> {
     public static abstract Nomen Face { get; }
 
@@ -29,9 +30,12 @@ public interface IComponentDefinition<TSelf> where TSelf : Component<TSelf>, ICo
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustomIoId, IPinCushion
     where TSelf : Component<TSelf>, IComponentDefinition<TSelf> {
+
     // --- [IDENTITY]
+
     private Option<(Ports<TSelf> Ports, Func<IDataAccess, Fin<Unit>> Solve)> declared;
 
     protected Component()
@@ -52,6 +56,7 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
     protected override IIcon? IconInternal => DataTypes.Icon(typeof(TSelf).Assembly, typeof(TSelf).Name);
 
     // --- [TOPOLOGY]
+
     protected sealed override void AddInputs(ModularInputAdder inputs) => declared = Declared();
 
     protected sealed override void AddOutputs(ModularOutputAdder outputs) { }
@@ -63,7 +68,8 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
             var ports => (ports, ports.Define()),
         };
 
-    // --- [SOLVE]
+    // --- [SOLUTION]
+
     protected sealed override void Process(IDataAccess access) => declared.Iter(held => ignore(held.Solve(access).IfFail(error => Reported(access, error))));
 
     private static Unit Reported(IDataAccess access, Error error) {
@@ -72,7 +78,8 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
         return leaves.Filter(static leaf => leaf.IsExceptional).Iter(static leaf => Hooks.Run(IO.fail<Unit>(leaf), unit));
     }
 
-    // --- [PANEL]
+    // --- [PANELS]
+
     public override void AppendToInputPanel(InputPanel panel) {
         base.AppendToInputPanel(panel);
         Seq<BarItem> rows = declared.ToSeq().Bind(static held => held.Ports.Rows).Choose(static row => row()).Strict();
@@ -84,7 +91,9 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
 }
 
 public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefinition<TSelf> {
+
     // --- [STATE]
+
     private const int Percent = 100;
     private const byte RoundTripDigits = 17;
     private readonly ModularInputAdder inputs;
@@ -110,6 +119,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     internal Seq<Func<Option<BarItem>>> Rows { get; private set; }
 
     // --- [TOPOLOGY]
+
     internal Func<IDataAccess, Fin<Unit>> Define() {
         Func<IDataAccess, Fin<Unit>> solve = TSelf.Define(this);
         _ = restored.Iter(orphan => {
@@ -131,6 +141,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
             }));
 
     // --- [INPUTS]
+
     public Func<IDataAccess, Fin<T>> Item<T>(Parameter<T> parameter, Option<T> initial = default, Option<(string Category, Color Tint, bool Hidden)> modular = default) where T : notnull {
         (Parameter<T> bound, Func<IDataAccess, Option<Pear<T>>> read) = Read(parameter, Requirement.MustExist, initial, modular);
         return access => read(access).Bind(static pear => Optional(pear.Item)).ToFin(new GrasshopperFault(bound.UserName, GrasshopperReason.Missing));
@@ -178,6 +189,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     }
 
     // --- [OUTPUTS]
+
     public Func<IDataAccess, T, Unit> Output<T>(Parameter<T> parameter, Option<(string Category, Color Tint, bool Hidden)> modular = default) where T : notnull {
         Parameter<T> bound = Bound(parameter, Side.Output, Access.Item, parameter.Requirement, added => Appended(added, modular));
         return fun((IDataAccess access, T value) => access.SetItem(Owner.Parameters.IndexOfOutput(bound), value));
@@ -205,6 +217,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     }
 
     // --- [CONTEXT]
+
     public Func<IDataAccess, double> Units(Rhino.UnitSystem basis) {
         SupportedPins = SupportedPins.AddOrUpdate(UnitSystemPin.Id);
         return access => {
@@ -237,6 +250,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
         };
 
     // --- [SETTINGS]
+
     public Func<T> Setting<T>(GrasshopperIO.Name key, T fallback, Nomen face, Seq<T> choices = default) where T : notnull {
         Preference<T> preference = Preferences.Object(Owner, key, fallback, face);
         Rows = Rows.Add(() => Row(preference, fallback, face, choices));
@@ -275,12 +289,14 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     private static Unit Written<T>(Preference<T> preference, T value) where T : notnull => Hooks.Run(preference.Write(value), unit);
 
     // --- [ATTRIBUTES]
+
     public Unit Body(SizeF minimum, SizeF maximum, Action<Context, Skin, Shade, RectangleF> paint, Option<IResponsive> widget = default) {
         _ = Owner.OverrideAttributes(new BodyAttributes(Owner, minimum, maximum, paint, widget));
         return unit;
     }
 
-    // --- [LIFETIME]
+    // --- [LIFECYCLE]
+
     public Unit Attached(Func<TSelf, IO<Unit>> acquire) {
         attachments = attachments.Add(acquire);
         return unit;
@@ -293,6 +309,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     }
 
     // --- [BINDING]
+
     private Parameter<T> Input<T>(Parameter<T> declared, Access access, Requirement requirement, Option<T> initial, Option<(string Category, Color Tint, bool Hidden)> modular) where T : notnull =>
         Bound(declared, Side.Input, access, requirement, added => Inserted(
             initial.Fold(added, static (held, value) => held.Set(value)),

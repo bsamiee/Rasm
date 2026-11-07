@@ -1,11 +1,10 @@
 import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, DependencyType, type TargetConfiguration } from '@nx/devkit';
 import { findProjectForPath } from '@nx/devkit/internal';
+import { Package, runCommand } from '@rasm/eng';
 import { Array, Effect, Function, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
-import { Package } from '#/eng/typescript/manifest';
-import { runCommand } from '#/eng/typescript/run-command';
-import { infer, logged, markers, moduleRequests, owning, packageName, rootTargets } from '#/tools/nx/graph/projects';
-import { neutrality, roots } from '#/tools/nx/graph/root-project';
-import { JsonListRecord, openWorkspace, runPlugin, type Workspace } from '#/tools/nx/workspace';
+import { infer, logged, markers, moduleRequests, owning, packageName, rootTargets } from '#/graph/projects.ts';
+import { neutrality, roots } from '#/graph/root-project.ts';
+import { JsonListRecord, openWorkspace, runPlugin, type Workspace } from '#/workspace.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

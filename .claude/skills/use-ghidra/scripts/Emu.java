@@ -62,7 +62,8 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Emu extends GhidraScript {
-    // --- [PLAN]
+
+    // --- [PLANS]
 
     record Plan(long steps, Map<String, String> stubs, List<Run> runs) {
         Plan {
@@ -544,8 +545,6 @@ public class Emu extends GhidraScript {
                 });
         return new Machine(emulator, recorder);
     }
-
-    // --- [RUN]
 
     @Override
     public void run() throws Exception {

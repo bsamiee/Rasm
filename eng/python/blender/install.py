@@ -1,11 +1,11 @@
 """Installs a packed extension through Blender's own installer, in a matching Blender GUI session, else in a background run."""
 
+import os
+import sys
 lazy import ast
 lazy from collections.abc import Mapping
-lazy import os
 lazy from pathlib import Path
 lazy import subprocess
-lazy import sys
 lazy import tomllib
 lazy from typing import Annotated
 lazy from zipfile import BadZipFile, ZipFile

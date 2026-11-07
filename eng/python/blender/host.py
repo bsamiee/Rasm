@@ -1,11 +1,11 @@
 """Reads the facts the installed Blender states once per build of it, runs the child processes around it, and syncs the user bases its interpreter loads."""
 
+import sys
 lazy from collections.abc import Iterable
 lazy import hashlib
 lazy from itertools import chain, takewhile
 lazy from pathlib import Path
 lazy import subprocess
-lazy import sys
 lazy from typing import Annotated, Self
 
 import msgspec

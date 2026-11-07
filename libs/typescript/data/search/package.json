@@ -1,11 +1,11 @@
 {
     "name": "@rasm/search",
     "private": true,
-    "description": "Name lookup with ranked near matches, decimal digits across numbering systems",
+    "description": "Name lookup with fuzzy-ranked near matches, decimal digits across numbering systems",
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*"
     },
     "exports": {
         ".": "./index.ts"

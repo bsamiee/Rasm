@@ -9,6 +9,7 @@ using Queue = Rhino.Render.ChangeQueue;
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record QueuePolicy(bool RespectDisplayAttributes, bool NotifyChanges, bool OriginalObjects, Option<Queue.ChangeQueue.BakingFunctions> Bake) {
     public static QueuePolicy Viewport { get; } = new(RespectDisplayAttributes: true, NotifyChanges: true, OriginalObjects: false, Bake: None);
     public static QueuePolicy Capture { get; } = Viewport with { NotifyChanges = false };
@@ -16,8 +17,11 @@ public sealed record QueuePolicy(bool RespectDisplayAttributes, bool NotifyChang
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class DefinedChangeFeed : Queue.ChangeQueue {
-    // --- [ACQUISITION]
+
+    // --- [STATE]
+
     private readonly QueuePolicy policy;
     private readonly Option<IO<Unit>> wake;
     private readonly Ref<Option<SceneFeed>> feed = Ref(Some(new SceneFeed(SceneBatch.Empty, [], SceneBatch.Empty, [])));
@@ -36,6 +40,7 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
         use(() => new DefinedChangeFeed(preview, policy, wake));
 
     // --- [FEED]
+
     public IO<Unit> World => IO.lift(() => CreateWorld(bFlushWhenReady: false)) >> Drain;
 
     public IO<SceneBatch> Take =>
@@ -74,6 +79,7 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
     }
 
     // --- [CHANGES]
+
     protected override void ApplyViewChange(ViewInfo viewInfo) =>
         Collect(use(() => new ViewportInfo(viewInfo.Viewport)).Map(static view => new SceneBatch { View = Some(view) }));
 
@@ -155,23 +161,27 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
         Collect(IO.lift(() => new SceneBatch { Display = Some(new SceneDisplay(displayPipelineAttributes.Id, displayPipelineAttributes.RealtimeRenderPasses)) }));
 
     // --- [COPIES]
+
     private static IO<Seq<(Guid, Option<SceneClip>)>> Clipped(List<Queue.ClippingPlane> planes) =>
         toSeq(planes).TraverseM(static plane => Products.Maybe(() => plane.Attributes?.Duplicate())
             .Map(attributes => (plane.Id, Some(new SceneClip(plane.IsEnabled, plane.Plane, toSeq(plane.ViewIds), attributes))))).As();
 
     // --- [NOTICES]
+
     protected override void NotifyBeginUpdates() => _ = Session.Run(Signal);
 
     protected override void NotifyEndUpdates() => _ = Session.Run(Drain);
 
     protected override void NotifyDynamicUpdatesAreAvailable() => _ = Session.Run(Drain);
 
-    // --- [POLICY]
+    // --- [POLICIES]
+
     protected override BakingFunctions BakeFor() => policy.Bake.IfNone(base.BakeFor);
 
     protected override bool ProvideOriginalObject() => policy.OriginalObjects;
 
     // --- [COLLECTION]
+
     private void Collect(IO<SceneBatch> change, [CallerMemberName] string member = "") =>
         _ = Session.Run(
             Products.Transfer(static () => EnvIO.New(token: CancellationToken.None), scope =>

@@ -4,6 +4,7 @@ using Rhino;
 namespace Rasm.Rhino;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public record HostEvent<TArgs>(string Label, Func<Func<TArgs, IO<Unit>>, IO<Unit>> Attach) {
     public HostEvent<TValue> Choose<TValue>(Func<TArgs, Option<TValue>> choose) =>
         new(Label, deliver => Attach(args => IO.lift(() => choose(args)).Bind(chosen => chosen.Match(deliver, static () => IO.pure(unit)))));
@@ -39,8 +40,11 @@ public sealed record DocumentEvent<TArgs>(string Label, Func<Func<TArgs, IO<Unit
 internal sealed record Pending<A>(long Since, Seq<A> Changes);
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class Debouncer<A> : IDisposable {
+
     // --- [STATE]
+
     private readonly Ref<Option<Pending<A>>> held = Ref(Option<Pending<A>>.None);
     private readonly TimeProvider clock;
     private readonly TimeSpan quiet;
@@ -49,7 +53,8 @@ internal sealed class Debouncer<A> : IDisposable {
     public Debouncer(TimeProvider clock, Duration quiet, Func<Seq<A>, IO<Unit>> deliver) =>
         (this.clock, this.quiet, timer) = (clock, quiet.ToTimeSpan(), clock.CreateTimer(_ => Session.Run(Tick(deliver)), state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan));
 
-    // --- [POST]
+    // --- [POSTING]
+
     public IO<Unit> Post(A change) =>
         from since in IO.lift(clock.GetTimestamp)
         from posted in atomicIO(() => held.Swap(pending => Some(new Pending<A>(since, pending.ToSeq().Bind(static batch => batch.Changes).Add(change)))))
@@ -73,8 +78,11 @@ internal sealed class Debouncer<A> : IDisposable {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Subscriptions {
-    // --- [HOST]
+
+    // --- [HOSTS]
+
     public static HostEvent<TArgs> On<TArgs>(Action<EventHandler<TArgs>> add, Action<EventHandler<TArgs>> remove, [CallerArgumentExpression(nameof(add))] string label = "") =>
         On<EventHandler<TArgs>, TArgs>(add, remove, static handler => handler, label);
 
@@ -104,6 +112,7 @@ public static class Subscriptions {
         }, remove).Map(unit);
 
     // --- [CELLS]
+
     public static HostEvent<TValue> Changed<TValue>(Atom<TValue> cell, [CallerArgumentExpression(nameof(cell))] string label = "") =>
         On<AtomChangedEvent<TValue>, TValue>(handler => cell.Change += handler, handler => cell.Change -= handler, static handler => value => handler(sender: null, value), label);
 
@@ -111,10 +120,12 @@ public static class Subscriptions {
         On<AtomChangedEvent<TValue>, TValue>(handler => cell.Change += handler, handler => cell.Change -= handler, static handler => value => handler(sender: null, value), label);
 
     // --- [COMBINATION]
+
     public static HostEvent<TArgs> Merged<TArgs>(params Seq<HostEvent<TArgs>> rows) =>
         new(string.Join(" | ", rows.Map(static row => row.Label)), deliver => rows.TraverseM(row => row.Attach(deliver)).As().Map(unit));
 
     // --- [DOCUMENTS]
+
     extension<TArgs>(HostEvent<TArgs> row) where TArgs : DocumentEventArgs {
         public DocumentEvent<TArgs> Documents() => new(row.Label, row.Attach, static args => Conversions.Present(args.DocumentSerialNumber));
     }
@@ -126,6 +137,7 @@ public static class Subscriptions {
     }
 
     // --- [FILES]
+
     public static HostEvent<Either<ErrorEventArgs, FileSystemEventArgs>> Files(DirectoryInfo directory, Seq<string> filters, bool subdirectories) =>
         new(directory.FullName, deliver =>
             from watcher in use(() => new FileSystemWatcher(directory.FullName) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size, IncludeSubdirectories = subdirectories })
@@ -148,7 +160,9 @@ public static class Subscriptions {
 }
 
 public static class Mailboxes {
+
     // --- [IDLE]
+
     public static IO<Func<TKey, TValue, IO<Unit>>> Idle<TKey, TValue>(Func<HashMap<TKey, TValue>, IO<Unit>> drain) =>
         from scope in IO.env
         from pending in IO.lift(static () => Ref(HashMap<TKey, TValue>()))
@@ -171,6 +185,7 @@ public static class Mailboxes {
             }).Bind(first => when(first, Products.Replace(waiting, idle).Scoped(scope)).As()));
 
     // --- [QUEUE]
+
     public static IO<Func<TItem, IO<Unit>>> Queued<TItem>(Buffer<TItem> buffer, Func<TItem, IO<Unit>> consume, Func<Error, IO<Unit>> failed) =>
         from conduit in use(IO.lift(() => Conduit.make(buffer)), static open => open.Complete())
         from forked in conduit.Reduce(unit, (_, item) => IO.pure(item).Bind(consume).Catch(failed).As().Map(Reduced.Continue))

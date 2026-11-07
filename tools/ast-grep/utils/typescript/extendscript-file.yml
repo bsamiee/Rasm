@@ -4,5 +4,5 @@ language: tsxlang
 rule:
     kind: program
     any:
-        - matches: {typescript-module-importer: {module: {regex: '^@rasm/extendscript/extendscript$'}}}
+        - matches: {typescript-module-importer: {module: {regex: '^@rasm/extendscript/handler$'}}}
         - has: {kind: import_statement, all: [{has: {regex: '^type$'}}, {has: {field: source, regex: '^.@rasm/cep.$'}}]}

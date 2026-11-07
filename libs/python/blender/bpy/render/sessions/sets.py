@@ -76,6 +76,8 @@ class Converting(bpy.types.PropertyGroup):
 class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Render set stores, commands binding the set's members on call, menus, and section over the settings its categories sync and what its capture holds."""
 
+    # --- [STATE]
+
     key: ClassVar[Key] = KEY
     record: ClassVar[TextRecord[Sets]] = TextRecord(key="render_set", form=Sets)
     scenes: ClassVar[Attachment[SceneMembership]] = Attachment(key="render_set", form=SceneMembership, owner=bpy.types.Scene)
@@ -84,11 +86,6 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
     categories: tuple[Category, ...] = ()
 
     # --- [BINDING]
-
-    @property
-    def prerequisites(self) -> tuple[Registrable, ...]:
-        """Set, scene, and layer stores binding reads."""
-        return self.record, self.scenes, self.layers
 
     def bound(self, identity: Identity) -> Outcome[Members]:
         """Resolves stores and each category's settings on its root."""
@@ -156,7 +153,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
         commands = self.commands
         return (commands[render_set_add], commands[render_set_adopt], commands[render_set_restore], *self.syncs, commands[render_set_unsync], commands[render_set_convert])
 
-    # --- [SECTION]
+    # --- [SECTIONS]
 
     def rows(self, members: Members) -> tuple[RowContent, ...]:
         """Capture rows, member lists, and one settings matrix per category with its setting locks."""
@@ -207,6 +204,11 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
         )
 
     # --- [REGISTRATION]
+
+    @property
+    def prerequisites(self) -> tuple[Registrable, ...]:
+        """Set, scene, and layer stores binding reads."""
+        return self.record, self.scenes, self.layers
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
@@ -274,7 +276,7 @@ def render_set_convert(members: Members, call: Call[Converting]) -> Outcome[Answ
     )
 
 
-# --- [CONVERSION]
+# --- [CONVERSIONS]
 
 
 def converted(members: Members, form: Form, context: bpy.types.Context) -> Outcome[Option[tuple[str, ...]]]:

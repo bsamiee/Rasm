@@ -1,33 +1,24 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import type { IConfiguration, ICruiseOptions, IReachabilityForbiddenRuleType, IRegularForbiddenRuleType } from 'dependency-cruiser';
-import { Array, Effect, Option, Path, Record, Struct } from 'effect';
-import { extendScriptEntry, libraryRoot, members, Package } from '#/eng/typescript/manifest';
+import { Array, Effect, Option, Path } from 'effect';
+import { librarySurface, members, Package } from '#/manifest.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Rule = readonly [string, string, IRegularForbiddenRuleType['from'], IRegularForbiddenRuleType['to']];
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const library = Effect.fnUntraced(function* (directory: string) {
-    const [path, manifest] = yield* Effect.all([Path.Path, Package.read(directory)]);
-    const pattern = (entry: string) => {
-        const file = path.join(directory, entry);
-        return path.basename(file) === 'index.ts' ? `^${RegExp.escape(path.dirname(file))}/` : `^${RegExp.escape(file)}$`;
-    };
-    return Option.as(libraryRoot(manifest), {
-        entries: Object.values(Record.remove(manifest.exports, '.')).map(pattern),
-        extendscript: Option.map(extendScriptEntry(manifest), pattern),
-    });
-});
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const [entryPatterns, scriptPatterns, firstParty, resolution] = await Effect.gen(function* () {
     const [path, manifests] = yield* Effect.all([Path.Path, members('.', Package.file)]);
-    const libraries = Array.getSomes(yield* Effect.forEach(manifests.map(path.dirname), library, { concurrency: 'unbounded' }));
-    const entries = libraries.flatMap(Struct.get('entries'));
-    const extendscript = Array.getSomes(libraries.map(Struct.get('extendscript')));
+    const read = yield* Effect.forEach(manifests.map(path.dirname), (directory) => Effect.map(Package.read(directory), (manifest) => ({ directory, manifest })), { concurrency: 'unbounded' });
+    const libraries = Array.getSomes(read.map(({ directory, manifest }) => Option.map(librarySurface(manifest), (surface) => ({ directory, ...surface }))));
+    const pattern = (directory: string) => (entry: string) => {
+        const file = path.join(directory, entry);
+        return path.basename(file) === 'index.ts' ? `^${RegExp.escape(path.dirname(file))}/` : `^${RegExp.escape(file).replaceAll('\\*', '[^/]+')}$`;
+    };
+    const entries = libraries.flatMap(({ directory, entries: held }) => held.map(pattern(directory)));
+    const extendscript = libraries.flatMap(({ directory, extendscript: held }) => held.map(pattern(directory)));
     return [
         entries,
         extendscript,

@@ -3,10 +3,10 @@ import type { Node } from '@pgsql/types';
 import { Array, Duration, Effect, Equal, Equivalence, Exit, Filter, Function, flow, HashSet, Match, Option, Record, Result, Schema, Struct } from 'effect';
 import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
-import type { Catalog } from '#/catalog';
-import type { Kind } from '#/column';
-import type { Engine } from '#/internal/engine/engine';
-import { constant, diff, type Identity, identifier, literal, methods, type referentialActions, render, unsupported } from '#/internal/reconcile';
+import type { Catalog } from '#/catalog.ts';
+import type { Kind } from '#/column.ts';
+import type { Engine } from '#/internal/engine.ts';
+import { constant, diff, type Identity, identifier, literal, methods, type referentialActions, render, unsupported } from '#/internal/reconcile.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -51,9 +51,8 @@ const PgTable = Schema.Struct({
     policies: Schema.Array(Schema.Struct({ name: Schema.String, using: Schema.NullOr(Schema.String), check: Schema.NullOr(Schema.String), roles: Names })),
 });
 class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tables: Schema.Array(PgTable), scratch: Schema.Array(PgTable) }) {
-    static readonly Configuration = Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Names });
-
     // --- [ROWS]
+
     static readonly types = { text: 'text', uuid: 'uuid', json: 'jsonb', instant: 'timestamptz(3)', integer: 'bigint', decimal: 'numeric', real: 'double precision', boolean: 'boolean', blob: 'bytea' } as const satisfies Engine['Service']['types'];
     static readonly member: Engine['Service']['member'] = (sql, field) => sql`e.value ->> ${sql.literal(literal(field))}`;
     static readonly element: Engine['Service']['element'] = (sql, { kind }, text) => (kind === 'blob' ? sql`decode(${text}, 'hex')` : sql`(${text})::${sql.literal(Pg.types[kind])}`);
@@ -70,6 +69,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const outer = sql.literal('t.');
         return sql`WITH inserted AS (${inserting(body, ignore, sql.literal('*'))}) SELECT ${reads(outer)} FROM (SELECT * FROM inserted UNION ALL SELECT * FROM ${owner} WHERE (${keys(unqualified)}) IN (SELECT ${order} FROM ${Pg.rows(sql, body)})) t ORDER BY ${keys(outer)}`;
     };
+    static readonly Configuration = Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Names });
     static readonly configuration = ({ configuration, filters }: { readonly configuration: string; readonly filters: readonly string[] }) => identifier([configuration, ...filters]);
     static readonly document = (sql: SqlClient.SqlClient, { columns, tokenizer }: Parameters<Engine['Service']['fulltext']>[2]) => {
         const joined = sql.join(` || ' ' || `, false)(columns.map(({ name }) => sql`coalesce(${sql(name)}, '')`));
@@ -114,6 +114,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         });
 
     // --- [DDL]
+
     static readonly constant: Engine['Service']['constant'] = (entry, value) => (entry.kind === 'boolean' ? `${value === 1}` : constant(entry, value));
     static readonly codePoints: Engine['Service']['codePoints'] = (sql, subject) => sql`char_length(${subject})`;
     static readonly text: Engine['Service']['text'] = (sql, subject, kind) => (kind === 'uuid' ? sql`${subject}::text` : subject);
@@ -165,7 +166,8 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         statements: (relation, column) => (identity.origin === name && identity.generation === 0 && identity.digest === undefined ? [] : [sql`COMMENT ON ${Pg.commentTarget(sql, relation, column)} IS ${sql.literal(literal(JSON.stringify(identity)))}`]),
     });
 
-    // --- [RECONCILE]
+    // --- [RECONCILIATION]
+
     static readonly refusals: Engine['Service']['refusals'] = ({ name: owner, columns, indexes }) => {
         const named = new Map(Object.values(columns).map((column) => [column.name, column]));
         const refused = indexes.flatMap(({ keys, method }) =>

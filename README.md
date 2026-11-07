@@ -34,13 +34,12 @@ Rasm/
 │   └── watch-apps/           # CLI for agents observing and driving desktop apps in the background
 ├── plugins/                  # Agent harness marketplace
 ├── nx.json                   # Task graph
-├── package.json              # Packages root programs use
+├── package.json              # Workspace root package
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
 ├── tsconfig.web.json         # Browser `lib` every web project extends
-├── vitest.config.ts          # Vitest projects and defaults every suite merges
-├── vite.shared.ts            # Bundling options every project config imports
+├── vitest.config.ts          # Root Vitest run over every project suite
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── pyproject.toml            # Python environment, dependency groups, and checker settings
 ├── global.json               # .NET SDK versions
@@ -132,28 +131,27 @@ Products reach a person through separate levels:
 |  [07]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
 |  [08]   | Secret                         | `.config/mise.toml` `DOPPLER_PROJECT` and `DOPPLER_CONFIG`, named in a target's `doppler run` prefix |
 |  [09]   | Resource or repository setting | Typed row of an `infra/` program, `<project>:infra`, `rasm` holding the repository                   |
-|  [10]   | Tool with no consumer          | Machine setup                                                                                        |
-|  [11]   | Ghidra install                 | Official distribution through mise                                                                   |
-|  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
-|  [13]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports |
-|  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
-|  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
-|  [16]   | Persistent local process       | Mise `[daemons]` row, platform-only rows in `.config/mise.<os>.toml`                                 |
-|  [17]   | Python runtime                 | Mise defaults to 3.15, Blender declares 3.13 in its project manifests                                |
-|  [18]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                          |
-|  [19]   | Container runtime              | Mise clients, a `[daemons]` `docker` row per `.config/mise.<os>.toml`, Colima on macOS               |
-|  [20]   | Shared Vite configuration      | `vite.shared.ts`                                                                                     |
-|  [21]   | Shared Storybook settings      | `@rasm/test-support/main` and `@rasm/test-support/preview` entries                                   |
-|  [22]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
-|  [23]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |
-|  [24]   | Product version                | Release tag `rasm:release` creates, MinVer reads it into builds and packages                         |
-|  [25]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                  |
+|  [10]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
+|  [11]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports |
+|  [12]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
+|  [13]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
+|  [14]   | Persistent local process       | Mise `[daemons]` row, platform-only rows in `.config/mise.<os>.toml`                                 |
+|  [15]   | Python runtime                 | Mise defaults to 3.15, Blender declares 3.13 in its project manifests                                |
+|  [16]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                          |
+|  [17]   | Container runtime              | Mise clients, a `[daemons]` `docker` row per `.config/mise.<os>.toml`, Colima on macOS               |
+|  [18]   | Shared Vite configuration      | `@rasm/ui/vite` React Compiler plugin, `@rasm/hosting/vite` `cloudflareWorker`                       |
+|  [19]   | Shared Vitest and Storybook    | `@rasm/test-support/vitest` `vitestProject`, `@rasm/test-support/main` and `/preview`                |
+|  [20]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
+|  [21]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |
+|  [22]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                  |
 
 - Tool rows stay at `latest`, a `version_regex` over release tags excludes a development build `latest` resolves
 
 ## [06]-[STRUCTURE]
 
-- Libraries group under `libs/<language>/<group>/`
+- Libraries sit at `libs/<language>/<category>/<package>/`, categories name the concern spanning its package(s) and every sibling that field anticipates
+- New categories start from the package being made, its sibling packages outside it, and the higher-order concern they share
+- Packages are named by the term its practitioners use for that concern
 - Caches sit under root `.cache/` and a project's generated output under `.artifacts/`, each tool moved by one setting every run reads
 - Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, a tool with one partition per run or session holds a folder there
 - Xcode apps holding a UXP script build in a folder reference build that script first
@@ -162,7 +160,7 @@ Products reach a person through separate levels:
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files are the language manifests and markers Nx plugins read, never `project.json`
 - `Workspace.slnx` lists every project `.csproj`
-- Swift modules are root `Package.swift` targets, each in its own folder under `libs/swift/<group>/`, executables under `tools/`
+- Swift modules are root `Package.swift` targets, each in its own folder under `libs/swift/<category>/`, executables under `tools/`
 - Projects hold no `src/` directory
-- Schema libraries reconcile the live database to owning types, with no migration file or history table
+- SQL schemas reconcile the live database to owning types, with no migration, history table, or versioned file or folder
 - Reconciles drop or retype only what owning types declare retired or retyped

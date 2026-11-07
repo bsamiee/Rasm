@@ -1,4 +1,4 @@
-import { ReorderableList } from '@rasm/ui/reorderable-list';
+import { ReorderableList } from '@rasm/ui';
 import { Default, Single } from '@rasm/ui/stories/reorderable-list';
 import type { ComponentProps } from 'react';
 import { expect, it, vi } from 'vitest';

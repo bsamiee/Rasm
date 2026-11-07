@@ -22,14 +22,20 @@ utils:
             - kind: array_type
               has: {field: element, matches: flag-type}
     flag:
-        kind: 'parameter, field_declaration'
-        has: {field: type, matches: flag-type}
+        any:
+            - kind: 'parameter, field_declaration'
+              has: {field: type, matches: flag-type}
+            - matches: flag-type
     wrapped-flag:
-        kind: 'parameter, field_declaration'
-        has: {field: type, matches: wrapped-type}
+        any:
+            - kind: 'parameter, field_declaration'
+              has: {field: type, matches: wrapped-type}
+            - matches: wrapped-type
     packed-flag:
-        kind: 'parameter, field_declaration'
-        has: {field: type, matches: packed-type}
+        any:
+            - kind: 'parameter, field_declaration'
+              has: {field: type, matches: packed-type}
+            - matches: packed-type
     flag-pair:
         any:
             - has: {matches: wrapped-flag, pattern: $FIRST, precedes: {stopBy: end, matches: flag, pattern: $SECOND}}

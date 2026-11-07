@@ -33,7 +33,8 @@ Repository programs read owner-issued values from shared project `agent-runtime`
 - Daemon `mcp-for-blender` names its keys with `--only-secrets`, a third-party server receives no repository credential
 - Variables the prefix leaves unset pass through from the calling environment, a local run sets one on the command
 - Add a hosting secret through `doppler secrets set <NAME> --project agent-runtime --config dev`, a `bindings.secret()` row in `cloudflare.config.ts` names it to the program
-- CI holds no Doppler token, `rasm:infra` copies `SIXLABORSLICENSEKEY` to the repository's Actions secrets and a job step writes it to the `.lic` file `SixLaborsLicenseFile` names, a `LicenseKey` value lands in the binlogs CI uploads
+- CI holds no Doppler token, `rasm:infra` copies `SIXLABORSLICENSEKEY` to the repository's Actions secrets
+- CI job steps write `SIXLABORSLICENSEKEY` to the `.lic` file `SixLaborsLicenseFile` names, a `LicenseKey` value appearing in the binlogs CI uploads
 - Values a program generates (store keys, owner passwords) stay Pulumi stack secrets, `pulumi stack output <name> --show-secrets` reads them
 - Pulumi reads its backend credential from the `pulumi login` saved under `PULUMI_HOME`
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config

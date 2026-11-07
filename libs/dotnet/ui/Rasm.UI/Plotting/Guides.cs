@@ -8,6 +8,7 @@ using SuperLinq;
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Guide(PhysicalAxis Along) {
     public Fraction Edge { get; init; } = Fraction.MinValue;
     public Option<string> Title { get; init; }
@@ -22,7 +23,9 @@ public sealed record Guide(PhysicalAxis Along) {
 }
 
 internal sealed record Gutter(Vector2 Start, Vector2 End) {
+
     // --- [GUTTERS]
+
     private static readonly Key Grids = new Key.Named("grid");
     private static readonly Key Labels = new Key.Named("guides");
     private static readonly View Container = new View.Box();
@@ -40,7 +43,8 @@ internal sealed record Gutter(Vector2 Start, Vector2 End) {
 
     internal SKRect Inside(SKRect box) => SKRect.Create(box.Left + Start.X, box.Top + Start.Y, float.Max(0f, box.Width - Start.X - End.X), float.Max(0f, box.Height - Start.Y - End.Y));
 
-    // --- [PLOT]
+    // --- [PLOTS]
+
     private sealed record Marked(Guide Guide, float Spacing, Seq<(float Value, LayoutNode Layout)> Labels, Option<LayoutNode> Title) {
         internal static Gutter Reached(Seq<Marked> marks, PlotPlane plane, SKRect data, float gap) =>
             Outside(data, marks.Bind(marked => marked.Placements(plane, data, gap)).Fold(data, static (reach, placement) => SKRect.Union(reach, placement.Reach)));
@@ -94,6 +98,7 @@ internal sealed record Gutter(Vector2 Start, Vector2 End) {
     }
 
     // --- [LABELS]
+
     private static Seq<Marked> Marks(AvailableSpace available, View.Plot plot, SKRect data, RoleStyle tick, bool refit, Seq<LayoutNode> earlier) =>
         plot.Guides.Fold((Offset: 0u, Marks: Seq<Marked>()), (held, guide) => plot.Plane.Dimension(guide.Along).Match(
             Some: axis => Mark(available, plot, guide, axis, plot.Plane.In(data), tick, refit, held.Offset, earlier) switch {

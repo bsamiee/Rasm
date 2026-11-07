@@ -1,9 +1,9 @@
 import { globAsync, type Tree } from '@nx/devkit';
+import { Sgconfig } from '@rasm/eng';
 import { Array, Effect, Equal, Option, Predicate, String } from 'effect';
 import { type Document, isNode, type Node, Pair, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
-import { Sgconfig } from '#/eng/typescript/manifest';
-import { decodeTree, syncGenerator, treeText, YAML_LAYOUT, yamlDocuments } from '#/tools/nx/sync/tree';
-import { WorkspaceError } from '#/tools/nx/workspace';
+import { decodeTree, syncGenerator, treeText, YAML_LAYOUT, yamlDocuments } from '#/sync/tree.ts';
+import { WorkspaceError } from '#/workspace.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

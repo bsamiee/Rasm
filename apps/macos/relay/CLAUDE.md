@@ -20,13 +20,15 @@ Claude stores are Claude Code config directories, each with an account file and 
 - Selected account uses the shared store Claude Code resolves, every other account a private config directory under `Accounts/<id>/Claude`
 - Keychain items trust `/usr/bin/security` alone, reads and writes go through the `security` CLI
 - Writes to an item or account file replace Relay's fields and keep the rest (`mcpOAuth` MCP server logins)
-- Claude Code signs out by revoking the refresh token and deleting the item, a rejected refresh blanks `accessToken` and `refreshToken` with `expiresAt` 0, a blanked item reads as signed out
+- Claude Code signs out by revoking the refresh token and deleting the item
+- Rejected refreshes blank `accessToken` and `refreshToken` with `expiresAt` 0, a blanked item reads as signed out
 - `claude` children point at one store and drop variables that redirect their credential or API
 - Refresh tokens are single use, a reused one revokes its token family and signs out every holder
 - Claude Code refreshes under `.oauth_refresh.lock` and `<realpath>.lock` and writes credentials under `.storage-write.lock` in its store
-- Claude Code writes `.credentials.json` when a Keychain write fails and reads it only while the item is absent, while it exists running sessions detect outside writes by its mtime alone, Relay's Keychain writes delete it
-- Refresh holds the three locks on its store, re-reads it, and adopts any token another process wrote
-- Switch holds the three locks on every store it touches and runs no `claude` child or HTTP request inside
+- Claude Code writes `.credentials.json` when a Keychain write fails and reads it only while the item is absent
+- While `.credentials.json` exists, running sessions detect outside writes by its mtime alone, Relay's Keychain writes delete it
+- Refresh holds `.oauth_refresh.lock`, `<realpath>.lock`, and `.storage-write.lock` on its store, re-reads it, and adopts any token another process wrote
+- Switch holds the same locks on every store it touches and runs no `claude` child or HTTP request inside
 - Switch records its target after reading every store it moves, a failed move and launch finish a recorded switch
 - Outside sign-ins replace the shared credential, Relay saves the credential its last selection read into the outgoing private store
 - Token endpoint returns 429 to User-Agents other than Claude Code's and axios's, requests send the installed `claude` version's

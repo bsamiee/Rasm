@@ -7,8 +7,7 @@ import inspect
 from itertools import starmap
 from math import e
 from types import MappingProxyType
-import typing
-from typing import Final, TYPE_CHECKING
+from typing import Annotated, Final, get_type_hints, Protocol, TYPE_CHECKING
 
 import bpy
 from expression import Option, Result, Some, try_downcast
@@ -22,10 +21,10 @@ from blender.bpy.data.ids.evaluation import evaluated
 from blender.bpy.data.ids.ownership import tracked
 from blender.bpy.data.rna.descriptors import written
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.nodes.changes import GroupContent, reconciled
+from blender.bpy.nodes.changes import NodeGroup, reconciled
 from blender.bpy.nodes.desired import End, Graph, INPUTS, item_key, Link, Node, OUTPUTS, RESULT
 from blender.bpy.nodes.graphs import Expr, group_input, math, menu, Scalar, SocketType, Term, vector, where, widest, xyz
-from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket, StockInput
+from blender.bpy.nodes.interfaces import Interface, Socket, StockInput
 from blender.bpy.nodes.trees import GraphTree, native, new_group
 from blender.records.faults import accumulated, Error, Fault, Nothing, Outcome, paired, Reason
 from blender.records.stores import content_hash
@@ -35,12 +34,12 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type ColorExpr = typing.Annotated[Expr, bpy.types.NodeSocketColor]
-type VectorExpr = typing.Annotated[Expr, bpy.types.NodeSocketVector]
+type ColorExpr = Annotated[Expr, bpy.types.NodeSocketColor]
+type VectorExpr = Annotated[Expr, bpy.types.NodeSocketVector]
 type _Attribute = bpy.types.FloatAttribute | bpy.types.IntAttribute | bpy.types.BoolAttribute | bpy.types.FloatVectorAttribute | bpy.types.FloatColorAttribute
 
 
-class Body[**P](typing.Protocol):
+class Body[**P](Protocol):
     """Named function `grouped` declares as a group, read by its name and declaring module."""
 
     __name__: str
@@ -237,7 +236,7 @@ def placed(group: NodeGroup, inputs: Mapping[Key, Term], output: Key) -> Expr:
         Group node expression in the output socket's shape.
     """
     socket = {socket.key: socket for socket in group.interface.outputs}[output]
-    return Expr(kind=bpy.types.ShaderNodeGroup, inputs=tuple(inputs.items()), content=Some(GroupContent(group=group)), socket=output, socket_type=socket.refined)
+    return Expr(kind=bpy.types.ShaderNodeGroup, inputs=tuple(inputs.items()), content=Some(group), socket=output, socket_type=socket.refined)
 
 
 def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callable[[Body[P]], Group[P]]:
@@ -259,7 +258,7 @@ def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callab
     def declared(body: Body[P]) -> Group[P]:
         name = body.__name__.lstrip("_")
         owned = key.default_with(lambda: item_key(body.__module__.rpartition(".")[2], name))
-        hints = typing.get_type_hints(body, include_extras=True)
+        hints = get_type_hints(body, include_extras=True)
         metadata = {name: inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata for name, annotation in hints.items()}
         signature = inspect.signature(body)
 
@@ -268,7 +267,7 @@ def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callab
 
         def parameter(held: inspect.Parameter) -> Socket:
             bounds = tuple(meta for meta in metadata.get(held.name, ()) if isinstance(meta, msgspec.Meta))
-            socket = Socket.of(held.name, typing.Annotated[float, *bounds] if bounds else float, None if held.default is inspect.Parameter.empty else held.default).value
+            socket = Socket.of(held.name, Annotated[float, *bounds] if bounds else float, None if held.default is inspect.Parameter.empty else held.default).value
             return annotated(held.name).map(lambda shape: msgspec.structs.replace(socket, kind=shape)).default_value(socket)
 
         def assembled(inputs: tuple[Socket, ...]) -> Outcome[NodeGroup]:

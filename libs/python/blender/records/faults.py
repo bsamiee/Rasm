@@ -5,7 +5,6 @@ from enum import StrEnum
 import traceback
 from typing import Never, overload
 
-import expression
 from expression import Option, Result
 import msgspec
 
@@ -16,7 +15,7 @@ type Outcome[T] = Result[T, Faults]
 
 Ok = Result[Never, Faults].Ok
 Error = Result[Never, Never].Error
-Nothing: Option[Never] = expression.Nothing  # ty: ignore[unsound-assignment]
+Nothing = Option[Never].Nothing()
 
 
 class Reason(StrEnum):

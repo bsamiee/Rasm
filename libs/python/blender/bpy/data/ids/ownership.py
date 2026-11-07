@@ -77,6 +77,8 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
 class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
     """Owned ID kind for one purpose."""
 
+    # --- [STATE]
+
     kind: type[T]
     key: Key
     saved: Saved

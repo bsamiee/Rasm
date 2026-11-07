@@ -1,10 +1,9 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { PgClient } from '@effect/sql-pg';
 import { assert, inject, it } from '@effect/vitest';
-import { Catalog } from '@rasm/database/catalog';
-import type { Column } from '@rasm/database/column';
+import { Catalog, type Column, Relation } from '@rasm/database';
 import { pgClient } from '@rasm/database/pg';
-import { Relation } from '@rasm/database/relation';
+import { runCommand } from '@rasm/eng';
 import { nodeBundle } from '@rasm/hosting/node-bundle';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { Context, Effect, FileSystem, Layer, Option, Path, Redacted, Schema, String, Struct } from 'effect';
@@ -12,8 +11,7 @@ import { Reactivity } from 'effect/reactivity';
 import { SqlClient, type SqlError } from 'effect/sql';
 import { PullPolicy } from 'testcontainers';
 import { afterAll } from 'vitest';
-import { runCommand } from '#/eng/typescript/run-command';
-import { cases } from '#/tests/typescript/libs/data/database/cases';
+import { cases } from '#/tests/typescript/libs/data/database/cases.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

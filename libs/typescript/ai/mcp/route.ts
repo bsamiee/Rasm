@@ -1,8 +1,7 @@
 import { Array, Cause, Context, Effect, Exit, flow, Option, pipe, Record, Schema, Sink, Stream, Struct, Tuple } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
-import { registerTool } from '#/register-tool';
-import type { Resource } from '#/resource';
-import { Server } from '#/server';
+import type { Resource } from '#/resource.ts';
+import { Server } from '#/server.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -37,7 +36,7 @@ const register =
             const encoded = yield* pipe(reports, Array.getSomes, Option.liftPredicate(Array.isReadonlyArrayNonEmpty), Option.map(encodeEntries), Effect.transposeOption);
             yield* Effect.forEach([...Option.toArray(encoded), ...Array.map(failed, Struct.get('message'))], (text) => add(McpSchema.TextContent.make({ text })), { discard: true });
         });
-        return registerTool(
+        return Server.registerTool(
             tool.setParameters(Record.isEmptyRecord(fields) ? Tool.EmptyParams : Schema.toEncoded(Schema.Struct(fields))).annotateMerge(annotations),
             Effect.fnUntraced(function* (given) {
                 const [[parameters, routed], { respond }] = yield* Effect.all([Schema.decodeEffect(parts)([given, given], { errors: 'all' }), Server.ToolCall]);

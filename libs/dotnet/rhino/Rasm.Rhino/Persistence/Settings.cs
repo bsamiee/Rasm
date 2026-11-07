@@ -8,11 +8,13 @@ using Rhino.PlugIns;
 namespace Rasm.Rhino.Persistence;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 internal delegate bool SettingRead<T>(PersistentSettings settings, string key, out T value, IEnumerable<string> legacyKeyList);
 
 internal delegate bool SettingDefault<T>(PersistentSettings settings, string key, out T value);
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record SettingsRoot {
     internal abstract Fin<PersistentSettings> Settings { get; }
@@ -45,13 +47,15 @@ public abstract partial record SettingsRoot {
 }
 
 public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default) {
+
+    // --- [NODES]
+
     public static readonly SettingsNode Application = new(new SettingsRoot.ApplicationNode());
 
     public static readonly SettingsNode Options = Application.Child("Options");
 
     public SettingsNode Child(string key) => this with { Path = Path.Add(key) };
 
-    // --- [NODES]
     public IO<Option<PersistentSettings>> Existing =>
         IO.lift(() => Root.Settings.Map(root => Path.Fold(Some(root), static (held, key) => held.Bind(parent => Conversions.Present(parent.TryGetChild(key, out PersistentSettings child), child)))));
 
@@ -62,6 +66,7 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
         Existing.Map(held => held.Iter(node => node.DeleteChild(key)));
 
     // --- [READS]
+
     public IO<Option<T>> Default<T>(string key) where T : notnull =>
         Existing.Map(held => held.Bind(node => SettingOverloads<T>.Default(node, key)));
 
@@ -74,6 +79,7 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
         Existing.Map(held => held.ToSeq().Bind(static node => toSeq(node.ChildKeys)).Map(Child).Strict());
 
     // --- [EVENTS]
+
     public HostEvent<Unit> Saved =>
         Root.Switch(
             applicationNode: static _ => SettingsSaved,
@@ -96,8 +102,11 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class SettingOverloads<T> where T : notnull {
+
     // --- [OVERLOADS]
+
     private const BindingFlags Exact = BindingFlags.Public | BindingFlags.Instance | BindingFlags.ExactBinding;
     private const string Writes = "Set";
     private const string Reads = "TryGet";
@@ -123,6 +132,7 @@ internal static class SettingOverloads<T> where T : notnull {
             .Map(static method => method.CreateDelegate<SettingDefault<T>>());
 
     // --- [VALUES]
+
     internal static Fin<Unit> Supported => RhinoFault.Unless(typeof(T).IsEnum || Typed.IsSome, RhinoReason.Unsupported, typeof(T));
 
     internal static Option<T> Read(PersistentSettings settings, string key, Seq<string> legacy) =>
@@ -139,7 +149,8 @@ internal static class SettingOverloads<T> where T : notnull {
             ? SettingOverloads<int>.Stored(settings, key, Numbered(fallback), rule.Map(static check => fun((int held) => check(Enumerated(held)))))
             : Stored(settings, key, fallback, rule);
 
-    // --- [HOST]
+    // --- [HOSTS]
+
     private static Option<T> Stored(PersistentSettings settings, string key, Seq<string> legacy) =>
         Reader.Bind(read => Present(read, settings, key, legacy));
 
@@ -155,11 +166,13 @@ internal static class SettingOverloads<T> where T : notnull {
     }
 
     // --- [CODECS]
+
     private static T Enumerated(int value) => (T)Enum.ToObject(typeof(T), value);
 
     private static int Numbered(T value) => Convert.ToInt32(value, CultureInfo.InvariantCulture);
 
     // --- [ADAPTERS]
+
     private static Option<T> Present(SettingRead<T> read, PersistentSettings settings, string key, Seq<string> legacy) =>
         Held(read(settings, key, out T value, legacy), value);
 

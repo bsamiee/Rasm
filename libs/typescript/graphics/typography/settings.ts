@@ -1,13 +1,15 @@
 import { Digits } from '@rasm/search';
-import { Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { Tag } from '#/internal/tag';
+import { Effect, Option, Predicate, Record, Schema, SchemaTransformation, String, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const AUTO_LEADING = 1.2;
+const TAG_LENGTH = 4;
+const PRINTABLE_ASCII = /^[\u{20}-\u{7E}]+$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Tag = Schema.String.check(Schema.isBetweenLength(1, TAG_LENGTH), Schema.isPattern(PRINTABLE_ASCII)).pipe(Schema.decodeTo(Schema.String.check(Schema.isBetweenLength(TAG_LENGTH, TAG_LENGTH)), SchemaTransformation.transform({ decode: String.padEnd(TAG_LENGTH), encode: String.trimEnd })));
 const Direction = Schema.Literals(['LTR', 'RTL']).annotate({ description: 'Paragraph direction as HarfBuzz direction key, the bidi base level' });
 const Elongation = {
     lower: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).annotate({ description: 'Lower elongation bound in nuqta, the length of each text-stage place and the least of each line-stage place' }),
@@ -51,7 +53,7 @@ const Height = Schema.TaggedUnion({
     Fixed: { em: Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Baseline to baseline distance in em' }) },
     Extents: {
         ratio: Schema.Finite.check(Schema.isGreaterThan(0))
-            .annotate({ description: 'Line height over the ink depth of the line above plus the ink height of the line, marks included' })
+            .annotate({ description: 'Line height over the glyph extents depth of the line above plus the glyph extents height of the line, marks included' })
             .pipe(Schema.withConstructorDefault(Effect.succeed(1))),
     },
 }).annotate({ description: 'Line height, Auto scaling point size whatever the face metrics, Fixed holding one baseline pitch, Extents separating vocalized lines without loosening plain ones' });
@@ -107,6 +109,7 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
     },
     { description: 'Typesetting of one paragraph or run' },
 ) {
+    static readonly Tag = Tag;
     static readonly Direction = Direction;
     static readonly Alignment = Alignment;
     static readonly Leading = Leading;
@@ -148,8 +151,8 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
             },
         });
     }
-    lineHeight(size: number, ink: { readonly descent: number; readonly ascent: number }) {
-        return Height.match(this.leading.height, { Auto: ({ ratio }) => size * ratio, Fixed: Struct.get('em'), Extents: ({ ratio }) => (ink.descent + ink.ascent) * ratio });
+    lineHeight(size: number, extents: { readonly descent: number; readonly ascent: number }) {
+        return Height.match(this.leading.height, { Auto: ({ ratio }) => size * ratio, Fixed: Struct.get('em'), Extents: ({ ratio }) => (extents.descent + extents.ascent) * ratio });
     }
 }
 

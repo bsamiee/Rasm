@@ -43,6 +43,7 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Headers extends GhidraScript {
+
     // --- [PATTERNS]
 
     private static final Pattern DEFINE = Pattern.compile("-D[A-Za-z_]\\w*(=.*)?");
@@ -273,7 +274,7 @@ public class Headers extends GhidraScript {
                                                         function.getPrototypeString(true, false))));
     }
 
-    // --- [RUN]
+    // --- [EXECUTION]
 
     @Override
     public void run() throws Exception {

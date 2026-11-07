@@ -1,7 +1,5 @@
 """Darkroom looks: flim's default, nostalgia, and silver film stocks installed as view transforms, the OCIO looks the formation's view offers tiled over the render proxy, and the layer stack looks, gathered in the Image Formation panel."""
 
-# ruff: file-ignore[relative-imports]
-
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from functools import partial

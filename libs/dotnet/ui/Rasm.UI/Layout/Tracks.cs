@@ -5,8 +5,11 @@ using SkiaSharp;
 namespace Rasm.UI.Layout;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static partial class Layouts {
+
     // --- [TRACKS]
+
     private sealed record Lattice(PhysicalAxis Axis, int Count, Option<float> Line, Seq<Sizing> Tracks, Seq<(int Line, int Track, int Down, int Across, LayoutNode Layout)> Cells) {
         internal static Lattice Of(LayoutNode layout, View.Grid grid) {
             int longest = grid.Rows.Map(static row => row.Count).Max(0);
@@ -97,7 +100,8 @@ internal static partial class Layouts {
             var gap => extents.Zip(extents.Scan(0f, (start, extent) => start + extent + gap)).Map(static track => (Start: track.Second, Extent: track.First)),
         };
 
-    // --- [WINDOW]
+    // --- [WINDOWS]
+
     internal static Seq<Key> Visible(Scene scene, LayoutNode lazy, View.Lazy node) =>
         (from frame in scene.Frame(lazy.Path)
          from shown in scene.Visible(lazy.Path)

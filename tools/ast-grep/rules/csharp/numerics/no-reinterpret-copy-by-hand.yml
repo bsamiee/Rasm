@@ -86,7 +86,7 @@ utils:
                             all:
                                 - has: {field: left, any: [{pattern: $OFFSET}, {kind: parenthesized_expression, has: {pattern: $OFFSET}}]}
                                 - has: {field: operator, regex: '^\+$'}
-                                - has: {field: right, kind: integer_literal, regex: '^1$'}
+                                - has: {field: right, pattern: '1'}
 rule:
     any:
         - kind: invocation_expression

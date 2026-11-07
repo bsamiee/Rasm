@@ -4,11 +4,11 @@ import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
 import { CommandError, type EngineEvent, type InlineProgramArgs, LocalWorkspace, type OutputMap, type PreviewResult, StackNotFoundError, type UpdateSummary } from '@pulumi/pulumi/automation/index.js';
 import { version } from '@pulumi/pulumi/version.js';
+import { runCommand } from '@rasm/eng';
 import { Array, Cause, Config, Console, Effect, FileSystem, Match, Option, Path, Record, Schema, Struct } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
-import { runCommand } from '#/eng/typescript/run-command';
-import { hostingStack, hostingTargets } from '#/infra/hosting-stack';
-import { repositoryStack } from '#/infra/repository-stack';
+import { hostingStack, hostingTargets } from '#/hosting-stack.ts';
+import { repositoryStack } from '#/repository-stack.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

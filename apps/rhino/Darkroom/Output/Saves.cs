@@ -23,10 +23,14 @@ using SixLabors.ImageSharp.PixelFormats;
 namespace Darkroom.Output;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record IdentitySource(ushort Id, Option<string> Name, Vector3 Color);
 
 [SmartEnum<RenderWindow.StandardChannels>(SkipIComparable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class SavedChannel {
+
+    // --- [ITEMS]
+
     private const ushort IdMask = 0x7FFF;
 
     public static readonly SavedChannel Distance = new(RenderWindow.StandardChannels.DistanceFromCamera, "Depth", None,
@@ -62,6 +66,7 @@ public sealed partial class SavedChannel {
     private static Vector3 Components(Color4f color) => new(color.R, color.G, color.B);
 
     // --- [IDENTITIES]
+
     public Map<ushort, IdentitySource> Identified(RhinoDoc doc, PixelFrame ids) =>
         Sources.Match(
             Some: sources => Present(ids) switch {
@@ -79,6 +84,9 @@ public sealed partial class SavedChannel {
 }
 
 public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, OverscanFrame Frame, Option<RenderRegion> Region) {
+
+    // --- [FRAMES]
+
     public IO<PixelFrame> Linear => Read(RenderWindow.StandardChannels.RGBA);
 
     public IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Formed(OutputDepth depth) =>
@@ -101,11 +109,13 @@ public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Oversc
             .As()
         select frames;
 
-    // --- [SCENE]
+    // --- [SCENES]
+
     public static IO<PixelExtent> Extent(RhinoDoc doc) =>
         IO.lift(() => RenderPipeline.RenderSize(doc, fromRenderSources: true) switch { var size => PixelExtent.Validated(size.Width, size.Height) });
 
     // --- [WRITES]
+
     public IO<Seq<(OutputName Name, OutputPath Path)>> Saved(RhinoDoc doc, TimeProvider clock) =>
         from book in OutputBook.Read(doc)
         let named = book.Names([])
@@ -121,6 +131,7 @@ public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Oversc
             toMap(Seq(("Version", Session.PlugIn.Version), ("Id", Session.PlugIn.Id.ToString("D", CultureInfo.InvariantCulture)))));
 
     // --- [PIXELS]
+
     private IO<PixelFrame> Read(RenderWindow.StandardChannels channel) =>
         RenderWindows.Read(Rendering, channel).Bind(read => IO.lift(Placed(read)));
 

@@ -272,6 +272,7 @@ fn estimate(design: &DMatrix<f64>, target: &DMatrix<f64>, regularization: Regula
 }
 
 // --- [LOSS]
+
 fn rho<D>(loss: Loss, residual: &D) -> D
 where D: DualNum<Primitive = f64> {
     #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot match arithmetic allowances through DualNum bounds")]
@@ -423,7 +424,8 @@ fn robust(design: &DMatrix<f64>, target: &DMatrix<f64>, options: Options, hooks:
     }
 }
 
-// --- [POLYNOMIAL]
+// --- [POLYNOMIALS]
+
 pub(crate) fn design<T>(exponents: &DMatrix<u8>, sites: &DMatrixView<'_, T>) -> DMatrix<T>
 where T: DualNum<Primitive = f64> {
     DMatrix::from_iterator(
@@ -538,6 +540,7 @@ where T: DualNum<Primitive = f64> {
 }
 
 // --- [NONLINEAR]
+
 fn residuals<'call, M, D>(model: &'call M, observations: &'call Observations, scales: &'call DVector<f64>, parameters: DVectorView<'call, D>) -> impl ExactSizeIterator<Item = D>
 where
     M: Model,
@@ -732,6 +735,7 @@ where M: Model {
 }
 
 // --- [READINGS]
+
 pub fn uncertainty(estimate: &Estimate, estimator: Estimator) -> Result<Vec<Uncertainty>, NEVec<AnalysisError>> {
     let (pseudoinverse, points, freedom) = (&estimate.pseudoinverse, estimate.leverage.len(), estimate.freedom());
     let gram = LazyCell::new(|| pseudoinverse * pseudoinverse.transpose());

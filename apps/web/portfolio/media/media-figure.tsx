@@ -27,7 +27,7 @@ const MediaFigure = ({ placement, active, presentation, priority, renderMedia }:
         <CustomProperties properties={{ '--media-ratio': Placement.ratio(placement), ...(placement.kind === 'image' && placement.role === 'photograph' && placement.framing.mode === 'cover' && { '--media-focus-x': `${placement.framing.x}%`, '--media-focus-y': `${placement.framing.y}%` }) }}>
             {(scope) => (
                 <figure aria-hidden={presentation === 'thumbnail'} className="media-figure" ref={figure} {...scope}>
-                    <motion.div {...(viewer && { layoutId })} className="bg-surface relative flex aspect-(--media-ratio) w-full items-center justify-center overflow-hidden">
+                    <motion.div {...(viewer && { layoutId })} className="bg-background-muted relative flex aspect-(--media-ratio) w-full items-center justify-center overflow-hidden">
                         {renderMedia && <MediaElement active={active} key={placement.asset.id} placement={placement} presentation={presentation} priority={priority} viewport={figure} />}
                     </motion.div>
                     {presentation !== 'thumbnail' && (

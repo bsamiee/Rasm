@@ -1,4 +1,4 @@
-"""Desired graph reconciliation onto node trees: node change rows that write themselves, write phases over them and the interface rows, owned groups, and nested group content."""
+"""Desired graph reconciliation onto node trees: owned groups, node change rows that write themselves, and write phases over them and the interface rows."""
 
 from collections import deque
 from collections.abc import Mapping
@@ -7,19 +7,20 @@ from types import MappingProxyType
 from typing import override
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.data.ids.ownership import Mark
+from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.rna.descriptors import differing, Value, written
 from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.addressing import InterfaceKeys, OwnedNodes
 from blender.bpy.nodes.desired import Content, End, Graph, ItemContent, Link, Node
 from blender.bpy.nodes.interface_changes import Declared, interfaced, Placed, Restated, Withdrawn
-from blender.bpy.nodes.interfaces import Interface, NodeGroup
+from blender.bpy.nodes.interfaces import Interface
 from blender.bpy.nodes.trees import created, endpoints, group_set, group_tree, linked, links_of, new_group, ordered, socket_at
 from blender.records.faults import accumulated, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 
@@ -30,48 +31,50 @@ type Changes = tuple[tuple[_Row, ...], ...]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
-# --- [CONTENT]
+# --- [GROUPS]
 
 
-class GroupContent(ItemContent, frozen=True, kw_only=True):
-    """Owned group a group node points at, reconciled as a hidden tree of its own."""
+class NodeGroup(ItemContent, frozen=True, kw_only=True):
+    """Owned node group of a graph, interface, and saved state, and the content of each group node pointing at it as a hidden tree of its own."""
 
-    group: NodeGroup
+    key: Key
+    name: str
+    graph: Graph
+    interface: Interface = Interface()
+    saved: Saved = Saved.USED
+    single: bool = True
+
+    @property
+    def ownership(self) -> Ownership[bpy.types.NodeTree]:
+        """Group tree ownership row."""
+        return Ownership(kind=self.graph.kind, key=self.key, saved=self.saved, single=self.single)
 
     @property
     @override
     def digest_form(self) -> object:
         """Group key and name."""
-        return (self.group.key, self.group.name)
+        return (self.key, self.name)
 
-    @property
-    @override
-    def nested(self) -> tuple[NodeGroup, ...]:
-        """Group declaration the node points at."""
-        return (self.group,)
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
+        """Group ownership row, then the rows of every group its nodes point at in nesting order, each row once."""
+        return tuple(dict.fromkeys((self.ownership, *(row for group in self.graph.contents.values() if isinstance(group, NodeGroup) for row in group.acquisitions(identity)))))
 
     @override
     def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
         return (
             group_tree(live)
-            .filter(lambda tree: Mark.read(identity, tree) == Some(Mark(key=self.group.key)))
-            .map(lambda tree: changes(self.group, tree, identity).map(lambda rows: not any(rows)))
+            .filter(lambda tree: Mark.read(identity, tree) == Some(Mark(key=self.key)))
+            .map(lambda tree: changes(self, tree, identity).map(lambda rows: not any(rows)))
             .default_value(Ok(value=False))
         )
 
     @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
-        return made(msgspec.structs.replace(self.group, name=f".{self.group.name}"), identity).bind(lambda tree: group_set(live, tree))
+        return made(msgspec.structs.replace(self, name=f".{self.name}"), identity).bind(lambda tree: group_set(live, tree))
 
     @override
     def sockets(self, live: bpy.types.Node, identity: Identity, /) -> Mapping[str, str]:
-        return (
-            group_tree(live)
-            .map(lambda tree: InterfaceKeys.of(tree, identity))
-            .map(lambda held: (held.sockets, held.kept(self.group.interface)))
-            .map(lambda pair: {key: identifier for key, identifier in pair[0].items() if key in pair[1]})
-            .default_value(dict[str, str]())
-        )
+        return group_tree(live).map(lambda tree: InterfaceKeys.of(tree, identity).retained(self.interface)).default_value(dict[str, str]())
 
 
 # --- [NODE_ROWS]
@@ -309,21 +312,13 @@ def _read(graph: Graph, interface: Interface, keyed: OwnedNodes, identity: Ident
         pointed = {
             change.key: {
                 item: (identifier, bpy.types.NodeSocket)
-                for item, identifier in (
-                    content.group.ownership
-                    .reused(identity)
-                    .map(lambda tree: InterfaceKeys.of(tree, identity))
-                    .map(lambda addressed: (addressed.sockets, addressed.kept(content.group.interface)))
-                    .map(lambda pair: {key: identifier for key, identifier in pair[0].items() if key in pair[1]})
-                    .default_value(dict[str, str]())
-                    if isinstance(content, GroupContent)
-                    else content.sockets(held[change.key], identity)
-                ).items()
+                for tree in group.ownership.reused(identity).to_list()
+                for item, identifier in InterfaceKeys.of(tree, identity).retained(group.interface).items()
             }
             for change in alterations
             if change.key in held
-            for content in change.content.bind(lambda each: Option.of_optional(try_downcast(ItemContent, each))).to_list()
-            if content.nested
+            for group in change.content.to_list()
+            if isinstance(group, NodeGroup)
         }
         interfaces: dict[Key, Mapping[str, tuple[str, type[bpy.types.NodeSocket]]]] = {**own, **pointed}
         keys = {node: {identifier: key for key, identifier in sockets[node].items()} for node in interfaces}
@@ -370,17 +365,15 @@ def _read(graph: Graph, interface: Interface, keyed: OwnedNodes, identity: Ident
     def assembled(rows: tuple[Option[Altered], ...]) -> Changes:
         alterations = tuple(row for option in rows for row in option.to_list())
         positions = {
-            row.key: reader(held[row.key], identity)
+            row.key: content.positions(held[row.key], identity)
             for row in alterations
             if row.key in held
             for content in row.content.to_list()
-            if isinstance(content, ItemContent)
-            for reader in Option.of_optional(content.positions).to_list()
+            if isinstance(content, ItemContent) and not isinstance(content, NodeGroup)
         }
         rewritten = frozenset(row.key for row in alterations if row.members or row.content.is_some())
         entries = {key: entry for key, entry, _, _ in interface.walked()}
-        items = addressed.kept(interface)
-        surviving = {key: (address, entry[0].refined if isinstance(entry := entries[key], tuple) else bpy.types.NodeSocketBool) for key, address in addressed.sockets.items() if key in items}
+        surviving = {key: (address, entry[0].refined if isinstance(entry := entries[key], tuple) else bpy.types.NodeSocketBool) for key, address in addressed.retained(interface).items()}
         (withdrawn, declared, placements, restated), (disconnected, connected, reordered, interfaces) = interfaced(addressed, interface), linked(alterations, rewritten, surviving, positions)
         values = tuple(
             Valued(
@@ -414,4 +407,4 @@ def _read(graph: Graph, interface: Interface, keyed: OwnedNodes, identity: Ident
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Added", "Altered", "Changes", "Configured", "Connected", "GroupContent", "Removed", "Reordered", "Valued", "changes", "made", "reconciled", "valued"]
+__all__ = ["Added", "Altered", "Changes", "Configured", "Connected", "NodeGroup", "Removed", "Reordered", "Valued", "changes", "made", "reconciled", "valued"]

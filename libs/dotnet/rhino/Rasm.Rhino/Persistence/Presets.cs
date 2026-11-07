@@ -5,6 +5,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<string>(SkipIParsable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -44,12 +45,11 @@ public sealed record PresetShelf(Seq<Preset> Stock, Map<PresetName, Preset> User
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<ValueSet> Shown, IO<HashSet<EntryKey>> Locked, Func<ValueSet, IO<ValueDiff>> Commit) {
-    private const string Extension = ".json";
 
-    public static DirectoryInfo SettingsFolder(PlugIn plugIn, string owner) => new(Path.Combine(plugIn.SettingsDirectory, "Presets", owner));
+public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<ValueSet> Shown, IO<HashSet<EntryKey>> Locked, Func<ValueSet, IO<ValueDiff>> Commit) {
 
     // --- [READS]
+
     public IO<PresetShelf> Shelf =>
         from saved in Listed(Folder)
         select new PresetShelf(Stock, saved);
@@ -62,6 +62,7 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
         select shelf.Current(captured, locks);
 
     // --- [WRITES]
+
     public IO<ValueDiff> Apply(Preset preset) => IO.lift(preset.Values).Bind(Commit);
 
     public IO<ValueDiff> Stepped(int steps) =>
@@ -109,6 +110,11 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
         select new Preset(name, values) { File = Some(file) };
 
     // --- [FILES]
+
+    private const string Extension = ".json";
+
+    public static DirectoryInfo SettingsFolder(PlugIn plugIn, string owner) => new(Path.Combine(plugIn.SettingsDirectory, "Presets", owner));
+
     private FileInfo Named(PresetName name) => new(Path.Combine(Folder.FullName, name + Extension));
 
     private static IO<Map<PresetName, Preset>> Listed(DirectoryInfo folder) =>

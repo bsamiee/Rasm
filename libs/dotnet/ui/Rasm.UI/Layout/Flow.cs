@@ -12,13 +12,17 @@ using SuperLinq;
 namespace Rasm.UI.Layout;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record LayoutPass(HashMap<Seq<Key>, LayoutNode> Prior, HashMap<Seq<Key>, float> Offsets, Shaping Shaping, CultureInfo Culture);
 
 internal sealed record AvailableSpace(LayoutPass Pass, LayoutNode Layout, PhysicalAxis Along, float Start, float Space);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static partial class Layouts {
-    // --- [ARRANGE]
+
+    // --- [ARRANGEMENT]
+
     internal static LayoutNode Arrange(LayoutPass pass, Cascade root, View node, SKSize size) => WithCorners(Framed(pass, Built(pass, root, [], node, pass.Prior.Find([])), SKRect.Create(size)), None);
 
     internal static LayoutNode Framed(LayoutPass pass, LayoutNode layout, SKRect frame) =>
@@ -44,7 +48,8 @@ internal static partial class Layouts {
             .Bind(static held => toSeq((held.Layout.Children + held.Layout.Layers).IndexBy(static member => member.Path)))
             .Filter(static entry => entry.index > 0).Map(static entry => entry.item.Path);
 
-    // --- [QUERY]
+    // --- [QUERIES]
+
     private static Sizing Sized(View node, PhysicalAxis along) =>
         SuperEnumerable.TraverseBreadthFirst(node, static current => current.Inner.AsEnumerable())
             .Select(current => along.Map(horizontal: current.Width, vertical: current.Height)).FirstOrDefault(static sizing => sizing.IsSome).IfNone(Sizing.Fit.Content);
@@ -54,6 +59,7 @@ internal static partial class Layouts {
         | (node is View.Image image ? Factor.Validated(image.Source.Info.Width / (float)image.Source.Info.Height).ToOption() : None);
 
     // --- [BUILD]
+
     internal static LayoutNode Built(LayoutPass pass, Cascade cascade, Seq<Key> path, View node, Option<LayoutNode> held) =>
         held.Filter(kept => kept.View.Equals(node) && kept.Cascade.Equals(cascade)).IfNone(() => Created(pass, cascade, path, node, held));
 
@@ -97,7 +103,8 @@ internal static partial class Layouts {
 
     private static Seq<(Key Segment, View View)> Segments(Seq<View> nodes) => nodes.Map(static (node, index) => (Segment: node.Key.IfNone(() => new Key.Ordinal((uint)index)), View: node));
 
-    // --- [FIT]
+    // --- [FITS]
+
     private static float IntrinsicWidth(LayoutNode layout) =>
         (from aspect in Aspect(layout.View)
          from height in Sized(layout.View, PhysicalAxis.Vertical).Definite
@@ -159,7 +166,8 @@ internal static partial class Layouts {
 
     private static float Gap(LayoutNode layout) => layout.Style.Metrics[Metric.Gap];
 
-    // --- [PLACE]
+    // --- [PLACEMENT]
+
     private static LayoutNode Placed(LayoutPass pass, LayoutNode layout, PhysicalAxis along, float start, float extent) {
         if (Reused(layout, pass.Prior) && along.Of(layout.Frame.Size).CompareTo(extent) is 0) return Moved(layout, along, start);
         LayoutNode framed = layout with { Frame = along.Spanned(layout.Frame, start, extent) };
@@ -315,6 +323,7 @@ internal static partial class Layouts {
     }
 
     // --- [CORNER]
+
     internal static LayoutNode WithCorners(LayoutNode layout, Option<(Corners Corners, SKRect Frame)> background) {
         Corners corners = layout.View.Role.IsNone ? Corners.Square
             : layout.Style.Shape is Shape.Capsule ? Corners.Round(float.Min(layout.Frame.Width, layout.Frame.Height) / 2f)
@@ -333,7 +342,8 @@ internal static partial class Layouts {
             };
     }
 
-    // --- [DISTRIBUTE]
+    // --- [DISTRIBUTION]
+
     internal static Seq<float> Distribute(Seq<(Sizing Sizing, float Basis, float Floor)> items, float space) {
         double[] extents = [.. items.Map(static item => (double)item.Basis)];
         double free = space - TensorPrimitives.Sum(extents);

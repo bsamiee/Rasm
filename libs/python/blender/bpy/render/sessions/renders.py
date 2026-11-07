@@ -118,7 +118,7 @@ class RenderBinding(msgspec.Struct, frozen=True):
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-# --- [RENDERS]
+# --- [RENDERING]
 
 
 @contextmanager
@@ -157,6 +157,8 @@ def native(identity: Identity, scene: bpy.types.Scene, call: RenderCall, *, file
 
 class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Render operators with temporary scene overrides, each render running through `render`."""
+
+    # --- [STATE]
 
     render: Render = native
     override: ClassVar[Attachment[RenderOverride]] = Attachment(key="render_override", form=RenderOverride, owner=bpy.types.Scene)

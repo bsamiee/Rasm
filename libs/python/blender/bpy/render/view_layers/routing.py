@@ -24,11 +24,11 @@ from blender.bpy.extension.events import runtime
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Handler, Registrable, Subscription
 from blender.bpy.nodes.addressing import owned
-from blender.bpy.nodes.changes import Changes, made, reconciled
+from blender.bpy.nodes.changes import Changes, made, NodeGroup, reconciled
 from blender.bpy.nodes.desired import FrameNode, Link
 from blender.bpy.nodes.functions import built, lowered
 from blender.bpy.nodes.graphs import Expr, group_input
-from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
+from blender.bpy.nodes.interfaces import Interface, Socket
 from blender.bpy.render.outputs.exports import Layering
 from blender.bpy.render.outputs.formats import FileItems
 from blender.bpy.render.outputs.paths import file_output_path, OutputPath, Outputs, Pathed, ScenePaths, today
@@ -328,7 +328,8 @@ class RoutingRow(ConditionalRow, frozen=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-# --- [GROUP]
+
+# --- [GROUPS]
 
 
 def grouped(frames: tuple[tuple[FrameNode, tuple[Link, ...], LayerPlan], ...]) -> Outcome[NodeGroup]:

@@ -16,6 +16,7 @@ using Thinktecture.Collections;
 namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record FrameSpan(Seq<SequenceNumber> Numbers) {
     public const double Rate = 24d;
 
@@ -37,12 +38,16 @@ public sealed record QueuedEntry(bool Renders, RenderSettings.RenderingSources S
 }
 
 public sealed record QueuePlacement(RenderSettings.RenderingSources Source) {
+
+    // --- [STATE]
+
     public static QueuePlacement Active { get; } = new(RenderSettings.RenderingSources.ActiveViewport);
 
     public Option<string> View { get; init; }
     public Option<SunWindow> Sun { get; init; }
 
     // --- [READS]
+
     public static IO<Seq<QueuePlacement>> Viewed(RhinoDoc doc) =>
         NamedViews.Table.Entries(doc).Map(static entries => entries.Map(static entry => Active with { Source = RenderSettings.RenderingSources.NamedView, View = entry.Name }));
 
@@ -129,12 +134,16 @@ public sealed record RenderBatch(Seq<QueueEntry<OutputPath>> Entries) {
 }
 
 public sealed record QueuePlan {
+
+    // --- [STATE]
+
     private QueuePlan(OutputBook book, Seq<QueueEntry<Unit>> entries) => (Book, Entries) = (book, entries);
 
     public OutputBook Book { get; }
     public Seq<QueueEntry<Unit>> Entries { get; }
 
     // --- [PLANS]
+
     public static IO<QueuePlan> Read(RhinoDoc doc) =>
         from queue in QueueState.Read(doc)
         from book in OutputBook.Read(doc)
@@ -175,7 +184,9 @@ public sealed record QueueHeartbeat(Duration Interval, int Misses) {
 }
 
 public sealed record QueueSettings(int Retries, Duration Delay, bool SampleEstimate, bool KeepAwake, bool ShutDownAfterSuccess, QueueHeartbeat Heartbeat, NoticeSettings Notices, FlamencoSettings Flamenco) {
+
     // --- [SETTINGS]
+
     public static IO<QueueSettings> Read =>
         IO.lift(static () => new SettingsNode(new SettingsRoot.PlugInNode(Session.PlugIn.Id)).Child("Queue")).Bind(static node =>
             (Preferences.Setting(node, "Retries", 3, Some<Func<int, bool>>(static count => count >= 0)).Read,

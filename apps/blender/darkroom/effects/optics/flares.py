@@ -58,7 +58,7 @@ class _Reading(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# --- [SOURCE]
+# --- [SOURCES]
 
 _LIGHT: Final[Key] = "emission"
 _STREAKS: Final[Key] = "basis"
@@ -269,8 +269,6 @@ _GHOSTS: Final = InterfacePanel.of(
 )
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [SOURCE]
 
 
 def _located(shell: GraphInputs) -> tuple[Expr, Expr, Expr]:

@@ -12,6 +12,8 @@ use crate::{expanded_externally, suggest};
 
 lint!(MANUAL_BOOL_TOGGLE: "`x = !x` and `x ^= true` assignments negating the `bool` they write");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let negated = match expr.kind {

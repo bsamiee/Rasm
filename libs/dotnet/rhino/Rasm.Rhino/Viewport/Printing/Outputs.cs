@@ -12,6 +12,7 @@ using Font = Rhino.DocObjects.Font;
 namespace Rasm.Rhino.Viewport.Printing;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record PageSource {
     public sealed record ViewSet(ViewportSet Set, CaptureRequest Request, Option<ViewportType> Kind = default) : PageSource;
@@ -46,11 +47,15 @@ internal sealed record PdfPage(RhinoDoc Document, FilePdf Pdf, int Number, doubl
 }
 
 public sealed record PageMark {
+
+    // --- [STATE]
+
     private PageMark(Func<PdfPage, IO<Unit>> draw) => Draw = draw;
 
     internal Func<PdfPage, IO<Unit>> Draw { get; }
 
     // --- [MARKS]
+
     public static PageMark Text(
         Seq<FieldRun> runs, (Length X, Length Y) anchor, Length height, Font font, Color fill, Option<(Color Color, Length Width)> outline, double rotation,
         TextHorizontalAlignment horizontal, TextVerticalAlignment vertical) =>
@@ -79,8 +84,11 @@ public sealed record FileOutput(OutputFolder Folder, Stem Stem, bool Overwrite, 
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Outputs {
+
     // --- [PAGES]
+
     private static IO<Seq<(IO<ViewCaptureSettings> Settings, Option<RhinoObject> Context)>> Planned(RhinoDoc doc, PageSource source) =>
         source.Switch(
             doc,
@@ -124,6 +132,7 @@ public static class Outputs {
         select settings;
 
     // --- [SHOTS]
+
     private static IO<TValue> Shots<TValue>(RhinoDoc doc, Seq<RasterSource> sources, Func<Seq<IO<(Bitmap Bitmap, Option<double> Density)>>, IO<TValue>> body) =>
         sources.TraverseM(source => source.Switch(
                 doc,
@@ -150,6 +159,7 @@ public static class Outputs {
         Viewports.Resolve(doc, set).Map(static rows => toSeq(rows.Map(static row => row.View).DistinctBy(static view => view.RuntimeSerialNumber)).Strict());
 
     // --- [TARGETS]
+
     private static int Pixels(Length length, double density) => int.CreateChecked(double.Round(length.Inches.ToDouble() * density, MidpointRounding.ToEven));
 
     private static IO<Unit> Added(RhinoDoc doc, FilePdf pdf, PageText text, bool layers, (IO<ViewCaptureSettings> Settings, Option<RhinoObject> Context) page, Seq<PageMark> marks) =>

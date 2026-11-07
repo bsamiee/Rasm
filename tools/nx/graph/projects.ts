@@ -2,14 +2,12 @@ import { createRequire, isBuiltin } from 'node:module';
 import { matchesGlob } from 'node:path';
 import type { CreateNodesResult, Optional, ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { findMatchingProjects, interpolate } from '@nx/devkit/internal';
-import { Xcconfig, XcodeProject } from '@rasm/applications/xcode';
+import { ClaudeHooks, decodeFile, TextFormat, Xcconfig, XcodeProject } from '@rasm/eng';
 import { suitePath, VITEST_INTEGRATION_TESTS } from '@rasm/test-support/suite';
 import { Array, Effect, Equal, FileSystem, Filter, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parseSync } from 'rolldown/utils';
-import { ClaudeHooks, decodeFile } from '#/eng/typescript/manifest';
-import { TextFormat } from '#/eng/typescript/text-format';
-import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, suiteParents, type Workspace, WorkspaceError } from '#/tools/nx/workspace';
+import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, suiteParents, type Workspace, WorkspaceError } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -221,16 +219,16 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         };
     }),
     [XcodeProject.file]: Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [path, fs, { files, targets }, { products }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, decodeFile(XcodeProject.schema, workspace.workspaceRoot, workspace.file), workspace.swift]);
+        const [path, fs, { files, targets }, { products }, { DEVELOPMENT_TEAM }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, decodeFile(XcodeProject.schema, workspace.workspaceRoot, workspace.file), workspace.swift, Xcconfig.read(workspace.workspaceRoot)]);
         const [root, name] = [path.dirname(dir), path.parse(dir).name];
         const links = yield* Effect.forEach(yield* glob(workspace.workspaceRoot, [`${root}/**/*.xcassets/**/*.svg`]), (file) => Effect.option(fs.readLink(path.join(workspace.workspaceRoot, file))));
         const catalogs = Array.dedupe(Array.getSomes(links).flatMap((target) => target.split(`${MODULES}/`).slice(1, 2).map(packageName)));
-        const identifier = yield* Effect.fromOption(
+        const signing = yield* Effect.fromOption(
             Option.flatMap(
                 Array.findFirst(targets, (target) => target.name === name),
-                ({ settings }) => settings.PRODUCT_BUNDLE_IDENTIFIER,
+                ({ settings }) => Option.all({ PRODUCT_BUNDLE_IDENTIFIER: settings.PRODUCT_BUNDLE_IDENTIFIER, CODE_SIGN_ENTITLEMENTS: Option.map(Option.fromNullishOr(settings.CODE_SIGN_ENTITLEMENTS), (file) => path.join(root, file)) }),
             ),
-            () => WorkspaceError.missing(`${workspace.file} target ${name}`, 'PRODUCT_BUNDLE_IDENTIFIER'),
+            () => WorkspaceError.missing(`${workspace.file} target ${name}`, 'PRODUCT_BUNDLE_IDENTIFIER and CODE_SIGN_ENTITLEMENTS'),
         );
         const members = targets.flatMap(Struct.get('members'));
         const updated = members.some(Predicate.Struct({ product: Equal.equals('Sparkle') }));
@@ -243,7 +241,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         );
         const bundled = Array.match(Array.dedupe(owners), { onEmpty: () => [], onNonEmpty: (projects) => [{ projects, target: 'pack' }] });
         const xcode = swiftProject(['build:xcode', ...(updated ? ['output:appcast'] : [])], ['check', 'lint:periphery', 'pack', 'install', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
-        const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root), PRODUCT_BUNDLE_IDENTIFIER: identifier } };
+        const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root), ...signing, DEVELOPMENT_TEAM } };
         return {
             root,
             name,
@@ -282,14 +280,12 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         }
         const suite = suitePath(path, path.join(TESTS, 'typescript'), dir);
         const storybook = path.join(dir, '.storybook', 'main.ts');
-        const [suiteFiles, { owner, manifest }] = yield* Effect.all([glob(workspaceRoot, [`${suite}/**/*`, storybook]), owning(workspace, dir)], { concurrency: 'unbounded' });
+        const suiteFiles = yield* glob(workspaceRoot, [`${suite}/**/*`, storybook]);
         const tests = suiteFiles.filter((candidate) => candidate !== storybook);
-        const named = owner === dir ? {} : { name: path.join(manifest.name, path.relative(owner, dir)) };
         const sourceRoots = [dir, suite];
         const parent = `..${path.sep}`;
         const sources = fileNames.map((candidate) => path.relative(workspaceRoot, candidate));
-        const loaded = owner === dir ? sources : Object.keys(yield* reach(imports(workspaceRoot), sources));
-        const externalSources = loaded.filter((candidate) => !(path.isAbsolute(candidate) || candidate.startsWith(parent)) && sourceRoots.every((root) => path.relative(root, candidate).startsWith(parent))).map((candidate) => `{workspaceRoot}/${candidate}`);
+        const externalSources = sources.filter((candidate) => !(path.isAbsolute(candidate) || candidate.startsWith(parent)) && sourceRoots.every((root) => path.relative(root, candidate).startsWith(parent))).map((candidate) => `{workspaceRoot}/${candidate}`);
         const compilerInputs = files.map((held) => ({ fileset: `{workspaceRoot}/${held}`, includeIgnored: true }));
         const [containers, portable] = Array.partition(
             tests.filter((candidate) => matchesGlob(candidate, '**/*.test.{ts,tsx}')),
@@ -303,7 +299,6 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         });
         return {
             ...defaultInputs([...externalSources, ...(tests.length === 0 || suite === dir ? [] : [folderInput(suite)])]),
-            ...named,
             tags: ['language:typescript'],
             targets: {
                 'typecheck:tsc': {

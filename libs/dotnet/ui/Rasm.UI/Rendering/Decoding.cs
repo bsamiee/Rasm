@@ -16,9 +16,11 @@ using Svg.Skia.TypefaceProviders;
 namespace Rasm.UI.Rendering;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record ArtKey(GlyphSource Source, string Resource, Option<SKColor> Current, HashMap<string, SKColor> Classes, HashMap<Token, SKColorF> Chrome);
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal abstract class LoadedMedia : IDisposable {
     private LoadedMedia() { }
 
@@ -102,6 +104,9 @@ internal sealed class Decoded(Seq<(SKImage Image, Duration Shown)> frames) : IDi
 }
 
 internal sealed class Decoding {
+
+    // --- [STATE]
+
     private readonly SKImageInfo target;
     private readonly Shaping shaping;
     private readonly Func<SKImageInfo, Option<SKSurface>> offscreen;
@@ -115,6 +120,7 @@ internal sealed class Decoding {
     }
 
     // --- [KEYS]
+
     internal static ArtKey Keyed(LayoutNode layout, GlyphSource source) {
         SKColorF under = layout.Inner.Background;
         Theme theme = layout.Cascade.Theme;
@@ -134,7 +140,8 @@ internal sealed class Decoding {
     internal static (ImageSource.Encoded Source, SKSizeI Pixels) Requested(LayoutNode layout, View.Image image, ImageSource.Encoded encoded, float scale) =>
         (encoded, Capture.Pixels(image.Fit.Fitted(layout.ContentBox, new SKSize(encoded.Info.Width, encoded.Info.Height)).Size, scale));
 
-    // --- [LOADING]
+    // --- [LOADS]
+
     internal Fin<LoadedMedia> Load(ArtKey key) {
         using Stream? stream = key.Source.Assembly.GetManifestResourceStream(key.Resource);
         return Optional(stream).ToFin(new UIFault(key.Resource, UIReason.Missing)).Bind(held => key.Source.Animated ? Motion(key, held) : Vector(key, held));
@@ -177,6 +184,7 @@ internal sealed class Decoding {
     }
 
     // --- [DECODING]
+
     private static Fin<Decoded> Frames(SKCodec codec, SKImageInfo raw, SKSurface surface, SKMatrix orientation) {
         using SKSurface owned = surface;
         using SKBitmap canvas = new(raw);

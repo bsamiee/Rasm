@@ -61,6 +61,8 @@ _COMPLETED: Final = Resource[dict[Path, tuple[str, CompletedRender]]](made=lambd
 class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
     """Finished renders stored under the retention of the `render_history` preference in the extension folder, each tiled for the preview collection, `signal` firing after each change."""
 
+    # --- [STATE]
+
     key: ClassVar[Key] = "history"
     stored: ClassVar[Ownership[bpy.types.Image]] = Ownership(kind=bpy.types.Image, key="stored_render", saved=Saved.USED)
     signal: ClassVar[Resource[Signal]] = Resource[Signal](made=lambda _identity: nullcontext(Signal()))

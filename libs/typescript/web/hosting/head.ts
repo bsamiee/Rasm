@@ -10,7 +10,7 @@ import { Array, Cause, Duration, Effect, FileSystem, Function, Match, Option, Re
 import { type ChildNode, list, parse } from 'postcss';
 import { type DevEnvironment, type HtmlTagDescriptor, normalizePath, type Plugin, type ResolvedConfig, type Rolldown } from 'vite';
 import type { WebAppManifest } from 'web-app-manifest';
-import { HostingError } from '#/hosting-error';
+import { HostingError } from '#/error.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -19,8 +19,8 @@ type Scheme = 'light' | 'dark';
 interface Head {
     readonly master: string;
     readonly stylesheet: string;
-    readonly ink: string;
-    readonly surface: string;
+    readonly fill: string;
+    readonly background: string;
     readonly manifest?: Omit<WebAppManifest, 'icons'> & { readonly name: string };
 }
 
@@ -58,12 +58,12 @@ const computed = (declared: ReadonlyMap<string, string>, scheme: Scheme, value: 
     return call === undefined ? Option.some(token) : Option.flatMap(Option.fromUndefinedOr(referenced), (next) => computed(declared, scheme, next));
 };
 const renderHead = Effect.fnUntraced(
-    function* ({ root, base }: ResolvedConfig, { master, stylesheet, ink, surface, manifest }: Head) {
+    function* ({ root, base }: ResolvedConfig, { master, stylesheet, fill, background, manifest }: Head) {
         const fs = yield* FileSystem.FileSystem;
         const { nodes } = parse(yield* fs.readFileString(join(root, stylesheet)), { from: stylesheet });
         const color = (scheme: Scheme, token: string) => Effect.fromOption(Option.flatMapNullishOr(computed(new Map(cascade(nodes, scheme)), scheme, `var(${token})`), formatRgb), () => new Cause.NoSuchElementError(`${stylesheet} holds no ${scheme} color at ${token}`));
-        const [inked, chrome, darkChrome] = yield* Effect.all([color('light', ink), color('light', surface), color('dark', surface)]);
-        const painted = yield* paint(join(root, master), { color: inked });
+        const [iconColor, chrome, darkChrome] = yield* Effect.all([color('light', fill), color('light', background), color('dark', background)]);
+        const painted = yield* paint(join(root, master), { color: iconColor });
         const installed = <A extends { readonly sizes: unknown }>(asset: A) => (manifest === undefined ? { ...asset, sizes: [] } : asset);
         const resizeOptions = { background: chrome, fit: 'contain' as const };
         const generated = yield* Effect.tryPromise(() =>

@@ -1,16 +1,16 @@
 import process from 'node:process';
 import { isSea } from 'node:sea';
 import { Array, Config, Effect, identity, Option, Result, ScopedRef, Sink, Stream, SubscriptionRef } from 'effect';
-import { Adobe } from '#/adobe';
-import { command, dictionaries } from '#/features/apple-events';
-import { applications, launch, perform, quit, read, screenshot } from '#/features/applications';
-import { delivered } from '#/features/delivery';
-import { faces, font } from '#/features/fonts';
-import { plugins } from '#/features/plugins';
-import { typesetting } from '#/features/typesetting';
-import { listening } from '#/libraries';
-import { routes } from '#/routes';
-import { status } from '#/status';
+import { Adobe } from '#/adobe.ts';
+import { command, dictionaries } from '#/features/apple-events.ts';
+import { applications, launch, perform, quit, read, screenshot } from '#/features/applications.ts';
+import { delivered } from '#/features/delivery.ts';
+import { faces, font } from '#/features/fonts.ts';
+import { plugins } from '#/features/plugins.ts';
+import { typesetting } from '#/features/typesetting.ts';
+import { listening } from '#/libraries.ts';
+import { routes } from '#/routes.ts';
+import { status } from '#/status.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

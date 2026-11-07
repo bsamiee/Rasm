@@ -1,8 +1,8 @@
 import { Array, Data, Effect, Number, Option, Order, Record, Schema, SchemaGetter } from 'effect';
 import { Digest } from 'effect/crypto';
 import type { Face, NameEntry } from 'harfbuzzjs';
-import { Tag } from '#/internal/tag';
-import type { Tables } from '#/shaping/internal/tables';
+import { Settings } from '#/settings.ts';
+import type { Tables } from '#/shaping/internal/tables.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -19,7 +19,7 @@ class Names extends Data.Class<{ readonly handle: Face; readonly entries: readon
         const shortest = Array.findFirst(Array.range(0, fractionBits), (places) => Option.liftPredicate(Number.round(value, places), (rounded) => fixed(rounded) === fixed(value)));
         return String(Option.getOrElse(shortest, () => value)).replace(LEADING_ZERO, '$<sign>.');
     };
-    static readonly Descriptor = Schema.TemplateLiteralParser([Schema.String.check(Schema.isStringFinite()).pipe(Schema.decodeTo(Schema.Finite, { decode: SchemaGetter.Number(), encode: SchemaGetter.transform(Names.spelled) })), Tag]).pipe(
+    static readonly Descriptor = Schema.TemplateLiteralParser([Schema.String.check(Schema.isStringFinite()).pipe(Schema.decodeTo(Schema.Finite, { decode: SchemaGetter.Number(), encode: SchemaGetter.transform(Names.spelled) })), Settings.Tag]).pipe(
         Schema.decodeTo(Schema.Tuple([Schema.String, Schema.Finite]), { decode: SchemaGetter.transform(([value, tag]) => [tag, value] as const), encode: SchemaGetter.transform(([tag, value]) => [value, tag] as const) }),
     );
     static readonly Generated = Schema.TemplateLiteralParser([Schema.String.check(Schema.isPattern(/^[^_]+$/u)), '_', Schema.String.pipe(Schema.decodeTo(Schema.Array(Names.Descriptor), { decode: SchemaGetter.split({ separator: '_' }), encode: SchemaGetter.transform(Array.join('_')) }))]).pipe(

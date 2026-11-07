@@ -4,8 +4,7 @@ import { Array, Cause, Console, Effect, Record, Result, Schema } from 'effect';
 import { Command, Flag } from 'effect/cli';
 import nx from 'nx/package.json' with { type: 'json' };
 import { releaseChangelog, releaseVersion } from 'nx/release';
-import { accumulate } from '#/eng/typescript/accumulate';
-import { runCommand } from '#/eng/typescript/run-command';
+import { runCommand } from '#/run-command.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -32,7 +31,7 @@ const release = Command.make(
         }
         const published = Object.values(Record.filterMap(projectChangelogs ?? {}, (_, project) => (releaseGraph.getVersionActionsForProject(project)?.projectGraphNode.data.targets?.publish === undefined ? Result.failVoid : Result.succeed(`${project}:publish`))));
         if (apply) {
-            yield* accumulate(published, (target) => runCommand.shown('nx', ['run', target]));
+            yield* Effect.validate(published, (target) => runCommand.shown('nx', ['run', target]), { discard: true });
         }
         yield* Effect.flatMap(Schema.encodeEffect(Released)({ versions: Record.map(projectsVersionData, ({ currentVersion, newVersion }) => ({ currentVersion, newVersion })), published }), Console.log);
     }),

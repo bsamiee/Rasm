@@ -6,11 +6,10 @@ import msgspec
 lazy from fontTools.misc.transform import Identity, Offset, Transform
 
 from typography.faces.declaration import Em
-from typography.rules.measures import Rule
+from typography.rules.measures import band, mapped, Rule
 lazy from typography.faces.faults import Error, Fault, Ok, Outcome, Reason
 lazy from typography.faces.glyphs import Glyph, Letter, Ligature, Source
 lazy from typography.outlines.paths import Box, strip, union
-lazy from typography.rules.measures import band, mapped
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -27,13 +26,13 @@ class Joins(Rule, frozen=True, kw_only=True):
 
 
 def _bridged(glyph: Glyph, thickness: float, overlap: float, /) -> Glyph:
-    """Extends the band across each inked joining edge, from one band thickness inside the edge to the overlap past it."""
+    """Extends the band across each drawn joining edge, from one band thickness inside the edge to the overlap past it."""
     form = glyph.name.form
     edges = (
         (form.right and strip(glyph.contours, glyph.advance - thickness, glyph.advance), Box(xmin=glyph.advance - thickness, ymin=0.0, xmax=glyph.advance + overlap, ymax=thickness)),
         (form.left and strip(glyph.contours, 0.0, thickness), Box(xmin=-overlap, ymin=0.0, xmax=thickness, ymax=thickness)),
     )
-    bars = tuple((box.contour,) for inked, box in edges if inked)
+    bars = tuple((box.contour,) for drawn, box in edges if drawn)
     return msgspec.structs.replace(glyph, contours=union(glyph.contours, *bars)) if bars else glyph
 
 

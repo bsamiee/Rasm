@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace Rasm.Analyzers;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Scopes {
     public static IEnumerable<string> Declared(SyntaxNode node) =>
         node.DescendantNodesAndSelf().Select(static declared => declared switch {
@@ -36,7 +37,11 @@ public static class Scopes {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public abstract class RasmAnalyzer : DiagnosticAnalyzer {
+
+    // --- [REGISTRATION]
+
     public sealed override void Initialize(AnalysisContext context) {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze);
@@ -46,6 +51,7 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
     protected abstract void Start(CompilationStartAnalysisContext context);
 
     // --- [REPORTS]
+
     protected static DiagnosticDescriptor Rule(string id, string category, string title, string message, string description, params string[] tags) =>
         new(id, title, message, category, DiagnosticSeverity.Error, isEnabledByDefault: true, description, customTags: tags);
 
@@ -89,6 +95,7 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
             : call.Syntax.GetLocation();
 
     // --- [SYMBOLS]
+
     protected static ImmutableArray<ISymbol> Declared(Compilation compilation, params string[] ids) =>
         [.. ids.SelectMany(id => DocumentationCommentId.GetSymbolsForDeclarationId(id, compilation))];
 
@@ -165,6 +172,7 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
         (value is IMethodSymbol method ? method.AssociatedExtensionImplementation ?? method.ReducedFrom ?? method : value).OriginalDefinition;
 
     // --- [OPERATIONS]
+
     protected static T? Ancestor<T>(IOperation operation, Func<T, bool> wanted) where T : class, IOperation {
         for (IOperation? parent = operation.Parent; parent is not null; parent = parent.Parent)
             if (parent is T held && wanted(held)) return held;
@@ -274,6 +282,7 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
     }
 
     // --- [SWITCHES]
+
     protected static (IOperation Subject, ImmutableArray<(IOperation Arm, IOperation? Test, IOperation? Guard)> Arms)? Dispatch(IOperation operation) =>
         operation switch {
             ISwitchExpressionOperation expression => (expression.Value, [.. expression.Arms.Select(static arm => ((IOperation)arm, (IOperation?)arm.Pattern, arm.Guard))]),
@@ -334,6 +343,7 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
     }
 
     // --- [READING]
+
     private protected sealed class Reading(SemanticModel model, ImmutableDictionary<SyntaxTree, SemanticModel> models, CancellationToken token) {
         public SemanticModel Model { get; } = model;
 
@@ -380,6 +390,7 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
     }
 
     // --- [PACKAGES]
+
     private protected sealed class SystemSymbols(Compilation compilation) {
         public IMethodSymbol? Dispose { get; } =
             compilation.GetSpecialType(SpecialType.System_IDisposable).GetMembers(WellKnownMemberNames.DisposeMethodName).OfType<IMethodSymbol>().FirstOrDefault();
@@ -718,6 +729,7 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
     }
 
     // --- [LIFETIMES]
+
     private protected sealed class Lifetimes {
         private sealed class PathComparer<T>(IEqualityComparer<T> values) : IEqualityComparer<(T Value, ImmutableArray<int> Path)> where T : notnull {
             public bool Equals((T Value, ImmutableArray<int> Path) x, (T Value, ImmutableArray<int> Path) y) =>

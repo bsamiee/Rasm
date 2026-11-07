@@ -4,18 +4,18 @@ import { ChildProcess } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Ink {
+interface Fill {
     readonly color: string;
     readonly opacity?: number;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inkColor = ({ color, opacity = 1 }: Ink & { readonly color: `#${string}` }) => {
+const fillColor = ({ color, opacity = 1 }: Fill & { readonly color: `#${string}` }) => {
     const opaque = 0xff;
     return `${color}${Hex.encode(Uint8Array.of(Math.round(opacity * opaque)))}`;
 };
-const paint = Effect.fn('paint')(function* (master: string, { color, opacity = 1 }: Ink, width?: number) {
+const paint = Effect.fn('paint')(function* (master: string, { color, opacity = 1 }: Fill, width?: number) {
     const fs = yield* FileSystem.FileSystem;
     const stylesheet = yield* fs.makeTempFileScoped({ suffix: '.css' });
     yield* fs.writeFileString(stylesheet, `svg { color: ${color}; opacity: ${opacity}; }`);
@@ -27,4 +27,4 @@ const paint = Effect.fn('paint')(function* (master: string, { color, opacity = 1
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Ink, inkColor, paint };
+export { type Fill, fillColor, paint };

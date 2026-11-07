@@ -65,7 +65,7 @@ internal static class Dates {
 }
 ```
 
-When a consumer reads several capabilities, a runtime record holds them with one `Has<Eff<RT>, T>` trait per capability. The consumer reads each capability through `RT.Ask` and passes the value to the validator.
+When a consumer reads more than one capability, a runtime record holds them with one `Has<Eff<RT>, T>` trait per capability. The consumer reads each capability through `RT.Ask` and passes the value to the validator.
 
 ```csharp
 internal sealed record Clock(LocalDate Today);

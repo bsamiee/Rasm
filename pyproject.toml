@@ -12,12 +12,14 @@ dependencies = ["blender", "typography; python_version >= '3.15'", "foundry; pyt
 [dependency-groups]
 workspace   = [
     # --- [CORE]
+
     "beartype",                                                                   # Runtime type checks over annotations
     "pydantic-settings",                                                          # Settings models read from environment and files
     "pyobjc-framework-Cocoa; sys_platform == 'darwin'",                           # AppKit, Foundation, and CoreFoundation for apps and main run loop
     "xxhash",                                                                     # Content identity hashes matching C# System.IO.Hashing
 
     # --- [SECURITY]
+
     "azure-identity",                                                             # DefaultAzureCredential chain for Azure Key Vault secrets
     "azure-keyvault-secrets",                                                     # Azure Key Vault secret store
     "cryptography",                                                               # AES-GCM envelopes and key wrap for per-subject crypto-shredding
@@ -27,6 +29,7 @@ workspace   = [
     "keyring",                                                                    # OS keychain credential store
 
     # --- [OBSERVABILITY]
+
     "opentelemetry-api",                                                          # Trace, metric, and context API
     "opentelemetry-exporter-otlp-proto-grpc",                                     # OTLP gRPC exporter beside proto-http default
     "opentelemetry-exporter-otlp-proto-http",                                     # OTLP HTTP exporter, default transport
@@ -47,6 +50,7 @@ workspace   = [
     "pyroscope-otel",                                                             # Continuous-profiling span links beside OTLP exporters
 
     # --- [EXECUTION]
+
     "apscheduler",                                                                # Cron, interval, and date triggers
     "cloudpickle",                                                                # Kernel and closure transfer to processes and subinterpreters
     "loky",                                                                       # Reusable process pool with worker restart
@@ -56,12 +60,14 @@ workspace   = [
     "watchfiles",                                                                 # File-change watching over Rust notify backend
 
     # --- [PARSING]
+
     "jinja2",                                                                     # Report templating for visual and document outputs
     "lark",                                                                       # Parser generator for CESQL filter, IDS, and selector grammars
     "lxml",                                                                       # XML processing
     "ruamel-yaml",                                                                # Round-trip YAML with comments and layout kept
 
     # --- [DATA_EXCHANGE]
+
     "asyncssh",                                                                   # SSH and SFTP client for remote workers
     "brotli",                                                                     # Brotli compression
     "cloudevents",                                                                # CloudEvents attribute validation and protocol bindings
@@ -91,6 +97,7 @@ workspace   = [
     "zstandard",                                                                  # Zstandard compression
 
     # --- [MATHEMATICS]
+
     "array-api-compat",                                                           # Array API standard namespaces over each array library
     "array-api-extra",                                                            # Supplemental array API functions
     "clarabel",                                                                   # Clarabel conic solver, a cvxpy backend
@@ -118,6 +125,7 @@ workspace   = [
     "uncertainties",                                                              # First-order error propagation with correlated values
 
     # --- [STATISTICS]
+
     "arviz",                                                                      # Bayesian diagnostics
     "blackjax",                                                                   # JAX NUTS/HMC samplers
     "numpyro",                                                                    # JAX NUTS sampler
@@ -130,6 +138,7 @@ workspace   = [
     "skl2onnx",                                                                   # sklearn-to-ONNX converter
 
     # --- [ANALYTICS]
+
     "cubed",                                                                      # Bounded-memory distributed arrays
     "daft",                                                                       # Distributed and streaming out-of-core query engine
     "dask",                                                                       # Out-of-core arrays and dataframes
@@ -147,6 +156,7 @@ workspace   = [
     "substrait[extensions]",                                                      # Typed Substrait plan IR with extension registry and validator
 
     # --- [DATA_STORAGE]
+
     "adbc-driver-flightsql",                                                      # Arrow Flight SQL remote driver
     "adbc-driver-manager",                                                        # ADBC driver manager for Arrow Flight SQL and DuckDB
     "adbc-driver-postgresql",                                                     # PostgreSQL driver for COPY ingest and partitioned Arrow reads
@@ -162,6 +172,7 @@ workspace   = [
     "pylance",                                                                    # Lance columnar/vector format
 
     # --- [ARRAYS]
+
     "awkward",                                                                    # Ragged arrays
     "flox",                                                                       # Vectorized and parallel grouped reductions for xarray
     "h5netcdf",                                                                   # Pure-h5py netCDF-4 engine
@@ -174,6 +185,7 @@ workspace   = [
     "zarr",                                                                       # Chunked n-D arrays
 
     # --- [GEOSPATIAL]
+
     "geoarrow-pyarrow",                                                           # GeoArrow extension types for pyarrow and geopandas
     "geoarrow-rust-compute",                                                      # GeoRust operations on GeoArrow memory
     "geoarrow-rust-core",                                                         # GeoArrow geometry array memory model under GeoRust compute kernels
@@ -197,6 +209,7 @@ workspace   = [
     "xvec",                                                                       # Vector data cubes with geometry-indexed xarray dimensions
 
     # --- [GEOMETRY]
+
     "compas",                                                                     # COMPAS geometry, data, and datastructure core
     "compas_dr",                                                                  # COMPAS dynamic relaxation form finding
     "compas_tna",                                                                 # COMPAS thrust network analysis
@@ -207,6 +220,7 @@ workspace   = [
     "trimesh",                                                                    # Triangle mesh loading, repair, and queries
 
     # --- [ENERGY_SIMULATION]
+
     "dragonfly-core",                                                             # Dragonfly district and urban model object graph
     "dragonfly-energy",                                                           # Dragonfly energy model aggregation and translation
     "honeybee-core",                                                              # HBJSON base object model and validation companion
@@ -223,6 +237,7 @@ workspace   = [
     "queenbee",                                                                   # Recipe and workflow schema contract models
 
     # --- [LIFE_CYCLE_ASSESSMENT]
+
     "bw-processing",                                                              # Brightway matrix data preparation
     "bw2analyzer",                                                                # Brightway contribution and comparison analysis after calculation
     "bw2calc",                                                                    # Brightway LCA calculation engine
@@ -233,12 +248,14 @@ workspace   = [
     "openepd",                                                                    # OpenEPD declarations and PCR material-impact data
 
     # --- [VISUALIZATION]
+
     "altair",                                                                     # Declarative Vega-Lite charts
     "great-tables",                                                               # Display tables for documents
     "vegafusion",                                                                 # Server-side Vega transform and pre-transform export
     "vl-convert-python",                                                          # Vega and Vega-Lite rendering to SVG, PNG, and PDF
 
     # --- [DOCUMENTS]
+
     "docxtpl",                                                                    # Template-driven docx authoring
     "jupytext",                                                                   # Notebook round-trip text source
     "msoffcrypto-tool",                                                           # ECMA-376 Office decrypt and encrypt
@@ -265,6 +282,7 @@ workspace   = [
     "xlsxwriter",                                                                 # Streaming write-only xlsx
 
     # --- [MEDIA]
+
     "av",                                                                         # PyAV video and audio mux and encode
     "colour-cxf",                                                                 # CxF3 spot and spectral color exchange
     "openexr",                                                                    # Named-channel, multipart, and tiled EXR read and write
@@ -277,6 +295,7 @@ workspace   = [
     "simpleidml",                                                                 # IDML package mutation and composition
 
     # --- [TYPOGRAPHY]
+
     "blackrenderer",                                                              # COLRv1 color-glyph SVG rasterization
     "fontbakery",                                                                 # Font QA profiles over built binaries
     "opentype-feature-freezer",                                                   # Freeze OpenType features into default glyph set
@@ -294,6 +313,7 @@ workspace   = [
     "youseedee",                                                                  # Unicode Character Database rows, joining type and joining group among them
 
     # --- [DIAGRAMS]
+
     "drawpyo",                                                                    # draw.io export
     "drawsvg",                                                                    # Hierarchical named-layer SVG authoring
     "ezdxf",                                                                      # DXF read, write, and render
@@ -312,6 +332,7 @@ workspace   = [
     "ziamath",                                                                    # Math-to-SVG rendering
 
     # --- [IDENTIFICATION]
+
     "c2pa-python",                                                                # Cross-format C2PA content credentials
     "puremagic",                                                                  # Pure-Python format sniffer, default detection beside libmagic
     "pyexiftool",                                                                 # Descriptive metadata read and write over exiftool binary
@@ -347,6 +368,7 @@ dev         = [
     { include-group = "host-checks" },
 
     # --- [CHECKERS]
+
     "fawltydeps",                                                                 # Native AST import-to-requirement checker for modern packages
     "mypy",                                                                       # Type checker rasm:check runs
     "refurb",                                                                     # Modernization checker over a mypy build rasm:check runs
@@ -355,8 +377,9 @@ dev         = [
     "yamllint",                                                                   # YAML linter rasm:check runs
 
     # --- [SCRIPTS]
-    "asttokens",
-    "coloraide",                                                                  # Color parsing, conversion, and sRGB gamut fitting                                                                  # Source token ranges over `ast` nodes for in-place rewrites
+
+    "asttokens",                                                                  # Source token ranges over `ast` nodes for in-place rewrites
+    "coloraide",                                                                  # Color parsing, conversion, and sRGB gamut fitting
     "cyclopts",                                                                   # CLI parser from typed signatures
     "editorconfig",                                                               # EditorConfig property resolution per file path
     "expression",                                                                 # Result and Option types, collections, and catch over raising calls
@@ -380,6 +403,7 @@ dev         = [
     "wcwidth",                                                                    # Display width of text with wide, combining, and emoji characters
 
     # --- [STUBS]
+
     "brotli-stubs",
     "pandas-stubs",
     "types-geopandas",
@@ -568,10 +592,13 @@ pydoclint                 = { ignore-one-line-docstrings = true }
 pylint                    = { allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_json_schema__", "__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }           # Protocol properties type module attributes, which ty matches to a property alone
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["assert"]
+"apps/blender/**" = ["relative-imports"] # Blender loads an extension as `bl_ext.<repository>.<id>`, its own modules import each other relatively
+"tests/**"        = ["assert"]
 
 [tool.ruff.lint.flake8-tidy-imports]
-require-lazy = [
+ban-lazy             = ["abc", "os", "sys"] # Interpreter startup loads them before any module runs
+ban-relative-imports = "all"
+require-lazy         = [
     "adbc_driver_flightsql",
     "adbc_driver_snowflake",
     "daft",
@@ -594,6 +621,7 @@ require-lazy = [
 ]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
+"__future__".msg                         = "Delete the import"
 "asyncio".msg                            = "Use anyio"
 "bpy.utils.register_classes_factory".msg = "Call bpy.utils.register_class per class on the release stack"
 "collections.namedtuple".msg             = "Use frozen msgspec.Struct"

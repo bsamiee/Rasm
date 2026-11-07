@@ -12,6 +12,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.Render.Effects;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record EffectSource {
     public sealed record Document(RhinoDoc Doc) : EffectSource {
@@ -41,8 +42,11 @@ public abstract partial record EffectEntry {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class EffectList {
+
     // --- [ENTRIES]
+
     public const string StateKey = "state";
 
     public static IO<Seq<EffectEntry>> Read(RenderSettings settings) =>
@@ -56,6 +60,7 @@ public static class EffectList {
             section: static held => IO.lift(() => Listed(held.Host).Map(EffectEntry.Of).Strict()));
 
     // --- [STATE]
+
     public static IO<TState> State<TState>(RenderSettings settings, Guid effect, TState @default) where TState : notnull =>
         Within(settings, (_, held) => held.Find(data => data.Id == effect).Match(
             Some: data => Recalled(Internals.Unwrapped<string>(() => data.GetParameter(StateKey), StateKey), @default),
@@ -83,6 +88,7 @@ public static class EffectList {
                     .Bind(listed => Products.Accepted(() => listed.SetParam(StateKey, tuned.Text)))));
 
     // --- [EDITS]
+
     public static IO<Unit> Edit(RenderSettings settings, Seq<Step<PostEffectCollection>> steps) =>
         (from effects in Products.Of(() => settings.PostEffects)
          from edited in Edits.Apply(Stages.InPlace<PostEffectCollection>(), effects, steps)
@@ -110,7 +116,8 @@ public static class EffectList {
     private static Step<PostEffectCollection> Tuned(Guid effect, string text) =>
         new(effects => Found(effects, effect).Bind(data => Products.Accepted(() => data.SetParameter(StateKey, text))).Map(_ => effects), $"tuned {effect}");
 
-    // --- [RUNNING]
+    // --- [EXECUTION]
+
     private static readonly AtomHashMap<int, (PostEffect Effect, Func<string, bool> Holds)> Running = AtomHashMap<int, (PostEffect Effect, Func<string, bool> Holds)>();
 
     internal static IO<Unit> Following =>
@@ -136,7 +143,8 @@ public static class EffectList {
             select unit).As()
         select unit;
 
-    // --- [CODEC]
+    // --- [CODECS]
+
     internal static string Encoded<TState>(TState state) where TState : notnull => JsonSerializer.Serialize(state, ArchivableDictionaries.Options);
 
     internal static Fin<TState> Decoded<TState>(string text) where TState : notnull =>
@@ -147,7 +155,8 @@ public static class EffectList {
     private static IO<TState> Recalled<TState>(IO<Option<string>> stored, TState @default) where TState : notnull =>
         stored.Bind(text => IO.lift(text.Match(Some: Decoded<TState>, None: () => (Fin<TState>)@default)));
 
-    // --- [SCOPE]
+    // --- [SCOPES]
+
     private static Seq<PostEffect> Listed(EtoPostEffectCollapsibleSection host) =>
         toSeq(Enum.GetValues<PostEffectType>()).Bind(type => toSeq(host.GetPostEffects(type))).Strict();
 

@@ -1,5 +1,5 @@
 import { Array, Data, Duration, Effect, Match, Option, Schema, String, type Types } from 'effect';
-import { MediaError } from '#/media-error';
+import { MediaError } from '#/error.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -71,7 +71,7 @@ const video = (file: File) => {
     );
 };
 const pdf = Effect.fnUntraced(function* (file: File, options: Options) {
-    const { PdfDocument } = yield* Effect.tryPromise(() => import('#/pdf/pdf-document'));
+    const { PdfDocument } = yield* Effect.tryPromise(() => import('#/pdf-document.ts'));
     return Pdf({ pages: yield* PdfDocument.pages(file, options) });
 });
 const Inspection = Object.assign(

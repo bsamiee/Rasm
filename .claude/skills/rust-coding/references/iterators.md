@@ -31,11 +31,7 @@ Gaps in a sorted series fill in one flat expression:
 ```rust
 pub fn missing(readings: &[Reading], interval: Interval) -> impl Iterator<Item = Timestamp> {
     let step = interval.into_inner();
-    readings.array_windows().flat_map(move |[before, after]| {
-        iter::successors(Some(before.at), move |at| at.checked_add(step).ok())
-            .skip(1)
-            .take_while(move |at| *at < after.at)
-    })
+    readings.array_windows().flat_map(move |[before, after]| iter::successors(Some(before.at), move |at| at.checked_add(step).ok()).skip(1).take_while(move |at| *at < after.at))
 }
 ```
 

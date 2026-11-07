@@ -42,7 +42,6 @@
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "@types/validator": "catalog:",
-        "@vitest/browser-playwright": "catalog:",
         "cf": "catalog:",
         "storybook": "catalog:",
         "typescript": "catalog:docgen",

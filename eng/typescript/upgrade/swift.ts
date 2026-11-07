@@ -2,16 +2,14 @@ import { Buffer } from 'node:buffer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { workspaceRoot } from '@nx/devkit';
-import { XCODE_REQUIREMENT, XcodeProject, XcodeRemote } from '@rasm/applications/xcode';
 import { Array, Cause, Console, Effect, FileSystem, flow, Match, Option, Record, Result, Schema, Stream, Struct, Tuple } from 'effect';
 import { Command } from 'effect/cli';
 import { applyEdits, type Edit, modify } from 'jsonc-parser';
 import nx from 'nx/package.json' with { type: 'json' };
 import { compare, normalizeFull } from 'verkit';
 import { stringify } from 'yaml';
-import { accumulate } from '#/eng/typescript/accumulate';
-import { Sgconfig } from '#/eng/typescript/manifest';
-import { runCommand } from '#/eng/typescript/run-command';
+import { Sgconfig, XCODE_REQUIREMENT, XcodeProject, XcodeRemote } from '#/manifest.ts';
+import { runCommand } from '#/run-command.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -140,7 +138,7 @@ const upgrade = Command.make(
         const repositories = Array.dedupe(documents.flatMap(({ requirements }) => requirements.map(Struct.get('repository'))));
         const releases = Record.fromEntries(Array.zip(repositories, yield* Effect.validate(repositories, newest, parallel)));
         const prepared = Array.getSomes(yield* Effect.validate(documents, (document) => prepare(document, releases), parallel));
-        yield* accumulate(prepared, ({ file, text }) => fs.writeFileString(file, text));
+        yield* Effect.validate(prepared, ({ file, text }) => fs.writeFileString(file, text), { discard: true });
         yield* Effect.flatMap(Schema.encodeEffect(Moves)(prepared.flatMap(Struct.get('moves'))), Console.log);
     }),
 );

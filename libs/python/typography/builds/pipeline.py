@@ -2,25 +2,24 @@
 
 # mypy: disable-error-code="no-untyped-call"
 
-from datetime import timedelta
+from datetime import timedelta, UTC
 from enum import auto, StrEnum
 from pathlib import Path
+import sys
 from typing import Self
 lazy from collections import Counter
 lazy from collections.abc import Callable
-lazy from datetime import UTC
 lazy from functools import partial
 lazy import hashlib
 lazy from io import BytesIO
 lazy import shutil
-lazy import sys
 lazy import time
 
 from expression.extra.result import catch
 import msgspec
 lazy from anyio import amap, to_process, to_thread
 lazy from expression import Option, Result
-lazy from fontTools import unicodedata as scripts
+lazy from fontTools import unicodedata
 lazy from fontTools.otlLib.builder import buildStatTable
 lazy from fontTools.otlLib.optimize.gpos import COMPRESSION_LEVEL
 lazy from fontTools.ttLib import TTFont
@@ -30,25 +29,22 @@ lazy from pathops import PathOpsError
 lazy from ttfautohint import TAError, ttfautohint
 lazy from ufo2ft import compileTTF
 lazy from ufo2ft.constants import OPENTYPE_CATEGORIES_KEY, OPENTYPE_META_KEY, TRUETYPE_INSTRUCTIONS_KEY
-lazy import ufoLib2
-lazy from ufoLib2.objects import Anchor as UfoAnchor, Features, Glyph as UfoGlyph, Info as UfoInfo
+lazy import ufoLib2.objects
 lazy from ufoLib2.objects.info import GaspBehavior, GaspRangeRecord
 lazy from youseedee import database, parsed_unicode_file
 
-from typography.faces.declaration import Declared, Faces
+from typography.faces.declaration import Declared, declared, Face, Faces, PROFILE
 from typography.shaping.corpus import Corpus
-from typography.verification.requirements import Finding
-lazy from typography.faces.declaration import declared, Face, PROFILE
+from typography.verification.requirements import approved, Check, covering, Expectations, Finding, inspected, requirements, verified
 lazy from typography.faces.faults import accumulated, Error, Fault, loaded, Ok, Outcome, paired, ran, read, Reason, stored
 lazy from typography.faces.glyphs import Source
 lazy from typography.faces.importing import imported
 lazy from typography.rules.emission import emitted, FeatureWriter
 lazy from typography.rules.measures import Rule
-lazy from typography.rules.metrics import measured, Metrics as MetricRule
+lazy from typography.rules.metrics import measured, Metrics
 lazy from typography.rules.plans import executed, planned
 lazy from typography.shaping.expectations import expected
 lazy from typography.shaping.runs import Binary
-lazy from typography.verification.requirements import approved, Check, covering, Expectations, inspected, requirements, verified
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -112,12 +108,16 @@ class Verdict(msgspec.Struct, frozen=True, kw_only=True):
 class Builds(msgspec.Struct, frozen=True, kw_only=True):
     """One invocation's declaration and corpus with the digests of its shared inputs, plain values each worker process receives whole."""
 
+    # --- [STATE]
+
     declaration: Declared
     texts: Corpus
     shared: bytes
     modules: frozendict[str, bytes]
     common: frozenset[str]
     checking: bytes
+
+    # --- [INPUTS]
 
     @classmethod
     def opened(cls, declaration: Declared, texts: Corpus, closure: bytes, /) -> Self:
@@ -134,8 +134,6 @@ class Builds(msgspec.Struct, frozen=True, kw_only=True):
             common=frozenset({name for name in modules if name.rpartition(".")[0] != rules and name not in checked} | {owner.__module__ for owner in (Rule, planned, emitted)}),
             checking=b"".join((PROFILE.read_bytes(), *(modules[name] for name in sorted(checked)))),
         )
-
-    # --- [INPUTS]
 
     def inputs(self, original: Binary, face: Faces, /) -> str:
         """Hashes what one face's build reads: the shared digests, its original, record and plan, and the modules outside the rules with the rule modules of its plan, check-only modules outside every identity."""
@@ -324,6 +322,7 @@ class Builds(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [DIGESTS]
 
 
@@ -350,7 +349,7 @@ def closure() -> Outcome[bytes]:
     return ran("uv", "tree", "--frozen", "--package", package.name, cwd=package.parent)
 
 
-# --- [SOURCE]
+# --- [SOURCES]
 
 
 def sourced(original: Binary, face: Faces, texts: Corpus, /) -> Outcome[tuple[Source, ufoLib2.Font, TTFont]]:
@@ -360,7 +359,7 @@ def sourced(original: Binary, face: Faces, texts: Corpus, /) -> Outcome[tuple[So
         return (
             imported(original.data, face)
             .bind(lambda source: executed(source, plan, original=original, corpus=texts))
-            .bind(lambda source: constructed(source, next(rule for rule in plan if isinstance(rule, MetricRule)), texts))
+            .bind(lambda source: constructed(source, next(rule for rule in plan if isinstance(rule, Metrics)), texts))
         )
     except PathOpsError as error:
         return Error(Fault.of(Reason.FAILED, face.stem, error))
@@ -372,8 +371,8 @@ def _font(writer: FeatureWriter, /) -> ufoLib2.Font:
     face, info, metrics, languages = source.face, source.info, source.metrics, list(source.scripts)
     categories = {glyph.name.text: glyph.category for glyph in source.glyphs}
     font = ufoLib2.Font(
-        features=Features(writer.substitutions),
-        info=UfoInfo(
+        features=ufoLib2.objects.Features(writer.substitutions),
+        info=ufoLib2.objects.Info(
             familyName=face.typographic,
             styleName=face.style,
             versionMajor=info.version[0],
@@ -407,8 +406,8 @@ def _font(writer: FeatureWriter, /) -> ufoLib2.Font:
         **({OPENTYPE_META_KEY: {"slng": languages, **({"dlng": sorted(face.genre.script.scripts)} if isinstance(face, Face) else {})}} if languages else {}),
     })
     for glyph in source.glyphs:
-        drawn = UfoGlyph(glyph.name.text, width=glyph.advance, unicodes=sorted(glyph.codes))
-        drawn.anchors = [UfoAnchor(anchor.x, anchor.y, anchor.name) for anchor in glyph.anchors]
+        drawn = ufoLib2.objects.Glyph(glyph.name.text, width=glyph.advance, unicodes=sorted(glyph.codes))
+        drawn.anchors = [ufoLib2.objects.Anchor(anchor.x, anchor.y, anchor.name) for anchor in glyph.anchors]
         glyph.draw(drawn.getPen())
         font.addGlyph(drawn)
     font.glyphOrder = [glyph.name.text for glyph in source.glyphs]
@@ -420,10 +419,10 @@ def written(font: ufoLib2.Font, path: Path, /) -> Outcome[Path]:
     return stored(path, lambda target: font.save(target, overwrite=True))
 
 
-# --- [COMPILE]
+# --- [COMPILATION]
 
 
-def constructed(source: Source, rule: MetricRule, texts: Corpus, /) -> Outcome[tuple[Source, ufoLib2.Font, TTFont]]:
+def constructed(source: Source, rule: Metrics, texts: Corpus, /) -> Outcome[tuple[Source, ufoLib2.Font, TTFont]]:
     """Constructs both native font representations with metrics measured on the selected native layout."""
     writer = FeatureWriter(source=source)
     ufo = _font(writer)
@@ -455,7 +454,7 @@ def compiled(source: Source, font: TTFont, /) -> Outcome[bytes]:
         ttfautohint,
         no_info=True,
         epoch=round(source.info.created.timestamp()),
-        **({"default_script": scripts.script(chr(source.face.genre.script.stem)).lower()} if isinstance(source.face, Face) else {}),
+        **({"default_script": unicodedata.script(chr(source.face.genre.script.stem)).lower()} if isinstance(source.face, Face) else {}),
     )
     return Ok(_serialized(font)).bind(lambda data: catch(exception=TAError)(hinting)(in_buffer=data).map_error(failed) if hinted else Ok(data))  # ty: ignore[unsound-return-statement]
 

@@ -95,6 +95,8 @@ class Rim(msgspec.Struct, frozen=True, kw_only=True):
 class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
     """Scene-linear lighting reference image."""
 
+    # --- [STATE]
+
     tint: Rgb = (1.0, 1.0, 1.0)
     level: NonNegative = 0.08
     gradient: tuple[Finite, Finite] = (0.0, 0.0)

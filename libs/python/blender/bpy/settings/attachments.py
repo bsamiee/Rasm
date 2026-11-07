@@ -195,6 +195,8 @@ class RetentionSettings(bpy.types.PropertyGroup):
 class Attached(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]
     """Registered pointer property over its target class and the form group it holds, with the group's locks and snapshot history."""
 
+    # --- [STATE]
+
     lock_store: ClassVar[Stored[frozenset[str]]] = Stored(name=".locks", decoder=msgspec.msgpack.Decoder(frozenset[str]))
     history_store: ClassVar[Stored[History[Snapshot]]] = Stored(name=".history", decoder=msgspec.msgpack.Decoder(History[Snapshot]))
     name: str
@@ -318,14 +320,14 @@ class Attached(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # ru
 class Attachment(Generic[_G_co]):  # ruff: ignore[non-pep695-generic-class]
     """Pointer property to a form group on its owner class, with startup seed, change callback, and property callbacks bound to the extension."""
 
+    # --- [STATE]
+
     key: Key
     form: type[_G_co]
     owner: type[Host]
     seed: Option[Callable[[Identity], Outcome[Snapshot]]] = Nothing
     changed: Option[Callable[[Identity], AbstractContextManager[Changed]]] = Nothing
     _callbacks: Option[Callable[[Identity], AbstractContextManager[Mapping[str, Callbacks[Never]]]]] = Nothing
-
-    # --- [CONSTRUCTION]
 
     def __init__(
         self,
@@ -392,6 +394,8 @@ class Attachment(Generic[_G_co]):  # ruff: ignore[non-pep695-generic-class]
 
 class TextRecord[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
     """Window manager form group saved as a snapshot in an owned fake-user text block."""
+
+    # --- [STATE]
 
     key: Key
     form: type[G]

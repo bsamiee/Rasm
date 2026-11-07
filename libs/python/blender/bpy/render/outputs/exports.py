@@ -6,8 +6,7 @@ import math
 from pathlib import Path
 import sys
 from types import MappingProxyType
-import typing
-from typing import Annotated, Final
+from typing import Annotated, Final, get_args
 
 import bpy
 from expression import Option, Some, try_downcast
@@ -40,7 +39,7 @@ from blender.records.fields import Case
 
 _IDLE: Final = Job(kind="RENDER")
 _DEPTHS: Final = choices((depth.name, depth.name, "") for depth in Depth)
-_SOURCES: Final = choices(item for item in bpy.types.Image.bl_rna.properties["type"].enum_items if item.identifier in typing.get_args(ResultKind.__value__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_SOURCES: Final = choices(item for item in bpy.types.Image.bl_rna.properties["type"].enum_items if item.identifier in get_args(ResultKind.__value__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 _WRITERS: Final = MappingProxyType({row.name: row for row in Format.writable()})
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -131,6 +130,8 @@ class LongestSide(Case, frozen=True, kw_only=True):
 
 class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Exports of an explicitly selected owned render and native Viewer pixels."""
+
+    # --- [STATE]
 
     selected: Callable[[Identity, bpy.types.Context], Outcome[CompletedRender]]
     layering: tuple[Layering, ...] = ()
@@ -333,6 +334,5 @@ def restored(image: bpy.types.Image, identity: Identity) -> Outcome[None]:
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
-
 
 __all__ = ["CameraView", "Export", "Layering", "LongestSide", "Scaled", "Sheet", "Still", "proxied", "restored"]

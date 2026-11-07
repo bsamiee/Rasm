@@ -23,6 +23,7 @@ nonisolated struct ClaudePendingSwitch: Codable, Equatable, Sendable {
 
 actor ClaudeClient: ProviderClient {
     // --- [STATE]
+
     nonisolated let shared: ClaudeCredentialStore
     private let paths: FileLocations
     private let environment: [Environment.Key: String]
@@ -54,6 +55,7 @@ actor ClaudeClient: ProviderClient {
     }
 
     // --- [SELECTION]
+
     func currentSelection(selected: Account?) async -> Result<AccountIdentity?, ProviderError> {
         await Result { () async throws(ClaudeFailure) in
             let content: ClaudeStoreContent = try await identified(shared.read(), in: shared)
@@ -109,7 +111,8 @@ actor ClaudeClient: ProviderClient {
         try writePendingSwitch(nil)
     }
 
-    // --- [SWITCH]
+    // --- [SWITCHES]
+
     func select(
         _ account: Account,
         outgoing: Account?,
@@ -163,6 +166,7 @@ actor ClaudeClient: ProviderClient {
     }
 
     // --- [SIGN_IN]
+
     func signIn(_ target: SignInTarget, codes: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError> {
         let (store, expected): (ClaudeCredentialStore, AccountIdentity?) =
             switch target {
@@ -198,6 +202,7 @@ actor ClaudeClient: ProviderClient {
     }
 
     // --- [USAGE]
+
     func usage(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError> {
         func send(_ credential: ClaudeCredential) async throws(ClaudeFailure) -> AccountUsage {
             guard let beta: HTTPField.Name = HTTPField.Name("anthropic-beta") else { throw .invalidResponse(.usage, nil) }
@@ -241,7 +246,8 @@ actor ClaudeClient: ProviderClient {
         return current
     }
 
-    // --- [REFRESH]
+    // --- [RENEWAL]
+
     private func renew(
         _ current: ClaudeCredential,
         in store: ClaudeCredentialStore,
@@ -284,6 +290,7 @@ actor ClaudeClient: ProviderClient {
     }
 
     // --- [IDENTITY]
+
     private static func matched(
         _ content: ClaudeStoreContent,
         to identity: AccountIdentity,
@@ -329,6 +336,7 @@ actor ClaudeClient: ProviderClient {
     }
 
     // --- [HTTP]
+
     private static let jsonMediaType: String = "application/json"
 
     private func fetch<Value: Decodable>(
@@ -375,6 +383,7 @@ actor ClaudeClient: ProviderClient {
     }
 
     // --- [CHILDREN]
+
     private func run<Output: OutputProtocol>(
         _ arguments: Arguments,
         store: ClaudeCredentialStore,

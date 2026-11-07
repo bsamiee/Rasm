@@ -4,15 +4,14 @@
 
 from datetime import datetime
 from enum import auto, StrEnum
-from functools import cached_property
+from functools import cache, cached_property
 from typing import Annotated, Literal, Self
 lazy from collections.abc import Callable, Mapping
-lazy from functools import cache
 lazy from itertools import groupby
 lazy import unicodedata
 
-from expression import Option
 import msgspec
+lazy from expression import Option
 lazy from fontTools.pens.basePen import AbstractPen
 lazy from fontTools.pens.boundsPen import BoundsPen
 lazy from fontTools.pens.cu2quPen import Cu2QuPen
@@ -67,6 +66,7 @@ class Side(StrEnum):
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
 # --- [GEOMETRY]
 
 
@@ -215,6 +215,8 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
 class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Face source: its declaration, units per em, glyphs in glyph order, records, metrics, and lookups."""
 
+    # --- [STATE]
+
     face: Faces
     upm: int
     glyphs: tuple[Glyph, ...]
@@ -257,7 +259,7 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     @cached_property
     def bounds(self) -> Callable[[str], tuple[float, float, float, float] | None]:
-        """Native ink rectangles including transformed and nested components."""
+        """Native outline bounds including transformed and nested components."""
         named = self.named
 
         @cache
@@ -293,6 +295,7 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [PENS]
 
 

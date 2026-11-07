@@ -14,15 +14,19 @@ using Rhino;
 namespace Rasm.Grasshopper;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record GrasshopperTheme(string Name) {
-    // --- [DECLARATION]
+
+    // --- [DECLARATIONS]
+
     public Func<PropertyId, Option<Binding>> Skin { get; init; } = static _ => None;
     public Option<Func<Guises, Guises>> Preview { get; init; }
     public Seq<NamedColour> Swatches { get; init; }
     public Seq<Rule> Tabs { get; init; }
     public Seq<IO<IO<Unit>>> Overrides { get; init; }
 
-    // --- [DEFINITION]
+    // --- [DEFINITIONS]
+
     public Fin<SkinDefinition> Definition {
         get {
             SkinDefinition definition = SkinDefinition.Default;
@@ -34,7 +38,8 @@ public sealed record GrasshopperTheme(string Name) {
         }
     }
 
-    // --- [INSTALL]
+    // --- [INSTALLATION]
+
     private const string StyleExtension = ".ghstyle";
     private const string PaletteExtension = ".ghdic";
 
@@ -79,7 +84,8 @@ public sealed record GrasshopperTheme(string Name) {
         from stamped in when(owned && !string.Equals(recorded, stamp, StringComparison.Ordinal), IO.lift(() => values.Set(path, stamp)) >> Hooks.Saved).As()
         select unit;
 
-    // --- [APPLY]
+    // --- [APPLICATION]
+
     public Preference<bool> Active =>
         new(
             IO.lift(() => SkinServer.IsCurrent(Name)),
@@ -121,7 +127,8 @@ public sealed record GrasshopperTheme(string Name) {
                 from restored in guard(errors.IsEmpty, Error.Many(errors))
                 select unit);
 
-    // --- [SIGNAL]
+    // --- [SIGNALS]
+
     public static IO<Unit> Changed(Func<Skin, IO<Unit>> react) =>
         from armed in IO.lift(static () => SkinServer.Lit)
         let current = IO.lift(static () => SkinServer.CurrentSkin).Bind(react)
@@ -138,6 +145,7 @@ public sealed record GrasshopperTheme(string Name) {
         select unit;
 
     // --- [DERIVATION]
+
     public static Func<PropertyId, Option<Binding>> Tinted(OpenColor.Family neutral, OpenColor.Family accent) =>
         SkinDefinition.Default switch {
             var host => id => id is var (_, family, _, variant) && family is not (PropertyId.Messaging or PropertyId.Icons) && !variant.HasFlag(PropertyId.Tentative)
@@ -151,6 +159,7 @@ public sealed record GrasshopperTheme(string Name) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class SkinKeys {
     extension(PropertyId id) {
         public void Deconstruct(out PropertyId mode, out PropertyId family, out PropertyId role, out PropertyId variant) =>

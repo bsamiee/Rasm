@@ -16,6 +16,7 @@ using Rhino.PlugIns;
 namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class PackageUse {
     public static readonly PackageUse JobFile = new("JobFile", quits: false);
@@ -58,9 +59,10 @@ public sealed record QueueRequest(Option<float> Clay, double Overscan, RegionFra
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static partial class Dispatch {
-    private const string CompilerFile = "darkroom_render.js";
-    private const float Albedo = 0.8f;
+
+    // --- [REGISTRATION]
 
     private static readonly CommandDefinition<CommandInput.Run> Queued = new("DarkroomQueue", new CommandInput.Run(static (doc, _, _) => Edited(doc)));
     private static readonly CommandDefinition<CommandInput.Run> RenderJob = new("DarkroomRenderJob", new CommandInput.Run(static (_, _, _) => Job));
@@ -75,13 +77,10 @@ public static partial class Dispatch {
         from relaunched in unless(farm, Relaunched).As()
         select unit;
 
-    private static string FarmScript => $"_-{RenderFarm.EnglishName}";
+    // --- [EDITS]
 
-    private static string JobVariable => $"RENDER_JOB_{Session.PlugIn.Id:N}";
+    private const float Albedo = 0.8f;
 
-    private static string ParentVariable => $"RENDER_PARENT_{Session.PlugIn.Id:N}";
-
-    // --- [EDIT]
     private static IO<Unit> Edited(RhinoDoc doc) =>
         from listed in QueueState.Read(doc).Bind(Shown)
         from book in OutputBook.Read(doc)
@@ -127,7 +126,8 @@ public static partial class Dispatch {
     private static IO<Unit> Shown(QueueState state) =>
         IO.lift(() => state.Entries.Iter(static (index, entry) => Entry(Session.Logger, index + 1, entry.Label, entry.Renders)));
 
-    // --- [SEND]
+    // --- [SENDING]
+
     public static IO<Unit> Send(RhinoDoc doc, QueueTarget target, bool resume) {
         return IO.env.Bind(environment => Products.Transfer(
             () => EnvIO.New(token: environment.Token, syncContext: environment.SyncContext),
@@ -159,6 +159,11 @@ public static partial class Dispatch {
     }
 
     // --- [FLAMENCO]
+
+    private const string CompilerFile = "darkroom_render.js";
+
+    private static string FarmScript => $"_-{RenderFarm.EnglishName}";
+
     public static IO<Unit> InstallCompiler(string scripts) =>
         (from path in IO.lift(() => OutputPath.Of(Path.Join(scripts, CompilerFile)))
          from source in Products.Of(static () => typeof(Dispatch).Assembly.GetManifestResourceStream(CompilerFile))
@@ -188,7 +193,8 @@ public static partial class Dispatch {
          select received).Bracket()
             | @catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Uri>(new DarkroomFault((FormattableString)$"render job post to {farm.Manager}", DarkroomReason.Failed, Inner: error)));
 
-    // --- [PACKAGE]
+    // --- [PACKAGES]
+
     private static IO<HashMap<PackageFile, OutputPath>> Packed(RhinoDoc doc, QueuePlan plan, Option<QueueProgress> resumed, OutputFolder folder, Stem stem, LocalDateTime stamp) =>
         from batch in plan.Resolved(doc, resumed)
         from date in IO.lift(NamePart.Validated(LocalDateTimePattern.ExtendedIso.Format(stamp.With(TimeAdjusters.TruncateToSecond))))
@@ -198,6 +204,7 @@ public static partial class Dispatch {
         select paths;
 
     // --- [HANDOFF]
+
     private static IO<Unit> Handed(QueueContext context, RhinoDoc doc, QueuePlan plan, LocalDateTime stamp, Option<QueueProgress> resumed, OutputFolder folder, Stem stem) =>
         (from lease in QueueProgress.Acquire(context.Record)
          from saved in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments())).Bind(static open => open.TraverseM(Exchange.Save).As()).OnUiThread()
@@ -228,6 +235,11 @@ public static partial class Dispatch {
         select unit;
 
     // --- [JOBS]
+
+    private static string JobVariable => $"RENDER_JOB_{Session.PlugIn.Id:N}";
+
+    private static string ParentVariable => $"RENDER_PARENT_{Session.PlugIn.Id:N}";
+
     private static IO<Unit> Job =>
         from path in IO.lift(static () => Conversions.Present(Environment.GetEnvironmentVariable(JobVariable)).ToFin(new DarkroomFault(JobVariable, DarkroomReason.Missing)))
         from parent in IO.lift(Conversions.Present(Environment.GetEnvironmentVariable(ParentVariable))
@@ -276,6 +288,7 @@ public static partial class Dispatch {
         select ran;
 
     // --- [LOGS]
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "{Caution}")]
     private static partial void Cautioned(ILogger logger, string caution);
 

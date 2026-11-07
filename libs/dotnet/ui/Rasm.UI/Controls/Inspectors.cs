@@ -13,10 +13,13 @@ using Wacton.Unicolour;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public abstract record Field {
-    private protected Field(string label) => Label = label;
 
     // --- [STATE]
+
+    private protected Field(string label) => Label = label;
+
     public string Label { get; init; }
     public required Key Key { get; init; }
     public Option<string> Help { get; init; }
@@ -31,7 +34,8 @@ public abstract record Field {
 
     private protected static View Mixed { get; } = new View.Flex(PhysicalAxis.Horizontal, [new View.Box { Role = Roles.Checkmark, Conditions = [Condition.Mixed] }]) { Role = Roles.Field, Width = Sizing.Grow.Unit, Conditions = [Condition.Mixed] };
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     public abstract View Drawn(CultureInfo culture);
 
     internal virtual View Caption(Seq<Span> marked) => new View.Text(marked) { Role = Roles.Label, MaxLines = 1 };
@@ -44,6 +48,7 @@ public abstract record Field {
         };
 
     // --- [CASES]
+
     public abstract record Bound<T> : Field where T : notnull {
         private protected Bound(string label, Option<T> value, Func<Edit<T>, IO<Unit>> edited) : base(label) => (Value, Edited) = (value, edited);
 
@@ -244,17 +249,20 @@ public abstract record Field {
 }
 
 public sealed record Inspector(Seq<Field> Fields) {
+
+    // --- [STATE]
+
     private static readonly PlotPlane.Track Divider = PlotPlane.Track.Unit(PhysicalAxis.Horizontal);
     private static readonly Key Unpinned = new Key.Ordinal(1);
 
-    // --- [STATE]
     public Option<TextField> Filter { get; init; }
     public HashSet<Key> Pinned { get; init; }
     public Option<Func<Edit<HashSet<Key>>, IO<Unit>>> Pinning { get; init; }
     public Fraction LabelWidth { get; init; } = Fraction.Half;
     public Option<Func<Edit<Fraction>, IO<Unit>>> Resized { get; init; }
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     public View Drawn(CultureInfo culture) {
         Search query = Search.Of(Filter);
         Seq<Field> kept = Kept(Fields, query, culture);
@@ -316,7 +324,8 @@ public sealed record Inspector(Seq<Field> Fields) {
         + Pinning.Map(pinning => new Part.Press(_ => pinning(Edit.Of(EditPhase.Commit, Pinned.SymmetricExcept([field.Key])))).Drawn(
             new View.Box { Role = Roles.Pin, Conditions = Pinned.Contains(field.Key) ? [Condition.Selected] : [] })).ToSeq();
 
-    // --- [QUERY]
+    // --- [QUERIES]
+
     private static Seq<Field> Kept(Seq<Field> fields, Search query, CultureInfo culture) =>
         fields.Choose(field => query.Matches(field.Label, culture) || field.Readout(culture).Exists(said => query.Matches(said, culture))
             ? Some(field)

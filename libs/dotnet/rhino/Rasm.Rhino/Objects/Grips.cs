@@ -7,6 +7,7 @@ using Rhino.DocObjects.Custom;
 namespace Rasm.Rhino.Objects;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record GripPoint(Point3d Location) {
     public Option<double> Weight { get; init; }
 
@@ -44,8 +45,11 @@ public sealed record GripDefinition(GripControl Control, Seq<GripPoint> Points, 
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class DefinedGripObject : CustomGripObject {
+
     // --- [STATE]
+
     private double weight;
 
     internal DefinedGripObject(GripPoint point) {
@@ -59,6 +63,7 @@ internal sealed class DefinedGripObject : CustomGripObject {
     internal GripPoint Current => Point with { Location = CurrentLocation, Weight = Conversions.Present(weight) };
 
     // --- [CALLBACKS]
+
     public override double Weight {
         get => weight;
         set {
@@ -95,12 +100,15 @@ internal sealed class DefinedGripObject : CustomGripObject {
 }
 
 internal sealed class GripBody(GripDefinition definition) {
+
     // --- [STATE]
+
     internal Seq<DefinedGripObject> Points { get; } = definition.Points.Map(static point => new DefinedGripObject(point)).Strict();
 
     private readonly Ref<Option<GeometryBase>> preview = Ref(Option<GeometryBase>.None);
 
     // --- [GEOMETRY]
+
     internal Option<GeometryBase> Rebuilt() =>
         definition.Rebuild(Points.Map(static grip => grip.Current).Strict()).Match(
             Succ: static geometry => Some(geometry),
@@ -109,7 +117,8 @@ internal sealed class GripBody(GripDefinition definition) {
                 return Option<GeometryBase>.None;
             });
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     internal void Draw(CustomObjectGrips grips, GripsDrawEventArgs args) {
         if (args.DrawDynamicStuff && grips.NewLocation) {
             grips.NewLocation = false;
@@ -138,6 +147,7 @@ internal sealed class GripBody(GripDefinition definition) {
         };
 
     // --- [NAVIGATION]
+
     internal GripObject? Neighbor(int index, int dr, int ds, bool wrap) =>
         definition.Grid.Bind(grid => (Row: (index / grid.Columns) + dr, Column: (index % grid.Columns) + ds) switch {
             var (row, column) when wrap => Some((((row % grid.Rows) + grid.Rows) % grid.Rows * grid.Columns) + (((column % grid.Columns) + grid.Columns) % grid.Columns)),
@@ -150,7 +160,9 @@ internal sealed class GripBody(GripDefinition definition) {
 }
 
 public abstract class DefinedObjectGrips : CustomObjectGrips {
+
     // --- [STATE]
+
     private readonly GripControl control;
     private readonly GripBody body;
 
@@ -160,6 +172,7 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
     }
 
     // --- [CALLBACKS]
+
     protected sealed override GeometryBase? NewGeometry() => body.Rebuilt().ValueUnsafe();
 
     protected sealed override void OnDraw(GripsDrawEventArgs args) {
@@ -194,8 +207,8 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Grips {
-    // --- [REGISTRATION]
     public static IO<Unit> Register<TGrips>(Func<RhinoObject, Option<TGrips>> grips) where TGrips : DefinedObjectGrips =>
         IO.lift(() => CustomObjectGrips.RegisterGripsEnabler(target => Session.Run(
             (from candidate in IO.lift(() => grips(target))

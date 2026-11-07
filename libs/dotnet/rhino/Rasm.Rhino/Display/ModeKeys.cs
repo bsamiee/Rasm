@@ -11,6 +11,7 @@ using Rasm.Rhino.Document.Files;
 namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum]
 public sealed partial class TechnicalLine {
     public static readonly TechnicalLine Hidden = new("TH", 1);
@@ -27,6 +28,9 @@ public sealed partial class TechnicalLine {
 
 [Union]
 public abstract partial record ModeValue {
+
+    // --- [CASES]
+
     public sealed record Flag(bool Value) : ModeValue;
 
     public sealed record Whole(int Value) : ModeValue;
@@ -45,7 +49,8 @@ public abstract partial record ModeValue {
 
     public sealed record Packaged(string Path) : ModeValue;
 
-    // --- [CODEC]
+    // --- [CODECS]
+
     private const string Yes = "y";
     private const string No = "n";
 
@@ -84,7 +89,9 @@ public abstract partial record ModeValue {
 }
 
 public sealed record ModeKey(string Section, string Key, ModeValue Value) {
+
     // --- [TECHNICAL]
+
     private const string TechnicalSection = @"Objects\Technical";
 
     public static Seq<ModeKey> Technical(Seq<(TechnicalLine Line, Option<Color> Fixed, int Thickness)> lines) =>
@@ -96,8 +103,11 @@ public sealed record ModeKey(string Section, string Key, ModeValue Value) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static partial class Ini {
+
     // --- [TEXT]
+
     private static readonly IniParserConfiguration Configuration = new() {
         AllowDuplicateKeys = true,
         AllowDuplicateSections = true,
@@ -145,6 +155,7 @@ internal static partial class Ini {
     }
 
     // --- [NUMBERS]
+
     internal static Option<int> Integral(string text) =>
         Number(text).Filter(static value => double.IsInteger(value) && value is >= int.MinValue and <= int.MaxValue).Map(static value => (int)value);
 

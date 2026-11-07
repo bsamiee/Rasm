@@ -5,12 +5,12 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/pdf/*": "./pdf/*.tsx",
-        "#/*": "./*.ts"
+        "#/*": "./*"
     },
     "exports": {
         ".": "./index.ts",
-        "./pdf": "./pdf/index.ts",
+        "./pdf-document": "./pdf-document.ts",
+        "./pdf-viewer": "./pdf-viewer.tsx",
         "./vite": "./vite.ts"
     },
     "dependencies": {

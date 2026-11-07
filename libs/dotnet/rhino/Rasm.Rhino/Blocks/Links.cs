@@ -11,6 +11,7 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.Blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record LinkedModel {
     public sealed record Opened(uint Document) : LinkedModel;
@@ -19,7 +20,9 @@ public abstract partial record LinkedModel {
 }
 
 public sealed record DefinitionLink : IEdge<LinkedModel> {
+
     // --- [VALUES]
+
     public LinkedModel Source { get; }
     public LinkedModel Target { get; }
     public Guid Definition { get; }
@@ -29,6 +32,7 @@ public sealed record DefinitionLink : IEdge<LinkedModel> {
     public bool Outdated => Status.Exists(static status => status.Outdated);
 
     // --- [CONSTRUCTION]
+
     internal DefinitionLink(LinkedModel source, LinkedModel.Stored target, InstanceDefinitionGeometry definition) =>
         (Source, Target, Definition, Name, Units, Status) = (source, target, definition.Id, definition.Name, definition.UnitSystem,
             Optional(definition as InstanceDefinition).Map(static row => row.ArchiveFileStatus));
@@ -51,8 +55,11 @@ public sealed record LinkClosure(LinkedModel Root, ArrayBidirectionalGraph<Linke
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Links {
+
     // --- [CLOSURE]
+
     public static IO<LinkClosure> Closure(LinkedModel root) =>
         Graphs.Reached(root, Read, static reading => reading.Links).Map(reached => new LinkClosure(root, reached.Graph, reached.Readings));
 
@@ -75,7 +82,8 @@ public static class Links {
             select Path.GetFullPath(relative.Replace('\\', Path.DirectorySeparatorChar), folder)).Filter(File.Exists)
         || Conversions.Present(definition.SourceArchive).Bind(static path => Conversions.Present(FileSettings.FindFile(Path.GetFileName(path.Replace('\\', Path.DirectorySeparatorChar)))));
 
-    // --- [REPAIR]
+    // --- [RELINKING]
+
     public static IO<Unit> Relink(RhinoDoc doc, InstanceDefinition definition, InputPath path, bool relative) =>
         (from folder in IO.lift(() => relative
              ? Conversions.Present(doc.Path).Bind(static held => Optional(Path.GetDirectoryName(held))).ToFin(new RhinoFault(doc.Name, RhinoReason.Unqualified)).Map(Some)

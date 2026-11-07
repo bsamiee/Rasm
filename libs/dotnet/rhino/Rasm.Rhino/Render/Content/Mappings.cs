@@ -5,6 +5,7 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Content;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record MappingPrimitive {
     public sealed record Framed(Plane Plane, Interval Dx, Interval Dy, Interval Dz, bool Capped) : MappingPrimitive;
@@ -17,8 +18,11 @@ public abstract partial record MappingPrimitive {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Mappings {
-    // --- [DECODE]
+
+    // --- [DECODING]
+
     public static IO<Option<MappingPrimitive>> Primitive(TextureMapping mapping) =>
         IO.lift(() => mapping.MappingType).Bind(kind => kind switch {
             TextureMappingType.PlaneMapping or TextureMappingType.OcsMapping => Products.Accepted(() =>
@@ -42,6 +46,7 @@ public static class Mappings {
         });
 
     // --- [EVALUATION]
+
     public static IO<Seq<(Point3d Texture, int Side)>> Evaluate(TextureMapping mapping, Seq<(Point3d Point, Vector3d Normal)> samples, Transform objectTransform) =>
         from inverse in Products.Accepted(() => (objectTransform.TryGetInverse(out Transform points), points))
         let normals = objectTransform.Transpose()
@@ -53,6 +58,7 @@ public static class Mappings {
         side is not 0 ? (texture, side) : new RhinoFault(call, RhinoReason.Declined, index);
 
     // --- [CHANNELS]
+
     public static IO<Seq<(int Channel, TextureMapping Mapping, Transform ObjectTransform)>> Channels(RhinoObject rhinoObject) =>
         from channels in IO.lift(() => Conversions.Rows(rhinoObject.GetTextureChannels()))
         from held in channels.TraverseM(channel => Products.Of(() => (rhinoObject.GetTextureMapping(channel, out Transform objectTransform), objectTransform))
@@ -67,6 +73,7 @@ public static class Mappings {
         select assigned;
 
     // --- [COORDINATES]
+
     public static IO<Option<Either<Seq<Point2d>, Seq<Point3d>>>> Coordinates(Mesh mesh, Guid mappingId) =>
         IO.lift(() => Optional(mesh.GetCachedTextureCoordinates(mappingId)).Traverse(Copied).As());
 

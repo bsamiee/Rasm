@@ -19,6 +19,7 @@ using Thinktecture.Text.Json.Serialization;
 namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 [JsonConverter(typeof(ThinktectureJsonConverterFactory))]
 public sealed partial class RunEnd {
@@ -43,14 +44,17 @@ public sealed record EntryProgress(Option<SequenceNumber> Last, Seq<Duration> Ti
 
 public sealed record QueueProgress(
     Option<string> Job, int ProcessId, Instant ProcessStart, int Retries, Duration Delay, Option<RunEnd> Ended, HashMap<UInt128, EntryProgress> Entries) {
+
     // --- [STATE]
+
     public bool Succeeded => Ended.Exists(static end => end == RunEnd.Succeeded);
 
     public long Completed => Entries.Values.Fold(0L, static (sum, entry) => sum + entry.Times.Count);
 
     public Option<Relaunch> Relaunch => Job.Map(job => new Relaunch(job, Delay));
 
-    // --- [FILE]
+    // --- [FILES]
+
     public static IO<FileStream> Acquire(OutputPath path) => use(() => File.Open($"{(string)path}.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
 
     public static IO<Option<QueueProgress>> Read(OutputPath path) => FilePublication.Read(path, ProgressRecord.Info, static record => Fin.Succ(record.Progress));
@@ -114,24 +118,11 @@ internal sealed record ProgressRecord(Option<string> Job, int ProcessId, Instant
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static partial class QueueRuns {
-    private const string RenderCommand = "Render";
 
-    private sealed record Pending(QueueEntry<OutputPath> Entry, Seq<SequenceNumber> Frames);
+    // --- [EXECUTION]
 
-    private sealed record Request(Pending Run, Conduit<Fin<Unit>, Fin<Unit>> Reply);
-
-    private sealed record Heard {
-        public static Heard Empty { get; } = new();
-
-        public Option<long> Began { get; init; }
-        public Option<(Guid Session, long At)> Saved { get; init; }
-        public Option<Result> Ended { get; init; }
-    }
-
-    private sealed record RunScope(QueueContext Context, RhinoDoc Doc, RenderBatch Batch, Atom<QueueProgress> Held, Atom<Heard> Heard);
-
-    // --- [RUN]
     public static IO<Unit> Run(QueueContext context, RhinoDoc doc, RenderBatch batch, Option<string> job, Option<QueueProgress> resumed) =>
         (from lease in QueueProgress.Acquire(context.Record)
          from observed in QueueProgress.Observed(context)
@@ -176,6 +167,23 @@ public static partial class QueueRuns {
          select unit).Uninterruptible();
 
     // --- [FRAMES]
+
+    private const string RenderCommand = "Render";
+
+    private sealed record Pending(QueueEntry<OutputPath> Entry, Seq<SequenceNumber> Frames);
+
+    private sealed record Request(Pending Run, Conduit<Fin<Unit>, Fin<Unit>> Reply);
+
+    private sealed record Heard {
+        public static Heard Empty { get; } = new();
+
+        public Option<long> Began { get; init; }
+        public Option<(Guid Session, long At)> Saved { get; init; }
+        public Option<Result> Ended { get; init; }
+    }
+
+    private sealed record RunScope(QueueContext Context, RhinoDoc Doc, RenderBatch Batch, Atom<QueueProgress> Held, Atom<Heard> Heard);
+
     private static IO<Unit> Frames(QueueContext context, RhinoDoc doc, RenderBatch batch, Atom<QueueProgress> held, bool sampled) =>
         (from render in IO.lift(static () => Conversions.Required(Conversions.Present(Command.LookupCommandId(RenderCommand, searchForEnglishName: true)))).OnUiThread()
          from heard in atomIO(Heard.Empty)
@@ -295,7 +303,8 @@ public static partial class QueueRuns {
         from logged in IO.lift(() => Rendered(Session.Logger, frame, stages, timing.PeakWorkingSet, estimate))
         select unit;
 
-    // --- [RESUME]
+    // --- [RESUMPTION]
+
     public static IO<Option<Relaunch>> Resumable(QueueContext context) =>
         (from lease in QueueProgress.Acquire(context.Record)
          from observed in QueueProgress.Observed(context)
@@ -310,6 +319,7 @@ public static partial class QueueRuns {
          select relaunch).Bracket();
 
     // --- [LOGS]
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Render queue frame {Frame}: {Stages}, peak working set {Peak} bytes, {Estimate}")]
     private static partial void Rendered(ILogger logger, int frame, string stages, long peak, string estimate);
 }

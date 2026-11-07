@@ -31,7 +31,7 @@ from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.files.images import ImageFile
 from blender.records.faults import accumulated, Fault, Ok, Outcome, paired, Reason
 
-from ..grade.exposure import exposed  # ruff: ignore[relative-imports]
+from ..grade.exposure import exposed
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -224,7 +224,6 @@ peak_mapping: Final = CompositorEffect(
     pointwise=True,
     registers=(READ.measuring(measure_peak, condition=Some(HdrWindow(absolute=True))),),
 )
-
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

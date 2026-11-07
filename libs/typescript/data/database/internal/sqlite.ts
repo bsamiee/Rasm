@@ -1,9 +1,9 @@
 import { Array, Cause, Effect, Equal, Filter, Function, Graph, HashSet, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
-import { atomic } from '#/atomic';
-import type { Catalog } from '#/catalog';
-import type { Engine } from '#/internal/engine/engine';
-import { constant, diff, identifier, literal, referentialActions, render, unsupported } from '#/internal/reconcile';
+import { atomic } from '#/atomic.ts';
+import type { Catalog } from '#/catalog.ts';
+import type { Engine } from '#/internal/engine.ts';
+import { constant, diff, identifier, literal, referentialActions, render, unsupported } from '#/internal/reconcile.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -28,6 +28,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     virtual: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
 }) {
     // --- [ROWS]
+
     static readonly types = { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', decimal: 'TEXT', real: 'REAL', boolean: 'INTEGER', blob: 'BLOB' } as const satisfies Engine['Service']['types'];
     static readonly member: Engine['Service']['member'] = (sql, field) => sql`e.value ->> ${sql.literal(literal(`$."${field}"`))}`;
     static readonly element: Engine['Service']['element'] = (sql, { kind }, text) => (kind === 'blob' ? sql`unhex(${text})` : text);
@@ -51,6 +52,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     };
 
     // --- [DDL]
+
     static readonly constant: Engine['Service']['constant'] = constant;
     static readonly codePoints: Engine['Service']['codePoints'] = (sql, subject) => sql`length(${subject})`;
     static readonly text: Engine['Service']['text'] = (_, subject) => subject;
@@ -88,7 +90,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly policy: Engine['Service']['policy'] = () => Option.none();
     static readonly comment: Engine['Service']['comment'] = (sql, _, identity) => ({ inline: sql.literal(` /* ${JSON.stringify(identity).replaceAll('*/', '*\\/')} */`), statements: () => [] });
 
-    // --- [RECONCILE]
+    // --- [RECONCILIATION]
+
     static readonly refusals: Engine['Service']['refusals'] = ({ name: owner, key, columns, indexes, search, tenant, withoutRowid }) => {
         const [all, aliases] = [Object.values(columns), ['rowid', 'oid', '_rowid_']];
         const unkeyed = Option.isSome(search) && (withoutRowid || !all.some(({ name, kind }) => kind === 'integer' && Equal.equals(key, [name])));

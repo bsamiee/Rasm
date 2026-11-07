@@ -9,11 +9,13 @@ using SkiaSharp;
 namespace Rasm.UI.Motion;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 internal interface IInterpolated<TSelf> where TSelf : IInterpolated<TSelf> {
     public Option<TSelf> Toward(TSelf to, float progress);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record Morph<T>(T From, T To, Duration Start, TimingCurve Curve) where T : IInterpolated<T> {
     internal T At(Duration now) => From.Toward(To, (float)Curve.At(now - Start).Map(static at => at.Progress).IfNone(1d)).IfNone(To);
 
@@ -62,7 +64,9 @@ internal sealed record ExitTransition(LayoutNode Last, Place Place, Morph<Fracti
 internal sealed record InteractionState(Seq<Key> Path, Interaction Interaction);
 
 internal sealed record Animations {
+
     // --- [STATE]
+
     internal static Animations Idle { get; } = new();
 
     internal HashMap<InteractionState, Morph<Fraction>> Fades { get; init; }
@@ -74,6 +78,7 @@ internal sealed record Animations {
     internal HashMap<Seq<Key>, ExitTransition> Departing { get; init; }
 
     // --- [CHANNELS]
+
     private static readonly Func<LayoutNode, Option<Tween>> Framed = static layout => Some(Tween.Of(layout));
     private static readonly Func<LayoutNode, Option<Decomposition>> Turned = static layout => Decomposition.Of(layout.View.Transform);
     private static readonly Func<LayoutNode, Option<PlotPlane>> Plotted = static layout => layout.View.Plotted;
@@ -81,6 +86,7 @@ internal sealed record Animations {
     private static readonly Func<Fraction, Fraction, float> Signed = static (from, to) => (float)to - (float)from;
 
     // --- [DERIVED]
+
     internal bool Animating => !Fades.IsEmpty || !Morphing.IsEmpty || !Leaving.IsEmpty;
 
     internal Seq<Seq<Key>> Morphing => Transitions.Keys.ToSeq() + Transforms.Keys.ToSeq() + Planes.Keys.ToSeq() + Figures.Keys.ToSeq();
@@ -112,7 +118,8 @@ internal sealed record Animations {
 
     private static bool Reduced(Scene scene) => scene.Layout.Cascade.Theme.Conditions.Contains(Condition.ReduceMotion);
 
-    // --- [OPEN]
+    // --- [TRANSITIONS]
+
     internal Animations Started(Scene prior, Scene next, Duration now) =>
         this with {
             Transitions = toHashMap(next.Order.Filter(static layout => layout.View.Key.IsSome).Choose(layout => Transited(prior, layout, now, Reduced(next)).Map(transition => (layout.Path, transition)))),
@@ -187,6 +194,7 @@ internal sealed record Animations {
         open.Filter((path, morph) => scene.Index.Find(path).Bind(value) == Some(morph.To));
 
     // --- [FADE]
+
     internal (Animations Animations, Seq<SKRect> Damage) Fading(Scene prior, Scene scene, HashSet<InteractionState> was, HashSet<InteractionState> active, Duration now) {
         HashSet<InteractionState> changed = was.SymmetricExcept(active);
         return (this with { Fades = changed.ToSeq().Fold(Fades.Filter((key, _) => scene.Index.ContainsKey(key.Path)), (fades, key) => Faded(scene, fades, key, active, now)) },
@@ -218,6 +226,7 @@ internal sealed record Animations {
               select (bounds, Option<SKRect>.None, layout.Style.Motion);
 
     // --- [TICK]
+
     internal (Animations Animations, Seq<SKRect> Damage) Tick(Scene scene, Duration prior, Duration now) =>
         (this with {
             Fades = Fades.Filter(fade => !fade.Settled(now)),

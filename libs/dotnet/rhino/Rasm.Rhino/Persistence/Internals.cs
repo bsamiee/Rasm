@@ -8,8 +8,11 @@ using Rhino.UI.Theme;
 namespace Rasm.Rhino.Persistence;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Accessors {
+
     // --- [OWNERS]
+
     private const string TabPanelSettings = "Rhino.UI.Internal.TabPanels.TabPanelSettings, Rhino.UI";
     private const string IToolbarSettings = "Rhino.UI.Internal.TabPanels.IToolbarSettings, Rhino.UI";
     private const string ToolbarButtonSettings = "Rhino.UI.Internal.TabPanels.ToolbarButtonSettings, Rhino.UI";
@@ -18,7 +21,8 @@ internal static class Accessors {
     private const string ThemeSettings = "Rhino.UI.ThemeSettings, Rhino.UI";
     private const string RuntimeSettings = "Rhino.UI.Runtime.Settings, Rhino.UI";
 
-    // --- [SCOPE]
+    // --- [SCOPES]
+
     internal static IO<T> Scoped<T>(
         Func<T> call, [CallerArgumentExpression(nameof(call))] string member = "", [CallerFilePath] string file = "", [CallerMemberName] string caller = "", [CallerLineNumber] int line = 0) =>
         (from risky in use(() => new RiskyAction(member, file, caller, line))
@@ -32,6 +36,7 @@ internal static class Accessors {
          select value).Bracket();
 
     // --- [TAB_PANELS]
+
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "get_TabIconSize")]
     internal static extern int TabIconSize([UnsafeAccessorType(TabPanelSettings)] object? owner);
 
@@ -60,6 +65,7 @@ internal static class Accessors {
     internal static extern Eto.Drawing.Size ItemPadding([UnsafeAccessorType("Rhino.UI.Internal.TabPanels.Controls.BaseTabControlItem, Rhino.UI")] object? owner);
 
     // --- [STRIPS]
+
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "CurrentIconSize")]
     internal static extern int OSnapIconSize([UnsafeAccessorType("Rhino.UI.DialogPanels.OSnapPanel, Rhino.UI")] object? owner);
 
@@ -67,6 +73,7 @@ internal static class Accessors {
     internal static extern int SelectionFilterIconSize([UnsafeAccessorType("Rhino.UI.DialogPanels.SelectionFilterUi, Rhino.UI")] object? owner);
 
     // --- [TOOLBARS]
+
     internal static object ToolbarButtons => Buttons(Instance(owner: null));
 
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "get_Instance")]
@@ -104,6 +111,7 @@ internal static class Accessors {
     internal static extern void RefreshIcons([UnsafeAccessorType("Rhino.UI.Internal.TabPanels.OldCodeExtensions, Rhino.UI")] object? owner);
 
     // --- [THEME]
+
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
     internal static extern Color? GetPaintColorHook([UnsafeAccessorType(ThemeSettings)] object? owner, PaintColor paintColor);
 
@@ -114,6 +122,7 @@ internal static class Accessors {
     internal static extern string Combine(ThemeBase? owner, string parentId, string childId);
 
     // --- [EDIT_DELAYS]
+
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
     internal static extern double get_TextChangingEventsDelay([UnsafeAccessorType(RuntimeSettings)] object? owner);
 
@@ -121,6 +130,7 @@ internal static class Accessors {
     internal static extern double get_StepEventsDelay([UnsafeAccessorType(RuntimeSettings)] object? owner);
 
     // --- [DOCK_SITES]
+
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
     [return: UnsafeAccessorType(TabPanelDockSites)]
     internal static extern object? FromDocument([UnsafeAccessorType(TabPanelDockSites)] object? owner, RhinoDoc doc);
@@ -133,6 +143,7 @@ internal static class Accessors {
     internal static extern int ResizerWidth([UnsafeAccessorType("Rhino.UI.Internal.TabPanels.Controls.DockSiteResizer, Rhino.UI")] object? owner);
 
     // --- [SAVES]
+
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
     internal static extern void add_SettingsSaved([UnsafeAccessorType("Rhino.RhinoApp, RhinoCommon")] object? owner, EventHandler<PersistentSettingsSavedEventArgs> value);
 

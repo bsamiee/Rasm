@@ -8,6 +8,7 @@ using Rhino.DocObjects.Tables;
 namespace Rasm.Rhino.Document.Tables;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record GeometryPair(GeometryBase Geometry, Option<ObjectAttributes> Attributes) {
     public IO<Guid> Add(RhinoDoc doc, Option<HistoryRecord> history, bool reference) =>
         WithAttributes(doc.CreateDefaultAttributes, Attributes, attributes =>
@@ -43,6 +44,9 @@ public sealed record PickCapture(
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ObjectTarget {
+
+    // --- [CASES]
+
     public sealed record Ids(Seq<Guid> Values) : ObjectTarget;
 
     public sealed record Serials(Seq<uint> Values) : ObjectTarget;
@@ -56,6 +60,7 @@ public abstract partial record ObjectTarget {
     public sealed record Named(NamedEntry Entry) : ObjectTarget;
 
     // --- [RESOLUTION]
+
     public IO<Seq<RhinoObject>> Objects(RhinoDoc document) =>
         Switch(
             document,
@@ -85,10 +90,12 @@ public abstract partial record ObjectTarget {
             select (typed, shaped));
 
     // --- [WRITES]
+
     public IO<Seq<Guid>> Each(RhinoDoc document, Func<RhinoObject, bool> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
         Objects(document).Bind(found => IO.lift(Products.Each(found, (target, index) => call(target) ? Fin.Succ(target.Id) : new RhinoFault(member, RhinoReason.Declined, index))));
 
     // --- [SELECTION]
+
     internal static IO<Seq<(RhinoObject Object, bool Persistent)>> Selection(RhinoDoc document) =>
         IO.lift(() => Conversions.Rows(document.Objects.GetSelectedObjects(includeLights: true, includeGrips: false))
             .Map(static found => (Object: found, Persistent: found.IsSelected(checkSubObjects: false) is 2)).Strict());

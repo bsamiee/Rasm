@@ -11,8 +11,8 @@ const BUILDER = new Builder({ ignoreAttributes: false, attributeNamePrefix: ATTR
 const PARSER = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: ATTRIBUTE });
 const PROLOG = { '@_version': '1.0', '@_encoding': 'UTF-8' };
 const LAUNCH_EVENTS = ['applicationActivate', 'com.adobe.csxs.events.ApplicationActivate'];
-const INK_OPACITY = 0.65;
-const INKS = { light: { color: '#000000', opacity: INK_OPACITY }, dark: { color: '#FFFFFF', opacity: INK_OPACITY } } as const;
+const FILL_OPACITY = 0.65;
+const FILLS = { light: { color: '#000000', opacity: FILL_OPACITY }, dark: { color: '#FFFFFF', opacity: FILL_OPACITY } } as const;
 const STATES = { Normal: 'light', RollOver: 'light', DarkNormal: 'dark', DarkRollOver: 'dark' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -46,7 +46,7 @@ class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand
     scripted: Schema.optionalKey(Schema.Boolean),
     atLaunch: Schema.optionalKey(Schema.Boolean),
 }) {
-    static readonly inks = INKS;
+    static readonly fills = FILLS;
     static readonly states = STATES;
     static readonly target = 'es3';
     static readonly chromium = 'chrome99';

@@ -4,6 +4,7 @@ using Rhino.PlugIns;
 namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record CyclesSetting<T>(string Key, bool Document) where T : notnull {
     internal Option<IO<Option<T>>> Derived { get; init; }
 
@@ -24,13 +25,17 @@ public sealed record CyclesSetting<T>(string Key, bool Document) where T : notnu
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Cycles {
-    // --- [NODE]
+
+    // --- [NODES]
+
     public static IO<Guid> PlugInId => IO.lift(static () => Conversions.Present(PlugIn.IdFromName("Rhino Render")).ToFin(new RhinoFault("Rhino Render", RhinoReason.Missing)));
 
     public static IO<SettingsNode> Node => PlugInId.Map(static id => new SettingsNode(new SettingsRoot.PlugInNode(id)));
 
-    // --- [DOCUMENT]
+    // --- [DOCUMENTS]
+
     public static readonly CyclesSetting<int> RenderPreset = new(nameof(RenderPreset), Document: true);
     public static readonly CyclesSetting<int> Seed = new(nameof(Seed), Document: true);
     public static readonly CyclesSetting<int> Samples = new(nameof(Samples), Document: true);
@@ -63,6 +68,7 @@ public static class Cycles {
     public static readonly CyclesSetting<string> IntermediateSelectedDeviceStr = new(nameof(IntermediateSelectedDeviceStr), Document: true);
 
     // --- [APPLICATION]
+
     public static readonly CyclesSetting<int> ThrottleMs = new(nameof(ThrottleMs), Document: false);
     public static readonly CyclesSetting<string> SelectedDeviceStr = new(nameof(SelectedDeviceStr), Document: false);
     public static readonly CyclesSetting<bool> StartGpuKernelCompiler = new(nameof(StartGpuKernelCompiler), Document: false);

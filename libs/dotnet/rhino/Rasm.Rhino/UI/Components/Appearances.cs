@@ -6,8 +6,8 @@ using Rasm.Rhino.UI.Rows;
 namespace Rasm.Rhino.UI.Components;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Appearances {
-    // --- [ROWS]
     public static ControlRows Rows(Seq<RhinoTheme> themes, params Seq<Row> extra) =>
         ControlRows.Fixed(
             Seq(

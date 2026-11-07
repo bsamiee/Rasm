@@ -1,8 +1,8 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Console, Effect, Layer, Option, Schema, Stdio, Stream } from 'effect';
-import { Decision, unjudged } from '#/decision';
-import { decide, live } from '#/policies/rules';
+import { Decision, unjudged } from '#/decision.ts';
+import { decide, live } from '#/policies/rules.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

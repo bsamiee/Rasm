@@ -1,5 +1,5 @@
 import { vitestProject } from '@rasm/test-support/vitest';
-import { react } from '#/vite';
+import { react } from '#/vite.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

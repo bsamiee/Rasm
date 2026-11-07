@@ -95,7 +95,7 @@ utils:
     string-constant:
         all:
             - has: {kind: modifier, regex: '^const$'}
-            - has: {kind: variable_declaration, has: {field: type, kind: predefined_type, regex: '^string$'}}
+            - has: {kind: variable_declaration, has: {field: type, pattern: string}}
             - inside:
                 stopBy: end
                 kind: record_declaration

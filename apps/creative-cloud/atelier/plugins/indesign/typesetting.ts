@@ -1,5 +1,5 @@
 import { Adjust, Typeset } from '@rasm/indesign';
-import { InDesignModel, InDesignSettings, inDesignHandlers, type linkInDesign } from '@rasm/indesign/uxp';
+import { handlers, InDesignSettings, type link, Model } from '@rasm/indesign/uxp';
 import { Settings } from '@rasm/typography';
 import { Array, Cause, Effect, Function, flow, MutableRef, Number, Option, Record, Schema, Struct } from 'effect';
 
@@ -63,20 +63,20 @@ const picker = <A>(label: string, options: readonly (readonly [string, A])[]) =>
 
 // --- [REQUESTS]
 
-const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(InDesignModel.selection, (item) => inDesignHandlers.typeset(Typeset.make({ target: item.toSpecifier(), settings })));
+const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(Model.selection, (item) => handlers.typeset(Typeset.make({ target: item.toSpecifier(), settings })));
 const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof Steps.Type) => Adjust['deltas']>, multiple: number) {
-    const [{ app, owning }, item, delta] = yield* Effect.all([InDesignModel, InDesignModel.selection, Effect.fromOption(deltas)]);
+    const [{ app, owning }, item, delta] = yield* Effect.all([Model, Model.selection, Effect.fromOption(deltas)]);
     const styled = yield* Effect.fromOption(Option.liftPredicate(item, owning('textStyleRanges')), () => new Cause.NoSuchElementError(`text style range in selection ${item.toSpecifier()}`));
-    const steps = yield* InDesignModel.read(Steps, 'text preferences', () => ({ kerning: multiple * app.textPreferences.kerningKeyIncrement, baselineShift: (multiple * app.textPreferences.baselineShiftKeyIncrement) / styled.textStyleRanges.firstItem().pointSize }));
-    yield* inDesignHandlers.adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
+    const steps = yield* Model.read(Steps, 'text preferences', () => ({ kerning: multiple * app.textPreferences.kerningKeyIncrement, baselineShift: (multiple * app.textPreferences.baselineShiftKeyIncrement) / styled.textStyleRanges.firstItem().pointSize }));
+    yield* handlers.adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
     return Option.none();
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const typesetting = (scripted: Effect.Success<typeof linkInDesign>['scripted']) =>
+const typesetting = (scripted: Effect.Success<typeof link>['scripted']) =>
     Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {
-        const { app } = yield* InDesignModel;
+        const { app } = yield* Model;
         const mode = picker(
             'Mode',
             Record.toEntries({
@@ -108,7 +108,7 @@ const typesetting = (scripted: Effect.Success<typeof linkInDesign>['scripted']) 
                 }
                 sets.forEach(checked(features));
             });
-        const drawn = <E>(change: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, InDesignModel>) => scripted(Effect.flatMap(change, typesetSelection)).pipe(Effect.flatMap(displayed));
+        const drawn = <E>(change: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, Model>) => scripted(Effect.flatMap(change, typesetSelection)).pipe(Effect.flatMap(displayed));
         const changed = () => fork(drawn(Effect.succeedNone).pipe(Effect.onError(Function.constant(Effect.sync(() => withheld(inputs)))), Effect.catchTag('Unmatched', Function.constant(Effect.void))));
         const acted = flow(drawn, Effect.onError(Function.constant(Effect.sync(changed))), fork);
         const elongated = ({ kashida }: Settings) => Option.map(Option.all([elongation.read(), width.read()]), ([_tag, lower]) => ({ kashida: _tag === 'None' ? { _tag } : { _tag, lower, upper: lower, fractional: elongating(kashida) && kashida.fractional } }));

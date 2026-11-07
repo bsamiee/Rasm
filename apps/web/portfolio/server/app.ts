@@ -2,11 +2,11 @@ import { Layer } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { HttpRouter } from 'effect/http';
 import { HttpApiBuilder } from 'effect/http-api';
-import { Api } from '#/model/api';
-import { assetGroup } from '#/server/assets';
-import { documentGroup } from '#/server/documents';
-import { OwnerAccount } from '#/server/owner';
-import { page } from '#/server/page';
+import { Api } from '#/model/api.ts';
+import { assetGroup } from '#/server/assets.ts';
+import { documentGroup } from '#/server/documents.ts';
+import { OwnerAccount } from '#/server/owner.ts';
+import { page } from '#/server/page.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

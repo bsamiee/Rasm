@@ -1,10 +1,10 @@
 import { Array, Effect, Equal, Filter, Function, Graph, HashSet, Match, Option, Order, Result, Schema, String, Struct } from 'effect';
 import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
-import type { Catalog } from '#/catalog';
-import { Column } from '#/column';
-import type { Engine } from '#/internal/engine/engine';
-import { ReconcileError } from '#/reconcile-error';
-import type { Relation } from '#/relation';
+import type { Catalog } from '#/catalog.ts';
+import { Column } from '#/column.ts';
+import { ReconcileError } from '#/error.ts';
+import type { Engine } from '#/internal/engine.ts';
+import type { Relation } from '#/relation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,6 +31,7 @@ const stored = Schema.decodeOption(Schema.fromJsonString(Identity));
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [TEXT]
+
 const literal = (text: string) => `'${text.replaceAll("'", "''")}'`;
 const constant = ({ kind }: Column, value: string | number) =>
     Match.value(kind).pipe(
@@ -47,6 +48,7 @@ const identifier = (parts: readonly string[]) => {
 };
 
 // --- [REFUSALS]
+
 const findings = (table: string, columns: readonly string[], reason: Finding['reason']): readonly Finding[] => Array.match(columns, { onEmpty: () => [], onNonEmpty: (named) => [{ table, columns: named, reason }] });
 const unsupported = <C extends { readonly name: string }>(table: string, refusal: Extract<Finding['reason'], { readonly _tag: 'Unsupported' }>['refusal'], rows: readonly C[], refuses: (row: C) => boolean) => findings(table, rows.filter(refuses).map(Struct.get('name')), { _tag: 'Unsupported', refusal });
 const refusals = ({ name: owner, key, references, columns, indexes }: Relation) => {
@@ -60,7 +62,8 @@ const refusals = ({ name: owner, key, references, columns, indexes }: Relation) 
     ];
 };
 
-// --- [RENDER]
+// --- [RENDERING]
+
 const render = (
     sql: SqlClient.SqlClient,
     engine: Omit<Engine['Service'], 'search'>,
@@ -186,6 +189,7 @@ const render = (
 };
 
 // --- [DIFF]
+
 const diff = <L extends Live & { readonly columns: readonly Live[]; readonly references: readonly { readonly columns: Array.NonEmptyReadonlyArray<string>; readonly target: string }[] }>(
     sql: SqlClient.SqlClient,
     catalog: Catalog,

@@ -6,8 +6,8 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.Persistence;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public abstract class DefinedUserData<TState> : UserData where TState : notnull {
-    // --- [STATE]
     private readonly uint typeCode;
     private readonly DictionaryCodec<TState> codec;
     private readonly Option<Func<TState, Transform, TState>> transformed;
@@ -57,8 +57,11 @@ public abstract class DefinedUserData<TState> : UserData where TState : notnull 
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class AttachedData {
+
     // --- [FRAMES]
+
     public static IO<Unit> Write<T>(BinaryArchiveWriter writer, uint typeCode, DictionaryCodec<T> codec, T value) =>
         IO.lift(() => codec.ToDictionary(value)).Bind(dictionary => Write(writer, typeCode, dictionary));
 
@@ -83,6 +86,7 @@ public static class AttachedData {
         select value;
 
     // --- [USER_DATA]
+
     public static IO<Option<TData>> Find<TData>(CommonObject target) where TData : UserData =>
         IO.lift(() => Optional(target.UserData.Find(typeof(TData)) as TData));
 

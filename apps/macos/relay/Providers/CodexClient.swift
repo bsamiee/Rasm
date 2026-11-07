@@ -27,6 +27,7 @@ private nonisolated struct CodexServer {
 
 actor CodexClient: ProviderClient {
     // --- [STATE]
+
     private static let desktop: String = "com.openai.codex"
 
     nonisolated let liveHome: URL
@@ -51,6 +52,7 @@ actor CodexClient: ProviderClient {
     }
 
     // --- [SELECTION]
+
     func currentSelection(selected _: Account?) -> Result<AccountIdentity?, ProviderError> {
         Result { () throws(CodexFailure) in try CodexAuthFile.read(in: liveHome)?.identity }.mapError(ProviderError.init(failure:))
     }
@@ -67,7 +69,8 @@ actor CodexClient: ProviderClient {
         return identity
     }
 
-    // --- [SWITCH]
+    // --- [SWITCHES]
+
     func preconditions() async throws(CodexFailure) {
         let response: CodexProtocol.EffectiveConfig = try await connection(for: liveHome).request(
             .configRead,
@@ -120,6 +123,7 @@ actor CodexClient: ProviderClient {
     }
 
     // --- [SIGN_IN]
+
     func signIn(_ target: SignInTarget, codes _: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError> {
         let (home, expected): (URL, AccountIdentity?) =
             switch target {
@@ -168,6 +172,7 @@ actor CodexClient: ProviderClient {
     }
 
     // --- [USAGE]
+
     func usage(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError> {
         let home: URL = home(for: account, isSelected: isSelected)
         return await Result { () async throws(CodexFailure) in
@@ -185,6 +190,7 @@ actor CodexClient: ProviderClient {
     }
 
     // --- [SERVERS]
+
     func shutdown() async {
         for home: URL in Array(servers.keys) { await stopServer(home) }
     }

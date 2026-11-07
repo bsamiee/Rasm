@@ -11,6 +11,7 @@ using Rhino.Runtime.InteropWrappers;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<string>(SkipIParsable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -52,6 +53,9 @@ public sealed partial class SnapshotOperation {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SnapshotChange {
+
+    // --- [CASES]
+
     public sealed record Named(SnapshotOperation Operation, SnapshotName Name) : SnapshotChange;
 
     public sealed record Rename(SnapshotName Name, SnapshotName NewName) : SnapshotChange;
@@ -60,14 +64,16 @@ public abstract partial record SnapshotChange {
 
     public sealed record UserText(SnapshotName Name, SnapshotText Key, Option<SnapshotText> Value) : SnapshotChange;
 
-    // --- [RUN]
+    // --- [EXECUTION]
+
     public IO<Unit> Run(RhinoDoc doc) =>
         from names in IO.lift(() => Conversions.Rows(doc.Snapshots.Names))
         from script in IO.lift(Script(names))
         from ran in Documents.RunScript(doc, script, echo: false, display: None)
         select ran;
 
-    // --- [SCRIPT]
+    // --- [SCRIPTS]
+
     private Fin<string> Script(Seq<string> names) => Switch(names,
         named: static (held, change) => change.Operation.Script(held, change.Name),
         rename: static (held, change) => Expecting(held, [(change.Name, true), (change.NewName, false)], $"""_-Snapshots _Rename "{change.Name}" "{change.NewName}" _Enter"""),
@@ -153,12 +159,16 @@ public sealed record SnapshotDefinition<TDocument, TObject>(Guid Client, string 
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class DefinedSnapshotClient<TDocument, TObject>(SnapshotDefinition<TDocument, TObject> definition) : SnapShotsClient where TDocument : notnull where TObject : notnull {
+
     // --- [STATE]
+
     private readonly Atom<Option<SnapshotFrames<RhinoDoc>>> documentFrames = Atom(Option<SnapshotFrames<RhinoDoc>>.None);
     private readonly AtomHashMap<Guid, SnapshotFrames<SnapshotObject>> objectFrames = AtomHashMap<Guid, SnapshotFrames<SnapshotObject>>();
 
     // --- [IDENTITY]
+
     public override Guid PlugInId() => Session.PlugIn.Id;
 
     public override Guid ClientId() => definition.Client;
@@ -167,7 +177,8 @@ internal sealed class DefinedSnapshotClient<TDocument, TObject>(SnapshotDefiniti
 
     public override string Name() => definition.Name;
 
-    // --- [DOCUMENT]
+    // --- [DOCUMENTS]
+
     public override bool SupportsDocument() => definition.Document.IsSome;
 
     public override bool SaveDocument(RhinoDoc doc, BinaryArchiveWriter archive) => Succeeded(definition.Document.Map(state => state.Save(doc, archive)));
@@ -180,6 +191,7 @@ internal sealed class DefinedSnapshotClient<TDocument, TObject>(SnapshotDefiniti
         Session.Run(definition.Document.Map(state => state.InAny(archive, Stored(archive_array))).IfNone(IO.pure(value: true)), failed: false);
 
     // --- [OBJECTS]
+
     public override bool SupportsObjects() => definition.Objects.IsSome;
 
     public override bool SupportsObject(RhinoObject doc_object) =>
@@ -201,6 +213,7 @@ internal sealed class DefinedSnapshotClient<TDocument, TObject>(SnapshotDefiniti
         Session.Run(definition.Objects.Map(objects => objects.Record.InAny(archive, Stored(archive_array))).IfNone(IO.pure(value: true)), failed: false);
 
     // --- [ANIMATION]
+
     public override bool SupportsAnimation() =>
         definition.Document.Exists(static state => state.Tween.IsSome) || definition.Objects.Exists(static objects => objects.Record.Tween.IsSome);
 
@@ -248,6 +261,7 @@ internal sealed class DefinedSnapshotClient<TDocument, TObject>(SnapshotDefiniti
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Snapshots {
     public static NamedTable Table { get; } = new(nameof(Snapshots), StringComparer.OrdinalIgnoreCase) {
         Batches = false,

@@ -2,8 +2,8 @@ import { Array } from 'effect';
 import { GripVertical } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button, GridList, GridListItem, type GridListProps, type ItemDropTarget, type Key, type Selection, useDragAndDrop } from 'react-aria-components';
-import { Field } from '#/field';
-import { MenuButton } from '#/menu-button';
+import { Field } from '#/field.tsx';
+import { MenuButton } from '#/menu-button.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

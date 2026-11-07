@@ -275,6 +275,8 @@ _EVENTS: Final[Mapping[type, Tier]] = MappingProxyType({Handler: Tier.APP_HANDLE
 class Resource[T]:
     """Value each extension holds while registered, made after its prerequisites and optionally renewed after every file load."""
 
+    # --- [STATE]
+
     made: Callable[[Identity], AbstractContextManager[T]]
     renewed: Option[Callable[[T], T]] = Nothing
     prerequisites: tuple[Declaration, ...] = ()
@@ -293,7 +295,7 @@ class Resource[T]:
         except KeyError:
             return Nothing
 
-    # --- [LIFETIME]
+    # --- [LIFECYCLE]
 
     @contextmanager
     def held(self, identity: Identity, /) -> Generator[Outcome[None]]:
@@ -417,6 +419,7 @@ class Registration:
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [HANDLERS]
 
 

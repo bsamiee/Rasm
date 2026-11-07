@@ -1,8 +1,8 @@
 import { Array, Data, Effect, Equal, Filter, Option, Record, Schema, String, Struct } from 'effect';
 import { SqlClient, SqlSchema, type Statement } from 'effect/sql';
-import { Column, type FieldName, type Fields, type Where } from '#/column';
-import { Engine } from '#/internal/engine/engine';
-import type { methods, referentialActions } from '#/internal/reconcile';
+import { Column, type FieldName, type Fields, type Where } from '#/column.ts';
+import { Engine } from '#/internal/engine.ts';
+import type { methods, referentialActions } from '#/internal/reconcile.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -83,7 +83,8 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [DEFINITION]
+// --- [DEFINITIONS]
+
 const definition = <F extends Fields>(fields: F, options: RelationOptions<F>) => {
     const key = Array.map(options.key ?? Array.make('id'), String.camelToSnake);
     const retired = (options.retired ?? []).map(String.camelToSnake);
@@ -119,6 +120,7 @@ const definition = <F extends Fields>(fields: F, options: RelationOptions<F>) =>
 };
 
 // --- [QUERIES]
+
 const selecting = (
     { sql, owner, prefix, unqualified, reads, keys, where: matching }: ReturnType<typeof Engine.fragments>,
     columns: Relation['columns'],

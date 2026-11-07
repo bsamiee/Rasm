@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { hydrateRoot } from 'react-dom/client';
-import type { Shell } from '#/shell';
+import type { Shell } from '#/shell.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

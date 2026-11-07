@@ -1,6 +1,6 @@
-import { fileURLToPath } from 'node:url';
-import { located } from '../../../../vite.shared.ts';
-import { vitestProject } from '../../../../vitest.config.ts';
+import { join } from 'node:path';
+import { vitestProject } from '@rasm/test-support/vitest';
+import { searchForWorkspaceRoot } from 'vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -11,5 +11,5 @@ export default vitestProject(import.meta.dirname, {
                 projects: [{ test: { name: 'node', include: ['node.test.ts'] } }, { plugins: [cloudflareTest({ config: true })], test: { name: 'workers', include: ['d1.test.ts'] } }],
             },
         })),
-    integration: { test: { projects: [{ test: { name: 'node', provide: { artifacts: located('.artifacts/typescript/vitest', import.meta.dirname), squawkConfig: fileURLToPath(new URL('../../../../.config/squawk.toml', import.meta.url)) } } }] } },
+    integration: { test: { projects: [{ test: { name: 'node', provide: { squawkConfig: join(searchForWorkspaceRoot(import.meta.dirname), '.config', 'squawk.toml') } } }] } },
 });

@@ -5,7 +5,7 @@
     "description": "Hooks that correct agent commands and track app instances each session owns",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",

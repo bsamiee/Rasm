@@ -1,11 +1,11 @@
 """Runs Blender with an isolated profile."""
 
+import os
+import sys
 lazy from functools import partial
-lazy import os
 lazy from pathlib import Path
 lazy import shutil
 lazy import subprocess
-lazy import sys
 
 from expression.extra.result import catch
 lazy import pathvalidate

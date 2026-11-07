@@ -23,6 +23,7 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Stubs extends GhidraScript {
+
     // --- [RENAMES]
 
     sealed interface Rename permits Renamed, Unchanged, Unresolved, Rejected {
@@ -81,7 +82,7 @@ public class Stubs extends GhidraScript {
         }
     }
 
-    // --- [RUN]
+    // --- [EXECUTION]
 
     @Override
     public void run() throws Exception {

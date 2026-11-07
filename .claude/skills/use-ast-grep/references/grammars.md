@@ -606,8 +606,9 @@ Native builds take grammar sources, scanner implementations, and their imports a
 Task hashes hold global files (runner config, ignore files) no grammar reads, expensive steps key on content below the task:
 - `tree-sitter generate --no-parser` writes `grammar.json` and `node-types.json` with no table
 - Generator version and `grammar.json` key `parser.c`, `tree-sitter generate <grammar.json>` fills a missing key with no second evaluation
-- Libraries compile in each task from the stored parser, a few seconds against generation's minute for C# and Postgres
-- Each process works in its own directory and renames into the store and onto published paths, equal keys race to equal content with no lock, a rename onto a held key fails and the held parser serves
+- Libraries compile in each task from the stored parser, seconds against generation's minute for C# and Postgres
+- Each process works in its own directory and renames into the store and onto published paths, equal keys racing to equal content with no lock
+- Renames onto a held key fail, and the held parser serves
 - Stored parsers stay until a language's `parser/` folder is removed, no build deletes a key another process may read
 - Overwriting a mapped library can crash running scans, a rename leaves the old inode to its mappers
 - Libraries compile with hidden visibility and export `tree_sitter_<name>` alone

@@ -28,7 +28,8 @@ const Arguments = Schema.Tuple([Schema.String, Schema.String, Schema.String]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [READING]
+// --- [READS]
+
 const named = (node: unknown) => (node instanceof Scalar ? globalThis.String(node.value) : '');
 const descend = (node: unknown): readonly unknown[] =>
     Match.value(node).pipe(
@@ -76,6 +77,7 @@ const shared = (header: unknown): Shared => {
 };
 
 // --- [RESOLUTION]
+
 const closure = (definitions: Table, local: Table, pairs: readonly Pair[], captures: ReadonlySet<string>, current: Readonly<Record<Kind, ReadonlySet<string>>> = Record.map(KINDS, () => new Set<string>())): Readonly<Record<Kind, ReadonlySet<string>>> => {
     const inlined = (kinds: readonly Kind[]) => kinds.flatMap((kind) => Array.getSomes([...current[kind]].map((name) => Option.fromNullishOr(definitions[kind].get(name)))));
     const within = (keys: readonly string[], kinds: readonly Kind[]) => [...pairs.filter((pair) => keys.includes(named(pair.key))), ...inlined(kinds)];

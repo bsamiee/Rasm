@@ -26,7 +26,7 @@ from blender.imaging.geometry.arithmetic import smoothstep
 from blender.imaging.sampling.tiles import stream
 from blender.records.faults import Outcome, paired
 
-from ..grade.exposure import LATER, later  # ruff: ignore[relative-imports]
+from ..grade.exposure import LATER, later
 from .bases import bases, Basis, Perlin, textured
 from .refraction import bubbled, BUBBLES, GLASS, lifted, LUMA, luminous, MAP, mapped, MapReading, RAINDROPS, rained, refracted
 
@@ -127,8 +127,6 @@ class Displacement(CompositorRecord, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [TERMS]
 
 
 def _twirled(shell: GraphInputs, frame: FrameSpace) -> Expr:

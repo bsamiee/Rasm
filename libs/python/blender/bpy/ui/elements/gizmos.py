@@ -160,6 +160,8 @@ class GizmoGroup[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=Tru
     Group without `PERSISTENT` shows while a tool names it or an `ensured` scope stands, and `keymap` names the keymap handling its events in place of the host's generic one.
     """
 
+    # --- [STATE]
+
     key: Key
     space: "rna_enums.SpaceTypeItems"
     gizmos: tuple[Gizmo[S], ...]

@@ -8,6 +8,7 @@ using Rhino.Render.DataSources;
 namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record RenderSize(Option<Size> Size, bool Viewport) {
     public bool Preset => !Viewport && Size.IsSome;
 
@@ -20,14 +21,18 @@ public sealed record RenderSize(Option<Size> Size, bool Viewport) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Framing {
-    // --- [EXTENT]
+
+    // --- [EXTENTS]
+
     public static ReadModel<Size> Extent { get; } = new(
         [ReadModels.Marks(Documents.PropertiesChanged.Documents()),
          ReadModels.Marks(Subscriptions.On<UndoRedoEventArgs>(static h => Command.UndoRedo += h, static h => Command.UndoRedo -= h).Documents(static args => args.DocumentSerialNumber))],
         static doc => IO.lift(() => RenderPipeline.RenderSize(doc, fromRenderSources: true)));
 
     // --- [SIZES]
+
     public static Seq<RenderSize> Sizes(RhinoSettings settings, Size screenPort) =>
         [new(Some(screenPort), Viewport: true), new(None, Viewport: false), .. toSeq(settings.GetCustomRenderSizes()).Map(static size => new RenderSize(Some(size), Viewport: false))];
 
@@ -37,6 +42,7 @@ public static class Framing {
         select unit;
 
     // --- [GUIDES]
+
     public static Option<Rectangle> Action(SafeFrame frame, Size size) =>
         Guide(size, frame.Enabled && frame.ActionFrameOn, frame.ActionFrameXScale, frame.ActionFrameLinked ? frame.ActionFrameXScale : frame.ActionFrameYScale);
 

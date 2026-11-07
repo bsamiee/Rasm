@@ -4,4 +4,4 @@ import { cep } from '@rasm/cep/vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default cep(import.meta.dirname, { ...AfterEffects, ...atelierBuild(import.meta.dirname) });
+export default cep(import.meta.dirname, { ...AfterEffects, ...atelierBuild });

@@ -1,17 +1,13 @@
-import { Inspect } from '@rasm/indesign/contract';
-import { Resource } from '@rasm/mcp/resource';
-import { Route } from '@rasm/mcp/route';
-import { Settings } from '@rasm/typography/settings';
-import { Face } from '@rasm/typography/shaping/face';
-import { Justification } from '@rasm/typography/shaping/justification';
-import { ShapedText } from '@rasm/typography/shaping/shaped-text';
-import type { Source } from '@rasm/typography/source';
+import { Inspect } from '@rasm/indesign';
+import { Resource, Route } from '@rasm/mcp';
+import { Settings, type Source } from '@rasm/typography';
+import { Face, Justification, ShapedText } from '@rasm/typography/shaping';
 import { Effect, FileSystem, Option, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
-import { Adobe } from '#/adobe';
-import { AvailableFace } from '#/available-face';
-import type { listening } from '#/libraries';
-import type { routes } from '#/routes';
+import { Adobe } from '#/adobe.ts';
+import { AvailableFace } from '#/available-face.ts';
+import type { listening } from '#/libraries.ts';
+import type { routes } from '#/routes.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

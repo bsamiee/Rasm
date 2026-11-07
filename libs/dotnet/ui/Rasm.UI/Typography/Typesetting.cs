@@ -15,8 +15,9 @@ using Topten.RichTextKit.Utils;
 namespace Rasm.UI.Typography;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed class Typeset(Shaping shaping, View.Text text, TextStyle style, float width, float minContent, Option<(TextRange Range, SKColorF Color)> selection, TextBlock source, Seq<Typeset.Line> lines, bool clipped) {
-    private Lazy<SKRect> Ink => field ??= new(() => Typesetting.Bounds(this));
+    private Lazy<SKRect> GlyphBounds => field ??= new(() => Typesetting.Bounds(this));
     private readonly Lazy<Option<float>> capHeight = new(() =>
         from run in lines.Bind(static line => line.Runs).Head
         from units in Typesetting.Position(shaping.HarfBuzzFont(run.Run.Typeface), OpenTypeMetricsTag.CapHeight)
@@ -39,7 +40,7 @@ internal sealed class Typeset(Shaping shaping, View.Text text, TextStyle style, 
         .Filter(static held => held.Run.Kind is FontRunKind.Normal)
         .Fold(Map<int, Seq<(Slice<int>, SKRect)>>(), static (held, run) => run.Run.Style.Span.Map(head => held.AddOrUpdate(head, Some: runs => runs.Add((run.Run.Text, run.Bounds)), None: () => [(run.Run.Text, run.Bounds)])).IfNone(held));
 
-    internal SKRect Overhang => Ink.Value switch {
+    internal SKRect Overhang => GlyphBounds.Value switch {
         var bounds => new(float.Max(0f, -bounds.Left), float.Max(0f, -bounds.Top), float.Max(0f, bounds.Right - Size.Width), float.Max(0f, bounds.Bottom - Size.Height)),
     };
 
@@ -139,8 +140,11 @@ internal sealed class Typeset(Shaping shaping, View.Text text, TextStyle style, 
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class Typesetting {
-    // --- [RESOLVE]
+
+    // --- [RESOLUTION]
+
     private static readonly Style Plain = new();
     private static readonly HashMap<FontVariant, (Feature Feature, OpenTypeMetricsTag Size, OpenTypeMetricsTag Offset, float Direction)> Variants = HashMap(
         (FontVariant.SuperScript, (new Feature(Tag.Parse("sups")), OpenTypeMetricsTag.SuperScriptEmYSize, OpenTypeMetricsTag.SuperScriptEmYOffset, 1f)),
@@ -196,6 +200,7 @@ internal static class Typesetting {
         select (range, color);
 
     // --- [RUNS]
+
     private const int TextPresentation = 0xFE0E;
     private const int EmojiPresentation = 0xFE0F;
 
@@ -226,7 +231,8 @@ internal static class Typesetting {
         return toSeq(SuperEnumerable.Generate(breaks.First(), _ => breaks.Next()).TakeWhile(static stop => stop != BreakIterator.Done).Window(2, static pair => (Start: pair[0], End: pair[1]))).Strict();
     }
 
-    // --- [SET]
+    // --- [SETS]
+
     internal static Typeset Set(Shaping shaping, View.Text text, Cascade cascade, TextStyle style, float width, CultureInfo culture) {
         TextBlock source = new() { FontMapper = shaping.Mapper, BaseDirection = culture.TextInfo.IsRightToLeft ? TextDirection.RTL : TextDirection.LTR };
         _ = text.Placeholder.Filter(_ => text.Edited.IsNone && text.Content.Length is 0).Match(
@@ -381,7 +387,8 @@ internal static class Typesetting {
         _ => 0f,
     };
 
-    // --- [SHAPE]
+    // --- [SHAPES]
+
     private static Typeset.Run Shaped(Shaping shaping, Slice<int> text, Slice<int> context, int offset, TextStyle style, SKTypeface typeface, TextDirection direction, CultureInfo culture, FontRunKind kind = FontRunKind.Normal) {
         Font font = shaping.HarfBuzzFont(typeface);
         if (style.ReplacementCharacter is not '\0') return Replacement();
@@ -475,6 +482,7 @@ internal static class Typesetting {
     internal static float PerUnit(SKTypeface typeface, float size) => size / typeface.UnitsPerEm;
 
     // --- [OUTLINES]
+
     internal static SKRect Bounds(Typeset set) {
         using SKTextBlobBuilder builder = new();
         foreach ((Typeset.Run run, SKPoint origin) in GlyphRuns(set)) {
@@ -525,7 +533,8 @@ internal static class Typesetting {
                select (held.Run, new SKPoint(held.X - held.Run.Origin + (held.Run.Style.LetterSpacing * lean), line.Y + metrics.Baseline));
     }
 
-    // --- [PAINT]
+    // --- [DRAWING]
+
     internal static Option<SKTextBlob> Blob(Typeset.Run run, TextPaintOptions raster) {
         using SKFont font = new(run.Typeface, run.FontSize) { Edging = raster.Edging, Hinting = raster.Hinting, Subpixel = raster.SubpixelPositioning };
         using SKTextBlobBuilder builder = new();
@@ -561,19 +570,19 @@ internal static class Typesetting {
                 }
             }
         }
-        using SKPaint ink = new() { IsAntialias = raster.Edging is not SKFontEdging.Alias };
-        using SKPaint halo = new() { Style = SKPaintStyle.Stroke, StrokeCap = SKStrokeCap.Square, StrokeJoin = SKStrokeJoin.Round, IsAntialias = ink.IsAntialias };
+        using SKPaint fill = new() { IsAntialias = raster.Edging is not SKFontEdging.Alias };
+        using SKPaint halo = new() { Style = SKPaintStyle.Stroke, StrokeCap = SKStrokeCap.Square, StrokeJoin = SKStrokeJoin.Round, IsAntialias = fill.IsAntialias };
         foreach ((Typeset.Run run, SKPoint at) in GlyphRuns(set)) {
             if (blobs(run).Case is not SKTextBlob blob) continue;
-            ink.ColorF = run.Style.TextColor == set.Style.TextColor ? tint : run.Style.TextColor;
-            ink.PathEffect = null;
+            fill.ColorF = run.Style.TextColor == set.Style.TextColor ? tint : run.Style.TextColor;
+            fill.PathEffect = null;
             halo.ColorF = run.Style.HaloColor;
             halo.StrokeWidth = run.Style.HaloWidth;
             halo.PathEffect = null;
             using SKMaskFilter? blur = run.Style.HaloBlur > 0f ? SKMaskFilter.CreateBlur(SKBlurStyle.Normal, run.Style.HaloBlur) : null;
             halo.MaskFilter = blur;
             if (run.Style.HaloColor != SKColors.Transparent) canvas.DrawText(blob, at.X, at.Y, halo);
-            canvas.DrawText(blob, at.X, at.Y, ink);
+            canvas.DrawText(blob, at.X, at.Y, fill);
             if (run.Kind is FontRunKind.Normal) {
                 float inset = run.Style.LetterSpacing * Alignment(set.Text.Alignment, set.Source.BaseDirection);
                 Decorated(run, blob, at - new SKPoint(inset, 0f), inset);
@@ -600,19 +609,19 @@ internal static class Typesetting {
 
             void Rule(float position, float weight, bool dashed) {
                 using SKPathEffect? dash = dashed ? SKPathEffect.CreateDash([weight, weight], weight) : null;
-                ink.PathEffect = dash;
+                fill.PathEffect = dash;
                 halo.PathEffect = dash;
                 Stroke(run.Origin, run.Origin + run.Width, position, weight);
             }
 
             void Stroke(float from, float to, float position, float weight) {
                 if (from >= to) return;
-                ink.StrokeWidth = weight;
+                fill.StrokeWidth = weight;
                 halo.StrokeWidth = weight + run.Style.HaloWidth;
                 SKPoint start = new(at.X + from, at.Y + position);
                 SKPoint end = new(at.X + to, at.Y + position);
                 if (run.Style.HaloColor != SKColors.Transparent) canvas.DrawLine(start, end, halo);
-                canvas.DrawLine(start, end, ink);
+                canvas.DrawLine(start, end, fill);
             }
         }
     }

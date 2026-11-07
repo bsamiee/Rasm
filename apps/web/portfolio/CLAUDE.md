@@ -43,7 +43,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `Revision` encodes draft revisions as strong ETags, a stale `If-Match` answers the stored revision, as success when the draft holds the body, else in `PreconditionFailed`
 - Draft saves, their publish, and the stored revision read share one `atomic` batch, as do each release sweep and its object list
 - Drafts placing a missing, mistyped, or out-of-range file fail with `PlacementConflict` naming each placement path
-- `@rasm/hosting/server` `ObjectStorage.serve` evaluates HTTP preconditions and ranges for media reads, inline with `nosniff`, an original under its asset name
+- `@rasm/hosting` `ObjectStorage.serve` evaluates HTTP preconditions and ranges for media reads, inline with `nosniff`, an original under its asset name
 - Upload bodies send the asset field, then each rendition named by its width in asset order, then the original, each typed with its media type
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
 - Asset JSON holds upload attempts and object keys, interrupted uploads and removals remain available for owner cleanup
@@ -51,7 +51,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [04]-[PAGE]
 
-[RENDER]: Worker and Node entry render `Site` into built `index.html` through `@rasm/hosting/server` `Template.render`, browsers hydrate the same `Site` through `@rasm/hosting/browser` `hydrate`:
+[RENDER]: Worker and Node entry render `Site` into built `index.html` through `@rasm/hosting/template` `Template.render`, browsers hydrate the same `Site` through `@rasm/hosting/browser` `hydrate`:
 - Served markup holds published document and session alone, drafts reach a browser through owner endpoints
 - Fragments name active project and selected composition, user selection pushes history and scrolling replaces it
 - `popstate` and `hashchange` restore selection and scroll position from the fragment
@@ -81,8 +81,8 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `react-error-boundary` fallbacks catch chunk and render failures
 - `react-zoom-pan-pinch` owns image zoom
 - PDF.js (`pdfjs-dist`) owns PDF inspection, rendering, and sheet viewer
-- `@rasm/media/pdf` `PdfDocument` shares one PDF.js document across every sheet of a PDF, opened for range requests (`disableStream`, `disableAutoFetch`)
-- `@rasm/media/pdf` `PdfViewer.useViewer` renders the sheet preview and the sheet viewer, its `AsyncResult` failure renders the original-file link
+- `@rasm/media/pdf-document` `PdfDocument` shares one PDF.js document across every sheet of a PDF, opened for range requests (`disableStream`, `disableAutoFetch`)
+- `@rasm/media/pdf-viewer` `PdfViewer.useViewer` renders the sheet preview and the sheet viewer, its `AsyncResult` failure renders the original-file link
 - Sheet previews draw annotations without a text layer
 - Sheet viewer writes page and scale through `PdfViewer` state `assign`, rotation through `rotate`, and find highlights through `find` when Find reopens
 - Videos take no text track, owners burn captions in and write transcripts as descriptions
@@ -116,8 +116,9 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
 - `server/worker.ts` passes `cloudflare:workers` `env` and its `Layer` to `serveWorker`, `server/main.ts` passes `cloudflare.config.ts` and an `env` callback to `serveNode`, each host providing `Template` from the assets binding
 - `server/app.ts` composes routes over passed services, D1 and `ObjectStorage.r2` from the Worker, SQLite and path-style `ObjectStorage.s3` from Node
-- `nx run @rasm/portfolio:infra [-- docker]` prints the stack difference and `--apply` builds and deploys to a Cloudflare account or a Docker host, an untagged `HEAD` taking Cloudflare's mode `disposable` with its own Worker and resources, Docker keeping mode `production` under a `-disposable` name
-- Sites, `@rasm/hosting/cloudflare-access` `CloudflareAccess.middleware`, or Docker proxy send user id and email as `User.sites` headers
+- `nx run @rasm/portfolio:infra [-- docker]` prints the stack difference and `--apply` builds and deploys to a Cloudflare account or a Docker host
+- Untagged `HEAD` takes Cloudflare mode `disposable` with its own Worker and resources, and Docker mode `production` under a `-disposable` name
+- Sites, `@rasm/hosting` `CloudflareAccess.middleware`, or Docker proxy send user id and email as `User.sites` headers
 - `@rasm/hosting/vite` `cloudflareWorker` takes `favicon.svg` and `site/theme.css` tokens, `siteHead` emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and the `color-scheme` the tokens hold
 - Requests without a user id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks read and compare user ids alone

@@ -6,8 +6,11 @@ using SuperLinq;
 namespace Rasm.Rhino.UI.Rows;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class RowTable {
+
     // --- [STATE]
+
     private readonly Ref<(Seq<RealizedRow> Realized, Option<Arrangement> Laid)> state = Ref((Realized: Seq<RealizedRow>(), Laid: Option<Arrangement>.None));
     private readonly RowScope scope;
     private readonly Panel view;
@@ -16,7 +19,8 @@ public sealed class RowTable {
 
     public Control View => view;
 
-    // --- [REALIZE]
+    // --- [REALIZATION]
+
     public static IO<RowTable> Realize(ControlRows rows, RowScope scope) =>
         from made in Made(scope)
         from post in Mailboxes.Idle<Unit, Unit>(_ => rows.Read(scope).Bind(made.Show))
@@ -32,7 +36,8 @@ public sealed class RowTable {
         from sized in Subscriptions.On<EventArgs>(h => made.view.SizeChanged += h, h => made.view.SizeChanged -= h).Attach(_ => post(unit, unit))
         select made;
 
-    // --- [SHOW]
+    // --- [DISPLAY]
+
     public IO<Unit> Show(Seq<Row> rows) =>
         (from shown in rows.TraverseM(row => Holds(row.Visible).Map(visible => (Row: row, Visible: visible))).As()
          let visible = Identified(shown.Filter(static entry => entry.Visible).Map(static entry => entry.Row))
@@ -90,7 +95,8 @@ public sealed class RowTable {
         from disposed in IO.lift(view.Dispose)
         select unit;
 
-    // --- [ARRANGE]
+    // --- [ARRANGEMENT]
+
     private IO<Unit> Fitted =>
         from prior in atomicIO(() => state.Value.Laid)
         from laid in prior.Traverse(held => IO.lift(() => view.Width >= Needed(held.Rows)).Bind(beside => Arranged(prior, held.Rows, beside))).As()
@@ -147,7 +153,8 @@ public sealed class RowTable {
 
     private static int Widest(Seq<Control> controls) => controls.Fold(0, static (widest, control) => int.Max(widest, (int)MathF.Ceiling(control.GetPreferredSize().Width)));
 
-    // --- [BODY]
+    // --- [BODIES]
+
     private IO<Control> Valued(RowCells cells, Row row) =>
         from body in Body(cells, row)
         from menu in cells.Menu.IsEmpty
@@ -178,6 +185,7 @@ public sealed class RowTable {
         Containers.Frame(() => new TableLayout(new TableRow(cells)) { Padding = 0, Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) }).Map(static table => (Control)table);
 
     // --- [ROWS]
+
     private sealed record Arrangement(Seq<(RowShape Shape, Option<Label> Caption, Control Value)> Rows, bool Beside, TableLayout Table, Seq<TableLayout> Runs);
 
     private sealed record RealizedRow((Type Kind, string Label, int Ordinal) Id, Owned<(Option<Label> Caption, Control Control, Func<Row, IO<bool>> Restate)> Content);

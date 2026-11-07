@@ -12,11 +12,15 @@ using Rhino.Render.PostEffects;
 namespace Darkroom.Chain;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 [Guid("439c2d1c-2cbb-4136-aba8-5bdb6e431ef1")]
 [CustomPostEffect(PostEffectType.Early, "Darkroom",
     PostEffectStyles.ExecuteForProductionRendering | PostEffectStyles.ExecuteForRealtimeRendering | PostEffectStyles.ExecuteForViewportDisplay
     | PostEffectStyles.DefaultShown | PostEffectStyles.DefaultOn)]
 public sealed class DarkroomEffect : DefinedEffect<DarkroomEffect, ChainState>, IDefined<EffectDefinition<ChainState>> {
+
+    // --- [STATE]
+
     public static Derivations Derived { get; } = new();
 
     public static EffectDefinition<ChainState> Definition { get; } = new(ChainState.Default, Formed) {
@@ -26,6 +30,7 @@ public sealed class DarkroomEffect : DefinedEffect<DarkroomEffect, ChainState>, 
     };
 
     // --- [PIPELINE]
+
     private static IO<Unit> Formed(ChainState state, EffectFrame frame) =>
         from extent in IO.lift(PixelExtent.Validated(frame.Extent.Width, frame.Extent.Height))
         from size in IO.lift(PixelExtent.Validated(frame.Rect.Width, frame.Rect.Height))

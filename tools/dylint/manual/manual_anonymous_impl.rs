@@ -40,6 +40,8 @@ impl<'tcx> Pass<'tcx> {
     pub(crate) fn new(_: TyCtxt<'tcx>, bodies: Rc<Bodies<'tcx>>) -> Self { Self { bodies, implemented: Vec::new(), mentions: FxIndexMap::default() } }
 }
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
         if let ItemKind::Impl(implementation) = item.kind

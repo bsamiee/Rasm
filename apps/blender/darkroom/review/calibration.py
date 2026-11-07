@@ -1,6 +1,5 @@
 """Darkroom chart calibration: a color chart placed over an image or node preview, fitted against its reference, and written into the earliest Primaries entry's channel mixer."""
 
-# ruff: file-ignore[relative-imports]
 from pathlib import Path
 from typing import Final
 

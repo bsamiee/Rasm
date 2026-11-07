@@ -182,7 +182,7 @@ def chromaticity(metrics: Metrics, config: PyOpenColorIO.Config, plane: npt.NDAr
         return Layer.of("LINES", np.vstack((rows[[0, 1, 1, 2, 2, 0]] / framed, rows[3] / framed + square)).astype(np.float32), color, blend=blend, width=stroke)
 
     def block(name: str, rows: npt.NDArray[np.float64]) -> tuple[str, ...]:
-        return (name, *(f"{letter} {x:.4f} {y:.4f}" for letter, (x, y) in zip("RGBW", rows)))
+        return (name, *(f"{letter} {x:.4f} {y:.4f}" for letter, (x, y) in zip("RGBW", rows.tolist())))
 
     def plotted(reading: Chromaticity) -> Chart:
         counts, found = reading.trace, np.argwhere(reading.trace > 0)

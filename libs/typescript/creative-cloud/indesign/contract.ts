@@ -1,13 +1,11 @@
-import { HostError } from '@rasm/automation/error';
-import { ObjectModel, Reference, Requests, request } from '@rasm/automation/requests';
-import { Settings } from '@rasm/typography/settings';
-import { Source } from '@rasm/typography/source';
-import { UxpManifest } from '@rasm/uxp/manifest';
+import { HostError, ObjectModel, Reference, Requests, request } from '@rasm/automation';
+import { Settings, Source } from '@rasm/typography';
+import { UxpManifest } from '@rasm/uxp';
 import { Effect, Option, Record, Schema, SchemaTransformation, Struct } from 'effect';
 import { RpcGroup, RpcMiddleware } from 'effect/rpc';
-import { Slice } from '#/internal/slice';
-import { Specifier } from '#/internal/specifier';
-import { Value } from '#/internal/value';
+import { Slice } from '#/internal/slice.ts';
+import { Specifier } from '#/internal/specifier.ts';
+import { Value } from '#/internal/value.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

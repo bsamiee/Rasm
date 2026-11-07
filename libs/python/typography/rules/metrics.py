@@ -8,12 +8,11 @@ lazy from fontTools.misc.roundTools import otRound
 lazy from fontTools.ttLib import TTFont
 
 from typography.faces.declaration import Band, Em
-from typography.rules.measures import Rule
-lazy from typography.faces.glyphs import Letter, Ligature, Mark, Metrics as Vertical, Side, Source
+from typography.rules.measures import middle, Rule
+lazy from typography.faces import glyphs
 lazy from typography.faces.names import Form
 lazy from typography.outlines.measure import counter
 lazy from typography.outlines.paths import Box
-lazy from typography.rules.measures import middle
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.runs import Binary
 
@@ -21,7 +20,7 @@ lazy from typography.shaping.runs import Binary
 
 
 class Metrics(Rule, frozen=True, kw_only=True):
-    """Typo and hhea at the ink the plain, marked, annotated, and deep corpus reaches set on the face inside a pitch band, or the face's own pair without one, and win over every mapped glyph and a stack of `stacks` marks over each base anchor."""
+    """Typo and hhea at the outline extent the plain, marked, annotated, and deep corpus reaches set on the face inside a pitch band, or the face's own pair without one, and win over every mapped glyph and a stack of `stacks` marks over each base anchor."""
 
     pitch: Band | None
     stack: Em
@@ -29,7 +28,7 @@ class Metrics(Rule, frozen=True, kw_only=True):
 
 
 class Records(Rule, frozen=True, kw_only=True):
-    """Lowest readable size one pixel across the median counter of the letters, or of every glyph, the x and cap heights at the ink tops of `x` and `H` as OS/2 defines them, and the italic angle and caret shift of a slant about the stem's middle."""
+    """Lowest readable size one pixel across the median counter of the letters, or of every glyph, the x and cap heights at the outline tops of `x` and `H` as OS/2 defines them, and the italic angle and caret shift of a slant about the stem's middle."""
 
     lowest: int | None = None
     letters: tuple[int, ...] = ()
@@ -38,16 +37,17 @@ class Records(Rule, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [EXTENTS]
 
 
 def _reach(binary: Binary[TTFont], texts: tuple[tuple[str, str], ...], /) -> tuple[float, float]:
-    """Baseline and actual ink extrema after native substitutions and positioning under each run's language."""
-    return reduce(lambda held, box: (max(held[0], box.ymax), min(held[1], box.ymin)), (box for text, language in texts for _, box in binary.inked(text, language)), (0.0, 0.0))
+    """Baseline and actual outline extrema after native substitutions and positioning under each run's language."""
+    return reduce(lambda held, box: (max(held[0], box.ymax), min(held[1], box.ymin)), (box for text, language in texts for _, box in binary.placed_extents(text, language)), (0.0, 0.0))
 
 
 def _typo(plain: tuple[float, float], marked: tuple[float, float], pitch: tuple[float, float], /) -> tuple[int, int]:
-    """Retains plain ink and fits marked ink to the integer pitch budget, padding toward its minimum with an odd unit above."""
+    """Retains plain outline extents and fits marked outline extents to the integer pitch budget, padding toward its minimum with an odd unit above."""
     low, high = math.ceil(pitch[0]), math.floor(pitch[1])
     plain_top, plain_foot, marked_top, marked_foot = math.ceil(plain[0]), math.floor(plain[1]), math.ceil(marked[0]), math.floor(marked[1])
     top = max(plain_top, min(max(plain_top, marked_top), min(plain_foot, marked_foot) + high))
@@ -56,20 +56,22 @@ def _typo(plain: tuple[float, float], marked: tuple[float, float], pitch: tuple[
     return (top + pad + extra, foot - pad)
 
 
-def _win(source: Source, stack: float, stacks: int, reached: tuple[float, float], /) -> tuple[int, int]:
-    """Win ascent and descent over native corpus ink, every glyph, and a stack of the tallest marks on every base anchor."""
+def _win(source: glyphs.Source, stack: float, stacks: int, reached: tuple[float, float], /) -> tuple[int, int]:
+    """Win ascent and descent over native corpus outlines, every glyph, and a stack of the tallest marks on every base anchor."""
     boxes = {name: Box.of(rect) for name in source.named if (rect := source.bounds(name)) is not None}
-    feet = {side: tuple((glyph, foot) for glyph in source.by_role(Mark) if glyph.role == Mark(side=side) for foot in glyph.anchors if foot.name.startswith("_")) for side in Side}
+    feet = {side: tuple((glyph, foot) for glyph in source.by_role(glyphs.Mark) if glyph.role == glyphs.Mark(side=side) for foot in glyph.anchors if foot.name.startswith("_")) for side in glyphs.Side}
     rises = {side: max((abs(anchor.y - foot.y) for glyph, foot in held for anchor in glyph.anchor(foot.name[1:]).to_list()), default=stack) for side, held in feet.items()}
-    reaches = {side: max((abs((box.ymax if side is Side.ABOVE else box.ymin) - foot.y) for glyph, foot in held if (box := boxes.get(glyph.name.text))), default=0.0) for side, held in feet.items()}
-    stacked = {side: (stacks - 1) * rises[side] + reaches[side] for side in Side}
-    anchors = tuple(anchor for glyph in source.glyphs if isinstance(glyph.role, Letter | Ligature) for anchor in glyph.anchors)
-    top = max((reached[0], *(box.ymax for box in boxes.values()), *(anchor.y + stacked[Side.ABOVE] for anchor in anchors if anchor.name.startswith(Side.ABOVE.anchor))))
-    foot = min((reached[1], *(box.ymin for box in boxes.values()), *(anchor.y - stacked[Side.BELOW] for anchor in anchors if anchor.name.startswith(Side.BELOW.anchor))))
+    reaches = {
+        side: max((abs((box.ymax if side is glyphs.Side.ABOVE else box.ymin) - foot.y) for glyph, foot in held if (box := boxes.get(glyph.name.text))), default=0.0) for side, held in feet.items()
+    }
+    stacked = {side: (stacks - 1) * rises[side] + reaches[side] for side in glyphs.Side}
+    anchors = tuple(anchor for glyph in source.glyphs if isinstance(glyph.role, glyphs.Letter | glyphs.Ligature) for anchor in glyph.anchors)
+    top = max((reached[0], *(box.ymax for box in boxes.values()), *(anchor.y + stacked[glyphs.Side.ABOVE] for anchor in anchors if anchor.name.startswith(glyphs.Side.ABOVE.anchor))))
+    foot = min((reached[1], *(box.ymin for box in boxes.values()), *(anchor.y - stacked[glyphs.Side.BELOW] for anchor in anchors if anchor.name.startswith(glyphs.Side.BELOW.anchor))))
     return (math.ceil(top), math.ceil(-foot))
 
 
-def measured(source: Source, rule: Metrics, /, *, corpus: Corpus, binary: Binary[TTFont]) -> Vertical:
+def measured(source: glyphs.Source, rule: Metrics, /, *, corpus: Corpus, binary: Binary[TTFont]) -> glyphs.Metrics:
     """Measures final vertical metrics on compiled native layout, retaining the source's records.
 
     Args:
@@ -99,8 +101,8 @@ def measured(source: Source, rule: Metrics, /, *, corpus: Corpus, binary: Binary
 # --- [RECORDS]
 
 
-def recorded(source: Source, rule: Records, /) -> Source:
-    """Sets the lowest readable size one pixel across the median counter of the letters, or of every glyph, the x and cap heights at the ink tops of `x` and `H`, and the slant's italic angle and caret shift."""
+def recorded(source: glyphs.Source, rule: Records, /) -> glyphs.Source:
+    """Sets the lowest readable size one pixel across the median counter of the letters, or of every glyph, the x and cap heights at the outline tops of `x` and `H`, and the slant's italic angle and caret shift."""
     names = frozenset(source.key(code, form) for code in rule.letters for form in Form)
     counters = tuple(width for glyph in source.glyphs if (not rule.letters or glyph.name.text in names) and (width := counter(source.drawn(glyph.name.text).contours)) > 0)
     x_height, cap_height = (otRound(rect[3]) if (rect := source.bounds(source.key(code))) is not None else 0 for code in map(ord, "xH"))

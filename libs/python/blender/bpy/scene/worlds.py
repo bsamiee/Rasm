@@ -148,7 +148,8 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-# --- [GRAPH]
+
+# --- [GRAPHS]
 
 
 def _slots(environment: Environment) -> tuple[tuple[RaySlot, Backdrop], ...]:

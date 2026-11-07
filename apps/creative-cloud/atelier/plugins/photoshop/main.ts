@@ -1,6 +1,6 @@
-import { linkPhotoshop } from '@rasm/photoshop/uxp';
-import { UxpPlugin } from '@rasm/uxp/uxp';
+import { link } from '@rasm/photoshop/uxp';
+import { Plugin } from '@rasm/uxp/plugin';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-UxpPlugin.serve({ link: linkPhotoshop });
+Plugin.serve({ link });

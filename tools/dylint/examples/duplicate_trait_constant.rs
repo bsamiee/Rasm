@@ -76,14 +76,15 @@ fn main() {
 }
 
 mod associated_types {
-    // --- [TYPES] -----------------------------------------------------------------------
+
+    // --- [TYPES]
 
     trait Meta {
         type Value;
         const VALUE: Self::Value;
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     impl Meta for super::Narrow {
         type Value = u8;
@@ -99,13 +100,14 @@ mod associated_types {
 }
 
 mod generic_types {
-    // --- [TYPES] -----------------------------------------------------------------------
+
+    // --- [TYPES]
 
     trait Meta<T> {
         const VALUE: T;
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     impl Meta<u8> for super::Narrow {
         const VALUE: u8 = 1;
@@ -119,24 +121,26 @@ mod generic_types {
 }
 
 mod private_paths {
-    // --- [TYPES] -----------------------------------------------------------------------
+
+    // --- [TYPES]
 
     trait Meta {
         const VALUE: u32;
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     pub(super) fn values() -> [u32; 2] { [<super::Narrow as Meta>::VALUE, <super::Wide as Meta>::VALUE] }
 
-    // --- [COMPOSITION] -----------------------------------------------------------------
+    // --- [COMPOSITION]
 
     mod first {
-        // --- [CONSTANTS] ---------------------------------------------------------------
+
+        // --- [CONSTANTS]
 
         const LIMIT: u32 = 5;
 
-        // --- [OPERATIONS] --------------------------------------------------------------
+        // --- [OPERATIONS]
 
         impl super::Meta for super::super::Narrow {
             const VALUE: u32 = LIMIT;
@@ -144,11 +148,12 @@ mod private_paths {
     }
 
     mod last {
-        // --- [CONSTANTS] ---------------------------------------------------------------
+
+        // --- [CONSTANTS]
 
         const LIMIT: u32 = 5;
 
-        // --- [OPERATIONS] --------------------------------------------------------------
+        // --- [OPERATIONS]
 
         impl super::Meta for super::super::Wide {
             const VALUE: u32 = LIMIT;
@@ -157,7 +162,8 @@ mod private_paths {
 }
 
 mod self_dependency {
-    // --- [TYPES] -----------------------------------------------------------------------
+
+    // --- [TYPES]
 
     trait Here {
         const VALUE: &'static str;
@@ -167,7 +173,7 @@ mod self_dependency {
         const NAME: &'static str;
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     impl Other for super::Narrow {
         const NAME: &'static str = "shared";
@@ -191,7 +197,7 @@ mod self_dependency {
 mod generic_dependency {
     use core::marker::PhantomData;
 
-    // --- [TYPES] -----------------------------------------------------------------------
+    // --- [TYPES]
 
     trait Named {
         const NAME: &'static str;
@@ -201,7 +207,7 @@ mod generic_dependency {
         const VALUE: &'static str;
     }
 
-    // --- [MODELS] ----------------------------------------------------------------------
+    // --- [MODELS]
 
     #[derive(Debug)]
     struct Wrapper<T>(PhantomData<T>);
@@ -209,7 +215,7 @@ mod generic_dependency {
     #[derive(Debug)]
     struct Other<T>(PhantomData<T>);
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     impl Named for u8 {
         const NAME: &'static str = "byte";
@@ -231,7 +237,8 @@ mod generic_dependency {
 }
 
 mod declaration_references {
-    // --- [TYPES] -----------------------------------------------------------------------
+
+    // --- [TYPES]
 
     trait Own {
         const NAME: &'static str;
@@ -258,7 +265,7 @@ mod declaration_references {
         const VALUE: &'static str;
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     impl Own for super::Narrow {
         const NAME: &'static str = "narrow";
@@ -333,7 +340,8 @@ mod declaration_references {
 }
 
 mod lifetime_relationships {
-    // --- [TYPES] -----------------------------------------------------------------------
+
+    // --- [TYPES]
 
     trait Source<'a> {
         const NAME: &'a str;
@@ -355,7 +363,7 @@ mod lifetime_relationships {
         const VALUE: &'a str;
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     impl<'a> Source<'a> for super::Narrow {
         const NAME: &'a str = "narrow";

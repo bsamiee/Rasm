@@ -201,6 +201,8 @@ class Overscan(bpy.types.PropertyGroup):
 class Framed(msgspec.Struct, frozen=True, kw_only=True):
     """Overscan attachment and stored pre-render state."""
 
+    # --- [STATE]
+
     attached: Attached[Overscan]
     recovery: Recovery[Grown]
 

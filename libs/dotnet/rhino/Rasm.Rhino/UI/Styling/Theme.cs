@@ -4,14 +4,18 @@ using Rhino.UI;
 namespace Rasm.Rhino.UI.Styling;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class HostTheme {
-    // --- [CHANGE]
+
+    // --- [CHANGES]
+
     public static HostEvent<Unit> Changed =>
         Subscriptions.Merged(
             Subscriptions.On<EventHandler, EventArgs>(static h => ThemeSettings.ThemeChanged += h, static h => ThemeSettings.ThemeChanged -= h, static handler => handler.Invoke).Choose(static _ => Some(unit)),
             IHostPlatform.Current.Changed);
 
     // --- [APPLICATION]
+
     public static IO<Unit> Applied(Option<Control> owner, IO<Unit> apply) =>
         (apply >> Changed.Attach(_ => apply)) switch {
             var themed => owner.Match(

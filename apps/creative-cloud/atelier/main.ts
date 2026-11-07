@@ -6,10 +6,10 @@ import { Automation } from '@rasm/applications/node';
 import { serve } from '@rasm/mcp/node';
 import { Config, Duration, Effect, Layer } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { Adobe } from '#/adobe';
-import { executable } from '#/features/delivery';
+import { Adobe } from '#/adobe.ts';
+import { executable } from '#/features/delivery.ts';
 import manifest from '#/package.json' with { type: 'json' };
-import { registerAdobeTools } from '#/register-adobe-tools';
+import { registerAdobeTools } from '#/register-adobe-tools.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

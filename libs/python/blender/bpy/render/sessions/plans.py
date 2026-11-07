@@ -243,6 +243,8 @@ QUEUES: Final = Resource[QueueState](made=lambda _identity: QueueState.held())
 class Dispatcher(msgspec.Struct, frozen=True):
     """Bound queue dependencies and session state."""
 
+    # --- [STATE]
+
     identity: Identity
     state: QueueState
     host: HostCommands

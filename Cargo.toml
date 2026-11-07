@@ -1,16 +1,19 @@
 # --- [WORKSPACE] ------------------------------------------------------------------------
 
 # --- [MEMBERS]
+
 [workspace]
 resolver = "3"
 members  = ["eng/rust/host-tests", "libs/rust/*/*", "tools/ast-grep/regex", "tools/bridge", "tools/dylint"]
 
 # --- [IDENTITY]
+
 [workspace.package]
 edition = "2024"
 publish = false
 
 # --- [DYLINT]
+
 [workspace.metadata.dylint]
 libraries = [{ path = "tools/dylint" }]
 
@@ -18,6 +21,7 @@ libraries = [{ path = "tools/dylint" }]
 
 [workspace.dependencies]
 # --- [ASYNC]
+
 backon           = "1.6.0"                                                                                                                       # Retry schedules with backoff, jitter, and a transient-failure predicate around one async operation
 futures          = "0.3.34"                                                                                                                      # Future joins, stream combinators with ordered results, and a stream read as an iterator on a blocking thread
 pin-project-lite = "0.2.17"                                                                                                                      # Pinned fields of hand-written futures and tower response types without unsafe
@@ -26,16 +30,19 @@ tokio-stream     = { version = "0.1.19", features = ["sync", "signal", "io-util"
 tokio-util       = { version = "0.7.20", features = ["codec", "rt"] }                                                                            # Stream framing, cancellation tokens, task trackers, and scoped drop guards
 
 # --- [CONCURRENCY]
+
 arc-swap = "1.9.3"                                           # Read-mostly snapshots replaced whole while readers keep their copy
 deadpool = { version = "0.13.1", features = ["rt_tokio_1"] } # Async pools of reusable connections and handles
 papaya   = "0.2.5"                                           # Concurrent maps with lock-free reads across await points
 rayon    = "1.12.0"                                          # Data parallelism over independent CPU-bound work
 
 # --- [CACHES]
+
 foyer = { version = "0.22.6", features = ["tracing", "serde"] } # Hybrid memory and disk caches holding results larger than memory
 moka  = { version = "0.12.16", features = ["future", "sync"] }  # Bounded caches with per-entry expiry and coalesced async loads
 
 # --- [SYSTEM]
+
 libc            = "0.2.191"                                           # Native constants missing from higher-level process APIs
 libproc         = "0.15.0"                                            # Darwin process group membership and process information
 nix             = { version = "0.31.3", features = ["user"] }         # Account identity and home directories from the operating system
@@ -49,6 +56,7 @@ wasmtime        = "50.0.1"                                            # In-proce
 windows-service = "0.8.1"                                             # Windows service installation and control events
 
 # --- [ERRORS]
+
 annotate-snippets    = "0.12.17"                                   # Diagnostics rendered over source spans
 anyhow               = "1.0.104"                                   # Native error reports preserved from NUTS and exercised by erased-error lint examples
 nonempty-collections = { version = "1.4.0", features = ["serde"] } # Non-empty vectors, sets, and maps that hold accumulated errors
@@ -57,6 +65,7 @@ thiserror            = "2.0.21"                                    # Error enums
 validated            = { version = "1.0.0", features = ["rayon"] } # Applicative validation accumulating every independent error
 
 # --- [DERIVES]
+
 auto_impl    = "1.4.0"                                                                                                                                                                      # Capability traits implemented for references, Arc, and Box from one impl
 bon          = "3.10.3"                                                                                                                                                                     # Compile-time-checked builders for optional arguments
 derive-where = { version = "1.7.0", features = ["safe"] }                                                                                                                                   # Derives on generic and phantom-typed records without spurious bounds
@@ -66,6 +75,7 @@ o2o          = { version = "0.5.5", default-features = false, features = ["syn2"
 strum        = { version = "0.28.0", features = ["derive"] }                                                                                                                                # Enum name tables, iteration, and discriminant enums
 
 # --- [COLLECTIONS]
+
 cardinality-estimator = { version = "1.0.3", features = ["with_serde"] }          # HyperLogLog distinct counts that merge across shards
 datasketches          = { version = "0.6.0", features = ["tdigest"] }             # Mergeable t-digest quantile sketches that chunk reductions merge and query
 enum-map              = { version = "3.1.0", features = ["serde"] }               # Total maps holding one value per enum variant
@@ -81,10 +91,12 @@ slotmap               = "1.1.1"                                                 
 smallvec              = { version = "2.0.0-beta.4", features = ["std", "serde"] } # Inline small vectors that spill to heap
 
 # --- [CRDT]
+
 loro = "1.17.1" # Loro documents with text, list, map, and tree history
 yrs  = "0.28.0" # Yjs documents with state vectors and update exchange
 
 # --- [SERIALIZATION]
+
 apache-avro         = { version = "0.22.0", features = ["derive", "zstandard", "snappy"] }                   # Avro schemas, binary encoding, and container files
 binrw               = "0.15.2"                                                                               # Binary formats read and written from one declaration
 bytes               = { version = "1.12.1", features = ["serde"] }                                           # Shared immutable byte buffers
@@ -112,30 +124,36 @@ toml_edit           = { version = "0.25.17", features = ["serde"] }             
 yaml-edit           = "0.3.6"                                                                                # YAML edits that keep comments and layout
 
 # --- [SCHEMA]
+
 jsonschema = { version = "0.60.2", default-features = false, features = ["resolve-file", "idna"] }                             # JSON Schema validation, sync `validator_for` panics inside tokio fetching a remote `$ref` through default `resolve-http` and `tls-aws-lc-rs`
 schemars   = { version = "1.2.3", features = ["jiff02", "uuid1", "indexmap2", "url2", "semver1", "bytes1", "preserve_order"] } # JSON Schema derived from record types in field declaration order
 
 # --- [NEWTYPES]
+
 bounded-integer = { version = "0.6.2", features = ["std", "serde1", "schemars1"] }     # Ranged integers with bounds that reach derived schema
 nutype          = { version = "0.8.0", features = ["serde", "regex", "rust_decimal"] } # Validated newtypes with generated error enum per type
 ordered-float   = { version = "5.5.1", features = ["serde"] }                          # NaN-free floats usable as ordered keys
 
 # --- [TIME]
+
 croner = { version = "4.0.2", default-features = false, features = ["jiff"] } # Cron expressions evaluated against passed-in instants, default `chrono` adds chrono beside jiff
 jiff   = { version = "0.2.39", features = ["serde"] }                         # Instants, zoned date-times, spans, and zone database
 
 # --- [IDENTIFIERS]
+
 newtype-uuid        = { version = "1.4.0", features = ["v4", "v7", "serde"] }  # Identifiers typed by entity kind they name
 newtype-uuid-macros = "0.1.1"                                                  # Kind types and identifier aliases generated per entity
 semver              = { version = "1.0.28", features = ["serde"] }             # Semantic version and requirement parsing
 uuid                = { version = "1.29.0", features = ["v4", "v7", "serde"] } # Random and creation-ordered identifiers
 
 # --- [HASHING]
+
 blake3      = "1.8.7"                                                     # Content-addressed keys
 crc-fast    = "1.10.0"                                                    # CRC-32 and CRC-64 checksums across catalogued polynomials
 xxhash-rust = { version = "0.8.19", features = ["std", "xxh3", "xxh64"] } # XXH3 and XXH64 content identity hashes
 
 # --- [TEXT]
+
 aho-corasick  = "1.1.5"                                                   # Many-literal search in one pass
 bstr          = "1.13.1"                                                  # Byte strings with character iteration at text boundaries
 bytesize      = { version = "2.7.0", features = ["serde"] }               # Byte sizes parsed and displayed in binary and decimal units
@@ -150,6 +168,7 @@ unicode-bidi  = "0.3.18"                                                  # Bidi
 unicode-width = "0.2.3"                                                   # Display width of wide, combining, and emoji text
 
 # --- [PARSING]
+
 ast-grep-config    = { version = "0.51.1", default-features = false }                              # Rule, util and transform documents of structural search
 ast-grep-core      = "0.51.1"                                                                      # Structural search and rewrite over syntax trees
 ast-grep-dynamic   = "0.51.1"                                                                      # Custom-language grammar libraries of structural search, loaded at run time
@@ -169,6 +188,7 @@ tree-sitter-xml    = "0.7.0"                                                    
 winnow             = "1.0.4"                                                                       # Parser combinators with caller-defined error types
 
 # --- [MARKUP]
+
 ammonia      = "4.2.4"                                                                               # Allow-list sanitization of untrusted HTML
 comrak       = { version = "0.59.0", default-features = false, features = ["cli", "syntect-fancy"] } # CommonMark and GFM parsed into AST, default `syntect-onig` builds Oniguruma C beside `regex-fancy`
 htmd         = "0.5.6"                                                                               # HTML converted to Markdown
@@ -180,11 +200,12 @@ scraper      = "0.29.0"                                                         
 xot          = "0.31.2"                                                                              # Mutable XML trees with namespaces and parent access
 
 # --- [FILES]
+
 camino                = { version = "1.2.6", features = ["serde1"] }                                                                                                                                        # UTF-8 paths as construction invariant
 cap-std               = { version = "4.0.3", features = ["fs_utf8"] }                                                                                                                                       # Directory capabilities opened at boundary and passed in
 dunce                 = "1.0.5"                                                                                                                                                                             # Canonical Windows paths without verbatim prefix
 file-format           = { version = "0.29.0", features = ["reader-zip", "reader-xml", "reader-pdf", "reader-cfb", "reader-ebml", "reader-exe", "reader-mp4", "reader-rm", "reader-sqlite3", "reader-txt"] } # Format detection from leading bytes and containers
-fs-err                = { version = "3.3.2", features = ["tokio"] }                                                                                                                                         # File calls with errors that name path
+fs-err                = "3.3.2"                                                                                                                                                                             # File calls with errors that name path
 globset               = "0.4.21"                                                                                                                                                                            # One path matched against many globs in one pass
 ignore                = "0.4.34"                                                                                                                                                                            # Gitignore-aware parallel directory walks
 notify                = { version = "9.0.0-rc.7", features = ["tokio"] }                                                                                                                                    # File system change events
@@ -194,6 +215,7 @@ walkdir               = "2.5.0"                                                 
 typed-path            = { version = "0.13.0", default-features = false }                                                                                                                                    # Archive entry names normalized by Unix path rules on every host
 
 # --- [COMPRESSION]
+
 async-compression = { version = "0.4.51", features = ["tokio", "gzip", "zlib", "zstd", "brotli", "lz4", "xz", "bzip2"] } # Compression over async byte streams
 brotli            = "9.1.1"                                                                                              # Brotli streams
 bzip2             = "0.6.1"                                                                                              # bzip2 streams
@@ -208,6 +230,7 @@ zip               = { version = "9.2.2", default-features = false, features = ["
 zstd              = { version = "0.14.3", features = ["zstdmt"] }                                                        # Zstandard frames with dictionaries
 
 # --- [CRYPTOGRAPHY]
+
 argon2                   = "0.6.0"                                                                                               # Password hashing in PHC strings
 aws-lc-rs                = { version = "1.19.0", default-features = false, features = ["aws-lc-sys", "alloc", "prebuilt-nasm"] } # Digests, MACs, key derivation, AEAD, signatures, and key wrap, default `ring-io` and `ring-sig-verify` add untrusted 0.7 beside 0.9
 crypto_box               = "0.9.1"                                                                                               # NaCl public-key boxes
@@ -218,6 +241,7 @@ sigstore                 = { version = "0.14.0", default-features = false, featu
 x509-parser              = { version = "0.18.1", features = ["verify-aws"] }                                                     # X.509 certificate parsing and signature checks
 
 # --- [AUTHENTICATION]
+
 httpsig       = { version = "0.0.26", features = ["rsa-signature"] }                                           # HTTP message signatures
 jsonwebtoken  = { version = "11.1.0", features = ["aws_lc_rs"] }                                               # JWT signing and validation
 openidconnect = { version = "4.1.0", default-features = false, features = ["timing-resistant-secret-traits"] } # OpenID Connect discovery, PKCE flows, and ID token validation, default `reqwest` and `rustls-tls` add reqwest 0.12 on ring beside aws-lc-rs
@@ -226,6 +250,7 @@ webauthn-rs   = { version = "0.6.2", features = ["conditional-ui", "resident-key
 webbrowser    = "1.2.6"                                                                                        # Authorization URLs opened in user's browser
 
 # --- [SECRETS]
+
 aws-config                      = { version = "1.13.0", features = ["behavior-version-latest"] }                                                                # AWS credential and region resolution
 aws-sdk-kms                     = { version = "1.129.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # AWS KMS keys, default `rustls` adds hyper 0.14 client on ring
 azure_identity                  = { version = "1.0.0", features = ["tokio"] }                                                                                   # Microsoft Entra ID credential chain
@@ -238,6 +263,7 @@ secrecy                         = { version = "0.10.3", features = ["serde"] }  
 vaultrs                         = "0.8.0"                                                                                                                       # HashiCorp Vault secrets, transit, and PKI
 
 # --- [HTTP]
+
 aide               = { version = "0.16.0-alpha.4", features = ["axum-json", "axum-query", "scalar"] }                                                                                                           # OpenAPI documents derived from tool parameter schemas
 axum               = { version = "0.8.9", features = ["http2"] }                                                                                                                                                # Servers mounting tower services on bound sockets
 form_urlencoded    = "1.2.2"                                                                                                                                                                                    # application/x-www-form-urlencoded encoding of name and value pairs
@@ -259,6 +285,7 @@ tower-http         = { version = "0.7.1", features = ["trace"] }                
 url                = { version = "2.5.8", features = ["serde"] }                                                                                                                                                # WHATWG URLs parsed at boundaries
 
 # --- [REMOTE_PROCEDURE_CALLS]
+
 async-lsp           = { version = "0.2.4", features = ["tokio"] }                                                                                                                            # Language Server Protocol clients and servers as tower services
 buffa               = { version = "0.9.2", features = ["json"] }                                                                                                                             # Protobuf messages with editions, views, and canonical JSON
 buffa-types         = { version = "0.9.2", features = ["json", "jiff"] }                                                                                                                     # Protobuf well-known types with JSON mapping and jiff conversion
@@ -267,6 +294,7 @@ protovalidate-buffa = { version = "0.7.2", features = ["json"] }                
 rmcp                = { version = "3.8.0", features = ["client", "elicitation", "transport-child-process", "transport-streamable-http-client-reqwest", "transport-streamable-http-server"] } # MCP servers over Streamable HTTP and clients of child-process and Streamable HTTP servers
 
 # --- [TRANSFER]
+
 object_store = { version = "0.13.2", features = ["aws", "gcp", "azure", "http"] } # One API over S3, GCS, Azure, HTTP, and local object stores at the release DataFusion 55 and deltalake 1.1 link, `cloud` under each store feature adds reqwest 0.12 on ring and chrono
 reqwest_dav  = "0.3.3"                                                            # WebDAV transfers
 russh        = "0.65.0"                                                           # SSH clients and servers reaching remote workers
@@ -274,6 +302,7 @@ russh-sftp   = "3.0.1"                                                          
 suppaftp     = { version = "12.2.1", features = ["tokio-rustls-aws-lc-rs"] }      # FTP and FTPS transfers
 
 # --- [OBSERVABILITY]
+
 json-subscriber                    = { version = "0.3.1", features = ["tracing-opentelemetry-0-34"] }    # JSON lines with flattened span fields, static service fields, and request trace and span ids
 log                                = "0.4.35"                                                            # Logger registration failure `LogTracer::init` returns
 opentelemetry                      = "0.33.1"                                                            # Trace, metric, and log API
@@ -295,6 +324,7 @@ tracing-opentelemetry              = "0.34.0"                                   
 tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                   # Subscriber registry, reloadable directive filter, per-layer filters, and the `MakeWriter` sink the JSON layer writes to
 
 # --- [USER_INTERFACE]
+
 anstream             = "1.0.0"                                                                                    # Writers that keep, strip, or translate ANSI per terminal
 anstyle              = "1.0.14"                                                                                   # Style values shared by help text, terminal output, and TUI spans
 clap                 = { version = "4.6.7", features = ["cargo", "derive", "env"] }                               # Typed command-line arguments and environment values
@@ -322,6 +352,7 @@ tui-tree-widget      = "0.24.1"                                                 
 winit                = "0.31.0-beta.4"                                                                            # Platform windows and input events
 
 # --- [DATA_STORAGE]
+
 clickhouse       = { version = "0.15.3", features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "inserter", "uuid"] }                                                                          # Typed row inserts and selects over ClickHouse
 duckdb           = { version = "1.20000.1", features = ["json", "parquet", "appender-arrow"] }                                                                                                      # In-process analytics over Parquet, CSV, JSON, and attached databases
 falkordb         = { version = "0.11.0", features = ["tokio-rustls"] }                                                                                                                              # FalkorDB graph queries
@@ -343,6 +374,7 @@ tiberius         = { version = "0.13.0", default-features = false, features = ["
 turso            = { version = "0.9.0-pre.2", default-features = false, features = ["sync", "fts"] }                                                                                                # SQLite-compatible embedded database with concurrent writes and cloud sync, default `mimalloc` replaces global allocator
 
 # --- [SEARCH]
+
 elasticsearch   = { version = "9.1.0-alpha.1", default-features = false, features = ["rustls-tls"] } # Elasticsearch indexes and search, default `native-tls` links platform TLS beside rustls, sole alternative `rustls-tls` runs reqwest 0.12 on ring
 lancedb         = { version = "0.41.0", features = ["aws"] }                                         # Embedded vector tables with ANN, full-text, and hybrid search
 meilisearch-sdk = { version = "0.33.0", default-features = false, features = ["jwt_aws_lc_rs"] }     # Meilisearch indexes and search, default `reqwest` and `tls` add reqwest 0.12 on ring beside aws-lc-rs
@@ -352,6 +384,7 @@ tantivy         = { version = "0.27.0", features = ["zstd-compression"] }       
 usearch         = "2.26.6"                                                                           # HNSW vector indexes
 
 # --- [MESSAGING]
+
 async-nats                = { version = "0.51.0", default-features = false, features = ["aws-lc-rs", "crypto", "jetstream", "kv", "nkeys", "nuid", "object-store", "server_2_10", "server_2_11", "server_2_12", "server_2_14", "service", "websockets"] } # NATS core, JetStream, key-value, object store, and services, default `ring` adds ring beside aws-lc-rs
 cloudevents-sdk           = { version = "0.9.0", features = ["axum", "http-binding"] }                                                                                                                                                                    # CloudEvents envelopes with HTTP bindings
 lapin                     = "4.12.3"                                                                                                                                                                                                                      # AMQP 0-9-1 client
@@ -367,6 +400,7 @@ temporalio-sdk            = "1.1.1"                                             
 zeromq                    = "0.7.0"                                                                                                                                                                                                                       # ZeroMQ sockets
 
 # --- [DEVICES]
+
 async-opcua  = { version = "0.19.0", features = ["client", "server"] }         # OPC UA clients and servers
 bacnet-rs    = "0.3.2"                                                         # BACnet/IP and MS/TP
 hidapi       = "2.6.7"                                                         # USB HID devices
@@ -374,6 +408,7 @@ tokio-modbus = { version = "0.17.0", features = ["tcp-server", "rtu-server"] } #
 tokio-serial = "5.5.0"                                                         # Async serial ports
 
 # --- [COLUMNAR]
+
 adbc_core                  = "0.25.0"                                                                                   # Database access through ADBC returning record batches
 adbc_driver_manager        = "0.25.0"                                                                                   # ADBC drivers loaded from shared libraries
 arrow                      = { version = "59.3.2", features = ["ipc_compression"] }                                     # Columnar record batches, casts between encodings, and IPC under ZSTD and LZ4, at the release DataFusion 55 and deltalake 1.1 link, adding num-bigint 0.5 under arrow-buffer beside nalgebra's 0.4 and zstd 0.13 under arrow-ipc beside reqwest's 0.14
@@ -392,6 +427,7 @@ serde_arrow                = { version = "0.15.1", features = ["arrow-59"] }    
 substrait                  = { version = "0.65.0", features = ["parse", "extensions", "serde"] }                        # Substrait plan model
 
 # --- [ARRAYS]
+
 hdf5-metno         = { version = "0.15.1", features = ["static", "zlib", "lzf", "blosc-all"] }                                                                                                     # HDF5 arrays
 icechunk           = { version = "2.3.1", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Versioned tensor stores over object stores, default `s3` adds aws-sdk-s3 on hyper 0.14 and rustls 0.21 with ring beside aws-lc-rs
 netcdf             = { version = "0.12.1", features = ["static"] }                                                                                                                                 # netCDF fields
@@ -400,6 +436,7 @@ zarrs_icechunk     = { version = "0.6.0", default-features = false, features = [
 zarrs_object_store = "0.6.2"                                                                                                                                                                       # Object stores as zarrs async stores at the object_store release DataFusion links
 
 # --- [MATHEMATICS]
+
 almost         = "0.2.0"                                                                                                # Relative float equality csaps tests data sites with
 average        = { version = "0.17.0", default-features = false, features = ["std", "serde"] }                          # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
 bilby          = "0.3.0"                                                                                                # Gaussian quadrature with native Jacobi nodes and weights
@@ -428,6 +465,7 @@ twofloat       = "0.8.4"                                                        
 uom            = { version = "0.38.0", features = ["use_serde"] }                                                       # Quantities with dimensions checked at compile time
 
 # --- [SIGNALS]
+
 apodize      = "1.0.0"                                     # Symmetric Hann, Hamming, four-term Blackman–Harris, Nuttall, triangular and generalized cosine windows
 biquad       = "0.6.0"                                     # Second-order IIR sections in transposed direct form
 ndarray-conv = { version = "0.6.1", features = ["rayon"] } # FFT convolution over ndarray planes
@@ -436,6 +474,7 @@ realfft      = "3.5.1"                                     # Real FFT plans with
 rustfft      = "6.4.1"                                     # FFT of any length
 
 # --- [SOLVERS]
+
 argmin      = { version = "0.11.0", default-features = false }                             # Brent root brackets, rand_xoshiro adds rand_core 0.9 beside 0.10
 argmin-math = "0.5.1"                                                                      # Vec backend of argmin solvers, faer and nalgebra backends link faer 0.23 and nalgebra 0.34 beside the catalog
 basin       = "3.2.0"                                                                      # Native scalar minimization with absolute and relative position tolerances
@@ -448,6 +487,7 @@ nlopt       = "0.8.1"                                                           
 nuts-rs     = "0.19.1"                                                                     # No-U-Turn sampling chains over a `CpuLogpFunc`
 
 # --- [GRAPHS]
+
 dugong           = "0.10.0-alpha.1"                                                      # Layered layout of directed graphs with routed edges and clusters, at the release merman-render links
 leiden-rs        = { version = "0.8.1", default-features = false, features = ["rayon"] } # Leiden community detection over a `GraphDataBuilder` graph holding node masses, default `cli` adds clap and `gryf` a second graph library
 manatee          = "0.10.0-alpha.1"                                                      # Force-directed fCoSE layout with constraints, at the release merman-render links
@@ -456,6 +496,7 @@ petgraph-graphml = "5.0.0"                                                      
 rustworkx-core   = "0.18.1"                                                              # Keyed topological order, DAG layers, cycle search, simple cycles, pruned Dijkstra visits, eigenvector and Katz centrality, connected components, biconnected blocks, minimum cuts, matchings, and Steiner trees over petgraph
 
 # --- [GEOMETRY]
+
 cavalier_contours = "0.9.0"                                                                               # Polyline offsets, booleans, self-intersection scans, winding numbers and arc flattening over line and arc segments
 curvo             = "0.3.3"                                                                               # NURBS curves and surfaces
 fidget            = { version = "0.5.1", default-features = false, features = ["jit", "mesh", "shapes"] } # Implicit surfaces built from shape trees, JIT-evaluated and meshed by octree, shapes for blends, default `gui`, `rhai`, `wgpu`, and `raster` add UI, scripting, GPU, and raster stacks
@@ -470,6 +511,7 @@ spade             = "2.15.1"                                                    
 urdf-rs           = "0.10.0"                                                                              # URDF robot descriptions
 
 # --- [INTERCHANGE]
+
 acadrust        = "0.6.8"                                                                                                                                                                                                                                                                                             # DWG and DXF drawings with plot styles, sheet sets, and layouts
 e57             = { version = "0.11.13", features = ["crc32c"] }                                                                                                                                                                                                                                                      # E57 point clouds with page checksums through the crc32c crate
 gltf            = { version = "1.4.1", features = ["extensions", "extras", "KHR_lights_punctual", "KHR_materials_emissive_strength", "KHR_materials_ior", "KHR_materials_specular", "KHR_materials_transmission", "KHR_materials_unlit", "KHR_materials_variants", "KHR_materials_volume", "KHR_texture_transform"] } # glTF and GLB with lights, PBR material extensions, variants, and texture transforms
@@ -483,6 +525,7 @@ threemf         = "0.8.1"                                                       
 tobj            = { version = "4.0.5", features = ["use_f64"] }                                                                                                                                                                                                                                                       # Wavefront OBJ and MTL in f64
 
 # --- [GEOSPATIAL]
+
 cityjson-json     = "0.11.0"                                                                                                                                               # CityJSON and CityJSONSeq models and feature streams
 cityjson-types    = "0.11.0"                                                                                                                                               # CityJSON 2.0 city objects, boundaries, and transforms
 contour           = "0.13.1"                                                                                                                                               # Contour lines, polygons, and isobands over grids
@@ -515,6 +558,7 @@ thermalcomfort    = "4.6.2"                                                     
 tzf-rs            = { version = "2.3.0", default-features = false, features = ["bundled"] }                                                                                # Time zones from coordinates, default `clap` adds a CLI
 
 # --- [COLOR]
+
 color       = { version = "0.3.3", features = ["serde"] }                  # CSS color parsing, serialization, interpolation, and gamut mapping
 colorgrad   = { version = "0.9.0", features = ["preset", "named-colors"] } # Color gradients and colormaps
 colorimetry = { version = "0.1.0", features = ["cct"] }                    # CIE observers, Planckian illuminants, and correlated color temperature, links nalgebra 0.33 and geo 0.29 beside the catalog
@@ -522,6 +566,7 @@ moxcms      = "0.9.1"                                                      # ICC
 palette     = { version = "0.7.7", features = ["serializing"] }            # Typed color spaces, conversions, and chromatic adaptation
 
 # --- [IMAGING]
+
 exr               = "1.74.2"                                                                                               # Multi-layer OpenEXR
 fast_image_resize = { version = "6.1.0", features = ["rayon", "image"] }                                                   # SIMD resampling of previews and downscales, resampling `image` buffers through `IntoImageView`
 image             = { version = "0.25.10", default-features = false, features = ["rayon", "png", "jpeg", "tiff", "webp"] } # PNG, JPEG, TIFF, and WebP raster decode, encode, and conversion, default `default-formats` adds AVIF through rav1e, EXR, DDS, HDR, and other codecs
@@ -539,6 +584,7 @@ tiff              = { version = "0.11.3", features = ["zstd"] }                 
 turbojpeg         = "1.5.1"                                                                                                # JPEG encode and decode through libjpeg-turbo
 
 # --- [TYPOGRAPHY]
+
 fontdb                     = { version = "0.23.0", default-features = false, features = ["std"] } # Font faces loaded from caller bytes into the database usvg reads, at the release krilla-svg and typst link, defaults `fs`, `memmap`, and `fontconfig` scan system fonts
 fontique                   = { version = "0.12.0", default-features = false, features = ["std"] } # Font collections registered from caller blobs that parley's `FontContext` holds, at the release parley links, default `system` scans system fonts
 harfrust                   = "0.15.0"                                                             # Text shaping
@@ -551,6 +597,7 @@ ttf-parser                 = "0.25.1"                                           
 write-fonts                = { version = "0.55.0", features = ["read"] }                          # Font table compilation
 
 # --- [GRAPHICS]
+
 kurbo        = { version = "0.13.1", features = ["serde"] }                          # 2D Bezier paths, affine transforms, flattening, dashing, stroke expansion, offsets, and arc lengths
 linesweeper  = "0.5.0"                                                               # Boolean operations on curved paths
 resvg        = "0.49.0"                                                              # SVG rasterization
@@ -560,10 +607,12 @@ vello_common = "0.3.0"                                                          
 wgpu         = "30.0.1"                                                              # WebGPU compute and rendering over native backends
 
 # --- [VISUALIZATION]
+
 merman = { version = "0.10.0-alpha.1", default-features = false, features = ["all-diagrams", "svg", "layout-cytoscape", "native-fonts"] } # Mermaid diagrams parsed, laid out, and rendered to SVG against caller font bytes, defaults add ELK layout and math
 plotly = "0.14.1"                                                                                                                         # Plotly chart documents
 
 # --- [DOCUMENTS]
+
 calamine         = "0.38.0"                                                                                                    # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff
 chromiumoxide    = "0.9.1"                                                                                                     # HTML printed to PDF through Chromium
 docx-rs          = "0.4.22"                                                                                                    # DOCX reading and writing
@@ -589,6 +638,7 @@ typst-svg        = "0.15.1"                                                     
 umya-spreadsheet = "3.1.1"                                                                                                     # XLSX read-modify-write with styles at the release the workspace jiff 0.2.39 resolves (4.0.0-beta.1 caps jiff below 0.2.29), adds chrono beside jiff, zip 8 beside 9, quick-xml 0.41 beside 0.42, and imagesize 0.14 beside 0.15
 
 # --- [MEDIA]
+
 c2pa        = { version = "0.91.7", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds reqwest 0.12 and ureq on ring beside aws-lc-rs
 cpal        = "0.18.2"                                                                                       # Audio device input and output
 ffmpeg-next = "9.0.0"                                                                                        # Video and audio mux, demux, and encode
@@ -602,6 +652,7 @@ subtitler   = "2.13.0"                                                          
 symphonia   = { version = "0.6.1", features = ["mp3", "aac", "isomp4"] }                                     # Audio decoding
 
 # --- [MACHINE_LEARNING]
+
 candle-core = { version = "0.11.1", features = ["metal"] }                                                                                                                                      # Tensor computation on CPU and Metal
 genai       = "0.7.2"                                                                                                                                                                           # Model completions across Anthropic, OpenAI, and OpenRouter
 linfa       = "0.8.1"                                                                                                                                                                           # Clustering, linear models, and decision trees
@@ -613,6 +664,7 @@ tokenizers  = "1.0.0-rc.3"                                                      
 whisper-rs  = { version = "0.16.0", features = ["metal"] }                                                                                                                                      # Speech recognition
 
 # --- [BUILD]
+
 cargo_metadata = "0.23.1"                                            # Cargo workspace, dependency graph, and compiler message reads
 litrs          = "1.0.1"                                             # Rust string literals decoded from source files outside compiler parsing
 prettyplease   = "0.3.0"                                             # Generated Rust syntax formatted as checked-in source
@@ -621,10 +673,12 @@ syn            = { version = "3.0.9", features = ["full", "visit"] } # Rust synt
 tame-index     = { version = "0.27.1", features = ["sparse"] }       # Crate versions and feature tables read from crates.io sparse index
 
 # --- [LINTING]
+
 clippy_utils   = { git = "https://github.com/rust-lang/rust-clippy", rev = "9fd09bc3fb6edda57705cceaeef185be33ba41b9" } # Type, path, and diagnostic queries over compiler HIR for lint passes
 dylint_linting = "6.3.2"                                                                                                # Late lint declarations and registration entry dylint driver loads
 
 # --- [TESTING]
+
 approx                 = { version = "0.6.0-rc2", features = ["vec_impl", "derive"] }                                                                                                                        # Tolerance comparisons in float assertions
 assert_fs              = "1.1.4"                                                                                                                                                                             # Temporary directory fixtures with path predicates
 claims                 = "0.8.0"                                                                                                                                                                             # Typed values from outcome assertions
@@ -643,6 +697,7 @@ tracing-test           = "0.2.6"                                                
 wiremock               = "0.6.5"                                                                                                                                                                             # HTTP doubles on loopback server
 
 # --- [MEMBERS]
+
 rasm-telemetry  = { path = "libs/rust/services/telemetry" }  # Process entry `rasm-command` runs: JSON lines over a caller's writer, reload filter, per-signal OTLP providers, resource, propagators, parent context from the environment carrier and its injection into a child's environment, providers flushed on panic under `panic = "abort"` and shut down concurrently by a guard covering unwinding, exit status from the work's first failure, else the shutdown's
 rasm-command    = { path = "libs/rust/cli/command" }         # Process surface every Rasm executable runs: assembled command, completions, man pages, settings layers, terminal decision, runtime, signal stream, JSON writer over a caller's stderr writer
 rasm-output     = { path = "libs/rust/cli/output" }          # Line mode every Rasm executable printing rows runs: grid, CSV and JSON writers, pager, progress bars, prompt colors
@@ -680,6 +735,7 @@ rasm-form       = { path = "libs/rust/geometry/form" }       # Form-finding ever
 # --- [LINTS] ----------------------------------------------------------------------------
 
 # --- [RUST]
+
 [workspace.lints.rust]
 ambiguous_negative_literals   = "warn"                                                             # `-1.abs()` negating method result in place of literal
 closure_returning_async_block = "warn"                                                             # Closures returning `async` block, async closure is the direct form
@@ -706,12 +762,14 @@ unused_macro_rules            = "warn"                                          
 unused_qualifications         = "warn"                                                             # Qualified paths to names in scope, code calls owning APIs directly
 
 # --- [GROUPS]
+
 [workspace.lints.clippy]
 cargo    = { level = "warn", priority = -1 } # Missing package metadata, duplicate crate versions, negative or redundant feature names, and wildcard requirements
 nursery  = { level = "warn", priority = -1 } # Lints under development, code smells are fixed as found
 pedantic = { level = "warn", priority = -1 } # Strict lints with occasional false positives, code smells are fixed as found
 
 # --- [PARTIALITY]
+
 exit                   = "warn"   # `process::exit` outside `main`, boundary translates results into exit codes
 expect_used            = "warn"   # `expect` on `Option` and `Result`, consumers compose without unwrapping
 infinite_loop          = "warn"   # Endless loops in functions not returning `!`, signatures state divergence
@@ -724,6 +782,7 @@ unreachable            = "warn"   # `unreachable!` calls, invalid states stay un
 unwrap_used            = "warn"   # `unwrap` on `Option` and `Result`, consumers compose without unwrapping
 
 # --- [OUTPUT]
+
 dbg_macro      = "warn" # `dbg!` calls, telemetry goes through tracing at boundaries
 pointer_format = "warn" # `{:p}` and `Debug` output holding raw or function pointers, addresses vary per run and expose memory layout
 print_stderr   = "warn" # `eprint!` and `eprintln!`, domain functions write only their return value
@@ -731,10 +790,12 @@ print_stdout   = "warn" # `print!` and `println!`, domain functions write only t
 use_debug      = "warn" # `{:?}` in format strings, text people read renders through `Display`
 
 # --- [ATTRIBUTES]
+
 cfg_not_test          = "warn" # `#[cfg(not(test))]` code, tests run what product runs
 redundant_test_prefix = "warn" # `test_` prefixes on `#[test]` functions, each fact is stated once
 
 # --- [RESULTS]
+
 assertions_on_result_states = "warn" # `assert!(r.is_ok())` and `assert!(r.is_err())`, failures print no `Result` contents
 let_underscore_must_use     = "warn" # `let _ =` on must-use values, control flow matches every result case
 let_underscore_untyped      = "warn" # `let _ =` without type, each discard names dropped type
@@ -742,6 +803,7 @@ try_err                     = "warn" # `Err(x)?` in place of `return Err(x)` out
 unused_result_ok            = "warn" # `.ok()` calls discarding `Result`, control flow matches every result case
 
 # --- [EXPRESSIONS]
+
 deref_by_slicing                     = "warn" # `&v[..]` full-range slices, deref is the direct form
 if_then_some_else_none               = "warn" # `if` choosing `Some` or `None`, `bool::then` states it as one expression
 iter_over_hash_type                  = "warn" # `for` loops over `HashMap` or `HashSet`, result order stays deterministic
@@ -752,10 +814,12 @@ redundant_type_annotations           = "warn" # Annotations restating initialize
 semicolon_outside_block              = "warn" # `{ f(); }` block statements, `{ f() };` is the direct form
 
 # --- [PATTERNS]
+
 ref_patterns             = "warn" # `ref` bindings, matching on borrowed scrutinee is the direct form
 unnecessary_rest_pattern = "warn" # `..` capturing no field, patterns state exactly fields they bind
 
 # --- [NUMERICS]
+
 arithmetic_side_effects    = "warn" # Integer `+`, `-`, `*`, `/`, and `%` that can overflow or divide by zero, `checked_*` returns absence and `strict_*` names the panic
 float_cmp_const            = "warn" # `==` and `!=` against nonzero float constants, comparisons state their tolerance
 host_endian_bytes          = "warn" # `to_ne_bytes` and `from_ne_bytes`, encodings name their endianness
@@ -767,18 +831,21 @@ suspicious_xor_used_as_pow = "warn" # `2 ^ 8` read as power, `pow` states expone
 unseparated_literal_suffix = "warn" # `1u32` suffixes, `1_u32` is the one spelling Clippy's suggestions write
 
 # --- [STRINGS]
+
 needless_raw_strings = "warn" # `r"..."` literals with nothing to escape, code keeps the direct form
 str_to_string        = "warn" # `str::to_string` calls, `to_owned` names conversion directly
 string_add           = "warn" # `String + &str`, asymmetric `Add` that `push_str` replaces
 string_lit_chars_any = "warn" # `"abc".chars().any(..)` membership tests, `matches!` states set directly
 
 # --- [OWNERSHIP]
+
 clone_on_ref_ptr = "warn" # `.clone()` on `Rc`, `Arc`, and `Weak`, `Arc::clone(&x)` names the shared handle it copies
 empty_drop       = "warn" # Empty `Drop` impls, removals delete every mention
 mem_forget       = "warn" # `mem::forget` on values with destructors, release runs on every path
 rc_buffer        = "warn" # `Rc` or `Arc` over growable buffers, shared values publish as immutable `str` or slices
 
 # --- [DECLARATIONS]
+
 empty_enum_variants_with_brackets = "warn" # `Variant()` and `Variant {}` with no fields, `Variant` is the direct form
 empty_structs_with_brackets       = "warn" # `struct S {}` and `struct S();`, `struct S;` is the direct form
 inline_trait_bounds               = "warn" # Bounds inside function `<..>`, every bound sits in `where` clause
@@ -786,10 +853,12 @@ multiple_inherent_impl            = "warn" # Inherent `impl` blocks split across
 same_name_method                  = "warn" # Inherent methods sharing trait method names, each call site names one member
 
 # --- [VISIBILITY]
+
 partial_pub_fields    = "warn" # Structs mixing public and private fields, types are plain data or guard their invariant whole
 pub_without_shorthand = "warn" # `pub(in super)` visibility paths, `pub(super)` is the direct form
 
 # --- [MODULES]
+
 alloc_instead_of_core    = "warn" # Paths through `alloc` to items `core` owns, `core` names owner
 std_instead_of_core      = "warn" # Paths through `std` to items `core` owns, `core` names owner
 inline_modules           = "warn" # Inline `mod` blocks outside tests, each module takes its own file
@@ -798,6 +867,7 @@ unnecessary_self_imports = "warn" # `use m::{self}` imports, code keeps the dire
 unused_trait_names       = "warn" # `use Trait` imported for its methods alone, `as _` states import serves method resolution
 
 # --- [NAMING]
+
 error_impl_error           = "warn" # Error types named `Error`, each names raising package
 min_ident_chars            = "warn" # Single-character identifiers outside coordinate axes `w`, `x`, `y`, `z`, color channels `r`, `g`, `b` and IEC 61672-1 weightings `A`, `C`
 module_name_repetitions    = "warn" # Item names repeating their module's name, paths state module once
@@ -805,6 +875,7 @@ renamed_function_params    = "warn" # Trait impls renaming trait parameters, tra
 single_char_lifetime_names = "warn" # Single-character lifetime names, each lifetime names its purpose
 
 # --- [ALLOWED]
+
 empty_enums                         = "allow" # Flags kind markers `impl_typed_uuid_kinds!` declares per entity, ast-grep `no-empty-enum` owns written enums
 future_not_send                     = "allow" # Demands `Sync` on generic parameters an async fn borrows, return-type notation binds `Send` at spawning use site
 literal_string_with_formatting_args = "allow" # Flags inline snapshot literals quoting a fixture's format string, insta reads snapshots from literals
@@ -818,6 +889,7 @@ significant_drop_tightening         = "allow" # Demands `drop` of lock guards be
 too_many_lines                      = "allow" # Caps functions at 100 lines, data dependency decides composition in place of line count
 
 # --- [CARGO]
+
 [workspace.lints.cargo]
 pedantic                      = { level = "warn", priority = -1 } # Binary names off kebab case and `readme` keys restating inferred file, each fact is stated once
 non_kebab_case_features       = "warn"                            # Feature names off kebab case, one spelling beside kebab-case package and binary names

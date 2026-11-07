@@ -7,7 +7,6 @@ publish.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
-# --- [LIB]
 [lib]
 path    = "lib.rs"
 test    = false
@@ -16,7 +15,6 @@ bench   = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
-# --- [RUNTIME]
 [dependencies]
 rayon                = { workspace = true }
 bytemuck             = { workspace = true }

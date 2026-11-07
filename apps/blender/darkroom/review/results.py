@@ -1,6 +1,5 @@
 """Darkroom render review: the last render's luminance histogram, chromaticity, and clipping tints over Render Result switched per screen, and the render history browsed as the before frame of a compare in the render view's Sidebar tab."""
 
-# ruff: file-ignore[relative-imports]
 from collections.abc import Callable
 from contextlib import nullcontext
 from functools import cache, cached_property, lru_cache, partial
@@ -97,6 +96,8 @@ _SIGNAL: Final = Resource[Signal](made=lambda _identity: nullcontext(Signal()))
 class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
     """Each scene's last render charted and tinted where its written file clips over Render Result, switched per screen, low codes tinted `under` under the `low` toggle and high codes `over` under `high`."""
 
+    # --- [STATE]
+
     low: Icon = "TRIA_LEFT"
     high: Icon = "TRIA_RIGHT"
     under: Color = (0.0, 0.0, 1.0, 1.0)
@@ -156,7 +157,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
             case Result(error=faults):
                 return Error(faults)
 
-    # --- [ROWS]
+    # --- [SECTIONS]
 
     @property
     def clips(self) -> Layout:

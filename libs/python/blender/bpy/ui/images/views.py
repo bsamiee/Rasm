@@ -138,6 +138,8 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
     `corners` adds the quad outline and one move handle per corner, ahead of the cage, a press on a corner taking the corner, and every edit stays inside `bounds`, a pure move shifting the whole quad.
     """
 
+    # --- [STATE]
+
     key: Key
     read: Callable[[bpy.types.Context], Outcome[Option[Quad]]]
     write: Callable[[bpy.types.Context, Quad], Outcome[None]]
@@ -146,6 +148,8 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
     bounds: Option[Region] = Nothing
     shown: Setting = msgspec.field(default_factory=lambda: RESULT)
     refreshes: tuple[Refresh, ...] = ()
+
+    # --- [REGISTRATION]
 
     def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns the handle group, then the quad outline when corners are edited."""
@@ -167,7 +171,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
         group = GizmoGroup(key=self.key, space="IMAGE_EDITOR", gizmos=(*corners, cage), read=self.held, condition=Some(self.shown))
         return (group, *((overlaid(Edges(quad=self.read, role=lambda ui: ui.gizmo_primary), self.shown, self.refreshes),) if self.corners else ()))
 
-    # --- [READING]
+    # --- [READS]
 
     def held(self, context: bpy.types.Context) -> Outcome[Option[_Frame]]:
         """Reads the quad with the frame of the region drawing it."""
@@ -191,7 +195,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
         x, y = quad.corners[index]
         return x * frame.width, y * frame.height, 0.0
 
-    # --- [WRITING]
+    # --- [WRITES]
 
     def caged(self, context: bpy.types.Context, values: tuple[float, ...]) -> Outcome[None]:
         """Writes the cage's transformed quad inside its bounds, refusing a singular source frame."""

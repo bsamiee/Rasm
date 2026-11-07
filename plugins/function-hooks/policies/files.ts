@@ -1,8 +1,8 @@
 import { Array, Cache, Effect, Function, Option, Predicate } from 'effect';
-import { absent, become, type Call, cut, dropped, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, quote, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unresolved, type Verdicts, when, whole } from '#/policies/fix';
-import { lockDeletes } from '#/policies/ghidra';
-import type { Word } from '#/shell/script';
-import { Shell, type Site } from '#/shell/site';
+import { absent, become, type Call, cut, dropped, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, quote, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unresolved, type Verdicts, when, whole } from '#/policies/fix.ts';
+import { lockDeletes } from '#/policies/ghidra.ts';
+import type { Word } from '#/shell/script.ts';
+import { Shell, type Site } from '#/shell/site.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -9,12 +9,17 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ConduitChannel {
+
+    // --- [STATE]
+
     private ConduitChannel(Func<ConduitDefinition, Func<RhinoViewport, bool>, IO<Option<DisplayConduit>>> attach) => Attach = attach;
 
     internal Func<ConduitDefinition, Func<RhinoViewport, bool>, IO<Option<DisplayConduit>>> Attach { get; }
 
     // --- [CONDUITS]
+
     public static ConduitChannel BoundingBox(Func<CalculateBoundingBoxEventArgs, Option<BoundingBox>> box) => Conduit(() => new BoundingBoxConduit(box));
 
     public static ConduitChannel ZoomExtents(Func<CalculateBoundingBoxEventArgs, Option<BoundingBox>> box) => Conduit(() => new ZoomExtentsConduit(box));
@@ -34,6 +39,7 @@ public sealed record ConduitChannel {
     public static ConduitChannel FrameBuffer(Action<Size, ReadOnlySpan<byte>> read) => Conduit(() => new FrameBufferConduit(read));
 
     // --- [EVENTS]
+
     public static ConduitChannel PreDrawTransparentObjects(Action<DrawEventArgs> draw) =>
         Event(static h => DisplayPipeline.PreDrawTransparentObjects += h, static h => DisplayPipeline.PreDrawTransparentObjects -= h, static args => args.Viewport, static _ => null, draw);
 
@@ -85,6 +91,7 @@ public sealed record ConduitDefinition(Seq<ConduitChannel> Channels) {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class BoundingBoxConduit(Func<CalculateBoundingBoxEventArgs, Option<BoundingBox>> box) : DisplayConduit {
     protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) => _ = box(e).Iter(e.IncludeBoundingBox);
 }
@@ -132,8 +139,8 @@ internal sealed class FrameBufferConduit(Action<Size, ReadOnlySpan<byte>> read) 
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Conduits {
-    // --- [LIFETIME]
     public static IO<Unit> Enable(ConduitDefinition definition, RedrawPolicy redraw) =>
         from scope in IO.env
         from shown in IO.lift(static () => Atom(HashSet<Guid>()))

@@ -1,6 +1,5 @@
 """Darkroom metering: the scene meter written into the earliest Exposure entry, a meter region picked or dragged over the image, and viewport following through the inverse of the shown formation."""
 
-# ruff: file-ignore[relative-imports]
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, nullcontext
 from functools import partial
@@ -203,6 +202,8 @@ class Follower:
 
 class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
     """Scene meter of the earliest Exposure entry's input frame, writing absolute stops into that entry, and the viewport following it through OCIO's inverse of a lattice sampled through the composited formation."""
+
+    # --- [STATE]
 
     attachment: ClassVar[Attachment[Metering]] = Attachment(key="auto_exposure", form=Metering, owner=bpy.types.Scene)
     prerequisites: ClassVar[tuple[Declaration, ...]] = (attachment, _READINGS, _SIGNAL)

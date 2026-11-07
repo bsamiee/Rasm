@@ -19,6 +19,8 @@ use crate::{expanded_externally, suggest};
 
 lint!(MANUAL_VEC_FROM_FN: "`(0..n).map(f).collect::<Vec<_>>()` building a `Vec` from each index");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         if let ExprKind::MethodCall(_, mapped, [], _) = expr.kind

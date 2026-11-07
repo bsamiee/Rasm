@@ -3,13 +3,17 @@ using System.Runtime.CompilerServices;
 namespace Rasm.Rhino;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record Step<T>(Func<T, IO<T>> Run, string Member) where T : class;
 
 public sealed record Stage<T>(Func<T, IO<T>> Copy, Func<T, T, bool> Unchanged, Func<T, T, IO<T>> Commit) where T : class;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Steps {
+
     // --- [STEPS]
+
     public static Step<T> Of<T>(Func<T, bool> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
         new(target => IO.lift(() => call(target) ? Fin.Succ(target) : new RhinoFault(member, RhinoReason.Declined)), member);
 
@@ -27,6 +31,7 @@ public static class Steps {
         new(target => IO.lift(() => target.Within(kind, indices).Bind(held => call(target, held) ? Fin.Succ(target) : new RhinoFault(member, RhinoReason.Declined))), member);
 
     // --- [COMPONENTS]
+
     extension(GeometryBase geometry) {
         public Fin<Seq<ComponentIndex>> Within(Seq<ComponentIndex> components) =>
             Products.Each(components, (component, at) => Holds(geometry, component).Match(
@@ -79,10 +84,13 @@ public static class Steps {
 }
 
 public static class Stages {
+
     // --- [IN_PLACE]
+
     public static Stage<T> InPlace<T>() where T : class => new(Copy: IO.pure, Unchanged: ReferenceEquals, Commit: static (_, staged) => IO.pure(staged));
 
     // --- [GEOMETRY]
+
     public static Stage<T> Geometry<T>() where T : GeometryBase =>
         new(
             Copy: static live =>
@@ -102,7 +110,9 @@ public static class Stages {
 }
 
 public static class Edits {
-    // --- [APPLY]
+
+    // --- [APPLICATION]
+
     public static IO<T> Apply<T>(Stage<T> stage, T live, Seq<Step<T>> steps) where T : class =>
         from staged in stage.Copy(live)
         from edited in steps.Map(static (step, index) => (Step: step, Index: index)).FoldM(staged, static (current, entry) =>

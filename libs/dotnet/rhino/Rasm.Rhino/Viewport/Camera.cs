@@ -8,6 +8,7 @@ using UnitsNet;
 namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record CameraLens {
     public sealed record Parallel(double Extent) : CameraLens;
@@ -31,8 +32,11 @@ public sealed record CameraPose(Plane Frame, Point3d Target, CameraLens Lens) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Cameras {
-    // --- [POSE]
+
+    // --- [POSES]
+
     public static Fin<CameraPose> Read(ViewportInfo camera) =>
         from frame in RhinoFault.Unless(camera.GetCameraFrame(out Point3d location, out Vector3d x, out Vector3d y, out _), RhinoReason.Invalid, camera.CameraLocation)
             .Map(_ => new Plane(location, x, y))
@@ -76,6 +80,7 @@ public static class Cameras {
     }
 
     // --- [FRAMING]
+
     public static IO<CameraPose> Framed(RhinoViewport viewport, Seq<GeometryBase> geometry, double border) =>
         Fitted(viewport, camera => RhinoFault.Unless(camera.DollyExtents(geometry, border), RhinoReason.Declined, geometry.Count));
 
@@ -86,6 +91,7 @@ public static class Cameras {
         use(() => new ViewportInfo(viewport)).Bind(camera => IO.lift(fit(camera).Bind(_ => Read(camera)))).Bracket();
 
     // --- [MOVES]
+
     public static IO<Seq<bool>> Move(RhinoDoc doc, ViewportSet viewports, Func<RhinoViewport, IO<CameraPose>> pose, RedrawPolicy redraw) =>
         Viewports.Edit(doc, viewports, viewport =>
             from posed in pose(viewport)
@@ -93,7 +99,8 @@ public static class Cameras {
             from written in IO.lift(Write(viewport, posed))
             select unit, redraw);
 
-    // --- [HOLD]
+    // --- [HOLDS]
+
     public static IO<T> Within<T>(RhinoViewport viewport, Func<ViewportInfo, IO<Unit>> edit, IO<T> body) =>
         from held in use(() => new ViewportInfo(viewport))
         from edited in (from camera in use(() => new ViewportInfo(viewport))

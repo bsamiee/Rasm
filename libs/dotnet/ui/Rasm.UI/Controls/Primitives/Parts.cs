@@ -11,22 +11,27 @@ using Topten.RichTextKit;
 namespace Rasm.UI.Controls.Primitives;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public abstract record Part {
-    private protected Part() { }
 
     // --- [GESTURES]
+
     internal abstract Option<Reply> Began(Gesture gesture, HitTarget aim);
 
     internal virtual Option<Reply> Performed(Gesture gesture, HitTarget aim) => None;
 
     internal virtual bool Offers(LayoutNode owner, Seq<Key> path) => path == owner.Path;
 
-    // --- [WATCH]
+    // --- [WATCHING]
+
     internal virtual Option<Seq<Key>> Revealed(LayoutNode layout) => None;
 
     internal virtual Seq<IO<Unit>> Watched(Option<HoverState> before, HoverState after) => [];
 
     // --- [CASES]
+
+    private protected Part() { }
+
     public sealed record Press(Func<SKRect, IO<Unit>> Run) : Part {
         public Func<SKRect, Option<IO<Unit>>> Secondary { get; init; } = static _ => None;
         public Option<IO<Unit>> Reset { get; init; }
@@ -59,9 +64,11 @@ public abstract record Part {
     }
 
     public sealed record Choice(Seq<Key> Items, Selection Value, Func<Edit<Selection>, IO<Unit>> Edited) : Part {
-        public Choice(Seq<Key> items, Option<Key> value, Func<Edit<Key>, IO<Unit>> edited) : this(items, new Selection.One(value), edit => edited(edit.Choose(static held => held.Lead))) { }
 
         // --- [STATE]
+
+        public Choice(Seq<Key> items, Option<Key> value, Func<Edit<Key>, IO<Unit>> edited) : this(items, new Selection.One(value), edit => edited(edit.Choose(static held => held.Lead))) { }
+
         public Option<Func<Edit<Seq<Key>>, IO<Unit>>> Reorder { get; init; }
         public Option<Func<Seq<Key>, IO<Unit>>> Removed { get; init; }
         public Func<Seq<Key>, SKRect, Option<IO<Unit>>> Menu { get; init; } = static (_, _) => None;
@@ -73,7 +80,8 @@ public abstract record Part {
 
         private AccessRole Composite => Value.Map(one: AccessRole.RadioGroup, many: AccessRole.List);
 
-        // --- [DRAW]
+        // --- [DRAWING]
+
         public View Drawn(Func<Func<View, Key, View>, View> content) =>
             content((node, key) => Member(node, key, Some(Roles.ListRow))) switch {
                 var held => held with { Part = this, Accessible = held.Accessible.Combine(new Accessible { Role = Composite }) },
@@ -107,12 +115,14 @@ public abstract record Part {
             };
 
         // --- [REMOVAL]
+
         public static Func<Seq<Key>, IO<Unit>> Without(Seq<Key> items, Func<Edit<Seq<Key>>, IO<Unit>> edited) =>
             removed => toHashSet(removed) switch { var gone => edited(Edit.Of(EditPhase.Commit, items.Filter(item => !gone.Contains(item)))) };
 
         internal Option<View> Dismiss(Key key) => Removed.Map(removed => Press.Dismiss(removed([key])));
 
         // --- [GESTURES]
+
         internal override bool Offers(LayoutNode owner, Seq<Key> path) => path == owner.Path || Tiles(owner).Exists(tile => tile.Layout.Path == path);
 
         internal override Option<Seq<Key>> Revealed(LayoutNode layout) => Value.Lead.Bind(lead => Paths(layout, [lead]).Head);
@@ -198,7 +208,8 @@ public abstract record Part {
                 page: static _ => Option<Key>.None,
                 end: static held => held.Toward.Sign < 0 ? held.Choice.Items.Head : held.Choice.Items.Last);
 
-        // --- [READ]
+        // --- [READS]
+
         private Option<Key> Item(Seq<Key> over, LayoutNode layout) => Item(over, layout, toHashSet(Items));
 
         private Seq<(Key Key, LayoutNode Layout)> Tiles(LayoutNode layout) => Tiles(layout, toHashSet(Items));
@@ -244,7 +255,9 @@ public abstract record Part {
     }
 
     public sealed record Viewport(PlotPlane Rest, Func<Edit<PlotPlane>, IO<Unit>> Edited) : Part {
+
         // --- [STATE]
+
         public HashSet<PhysicalAxis> Free { get; init; } = toHashSet(PhysicalAxis.Items);
         public Option<PlotPlane> Bounds { get; init; }
         public bool Boxed { get; init; }
@@ -252,6 +265,7 @@ public abstract record Part {
         public Option<Vector2> Natural { get; init; }
 
         // --- [GESTURES]
+
         internal override Option<Reply> Began(Gesture gesture, HitTarget aim) =>
             aim.Frame.Bind(frame => gesture.SwitchPartially(
                 (Viewport: this, Frame: frame, aim.Owner.Layout.Styled(Roles.Handle).Metrics),
@@ -277,6 +291,7 @@ public abstract record Part {
             select reply;
 
         // --- [SESSIONS]
+
         private Session<(PlotPlane Plane, Option<Figure.Region> Box)> Tracking(PlotFrame frame, Func<PlotPlane, Gesture, Option<PlotPlane>> step) =>
             new((frame.Plane, None), [Receiver<(PlotPlane Plane, Option<Figure.Region> Box)>.Of(static view => view.Plane, edit => Some(Edited(edit)))], CursorShape.Grab) {
                 Step = (start, gesture) => step(start.Plane, gesture).Bind(plane => Bounded(frame, plane)).Map(static plane => (plane, Option<Figure.Region>.None)),
@@ -299,6 +314,7 @@ public abstract record Part {
                 magnify: static (held, pinched) => held.Frame.At(pinched.About).Bind(about => held.Viewport.Zoomed(held.Start, about, 1f / (1f + pinched.Magnification)))));
 
         // --- [MOVES]
+
         private Option<Func<PlotPlane, Option<PlotPlane>>> Wheeled(PlotFrame frame, Gesture.Scroll scroll, HashMap<Metric, float> metrics, bool notch) =>
             (MathF.Abs(scroll.Delta.X) > MathF.Abs(scroll.Delta.Y) ? PhysicalAxis.Horizontal : PhysicalAxis.Vertical) switch {
                 var along => scroll.Modifiers.Primary || (notch && along.Map(horizontal: false, vertical: Free.Contains(along)))
@@ -351,7 +367,8 @@ public abstract record Part {
                     None: () => Some(plane))
                 .Filter(held => (frame with { Plane = held }).Resolves);
 
-        // --- [READ]
+        // --- [READS]
+
         private Option<Limits> Room(PlaneAxis held) =>
             from rest in Rest.Dimension(held.Along)
             let span = MathF.Abs(held.Axis.Domain.Span)
@@ -361,7 +378,8 @@ public abstract record Part {
 
         private static float Inside(AxisRange domain, AxisRange bound) => float.Max(bound.Low - domain.Low, 0f) + float.Min(bound.High - domain.High, 0f);
 
-        // --- [DRAW]
+        // --- [DRAWING]
+
         public View Zooms(PlotPlane view) =>
             new View.Flex(PhysicalAxis.Horizontal, [
                 Zoom(Roles.Add, Some(Stepped(view, -1))),
@@ -382,6 +400,7 @@ public abstract record Part {
             };
 
         // --- [STEPS]
+
         public Part Stepped(PlotPlane view, int notches) => new Stepping(this, view, notches);
 
         private sealed record Stepping(Viewport Owner, PlotPlane View, int Notches) : Part {

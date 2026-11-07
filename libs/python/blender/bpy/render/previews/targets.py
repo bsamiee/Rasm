@@ -313,7 +313,7 @@ def routed[H: Holder](identity: Identity, holder: H, target: Target, copies: Exi
     return copied(identity, holder, copies).bind(lambda copy: tree_of(copy).bind(outward).map(lambda socket: (copy, socket)))
 
 
-# --- [RENDERS]
+# --- [RENDERING]
 
 
 def rendered(identity: Identity, preview: PreviewScene, target: Target, size: int, lighting: PreviewLighting, world: Graph) -> Outcome[Readback]:

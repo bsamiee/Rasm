@@ -36,7 +36,7 @@ lazy from refurb.checks.common import is_equivalent, stringify
 lazy from refurb.error import Error
 
 from tools.refurb.findings import fullname, RasmError, Reads
-from tools.refurb.loops import Traverser
+lazy from tools.refurb.loops import Traverser
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -175,7 +175,6 @@ def configured(reads: Reads) -> Callable[[MypyFile, list[Error]], None]:
 
 
 check = configured(Reads())
-
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

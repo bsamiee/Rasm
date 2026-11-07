@@ -1,36 +1,30 @@
 """Desired node tree state: node content, menu items, link ends, links, nodes, frames, and graphs."""
 
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from enum import Enum
 from functools import partial
 import inspect
 from itertools import chain, islice
 import re
 from types import MappingProxyType, MemberDescriptorType
-from typing import ClassVar, Final, get_args, override, Self, TYPE_CHECKING, TypeAliasType
+from typing import ClassVar, Final, get_args, override, Self, TypeAliasType
 
 import bpy
 from expression import Option, Result, Some, try_downcast
 import msgspec
 import msgspec.structs
 
-from blender.bpy.data.ids.ownership import Ownership
 from blender.bpy.data.rna.descriptors import differing, Value, written
 from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.data.rna.properties import titled
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.trees import GraphTree, matched_items, ordered_items
 from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
-
-if TYPE_CHECKING:
-    from blender.bpy.nodes.interfaces import NodeGroup
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Members = Mapping[str | RnaPath, Value]
 type Choice = Enum | type[msgspec.Struct]
-type _NestedGroup = Ownership[bpy.types.NodeTree] | NodeGroup
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -50,16 +44,6 @@ class Content(msgspec.Struct, frozen=True, kw_only=True):
     def digest_form(self) -> object:
         """Builtin form the lowering digest reads."""
         return msgspec.to_builtins(self, enc_hook=str)
-
-    @property
-    def groups(self) -> tuple[Ownership[bpy.types.NodeTree], ...]:
-        """Ownership rows of the owned groups the content points at, at any depth."""
-        return _groups(self.nested)
-
-    @property
-    def nested(self) -> tuple[_NestedGroup, ...]:
-        """Direct owned trees or group declarations the content points at."""
-        return ()
 
     def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
         """Whether the live node holds this content.
@@ -89,10 +73,13 @@ class ItemContent(Content, frozen=True, kw_only=True):
         """
         raise NotImplementedError(type(self).__name__)
 
-    @property
-    def positions(self) -> Callable[[bpy.types.Node, Identity], Mapping[bool, Mapping[int, str]]] | None:
-        """Reader of future retained native item identifiers by enabled position and output side, absent for nested interfaces."""
-        return None
+    def positions(self, live: bpy.types.Node, identity: Identity, /) -> Mapping[bool, Mapping[int, str]]:
+        """Native item identifiers the write retains, by enabled position per output side.
+
+        Raises:
+            NotImplementedError: For a case whose sockets follow a group interface in place of native items.
+        """
+        raise NotImplementedError(type(self).__name__)
 
 
 class MenuItem(msgspec.Struct, frozen=True, kw_only=True):
@@ -311,11 +298,6 @@ class Graph(Membered, frozen=True, kw_only=True):
         """Content each placed node holds, by key."""
         return {key: content for key, (node, _) in self.placed.items() for content in node.content.to_list()}
 
-    @property
-    def groups(self) -> tuple[Ownership[bpy.types.NodeTree], ...]:
-        """Ownership rows in nesting order, first declaration per key retained."""
-        return _groups(group for content in self.contents.values() for group in content.nested)
-
     @classmethod
     def merged(cls, kind: type[GraphTree], parts: Iterable["Graph"]) -> Outcome["Graph"]:
         """Joins graph parts of one tree class, keeping one node per key and each link once.
@@ -342,31 +324,8 @@ class Graph(Membered, frozen=True, kw_only=True):
             )
         )
 
-    def acquisitions(self, _identity: Identity) -> Acquisitions:
-        """Returns nested group ownership rows in nesting order."""
-        return self.groups
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _groups(starts: Iterable[_NestedGroup]) -> tuple[Ownership[bpy.types.NodeTree], ...]:
-    """Walks group declarations once by identity, retaining the first ownership per key."""
-    held: dict[Key, Ownership[bpy.types.NodeTree]] = {}
-    seen: set[int] = set()
-    pending = [iter(starts)]
-    while pending:
-        match next(pending[-1], None):
-            case None:
-                pending.pop()
-            case Ownership() as owner:
-                held.setdefault(owner.key, owner)
-            case group:
-                if (identity := id(group)) not in seen:
-                    seen.add(identity)
-                    held.setdefault(group.key, group.ownership)
-                    pending.append(iter(child for content in group.graph.contents.values() for child in content.nested))
-    return tuple(held.values())
 
 
 def member_paths(members: Members) -> Mapping[RnaPath, Value]:

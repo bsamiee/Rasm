@@ -11,6 +11,7 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ConstructionPlaneState(StateName Name, Option<ViewportTarget> Source) : NamedState(ConstructionPlanes.Table, Name) {
     public Option<Func<ConstructionPlane, IO<Unit>>> Stage { get; init; }
 
@@ -34,7 +35,11 @@ public sealed record ConstructionPlaneRestore(StateName Name, ViewportSet Viewpo
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
+
 public static class ConstructionPlanes {
+
+    // --- [ROWS]
+
     public static NamedTable Table { get; } = new(nameof(ConstructionPlanes), StringComparer.OrdinalIgnoreCase) {
         Entries = Entries,
         Rename = Rename,
@@ -49,32 +54,6 @@ public static class ConstructionPlanes {
         Current = Some(Current),
     };
 
-    // --- [VIEWS]
-    public static IO<ConstructionPlane> Read(ViewInfo view) =>
-        IO.lift(() => {
-            ConstructionPlane plane = view.GetConstructionPlane();
-            plane.ShowZAxis = view.ShowConstructionZAxis;
-            return plane;
-        });
-
-    public static IO<Unit> Write(ViewInfo view, ConstructionPlane plane) =>
-        IO.lift(() => {
-            view.SetConstructionPlane(plane);
-            view.ShowConstructionZAxis = plane.ShowZAxis;
-        });
-
-    // --- [VIEWPORTS]
-    public static IO<ConstructionPlane> Read(RhinoViewport viewport) =>
-        use(() => new ViewInfo(viewport)).Bind(static view => Read(view)).Bracket();
-
-    public static IO<Unit> Write(RhinoViewport viewport, ConstructionPlane plane) =>
-        from pushed in IO.lift(() => viewport.PushConstructionPlane(plane))
-        from grid in IO.lift(() => viewport.ConstructionGridVisible = plane.ShowGrid)
-        from axes in IO.lift(() => viewport.ConstructionAxesVisible = plane.ShowAxes)
-        from axis in use(() => new ViewInfo(viewport)).Bind(view => IO.lift(() => { view.ShowConstructionZAxis = plane.ShowZAxis; })).Bracket()
-        select unit;
-
-    // --- [ROWS]
     private static IO<Seq<NamedEntry>> Entries(RhinoDoc doc) =>
         IO.lift(() => Conversions.Rows(doc.NamedConstructionPlanes).Map(static plane => Entry(plane.Name)).Strict());
 
@@ -104,7 +83,35 @@ public static class ConstructionPlanes {
         from deleted in Commits.Undoable(doc, $"{nameof(Delete)} {entry.Name}", IO.pure(Some(prior)), Put(doc, entry.Name), Option<ConstructionPlane>.None)
         select NamedWrite.Undoable;
 
-    // --- [HOLD]
+    // --- [VIEWS]
+
+    public static IO<ConstructionPlane> Read(ViewInfo view) =>
+        IO.lift(() => {
+            ConstructionPlane plane = view.GetConstructionPlane();
+            plane.ShowZAxis = view.ShowConstructionZAxis;
+            return plane;
+        });
+
+    public static IO<Unit> Write(ViewInfo view, ConstructionPlane plane) =>
+        IO.lift(() => {
+            view.SetConstructionPlane(plane);
+            view.ShowConstructionZAxis = plane.ShowZAxis;
+        });
+
+    // --- [VIEWPORTS]
+
+    public static IO<ConstructionPlane> Read(RhinoViewport viewport) =>
+        use(() => new ViewInfo(viewport)).Bind(static view => Read(view)).Bracket();
+
+    public static IO<Unit> Write(RhinoViewport viewport, ConstructionPlane plane) =>
+        from pushed in IO.lift(() => viewport.PushConstructionPlane(plane))
+        from grid in IO.lift(() => viewport.ConstructionGridVisible = plane.ShowGrid)
+        from axes in IO.lift(() => viewport.ConstructionAxesVisible = plane.ShowAxes)
+        from axis in use(() => new ViewInfo(viewport)).Bind(view => IO.lift(() => { view.ShowConstructionZAxis = plane.ShowZAxis; })).Bracket()
+        select unit;
+
+    // --- [HOLDS]
+
     private static IO<NamedWrite> Held(RhinoDoc doc, ViewportSet set) =>
         from held in Viewports.Resolve(doc, set).Map(static rows => toHashMap(rows.Map(static row => (row.Viewport.Id, row.Viewport.GetConstructionPlane())))).Bracket()
         select new NamedWrite(
@@ -112,6 +119,7 @@ public static class ConstructionPlanes {
             IO.pure(unit));
 
     // --- [EXCHANGE]
+
     private static IO<NamedWrite> Transform(RhinoDoc doc, NamedEntry entry, Transform xform) =>
         Found(doc, entry.Name).Bind(stored => Moved(stored, xform)).Bind(moved => Written(doc, moved));
 
@@ -129,6 +137,7 @@ public static class ConstructionPlanes {
         select plane;
 
     // --- [STORED]
+
     private static IO<Option<ConstructionPlane>> Stored(RhinoDoc doc, string name) =>
         IO.lift(() => Conversions.Present(doc.NamedConstructionPlanes.Find(name)).Map(index => doc.NamedConstructionPlanes[index]));
 

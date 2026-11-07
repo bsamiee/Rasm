@@ -1,16 +1,26 @@
 {
     "name": "@rasm/test-support",
     "private": true,
-    "description": "Shared Storybook configuration",
+    "description": "Shared Storybook and Vitest configuration",
     "type": "module",
+    "imports": {
+        "#/*": "./*"
+    },
     "exports": {
         "./main": "./main.ts",
-        "./preview": "./preview.ts"
+        "./preview": "./preview.ts",
+        "./suite": "./suite.ts",
+        "./vitest": "./vitest.ts"
     },
     "dependencies": {
+        "@effect/platform-node": "catalog:",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/addon-docs": "catalog:",
-        "@storybook/addon-vitest": "catalog:"
+        "@storybook/addon-vitest": "catalog:",
+        "@vitest/browser-playwright": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:"

@@ -1,6 +1,6 @@
 import { Button } from 'react-aria-components';
-import { assetUrl } from '#/model/api';
-import type { Asset } from '#/model/asset';
+import { assetUrl } from '#/model/api.ts';
+import type { Asset } from '#/model/asset.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

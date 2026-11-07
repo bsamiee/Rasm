@@ -2,24 +2,19 @@ import { execFileSync } from 'node:child_process';
 import { globSync, readFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import process from 'node:process';
-import { Array, Record } from 'effect';
+import { Array, Config, Effect, Record, Schema } from 'effect';
 import { build, type PlistValue, parse } from 'plist';
-import type { Plugin, Rolldown } from 'vite';
+import { type Plugin, type Rolldown, searchForWorkspaceRoot } from 'vite';
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-interface Signing {
-    readonly identifier: string;
-    readonly entitlements: string;
-    readonly team: string;
-}
+const Signing = Schema.Struct({ PRODUCT_BUNDLE_IDENTIFIER: Schema.String, CODE_SIGN_ENTITLEMENTS: Schema.String, DEVELOPMENT_TEAM: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const dictionary = (value: PlistValue) => (typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date) && !(value instanceof Uint8Array) ? value : {});
-const helper = (
+const helper = Effect.fnUntraced(function* (
     entry: string,
-    { identifier, entitlements, team }: Signing,
     service: string,
     agent: Readonly<
         Partial<
@@ -66,9 +61,11 @@ const helper = (
             >
         >
     >,
-) => {
+) {
     const name = basename(dirname(entry));
-    const label = `${identifier}.${service}`;
+    const settings = yield* Config.schema(Signing);
+    const entitlements = resolve(searchForWorkspaceRoot(dirname(entry)), settings.CODE_SIGN_ENTITLEMENTS);
+    const label = `${settings.PRODUCT_BUNDLE_IDENTIFIER}.${service}`;
     let outDir = '';
     return {
         name: 'helper',
@@ -87,7 +84,7 @@ const helper = (
             this.emitFile({
                 type: 'asset',
                 fileName: join('LaunchAgents', `${label}.plist`),
-                source: build({ ProcessType: 'Interactive', ...agent, Label: label, BundleProgram: `Contents/Helpers/${name}`, SpawnConstraint: { 'signing-identifier': label, 'team-identifier': team } }),
+                source: build({ ProcessType: 'Interactive', ...agent, Label: label, BundleProgram: `Contents/Helpers/${name}`, SpawnConstraint: { 'signing-identifier': label, 'team-identifier': settings.DEVELOPMENT_TEAM } }),
             });
         },
         closeBundle(): void {
@@ -95,7 +92,7 @@ const helper = (
             execFileSync('codesign', ['--force', '--sign', '-', '--identifier', label, '--options', 'runtime', '--entitlements', join(outDir, 'sea.entitlements'), join(outDir, name)], { stdio: 'inherit' });
         },
     } satisfies Plugin;
-};
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

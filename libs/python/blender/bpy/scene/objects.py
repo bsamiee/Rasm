@@ -95,6 +95,7 @@ class LevelEdit(bpy.types.PropertyGroup):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [READS]
 
 
@@ -121,7 +122,7 @@ def corners(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) -
 def extent(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) -> Option[tuple[Vector, Vector]]:
     """Returns frozen low and high world corners of native evaluated bounds, `Nothing` for no objects."""
     points = corners(items, depsgraph)
-    return Some((Vector(points.min(axis=0)).freeze(), Vector(points.max(axis=0)).freeze())) if points.size else Nothing
+    return Some((Vector(points.min(axis=0).tolist()).freeze(), Vector(points.max(axis=0).tolist()).freeze())) if points.size else Nothing
 
 
 # --- [CREATION]

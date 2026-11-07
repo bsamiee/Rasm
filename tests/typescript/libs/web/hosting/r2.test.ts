@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { it } from '@effect/vitest';
 import { r2Storage } from '@rasm/hosting/worker';
-import { cases } from '#/tests/typescript/libs/web/hosting/cases';
+import { cases } from '#/tests/typescript/libs/web/hosting/cases.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -7,6 +7,7 @@ using Rasm.Rhino;
 namespace Darkroom.Queue;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record NoticeSettings(Uri Server, Option<string> Topic);
 
 [Union]
@@ -50,17 +51,23 @@ public abstract partial record QueueEvent {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed partial class NoticeSender : IDisposable {
+
+    // --- [STATE]
+
     private readonly HttpClient client = new() { Timeout = Duration.FromSeconds(10).ToTimeSpan() };
     private readonly IO<NoticeSettings> settings;
     private readonly TimeProvider clock;
 
+    // --- [ACQUISITION]
+
     private NoticeSender(IO<NoticeSettings> settings, TimeProvider clock) => (this.settings, this.clock) = (settings, clock);
 
-    // --- [ACQUISITION]
     public static IO<NoticeSender> Acquire(IO<NoticeSettings> settings, TimeProvider clock) => use(() => new NoticeSender(settings, clock));
 
     // --- [DELIVERY]
+
     public IO<Unit> Notify(QueueEvent queued) =>
         (from description in IO.lift(() => queued.Description(clock.ToZonedClock().Zone))
          from logged in IO.lift(() => Noticed(Session.Logger, queued.Title, description))
@@ -82,5 +89,6 @@ public sealed partial class NoticeSender : IDisposable {
     private static partial void Noticed(ILogger logger, string title, string description);
 
     // --- [RELEASE]
+
     public void Dispose() => client.Dispose();
 }

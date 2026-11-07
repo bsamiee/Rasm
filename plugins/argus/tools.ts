@@ -1,13 +1,13 @@
 import { extname, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { registerTool } from '@rasm/mcp';
+import { Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Array, Cause, type Duration, Effect, Equal, flow, Iterable, Option, Order, pipe, RcMap, Record, Result, Schema, SchemaTransformation, Scope, Stream, String, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/ai';
 import { type Definition, type DefinitionLink, DefinitionRequest, type Diagnostic, DiagnosticSeverity, type Hover, HoverRequest, type Location, LocationLink, type Range, ReferencesRequest, RequestType, type TextDocumentIdentifier, type TextDocumentItem } from 'vscode-languageserver-protocol/node';
-import { LanguageServer } from '#/language-server';
-import { watchWorkspace } from '#/watch-workspace';
+import { LanguageServer } from '#/language-server.ts';
+import { watchWorkspace } from '#/watch-workspace.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -67,7 +67,7 @@ const registerLanguageServerTools = Effect.fn('registerLanguageServerTools')(fun
     }).pipe(Scope.provide(scope));
     const languages = entries.flatMap((entry) => Array.cartesian([entry], Record.toEntries(entry[1].extensionToLanguage)));
     const tool = <P extends Schema.Schema<typeof File.Type>>(name: string, description: string, parameters: P, handle: (server: LanguageServer, item: TextDocumentItem, given: P['Type']) => Effect.Effect<readonly string[], Error>) =>
-        registerTool(
+        Server.registerTool(
             Tool.make(name, { description, parameters, success: Lines }).annotate(Tool.Readonly, true).annotate(Tool.OpenWorld, false),
             Effect.fnUntraced(function* (given: P['Type']) {
                 const [entry, [, languageId]] = yield* Unmatched.single(languages, 'language server for extension', Option.some(extname(given.file)), flow(Tuple.get(1), Tuple.get(0), Array.make));
@@ -87,7 +87,7 @@ const registerLanguageServerTools = Effect.fn('registerLanguageServerTools')(fun
     );
     const java = entries.find(([name]) => name === 'java');
     if (java !== undefined) {
-        yield* registerTool(
+        yield* Server.registerTool(
             Tool.make('java_source', { description: 'Read source lines attached to a Java class file definition', parameters: JavaSource, success: Lines }).annotate(Tool.Readonly, true).annotate(Tool.OpenWorld, false),
             Effect.fnUntraced(function* ({ uri, line, count }: typeof JavaSource.Type) {
                 const server = yield* RcMap.get(running, java);

@@ -12,11 +12,13 @@ using UUIDNext;
 namespace Rasm.Rhino.UI;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public interface IRuiSource {
     public static abstract RuiFile Rui { get; }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -166,8 +168,11 @@ public abstract partial record MenuEntry {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Toolbars {
-    // --- [DECLARATION]
+
+    // --- [DECLARATIONS]
+
     public static Option<RuiFile> Declared(Assembly plugIn) =>
         toSeq(plugIn.GetExportedTypes()).Find(static type => type.IsAssignableTo(typeof(IRuiSource)))
             .Bind(static type => Optional(type.GetProperty(nameof(IRuiSource.Rui), BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null) as RuiFile));
@@ -176,6 +181,7 @@ public static class Toolbars {
         Conversions.Required(Optional(plugIn.GetCustomAttribute<GuidAttribute>()).Bind(static held => parseGuid(held.Value)));
 
     // --- [IDENTIFIERS]
+
     public static Guid ExtensionsId(Guid file) => Uuid.NewNameBased(file, "extend_rhino_menus");
 
     public static Guid MenuId(Guid file, MenuRow menu) => Uuid.NewNameBased(file, $"menu/{menu.Face.Name}");
@@ -183,6 +189,7 @@ public static class Toolbars {
     public static Guid ItemId(Guid parent, string scope, int index) => Uuid.NewNameBased(parent, string.Create(CultureInfo.InvariantCulture, $"{scope}/{index}"));
 
     // --- [MENUS]
+
     public static Seq<MenuEntry> Entries(Guid file, MenuExtension extension) => Entries(ExtensionsId(file), extension.Text, extension.Groups, []);
 
     public static Seq<MenuEntry> Entries(Guid file, MenuRow menu) => Entries(MenuId(file, menu), "menu_item", menu.Groups, []);
@@ -198,6 +205,7 @@ public static class Toolbars {
             .Map((entry, index) => entry(ItemId(menu, scope, index)));
 
     // --- [RUNTIME]
+
     internal static IO<Unit> Registered() =>
         Declared(Session.Assembly).Match(
             Some: static declared =>
@@ -225,6 +233,7 @@ public static class Toolbars {
             select unit).As().Map(static _ => unit)).As());
 
     // --- [HOST_FILES]
+
     public static IO<ToolbarFile> Own => IO.lift(static () => Identity(Session.Assembly)).Bind(File);
 
     public static IO<ToolbarFile> File(Guid id) =>

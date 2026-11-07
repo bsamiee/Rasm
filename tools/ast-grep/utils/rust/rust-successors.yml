@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-successors
+language: rustlang
+arguments: [seed, step]
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?successors$'}
+        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: seed}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: step}}]}

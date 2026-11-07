@@ -3,16 +3,16 @@ import { Unmatched } from '@rasm/search';
 import { Array, Effect, Equal, Function, flow, Match, Number, Option, Order, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Variation } from 'harfbuzzjs';
-import { Tag } from '#/internal/tag';
-import { Color } from '#/shaping/internal/color';
-import { Layout } from '#/shaping/internal/layout';
-import { Member } from '#/shaping/internal/member';
-import { Metrics } from '#/shaping/internal/metrics';
-import { Names } from '#/shaping/internal/names';
-import { Profile } from '#/shaping/internal/profile';
-import { Tables } from '#/shaping/internal/tables';
-import type { Source } from '#/source';
-import { TypographyError } from '#/typography-error';
+import { TypographyError } from '#/error.ts';
+import { Settings } from '#/settings.ts';
+import { Color } from '#/shaping/internal/color.ts';
+import { Layout } from '#/shaping/internal/layout.ts';
+import { Member } from '#/shaping/internal/member.ts';
+import { Metrics } from '#/shaping/internal/metrics.ts';
+import { Names } from '#/shaping/internal/names.ts';
+import { Profile } from '#/shaping/internal/profile.ts';
+import { Tables } from '#/shaping/internal/tables.ts';
+import type { Source } from '#/source.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -51,7 +51,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
 ) {
     static readonly TATWEEL = 0x6_40;
     static readonly Instance = Schema.Struct({
-        variations: Schema.Record(Tag, Schema.Finite)
+        variations: Schema.Record(Settings.Tag, Schema.Finite)
             .annotate({ description: 'Axis values by tag over selected instance, clamped to axis range, absent axes ignored' })
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.succeed({}))),
         size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),

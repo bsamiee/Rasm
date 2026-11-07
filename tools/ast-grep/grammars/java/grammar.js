@@ -1,5 +1,5 @@
 import java from 'tree-sitter-java/grammar.js';
-import { after, before, choiceOf, drop, extend, located, optionalOf, outermost, reaches, rewrite, string, symbol, widen } from '#/tools/ast-grep/grammars/derive.js';
+import { after, before, choiceOf, drop, extend, located, optionalOf, outermost, reaches, rewrite, string, symbol, widen } from '#/grammars/derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

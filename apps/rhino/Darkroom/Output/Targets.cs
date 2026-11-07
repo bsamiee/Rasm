@@ -17,6 +17,7 @@ using TinyEXR;
 namespace Darkroom.Output;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [SmartEnum<string>]
 public sealed partial class LayerReader {
     public static readonly LayerReader Blender = new("blender", ChannelNaming.Blender, view: false);
@@ -29,6 +30,9 @@ public sealed partial class LayerReader {
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class TargetFile {
+
+    // --- [ITEMS]
+
     private static readonly Seq<string> Rgb = ["R", "G", "B"];
 
     internal static readonly Seq<string> Rgba = ["R", "G", "B", "A"];
@@ -60,7 +64,8 @@ public sealed partial class TargetFile {
     [UseDelegateFromConstructor]
     public partial IO<Unit> Write(RhinoDoc doc, SaveSource source, OutputTarget target, FileMetadata metadata, OutputPath path, bool overwrite);
 
-    // --- [WRITERS]
+    // --- [WRITES]
+
     private static Func<RhinoDoc, SaveSource, OutputTarget, FileMetadata, OutputPath, bool, IO<Unit>> Encoded(Func<RhinoDoc, SaveSource, OutputTarget, IO<ImageFile>> still) =>
         (doc, source, target, metadata, path, overwrite) =>
             from file in still(doc, source, target)
@@ -77,6 +82,7 @@ public sealed partial class TargetFile {
              select written).Finally(IO.lift(() => File.Delete(scratch))));
 
     // --- [LAYERS]
+
     private static IO<Seq<ExrLayer>> Passes(RhinoDoc doc, SaveSource source, OutputTarget target, LayerReader reader) =>
         from beauty in source.Linear
         from channels in source.Channels(target.Position)
@@ -126,11 +132,15 @@ public sealed record OutputTarget(TargetFile FileFormat, bool Alpha, OutputDepth
 }
 
 public sealed record OutputBook(Lst<OutputTarget> Targets, OutputFolder Folder, Stem Stem, bool Overwrite) {
+
+    // --- [STATE]
+
     private static readonly DictionaryCodec<OutputBook> Codec = ArchivableDictionaries.Json<OutputBook>(nameof(OutputBook), 5);
 
     public static OutputBook Empty { get; } = new([OutputTarget.Default], new OutputFolder.BesideDocument([]), new Stem.DocumentName(), Overwrite: false);
 
     // --- [NAMES]
+
     public Seq<QueueOutput<Unit>> Names(Seq<NamePart> scope) =>
         toHashMap(Targets.Index().DistinctBy(static held => held.Item.FileFormat.Extension).Select(static held => (held.Item.FileFormat.Extension, held.Index))) switch {
             var first => toSeq(Targets).Map((target, index) => new QueueOutput<Unit>(target, new OutputName(
@@ -141,7 +151,8 @@ public sealed record OutputBook(Lst<OutputTarget> Targets, OutputFolder Folder, 
                 target.FileFormat.Extension), unit)),
         };
 
-    // --- [ARCHIVE]
+    // --- [ARCHIVES]
+
     public static IO<OutputBook> Read(RhinoDoc doc) =>
         ArchivableDictionaries.Read(RenderSettingsSources.Dictionary(new RenderSettingsSource.Live(doc)), Codec).Map(static stored => stored.IfNone(Empty));
 

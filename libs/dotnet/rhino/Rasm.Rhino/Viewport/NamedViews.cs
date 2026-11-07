@@ -13,6 +13,7 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.Viewport;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record RestorePacing {
     public sealed record Immediate : RestorePacing;
@@ -46,7 +47,11 @@ public sealed record NamedViewRestore(StateName Name, ViewportSet Viewports, Res
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
+
 public static class NamedViews {
+
+    // --- [ROWS]
+
     public static NamedTable Table { get; } = new(nameof(NamedViews), StringComparer.OrdinalIgnoreCase) {
         Entries = static doc => Rows(doc, static view => IO.pure(Entry(view))),
         Rename = Rename,
@@ -60,7 +65,6 @@ public static class NamedViews {
         Current = Some(Current),
     };
 
-    // --- [ROWS]
     private static IO<Option<NamedEntry>> Current(RhinoDoc doc, Guid viewport) =>
         from pose in Viewports.With(doc, new ViewportTarget.Id(viewport), static row => Cameras.Read(row.Viewport))
         from tolerances in Tolerances.Read(doc, Space.Model)
@@ -82,7 +86,8 @@ public static class NamedViews {
     internal static IO<int> Find(RhinoDoc doc, string name) =>
         IO.lift(() => Conversions.Present(doc.NamedViews.FindByName(name)).ToFin(Table.Missing(name)));
 
-    // --- [SAVE]
+    // --- [SAVES]
+
     internal static IO<NamedWrite> Staged(RhinoDoc doc, string name, RhinoViewport copy, Option<Func<RhinoViewport, ViewInfo, IO<Unit>>> stage, [CallerMemberName] string action = "") =>
         Products.Transfer(() => copy, held =>
             from staged in use(() => new ViewInfo(held)).Bind(view => stage.Traverse(run => run(held, view)).As()).Bracket()
@@ -107,7 +112,8 @@ public static class NamedViews {
     private static IO<Guid> ModeId(RhinoViewport viewport) =>
         use(() => new ViewInfo(viewport)).Map(static view => view.DisplayModeId).Bracket();
 
-    // --- [RESTORE]
+    // --- [RESTORATION]
+
     internal static IO<Unit> Applied(RhinoDoc doc, int index, RhinoViewport viewport, RestorePacing pacing) =>
         from restored in IO.lift(() => Restored(doc.NamedViews, index, viewport, pacing))
         from stored in Products.Of(() => doc.NamedViews[index]).Map(static view => view.DisplayModeId).Bracket()
@@ -132,7 +138,8 @@ public static class NamedViews {
                 from restored in RhinoFault.Unless(at.Table.RestoreAnimatedConstantTime(at.Index, at.Viewport, time.Frames, delay), RhinoReason.Declined, at.Index)
                 select restored);
 
-    // --- [HOLD]
+    // --- [HOLDS]
+
     internal static IO<NamedWrite> Held(RhinoDoc doc, ViewportSet set) =>
         Viewports.Resolve(doc, set).Bind(rows => rows.TraverseM(row => IO.lift(() => new ViewInfo(row.Viewport)).Map(held => new NamedWrite(
                 Viewports.Edit(doc, new ViewportSet.One(new ViewportTarget.Id(row.Viewport.Id)), viewport => Pushed(viewport, held), new RedrawPolicy.AllViews(Deferred: true)).Map(unit),
@@ -148,6 +155,7 @@ public static class NamedViews {
         select moded;
 
     // --- [EXCHANGE]
+
     private static IO<NamedWrite> Transform(RhinoDoc doc, NamedEntry entry, Transform xform) =>
         Read(doc, entry.Name, Held).Bind(copy => Staged(doc, entry.Name, copy, Some(Moved(xform))));
 
@@ -181,6 +189,7 @@ public static class NamedViews {
     }
 
     // --- [STORED]
+
     public static IO<TValue> Read<TValue>(RhinoDoc doc, string name, Func<ViewInfo, IO<TValue>> read) =>
         Find(doc, name).Bind(index => Products.Of(() => doc.NamedViews[index]).Bind(read).Bracket());
 

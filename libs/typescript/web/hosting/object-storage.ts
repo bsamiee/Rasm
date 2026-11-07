@@ -1,14 +1,16 @@
 import { ByteSize, Cause, Clock, Context, Effect, Match, Option, Stream } from 'effect';
-import { HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { Digest } from 'effect/crypto';
+import { Etag, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import type { ObjectStore } from 'partial-content';
 import { isUploadDestinationConflictError, isUploadOffsetConflictError, isUploadOverrunError, type PrefixedUploadStore } from 'partial-content/upload';
 import { type ServeContext, type ServeObjectOptions, serveObject } from 'partial-content/web';
-import { HostingError } from '#/hosting-error';
+import { HostingError } from '#/error.ts';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: ObjectStore; readonly uploads: PrefixedUploadStore; readonly delete: (key: string) => Effect.Effect<void, HostingError> }>()('@rasm/hosting/server/object-storage/ObjectStorage') {
+class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: ObjectStore; readonly uploads: PrefixedUploadStore; readonly delete: (key: string) => Effect.Effect<void, HostingError> }>()('@rasm/hosting/object-storage/ObjectStorage') {
+    static readonly etag = Effect.fn('ObjectStorage.etag')((content: Uint8Array) => Digest.Digest.use((digest) => digest.digestHex(Digest.sha256, content)).pipe(Effect.map((value) => Etag.toString({ _tag: 'Strong', value }))));
     static readonly upload = Effect.fn('ObjectStorage.upload')(function* (object: { readonly key: string; readonly size: ByteSize.ByteSize }) {
         const [{ uploads }, created] = yield* Effect.all([ObjectStorage, Clock.currentTimeMillis]);
         const length = ByteSize.toNumberUnsafe(object.size);

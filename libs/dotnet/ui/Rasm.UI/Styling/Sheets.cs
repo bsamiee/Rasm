@@ -11,8 +11,11 @@ using Wacton.Unicolour.Datasets;
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record StyleSheet(HashMap<Key, Look> Looks) : Monoid<StyleSheet> {
-    // --- [SCALE]
+
+    // --- [SCALES]
+
     internal const float Control = 24f;
     internal const float Corner = 6f;
     internal const float Text = 13f;
@@ -20,6 +23,7 @@ public sealed record StyleSheet(HashMap<Key, Look> Looks) : Monoid<StyleSheet> {
     internal static readonly Duration Brief = Duration.FromMilliseconds(120);
 
     // --- [COLORS]
+
     private static readonly ColorValue Accent = new ColorValue.Host(Token.AccentColor);
     private static readonly ColorValue AccentText = new ColorValue.Host(Token.AccentColorText);
     private static readonly ColorValue FieldFill = new ColorValue.Host(Token.Field);
@@ -35,15 +39,18 @@ public sealed record StyleSheet(HashMap<Key, Look> Looks) : Monoid<StyleSheet> {
     private static readonly ColorValue WellText = Fixed(Css.White, 0.7f);
 
     // --- [MOTION]
+
     private static readonly Factor Rest = new(0.001f);
     private static readonly TimingCurve Eased = new TimingCurve.Eased(Brief, Easing.EaseOut);
     private static readonly TimingCurve Critical = new TimingCurve.Spring(Duration.FromMilliseconds(500), Factor.Unit, Rest);
     private static readonly TimingCurve Underdamped = new TimingCurve.Spring(Duration.FromMilliseconds(500), new Factor(0.85f), Rest);
 
     // --- [FACES]
+
     private static readonly TextFace SemiBold = new() { Weight = SKFontStyleWeight.SemiBold };
 
     // --- [MATERIALS]
+
     private static readonly Material Shimmer = Material.Drawn.Validated(
         "uniform float2 size; uniform float time; layout(color) uniform half4 base; layout(color) uniform half4 sweep; half4 main(float2 p) { float head = fract(time * 0.8) * 1.6 - 0.3; half a = half(1.0 - smoothstep(0.0, 0.15, abs(p.x / max(size.x, 1.0) - head))); half4 c = mix(base, sweep, a); return half4(c.rgb * c.a, c.a); }",
         colors: HashMap<string, ColorValue>(("base", Chrome(Roles.Panel, Channel.Text, 0.12f)), ("sweep", new ColorValue.Host(Token.Highlight)))).ThrowIfFail();
@@ -57,6 +64,7 @@ public sealed record StyleSheet(HashMap<Key, Look> Looks) : Monoid<StyleSheet> {
     private static readonly Material Frost = new Material.Glass(Clear: false, [Filter.Css.Validated(FilterFunction.Blur, 17f).ThrowIfFail(), Filter.Css.Validated(FilterFunction.Saturate, 1.8f).ThrowIfFail()]);
 
     // --- [LOOKS]
+
     public static StyleSheet Empty { get; } = new(HashMap<Key, Look>());
 
     private static readonly Seq<Stroke> Strokeless = Seq<Stroke>();
@@ -352,9 +360,11 @@ public sealed record StyleSheet(HashMap<Key, Look> Looks) : Monoid<StyleSheet> {
         })));
 
     // --- [MONOID]
+
     public StyleSheet Combine(StyleSheet rhs) => new(Looks.Union(rhs.Looks, Merge: static (_, under, over) => under.Combine(over)));
 
     // --- [ROWS]
+
     private static ColorValue.Host Chrome(Key role, Channel channel, float alpha = 1f, Option<Condition> condition = default, Option<Interaction> interaction = default) =>
         new(new Token(role, channel) { Condition = condition, Interaction = interaction }) { Alpha = new Fraction(alpha) };
 

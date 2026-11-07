@@ -1,10 +1,10 @@
 import { Array, Function, flow, Match, Number, Option, Order, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { Feature, type Font } from 'harfbuzzjs';
 import { type JoiningGroup, Script } from 'icu';
-import { Settings } from '#/settings';
-import { Face } from '#/shaping/face';
-import { ShapedText } from '#/shaping/shaped-text';
-import { Word } from '#/shaping/word';
+import { Settings } from '#/settings.ts';
+import { Face } from '#/shaping/face.ts';
+import { ShapedText } from '#/shaping/shaped-text.ts';
+import { Word } from '#/shaping/word.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -105,8 +105,8 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
     get advance() {
         return Number.sumAll(this.runs.map(({ shaped }) => shaped.advance));
     }
-    get ink() {
-        const [, boxes] = Array.mapAccum(this.direction === 'RTL' ? Array.reverse(this.runs) : this.runs, this.offset, (left, { shaped }) => [left + shaped.advance, Option.map(shaped.ink, (box) => ({ ...box, minX: box.minX + left, maxX: box.maxX + left }))] as const);
+    get extents() {
+        const [, boxes] = Array.mapAccum(this.direction === 'RTL' ? Array.reverse(this.runs) : this.runs, this.offset, (left, { shaped }) => [left + shaped.advance, Option.map(shaped.extents, (box) => ({ ...box, minX: box.minX + left, maxX: box.maxX + left }))] as const);
         return ShapedText.enclosing(Array.getSomes(boxes));
     }
 }
@@ -340,7 +340,7 @@ const distribute = (line: Line, rank: number, width: number): Line => {
     return continuous.reduce((current, mechanism) => mechanism.take(current, Math.min(mechanism.capacity, (rest * mechanism.capacity) / shared)), placed);
 };
 
-// --- [FINISH]
+// --- [FINISHING]
 
 const finish = (measured: Measured) => {
     const { spacing } = measured.settings;

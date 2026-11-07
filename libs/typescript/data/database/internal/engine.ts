@@ -1,12 +1,12 @@
 import { Array, Cause, Context, Effect, Layer, Option, type Schema } from 'effect';
 import { SqlClient, type SqlConnection, type SqlError, type Statement } from 'effect/sql';
-import type { Catalog } from '#/catalog';
-import type { Column, Kind, Projection } from '#/column';
-import type { Pg } from '#/internal/engine/pg';
-import { Sqlite } from '#/internal/engine/sqlite';
-import type { diff, Identity } from '#/internal/reconcile';
-import type { ReconcileError } from '#/reconcile-error';
-import type { Relation } from '#/relation';
+import type { Catalog } from '#/catalog.ts';
+import type { Column, Kind, Projection } from '#/column.ts';
+import type { ReconcileError } from '#/error.ts';
+import type { Pg } from '#/internal/pg.ts';
+import type { diff, Identity } from '#/internal/reconcile.ts';
+import { Sqlite } from '#/internal/sqlite.ts';
+import type { Relation } from '#/relation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -65,14 +65,14 @@ interface Dialect {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Engine extends Context.Service<Engine, Dialect>()('@rasm/database/internal/engine/engine') {
+class Engine extends Context.Service<Engine, Dialect>()('@rasm/database/internal/engine') {
     static readonly flags = { inserted: '#inserted', previous: '#previous', rank: '#rank', highlight: '#highlight', position: '#position' } as const;
     static readonly make = SqlClient.SqlClient.use((sql) =>
         sql.onDialectOrElse({
             sqlite: () => Effect.succeed<Dialect>(Sqlite),
             pg: () =>
                 Effect.flatMap(
-                    Effect.promise(() => import('#/internal/engine/pg')),
+                    Effect.promise(() => import('#/internal/pg.ts')),
                     (module) => module.Pg.forClient(sql),
                 ),
             orElse: () => Effect.fail(new Cause.IllegalArgumentError(`${sql.driver} has no engine`)),

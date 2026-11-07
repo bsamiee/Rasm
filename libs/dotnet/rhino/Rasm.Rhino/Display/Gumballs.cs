@@ -10,6 +10,7 @@ using Rhino.UI.Gumball;
 namespace Rasm.Rhino.Display;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class GumballGetter : GetTransform {
     private readonly GumballDisplayConduit conduit;
 
@@ -48,8 +49,8 @@ internal sealed class GumballGetter : GetTransform {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Gumballs {
-    // --- [DRAG]
     public static IO<Transform> Drag(
         RhinoDoc doc, Func<GumballObject, bool> placed, GumballAppearanceSettings appearance, string prompt, Seq<RhinoObject> objects, Func<Transform, IO<Unit>> dragged) =>
         (from conduit in use(static () => new GumballDisplayConduit(ActiveSpace.ModelSpace), static conduit => {

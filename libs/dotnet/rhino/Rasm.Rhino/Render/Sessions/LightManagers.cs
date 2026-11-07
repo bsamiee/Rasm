@@ -5,6 +5,7 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record EngineLight(LightState Light, Option<uint> ObjectSerial);
 
 public sealed record LightSolo(Func<RhinoDoc, Guid, bool, IO<Unit>> Set, Func<RhinoDoc, Guid, IO<bool>> Read, Func<RhinoDoc, IO<int>> Count);
@@ -17,8 +18,11 @@ public sealed record LightManagerDefinition(Func<RhinoDoc, IO<Seq<EngineLight>>>
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public abstract class DefinedLightManager<TSelf> : LightManagerSupport where TSelf : DefinedLightManager<TSelf>, IDefined<LightManagerDefinition> {
-    // --- [SLOT]
+
+    // --- [SLOTS]
+
     private static readonly Atom<Option<DefinedLightManager<TSelf>>> Constructed = Atom(Option<DefinedLightManager<TSelf>>.None);
 
     protected DefinedLightManager() => _ = Constructed.Swap(_ => Some(this));
@@ -27,11 +31,13 @@ public abstract class DefinedLightManager<TSelf> : LightManagerSupport where TSe
         IO.lift(static () => Constructed.Value.ToFin(new RhinoFault(typeof(TSelf).Name, RhinoReason.Missing)));
 
     // --- [IDENTITY]
+
     public sealed override Guid PluginId() => Session.PlugIn.Id;
 
     public sealed override Guid RenderEngineId() => Session.PlugIn.Id;
 
     // --- [READS]
+
     public sealed override void GetLights(RhinoDoc doc, ref LightArray light_array) {
         LightArray lights = light_array;
         _ = Session.Run(
@@ -73,6 +79,7 @@ public abstract class DefinedLightManager<TSelf> : LightManagerSupport where TSe
         });
 
     // --- [EDITS]
+
     public sealed override void ModifyLight(RhinoDoc doc, Light light) =>
         _ = Session.Run(
             from state in IO.lift(() => Lights.State(light))
@@ -104,6 +111,7 @@ public abstract class DefinedLightManager<TSelf> : LightManagerSupport where TSe
         request.Map(apply => IO.lift(() => toSeq(Range(0, lights.Count())).Map(index => lights.ElementAt(index).Id).Strict()).Bind(apply));
 
     // --- [SOLO]
+
     public sealed override bool SetLightSolo(RhinoDoc doc, Guid uuid_light, bool bSolo) =>
         Session.Run(TSelf.Definition.Solo.Map(solo => solo.Set(doc, uuid_light, bSolo).Map(static _ => true)).IfNone(IO.lift(() => base.SetLightSolo(doc, uuid_light, bSolo))), failed: false);
 
@@ -114,6 +122,7 @@ public abstract class DefinedLightManager<TSelf> : LightManagerSupport where TSe
         Session.Run(TSelf.Definition.Solo.Map(solo => solo.Count(doc)).IfNone(IO.lift(() => base.LightsInSoloStorage(doc))), failed: 0);
 
     // --- [NOTICES]
+
     public IO<Unit> Changed(RhinoDoc doc, LightMangerSupportCustomEvent change) =>
         IO.lift(() => {
             Light? none = null;

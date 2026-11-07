@@ -24,6 +24,7 @@ using NuGet.Versioning;
 namespace Rasm.Upgrade;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record Row(string Id, VersionRange Range, Group Attribute);
 internal sealed record Move(Row Row, NuGetVersion Version);
 internal sealed record Feed(string Source, PackageMetadataResource Metadata, DownloadResource Downloads);
@@ -48,8 +49,11 @@ internal sealed record Project(
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static partial class Packages {
+
     // --- [ROWS]
+
     public static Seq<Row> Rows(string text) {
         int[] lineStarts = [0, .. LineBreak.Matches(text).Select(static line => line.Index + line.Length)];
         return toSeq(Located(text).Descendants())
@@ -78,6 +82,7 @@ internal static partial class Packages {
     private static partial Regex VersionAttribute { get; }
 
     // --- [PROJECTS]
+
     public static IO<Seq<Project>> Projects(string root, Seq<string> fileApps) =>
         IO.liftAsync(env => File.ReadAllTextAsync(Path.Join(root, "Workspace.slnx"), env.Token))
             .Bind(solution => toSeq(toSeq(Located(solution).Descendants("Project").Attributes("Path"))
@@ -118,6 +123,7 @@ internal static partial class Packages {
     }
 
     // --- [RELEASES]
+
     public static IO<Seq<Feed>> Feeds(Seq<SourceRepository> sources) {
         static FinT<IO, T> Resource<T>(SourceRepository source) where T : class, INuGetResource =>
             (from resource in IO.liftAsync(env => source.GetResourceAsync<T>(env.Token))
@@ -232,7 +238,8 @@ internal static partial class Packages {
         }
     }
 
-    // --- [REWRITE]
+    // --- [REWRITING]
+
     public static string Rewrite(string text, Seq<Move> moves) {
         StringBuilder rewritten = new(text.Length);
         int end = 0;
@@ -254,6 +261,7 @@ internal static partial class Packages {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 internal static class Program {
     public static Task<int> Main(string[] args) {
         System.CommandLine.Option<bool> dryRun = new("--dry-run") { Description = "Prints each move and writes nothing" };

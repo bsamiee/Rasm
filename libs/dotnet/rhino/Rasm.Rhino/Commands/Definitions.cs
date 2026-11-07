@@ -10,11 +10,13 @@ using Rhino.DocObjects;
 namespace Rasm.Rhino.Commands;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
 public interface ICommandInput<TSelf> where TSelf : CommandInput, ICommandInput<TSelf> {
     internal static abstract Command Plain(CommandDefinition<TSelf> definition);
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record SelectionAnswer {
     public sealed record Whole : SelectionAnswer;
@@ -61,8 +63,11 @@ public sealed record CommandDefinition<TInput>(string EnglishName, TInput Input)
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Results {
+
     // --- [ENDINGS]
+
     private static readonly Seq<Result> Precedence = [Result.ExitRhino, Result.Cancel, Result.Nothing, Result.UnknownCommand];
 
     private static readonly FrozenDictionary<RhinoReason, Result> Endings =
@@ -98,14 +103,17 @@ public static class Results {
 }
 
 public static class ActiveCommands {
+
     // --- [OBSERVATION]
+
     public static readonly HostEvent<Seq<Guid>> Changed =
         Subscriptions.Merged(
                 Subscriptions.On<CommandEventArgs>(static h => Command.BeginCommand += h, static h => Command.BeginCommand -= h),
                 Subscriptions.On<CommandEventArgs>(static h => Command.EndCommand += h, static h => Command.EndCommand -= h))
             .Choose(static _ => Some(Conversions.Rows(Command.GetCommandStack())));
 
-    // --- [PROXY]
+    // --- [PROXIES]
+
     public static IO<Unit> RunProxyCommand(IO<Unit> body) =>
         from running in IO.lift(Command.InCommand)
         from answer in running ? body : Products.Captured<Unit>(capture => IO.lift(() => Command.RunProxyCommand(

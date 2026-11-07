@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Rtti extends GhidraScript {
+
     // --- [LAYOUT]
 
     private static final Pattern TYPEINFO_SYMBOL = Pattern.compile("^_*ZTI");
@@ -175,7 +176,7 @@ public class Rtti extends GhidraScript {
     record Vtable(
             Address address, TypeInfo type, long offset, List<Slot> slots, List<Address> users) {}
 
-    // --- [RUN]
+    // --- [EXECUTION]
 
     @Override
     public void run() throws Exception {

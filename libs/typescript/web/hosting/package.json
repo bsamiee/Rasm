@@ -5,17 +5,16 @@
     "sideEffects": false,
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*"
     },
     "exports": {
         ".": "./index.ts",
         "./browser": "./browser.ts",
         "./cloudflare": "./cloudflare.ts",
-        "./cloudflare-access": "./cloudflare-access.ts",
         "./head": "./head.ts",
         "./node": "./node.ts",
         "./node-bundle": "./node-bundle.ts",
-        "./server": "./server/index.ts",
+        "./template": "./template.ts",
         "./vite": "./vite.ts",
         "./worker": "./worker.ts"
     },
@@ -38,6 +37,7 @@
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
         "@effect/vitest": "catalog:",
+        "@rasm/test-support": "workspace:*",
         "@types/culori": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",

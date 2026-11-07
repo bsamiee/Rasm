@@ -86,11 +86,13 @@ class IconSet:
 class Icons(msgspec.Struct, frozen=True, kw_only=True):
     """Packaged image icons of one extension with an optional brand icon, tinted in regular widget text color by default and tinted again after each `watched` source fires."""
 
+    # --- [STATE]
+
     tint: Callable[[Path], Option[Color]] = lambda _: Some(color(Metrics.read().preferences.themes[0].user_interface.wcol_regular.text))
     watched: tuple[Refresh, ...] = ((bpy.types.ThemeWidgetColors, "text"), (bpy.types.Theme, "filepath"))
     brand: Option[Path] = Nothing
 
-    # --- [ACQUISITION]
+    # --- [REGISTRATION]
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:
@@ -113,7 +115,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
         with identity.reports.deferred(retinted) as later:
             yield (ICONS, (Tier.RESOURCES, tinted()), (Tier.SUBSCRIPTIONS, refreshing(identity, self.watched, lambda: Ok(later()))))
 
-    # --- [READING]
+    # --- [READS]
 
     @staticmethod
     def folder(identity: Identity) -> Traversable:

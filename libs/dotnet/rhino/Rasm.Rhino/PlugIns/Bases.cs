@@ -16,12 +16,16 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.PlugIns;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class FileFormats {
+
     // --- [VIEWS]
+
     public static Seq<View> Dialogs<TOptions>(IterableNE<FileFormat<TOptions>> formats) where TOptions : class =>
         toSeq(formats).Choose(static format => format.Options.Map<View>(static dialog => dialog));
 
-    // --- [LIST]
+    // --- [FILES]
+
     public static FileTypeList AddFileTypes<TOptions>(IterableNE<FileFormat<TOptions>> formats) where TOptions : class =>
         Session.Run(
             from list in IO.lift(static () => new FileTypeList())
@@ -33,7 +37,8 @@ internal static class FileFormats {
             select list,
             new FileTypeList());
 
-    // --- [RUN]
+    // --- [EXECUTION]
+
     public static T Run<TOptions, T>(IterableNE<FileFormat<TOptions>> formats, int index, string path, RhinoDoc doc, TOptions options, T done, T cancelled, T failed) where TOptions : class =>
         Session.Run(
             (from format in IO.lift(() => Conversions.Required(toSeq(formats).At(index), index))
@@ -43,6 +48,7 @@ internal static class FileFormats {
             failed);
 
     // --- [OPTIONS]
+
     public static Unit DisplayOptionsDialog<TOptions>(IterableNE<FileFormat<TOptions>> formats, string description, string extension) where TOptions : class =>
         Session.Run(
             (from dialog in IO.lift(() => toSeq(formats)
@@ -57,12 +63,17 @@ internal static class FileFormats {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public abstract class DefinedPlugIn<TSelf> : PlugIn where TSelf : DefinedPlugIn<TSelf>, IDefined<PlugInDefinition> {
+
+    // --- [STATE]
+
     private readonly PlugInBody body;
 
     protected DefinedPlugIn() => body = new(this, TSelf.Definition, []);
 
     // --- [LIFECYCLE]
+
     public sealed override PlugInLoadTime LoadTime => body.LoadTime;
 
     protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => body.Load(GetLicense, ref errorMessage);
@@ -76,18 +87,21 @@ public abstract class DefinedPlugIn<TSelf> : PlugIn where TSelf : DefinedPlugIn<
     public sealed override object? GetPlugInObject() => TSelf.Definition.Published.ValueUnsafe();
 
     // --- [HELP]
+
     public sealed override bool AddToHelpMenu => TSelf.Definition.Help.IsSome;
 
     public sealed override bool DisplayHelp(nint windowHandle) => body.DisplayHelp();
 
     // --- [PAGES]
+
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.OptionsDialogPages(pages));
 
     protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages));
 
     protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = Session.Run(ViewRegistration.ObjectPropertiesPages(collection));
 
-    // --- [ARCHIVE]
+    // --- [ARCHIVES]
+
     protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => body.ShouldCallWriteDocument(options);
 
     protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = body.WriteDocument(doc, archive, options);
@@ -96,11 +110,15 @@ public abstract class DefinedPlugIn<TSelf> : PlugIn where TSelf : DefinedPlugIn<
 }
 
 public abstract class DefinedImportPlugIn<TSelf> : FileImportPlugIn where TSelf : DefinedImportPlugIn<TSelf>, IDefined<FileDefinition<FileReadOptions>> {
+
+    // --- [STATE]
+
     private readonly PlugInBody body;
 
     protected DefinedImportPlugIn() => body = new(this, TSelf.Definition.PlugIn, FileFormats.Dialogs(TSelf.Definition.Formats));
 
     // --- [LIFECYCLE]
+
     public sealed override PlugInLoadTime LoadTime => body.LoadTime;
 
     protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => body.Load(GetLicense, ref errorMessage);
@@ -114,18 +132,21 @@ public abstract class DefinedImportPlugIn<TSelf> : FileImportPlugIn where TSelf 
     public sealed override object? GetPlugInObject() => TSelf.Definition.PlugIn.Published.ValueUnsafe();
 
     // --- [HELP]
+
     public sealed override bool AddToHelpMenu => TSelf.Definition.PlugIn.Help.IsSome;
 
     public sealed override bool DisplayHelp(nint windowHandle) => body.DisplayHelp();
 
     // --- [PAGES]
+
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.OptionsDialogPages(pages));
 
     protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages));
 
     protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = Session.Run(ViewRegistration.ObjectPropertiesPages(collection));
 
-    // --- [ARCHIVE]
+    // --- [ARCHIVES]
+
     protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => body.ShouldCallWriteDocument(options);
 
     protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = body.WriteDocument(doc, archive, options);
@@ -133,6 +154,7 @@ public abstract class DefinedImportPlugIn<TSelf> : FileImportPlugIn where TSelf 
     protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => _ = body.ReadDocument(doc, archive, options);
 
     // --- [FILES]
+
     protected sealed override FileTypeList AddFileTypes(FileReadOptions options) => FileFormats.AddFileTypes(TSelf.Definition.Formats);
 
     protected sealed override bool ReadFile(string filename, int index, RhinoDoc doc, FileReadOptions options) =>
@@ -142,11 +164,15 @@ public abstract class DefinedImportPlugIn<TSelf> : FileImportPlugIn where TSelf 
 }
 
 public abstract class DefinedExportPlugIn<TSelf> : FileExportPlugIn where TSelf : DefinedExportPlugIn<TSelf>, IDefined<FileDefinition<FileWriteOptions>> {
+
+    // --- [STATE]
+
     private readonly PlugInBody body;
 
     protected DefinedExportPlugIn() => body = new(this, TSelf.Definition.PlugIn, FileFormats.Dialogs(TSelf.Definition.Formats));
 
     // --- [LIFECYCLE]
+
     public sealed override PlugInLoadTime LoadTime => body.LoadTime;
 
     protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => body.Load(GetLicense, ref errorMessage);
@@ -160,18 +186,21 @@ public abstract class DefinedExportPlugIn<TSelf> : FileExportPlugIn where TSelf 
     public sealed override object? GetPlugInObject() => TSelf.Definition.PlugIn.Published.ValueUnsafe();
 
     // --- [HELP]
+
     public sealed override bool AddToHelpMenu => TSelf.Definition.PlugIn.Help.IsSome;
 
     public sealed override bool DisplayHelp(nint windowHandle) => body.DisplayHelp();
 
     // --- [PAGES]
+
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.OptionsDialogPages(pages));
 
     protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages));
 
     protected sealed override void ObjectPropertiesPages(ObjectPropertiesPageCollection collection) => _ = Session.Run(ViewRegistration.ObjectPropertiesPages(collection));
 
-    // --- [ARCHIVE]
+    // --- [ARCHIVES]
+
     protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => body.ShouldCallWriteDocument(options);
 
     protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = body.WriteDocument(doc, archive, options);
@@ -179,6 +208,7 @@ public abstract class DefinedExportPlugIn<TSelf> : FileExportPlugIn where TSelf 
     protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => _ = body.ReadDocument(doc, archive, options);
 
     // --- [FILES]
+
     protected sealed override bool ShouldDisplayOptionsDialog => TSelf.Definition.Formats.Exists(static format => format.Options.IsSome);
 
     protected sealed override FileTypeList AddFileTypes(FileWriteOptions options) => FileFormats.AddFileTypes(TSelf.Definition.Formats);
@@ -190,12 +220,16 @@ public abstract class DefinedExportPlugIn<TSelf> : FileExportPlugIn where TSelf 
 }
 
 public abstract class DefinedRenderPlugIn<TSelf> : RenderPlugIn where TSelf : DefinedRenderPlugIn<TSelf>, IDefined<RendererDefinition> {
+
+    // --- [STATE]
+
     private readonly PlugInBody body;
 
     protected DefinedRenderPlugIn() =>
         body = new(this, TSelf.Definition.PlugIn, [.. TSelf.Definition.Tabs, .. TSelf.Definition.Panes, .. TSelf.Definition.SettingsSections, .. TSelf.Definition.SunSections]);
 
     // --- [LIFECYCLE]
+
     public sealed override PlugInLoadTime LoadTime => body.LoadTime;
 
     protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => body.Load(GetLicense, ref errorMessage);
@@ -209,11 +243,13 @@ public abstract class DefinedRenderPlugIn<TSelf> : RenderPlugIn where TSelf : De
     public sealed override object? GetPlugInObject() => TSelf.Definition.PlugIn.Published.ValueUnsafe();
 
     // --- [HELP]
+
     public sealed override bool AddToHelpMenu => TSelf.Definition.PlugIn.Help.IsSome;
 
     public sealed override bool DisplayHelp(nint windowHandle) => body.DisplayHelp();
 
     // --- [PAGES]
+
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.OptionsDialogPages(pages));
 
     protected sealed override void DocumentPropertiesDialogPages(RhinoDoc doc, List<OptionsDialogPage> pages) => _ = Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages));
@@ -224,14 +260,16 @@ public abstract class DefinedRenderPlugIn<TSelf> : RenderPlugIn where TSelf : De
         Session.Run(TSelf.Definition.RenderPage.Map(row => ViewRegistration.RenderOptionsDialogPage(row, doc)).IfNone(IO.pure(Option<OptionsDialogPage>.None)), Option<OptionsDialogPage>.None)
             .IfNone(() => base.RenderOptionsDialogPage(doc));
 
-    // --- [ARCHIVE]
+    // --- [ARCHIVES]
+
     protected sealed override bool ShouldCallWriteDocument(FileWriteOptions options) => body.ShouldCallWriteDocument(options);
 
     protected sealed override void WriteDocument(RhinoDoc doc, BinaryArchiveWriter archive, FileWriteOptions options) => _ = body.WriteDocument(doc, archive, options);
 
     protected sealed override void ReadDocument(RhinoDoc doc, BinaryArchiveReader archive, FileReadOptions options) => _ = body.ReadDocument(doc, archive, options);
 
-    // --- [RENDER]
+    // --- [RENDERING]
+
     protected sealed override Result Render(RhinoDoc doc, RunMode mode, bool fastPreview) =>
         Session.Run(Batches.Render(doc, mode, TSelf.Definition.Engine, new RenderStart.Full(fastPreview)), Result.Failure);
 
@@ -247,6 +285,7 @@ public abstract class DefinedRenderPlugIn<TSelf> : RenderPlugIn where TSelf : De
     protected sealed override IEnumerable<RenderContentSerializer> RenderContentSerializers() => TSelf.Definition.Engine.RenderContentSerializers();
 
     // --- [CHANNELS]
+
     protected sealed override Guid[] SupportedChannels => [.. TSelf.Definition.Engine.SupportedChannels];
 
     protected sealed override Guid InitialChannelToDisplay => TSelf.Definition.Engine.InitialChannelId.IfNone(base.InitialChannelToDisplay);
@@ -254,6 +293,7 @@ public abstract class DefinedRenderPlugIn<TSelf> : RenderPlugIn where TSelf : De
     protected sealed override string CustomChannelName(Guid id) => TSelf.Definition.Engine.CustomChannelName(id);
 
     // --- [DECALS]
+
     protected sealed override bool SupportsEditProperties => TSelf.Definition.Engine.EditDecal.IsSome;
 
     protected sealed override bool ShowDecalProperties(ref List<NamedValue> properties) => TSelf.Definition.Engine.ShowDecalProperties(ref properties);
@@ -261,6 +301,7 @@ public abstract class DefinedRenderPlugIn<TSelf> : RenderPlugIn where TSelf : De
     protected sealed override void InitializeDecalProperties(ref List<NamedValue> properties) => TSelf.Definition.Engine.InitializeDecalProperties(ref properties);
 
     // --- [MATERIALS]
+
     public sealed override bool EnableAssignMaterialButton() => TSelf.Definition.Engine.AssignMaterial.IsSome;
 
     public sealed override bool OnAssignMaterial(nint parent, RhinoDoc doc, ref Material material) => RenderEngine.Pressed(TSelf.Definition.Engine.AssignMaterial, doc, ref material);
@@ -276,16 +317,19 @@ public abstract class DefinedRenderPlugIn<TSelf> : RenderPlugIn where TSelf : De
     protected sealed override bool AllowChooseContent(RenderContent content) => TSelf.Definition.Engine.Choosable(content);
 
     // --- [RENDER_WINDOW]
+
     protected sealed override void RegisterRenderPanels(RenderPanels panels) => _ = Session.Run(ViewRegistration.RegisterRenderPanels(panels));
 
     protected sealed override void RegisterRenderTabs(RenderTabs tabs) => _ = Session.Run(ViewRegistration.RegisterRenderTabs(tabs));
 
     // --- [SECTIONS]
+
     public sealed override void RenderSettingsCustomSections(List<ICollapsibleSection> sections) => _ = Session.Run(ViewRegistration.CustomSections(TSelf.Definition.SettingsSections, sections));
 
     public sealed override void SunCustomSections(List<ICollapsibleSection> sections) => _ = Session.Run(ViewRegistration.CustomSections(TSelf.Definition.SunSections, sections));
 
     // --- [SAVES]
+
     protected sealed override void RegisterCustomRenderSaveFileTypes(CustomRenderSaveFileTypes saveFileTypes) =>
         _ = Session.Run(IO.lift(() => TSelf.Definition.SaveTypes.Iter(type => saveFileTypes.RegisterFileType(
             Seq(type.Extension),
@@ -293,6 +337,7 @@ public abstract class DefinedRenderPlugIn<TSelf> : RenderPlugIn where TSelf : De
             (fileName, includeAlpha, window) => Session.Run(type.Write(window, fileName, includeAlpha).Map(value: true), failed: false)))));
 
     // --- [CONTENT]
+
     protected sealed override List<Guid> UiContentTypes() =>
         [
             .. base.UiContentTypes(),

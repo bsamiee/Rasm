@@ -10,14 +10,18 @@ using SkiaSharp;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record CommandPresentation(Key Key, string Caption) {
+
     // --- [STATE]
+
     public Option<string> Help { get; init; }
     public Option<GlyphSource> Glyph { get; init; }
     public Option<string> Shortcut { get; init; }
     public Option<string> Badge { get; init; }
 
     // --- [CONTENT]
+
     public static Seq<View> IconOnly(CommandPresentation presentation, HashSet<Condition> state) =>
         presentation.Glyph.Match(Some: art => Seq(Icon(art, state)), None: () => LabelOnly(presentation, state));
 
@@ -29,6 +33,7 @@ public sealed record CommandPresentation(Key Key, string Caption) {
         (presentation, state) => Seq<View>(new View.Choice(PhysicalAxis.Horizontal, preferred.Map(faced => (View)new View.Flex(PhysicalAxis.Horizontal, faced(presentation, state)))));
 
     // --- [FACES]
+
     internal View Button(HashSet<Condition> state, AccessRole access, Key look, Option<Part.Press> press, Seq<View> content, Seq<View> above = default) {
         Seq<View> pinned = Badge.Map(static badge => (View)new View.Pin(new Vector2(1f, 0f), new View.Text([badge]) { Role = Roles.Badge, Align = UnitPoint.Center }) { Align = UnitPoint.Center }).ToSeq() + above;
         View framed = (pinned.IsEmpty ? new View.Flex(PhysicalAxis.Horizontal, content) : (View)new View.Overlay(new View.Flex(PhysicalAxis.Horizontal, content), pinned)) with {
@@ -60,13 +65,16 @@ public sealed record CommandPresentation(Key Key, string Caption) {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Command<TGate, TInvoke> where TGate : notnull where TInvoke : notnull {
-    private Command(CommandPresentation presentation, Option<TGate> enabled) => (Presentation, Enabled) = (presentation, enabled);
 
     // --- [STATE]
+
+    private Command(CommandPresentation presentation, Option<TGate> enabled) => (Presentation, Enabled) = (presentation, enabled);
+
     public CommandPresentation Presentation { get; private init; }
     public Option<TGate> Enabled { get; }
 
     // --- [PRESENTATION]
+
     public Command<TGate, TInvoke> Presented(Func<CommandPresentation, Option<TInvoke>, CommandPresentation> into) =>
         Switch(
             into,
@@ -79,6 +87,7 @@ public abstract partial record Command<TGate, TInvoke> where TGate : notnull whe
             });
 
     // --- [CASES]
+
     public sealed record Run(CommandPresentation Presentation, Option<TGate> Enabled, TInvoke Invoke) : Command<TGate, TInvoke>(Presentation, Enabled) {
         public Option<TGate> Checked { get; init; }
         public Option<TGate> Busy { get; init; }
@@ -100,7 +109,9 @@ public sealed record CommandHost<TGate, TInvoke>(
     Func<TInvoke, SKRect, IO<Unit>> Run,
     Func<Seq<Seq<Command<TGate, TInvoke>>>, SKRect, IO<Unit>> Menu)
     where TGate : notnull where TInvoke : notnull {
+
     // --- [BAR]
+
     internal IO<View> Drawn(Command<TGate, TInvoke> command, Func<CommandPresentation, HashSet<Condition>, Seq<View>> content, PhysicalAxis axis, Option<AccessRole> within) =>
         command.Switch(
             (Host: this, Content: content, Axis: axis, Within: within),
@@ -130,7 +141,8 @@ public sealed record CommandHost<TGate, TInvoke>(
             Accessible = new Accessible { Role = AccessRole.Toolbar },
         };
 
-    // --- [MENU]
+    // --- [MENUS]
+
     public IO<View.Layer> Popup(Seq<Seq<Command<TGate, TInvoke>>> groups, Trigger trigger) =>
         Listed(groups).Map(listed => new View.Layer(listed) { Trigger = trigger, Accessible = new Accessible { Role = AccessRole.Menu } });
 
@@ -159,6 +171,7 @@ public sealed record CommandHost<TGate, TInvoke>(
                     }])));
 
     // --- [STATE]
+
     private IO<HashSet<Condition>> State(Option<TGate> enabled, Option<TGate> busy, Option<TGate> check) =>
         from open in enabled.Traverse(Holds).As()
         from working in busy.Traverse(Holds).As()
@@ -176,11 +189,14 @@ public sealed record CommandHost<TGate, TInvoke>(
 }
 
 public sealed record Toolbar<TGate, TInvoke>(Seq<Seq<Command<TGate, TInvoke>>> Groups, CommandPresentation Overflow) where TGate : notnull where TInvoke : notnull {
+
     // --- [STATE]
+
     public PhysicalAxis Axis { get; init; } = PhysicalAxis.Horizontal;
     public Func<CommandPresentation, HashSet<Condition>, Seq<View>> Content { get; init; } = CommandPresentation.Fitting(CommandPresentation.IconAndLabel, CommandPresentation.IconOnly);
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     public IO<View> Drawn(CommandHost<TGate, TInvoke> host) =>
         Groups.TraverseM(group => group.TraverseM(command => host.Drawn(command, Content, Axis, None)).As()).As().Map(drawn =>
             (View)new View.Choice(Axis, toSeq(Range(0, drawn.Count + 1)).Map(dropped => (View)host.Row(drawn.Take(drawn.Count - dropped), Groups.Skip(drawn.Count - dropped), this))));

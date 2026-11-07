@@ -37,20 +37,20 @@ mod error_assertions {
 
     use anyhow::Context as _;
 
-    // --- [MODELS] ----------------------------------------------------------------------
+    // --- [MODELS]
 
     #[derive(Debug, derive_more::Display)]
     enum Mode {
         Ready,
     }
 
-    // --- [OPERATIONS] ------------------------------------------------------------------
+    // --- [OPERATIONS]
 
     fn boxed_helper() -> Result<(), Box<dyn Error>> { Ok(()) }
 
     fn report_helper() -> anyhow::Result<()> { Ok(()) }
 
-    // --- [COMPOSITION] -----------------------------------------------------------------
+    // --- [COMPOSITION]
 
     #[test]
     fn observed_error_text() {

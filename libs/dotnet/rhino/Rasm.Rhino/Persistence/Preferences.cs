@@ -10,6 +10,7 @@ using Rhino.PlugIns;
 namespace Rasm.Rhino.Persistence;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 public sealed class Preference<T> {
     private static readonly Func<T, T, bool> Equal =
         typeof(T) == typeof(Color) ? (Func<T, T, bool>)(object)new Func<Color, Color, bool>(Conversions.Same) : EqualityComparer<T>.Default.Equals;
@@ -45,12 +46,16 @@ public sealed class Preference<T> {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Preferences {
+
     // --- [SIGNALS]
+
     public static readonly HostEvent<Unit> AppSettingsChanged =
         Subscriptions.On<EventHandler, EventArgs>(static h => RhinoApp.AppSettingsChanged += h, static h => RhinoApp.AppSettingsChanged -= h, static handler => handler.Invoke).Choose(static _ => Some(unit));
 
-    // --- [HOST]
+    // --- [HOSTS]
+
     public static Preference<T> Of<T>(IO<T> read, Func<T, IO<Unit>> write, Option<HostEvent<Unit>> changed = default) => new(read, write, changed);
 
     public static Preference<T> Property<T>(Func<T> read, Action<T> write, Option<HostEvent<Unit>> changed = default) =>
@@ -64,6 +69,7 @@ public static class Preferences {
         }), Some(AppSettingsChanged));
 
     // --- [SETTINGS]
+
     public static Preference<T> Setting<T>(SettingsNode node, string key, T fallback, Option<Func<T, bool>> rule = default, bool hidden = false, Seq<string> legacy = default) where T : notnull =>
         new(
             from settings in Registered(node, key, fallback, rule, hidden)
@@ -84,6 +90,7 @@ public static class Preferences {
         select settings;
 
     // --- [DOCUMENTS]
+
     public static Preference<T> Dictionary<T>(DictionaryOwner owner, string key, T fallback, Option<HostEvent<Unit>> changed = default) where T : notnull =>
         new(
             from source in owner.Read
@@ -119,7 +126,8 @@ public static class Preferences {
                     .Choose(args => Conversions.Present(args.RhinoObject.Id == id && args.Document.RuntimeSerialNumber == doc.RuntimeSerialNumber, unit)))),
         };
 
-    // --- [LIFETIME]
+    // --- [LIFECYCLE]
+
     public static IO<IO<Unit>> Swap(params Seq<IO<IO<Unit>>> swaps) =>
         swaps.Fold(
                 IO.pure(Seq<IO<Unit>>()),
@@ -132,7 +140,8 @@ public static class Preferences {
 
     private static IO<Unit> Restored(Seq<IO<Unit>> restores) => Products.Each(restores).Map(static _ => unit);
 
-    // --- [CODEC]
+    // --- [CODECS]
+
     private static Fin<T> Decoded<T>(string key, Option<string> text, T fallback) where T : notnull =>
         text.Match(Some: held => ArchivableDictionaries.Decoded(key, () => JsonSerializer.Deserialize<T>(held, ArchivableDictionaries.Options)), None: () => fallback);
 

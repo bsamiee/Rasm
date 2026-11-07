@@ -4,4 +4,4 @@ import { uxp } from '@rasm/uxp/vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default uxp(import.meta.dirname, { ...Photoshop.manifest, mark: atelierMark, ...atelierBuild(import.meta.dirname) });
+export default uxp(import.meta.dirname, { ...Photoshop.manifest, mark: atelierMark, ...atelierBuild });

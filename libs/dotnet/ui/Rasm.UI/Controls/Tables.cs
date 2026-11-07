@@ -10,6 +10,7 @@ using Rasm.UI.Styling;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ColumnSort(Key Column, bool Descending);
 
 public sealed record Column<TRow>(Key Key, View Header) where TRow : notnull {
@@ -38,7 +39,9 @@ public sealed record Column<TRow>(Key Key, View Header) where TRow : notnull {
 }
 
 public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed, Seq<Column<TRow>> Columns, Func<Seq<Key>, Part.Choice> Choice) where TRow : notnull {
+
     // --- [STATE]
+
     public HashSet<Key> Realized { get; init; }
     public Seq<ColumnSort> Sort { get; init; }
     public Option<Func<Edit<Seq<ColumnSort>>, IO<Unit>>> Sorted { get; init; }
@@ -55,7 +58,8 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
 
     private Option<AccessRole> CellRole => Children.IsSome ? None : Some(AccessRole.GridCell);
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     public View Drawn(CultureInfo culture) {
         Seq<Column<TRow>> shown = toSeq(Columns.Filter(static column => !column.Hidden).OrderByDescending(static column => column.Pinned));
         Func<TRow, bool> kept = row => Filter.Terms.IsEmpty || shown.Exists(column => column.Text.Exists(text => Filter.Matches(text(row), culture)));
@@ -75,6 +79,7 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
     }
 
     // --- [ROWS]
+
     private Seq<Row<Either<IGrouping<Key, TRow>, TRow>>> Flattened(Seq<TRow> current, Seq<Column<TRow>> shown, Func<TRow, bool> kept, CultureInfo culture) {
         Comparison<TRow> order = Sort
             .Choose(entry => shown.Find(column => column.Key == entry.Column).Bind(column => column.Order || column.Text.Map(text => (Comparison<TRow>)((left, right) => culture.CompareInfo.Compare(text(left), text(right), CompareOptions.NumericOrdering))))
@@ -133,6 +138,7 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
         Numbered ? [CodeView.Number(number, count, culture) with { Role = Roles.Gutter, Height = Sizing.Grow.Unit, Sticks = PhysicalAxis.Horizontal }] : [];
 
     // --- [CELLS]
+
     private View Cell(Column<TRow> column, TRow row, Seq<View> lead, CultureInfo culture) {
         View content = column.Cell.Map(cell => cell(row)).IfNone(() => column.Text.Map(text => (View)new View.Text(Filter.Marked(text(row), culture)) {
             MaxLines = 1,
@@ -154,6 +160,7 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
     }
 
     // --- [HEADER]
+
     private View Header(Seq<Column<TRow>> shown, int count, CultureInfo culture) {
         Seq<Key> keys = shown.Map(static column => column.Key);
         Seq<View> heads = shown.Map<View>(column => Head(column, culture));
@@ -218,7 +225,8 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
             Accessible = new Accessible { Role = AccessRole.List },
         };
 
-    // --- [ARRANGE]
+    // --- [ARRANGEMENT]
+
     private HashSet<Condition> Direction(Key key) => toHashSet(Sort.Find(entry => entry.Column == key).Map(static entry => entry.Descending ? Condition.Descending : Condition.Selected).ToSeq());
 
     private Seq<ColumnSort> Resorted(Selection next, Seq<Key> keys) =>

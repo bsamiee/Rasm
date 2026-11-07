@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Catalog extends GhidraScript {
+
     // --- [ROWS]
 
     sealed interface Row permits StringRow, ImportRow, FunctionRow {
@@ -109,7 +110,7 @@ public class Catalog extends GhidraScript {
         }
     }
 
-    // --- [RUN]
+    // --- [EXECUTION]
 
     @Override
     public void run() throws Exception {

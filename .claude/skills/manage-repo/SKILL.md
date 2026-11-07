@@ -21,7 +21,7 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 
 ## [01]-[VARIATION]
 
-Repository work varies by operation, subject (project, package, stack, file), and mode (configuration, platform, interpreter, environment). Names state operations alone, subject and mode come from the declaration owning them and reach a tool through that tool's own mechanism:
+Repository work varies by operation, subject (project, package, stack, file), and mode (configuration, platform, interpreter, environment). Target and task names state operations alone, subject and mode come from the declaration owning them and reach a tool through that tool's own mechanism:
 - Facts sit once at their owner (manifest, lock, catalog, host), each list, path, version, or name another file needs derives from it
 - Members come from tool discovery (workspace globs, inferred projects, item includes), a member list goes unless it is the owner
 - Shared policy sits in the file every member inherits, a member file states what differs from it alone
@@ -43,6 +43,7 @@ Repository work varies by operation, subject (project, package, stack, file), an
 - Build chains and project kinds of a declared host stay while no project uses them
 - Rows naming a package, binary, or server point at one a project file or tool row installs
 - Root files hold policy every project shares, a row one project consumes sits in the project file
+- License files sit at the root alone
 - Project files are written by hand as the file set their language's init command produces
 - Project files extending a root file exist for a plugin discovering projects by file name, a `--config` tool reads the root file from any `cwd`
 - Rows changing no tool output or lock go, documented defaults included, a row canceling another goes with the canceled row

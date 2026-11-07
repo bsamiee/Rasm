@@ -4,8 +4,8 @@ using Rhino.Render;
 namespace Rasm.Rhino.Render.Views;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal static class Internals {
-    // --- [RENDER_PANES]
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "FindExistingPanelData")]
     [return: UnsafeAccessorType("Rhino.Render.RenderPanelData, RhinoCommon")]
     internal static extern object? FindExistingPanelData(RenderPanels? owner, Guid pluginId, Guid tabId);

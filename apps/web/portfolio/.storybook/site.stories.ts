@@ -1,7 +1,7 @@
-import preview from '#/.storybook/preview';
-import { Entry, EntryId, Portfolio } from '#/model/portfolio';
-import { shell } from '#/site/shell';
-import { Site } from '#/site/site';
+import preview from '#/.storybook/preview.ts';
+import { Entry, EntryId, Portfolio } from '#/model/portfolio.ts';
+import { shell } from '#/site/shell.tsx';
+import { Site } from '#/site/site.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

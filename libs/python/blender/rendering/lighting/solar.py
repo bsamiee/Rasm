@@ -32,7 +32,6 @@ class Polar(Enum):
 _DAY: Final = datetime.timedelta(days=1)
 _DAY_SECONDS: Final = _DAY.total_seconds()
 
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
@@ -59,6 +58,8 @@ class Site(msgspec.Struct, frozen=True, kw_only=True):
 
 class SunPosition(Frozen, frozen=True, kw_only=True, eq=False):
     """True azimuth and geometric elevation in radians."""
+
+    # --- [STATE]
 
     azimuth: npt.NDArray[np.float64]
     elevation: npt.NDArray[np.float64]

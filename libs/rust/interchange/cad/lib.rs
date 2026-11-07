@@ -127,7 +127,7 @@ pub enum Refusal {
     #[error("measures paper in pixels")]
     Units,
     #[error("prints a device color")]
-    Ink,
+    DeviceColor,
     #[error("places off a similarity")]
     Skew,
     #[error("places external content")]

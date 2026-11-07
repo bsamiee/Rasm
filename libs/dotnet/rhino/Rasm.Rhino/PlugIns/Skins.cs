@@ -15,11 +15,15 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.PlugIns;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record Splash(Form Window, Label Status, ProgressBar Bar);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSkin<TSelf>, IDefined<SkinDefinition>, new() {
+
     // --- [STATE]
+
     [Union]
     private abstract partial record SkinLoad {
         public SkinLoad Begin(string plugIn) =>
@@ -58,6 +62,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
             CancellationToken.None).ThrowIfFail();
 
     // --- [IDENTITY]
+
     protected sealed override string ApplicationName =>
         TSelf.Definition.ApplicationName.IfNone(static () => typeof(TSelf).Assembly switch {
             var assembly => Optional(assembly.GetCustomAttribute<AssemblyTitleAttribute>()).Map(static title => title.Title).IfNone(() => assembly.GetName().Name ?? typeof(TSelf).Name),
@@ -73,7 +78,8 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
                 IconResource.PlugIn(typeof(TSelf).Assembly).TraverseM(static art => Icons.Frames(art, IconSlot.Splash).Bind(static icon => use(() => new ImageView { Image = icon })))
                     .As().Map(static view => view.Map(static image => (Control)image)));
 
-    // --- [LOAD]
+    // --- [LOADS]
+
     protected sealed override void OnBeginLoadAtStartPlugIns(int expectedCount) =>
         _ = Session.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, None, Ended: 0) : current) >> PlugInRegistry.LoadPlugIns(TSelf.Definition.PlugIns));
 
@@ -96,6 +102,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
         select next;
 
     // --- [HOOKS]
+
     protected sealed override void OnMainFrameWindowCreated() => _ = Session.Run(TSelf.Definition.MainFrameCreated.IfNone(IO.pure(unit)));
 
     protected sealed override void OnLicenseCheckCompleted() => _ = Session.Run(TSelf.Definition.LicenseChecked.IfNone(IO.pure(unit)));
@@ -103,6 +110,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
     protected sealed override void OnBuiltInCommandsRegistered() => _ = Session.Run(TSelf.Definition.CommandsRegistered.IfNone(IO.pure(unit)));
 
     // --- [SPLASH]
+
     protected sealed override void ShowSplash() =>
         _ = Session.Run(unless(HasBootSplash, Products.Replace(splash, Splashed).Scoped().Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As());
 
@@ -134,6 +142,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
         select new Splash(window, status, bar);
 
     // --- [HELP]
+
     protected sealed override void ShowHelp() =>
         _ = Session.Run(
             from mark in Mark
@@ -152,6 +161,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
             select shown);
 
     // --- [DOCUMENTS]
+
     protected sealed override void ShowChooseTemplate() =>
         _ = Session.Run(
             Chosen(
@@ -180,6 +190,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
         select document;
 
     // --- [LAYOUT]
+
     private static void Refresh(SkinLoad state, Label status, ProgressBar bar) {
         status.Text = state.Switch(
             starting: static _ => LocalText.Of("Starting"),

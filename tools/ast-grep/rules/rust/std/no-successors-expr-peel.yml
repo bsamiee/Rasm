@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: rustlang
+severity: error
+rule:
+    kind: call_expression
+    any:
+        - pattern: $PEEL.skip($_).last()
+        - pattern: $PEEL.last()
+constraints:
+    PEEL: {matches: {rust-successors: {seed: {pattern: Some($E)}, step: {kind: closure_expression, regex: '\.child\(|\.children\(|(?-u:\b)ExprKind::'}}}}
+message: '`successors(..).last()` peels `$E` to its innermost expression by hand'
+note: 'Call `clippy_utils::peel_hir_expr_while(<expr>, <step>)` for HIR, or match `ast_grep_core::Pattern::try_new(<text>, <language>)` on `PatternNode::Terminal` for a parsed pattern, and delete the `Option` unwrap after `last()`'

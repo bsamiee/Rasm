@@ -37,7 +37,6 @@
                             "typescript",
                             "{workspaceRoot}/{Package.swift,Xcode.xcconfig,Directory.Build.props,.swiftlint.yml,.config/mise.toml,.config/mise.lock,.config/hk.pkl,pyproject.toml,biome.json,.editorconfig,.vscode/settings.json,plugins/argus/.lsp.json,sgconfig.yml}",
                             "{workspaceRoot}/**/package.json",
-                            "{workspaceRoot}/**/hooks/hooks.json",
                             "{workspaceRoot}/**/.openai/hosting.json",
                             "{workspaceRoot}/**/*.{ts,tsx}"
                         ]
@@ -90,7 +89,7 @@
         }
     ],
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" } },
-    "sync": { "globalGenerators": [ "./tools/nx/sync/generators.json:barrels", "./tools/nx/sync/generators.json:build-settings", "./tools/nx/sync/generators.json:hosting-bindings" ] },
+    "sync": { "globalGenerators": [ "./tools/nx/sync/generators.json:build-settings", "./tools/nx/sync/generators.json:hosting-bindings" ] },
     "release": {
         "projectsRelationship": "independent",
         "releaseTag": { "pattern": "{releaseGroupName}-{projectName}-v{version}" },
@@ -112,9 +111,7 @@
         "version": [ { "runtime": "git rev-parse HEAD && git for-each-ref refs/tags" } ],
         "nodePlatform": [ { "runtime": "node -p \"[process.version, process.platform, process.arch].join('-')\"" } ],
         "typescript": [ "{workspaceRoot}/tsconfig.base.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type", "imports" ] }, "nodePlatform" ],
-        "vite": [ "{workspaceRoot}/vite.shared.ts", { "externalDependencies": [ "vite", "effect", "rolldown", "@vitejs/plugin-react", "@cloudflare/vite-plugin" ] } ],
-        "manifests": [ "{workspaceRoot}/eng/typescript/{manifest,text-format}.ts" ],
-        "vitest": [ "vite", "{workspaceRoot}/vitest.config.ts", "manifests", { "json": "{workspaceRoot}/tsconfig.json", "fields": [ "compilerOptions" ] }, { "env": "CI" }, { "externalDependencies": [ "vitest", "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ],
+        "vitest": [ { "json": "{workspaceRoot}/tsconfig.json", "fields": [ "compilerOptions" ] }, { "env": "CI" }, { "externalDependencies": [ "vitest", "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ],
         "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] } ],
         "nextest": [ "{workspaceRoot}/.config/nextest.toml", { "runtime": "cargo nextest --version" } ],
         "swift": [ "{workspaceRoot}/{Package.swift,Package.resolved}", "xcodeTools" ],
@@ -154,14 +151,14 @@
             { "filter": { "projects": [ "tag:build:swiftpm" ] }, "dependsOn": [ { "projects": [ "rasm" ], "target": "typecheck:swift" } ] },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo build --locked --package {projectName}", "cache": false, "parallelism": false },
             { "filter": { "projects": [ "tag:language:typescript" ] }, "inputs": [ "production", "^production", "typescript" ] },
-            { "filter": { "projects": [ "tag:bundler:vite" ] }, "inputs": [ "...", "vite" ], "outputs": [ "{projectRoot}/dist" ] },
+            { "filter": { "projects": [ "tag:bundler:vite" ] }, "outputs": [ "{projectRoot}/dist" ] },
             { "filter": { "projects": [ "tag:output:cloudflare" ] }, "outputs": [ "...", "{projectRoot}/.cloudflare/output", "{workspaceRoot}/.artifacts/{projectRoot}" ] },
             {
                 "filter": { "projects": [ "tag:host:uxp" ] },
-                "inputs": [ "...", "vite", "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/*.svg", { "env": "LINK_PORT" }, { "runtime": "resvg --version" }, { "runtime": "usvg --version" }, "version" ],
+                "inputs": [ "...", "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/*.svg", { "env": "LINK_PORT" }, { "runtime": "resvg --version" }, { "runtime": "usvg --version" }, "version" ],
                 "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ]
             },
-            { "filter": { "projects": [ "tag:host:cep" ] }, "inputs": [ "...", "vite", { "env": "LINK_PORT" }, "version" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] }
+            { "filter": { "projects": [ "tag:host:cep" ] }, "inputs": [ "...", { "env": "LINK_PORT" }, "version" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] }
         ],
         "assets": [
             {
@@ -202,7 +199,7 @@
                 "dependsOn": [ "build" ],
                 "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}.zxp" ]
             },
-            { "filter": { "projects": [ "tag:output:sea" ] }, "inputs": [ "...", "production", "^production", "typescript", "vite", "manifests" ] }
+            { "filter": { "projects": [ "tag:output:sea" ] }, "inputs": [ "...", "production", "^production", "typescript" ] }
         ],
         "pack:windows": { "command": "dotnet publish --no-build --configuration Release", "options": { "cwd": "{projectRoot}" }, "dependsOn": [ "build:windows" ], "parallelism": false },
         "install": [
@@ -260,7 +257,7 @@
                 "inputs": [ "...", "default", "^production", "typescript", { "externalDependencies": [ "@effect/tsgo", "typescript" ] } ],
                 "cache": true
             },
-            { "filter": { "projects": [ "directory:." ] }, "inputs": [ "typescript", "{workspaceRoot}/tsconfig.json", "{workspaceRoot}/**/package.json", "{workspaceRoot}/**/*.{ts,tsx}", "{workspaceRoot}/tools/ast-grep/grammars/derive.js", "!{workspaceRoot}/{infra,tools/nx}/**" ] }
+            { "filter": { "projects": [ "directory:." ] }, "inputs": [ "typescript", "{workspaceRoot}/tsconfig.json", "{workspaceRoot}/**/package.json", "{workspaceRoot}/**/*.{ts,tsx}" ] }
         ],
         "typecheck:claude": {
             "command": ".cache/typescript/tsc --pretty false -p {projectRoot}/tsconfig.claude.json",

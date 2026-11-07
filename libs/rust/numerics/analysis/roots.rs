@@ -57,6 +57,8 @@ where F: Fn(f64) -> Result<f64, AnalysisError>
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+// --- [BRACKETS]
+
 fn pole(at: f64) -> AnalysisError { AnalysisError::Function { interval: vec![RangeInclusive { start: at, last: at }] } }
 
 pub(crate) fn minimum<F>(cost: F, start: f64, last: f64, tolerance: f64, hooks: SearchHooks<'_>) -> Result<(f64, f64), AnalysisError>
@@ -80,7 +82,6 @@ where F: Fn(f64) -> Result<f64, AnalysisError> {
         .and_then(|result| if result.report.termination.is_converged() { Ok((*result.best_param(), result.best_cost())) } else { Err(AnalysisError::SearchStopped { bracket, report: result.report }) })
 }
 
-// --- [BRACKETS]
 pub fn bracketed<F>(function: F, interval: Bounds, steps: NonZero<usize>, tolerance: Option<Tolerance>, hooks: SearchHooks<'_>) -> Result<Vec<f64>, NEVec<AnalysisError>>
 where F: Fn(f64) -> f64 + Sync {
     let count = convert::<usize, f64>(steps.get());
@@ -163,6 +164,7 @@ where F: Fn(f64) -> f64 + Sync {
 }
 
 // --- [POLYNOMIALS]
+
 pub fn polynomial(coefficients: &[f64]) -> Result<Vec<Root>, NEVec<AnalysisError>> {
     let (origin, significant, leading) = coefficients
         .iter()
@@ -218,6 +220,7 @@ pub fn real(coefficients: &[f64], interval: RangeInclusive<f64>) -> Result<Vec<f
 }
 
 // --- [SYSTEMS]
+
 pub fn system<F>(equations: F, start: DVector<f64>, newton: Newton) -> Result<DVector<f64>, AnalysisError>
 where F: Fn(DVector<DualDVec64>) -> DVector<DualDVec64> {
     fn magnitude(values: impl Iterator<Item = f64>) -> f64 { values.map(f64::abs).fold(0.0_f64, f64::maximum) }

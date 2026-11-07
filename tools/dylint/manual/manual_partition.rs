@@ -29,6 +29,8 @@ struct Split<'tcx> {
 
 lint!(MANUAL_PARTITION: "adjacent `filter` collections splitting one unchanged slice on a pure predicate and its negation");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_block(&mut self, cx: &LateContext<'tcx>, block: &'tcx Block<'tcx>) {
         fn split<'tcx>(cx: &LateContext<'tcx>, statement: &'tcx Stmt<'tcx>) -> Option<Split<'tcx>> {

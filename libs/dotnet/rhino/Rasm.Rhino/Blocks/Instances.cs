@@ -6,6 +6,7 @@ using Rhino.Runtime;
 namespace Rasm.Rhino.Blocks;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record PieceVisibility {
     public sealed record Every : PieceVisibility;
@@ -23,8 +24,11 @@ public abstract partial record PieceVisibility {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Instances {
+
     // --- [FACTS]
+
     extension(InstanceObject instance) {
         public Option<int> Depth(InstanceDefinition definition) =>
             Conversions.Present(instance.UsesDefinition(definition.Index, out int nestingLevel), nestingLevel);
@@ -34,7 +38,8 @@ public static class Instances {
             from fields in IO.lift(() => Conversions.Rows(TextFields.GetInstanceAttributeFields(definition)))
             select fields.Map(field => (Field: field, Value: Conversions.Present(instance.Attributes.GetUserString(field.Key)).IfNone(field.DefaultValue))).Strict();
 
-        // --- [EXPLODE]
+        // --- [EXPLODING]
+
         public IO<TValue> Explode<TValue>(RhinoDoc doc, bool explodeNested, PieceVisibility visibility, Func<Seq<(RhinoObject Piece, ObjectAttributes Attributes, Transform Xform)>, IO<TValue>> body) =>
             from shown in visibility.Resolved(doc)
             from value in (from answer in IO.lift(() => {
@@ -55,6 +60,7 @@ public static class Instances {
     }
 
     // --- [ATTRIBUTES]
+
     public static Fin<Seq<Step<ObjectAttributes>>> Filled(InstanceDefinition definition, HashMap<string, string> values) =>
         toHashSet(Conversions.Rows(TextFields.GetInstanceAttributeFields(definition)).Map(static field => field.Key)) switch {
             var keys => Products.Each(toSeq<(string Key, string Value)>(values), (entry, index) => RhinoFault.Unless(keys.Contains(entry.Key), RhinoReason.Missing, entry.Key, index)
@@ -62,6 +68,7 @@ public static class Instances {
         };
 
     // --- [WRITES]
+
     public static IO<Seq<Guid>> Place(RhinoDoc doc, InstanceDefinition definition, Seq<Transform> xforms, Option<ObjectAttributes> attributes, Option<HistoryRecord> history, bool reference) =>
         IO.lift(() => Products.Each(xforms, (xform, index) =>
             Conversions.Required(Conversions.Present(doc.Objects.AddInstanceObject(definition.Index, xform, attributes.ValueUnsafe(), history.ValueUnsafe(), reference)), index)));

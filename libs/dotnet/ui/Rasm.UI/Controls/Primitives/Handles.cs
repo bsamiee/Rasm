@@ -10,6 +10,7 @@ using SuperLinq;
 namespace Rasm.UI.Controls.Primitives;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record HandlePoint(Key Key, Vector2 At);
 
 public sealed record Points<TValue>(Func<TValue, Seq<HandlePoint>> Read, Func<TValue, Seq<HandlePoint>, KeyModifiers, (TValue Value, HashMap<Key, Option<Key>> Renames)> Moved) where TValue : notnull {
@@ -98,7 +99,9 @@ public sealed partial class Marquee {
 }
 
 public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<Edit<TValue>, IO<Unit>> Edited) : Part where TValue : notnull {
+
     // --- [STATE]
+
     private static readonly Key Background = new Key.Named("background");
     private static readonly Key Layer = new Key.Named("handles");
 
@@ -111,7 +114,8 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     public Option<float> Gearing { get; init; }
     public bool Snaps { get; init; }
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     public View Drawn(PlotPlane plane, Seq<View> background) {
         bool modified = Edit.Restoring(Rest, Some(Value)).IsSome;
         Option<PlaneAxis> track = plane.Dimensions is [var only] ? Some(only) : None;
@@ -138,6 +142,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private static View Modified(View node, bool modified) => modified ? node.Conditioned(Condition.Modified) : node;
 
     // --- [GESTURES]
+
     internal override Option<Reply> Began(Gesture gesture, HitTarget aim) =>
         from frame in Framed(aim.Owner.Layout, aim.Owner.Bounds)
         from session in gesture.SwitchPartially(
@@ -275,7 +280,8 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private static Vector2 Snapped(PlotFrame frame, Vector2 value, bool snaps, float spacing) =>
         snaps ? frame.Plane.Dimensions.Fold(value, (held, free) => frame.Stepped(held, free.Along, 0, spacing)) : value;
 
-    // --- [READ]
+    // --- [READS]
+
     internal override Option<Seq<Key>> Revealed(LayoutNode layout) => Selection.Lead.Map(lead => layout.Path.Add(Layer).Add(lead));
 
     internal override bool Offers(LayoutNode owner, Seq<Key> path) => path == owner.Path || path.Init == owner.Path.Add(Layer);

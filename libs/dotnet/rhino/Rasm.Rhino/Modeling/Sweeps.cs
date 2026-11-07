@@ -4,11 +4,17 @@ using Rasm.Rhino.Document.Units;
 namespace Rasm.Rhino.Modeling;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Sweep {
+
+    // --- [STATE]
+
     public bool Closed { get; init; }
 
     public CurveFit Fit { get; init; } = new CurveFit.AsIs();
+
+    // --- [CASES]
 
     public sealed record Unplaced(Rail Rail, Seq<Curve> Shapes) : Sweep {
         public SweepBlend Blend { get; init; } = SweepBlend.Local;
@@ -61,6 +67,7 @@ public abstract partial record Sweep {
     }
 
     // --- [BREPS]
+
     public IO<Seq<Brep>> ToBreps(Tolerances tolerances) =>
         Switch(
             (Sweep: this, Tolerances: tolerances),
@@ -96,6 +103,7 @@ public abstract partial record Sweep {
                 select piped);
 
     // --- [SUBDS]
+
     public IO<SubD> ToSubD(Tolerances tolerances, bool corners) =>
         Switch(
             (Sweep: this, Tolerances: tolerances, Corners: corners),
@@ -106,7 +114,8 @@ public abstract partial record Sweep {
             railsPlaced: static (at, sweep) => Paired(sweep.First, sweep.Second, sweep.Shapes.Map(static row => row.Shape), at.Sweep.Closed, at.Corners),
             pipe: static (_, _) => IO.fail<SubD>(new RhinoFault(nameof(Pipe), RhinoReason.Unsupported)));
 
-    // --- [LOWERINGS]
+    // --- [LOWERING]
+
     private static IO<Seq<Brep>> Hosted((Sweep Sweep, Tolerances Tolerances) at, Rail rail, Seq<Curve> shapes, Option<Point3d> start, Option<Point3d> end, SweepBlend blend, SweepMiter miter, bool refitRail) =>
         from host in IO.lift(() => rail.Alignment.Host.ToFin(new RhinoFault(rail.Alignment, RhinoReason.Unsupported)))
         let fit = at.Sweep.Fit.Parameters

@@ -36,7 +36,7 @@ uv resolves projects, workspace members, and dependency groups through native me
 - Keep versioned soname series in Pixi requirements; use `*` for libraries opened by name or linked without a version
 - `LDFLAGS` supplies C and C++ link paths, `LIBRARY_PATH` also reaches Rust links that record no `LC_RPATH`
 - Keep uv's cache outside the checkout, where Cargo can build Rust distributions outside the root workspace
-- Host checks restore `host-checks` on the embedded interpreter version.
+- Host checks restore `host-checks` on the embedded interpreter version
 - `exclude-dependencies` selects one provider when distributions compete for one installed module
 
 ## [04]-[ENVIRONMENT]
@@ -49,7 +49,7 @@ uv resolves projects, workspace members, and dependency groups through native me
 - Python import visibility follows installed files, `sys.path`, and import hooks
 - Native builds can reuse objects and build-system caches from earlier source builds
 - Modules named in `sys.stdlib_module_names` shadow standard libraries when earlier on the import path
-- The Pixi `python` task supplies library lookup variables to its child; macOS strips inherited `DYLD_*` during activation
+- Pixi `python` task supplies library lookup variables to its child, macOS strips inherited `DYLD_*` during activation
 
 ## [05]-[CHECKERS]
 

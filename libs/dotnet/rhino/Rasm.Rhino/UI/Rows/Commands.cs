@@ -7,6 +7,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record CommandFace(string Name, string Caption) {
     public Option<string> Help { get; init; }
     public Option<IconResource> Icon { get; init; }
@@ -68,8 +69,11 @@ public abstract partial record Command<TInvoke> where TInvoke : notnull {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class CommandRows {
-    // --- [DECLARE]
+
+    // --- [DECLARATIONS]
+
     public static Command<Invoke>.Run Toggle(CommandFace face, RowRule marked, Func<RowScope, bool, IO<Unit>> write) =>
         new(face, new Invoke.Effect(scope => marked.Holds(scope).Bind(holds => write(scope, !holds)))) { Marked = marked };
 
@@ -83,6 +87,7 @@ public static class CommandRows {
         new(face, new Invoke.Effect(run)) { Marked = new RowRule(_ => IO.pure(marked)) };
 
     // --- [PRESSES]
+
     public static IO<IO<Unit>> Press(Command<Invoke> command, RowScope scope) =>
         Localized(command).Switch(
             scope,
@@ -131,6 +136,7 @@ public static class CommandRows {
                 .Map(held => (held.Run, Gate: Gate(menu.Enabled, held.Gate)))));
 
     // --- [COMMANDS]
+
     private static IO<(Command Command, IO<Unit> Refresh)> Commanded(Command<Invoke>.Run run, Option<RowRule> gate, RowScope scope) =>
         run.Marked.Match(
             Some: mark => Bound(run, gate, new CheckCommand(), command => Marking(command, mark, scope), scope).Map(static made => ((Command)made.Command, made.Refresh)),
@@ -175,6 +181,7 @@ public static class CommandRows {
         mark.Holds(scope).Bind(holds => IO.lift(() => { command.Checked = holds; }));
 
     // --- [MENUS]
+
     public static IO<(ContextMenu Menu, IO<Unit> Refresh)> Menu(Seq<Seq<Command<Invoke>>> groups, RowScope scope) =>
         from opened in Opened(Localized(groups), scope)
         from refresh in Listened(opened.Refreshes, scope)
@@ -248,6 +255,7 @@ public static class CommandRows {
         select unit;
 
     // --- [BUTTONS]
+
     public static IO<(Control Control, IO<Unit> Refresh)> Button(Command<Invoke> command, IconSlot slot, RowScope scope) =>
         from made in Presented(Localized(command), slot, scope)
         from refresh in Listened(made.Refreshes, scope)
@@ -356,7 +364,8 @@ public static class CommandRows {
         from themed in face.Drawn.Traverse(icon => Icons.Themed(icon, slot, strip, frames => segment.Image = frames)).As()
         select segment;
 
-    // --- [REFRESH]
+    // --- [REFRESHING]
+
     public static IO<IO<Unit>> Listened(Seq<IO<Unit>> refreshes, RowScope scope) =>
         from heard in scope.Listen(_ => Refreshed(refreshes))
         from shown in Refreshed(refreshes)
@@ -365,6 +374,7 @@ public static class CommandRows {
     private static IO<Unit> Refreshed(Seq<IO<Unit>> refreshes) => Products.Each(refreshes).Map(unit);
 
     // --- [FACES]
+
     private static Seq<Seq<Command<Invoke>>> Localized(Seq<Seq<Command<Invoke>>> groups) =>
         groups.Map(static cluster => cluster.Map(Localized));
 

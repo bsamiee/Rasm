@@ -36,6 +36,7 @@ nonisolated enum AccountStorageFailure: LocalizedError {
 
 actor AccountStorage {
     // --- [STATE]
+
     private let fileURL: URL
 
     init(fileURL: URL) {
@@ -43,6 +44,7 @@ actor AccountStorage {
     }
 
     // --- [PERSISTENCE]
+
     func load(at now: Date) -> Result<[SavedAccount], AccountStorageFailure> {
         let decoder: JSONDecoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -67,7 +69,8 @@ actor AccountStorage {
         .mapError(AccountStorageFailure.write)
     }
 
-    // --- [DOCUMENT]
+    // --- [DOCUMENTS]
+
     private struct Document: Codable {
         let records: [Record]
 

@@ -13,6 +13,7 @@ using TinyEXR;
 namespace Darkroom.Output;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record ExportFile(FileExtension Extension, Func<Stream, IO<Unit>> Encode);
 
 public sealed record LutChoice(int Size, float Low, float Span, Gamut Gamut, Transfer Transfer, LutFormat Format) {
@@ -69,7 +70,11 @@ public sealed record OutputEdit(OutputBook Book, int Current) {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public static class Exports {
+
+    // --- [COMMANDS]
+
     public static Seq<PlugInCommand> Commands { get; } = [
         new CommandDefinition<CommandInput.Run>("DarkroomExportLut", new CommandInput.Run(static (doc, _, _) => Exported(doc, Lut))),
         new CommandDefinition<CommandInput.Run>("DarkroomExportStMap", new CommandInput.Run(static (doc, _, _) => Exported(doc, StMap))),
@@ -77,6 +82,7 @@ public static class Exports {
     ];
 
     // --- [EXPORTS]
+
     private static IO<Unit> Exported(RhinoDoc doc, Func<RhinoDoc, PixelExtent, FileMetadata, IO<ExportFile>> export) =>
         from extent in SaveSource.Extent(doc)
         from metadata in SaveSource.Metadata(doc, DarkroomPlugIn.Clock)
@@ -113,6 +119,7 @@ public static class Exports {
         select new ExportFile(TargetFile.Exr.Extension, stream => image.Write(metadata, stream));
 
     // --- [BOOK]
+
     private static IO<Unit> Booked(RhinoDoc doc) =>
         from book in OutputBook.Read(doc)
         from edited in Getters.Stages<OutputEdit, OutputBook>(new OutputEdit(book, 0), (edit, kit) => Getters.Choice(doc, new GetterRequest<GetOption, StageStep<OutputEdit, OutputBook>>("Output") {

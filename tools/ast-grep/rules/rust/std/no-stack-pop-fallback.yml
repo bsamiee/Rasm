@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: rustlang
+severity: error
+rule:
+    kind: call_expression
+    any:
+        - pattern: $STACK.pop().unwrap_or($HEAD)
+        - pattern: $STACK.pop().unwrap_or_else(|| $HEAD)
+constraints:
+    HEAD:
+        any:
+            - kind: 'identifier, field_expression'
+            - pattern: $BASE.clone()
+              has: {field: function, has: {field: value, kind: 'identifier, field_expression'}}
+message: '`$STACK.pop()` falls back to `$HEAD`'
+note: 'Hold `<base>` as the head of a `nonempty_collections::NEVec` and read its top through `last`'

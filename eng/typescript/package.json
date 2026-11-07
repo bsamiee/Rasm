@@ -1,0 +1,28 @@
+{
+    "name": "@rasm/eng",
+    "private": true,
+    "description": "Repository manifest readers, text formats, and command runs the workspace programs share, with the release, install, and upgrade programs",
+    "type": "module",
+    "imports": {
+        "#/*": "./*"
+    },
+    "exports": {
+        ".": "./index.ts"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@rasm/automation": "workspace:*",
+        "@rasm/cep": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "dependency-cruiser": "catalog:",
+        "effect": "catalog:",
+        "jsonc-parser": "catalog:",
+        "nx": "catalog:",
+        "verkit": "catalog:",
+        "yaml": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
+    }
+}

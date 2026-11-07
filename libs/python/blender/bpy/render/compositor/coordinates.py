@@ -83,6 +83,8 @@ class PixelGrid(msgspec.Struct, frozen=True, kw_only=True):
 class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
     """Source camera frame in displayed greater-side shares, frame fractions, pixels, and Map UV placement."""
 
+    # --- [STATE]
+
     point: Expr
     extent: Expr
     greater: Expr

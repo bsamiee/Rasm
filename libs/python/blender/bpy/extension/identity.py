@@ -68,12 +68,14 @@ class Manifest(msgspec.Struct, frozen=True, kw_only=True):
 class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Enabled extension context."""
 
+    # --- [STATE]
+
     package: str
     manifest: Manifest
     folder: Path
     reports: Reports
 
-    # --- [NAMING]
+    # --- [NAMES]
 
     def name(self, base: type[Struct], key: Key, /) -> str:
         """Returns the host class name under the extension key."""
@@ -98,7 +100,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Whether an identifier takes the manifest prefix, a property, record, or command the extension declares."""
         return identifier.startswith(self.manifest.prefix)
 
-    # --- [READING]
+    # --- [READS]
 
     def preferences[T: bpy.types.AddonPreferences](self, kind: type[T], /) -> Option[T]:
         """Reads the extension's add-on preferences as kind (`bpy.types.AddonPreferences` for any), Nothing while disabled or holding another class."""

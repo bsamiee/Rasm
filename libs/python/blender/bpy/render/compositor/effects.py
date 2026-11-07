@@ -25,11 +25,11 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import acquired, Acquisitions, Declaration, Registrable
 from blender.bpy.nodes import functions
 from blender.bpy.nodes.addressing import InterfaceKeys
-from blender.bpy.nodes.changes import made, reconciled
+from blender.bpy.nodes.changes import made, NodeGroup, reconciled
 from blender.bpy.nodes.desired import End, INPUTS, item_key, Link, Node, OUTPUTS
 from blender.bpy.nodes.editing import Arranger
 from blender.bpy.nodes.graphs import Expr, group_input
-from blender.bpy.nodes.interfaces import Interface, InterfacePanel, NodeGroup, Socket
+from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.nodes.trees import endpoints, links_of, socket_at
 from blender.bpy.render.compositor import colors
 from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT, converted, with_alpha
@@ -160,6 +160,8 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
     Scene-derived inputs and animation, holds, checks, and registered rows compose independently of that record.
     """
 
+    # --- [STATE]
+
     record: type[CompositorRecord]
     interface: Interface = Interface()
     mix: Mix = Mix.INPUT
@@ -172,7 +174,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
     rows: tuple[RowContent, ...] = ()
     registers: tuple[Registrable, ...] = ()
 
-    # --- [DECLARATION]
+    # --- [REGISTRATION]
 
     @property
     def kind(self) -> Key:

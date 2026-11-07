@@ -13,6 +13,7 @@ using Rhino.UI;
 namespace Rasm.Rhino.Annotation.Styles;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record LinetypeTaper<TWidth>(TWidth Start, Option<(double Position, TWidth Width)> Waist, TWidth End) where TWidth : struct {
     public (double Start, Option<Point2d> Waist, double End) Lowered(Func<TWidth, double> scalar) =>
         (scalar(Start), Waist.Map(point => new Point2d(point.Position, scalar(point.Width))), scalar(End));
@@ -52,12 +53,16 @@ public sealed record LinetypeTableState(LinetypeRef Current, ObjectLinetypeSourc
 public sealed record LinetypePreview(Seq<Seq<Vector2>> Dashes, Seq<Seq<Vector2>> CurveShapes, Seq<Seq<Vector2>> TextSurfaceShapes);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Linetypes {
+
     // --- [NAMES]
+
     public static string Name(LineType type, LineWidth width) =>
         StyleTables.Sized($"ISO 128 {type.Key}", width);
 
     // --- [READS]
+
     public static IO<LinetypeDefinition> Definition(Linetype linetype) =>
         IO.lift(() => new LinetypeDefinition(
             new LinetypeSettings(Segments(linetype), Width(linetype, toSeq(linetype.GetTaperPoints())), linetype.LineCapStyle) {
@@ -100,6 +105,7 @@ public static class Linetypes {
         select new LinetypeTaper<TWidth>(width(start.Y), points.Tail.Init.Head.Map(point => (point.X, width(point.Y))), width(end.Y));
 
     // --- [WRITES]
+
     public static IO<Unit> Written(Linetype staged, LinetypeDefinition definition) =>
         from present in IO.lift(() => Segments(staged))
         from patterned in unless(present == definition.Settings.Pattern, IO.lift(() => RhinoFault.Unless(
@@ -143,7 +149,8 @@ public static class Linetypes {
          from index in IO.lift(Conversions.Required(Conversions.Present(doc.Linetypes.AddReferenceLinetype(staged))))
          select index).Bracket();
 
-    // --- [TABLE]
+    // --- [TABLES]
+
     public static IO<LinetypeTableState> ReadTable(RhinoDoc doc) =>
         IO.lift(() => Conversions.Required(LinetypeRef.FromHost(doc.Linetypes.CurrentLinetypeIndex))
             .Map(current => new LinetypeTableState(current, doc.Linetypes.CurrentLinetypeSource, doc.Linetypes.LinetypeScale)));
@@ -155,6 +162,7 @@ public static class Linetypes {
         select source;
 
     // --- [TEXT]
+
     public static IO<Seq<Length>> Parse(string text, bool millimeters) =>
         Products.Of(() => Linetype.CreateFromPatternString(text, millimeters)).Map(Segments).Bracket();
 
@@ -164,6 +172,7 @@ public static class Linetypes {
          select scratch.PatternString(millimeters)).Bracket();
 
     // --- [PREVIEW]
+
     private const double Span = 50d;
 
     public static IO<Seq<LinetypePreview>> Preview(Seq<Linetype> linetypes, Size pixels) =>
@@ -188,11 +197,13 @@ public static class Linetypes {
             .Strict();
 
     // --- [FILES]
+
     public static IO<Seq<(string Name, LinetypeDefinition Definition)>> ReadFile(InputPath path) =>
         (from rows in Products.Many(() => Linetype.ReadFromFile(path))
          from definitions in rows.TraverseM(static row => Definition(row).Map(definition => (row.Name, Definition: definition))).As()
          select definitions).Bracket();
 
     // --- [UNITS]
+
     private static double Millimeters(Length value) => value.Millimeters.ToDouble();
 }

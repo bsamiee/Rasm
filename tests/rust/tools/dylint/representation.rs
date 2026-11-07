@@ -584,9 +584,9 @@ fn single_impl_trait(found: &str) {
        = note: `#[warn(single_impl_trait)]` on by default
 
     warning: trait `converted::From` is implemented only for `String`
-       --> tools/dylint/examples/manual_default_field_values.rs:416:5
+       --> tools/dylint/examples/manual_default_field_values.rs:415:5
         |
-    416 |     trait From {
+    415 |     trait From {
         |     ^^^^^^^^^^
         |
         = help: replace `converted::From` with functions and constants for `String`
@@ -819,9 +819,9 @@ fn stringly_typed_value(found: &str) {
        = note: `#[warn(stringly_typed_value)]` on by default
 
     warning: field `kind` holds one of `"build"`, `"test"` as text
-      --> tools/dylint/examples/stringly_typed_value.rs:29:5
+      --> tools/dylint/examples/stringly_typed_value.rs:34:5
        |
-    29 |     kind: String,
+    34 |     kind: String,
        |     ^^^^^^^^^^^^
        |
     note: branched on here
@@ -836,9 +836,9 @@ fn stringly_typed_value(found: &str) {
        = help: declare `kind` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
     warning: field `state` holds one of `"done"`, `"pending"` as text
-      --> tools/dylint/examples/stringly_typed_value.rs:47:5
+      --> tools/dylint/examples/stringly_typed_value.rs:52:5
        |
-    47 |     state: &'static str,
+    52 |     state: &'static str,
        |     ^^^^^^^^^^^^^^^^^^^
        |
     note: branched on here

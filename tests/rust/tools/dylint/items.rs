@@ -216,82 +216,82 @@ fn single_reader(found: &str) {
         = note: `#[warn(single_reader)]` on by default
 
     warning: `LIMIT` has one reader, `VALUE`
-       --> tools/dylint/examples/duplicate_trait_constant.rs:137:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:141:9
         |
-    137 |         const LIMIT: u32 = 5;
+    141 |         const LIMIT: u32 = 5;
         |         ^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/duplicate_trait_constant.rs:142:32
+       --> tools/dylint/examples/duplicate_trait_constant.rs:146:32
         |
-    142 |             const VALUE: u32 = LIMIT;
+    146 |             const VALUE: u32 = LIMIT;
         |                                ^^^^^
         = help: move `LIMIT` into `VALUE` as a nested item
         = note: `#[warn(single_reader)]` on by default
 
     warning: `LIMIT` has one reader, `VALUE`
-       --> tools/dylint/examples/duplicate_trait_constant.rs:149:9
+       --> tools/dylint/examples/duplicate_trait_constant.rs:154:9
         |
-    149 |         const LIMIT: u32 = 5;
+    154 |         const LIMIT: u32 = 5;
         |         ^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/duplicate_trait_constant.rs:154:32
+       --> tools/dylint/examples/duplicate_trait_constant.rs:159:32
         |
-    154 |             const VALUE: u32 = LIMIT;
+    159 |             const VALUE: u32 = LIMIT;
         |                                ^^^^^
         = help: move `LIMIT` into `VALUE` as a nested item
 
     warning: `reordered` has one reader, `values`
-       --> tools/dylint/examples/duplicate_type.rs:917:5
+       --> tools/dylint/examples/duplicate_type.rs:922:5
         |
-    917 |     const fn reordered(source: Source) -> Reordered {
+    922 |     const fn reordered(source: Source) -> Reordered {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/duplicate_type.rs:948:18
+       --> tools/dylint/examples/duplicate_type.rs:953:18
         |
-    948 |                 [reordered(Source::Pair(1, 2)), reordered(Source::Empty)].map(|value| match value {
+    953 |                 [reordered(Source::Pair(1, 2)), reordered(Source::Empty)].map(|value| match value {
         |                  ^^^^^^^^^                      ^^^^^^^^^
         = help: move `reordered` into `values` as a nested `fn`
         = note: `#[warn(single_reader)]` on by default
 
     warning: `repeated` has one reader, `values`
-       --> tools/dylint/examples/duplicate_type.rs:924:5
+       --> tools/dylint/examples/duplicate_type.rs:929:5
         |
-    924 |     const fn repeated(source: Source) -> Repeated {
+    929 |     const fn repeated(source: Source) -> Repeated {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/duplicate_type.rs:952:18
+       --> tools/dylint/examples/duplicate_type.rs:957:18
         |
-    952 |                 [repeated(Source::Pair(3, 4)), repeated(Source::Empty)].map(|value| match value {
+    957 |                 [repeated(Source::Pair(3, 4)), repeated(Source::Empty)].map(|value| match value {
         |                  ^^^^^^^^                      ^^^^^^^^
         = help: move `repeated` into `values` as a nested `fn`
 
     warning: `renamed` has one reader, `values`
-       --> tools/dylint/examples/duplicate_type.rs:931:5
+       --> tools/dylint/examples/duplicate_type.rs:936:5
         |
-    931 |     const fn renamed(source: Source) -> Renamed {
+    936 |     const fn renamed(source: Source) -> Renamed {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/duplicate_type.rs:956:18
+       --> tools/dylint/examples/duplicate_type.rs:961:18
         |
-    956 |                 [renamed(Source::Pair(5, 6)), renamed(Source::Empty)].map(|value| match value {
+    961 |                 [renamed(Source::Pair(5, 6)), renamed(Source::Empty)].map(|value| match value {
         |                  ^^^^^^^                      ^^^^^^^
         = help: move `renamed` into `values` as a nested `fn`
 
     warning: `projected` has one reader, `values`
-       --> tools/dylint/examples/duplicate_type.rs:938:5
+       --> tools/dylint/examples/duplicate_type.rs:943:5
         |
-    938 |     const fn projected(source: Source) -> Projected {
+    943 |     const fn projected(source: Source) -> Projected {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/duplicate_type.rs:961:84
+       --> tools/dylint/examples/duplicate_type.rs:966:84
         |
-    961 | ...(9_u32..10).mode(), matches!(projected(Source::Pair(11, 12)), Projected::Pair), matches!(projected(Source::Empty), Projected::Em...
+    966 | ...(9_u32..10).mode(), matches!(projected(Source::Pair(11, 12)), Projected::Pair), matches!(projected(Source::Empty), Projected::Em...
         |                                 ^^^^^^^^^                                                   ^^^^^^^^^
         = help: move `projected` into `values` as a nested `fn`
 
@@ -442,9 +442,9 @@ fn single_reader(found: &str) {
         = help: move `helper` into `asserted` as a closure
 
     warning: `HITS` has one reader, `main`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:19:1
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:27:1
        |
-    19 | static HITS: AtomicU32 = AtomicU32::new(0);
+    27 | static HITS: AtomicU32 = AtomicU32::new(0);
        | ^^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
@@ -471,7 +471,7 @@ fn single_reader(found: &str) {
     13 |         static $name: AtomicU32 = AtomicU32::new(0);
        |         ^^^^^^^^^^^^^^^^^^^^^^^
     ...
-    40 | counter!(CALLS);
+    48 | counter!(CALLS);
        | --------------- in this macro invocation
        |
     note: read here
@@ -482,9 +482,9 @@ fn single_reader(found: &str) {
        = help: move `CALLS` into `main` as a nested item
 
     warning: `ROOT` has one reader, `main`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:21:1
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:29:1
        |
-    21 | static ROOT: OnceLock<String> = OnceLock::new();
+    29 | static ROOT: OnceLock<String> = OnceLock::new();
        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
@@ -495,9 +495,9 @@ fn single_reader(found: &str) {
        = help: move `ROOT` into `main` as a nested item
 
     warning: `GREETING` has one reader, `main`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:31:1
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:39:1
        |
-    31 | static GREETING: &str = "hello";
+    39 | static GREETING: &str = "hello";
        | ^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
@@ -510,9 +510,9 @@ fn single_reader(found: &str) {
        = help: move `GREETING` into `main` as a nested item
 
     warning: `ORIGIN` has one reader, `main`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:23:1
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:31:1
        |
-    23 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
+    31 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
@@ -523,9 +523,9 @@ fn single_reader(found: &str) {
        = help: move `ORIGIN` into `main` as a nested item
 
     warning: `COUNTER` has one reader, `main`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:27:1
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:35:1
        |
-    27 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
+    35 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
@@ -536,9 +536,9 @@ fn single_reader(found: &str) {
        = help: move `COUNTER` into `main` as a nested item
 
     warning: `SHARED` has one reader, `main`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:29:1
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:37:1
        |
-    29 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+    37 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
@@ -549,9 +549,9 @@ fn single_reader(found: &str) {
        = help: move `SHARED` into `main` as a nested item
 
     warning: `TABLE` has one reader, `main`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:25:1
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:33:1
        |
-    25 | static TABLE: LazyLock<Vec<u32>> = LazyLock::new(|| (1..4).collect());
+    33 | static TABLE: LazyLock<Vec<u32>> = LazyLock::new(|| (1..4).collect());
        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
@@ -562,9 +562,9 @@ fn single_reader(found: &str) {
        = help: move `TABLE` into `main` as a nested item
 
     warning: `LIMITS` has one reader, `main`
-      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:33:1
+      --> tools/dylint/../../tests/rust/tools/dylint/interior_mutable_static.rs:41:1
        |
-    33 | static LIMITS: [u32; 2] = [1, 2];
+    41 | static LIMITS: [u32; 2] = [1, 2];
        | ^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
@@ -588,15 +588,15 @@ fn single_reader(found: &str) {
        = help: move `TEST_VALUE` into `counted` as a nested item
 
     warning: `PRIVATE_LIMIT` has one reader, `default`
-       --> tools/dylint/examples/manual_default_field_values.rs:400:5
+       --> tools/dylint/examples/manual_default_field_values.rs:399:5
         |
-    400 |     const PRIVATE_LIMIT: u8 = 6;
+    399 |     const PRIVATE_LIMIT: u8 = 6;
         |     ^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: read here
-       --> tools/dylint/examples/manual_default_field_values.rs:405:49
+       --> tools/dylint/examples/manual_default_field_values.rs:404:49
         |
-    405 |         fn default() -> Self { Self { attempts: PRIVATE_LIMIT } }
+    404 |         fn default() -> Self { Self { attempts: PRIVATE_LIMIT } }
         |                                                 ^^^^^^^^^^^^^
         = help: move `PRIVATE_LIMIT` into `default` as a nested item
         = note: `#[warn(single_reader)]` on by default

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pythonlang
+severity: error
+rule:
+    kind: string_content
+    pattern: $NAME
+    inside:
+        kind: string
+        inside:
+            kind: 'list, tuple'
+            inside:
+                kind: 'assignment, augmented_assignment'
+                field: right
+                has: {field: left, pattern: __all__}
+                inside:
+                    kind: expression_statement
+                    inside:
+                        kind: module
+                        has:
+                            stopBy: {kind: 'function_definition, class_definition'}
+                            kind: identifier
+                            pattern: $NAME
+                            any:
+                                - inside: {kind: aliased_import, field: alias}
+                                - {nthChild: 1, inside: {kind: dotted_name, inside: {kind: import_statement}}}
+                                - inside: {kind: dotted_name, not: {inside: {kind: import_from_statement, field: module_name}}, inside: {kind: import_from_statement}}
+message: '`__all__` exports `$NAME`, a name the module imports'
+note: 'Import each name from the module defining it at each consumer, and list names the module defines alone in `__all__`'

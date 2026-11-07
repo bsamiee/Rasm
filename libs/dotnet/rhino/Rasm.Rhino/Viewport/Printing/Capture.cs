@@ -7,13 +7,17 @@ using Rhino.Display;
 namespace Rasm.Rhino.Viewport.Printing;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 public sealed record CaptureRequest(double Density, Seq<Step<ViewCaptureSettings>> Steps) {
     public Option<Size> Media { get; init; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class ViewCaptures {
+
     // --- [SETTINGS]
+
     public static IO<ViewCaptureSettings> Settings(ViewportRef row, CaptureRequest request) =>
         from settings in Products.Of(() => row.View is RhinoPageView page && row.Viewport.ViewportType is ViewportType.PageViewMainViewport
             ? new ViewCaptureSettings(page, request.Density)
@@ -28,6 +32,7 @@ public static class ViewCaptures {
         select applied;
 
     // --- [STEPS]
+
     public static Step<ViewCaptureSettings> Window(Point2d first, Point2d second) =>
         Steps.Of<ViewCaptureSettings>(settings => {
             settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window;
@@ -60,7 +65,8 @@ public static class ViewCaptures {
 
     private static double Millimeters(Length length) => length.Millimeters.ToDouble();
 
-    // --- [SCOPE]
+    // --- [SCOPES]
+
     public static IO<T> Clean<T>(RhinoDoc doc, ViewportSet views, IO<T> body) =>
         (from selected in ObjectTarget.Selection(doc)
          from rows in Viewports.Resolve(doc, views)

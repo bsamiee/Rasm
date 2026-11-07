@@ -19,6 +19,7 @@ using SuperLinq;
 namespace Rasm.Grasshopper.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union]
 public abstract partial record Placement {
     public string Verb => Switch(
@@ -47,8 +48,11 @@ public abstract partial record Placement {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Placements {
+
     // --- [COMMANDS]
+
     private static readonly Seq<(SnappingRule Rule, Placement.Align Align)> Edges = Seq(
         (SnappingRule.AlignLeftEdges, new Placement.Align(Orientation.Horizontal, 0f)),
         (SnappingRule.AlignMiddles, new Placement.Align(Orientation.Horizontal, 0.5f)),
@@ -73,7 +77,8 @@ public static class Placements {
             from arranged in Arrange(document, toSeq(document.Objects.SelectedObjects).Map(static item => item.InstanceId), Seq(placement))
             select unit;
 
-    // --- [NUDGING]
+    // --- [NUDGES]
+
     public static IO<Unit> Nudging(Canvas canvas, IO<bool> enabled) =>
         from gesture in use(IO.lift(static () => Ref(Option<(Document Document, HashMap<Guid, PivotAction> Started)>.None)), Ended)
         from pressed in Hooks.On<KeyEventArgs>(h => canvas.KeyDown += h, h => canvas.KeyDown -= h, args => Offset(args).Filter(_ => !args.Handled).Match(
@@ -126,6 +131,7 @@ public static class Placements {
         select unit;
 
     // --- [ARRANGEMENT]
+
     public static IO<bool> Arrange(Document document, Seq<Guid> objects, Seq<Placement> placements) =>
         IO.lift(() => Solved(
                 document,
@@ -200,6 +206,7 @@ public static class Placements {
     }
 
     // --- [CONSTRAINTS]
+
     private static Seq<(Constraint Rule, Seq<Guid> Linked)> Aligned(Orientation axis, Seq<IDocumentObject> rows, HashMap<Guid, Variable> pivots, float edge) =>
         rows.Map(row => Edge(axis, row.Attributes.AggregateBounds, edge)).Fold((Low: float.MaxValue, High: float.MinValue), static (range, value) => (float.Min(range.Low, value), float.Max(range.High, value))) switch {
             var range => rows.Map(row => (Constraint.Equal(Side(pivots, axis, row, edge), range.Low + ((range.High - range.Low) * edge), Strength.Strong), Seq<Guid>())),
@@ -281,6 +288,7 @@ public static class Placements {
         pivots[row.InstanceId] + (Edge(axis, row.Attributes.AggregateBounds, fraction) - Coordinate(axis, row.Attributes.Pivot));
 
     // --- [MOVES]
+
     private static IO<bool> Placed(Document document, string verb, Seq<(IDocumentObject Object, PointF Pivot)> moves) =>
         moves.Filter(static move => move.Pivot != move.Object.Attributes.Pivot).Strict() switch {
             { IsEmpty: true } => IO.pure(value: false),

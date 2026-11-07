@@ -3,8 +3,7 @@
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import Enum
-import functools
-from functools import partial
+from functools import cache, partial
 import math
 from typing import Final, Literal, Self
 
@@ -103,6 +102,8 @@ class FontStyle(msgspec.Struct, frozen=True, kw_only=True):
 class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     """Draw state of one region, with the clip planes of a clipping 3D View and the pointer of a cursor drawing."""
 
+    # --- [STATE]
+
     metrics: Metrics
     extent: Rect
     space: bpy.types.Space
@@ -132,7 +133,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         """Theme colors of the region drawn in."""
         return Theme(space=self.space.type, region=self.region.type, preferences=self.metrics.preferences)
 
-    # --- [STATE]
+    # --- [SCOPES]
 
     @contextmanager
     def drawn(self) -> Generator[Self]:
@@ -282,7 +283,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         draw_batch(batch_for_shader(program[0], "TRIS", {"pos": corners, "color": tints}, indices=indices), program)  # type: ignore[arg-type, dict-item]  # ty: ignore[invalid-argument-type]
 
 
-# --- [OFFSCREEN]
+# --- [OFFSCREENS]
 
 
 class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
@@ -334,7 +335,7 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [STATE]
+# --- [DRAWING]
 
 
 def draw_batch(batch: gpu.types.GPUBatch, program: Program) -> None:
@@ -484,7 +485,7 @@ def captured(rect: Rect) -> Outcome[npt.NDArray[np.float32]]:
 # --- [PROGRAMS]
 
 
-@functools.cache
+@cache
 def _rounded() -> tuple[gpu.types.GPUShader, gpu.types.GPUBatch]:
     """Builds rounded-frame shader and unit quad."""
     vertex = "void main() { local = pos * box.rect.zw; gl_Position = ModelViewProjectionMatrix * vec4(box.rect.xy + local, 0.0, 1.0); }"
@@ -519,7 +520,7 @@ void main() {
     return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": QUAD})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
 
 
-@functools.cache
+@cache
 def _textured() -> gpu.types.GPUBatch:
     """Returns UV quad for image shaders."""
     return batch_for_shader(gpu.shader.from_builtin("IMAGE_COLOR"), "TRI_STRIP", {"pos": QUAD, "texCoord": QUAD})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]

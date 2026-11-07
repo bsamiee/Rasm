@@ -69,6 +69,8 @@ class Modifier(msgspec.Struct, frozen=True, kw_only=True):
 class Animation(msgspec.Struct, frozen=True, kw_only=True):
     """Desired animation on one scalar member or array element under an ID, the element's coordinates ending its path."""
 
+    # --- [STATE]
+
     path: RnaPath
     source: Keys | Driven
     modifiers: tuple[Modifier, ...] = ()

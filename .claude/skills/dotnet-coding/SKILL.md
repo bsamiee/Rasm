@@ -8,7 +8,13 @@ description: "Use when writing or reviewing C#, covering functional design with 
 Covers C# design from signature shape to host boundary, with LanguageExt and Thinktecture types as vocabulary.
 
 [PRINCIPLES]:
-- Parameters every caller passes alike fold into their owner
+- Facts are stated once where they belong, and everything else derives from that source
+- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
+- Every type, export, and helper states a fact nothing else does, a helper with one reader, forwarder, or alias merges into its owner
+- Values that vary are parameters, a value every caller passes alike folds into its owner
+- Error cases exist where a caller branches on them, every other failure joins its owner's error
+- Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
+- Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
 - Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:

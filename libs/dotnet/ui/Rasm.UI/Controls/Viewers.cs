@@ -12,6 +12,7 @@ using SuperLinq;
 namespace Rasm.UI.Controls;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Tool {
     public sealed record Select : Tool;
@@ -36,7 +37,9 @@ public sealed record Series<TEntity>(Key Key, string Label, Content<Seq<TEntity>
 
 public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, Seq<Series<TEntity>> Series, Func<TEntity, Key> Keyed, Func<Seq<Key>, Part.Choice> Choice)
     where TEntity : notnull {
+
     // --- [STATE]
+
     public Tool Tool { get; init; } = new Tool.Select();
     public Option<Func<TEntity, View>> Tip { get; init; }
     public HashSet<Key> Hidden { get; init; }
@@ -56,7 +59,8 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
     public Option<string> DistanceUnit { get; init; }
     public Key Role { get; init; } = Roles.Well;
 
-    // --- [DRAW]
+    // --- [DRAWING]
+
     public View Drawn(CultureInfo culture) {
         Seq<(Series<TEntity> Series, uint Ordinal)> shown = Ordered.Filter(static held => held.Series.Visible).Strict();
         Seq<(Series<TEntity> Series, Seq<(Key Key, View View)> Members)> layers = shown.Rev().Map(held => (held.Series, Members(held.Series, held.Ordinal))).Strict();
@@ -127,6 +131,7 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
            select (View)new View.Mark(new Figure.Label(new Figure.Path([pair[0], pair[1]]), [axis.Spoken(Distance(pair[0], pair[1]), culture)])) { Role = Roles.Label });
 
     // --- [HUD]
+
     private Option<View> Views(CultureInfo culture) =>
         Saved.IsEmpty
             ? None
@@ -169,7 +174,8 @@ public sealed record Viewer<TEntity>(PlotPlane View, Part.Viewport Navigation, S
     private static View.Flex Corners(Option<View> start, Option<View> end) =>
         new(PhysicalAxis.Horizontal, start.ToSeq() + Seq<View>(new View.Box { Width = Sizing.Grow.Unit }) + end.ToSeq()) { Width = Sizing.Grow.Unit };
 
-    // --- [READ]
+    // --- [READS]
+
     private Seq<(Series<TEntity> Series, uint Ordinal)> Ordered {
         get {
             Seq<Key> legended = Series.Filter(static series => series.Legend.IsSome).Map(static series => series.Key).Strict();

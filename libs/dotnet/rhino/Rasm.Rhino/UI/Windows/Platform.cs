@@ -9,8 +9,11 @@ using Rasm.Rhino.UI.Windows;
 namespace Rasm.Rhino.UI.Windows;
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
 internal sealed class WpfPlatform : IHostPlatform {
-    // --- [CHANGE]
+
+    // --- [CHANGES]
+
     public HostEvent<Unit> Changed { get; } =
         Subscriptions.Merged(
             Subscriptions.On<UserPreferenceChangedEventHandler, UserPreferenceChangedEventArgs>(
@@ -21,11 +24,13 @@ internal sealed class WpfPlatform : IHostPlatform {
                 .Choose(static _ => Some(unit)));
 
     // --- [FONTS]
+
     public IO<Unit> Digits(Control control) =>
         IO.lift(() => Optional(control.ControlObject as System.Windows.DependencyObject)
             .Iter(static native => System.Windows.Documents.Typography.SetNumeralAlignment(native, System.Windows.FontNumeralAlignment.Tabular)));
 
     // --- [FRAMES]
+
     public IO<Func<bool, IO<Unit>>> FrameLink(Control view, Func<Duration, bool> tick) =>
         from link in IO.lift(() => {
             bool running = false;
@@ -47,6 +52,7 @@ internal sealed class WpfPlatform : IHostPlatform {
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
 public sealed class WpfInitializer : IPlatformInitializer {
     public void Initialize(Platform platform) => platform.Add<IHostPlatform>(static () => new WpfPlatform());
 }

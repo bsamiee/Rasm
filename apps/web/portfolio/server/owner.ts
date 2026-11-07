@@ -1,5 +1,5 @@
 import { Relation } from '@rasm/database';
-import { User, unavailable } from '@rasm/hosting';
+import { HostingError, User } from '@rasm/hosting';
 import { Array, Context, Effect, Layer, Option, Struct } from 'effect';
 import { HttpMethod, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
@@ -23,7 +23,7 @@ class OwnerAccount extends Context.Service<OwnerAccount, { readonly email: strin
                 return Option.contains(ownerId, signed.id) ? ('owner' as const) : ('signedIn' as const);
             }),
         });
-    }).pipe(Effect.catchTag(['SqlError', 'SchemaError'], unavailable), Effect.withSpan('OwnerAccount.session'));
+    }).pipe(Effect.catchTag(['SqlError', 'SchemaError'], HostingError.unavailable), Effect.withSpan('OwnerAccount.session'));
     static readonly authorize = Effect.filterOrFail(
         OwnerAccount.session,
         (current) => current === 'owner',

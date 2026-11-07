@@ -1,10 +1,10 @@
 import { createRequire } from 'node:module';
 import type { CreateNodesResult, TargetConfiguration } from '@nx/devkit';
+import { decodeFile, librarySurface, Sgconfig } from '@rasm/eng';
 import { Array, Cache, Effect, Equal, FileSystem, Option, Order, Path, Predicate, Record, Schema, String, Struct } from 'effect';
 import { quote } from 'shell-quote';
-import { decodeFile, extendScriptEntry, libraryRoot, type Package, Sgconfig } from '#/eng/typescript/manifest';
-import { attachedSuites, folderInput, imports, packageName, reach, rootTargets, swiftProject, TESTS } from '#/tools/nx/graph/projects';
-import { glob, PYPROJECT, SWIFT_MANIFEST, type Workspace } from '#/tools/nx/workspace';
+import { attachedSuites, folderInput, imports, packageName, reach, rootTargets, swiftProject, TESTS } from '#/graph/projects.ts';
+import { glob, PYPROJECT, SWIFT_MANIFEST, type Workspace } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -28,10 +28,12 @@ const TreeSitterGrammar = Schema.fromJsonString(Schema.Struct({ name: Schema.Str
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [INPUTS]
+
 const extensionInput = (extensions: readonly string[]) => `{workspaceRoot}/**/*.${extensions.length > 1 ? `{${extensions.join(',')}}` : extensions.join(',')}`;
 const importInputs = (graph: Effect.Success<ReturnType<typeof reach>>) => [...Object.keys(graph).map((file) => `{workspaceRoot}/${file}`), { externalDependencies: Array.dedupe(Object.values(graph).flatMap(Struct.get('specifiers')).map(packageName)) }];
 
 // --- [TARGETS]
+
 const pythonChecks = Effect.fnUntraced(function* ({ workspaceRoot, hosts, pyproject, pythonScopes }: Workspace) {
     const [path, folders, { fawltydeps }, scopes] = yield* Effect.all([Path.Path, hosts, pyproject, pythonScopes]);
     const restore = 'restore:python';
@@ -159,7 +161,7 @@ const grammarTarget = Effect.fnUntraced(function* (workspaceRoot: string, read: 
     return [
         `grammar:${stem}`,
         {
-            command: `trap "cmake -E rm -rf ${work}" EXIT; trap "exit 1" HUP INT TERM; cmake -DBINARY_DIR:PATH=${work} -DGRAMMAR_SOURCE:FILEPATH="${path.relative(GRAMMARS, entry)}" -DNODE_MODULES:PATH="${path.relative(GRAMMARS, 'node_modules')}" -DSCANNER="${held.map((scanner) => path.relative(GRAMMARS, scanner)).join(';')}" -P ${GRAMMARS}/CMakeLists.txt${catalogs.map(({ language, file, source }) => ` && node ${OUTLINE} ${language} ${source} ${path.join(work, path.basename(file))} && cmake -E make_directory ${path.dirname(file)} && cmake -E rename ${path.join(work, path.basename(file))} ${file}`).join('')}`,
+            command: `trap "cmake -E rm -rf ${work}" EXIT; trap "exit 1" HUP INT TERM; cmake -DBINARY_DIR:PATH=${work} -DGRAMMAR_SOURCE:FILEPATH="${path.relative(GRAMMARS, entry)}" -DNODE_MODULES:PATH="${path.relative(GRAMMARS, path.join(path.dirname(GRAMMARS), 'node_modules'))}" -DSCANNER="${held.map((scanner) => path.relative(GRAMMARS, scanner)).join(';')}" -P ${GRAMMARS}/CMakeLists.txt${catalogs.map(({ language, file, source }) => ` && node ${OUTLINE} ${language} ${source} ${path.join(work, path.basename(file))} && cmake -E make_directory ${path.dirname(file)} && cmake -E rename ${path.join(work, path.basename(file))} ${file}`).join('')}`,
             options: { forwardAllArgs: false },
             cache: true,
             inputs: [
@@ -224,8 +226,12 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, scanExclusions }: 
 const neutrality = Effect.fnUntraced(function* ({ workspaceRoot, packages }: Workspace) {
     const config = 'eng/typescript/root-neutrality.config.ts';
     const [path, manifests, graph] = yield* Effect.all([Path.Path, packages, reach(imports(workspaceRoot), [config])]);
-    const entries = (dir: string, manifest: typeof Package.schema.Type) => Array.getSomes([libraryRoot(manifest), extendScriptEntry(manifest)]).map((entry) => path.join(dir, entry));
-    const libraries = Array.sortWith(Array.getSomes(Record.collect(manifests, (dir, manifest) => Option.as(libraryRoot(manifest), { name: manifest.name, entries: entries(dir, manifest) }))), Struct.get('name'), Order.String);
+    const surfaces = Array.getSomes(Record.collect(manifests, (dir, manifest) => Option.map(librarySurface(manifest), (surface) => ({ dir, name: manifest.name, ...surface }))));
+    const libraries = Array.sortWith(
+        surfaces.map(({ dir, name, root, extendscript }) => ({ name, entries: [root, ...extendscript].map((entry) => path.join(dir, entry)) })),
+        Struct.get('name'),
+        Order.String,
+    );
     return Array.match(libraries.map(Struct.get('name')), {
         onEmpty: () => ({}),
         onNonEmpty: (projects) => ({

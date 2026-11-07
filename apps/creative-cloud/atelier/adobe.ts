@@ -1,10 +1,10 @@
-import type { Launching } from '@rasm/applications/contract';
+import type { Launching } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
-import { HostError } from '@rasm/automation/error';
-import { Unmatched } from '@rasm/search/error';
+import { HostError } from '@rasm/automation';
+import { Unmatched } from '@rasm/search';
 import { Cause, Context, Effect, Fiber, Layer, Match, Result, Schema, Sink, Stream, SubscriptionRef } from 'effect';
 import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
-import { AvailableFace } from '#/available-face';
+import { AvailableFace } from '#/available-face.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

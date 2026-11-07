@@ -1,6 +1,6 @@
 import { Array, Effect, Match, Record, Result, Schema, type SchemaAST, SchemaGetter, SchemaIssue, SchemaTransformation } from 'effect';
-import { Asset, AssetId, Assets, Sheet } from '#/model/asset';
-import { defaulted } from '#/model/defaulted';
+import { Asset, AssetId, Assets, Sheet } from '#/model/asset.ts';
+import { defaulted } from '#/model/defaulted.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

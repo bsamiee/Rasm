@@ -20,8 +20,11 @@ using Grasshopper2.Undo;
 namespace Rasm.Grasshopper.UI;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class Canvases {
+
     // --- [POLICIES]
+
     public static IO<Unit> Restrict(Canvas canvas, Action<CanvasActions> restrict) =>
         from restriction in use(IO.lift(() => Restricted(canvas, restrict)), restriction => IO.lift(() => Released(canvas, restriction)))
         from over in use(IO.lift(static () => Ref(Option<IResponsive>.None)), static over => IO.lift(() => ignore(Hovered(over, None))))
@@ -135,7 +138,8 @@ public static class Canvases {
         return Response.Ignored;
     }
 
-    // --- [EDITING]
+    // --- [EDITS]
+
     public static IO<Unit> Inline<T>(Canvas canvas, RectangleF frame, IDocumentObject owner, T current, Func<T, IO<Unit>> assign, Func<Grasshopper2.Undo.Action> snapshot) =>
         from assistant in IO.lift(static () => Optional(TypeAssistantServer.Find<T>()).ToFin(new GrasshopperFault(typeof(T).Name, GrasshopperReason.Missing)))
         from undo in IO.lift(snapshot)
@@ -167,7 +171,8 @@ public static class Canvases {
                 unit)))
         select unit;
 
-    // --- [PAINTING]
+    // --- [DRAWING]
+
     public static IO<Unit> Overlay(Canvas canvas, Func<IDocumentObject, Option<Action<Context, Skin>>> mark) =>
         Hooks.On<CanvasPaintEventArgs>(h => canvas.AfterPaintObjects += h, h => canvas.AfterPaintObjects -= h, args =>
             (from state in use(args.Graphics.ProjectionState)
@@ -180,6 +185,7 @@ public static class Canvases {
              select unit).Bracket());
 
     // --- [VIEWING]
+
     public static IO<Unit> Frame(Canvas canvas, Seq<Guid> objects) =>
         from bounds in IO.lift(() => Bounds(canvas, objects))
         from framed in IO.lift(() => canvas.Navigate(bounds.AdjustSides(20f), (canvas.MinimumZoom, Math.Max(1f, canvas.Projection.Zoom)), Grasshopper2.UI.Animation.Duration.Normal))
@@ -199,6 +205,7 @@ public static class Canvases {
             .ToFin(new GrasshopperFault(objects.ToString(), GrasshopperReason.Missing));
 
     // --- [TRACKING]
+
     public static IO<Unit> Track(FlexControl control, RectangleF bounds, SizeF minimum, SizeF maximum, Func<RectangleF, IO<Unit>> placed) =>
         use(IO.lift(() => Tracked(control, bounds, minimum, maximum, placed)), region => IO.lift(() => {
             control.PopFocus(region);
@@ -283,6 +290,7 @@ public static class Canvases {
         Optional(control as Canvas).Iter(static canvas => (canvas.SnapXAction, canvas.SnapYAction) = (null, null));
 
     // --- [INTERACTIONS]
+
     private sealed class Interaction : Responses, IResponsive {
         public Responses Responder => this;
     }

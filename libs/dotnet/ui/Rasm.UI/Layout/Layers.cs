@@ -6,6 +6,7 @@ using SuperLinq;
 namespace Rasm.UI.Layout;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 internal sealed record PlacedLayer(LayoutNode Layout, View.Layer Layer) {
     internal Option<Seq<Key>> Anchor => Layer.Anchor.Map(relative => Layout.Path.Init + relative);
     internal Seq<Act> Acts => Layer.Trigger.Map(static trigger => trigger.Acts).IfNone([]);
@@ -18,8 +19,11 @@ internal sealed record PlacedLayer(LayoutNode Layout, View.Layer Layer) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 internal static class LayerStack {
+
     // --- [PLACEMENT]
+
     internal static readonly Key Scrim = new Key.Named("scrim");
 
     private static float Start(PhysicalAxis axis, SKRect anchor, SKSize content, SKRect window, View.Layer layer) {
@@ -33,7 +37,8 @@ internal static class LayerStack {
         return (layer.Flips ? starts : starts.Take(1)).Find(start => start >= axis.Of(window.Location) && start + extent <= axis.End(window)).IfNone(starts[0]);
     }
 
-    // --- [STACK]
+    // --- [STACKS]
+
     internal static Seq<LayoutNode> Declared(LayoutNode root) => root.Preorder.Bind(static layout => layout.Layers);
 
     internal static (Seq<LayoutNode> Laid, HashMap<Seq<Key>, LayoutNode> Index, HashMap<Seq<Key>, Place> Places) Stacked(
@@ -57,7 +62,8 @@ internal static class LayerStack {
         return Layouts.WithCorners(layer with { Frame = frame, Members = children, Children = children }, None);
     }
 
-    // --- [QUERY]
+    // --- [QUERIES]
+
     internal static HashSet<Seq<Key>> Inert(LayoutNode root, Seq<LayoutNode> layers) =>
         toSeq(layers.Rev().SkipWhile(static layer => layer.View is not View.Layer { Modal: true })) switch {
             var modal when modal.IsEmpty => [],

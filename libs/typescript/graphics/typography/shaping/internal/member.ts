@@ -1,8 +1,8 @@
 import { Array, Data, Effect, Option, Record, Schema, Struct } from 'effect';
 import type { Font } from 'fontkit';
 import { type AxisInfo, type Blob, Face } from 'harfbuzzjs';
-import { Names } from '#/shaping/internal/names';
-import type { Tables } from '#/shaping/internal/tables';
+import { Names } from '#/shaping/internal/names.ts';
+import type { Tables } from '#/shaping/internal/tables.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

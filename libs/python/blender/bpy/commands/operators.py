@@ -94,6 +94,8 @@ class Command(msgspec.Struct, frozen=True, kw_only=True):
     Commands of one kind and key are one host operator and equal whatever callables they hold, a registration acquiring one twice registering it once.
     """
 
+    # --- [STATE]
+
     condition: Option[Condition] = Nothing
     icon: Option["rna_enums.IconItems"] = Nothing
     options: frozenset["rna_enums.OperatorTypeFlagItems"] = frozenset({"UNDO"})
@@ -231,6 +233,8 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
     `describe` computes the tooltip from context and properties in place of the docstring.
     """
 
+    # --- [STATE]
+
     form: type[T]
     run: Callable[[Call[T]], Outcome[Answer]]
     callbacks: Option[Callable[[Identity], Mapping[str, Callbacks[T]]]] = Nothing
@@ -267,7 +271,7 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
         """Whether the invoke form asks for input before the body runs."""
         return any(form.asks for form in self.invoke.to_list())
 
-    # --- [BINDING]
+    # --- [REGISTRATION]
 
     @property
     def invoked(self) -> bool:
@@ -305,10 +309,12 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
 class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
     """Callbacks one operator class composes over its command."""
 
+    # --- [STATE]
+
     command: Operator[T]
     identity: Identity
 
-    # --- [HOST]
+    # --- [HOSTS]
 
     @staticmethod
     def properties(operator: bpy.types.Operator, /) -> T:
@@ -340,7 +346,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
             case Result(error=faults):
                 return Body.noted(operator, rendered(faults), "CANCELLED")
 
-    # --- [RUNS]
+    # --- [EXECUTION]
 
     def performed(self, operator: bpy.types.Operator, context: bpy.types.Context, paths: tuple[Path, ...] = (), /) -> Outcome[Answer]:
         """Runs the command over the operator properties and the paths its invoke form chose."""
@@ -369,7 +375,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
             case Result(error=faults):
                 return self.noted(operator, (*rendered(faults), *release(Some(context)).map(lambda _: ()).default_with(rendered)), "CANCELLED")
 
-    # --- [DRAW]
+    # --- [DRAWING]
 
     @property
     def draw(self) -> Callable[[bpy.types.Operator, bpy.types.Context], None]:
@@ -382,7 +388,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
         return draw
 
-    # --- [INVOKE]
+    # --- [INVOCATION]
 
     def invoking(self, opening: Callable[[bpy.types.Operator, bpy.types.Context, bpy.types.Event], Outcome[Returns]], /) -> Callable[[bpy.types.Operator, bpy.types.Context, bpy.types.Event], Returns]:
         """Returns invoke writing seed values into unset properties, then opening the form."""
@@ -429,6 +435,7 @@ class Macro(Command, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
 # --- [CALLS]
 
 
@@ -527,7 +534,7 @@ def tallied(edits: tuple[Outcome[object], ...], notes: Notes = (), /) -> Outcome
     return accumulated(edits).map(lambda _: Done(notes=notes)).or_else_with(lambda faults: Error(faults) if all(edit.is_error() for edit in edits) else Ok(Done(notes=notes, skipped=faults)))
 
 
-# --- [DRAWS]
+# --- [DRAWING]
 
 
 def confirmed[S, T: bpy.types.PropertyGroup](
@@ -561,9 +568,6 @@ def _documented(run: Callable[..., object], /) -> tuple[str, str]:  # type: igno
                 return found.__name__, inspect.getdoc(found) or ""
             case _:
                 return type(unwrapped).__name__, inspect.getdoc(unwrapped) or ""
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

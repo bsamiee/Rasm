@@ -9,7 +9,6 @@ from typing import Annotated, Final, override
 import bpy
 from expression import Option, Some
 import msgspec
-from msgspec import UNSET, UnsetType
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Empty, Operator
@@ -53,7 +52,7 @@ class Settings(msgspec.Struct, frozen=True, kw_only=True):
         return {  # ty: ignore[unsound-return-statement]
             path: value
             for name, held in msgspec.structs.asdict(self).items()
-            if held is not UNSET
+            if held is not msgspec.UNSET
             for path, value in (held.members((*owner, name)).items() if isinstance(held, Settings) else (((*owner, name), held),))
         }
 
@@ -61,21 +60,21 @@ class Settings(msgspec.Struct, frozen=True, kw_only=True):
 class DisplaySettings(Settings, frozen=True, kw_only=True):
     """`ColorManagedDisplaySettings` members."""
 
-    display_device: str | UnsetType = UNSET
-    emulation: str | UnsetType = UNSET
+    display_device: str | msgspec.UnsetType = msgspec.UNSET
+    emulation: str | msgspec.UnsetType = msgspec.UNSET
 
 
 class ViewSettings(Settings, frozen=True, kw_only=True):
     """`ColorManagedViewSettings` members, the white point left to the temperature and tint it derives from."""
 
-    view_transform: str | UnsetType = UNSET
-    look: str | UnsetType = UNSET
-    exposure: float | UnsetType = UNSET
-    gamma: float | UnsetType = UNSET
-    use_curve_mapping: bool | UnsetType = UNSET
-    use_white_balance: bool | UnsetType = UNSET
-    white_balance_temperature: float | UnsetType = UNSET
-    white_balance_tint: float | UnsetType = UNSET
+    view_transform: str | msgspec.UnsetType = msgspec.UNSET
+    look: str | msgspec.UnsetType = msgspec.UNSET
+    exposure: float | msgspec.UnsetType = msgspec.UNSET
+    gamma: float | msgspec.UnsetType = msgspec.UNSET
+    use_curve_mapping: bool | msgspec.UnsetType = msgspec.UNSET
+    use_white_balance: bool | msgspec.UnsetType = msgspec.UNSET
+    white_balance_temperature: float | msgspec.UnsetType = msgspec.UNSET
+    white_balance_tint: float | msgspec.UnsetType = msgspec.UNSET
 
 
 class ColorManagement(Settings, frozen=True, kw_only=True):

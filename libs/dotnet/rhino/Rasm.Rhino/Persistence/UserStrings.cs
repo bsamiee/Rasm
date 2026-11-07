@@ -8,6 +8,7 @@ using Rhino.FileIO;
 namespace Rasm.Rhino.Persistence;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -26,8 +27,11 @@ public sealed record DocumentKey(KeyName Name, Option<KeyName> Entry = default) 
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
 public static class UserStrings {
+
     // --- [OWNERS]
+
     public static HashMap<EqStringOrdinalIgnoreCase, string, string> Of(NameValueCollection bag) =>
         toHashMap<EqStringOrdinalIgnoreCase, string, string>(toSeq(bag.AllKeys).Map(key => (key, bag[key])));
 
@@ -43,13 +47,15 @@ public static class UserStrings {
         HashMap<EqStringOrdinalIgnoreCase, string, string> held, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
         toSeq<(string Key, Option<string> Value)>(edits).Filter(edit => held.Find(edit.Key) != edit.Value.Bind(Conversions.Present));
 
-    // --- [VIEWPORT]
+    // --- [VIEWPORTS]
+
     public static IO<Unit> Write(RhinoViewport viewport, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
         from changed in IO.lift(() => Changed(Of(viewport.GetUserStrings()), edits))
         from written in unless(changed.IsEmpty, Products.Accepted(() => viewport.SetUserStrings(changed.Map(static edit => KeyValuePair.Create(edit.Key, Conversions.Unset(edit.Value))), replace: false))).As()
         select written;
 
-    // --- [DOCUMENT]
+    // --- [DOCUMENTS]
+
     public static IO<Option<string>> Value(RhinoDoc doc, DocumentKey key) =>
         IO.lift(() => Conversions.Present(doc.Strings.GetValue(key.Text)));
 

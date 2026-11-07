@@ -8,9 +8,7 @@ import { script } from '@rasm/cep/vite';
 import { Effect, Schema } from 'effect';
 import { NetAddress } from 'effect/net';
 import type { UserConfigFnPromise } from 'vite';
-import { atelierLink } from '#/atelier-link';
-import { atelierBuild } from '#/plugin.config';
-import { XcodeProject } from '../../../eng/typescript/manifest.ts';
+import { atelierLink } from '#/atelier-link.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -21,11 +19,10 @@ const encodeJsonString = Schema.encodeEffect(Schema.fromJsonString(Schema.String
 export default Effect.fnUntraced(
     function* () {
         const directory = import.meta.dirname;
-        const [code, signing] = yield* Effect.all([script(createRequire(join(directory, 'package.json')).resolve('@rasm/extendscript'), { name: 'runtime', target: ExtensionManifest.target }), XcodeProject.signing(join(directory, 'macos', 'Atelier.xcodeproj'))], { concurrency: 2 });
-        return bundle({
-            ...atelierBuild(directory).config,
+        const code = yield* script(createRequire(join(directory, 'package.json')).resolve('@rasm/extendscript'), { name: 'runtime', target: ExtensionManifest.target });
+        return bundle(directory, {
             define: { 'import.meta.env.EXTENDSCRIPT_RUNTIME': yield* encodeJsonString(code) },
-            plugins: [helper(join(directory, 'main.ts'), signing, 'server', { KeepAlive: true, EnvironmentVariables: { MCP_LISTEN: NetAddress.formatInet(atelierLink.listen) } })],
+            plugins: [yield* helper(join(directory, 'main.ts'), 'server', { KeepAlive: true, EnvironmentVariables: { MCP_LISTEN: NetAddress.formatInet(atelierLink.listen) } })],
         });
     },
     Effect.provide(layer),

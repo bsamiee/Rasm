@@ -355,7 +355,7 @@ def _under(prefix: Key, key: Key) -> bool:
     return not prefix or key == prefix or key.startswith(f"{prefix}_")
 
 
-# --- [CAPTURES]
+# --- [CAPTURE]
 
 
 def regrouped(snapshot: Snapshot, owners: Mapping[RnaPath, Owner[Value, RnaPath, RnaPath]]) -> Snapshot:
