@@ -14,8 +14,9 @@ use rustc_hir::{
 };
 use rustc_lint::LateContext;
 use rustc_middle::ty::{self, GenericArg, Ty, TypeVisitableExt as _, TypeckResults, fast_reject::DeepRejectCtxt, layout::LayoutOf as _};
+use rustc_span::Symbol;
 
-use crate::{associated_trait, bounds_of, impl_owner, is_error, is_text, pointee, result_parts, workspace_def};
+use crate::{associated_trait, bounds_of, derived_impl, impl_owner, is_error, is_text, pointee, result_parts, workspace_def};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -42,6 +43,10 @@ enum UntypedKind<'tcx> {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn derives<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>, derived: Symbol) -> bool {
+    cx.tcx.get_diagnostic_item(derived).is_some_and(|implemented| cx.tcx.non_blanket_impls_for_ty(implemented, ty).any(|implementation| derived_impl(cx.tcx, implementation)))
+}
 
 fn singular<'tcx>(cx: &LateContext<'tcx>, error: Ty<'tcx>) -> bool {
     !error.has_param()

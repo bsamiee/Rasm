@@ -2,12 +2,6 @@
 id: rust-angle-conversion
 language: rustlang
 utils:
-    pi:
-        kind: 'identifier, scoped_identifier'
-        regex: '^((::)?(std|core)::)?((f16|f32|f64|f128)::)?(consts::)?(PI|TAU)$'
-    half-turn:
-        kind: 'float_literal, integer_literal'
-        regex: '^(180|360)(\.0*)?(_?f(16|32|64|128))?$'
     factor:
         kind: float_literal
         any:
@@ -18,20 +12,20 @@ rule:
     any:
         - matches:
             rust-scaled-ratio:
-                numerator: {matches: pi, regex: 'PI$'}
-                denominator: {matches: half-turn, regex: '^180'}
+                numerator: {matches: rust-angle-turn, regex: 'PI$'}
+                denominator: {matches: rust-angle-turn, regex: '^180'}
         - matches:
             rust-scaled-ratio:
-                numerator: {matches: half-turn, regex: '^180'}
-                denominator: {matches: pi, regex: 'PI$'}
+                numerator: {matches: rust-angle-turn, regex: '^180'}
+                denominator: {matches: rust-angle-turn, regex: 'PI$'}
         - matches:
             rust-scaled-ratio:
-                numerator: {matches: pi, regex: 'TAU$'}
-                denominator: {matches: half-turn, regex: '^360'}
+                numerator: {matches: rust-angle-turn, regex: 'TAU$'}
+                denominator: {matches: rust-angle-turn, regex: '^360'}
         - matches:
             rust-scaled-ratio:
-                numerator: {matches: half-turn, regex: '^360'}
-                denominator: {matches: pi, regex: 'TAU$'}
+                numerator: {matches: rust-angle-turn, regex: '^360'}
+                denominator: {matches: rust-angle-turn, regex: 'TAU$'}
         - kind: binary_expression
           all:
             - has: {field: operator, regex: '^\*$'}

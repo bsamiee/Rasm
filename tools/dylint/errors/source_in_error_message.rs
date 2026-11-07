@@ -14,7 +14,8 @@ use rustc_middle::ty::{FieldDef, VariantDef};
 use rustc_parse_format::{ParseMode, Parser, Piece, Position};
 use rustc_span::{Span, Symbol};
 
-use crate::{derives, expanded_externally};
+use super::derives;
+use crate::expanded_externally;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

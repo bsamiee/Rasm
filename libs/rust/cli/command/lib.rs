@@ -192,6 +192,7 @@ where
     let factory = Augmented::<Options, A>::command;
     CompleteEnv::with_factory(factory).complete();
     let mut command = factory();
+    #[expect(clippy::disallowed_methods, reason = "clap's parse entry reads OS arguments")]
     let parsed = command.try_get_matches_from_mut(env::args_os()).and_then(|mut matches| Augmented::<Options, A>::from_arg_matches_mut(&mut matches).map_err(|error| error.format(&mut command)));
     let printed = |error: &clap::Error, status: sysexits::ExitCode| error.print().map_or_else(|source| sysexits::ExitCode::from(source).into(), |()| status.into());
     let exited = |error: &clap::Error| printed(error, if error.use_stderr() { sysexits::ExitCode::Usage } else { sysexits::ExitCode::Ok });

@@ -18,7 +18,8 @@ use rustc_hir::{
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, FieldDef, TypeVisitableExt as _, VariantDef, print::with_forced_trimmed_paths};
 
-use crate::{associated_trait, awaited_output, constructed, derived_impl, derives, expanded_externally, impl_owner, is_error, parameter, result_parts, suggest};
+use super::derives;
+use crate::{associated_trait, awaited_output, constructed, derived_impl, expanded_externally, impl_owner, is_error, parameter, result_parts, suggest};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

@@ -23,7 +23,6 @@ extern crate rustc_type_ir;
 use core::{
     cell::{LazyCell, RefCell},
     iter, mem,
-    ops::ControlFlow,
 };
 use std::{path::Path, rc::Rc};
 
@@ -37,7 +36,6 @@ use clippy_utils::{
     res::{MaybeDef as _, MaybeResPath as _},
     sym,
     ty::{implements_trait, is_copy},
-    visitors::{Visitable, for_each_expr},
 };
 use itertools::{Either, Itertools as _};
 use rustc_abi::FieldIdx;
@@ -257,10 +255,6 @@ fn is_text<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> bool {
 
 fn is_error<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> bool { cx.tcx.get_diagnostic_item(sym::Error).is_some_and(|error| implements_trait(cx, pointee(cx, ty), error, &[])) }
 
-fn derives<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>, derived: Symbol) -> bool {
-    cx.tcx.get_diagnostic_item(derived).is_some_and(|implemented| cx.tcx.non_blanket_impls_for_ty(implemented, ty).any(|implementation| derived_impl(cx.tcx, implementation)))
-}
-
 fn signature(tcx: TyCtxt<'_>, item: DefId) -> FnSig<'_> {
     tcx.instantiate_bound_regions_with_erased(tcx.normalize_erasing_regions(TypingEnv::non_body_analysis(tcx, item), tcx.fn_sig(item).instantiate_identity()))
 }
@@ -472,14 +466,6 @@ fn literal_or_const(typeck: &TypeckResults<'_>, expr: &Expr<'_>) -> bool {
         || matches!(expr.kind, ExprKind::Path(qpath) if matches!(typeck.qpath_res(&qpath, expr.hir_id), Res::Def(DefKind::Const | DefKind::AssocConst | DefKind::Ctor(_, CtorKind::Const), _)))
 }
 
-fn any_expr<'tcx, N, F>(tcx: TyCtxt<'tcx>, node: N, mut found: F) -> bool
-where
-    N: Visitable<'tcx>,
-    F: FnMut(&'tcx Expr<'tcx>) -> bool,
-{
-    for_each_expr(tcx, node, |expr| if found(expr) { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }).is_some()
-}
-
 fn fn_item_value(cx: &LateContext<'_>, expr: &Expr<'_>) -> Option<DefId> {
     if let ExprKind::Path(qpath) = &expr.kind
         && let Res::Def(DefKind::Fn | DefKind::AssocFn, function) = cx.qpath_res(qpath, expr.hir_id)
@@ -520,8 +506,6 @@ fn trait_impls(tcx: TyCtxt<'_>) -> FxHashMap<LocalDefId, Vec<(DefId, LocalDefId)
         .into_grouping_map_with_hasher(FxBuildHasher)
         .collect()
 }
-
-fn enclosing_trait_impl(cx: &LateContext<'_>, node: HirId) -> Option<DefId> { cx.tcx.trait_impl_of_assoc(cx.tcx.typeck_root_def_id(cx.tcx.hir_enclosing_body_owner(node).to_def_id())) }
 
 fn item_path(cx: &LateContext<'_>, item: DefId) -> String {
     let tcx = cx.tcx;

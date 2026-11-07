@@ -1,0 +1,21 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-dynamic-simulation-tests"
+edition.workspace = true
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dev-dependencies]
+rasm-dynamic-simulation = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

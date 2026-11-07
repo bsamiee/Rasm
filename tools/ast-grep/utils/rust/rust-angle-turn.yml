@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-angle-turn
+language: rustlang
+rule:
+    any:
+        - kind: 'identifier, scoped_identifier'
+          regex: '^((::)?(std|core)::)?((f16|f32|f64|f128)::)?(consts::)?(PI|TAU)$'
+        - kind: 'float_literal, integer_literal'
+          regex: '^(180|360)(\.0*)?(_?f(16|32|64|128))?$'

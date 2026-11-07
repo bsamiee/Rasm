@@ -48,6 +48,7 @@ pub(crate) fn assertions(tcx: TyCtxt<'_>) -> FxHashSet<DefId> {
         .collect()
 }
 
+#[expect(clippy::disallowed_methods, reason = "Cargo marks integration test and bench targets with `CARGO_TARGET_TMPDIR` alone, the compiler session records no target kind")]
 pub(crate) fn cargo_test_target(tcx: TyCtxt<'_>) -> bool { tcx.sess.opts.test && std::env::var_os("CARGO_TARGET_TMPDIR").is_some() }
 
 fn has_temporary_drop<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> bool {

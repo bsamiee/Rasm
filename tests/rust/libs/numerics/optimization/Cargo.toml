@@ -1,0 +1,21 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-optimization-tests"
+edition.workspace = true
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path = "lib.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dev-dependencies]
+rasm-optimization = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

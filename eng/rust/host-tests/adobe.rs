@@ -1,17 +1,16 @@
 use std::{ffi::OsString, io, path::PathBuf};
 
 use clap::{Args, ValueHint};
+use fs_err::tokio::canonicalize;
 use futures::StreamExt as _;
 use rasm_process::{Launch, Run};
 use thiserror::Error;
-use tokio::{io::AsyncWriteExt as _, process::Command};
+use tokio::{io::AsyncWriteExt as _, net::UnixListener, process::Command};
 use tokio_util::{
     codec::{FramedRead, LinesCodec},
     sync::CancellationToken,
 };
 use url::Url;
-
-use crate::desktop::{socket, with_app};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -19,6 +18,8 @@ use crate::desktop::{socket, with_app};
 pub(crate) struct Suite {
     #[arg(value_hint = ValueHint::FilePath)]
     config: PathBuf,
+    #[arg(long, env, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, help = "SwiftPM scratch folder holding the `watch-apps` debug build")]
+    swiftpm_build_dir: PathBuf,
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     selectors: Vec<OsString>,
 }
@@ -35,15 +36,17 @@ struct Joined {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub(crate) async fn test(suite: Suite, run: &Run) -> io::Result<()> {
-    let (path, listener) = socket(run)?;
+pub(crate) async fn test(Suite { config, swiftpm_build_dir, selectors }: Suite, run: &Run) -> io::Result<()> {
+    let path = run.scratch().join("socket");
+    let listener = UnixListener::bind(&path)?;
+    let watcher = canonicalize(swiftpm_build_dir.join("debug/watch-apps")).await?;
     let finished = CancellationToken::new();
     let active = run.directory().join("active-case");
     let mut command = Command::new("vitest");
     command
         .args(["run", "--config"])
-        .arg(suite.config)
-        .args(suite.selectors)
+        .arg(config)
+        .args(selectors)
         .env("RASM_HOST_RUN_DIRECTORY", run.directory())
         .env("RASM_HOST_RUN_SCRATCH", run.scratch())
         .env("RASM_HOST_ACTIVE_CASE", &active)
@@ -63,7 +66,9 @@ pub(crate) async fn test(suite: Suite, run: &Run) -> io::Result<()> {
                 .to_file_path()
                 .map_err(|()| io::Error::new(io::ErrorKind::InvalidInput, "Expected a file URL for an Adobe application bundle"))?;
             let launch = Launch { bundle: &bundle, documents: &[], arguments: &[], environment: &[] };
-            with_app(run, launch, async move |pid| {
+            let mut application = Command::new(&watcher);
+            application.env("WATCH_APPS_LOG", run.directory().join("watch-apps.log"));
+            run.application(application, launch, async move |pid| {
                 writer.write_all(format!("{pid}\n").as_bytes()).await?;
                 match requests.next().await {
                     None => Ok(()),

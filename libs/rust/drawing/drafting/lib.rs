@@ -411,17 +411,8 @@ pub fn bounds(graphics: &Graphics, frame: Affine) -> Rect {
         .unwrap_or_default()
 }
 
-fn graduated<I>(
-    typesetter: &mut Typesetter,
-    style: &Style,
-    basis: Affine,
-    size: Size,
-    ticks: I,
-    (direction, anchor, baseline): (Vec2, Anchor, Baseline),
-) -> Result<Graphics, NEVec<DraftingError>>
-where
-    I: IntoIterator<Item = (f64, Option<String>)>,
-{
+fn graduated<I>(typesetter: &mut Typesetter, style: &Style, basis: Affine, size: Size, ticks: I, (direction, anchor, baseline): (Vec2, Anchor, Baseline)) -> Result<Graphics, NEVec<DraftingError>>
+where I: IntoIterator<Item = (f64, Option<String>)> {
     let accuracy = style.tolerance.into_inner();
     let gap = style.gap.into_inner();
     let Size { width: length, height: thickness } = size;
@@ -434,8 +425,7 @@ where
     let labels = ticks
         .into_iter()
         .filter_map(|(position, content)| {
-            content
-                .map(|content| text::labelled(typesetter, style, &Label { content: content.into(), .. }, basis * Point::new(position, gap.mul_add(2.0, thickness)), direction, anchor, baseline))
+            content.map(|content| text::labelled(typesetter, style, &Label { content: content.into(), .. }, basis * Point::new(position, gap.mul_add(2.0, thickness)), direction, anchor, baseline))
         })
         .map(validated)
         .collect::<Validated<Graphics, _>>();

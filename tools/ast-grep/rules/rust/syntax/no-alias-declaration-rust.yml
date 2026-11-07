@@ -34,8 +34,8 @@ rule:
 transform:
     TUPLE_TEXT: {replace: {source: $TUPLE, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: 'Type alias `$1` renames tuple `$2`'}}
     RENAMED_TEXT: {replace: {source: $RENAMED, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: 'Type alias `$1` renames `$2`'}}
-    SAME_TEXT: {replace: {source: $SAME, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use $2;`'}}
-    OTHER_TEXT: {replace: {source: $OTHER, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use $2 as $1;`'}}
-    PRIMITIVE_TEXT: {replace: {source: $PRIMITIVE, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(\p{XID_Continue}+)\p{Pattern_White_Space}*;$', by: '`$1` re-exports `$2` through a type alias, write `pub use core::primitive::$2 as $1;`'}}
+    SAME_TEXT: {replace: {source: $SAME, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: '`$1` aliases `$2` under its own name, delete it and name `$2` at each use'}}
+    OTHER_TEXT: {replace: {source: $OTHER, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: '`$1` renames `$2`, delete it and name `$2` at each use'}}
+    PRIMITIVE_TEXT: {replace: {source: $PRIMITIVE, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(\p{XID_Continue}+)\p{Pattern_White_Space}*;$', by: '`$1` renames primitive `$2`, delete it and name `$2` at each use'}}
 message: '$TUPLE_TEXT$RENAMED_TEXT$SAME_TEXT$OTHER_TEXT$PRIMITIVE_TEXT'
-note: 'Write tuple and private alias targets directly; re-export named public targets with `pub use`'
+note: 'Name the target type at each use, an alias states a second path to its item'

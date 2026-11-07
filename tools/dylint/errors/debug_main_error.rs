@@ -3,7 +3,8 @@ use rustc_hir::FnRetTy;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::print::with_forced_trimmed_paths;
 
-use crate::{derives, is_error, result_parts, signature};
+use super::derives;
+use crate::{is_error, result_parts, signature};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

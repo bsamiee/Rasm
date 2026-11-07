@@ -188,7 +188,9 @@ const markers: Readonly<
         const local = new Set(Array.getSomes(crate.dependencies.map(Struct.get('path'))));
         const dependencies = all.filter(({ manifest }) => local.has(path.resolve(workspaceRoot, path.dirname(manifest)))).map(Struct.get('name'));
         const linted = libraries.some((library) => local.has(library));
-        const test = linted ? { inputs: [{ runtime: 'cargo dylint --version' }] } : { configurations: { coverage: { command: `cargo llvm-cov nextest --locked ${quote([crate.name, ...dependencies].flatMap((name) => ['--package', name]))} --tests --lcov`, 'output-path': `.artifacts/rust/coverage/${crate.name}.lcov` } }, outputs: ['{workspaceRoot}/{options.output-path}'] };
+        const test = linted
+            ? { inputs: [{ runtime: 'cargo dylint --version' }] }
+            : { configurations: { coverage: { command: `cargo llvm-cov nextest --locked ${quote([crate.name, ...dependencies].flatMap((name) => ['--package', name]))} --tests --lcov`, 'output-path': `.artifacts/rust/coverage/${crate.name}.lcov` } }, outputs: ['{workspaceRoot}/{options.output-path}'] };
         return {
             name: crate.name,
             ...Option.getOrUndefined(Option.map(crate.description, (description) => ({ metadata: { description } }))),

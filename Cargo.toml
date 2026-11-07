@@ -4,7 +4,7 @@
 
 [workspace]
 resolver = "3"
-members  = ["eng/rust/host-tests", "libs/rust/*/*", "tests/rust/tools/dylint", "tools/ast-grep/regex", "tools/dylint", "tools/mcp-proxy"]
+members  = ["eng/rust/host-tests", "libs/rust/*/*", "tools/ast-grep/regex", "tools/dylint", "tools/mcp-proxy", "tests/rust/libs/*/*", "tests/rust/tools/ast-grep/regex", "tests/rust/tools/dylint", "tests/rust/tools/mcp-proxy"]
 
 # --- [IDENTITY]
 
@@ -732,6 +732,8 @@ rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation" }
 rasm-form-finding       = { path = "libs/rust/geometry/form-finding" }
 rasm-lints              = { path = "tools/dylint" }
 rasm-lints-auxiliary    = { path = "tests/rust/tools/dylint/auxiliary" }
+rasm-ast-grep-regex     = { path = "tools/ast-grep/regex", artifact = "bin" }
+rasm-mcp-proxy          = { path = "tools/mcp-proxy", artifact = "bin" }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 
@@ -869,7 +871,7 @@ unused_trait_names       = "warn" # `use Trait` imported for its methods alone, 
 # --- [NAMING]
 
 error_impl_error           = "warn" # Error types named `Error`, each names raising package
-min_ident_chars            = "warn" # Single-character identifiers outside coordinate axes `w`, `x`, `y`, `z`, color channels `r`, `g`, `b` and IEC 61672-1 weightings `A`, `C`
+min_ident_chars            = "warn" # Single-character identifiers, single letters name coordinate axes, color channels, and IEC 61672-1 weightings alone
 module_name_repetitions    = "warn" # Item names repeating their module's name, paths state module once
 renamed_function_params    = "warn" # Trait impls renaming trait parameters, trait owns each parameter name
 single_char_lifetime_names = "warn" # Single-character lifetime names, each lifetime names its purpose
@@ -882,7 +884,7 @@ manual_assert               = "allow" # Rewrites flagged `panic!` calls into run
 missing_errors_doc          = "allow" # Names and types state each contract in place of doc comments
 missing_panics_doc          = "allow" # Names and types state each contract in place of doc comments
 option_if_let_else          = "allow" # Rewrites `match` and `if let` over `Option` into `map_or` or `map_or_else`, control flow selects by pattern matching result cases
-redundant_field_names       = "allow" # Flags `field: field` literals derive_more `Constructor` writes, rustfmt `use_field_init_shorthand` owns written ones
+redundant_field_names       = "allow" # Flags `field: field` literals, rustfmt `use_field_init_shorthand` rewrites each
 redundant_pub_crate         = "allow" # Demands `pub` on items in private modules where rustc `unreachable_pub` demands `pub(crate)`
 significant_drop_tightening = "allow" # Demands `drop` of lock guards before scope end, acquisition and release pair in one resource scope
 too_many_lines              = "allow" # Caps functions at 100 lines, data dependency decides composition in place of line count

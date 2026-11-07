@@ -30,7 +30,7 @@ use rustc_trait_selection::{
 };
 
 use super::{Bodies, Callable, owner, substitute_types};
-use crate::{any_expr, constructed, derived_impl, expanded_externally, impl_owner, is_error, item_path, literal_or_const, parameter};
+use crate::{constructed, derived_impl, expanded_externally, impl_owner, is_error, item_path, literal_or_const, parameter};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -125,7 +125,7 @@ fn bound_to_trait<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId, implemente
         let cause = ObligationCause::dummy();
         let clauses = tcx.mk_clauses_from_iter(tcx.clauses_of(function).instantiate_identity(tcx).clauses.into_iter().map(ty::Unnormalized::skip_normalization));
         obligations.register_obligations(rebased(tcx, clauses, arguments, owner).iter().map(|clause| Obligation::new(tcx, cause.clone(), param_env, clause)));
-        let unavailable = any_expr(tcx, tcx.hir_body_owned_by(function).value, |expr| {
+        let unavailable = for_each_expr(tcx, tcx.hir_body_owned_by(function).value, |expr| {
             let depends = |held: Ty<'tcx>| held.walk().filter_map(GenericArg::as_type).any(|held| held == body_owner);
             let adjustments = typeck.expr_adjustments(expr);
             let coerced = iter::once(typeck.expr_ty(expr)).chain(adjustments.iter().map(|adjustment| adjustment.target)).zip(adjustments).any(|(source, adjustment)| {
@@ -144,14 +144,14 @@ fn bound_to_trait<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId, implemente
                 || coerced
                 || affected.iter().any(|(_, held)| held.has_erased_regions())
             {
-                return true;
+                return ControlFlow::Break(());
             }
             for (source, held) in affected {
                 obligations.register_obligation(Obligation::new(tcx, cause.clone(), param_env, ty::Binder::dummy(ty::ClauseKind::WellFormed(held.into()))));
                 match (source.is_ref(), tcx.lang_items().sized_trait()) {
                     (true, _) => (),
                     (false, Some(sized)) => obligations.register_bound(cause.clone(), param_env, held, sized),
-                    (false, None) => return true,
+                    (false, None) => return ControlFlow::Break(()),
                 }
             }
             if let Some(called) = resolved.filter(|&called| matches!(tcx.def_kind(called), DefKind::Fn | DefKind::AssocFn | DefKind::Const | DefKind::AssocConst | DefKind::Static { .. }))
@@ -160,14 +160,15 @@ fn bound_to_trait<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId, implemente
             {
                 let called_args = rebased(tcx, called_args, arguments, declared_owner);
                 if called_args.has_erased_regions() {
-                    return true;
+                    return ControlFlow::Break(());
                 }
                 obligations.register_obligations(
                     tcx.clauses_of(called).instantiate(tcx, called_args).clauses.into_iter().map(|clause| Obligation::new(tcx, cause.clone(), param_env, clause.skip_normalization())),
                 );
             }
-            false
-        });
+            ControlFlow::Continue(())
+        })
+        .is_some();
         (!unavailable && obligations.evaluate_obligations_error_on_ambiguity().no_errors()).ok_or(())
     })
 }

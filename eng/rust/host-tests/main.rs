@@ -13,8 +13,6 @@ use tracing_subscriber::layer::Identity;
 #[cfg(target_os = "macos")]
 mod adobe;
 mod blender;
-#[cfg(target_os = "macos")]
-mod desktop;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

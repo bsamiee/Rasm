@@ -461,4 +461,7 @@ mod visualization;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use markup::{BimSnippet, Comment, DocumentReference, File, Remark, Resource, Target, Topic, Viewpoint};
-pub use visualization::{AspectRatio, Bitmap, Camera, ClippingPlane, Coloring, Component, Components, FieldOfView, Line, Presentation, Projection, Reference, ViewSetupHint, Visibility, Visualization, hint, node_presentation, presentation, reference, referent, visibility};
+pub use visualization::{
+    AspectRatio, Bitmap, Camera, ClippingPlane, Coloring, Component, Components, FieldOfView, Line, Presentation, Projection, Reference, ViewSetupHint, Visibility, Visualization, hint,
+    node_presentation, presentation, reference, referent, visibility,
+};

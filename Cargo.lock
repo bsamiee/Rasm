@@ -9822,6 +9822,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-arrow-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-arrow",
+]
+
+[[package]]
 name = "rasm-ast-grep-regex"
 version = "0.0.0"
 dependencies = [
@@ -9835,6 +9842,13 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "rasm-ast-grep-regex-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-ast-grep-regex",
 ]
 
 [[package]]
@@ -9864,6 +9878,13 @@ dependencies = [
  "validated",
  "xot",
  "zip 9.2.2",
+]
+
+[[package]]
+name = "rasm-bcf-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-bcf",
 ]
 
 [[package]]
@@ -9906,6 +9927,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-command-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-command",
+]
+
+[[package]]
 name = "rasm-console"
 version = "0.0.0"
 dependencies = [
@@ -9936,6 +9964,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-console-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-console",
+]
+
+[[package]]
 name = "rasm-daemon"
 version = "0.0.0"
 dependencies = [
@@ -9959,6 +9994,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-daemon-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-daemon",
+]
+
+[[package]]
 name = "rasm-dependency-graph"
 version = "0.0.0"
 dependencies = [
@@ -9972,6 +10014,13 @@ dependencies = [
  "rustworkx-core",
  "thiserror 2.0.21",
  "validated",
+]
+
+[[package]]
+name = "rasm-dependency-graph-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-dependency-graph",
 ]
 
 [[package]]
@@ -10004,6 +10053,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-drafting-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-drafting",
+]
+
+[[package]]
 name = "rasm-drawing"
 version = "0.0.0"
 dependencies = [
@@ -10024,6 +10080,13 @@ dependencies = [
  "stacksafe",
  "thiserror 2.0.21",
  "validated",
+]
+
+[[package]]
+name = "rasm-drawing-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-drawing",
 ]
 
 [[package]]
@@ -10049,6 +10112,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-drawing-views-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-drawing-views",
+]
+
+[[package]]
 name = "rasm-dwg"
 version = "0.0.0"
 dependencies = [
@@ -10067,6 +10137,13 @@ dependencies = [
  "thiserror 2.0.21",
  "uom",
  "validated",
+]
+
+[[package]]
+name = "rasm-dwg-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-dwg",
 ]
 
 [[package]]
@@ -10091,6 +10168,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-dynamic-simulation-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-dynamic-simulation",
+]
+
+[[package]]
 name = "rasm-form-finding"
 version = "0.0.0"
 dependencies = [
@@ -10109,6 +10193,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-form-finding-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-form-finding",
+]
+
+[[package]]
 name = "rasm-graph-layout"
 version = "0.0.0"
 dependencies = [
@@ -10123,6 +10214,13 @@ dependencies = [
  "petgraph-graphml",
  "thiserror 2.0.21",
  "uom",
+]
+
+[[package]]
+name = "rasm-graph-layout-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-graph-layout",
 ]
 
 [[package]]
@@ -10177,6 +10275,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-ifc-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-ifc",
+]
+
+[[package]]
 name = "rasm-implicit-modeling"
 version = "0.0.0"
 dependencies = [
@@ -10188,6 +10293,13 @@ dependencies = [
  "rayon",
  "statrs",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "rasm-implicit-modeling-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-implicit-modeling",
 ]
 
 [[package]]
@@ -10299,6 +10411,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-mcp-proxy-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-mcp-proxy",
+]
+
+[[package]]
+name = "rasm-mcp-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-mcp",
+]
+
+[[package]]
 name = "rasm-mesh"
 version = "0.0.0"
 dependencies = [
@@ -10312,6 +10438,13 @@ dependencies = [
  "parry3d-f64",
  "rayon",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "rasm-mesh-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-mesh",
 ]
 
 [[package]]
@@ -10333,6 +10466,13 @@ dependencies = [
  "serde",
  "thiserror 2.0.21",
  "validated",
+]
+
+[[package]]
+name = "rasm-network-analysis-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-network-analysis",
 ]
 
 [[package]]
@@ -10367,6 +10507,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-numerical-analysis-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-numerical-analysis",
+]
+
+[[package]]
 name = "rasm-optimization"
 version = "0.0.0"
 dependencies = [
@@ -10384,6 +10531,13 @@ dependencies = [
  "rayon",
  "thiserror 2.0.21",
  "validated",
+]
+
+[[package]]
+name = "rasm-optimization-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-optimization",
 ]
 
 [[package]]
@@ -10430,6 +10584,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-pdf-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-pdf",
+]
+
+[[package]]
 name = "rasm-planar-geometry"
 version = "0.0.0"
 dependencies = [
@@ -10443,6 +10604,13 @@ dependencies = [
  "spade",
  "thiserror 2.0.21",
  "validated",
+]
+
+[[package]]
+name = "rasm-planar-geometry-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-planar-geometry",
 ]
 
 [[package]]
@@ -10493,6 +10661,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-proximity-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-proximity",
+]
+
+[[package]]
 name = "rasm-regression"
 version = "0.0.0"
 dependencies = [
@@ -10515,6 +10690,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-regression-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-regression",
+]
+
+[[package]]
 name = "rasm-signal-processing"
 version = "0.0.0"
 dependencies = [
@@ -10534,6 +10716,13 @@ dependencies = [
  "rustfft",
  "thiserror 2.0.21",
  "uom",
+]
+
+[[package]]
+name = "rasm-signal-processing-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-signal-processing",
 ]
 
 [[package]]
@@ -10561,6 +10750,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-site-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-site",
+]
+
+[[package]]
 name = "rasm-solar-geometry"
 version = "0.0.0"
 dependencies = [
@@ -10579,6 +10775,13 @@ dependencies = [
  "solar-positioning",
  "thiserror 2.0.21",
  "uom",
+]
+
+[[package]]
+name = "rasm-solar-geometry-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-solar-geometry",
 ]
 
 [[package]]
@@ -10605,6 +10808,13 @@ dependencies = [
  "statrs",
  "thiserror 2.0.21",
  "validated",
+]
+
+[[package]]
+name = "rasm-stats-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-stats",
 ]
 
 [[package]]
@@ -10637,6 +10847,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-tui-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-tui",
+]
+
+[[package]]
 name = "rasm-typst"
 version = "0.0.0"
 dependencies = [
@@ -10666,6 +10883,13 @@ dependencies = [
  "typst-render",
  "typst-svg",
  "validated",
+]
+
+[[package]]
+name = "rasm-typst-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-typst",
 ]
 
 [[package]]
@@ -10703,6 +10927,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-weather-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-weather",
+]
+
+[[package]]
 name = "rasm-workbooks"
 version = "0.0.0"
 dependencies = [
@@ -10717,6 +10948,13 @@ dependencies = [
  "spreadsheet-ods",
  "thiserror 2.0.21",
  "umya-spreadsheet",
+]
+
+[[package]]
+name = "rasm-workbooks-tests"
+version = "0.0.0"
+dependencies = [
+ "rasm-workbooks",
 ]
 
 [[package]]

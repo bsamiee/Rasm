@@ -47,7 +47,7 @@
     "explorer.fileNesting.patterns": {
         "*.csproj": "packages.lock.json, packages.*.lock.json, xunit.runner.json",
         ".gitignore": ".gitattributes, .gitmodules",
-        "Cargo.toml": "Cargo.lock, clippy.toml, rust-analyzer.toml, rust-toolchain.toml, rustfmt.toml",
+        "Cargo.toml": "Cargo.lock, clippy.toml, rust-toolchain.toml, rustfmt.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
         "hk.pkl": "analyzers.globalconfig, periphery.json, periphery.yml, pmd.xml, squawk.toml, stubtest.ini, yamllint.yaml",
@@ -154,6 +154,7 @@
     "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/vscode" },
     "rust-analyzer.cargo.targetDir": ".artifacts/rust/vscode",
     "rust-analyzer.checkOnSave": false,
+    "rust-analyzer.rustc.source": "discover",
 
     // --- [SHELL] -----------------------------------------------------------------------
 

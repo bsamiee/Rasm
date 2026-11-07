@@ -11,7 +11,7 @@ use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty;
 use rustc_span::Span;
 
-use crate::{Access, access, accessed_field, derived_impl, enclosing_trait_impl, expanded_externally, exported, pattern_fields};
+use crate::{Access, access, accessed_field, derived_impl, expanded_externally, exported, pattern_fields};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -30,7 +30,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let typeck = cx.typeck_results();
         if matches!(typeck.expr_ty(expr).kind(), ty::Ref(_, _, Mutability::Not))
             && let Some(field) = accessed_field(typeck, expr).and_then(DefId::as_local)
-            && !enclosing_trait_impl(cx, expr.hir_id)
+            && !cx
+                .tcx
+                .trait_impl_of_assoc(cx.tcx.typeck_root_def_id(cx.tcx.hir_enclosing_body_owner(expr.hir_id).to_def_id()))
                 .is_some_and(|implementation| derived_impl(cx.tcx, implementation) && matches!(cx.tcx.impl_trait_id(implementation).opt_diag_name(cx), Some(sym::Debug | sym::Clone)))
         {
             let read = get_parent_expr(cx, expr).and_then(|parent| match (parent.kind, access(cx, parent)) {

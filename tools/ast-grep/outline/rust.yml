@@ -132,12 +132,35 @@ rule:
             - has: {field: argument, matches: argument}
             - has: {field: name, matches: argument}
         - not: {matches: broken}
+        - not: {kind: use_declaration, has: {matches: public}}
         - matches: attributed
         - matches: declaration
 name: $NAME
 signature: $ATTRIBUTED$SIGNATURE
 isImport: true
 isExported: {has: {matches: public}}
+---
+id: rust-use-export
+role: item
+symbolType: module
+utils:
+    listed: {inside: {kind: use_list}}
+    whole: {inside: {kind: use_declaration, field: argument}}
+rule:
+    pattern: $CLAUSE
+    all:
+        - any:
+            - {kind: identifier, pattern: $NAME, any: [{matches: listed}, {matches: whole}]}
+            - {kind: scoped_identifier, has: {field: name, pattern: $NAME}, any: [{matches: listed}, {matches: whole}]}
+            - {kind: use_as_clause, has: {field: alias, pattern: $NAME}, any: [{matches: listed}, {matches: whole}]}
+        - any: [{inside: {kind: use_list, inside: {kind: scoped_use_list, has: {field: path, pattern: $SOURCE}}}}, {regex: ''}]
+        - inside: {stopBy: end, kind: use_declaration, has: {matches: public}, not: {matches: broken}, inside: {kind: source_file}}
+transform:
+    PREFIX: {replace: {source: $SOURCE, replace: '(?s)^(.+)$', by: '$1::'}}
+name: $NAME
+signature: pub use $PREFIX$CLAUSE
+isImport: true
+isExported: true
 ---
 id: rust-mod
 role: item

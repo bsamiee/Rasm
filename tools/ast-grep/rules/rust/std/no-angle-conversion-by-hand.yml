@@ -1,10 +1,26 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: rustlang
 severity: error
+utils:
+    pi: {matches: rust-angle-turn, regex: 'PI$', not: {regex: 'f(16|128)'}}
+    half-turn: {matches: rust-angle-turn, regex: '^180', not: {regex: 'f(16|128)'}}
+    suboptimal-flops:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^/$'}
+            - has: {field: left, kind: binary_expression, has: {field: operator, regex: '^\*$'}}
+        any:
+            - all:
+                - has: {field: left, has: {field: right, matches: pi}}
+                - has: {field: right, matches: half-turn}
+            - all:
+                - has: {field: left, has: {field: right, matches: half-turn}}
+                - has: {field: right, matches: pi}
 rule:
     kind: 'binary_expression, call_expression'
     all:
         - matches: rust-angle-conversion
+        - not: {matches: suboptimal-flops}
         - pattern: $CONVERSION
 message: '`$CONVERSION` converts an angle between degrees and radians by hand'
 note: 'Call `<value>.to_radians()` or `<value>.to_degrees()` of `f32` or `f64`'
