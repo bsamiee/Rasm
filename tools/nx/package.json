@@ -8,6 +8,7 @@
     },
     "exports": {
         ".": "./graph/plugin.ts",
+        "./release": "./release.ts",
         "./package.json": "./package.json"
     },
     "dependencies": {
@@ -15,6 +16,7 @@
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
+        "@nx/vitest": "catalog:",
         "@rasm/eng": "workspace:*",
         "effect": "catalog:",
         "fast-xml-builder": "catalog:",

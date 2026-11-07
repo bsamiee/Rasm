@@ -220,7 +220,7 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         hosts,
         pyproject,
         swiftManifest,
-        release: nxJsonConfiguration.release,
+        nxJsonConfiguration,
         scanExclusions: Effect.map(
             crates,
             Function.flow(

@@ -14,7 +14,7 @@ Run commands from a terminal or harness with Accessibility access, each prints t
 4. While a call outside `watch-apps` runs (Atelier script), run `watch` on the app and its dialog helpers in a Monitor
 
 ```bash
-watch-apps launch [<app>...] [--new] [--wait] [--document <path>...] [--environment NAME=VALUE...] [-- <argument>...]
+watch-apps launch [<app>...] [--new] [--wait] [--document <path>...] [--environment NAME=VALUE...] [--arguments <argument>...]
 watch-apps quit <app-or-pid>... [--force]
 ```
 
@@ -44,8 +44,8 @@ Monitor {"command": "watch-apps watch <app> [<helper>]...",
 - `watch-apps` quits, kills, closes a document, presses a button, or writes a preference only on an agent's command or early end of the creating `launch --wait` run
 - `--document` opens each file in the one named app, or with no app named in the file's default app, an unreachable file printing a `fail` line
 - Without `--document`, AppKit apps open an untitled document or their open panel, Adobe apps their Home screen with no document
-- Arguments after `--` and `--environment` values reach only an instance `launch` creates, launchd's environment fills the rest
-- Launches take Rhino `-nosplash` and Blender `--no-window-focus` (absent `-b` or `--background`), other app switches pass after `--`
+- `--arguments` takes every input after it, and its values and `--environment` values reach only an instance `launch` creates, launchd's environment fills the rest
+- Launches take Rhino `-nosplash` and Blender `--no-window-focus` (absent `-b` or `--background`), other app switches pass after `--arguments`
 - `launch` captures neither the app's output nor error stream
 - Hooks rewrite `open`, `xed`, a launching `osascript`, and a bundle's executable into `launch`, a headless switch and a background-only or `LSUIElement` bundle running as written
 - Hooks rewrite `killall` and `pkill` into `kill` of their pids when each descends from the session, and refuse any other kill of every match
@@ -88,7 +88,7 @@ watch-apps serve
 - Refused and unanswered actions can have run, `read` the instance before retrying one
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
 - `log` prints one line per run of the session with its `pid`, `at`, `argv`, `exit`, and last line per key, a run pid every record of that run
-- Runs append `{at, pid, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to `$WATCH_APPS_LOG` (`.artifacts/logs/watch-apps.log`), run `exit` holding `status`, or `signal` for a run a signal ended
+- Runs append `{at, pid, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to `$WATCH_APPS_LOG` (`.artifacts/logs/watch-apps.log`), run `exit` holding its exit `status`, and `signal` for a run a signal ended
 - `serve` answers the `ApplicationServer` wire over standard input and output, holding its parent's grants
 
 ## [03]-[STATES]
@@ -126,7 +126,7 @@ Lines read `{"<bundle id>": {"<pid>": <state>}}`, a field the app leaves unknown
 - Walks descend into scroll areas and visible table rows, outline rows, and list children, and reach menus only on explicit walks running the app's `menuWillOpen`
 - Alert button `identifier` reads `action-button-<n>` in the order the buttons were added, panel buttons `OKButton` and `CancelButton` on save and open, `PDPrint` and `PSOK` on print and page setup
 
-Instances are read at insertion and after each window, sheet, title, focus, menu, minimize, or destruction notification they post. A heartbeat reads each instance's open and focused windows and window-server rows once per 1-second messaging timeout, and reads the instance again when either changes. A stopped process reads `unresponsive` with no message sent, `unresponsive` prints from the second silent heartbeat, and `launching` holds until the app finishes launching unless a row asks first. `exited` reads `status` for an exit or `signal` for a kill with `detail` naming a `memory`, `codeSigning`, or `decryption` kill and `reporting` while a crash report is due, then a second line adds `report` (`url`, `pid`, `bundleIdentifier`, Mach `exception`) once ReportCrash writes it, or `reportFailure` after 60 seconds without one. `statusFailure` holds the cause of a failed exit status read.
+Instances are read at insertion and after each window, sheet, title, focus, menu, minimize, or destruction notification they post. A heartbeat reads each instance's open and focused windows and window-server rows once per 1-second messaging timeout, and reads the instance again when either changes. A stopped process reads `unresponsive` with no message sent, `unresponsive` prints from the second silent heartbeat, and `launching` holds until the app finishes launching unless a row asks first or its main thread runs no user time between two silent heartbeats, which reads `unresponsive`. `exited` reads `status` for an exit or `signal` for a kill with `detail` naming a `memory`, `codeSigning`, or `decryption` kill and `reporting` while a crash report is due, then a second line adds `report` (`url`, `pid`, `bundleIdentifier`, Mach `exception`) once ReportCrash writes it, or `reportFailure` after 60 seconds without one. `statusFailure` holds the cause of a failed exit status read.
 
 | [INDEX] | [STATE]                                | [ACTION]                                              |
 | :-----: | :------------------------------------- | :---------------------------------------------------- |

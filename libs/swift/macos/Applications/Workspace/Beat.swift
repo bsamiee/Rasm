@@ -121,9 +121,11 @@ extension NSRunningApplication {
         let time: Duration
         do { time = try mainThreadUserTime(of: processIdentifier) } catch { throw ApplicationFailure(error, process: processIdentifier) }
         let tagged: Set<CGWindowID> = modalSessions(among: listed.map(\.number))
-        let flat: Bool = isFinishedLaunching && held.mainThread == time
+        let idle: Bool = held.mainThread == time
+        let flat: Bool = isFinishedLaunching && idle
         let status: InstanceState.Running.Status =
             switch (isFinishedLaunching, held.mainThread == nil, held.status) {
+                case (false, _, _) where idle: .unresponsive(process)
                 case (false, _, _): .launching
                 case (true, true, .some(let answered)): answered
                 case (true, _, _): .unresponsive(process)

@@ -505,19 +505,6 @@ checksum_source = "mise-versions"
 url = "https://github.com/Wilfred/difftastic/releases/download/0.72.0/difft-0.72.0-aarch64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/Wilfred/difftastic/releases/assets/689921777"
 
-[[tools.docker-cli]]
-version = "29.9.3"
-backend = "aqua:docker/cli"
-specifiers = ["latest"]
-
-[tools.docker-cli."platforms.linux-x64"]
-checksum = "sha256:3fb5d1f13014c18cc54945bc177c58a9056a482dada031e17d12cf2e6922c973"
-url = "https://download.docker.com/linux/static/stable/x86_64/docker-29.9.3.tgz"
-
-[tools.docker-cli."platforms.macos-arm64"]
-checksum = "sha256:79145e169bca0b9571d02de8e1cd311a36e0e8fdb4599b6661a87b1bb3afbe13"
-url = "https://download.docker.com/mac/static/stable/aarch64/docker-29.9.3.tgz"
-
 [[tools.doppler]]
 version = "3.77.1"
 backend = "github:DopplerHQ/cli"
@@ -674,6 +661,20 @@ checksum_source = "mise-versions"
 url = "https://github.com/apple/pkl-vscode/releases/download/0.23.1/pkl-vscode-0.23.1.vsix"
 url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/552343422"
 
+[[tools."github:docker/docker-credential-helpers"]]
+version = "0.9.12"
+backend = "github:docker/docker-credential-helpers"
+specifiers = ["latest"]
+
+[tools."github:docker/docker-credential-helpers".options]
+matching = "docker-credential-osxkeychain"
+
+[tools."github:docker/docker-credential-helpers"."platforms.macos-arm64"]
+checksum = "sha256:0e43ec22d3fd186b2d69a3c76fd9ac0a1ae4ec4f2c2b2e4ee156e048c8258cb0"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/docker-credential-helpers/releases/download/v0.9.12/docker-credential-osxkeychain-v0.9.12.darwin-arm64"
+url_api = "https://api.github.com/repos/docker/docker-credential-helpers/releases/assets/660453470"
+
 [[tools."github:fonttools/fontspector"]]
 version = "1.9.0"
 backend = "github:fonttools/fontspector"
@@ -693,6 +694,23 @@ checksum = "sha256:0d34d5f85ac7a2efe57157c31f454e56a759edf888879b53af50b76bb1d6b
 checksum_source = "mise-versions"
 url = "https://github.com/fonttools/fontspector/releases/download/fontspector-v1.9.0/fontspector-1.9.0-aarch64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/fonttools/fontspector/releases/assets/625060613"
+
+[[tools."github:hostinger/api-cli"]]
+version = "4.14.0"
+backend = "github:hostinger/api-cli"
+specifiers = ["latest"]
+
+[tools."github:hostinger/api-cli"."platforms.linux-x64"]
+checksum = "sha256:c09cd8cf361f035f2ff1d9dd500331f575f4ddd0e618e8d28088381c8e6a6c9a"
+checksum_source = "mise-versions"
+url = "https://github.com/hostinger/api-cli/releases/download/v4.14.0/hostinger-4.14.0-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/716356372"
+
+[tools."github:hostinger/api-cli"."platforms.macos-arm64"]
+checksum = "sha256:2a3e025c59e5944784b2190f764c1394596f92157cf1de2d4c75cde638c774d0"
+checksum_source = "mise-versions"
+url = "https://github.com/hostinger/api-cli/releases/download/v4.14.0/hostinger-4.14.0-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/716356311"
 
 [[tools."github:linebender/resvg"]]
 version = "0.49.0"
@@ -806,6 +824,19 @@ checksum = "sha256:95f89e6eef60e0c690b0d439b30e3b8558f47235a1a45cbff7b5351d294e4
 url = "https://github.com/jdx/hk/releases/download/v2.11.1/hk-aarch64-apple-darwin.tar.gz"
 signer = "sigstore-oidc:https://github.com/jdx/hk/.github/workflows/release.yml"
 repository_ids = { repository = "922514152" }
+
+[[tools."http:docker-cli"]]
+version = "29.10.0-rc.1"
+backend = "http:docker-cli"
+specifiers = ["latest"]
+
+[tools."http:docker-cli"."platforms.linux-x64"]
+checksum = "sha256:649260edd80811476e6198ca765d4bdb9781755451955c46c6eabeb585a726db"
+url = "https://download.docker.com/linux/static/test/x86_64/docker-cli_29.10.0-rc.1.tgz"
+
+[tools."http:docker-cli"."platforms.macos-arm64"]
+checksum = "sha256:f68899ef5158d9142614aa3e4b084bb4e39221653bfbd4d4168ee62285d7af3e"
+url = "https://download.docker.com/mac/static/test/aarch64/docker-cli_29.10.0-rc.1.tgz"
 
 [[tools."http:jdtls"]]
 version = "1.63.0"

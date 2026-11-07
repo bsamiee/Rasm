@@ -1,7 +1,5 @@
 import type { Tree } from '@nx/devkit';
-import { runCommand } from '@rasm/eng';
-import { Array, Effect, Equal, Record, Schema, type Scope, Stream, String, Struct } from 'effect';
-import { applyEdits, modify } from 'jsonc-parser';
+import { Array, Effect, Schema, type Scope, Struct } from 'effect';
 import { parseAllDocuments } from 'yaml';
 import { type PluginServices, runPlugin, WorkspaceError } from '#/workspace.ts';
 
@@ -18,13 +16,6 @@ const yamlDocuments = (text: string, file: string) => {
     const errors = 'errors' in documents ? documents.errors : documents.flatMap((document) => document.errors);
     return Array.match(errors, { onEmpty: () => Effect.succeed(documents), onNonEmpty: (failures) => Effect.fail(WorkspaceError.unparsed(file, failures.map(({ message }) => message).join('\n'))) });
 };
-const formatted = (tree: Tree, file: string, text: string) => runCommand('biome', ['check', '--write', `--stdin-file-path=${file}`], { cwd: tree.root, stdin: Stream.encodeText(Stream.make(text)) });
-const patched = Effect.fnUntraced(function* (tree: Tree, file: string, current: Readonly<Record<string, unknown>>, rows: Readonly<Record<string, unknown>>) {
-    const text = yield* treeText(tree, file);
-    const moved = Record.toEntries(rows).filter(([key, value]) => !Equal.equals(current[key], value));
-    const next = moved.reduce((held, [key, value]) => applyEdits(held, modify(held, [key], value, { getInsertionIndex: (properties) => properties.findLastIndex(String.startsWith(Array.headNonEmpty(String.split(key, '.')))) + 1 })), text);
-    return { file, next: Array.isArrayNonEmpty(moved) ? yield* formatted(tree, file, next) : text };
-});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -41,4 +32,4 @@ const syncGenerator =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { decodeTree, formatted, patched, syncGenerator, treeText, YAML_LAYOUT, yamlDocuments };
+export { decodeTree, syncGenerator, treeText, YAML_LAYOUT, yamlDocuments };

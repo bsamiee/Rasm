@@ -33,18 +33,7 @@
                     "lint:swift-format": { "command": "hk check --glob='**/*' --step=swift-format", "inputs": [ "hk", "swiftFiles", "{workspaceRoot}/.swift-format", { "runtime": "xcrun swift-format --version" } ] },
                     "lint:swiftlint": { "command": "hk check --glob='**/*' --step=swiftlint", "inputs": [ "hk", "swiftFiles", "{workspaceRoot}/.swiftlint.yml", { "runtime": "swiftlint version" } ] },
                     "lint:periphery": { "command": "periphery scan --config .config/periphery.yml --index-store-path \"$SWIFTPM_BUILD_DIR/out\" --retain-public", "dependsOn": [ "typecheck:swift" ] },
-                    "lint:nx": {
-                        "command": "nx sync:check",
-                        "inputs": [
-                            "...",
-                            "{workspaceRoot}/tools/nx/sync/*.json",
-                            "typescript",
-                            "{workspaceRoot}/{Package.swift,Xcode.xcconfig,Directory.Build.props,.swiftlint.yml,.config/mise.toml,.config/mise.lock,.config/hk.pkl,pyproject.toml,biome.json,.editorconfig,.vscode/settings.json,plugins/argus/.lsp.json,sgconfig.yml}",
-                            "{workspaceRoot}/**/package.json",
-                            "{workspaceRoot}/**/.openai/hosting.json",
-                            "{workspaceRoot}/**/*.{ts,tsx}"
-                        ]
-                    },
+                    "lint:nx": { "command": "nx sync:check", "inputs": [ "...", "{workspaceRoot}/tools/nx/sync/*.json", "typescript", "{workspaceRoot}/**/package.json", "{workspaceRoot}/**/*.{ts,tsx}" ] },
                     "lint:xcprojformatter": { "command": "hk check --glob='**/*' --step=xcprojformatter", "inputs": [ "hk", "xcodeTools", "{workspaceRoot}/**/project.xcproj" ] },
                     "lint:plutil": { "command": "hk check --glob='**/*' --step=plutil", "inputs": [ "hk", "{workspaceRoot}/**/*.{plist,entitlements}" ] },
                     "lint:google-java-format": { "command": "hk check --glob='**/*' --step=google-java-format", "inputs": [ "hk", "javaFiles", { "runtime": "google-java-format --version" } ] },
@@ -97,7 +86,7 @@
     "release": {
         "projectsRelationship": "independent",
         "releaseTag": { "pattern": "{releaseGroupName}-{projectName}-v{version}" },
-        "version": { "conventionalCommits": true, "versionActions": "./tools/nx/release.ts", "fallbackCurrentVersionResolver": "disk" },
+        "version": { "conventionalCommits": true, "versionActions": "@rasm/nx/release", "fallbackCurrentVersionResolver": "disk" },
         "conventionalCommits": { "types": { "refactor": { "semverBump": "patch" }, "perf": { "semverBump": "patch" } } },
         "changelog": { "automaticFromRef": true, "projectChangelogs": { "file": false, "createRelease": "github", "entryWhenNoChanges": "{projectName} release with no new commits", "renderOptions": { "authors": false } }, "git": { "commit": false } },
         "groups": { "macos": { "projects": [ "tag:output:appcast" ] }, "rhino": { "projects": [ "tag:output:rhp" ] }, "blender": { "projects": [ "tag:output:extension" ] }, "web": { "projects": [ "tag:output:cloudflare" ] } }
@@ -115,6 +104,7 @@
         "version": [ { "runtime": "git rev-parse HEAD && git for-each-ref refs/tags" } ],
         "nodePlatform": [ { "runtime": "node -p \"[process.version, process.platform, process.arch].join('-')\"" } ],
         "typescript": [ "{workspaceRoot}/tsconfig.{base,web}.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type" ] } ],
+        "tsc": [ "typescript", { "externalDependencies": [ "@effect/tsgo", "@typescript/native" ] } ],
         "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] } ],
         "nextest": [ "{workspaceRoot}/.config/nextest.toml", { "runtime": "cargo nextest --version" } ],
         "swift": [ "{workspaceRoot}/{Package.swift,Package.resolved}", "xcodeTools" ],
@@ -125,7 +115,7 @@
         "rustWorkspace": [ "rust", "{workspaceRoot}/**/{*.rs,Cargo.toml}" ],
         "swiftFiles": [ "{workspaceRoot}/**/*.swift" ],
         "javaFiles": [ "{workspaceRoot}/**/*.java" ],
-        "ghidra": [ "javaFiles", { "externalDependencies": [] }, { "env": "JAVA_HOME" }, { "env": "GHIDRA_INSTALL_DIR" }, { "env": "GHIDRA_CLASSPATH" } ],
+        "ghidra": [ "javaFiles", { "externalDependencies": [] }, { "env": "JAVA_HOME" }, { "env": "GHIDRA_CLASSPATH" } ],
         "hk": [ "{workspaceRoot}/.config/hk.pkl", "{workspaceRoot}/**/.{gitignore,ignore}", { "externalDependencies": [] }, { "runtime": "hk --version" } ],
         "shellFiles": [ "{workspaceRoot}/**/*.sh" ],
         "shellcheck": [ "{workspaceRoot}/.shellcheckrc", { "env": "SHELLCHECK_OPTS" }, { "runtime": "shellcheck --version" } ]
@@ -153,13 +143,7 @@
             },
             { "filter": { "projects": [ "tag:build:swiftpm" ] }, "dependsOn": [ { "projects": [ "rasm" ], "target": "typecheck:swift" } ] },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo build --locked --package {projectName}", "cache": false, "parallelism": false },
-            { "filter": { "plugin": "@nx/vite/plugin" }, "options": { "args": [ "--configLoader", "native" ] }, "inputs": [ "...", "typescript", "nodePlatform" ] },
-            { "filter": { "projects": [ "tag:output:cloudflare" ] }, "outputs": [ "...", "{projectRoot}/.cloudflare/output", "{workspaceRoot}/.artifacts/{projectRoot}" ] },
-            {
-                "filter": { "projects": [ "tag:host:uxp", "tag:host:cep" ] },
-                "inputs": [ "production", "^production", "typescript", "nodePlatform", "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/*.svg", { "env": "LINK_PORT" }, { "runtime": "resvg --version" }, { "runtime": "usvg --version" }, "version" ],
-                "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ]
-            }
+            { "filter": { "projects": [ "tag:output:cloudflare" ] }, "outputs": [ "...", "{projectRoot}/.cloudflare/output", "{workspaceRoot}/.artifacts/{projectRoot}" ] }
         ],
         "serve": [ { "filter": { "projects": [ "tag:output:cloudflare" ] }, "configurations": { "e2e": { "args": [ "--mode", "e2e", "--strictPort" ] } } } ],
         "assets": [
@@ -200,8 +184,7 @@
                 "command": "doppler run --no-fallback --attempts 1 --command 'certificate=$(mktemp) && trap \"rm -f \\\"$certificate\\\"\" EXIT && printf %s \"$ZXP_CERTIFICATE\" | base64 -d > \"$certificate\" && rm -f .artifacts/{projectRoot}.zxp && ZXPSignCmd -sign .artifacts/{projectRoot} .artifacts/{projectRoot}.zxp \"$certificate\" \"$ZXP_CERTIFICATE_PASSWORD\" -tsa http://timestamp.digicert.com && ZXPSignCmd -verify .artifacts/{projectRoot}.zxp -certInfo'",
                 "dependsOn": [ "build" ],
                 "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}.zxp" ]
-            },
-            { "filter": { "projects": [ "tag:output:sea" ] }, "inputs": [ "...", "production", "^production", "typescript", "nodePlatform" ] }
+            }
         ],
         "pack:windows": { "command": "dotnet publish --no-build --configuration Release", "options": { "cwd": "{projectRoot}" }, "dependsOn": [ "build:windows" ], "parallelism": false },
         "install": [
@@ -246,24 +229,18 @@
                 "command": "doppler run --no-fallback --attempts 1 --command 'tag=$(git describe --tags --exact-match --match \"$MinVerTagPrefix*\") && archives=.artifacts/blender/{projectName}/archives && trap \"rm -f \\\"$archives/index.json\\\" \\\"$archives/index.html\\\"\" EXIT && \"$BLENDER_PATH\" --factory-startup --command extension server-generate --repo-dir \"$archives\" --html && gh release upload \"$tag\" \"$archives\"/*.zip --clobber && gh release upload {projectName}-updates \"$archives\"/*.zip \"$archives/index.json\" \"$archives/index.html\" --clobber'",
                 "dependsOn": [ "pack" ]
             },
-            { "filter": { "projects": [ "tag:output:cloudflare" ] }, "command": "doppler run --no-fallback --attempts 1 -- rasm-infra {projectRoot} --apply" }
+            { "filter": { "projects": [ "tag:output:cloudflare" ] }, "command": "doppler run --no-fallback --attempts 1 -- rasm-infra {projectRoot} --apply", "options": { "forwardAllArgs": false } }
         ],
         "infra": { "command": "doppler run --no-fallback --attempts 1 -- rasm-infra {projectRoot}", "parallelism": false },
         "types": { "command": "cf workers types", "options": { "cwd": "{projectRoot}" }, "inputs": [ "default", "^production", { "externalDependencies": [ "cf" ] } ], "outputs": [ "{projectRoot}/.cloudflare/types" ], "cache": true },
         "typecheck:*": { "cache": true },
         "typecheck:swift": { "cache": false },
         "typecheck:tsc": [
-            {
-                "options": { "args": [ "--pretty", "false", "--incremental", "--tsBuildInfoFile", "\"$NX_WORKSPACE_ROOT/.cache/tsc/{projectName}/tsconfig.tsbuildinfo\"" ] },
-                "inputs": [ "default", "^production", "typescript", { "externalDependencies": [ "@effect/tsgo", "@typescript/native" ] }, { "dependentTasksOutputFiles": "**/*.d.ts" }, { "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts", "includeIgnored": true } ]
-            },
-            { "filter": { "projects": [ "directory:." ] }, "cache": true, "inputs": [ "typescript", "{workspaceRoot}/tsconfig.json", "{workspaceRoot}/**/package.json", "{workspaceRoot}/**/*.{ts,tsx}", { "externalDependencies": [ "@effect/tsgo", "@typescript/native" ] } ] }
+            { "options": { "args": [ "--pretty", "false", "--incremental", "--tsBuildInfoFile", "\"$NX_WORKSPACE_ROOT/.cache/tsc/{projectName}/tsconfig.tsbuildinfo\"" ] }, "inputs": [ "default", "^production", "tsc", { "dependentTasksOutputFiles": "**/*.d.ts" } ] },
+            { "filter": { "projects": [ "tag:host:claude" ] }, "inputs": [ "...", { "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts", "includeIgnored": true } ] },
+            { "filter": { "projects": [ "directory:." ] }, "cache": true, "inputs": [ "tsc", "{workspaceRoot}/tsconfig.json", "{workspaceRoot}/**/package.json", "{workspaceRoot}/**/*.{ts,tsx}" ] }
         ],
-        "typecheck:claude": {
-            "command": "tsc --pretty false -p {projectRoot}/tsconfig.claude.json",
-            "inputs": [ "typescript", "{projectRoot}/**/*.ts", "{projectRoot}/tsconfig*.json", { "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts", "includeIgnored": true }, { "externalDependencies": [ "@effect/tsgo", "@typescript/native" ] } ],
-            "cache": true
-        },
+        "typecheck:claude": { "command": "tsc --pretty false -p {projectRoot}/tsconfig.claude.json", "inputs": [ "tsc", "{projectRoot}/**/*.ts", "{projectRoot}/tsconfig*.json", { "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts", "includeIgnored": true } ], "cache": true },
         "lint:*": { "cache": true },
         "lint:claude": { "command": "claude plugin validate {projectRoot}", "inputs": [ "{projectRoot}/**/*", { "externalDependencies": [] }, { "runtime": "claude --version" } ], "cache": true },
         "lint:periphery": [
@@ -298,7 +275,6 @@
             }
         ],
         "test:integration": [
-            { "filter": { "projects": [ "tag:language:typescript" ] }, "inputs": [ "default", "^production", "typescript", "nodePlatform", { "env": "CI" }, { "externalDependencies": [ "vitest" ] } ], "dependsOn": [ { "projects": [ "rasm" ], "target": "docker" } ], "parallelism": false },
             { "filter": { "projects": [ "@rasm/test-database" ] }, "inputs": [ "...", "{workspaceRoot}/.config/squawk.toml", { "runtime": "squawk --version" } ] },
             {
                 "filter": { "projects": [ "tag:build:swiftpm" ] },

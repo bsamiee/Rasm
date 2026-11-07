@@ -4,6 +4,8 @@ import { runCommand } from '@rasm/eng';
 import { Array, Effect, Function, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
 import { infer, logged, markers, owning, rootTargets } from '#/graph/projects.ts';
 import { neutrality, roots } from '#/graph/root-project.ts';
+import { buildSettings } from '#/sync/settings/build-settings.ts';
+import { hostingBindings } from '#/sync/settings/hosting-bindings.ts';
 import { JsonListRecord, openWorkspace, runPlugin, type Workspace } from '#/workspace.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -72,6 +74,7 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
                 'nx.json',
                 rootTargets({
                     restore: { options: logged(path, '.', 'restore') },
+                    'lint:nx': { inputs: ['...', ...[...buildSettings.files, ...hostingBindings.files].map((file) => `{workspaceRoot}/${file}`)] },
                     upgrade: { options: { args: Record.keys(Record.filter(daemons, booted)) } },
                     'upgrade:dotnet': dotnetUpgrade,
                     ...Record.map(Record.filter(daemons, Predicate.not(booted)), (_, daemon) => ({ command: `mise daemons start ${daemon}` })),

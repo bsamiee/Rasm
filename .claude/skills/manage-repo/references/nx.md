@@ -13,7 +13,7 @@
 - Sync generators take one row in the `generators` file `@rasm/nx` names
 - `@rasm/nx:<name>` sits in `syncGenerators` of the target reading what it writes, else in `sync.globalGenerators`
 - `lint:nx` reports generator drift, the workspace `format` target runs `nx sync` before `hk fix`
-- Target `inputs` name files the generators read or write, the plugin adds rule folders, the `**/*.{ts,tsx}` input covers generator imports
+- Target `inputs` name files the generators read or write, the plugin adds each generator's declared `files` and rule folders, the `**/*.{ts,tsx}` input covers generator imports
 - Generators on a target rerun `createNodes` per run and off a TTY refuse the task over another writer's drift
 - Each `grammar:<lang>` target builds `.cache/ast-grep/outline/<lang>.yml` from `tools/ast-grep/outline/<lang>.yml` as a cached output, edits go to the source
 - Catalog sources open with an idless document, each row receiving `roles` key defaults and the `utils`, `rewriters`, `transform`, and `variants` it calls
@@ -78,7 +78,7 @@ Use JSON discovery from workspace root:
 |  [06]   | `{ "dependentTasksOutputFiles": "<glob>" }`    | Outputs of dependency tasks, `transitive: true` recurses     |
 |  [07]   | `{ "json": "<path>", "fields": ["<field>"] }`  | Listed fields of a JSON file, `excludeFields` the rest       |
 
-- Every task hashes all targets of its project, `nx.json`, `.gitignore`, and `.nxignore` whole, and root `tsconfig.base.json`, no input excludes them
+- Every task hashes all targets of its project, `nx.json` and `.gitignore` whole, and root `tsconfig.base.json`, no input excludes them
 - File inputs include untracked files and exclude ignored files
 - `includeIgnored: true` on a `{ "fileset": "<glob>" }` entry hashes ignored matches from disk, on a `!` entry excludes ignored matches
 - `includeIgnored` filesets rooted at `{workspaceRoot}/**` walk every ignored tree on disk per task graph

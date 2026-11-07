@@ -19,6 +19,7 @@
         "@playwright/test": "catalog:",
         "@rasm/eng": "workspace:*",
         "@rasm/infra": "workspace:*",
+        "@rasm/nx": "workspace:*",
         "@rasm/test-support": "workspace:*",
         "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",

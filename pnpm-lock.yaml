@@ -466,6 +466,9 @@ importers:
       '@rasm/infra':
         specifier: workspace:*
         version: link:infra
+      '@rasm/nx':
+        specifier: workspace:*
+        version: link:tools/nx
       '@rasm/test-support':
         specifier: workspace:*
         version: link:tests/typescript/support
@@ -1670,6 +1673,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.0.5(nx@24.0.5)
+      '@nx/vitest':
+        specifier: 'catalog:'
+        version: 24.0.5(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.0.5(@babel/traverse@7.29.13(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.0.5)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.0.5)(supports-color@10.2.2)(vite@8.3.6)(vitest@5.1.0)
       '@rasm/eng':
         specifier: workspace:*
         version: link:../../eng/typescript

@@ -61,22 +61,25 @@ def checked(settings: Settings) -> Sequence[Error | str]:
     filesystem = FileSystemCache()
 
     def content(path: str) -> str:
-        return decode_python_encoding(filesystem.read(path))
+        return decode_python_encoding(filesystem.read(next((shadow for held, shadow in options.shadow_file or () if filesystem.samefile(path, held)), path)))
 
     version = ["--python-version", ".".join(map(str, settings.python_version))] if settings.python_version is not None else []
     sources, options = process_options([*settings.files, *version, *settings.mypy_args], fscache=filesystem)
     settings = replace(settings, python_version=options.python_version)
     checks = load_checks(settings)
     options.preserve_asts = True
+    options.per_module_options["*.*"] = {"preserve_asts": False}
     options.export_types = True
     options.num_workers = 0
     if settings.timing_stats is not None:
         options.timing_stats = str(settings.timing_stats)
-    options.cache_dir = os.devnull if options.shadow_file is not None else str(Path(options.cache_dir, Path(__file__).parent.name))
-    store = Path(options.cache_dir, ".".join(map(str, options.python_version)), "findings.msgpack") if options.incremental and options.cache_dir != os.devnull else None
+    disabled = options.shadow_file is not None or options.cache_dir == os.devnull
+    options.cache_dir = os.devnull if disabled else str(Path(options.cache_dir, Path(__file__).parent.name))
+    store = Path(options.cache_dir, ".".join(map(str, options.python_version)), "findings.msgpack") if options.incremental and not disabled else None
     stated = (*sys.argv[1:], metadata.version("refurb"))
     key = sha256(b"\0".join((*map(str.encode, stated), *map(Path.read_bytes, sorted({*Path(__file__).parent.glob("*.py"), *map(Path, filter(None, [options.config_file]))}))))).hexdigest()
-    digests = {source.module: filesystem.hash_digest(source.path) for source in sources if source.path is not None}
+    texts = {source.module: source.text for source in sources if source.text is not None}
+    digests = {**{source.module: filesystem.hash_digest(source.path) for source in sources if source.path is not None}, **{module: sha256(text.encode()).hexdigest() for module, text in texts.items()}}
     raw = catch(Path.read_bytes, exception=FileNotFoundError)(store).default_value(b"") if store is not None else b""
     stored = (
         catch(msgspec.msgpack.Decoder(Held).decode, exception=msgspec.DecodeError)(raw)
@@ -117,7 +120,7 @@ def checked(settings: Settings) -> Sequence[Error | str]:
             started = perf_counter()
             visitor.accept(result.files[module])
             timings[module] = int((perf_counter() - started) * 1000)
-            lines = content(result.manager.maybe_swap_for_shadow_path(state.xpath)).splitlines() if visitor.errors else ()
+            lines = (texts[module] if module in texts else content(state.xpath)).splitlines() if visitor.errors else ()
             for finding in visitor.errors:
                 finding.filename = state.xpath
             entries[module] = Entry(
@@ -158,7 +161,11 @@ def checked(settings: Settings) -> Sequence[Error | str]:
             output_timing_stats(settings, elapsed, settings.timing_stats, timings)
             errors: list[Error | str] = [
                 *((str(result.files[module]) for module in entries) if settings.debug else ()),
-                *(classes[code](line, column, msg, source.path, line_end, column_end) for source in sources for code, line, column, msg, line_end, column_end in modules[source.module].findings),
+                *(
+                    classes[code](line, column, msg, result.graph[source.module].xpath, line_end, column_end)
+                    for source in sources
+                    for code, line, column, msg, line_end, column_end in modules[source.module].findings
+                ),
             ]
             return [*result.errors, *sorted(errors, key=lambda error: sort_errors(error, settings))]
         case Result(error=error):

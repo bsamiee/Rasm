@@ -14,7 +14,7 @@ private let absentProcess: String = String(Int32.max)
 private let helps: [(arguments: [String], names: [String])] = [
     (["--help"], ["watch", "launch", "read", "capture", "perform", "set", "key", "quit", "log", "serve"]),
     (["watch", "--help"], ["<names>"]),
-    (["launch", "--help"], ["<names>", "--new", "--wait", "--document", "--environment", "<argument>"]),
+    (["launch", "--help"], ["<names>", "--new", "--wait", "--document", "--environment", "--arguments"]),
     (["read", "--help"], ["<names>", "--window"]),
     (["capture", "--help"], ["<names>", "--window", "--longest-side"]),
     (["perform", "--help"], ["<id>", "<action>"]),

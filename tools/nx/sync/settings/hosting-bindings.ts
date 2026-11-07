@@ -32,11 +32,14 @@ const hostingRow = Effect.fnUntraced(function* (tree: Tree, file: string) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const hostingBindings = syncGenerator(`${HOSTING_FILE} binding names differ from ${CLOUDFLARE_CONFIG}`, (tree) =>
-    Effect.flatMap(
-        Effect.tryPromise(() => globAsync(tree, [`**/${HOSTING_FILE}`])),
-        Effect.forEach((file) => hostingRow(tree, file)),
+const hostingBindings = Object.assign(
+    syncGenerator(`${HOSTING_FILE} binding names differ from ${CLOUDFLARE_CONFIG}`, (tree) =>
+        Effect.flatMap(
+            Effect.tryPromise(() => globAsync(tree, [`**/${HOSTING_FILE}`])),
+            Effect.forEach((file) => hostingRow(tree, file)),
+        ),
     ),
+    { files: [`**/${HOSTING_FILE}`] },
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

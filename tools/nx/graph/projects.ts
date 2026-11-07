@@ -1,6 +1,7 @@
 import { createRequire, isBuiltin } from 'node:module';
 import type { CreateNodesResult, Optional, ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { findMatchingProjects, interpolate } from '@nx/devkit/internal';
+import { createNodes } from '@nx/vitest';
 import { ClaudeHooks, decodeFile, TextFormat, Xcconfig, XcodeProject } from '@rasm/eng';
 import { Array, Effect, Equal, FileSystem, Function, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
@@ -16,6 +17,7 @@ type Inference = Workspace & { readonly configFiles: ReadonlySet<string> };
 const TESTS = 'tests';
 const MODULES = 'node_modules';
 const VITEST_INTEGRATION = 'vitest.integration.config';
+const VITE = { args: ['--configLoader', 'native'], inputs: ['typescript', 'nodePlatform'] } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -78,6 +80,14 @@ const externalInputs = (path: Path.Path, root: string, files: readonly (string |
         ),
         ...Array.match(packages, { onEmpty: () => [], onNonEmpty: (externalDependencies) => [{ externalDependencies: [...externalDependencies] }] }),
     ]);
+const sharedInputs = Effect.fnUntraced(function* (workspaceRoot: string, dir: string, file: string) {
+    const [path, fs, { files }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, imports(workspaceRoot)(file)]);
+    const shared = files.filter((held) => held.endsWith('.config.ts') && path.relative(dir, held).startsWith('..'));
+    const modules = yield* Effect.forEach(shared, (held) => Effect.tryPromise((): Promise<Readonly<Record<string, unknown>>> => import(path.join(workspaceRoot, held))));
+    const named = modules.flatMap(Object.values).filter(Predicate.isString).filter(path.isAbsolute);
+    const marks = yield* Effect.filter(named, (value) => Effect.map(fs.exists(value), (exists) => exists && !path.relative(workspaceRoot, value).startsWith('..')));
+    return marks.map((value) => `{workspaceRoot}/${path.relative(workspaceRoot, value)}`);
+});
 const rootTargets = (targets: Readonly<Record<string, TargetConfiguration>>): CreateNodesResult => ({ projects: { '.': { root: '.', targets } } });
 const pytest = (args: readonly string[], coverage?: string): TargetConfiguration => ({
     command: 'pytest --report-log=.artifacts/python/test/{projectName}/events.jsonl',
@@ -87,7 +97,7 @@ const pytest = (args: readonly string[], coverage?: string): TargetConfiguration
 
 // --- [PROJECTS]
 
-const tagPrefix = ({ release }: Workspace, root: string, tags: readonly string[], name: string | undefined) =>
+const tagPrefix = ({ nxJsonConfiguration: { release } }: Workspace, root: string, tags: readonly string[], name: string | undefined) =>
     Option.flatMap(Option.fromUndefinedOr(name), (projectName) =>
         Option.flatMap(
             Record.findFirst(release?.groups ?? {}, ({ projects }) => findMatchingProjects(Array.ensure(projects), { [projectName]: { data: { root, tags: [...tags] } } }).length > 0),
@@ -279,13 +289,38 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             },
         },
     },
-    [`${VITEST_INTEGRATION}.ts`]: { targets: { 'test:integration': { command: `vitest run --config ${VITEST_INTEGRATION}.ts`, options: { cwd: '{projectRoot}' }, outputs: [`{workspaceRoot}/.artifacts/typescript/vitest/{projectRoot}/${VITEST_INTEGRATION}`] } } },
+    [`${VITEST_INTEGRATION}.ts`]: Effect.fnUntraced(function* ({ dir, base }, { file, workspaceRoot, nxJsonConfiguration, packages }) {
+        const suite = 'test:integration';
+        const [nodes, manifests] = yield* Effect.all([Effect.tryPromise(() => Promise.resolve(createNodes[1]([file], { testMode: 'run', testTargetName: suite }, { workspaceRoot, nxJsonConfiguration }))), packages]);
+        const [{ inputs = [] }, { name }] = yield* Effect.all([Effect.fromNullishOr(nodes[0]?.[1].projects?.[dir]?.targets?.[suite]), Effect.fromOption(Record.get(manifests, '.'))]);
+        return {
+            targets: { [suite]: { command: `vitest run --config ${base}`, options: { cwd: '{projectRoot}' }, inputs: [...inputs, 'nodePlatform'], outputs: [`{workspaceRoot}/.artifacts/typescript/vitest/{projectRoot}/${VITEST_INTEGRATION}`], dependsOn: [{ projects: [name], target: 'docker' }], parallelism: false } },
+        };
+    }),
     'vite.config.ts': Effect.fnUntraced(function* ({ dir }, { configFiles }) {
         const path = yield* Path.Path;
         const hosted = configFiles.has(path.join(dir, CLOUDFLARE_CONFIG));
-        return { tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])], targets: hosted ? { infra: {}, publish: {} } : {} };
+        return { tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])], targets: { build: { options: { args: [...VITE.args] }, inputs: ['...', ...VITE.inputs] }, ...(hosted ? { infra: {}, publish: {} } : {}) } };
     }),
-    ...Record.fromIterableWith(['uxp', 'cep'] as const, (host) => [`${host}.config.ts` as const, { tags: [`host:${host}`], targets: { build: { command: `vite build --configLoader native --config ${host}.config.ts`, options: { cwd: '{projectRoot}' } }, pack: {}, install: {} } }]),
+    ...Record.fromIterableWith(['uxp', 'cep'] as const, (host) => [
+        `${host}.config.ts` as const,
+        Effect.fnUntraced(function* ({ dir, base }: Path.Path.Parsed, { file, workspaceRoot }: Inference & { readonly file: string }) {
+            const marks = yield* sharedInputs(workspaceRoot, dir, file);
+            return {
+                tags: [`host:${host}`],
+                targets: {
+                    build: {
+                        command: 'vite build',
+                        options: { cwd: '{projectRoot}', args: [...VITE.args, '--config', base] },
+                        inputs: ['production', '^production', ...VITE.inputs, ...marks, { env: 'LINK_PORT' }, { runtime: 'resvg --version' }, { runtime: 'usvg --version' }, 'version'],
+                        outputs: ['{workspaceRoot}/.artifacts/{projectRoot}'],
+                    },
+                    pack: {},
+                    install: {},
+                },
+            };
+        }),
+    ]),
     'perso-arabic/rasm.toml': ({ dir, base, name }) =>
         Effect.map(Path.Path, (path) => {
             const output = `.artifacts/fonts/${name}`;
@@ -300,7 +335,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
                 },
             };
         }),
-    'sea.config.ts': Effect.fnUntraced(function* ({ dir }, { configFiles, workspaceRoot }) {
+    'sea.config.ts': Effect.fnUntraced(function* ({ dir, base }, { configFiles, workspaceRoot }) {
         const path = yield* Path.Path;
         const projects = [...configFiles].filter((file) => path.basename(file) === XcodeProject.file && !path.relative(dir, file).startsWith('..'));
         const decoded = yield* Effect.forEach(projects, (file) => decodeFile(XcodeProject.schema, workspaceRoot, file));
@@ -310,7 +345,14 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         const name = path.basename(dir);
         return {
             tags: ['output:sea'],
-            targets: { pack: { command: 'vite build --configLoader native --config {projectRoot}/sea.config.ts', inputs: ['...', ...[...projects, Xcconfig.file, ...entitlements].map((file) => `{workspaceRoot}/${file}`)], outputs: [`${output}/{${name},${name}.mjs,sea.json,sea.entitlements,LaunchAgents}`] } },
+            targets: {
+                pack: {
+                    command: 'vite build',
+                    options: { args: [...VITE.args, '--config', `{projectRoot}/${base}`] },
+                    inputs: [...[...projects, Xcconfig.file, ...entitlements].map((file) => `{workspaceRoot}/${file}`), 'production', '^production', ...VITE.inputs],
+                    outputs: [`${output}/{${name},${name}.mjs,sea.json,sea.entitlements,LaunchAgents}`],
+                },
+            },
         };
     }),
     [CLOUDFLARE_CONFIG]: { targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } },

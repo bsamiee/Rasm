@@ -85,7 +85,7 @@ const tomlRows =
     <A>(update: (held: A) => A) =>
     (text: string) =>
         Effect.sync(() => patch(text, update(parse(text))));
-const rows = Effect.fnUntraced(function* (tree: Tree) {
+const readSettings = Effect.fnUntraced(function* (tree: Tree) {
     const workspace = yield* openWorkspace({ workspaceRoot: tree.root, nxJsonConfiguration: readNxJsonFromDisk(tree.root) });
     const [manifest, { tools, platforms, targets }, locked] = yield* Effect.all([decodeTree(tree, Package.schema, Package.file), workspace.swiftManifest(SwiftManifest, 'dump-package'), decodeTree(tree, MiseLock.schema, MiseLock.file)]);
     const [author, repository, { version }] = yield* Effect.all([Effect.fromNullishOr(manifest.author), Effect.fromNullishOr(manifest.repository), Effect.fromNullishOr(platforms.find(({ name }) => name === 'macos'))]);
@@ -99,43 +99,51 @@ const rows = Effect.fnUntraced(function* (tree: Tree) {
     if (divergent.length > 0) {
         return yield* new Cause.IllegalArgumentError(`${divergent.map(({ name }) => name).join(', ')}: Xcode flags differ from ${first.name}`);
     }
-    return yield* Effect.validate(
-        Object.entries({
-            [Xcconfig.file]: xcconfigRows({
-                COPYRIGHT_HOLDER: author,
-                MACOSX_DEPLOYMENT_TARGET: version,
-                OTHER_LDFLAGS: linker,
-                OTHER_SWIFT_FLAGS: swift,
-                SPARKLE_FEED_URL: `${repository.replace('//', '/$()/')}/releases/download/$(PRODUCT_NAME)-updates/appcast.xml`,
-                SWIFT_VERSION: tools.version.replace(TOOLS_MINOR, '.0'),
-            }),
-            '.swiftlint.yml': yamlRow('deployment_target', 'macOS_deployment_target', version),
-            'Directory.Build.props': propertyRows({ Authors: author, PackageProjectUrl: repository }),
-            [Mise.file]: tomlRows(
-                Optic.id<MiseEnvironment>()
-                    .key('env')
-                    .key('MACOSX_DEPLOYMENT_TARGET')
-                    .modify(() => version),
-            ),
-            '.config/hk.pkl': packageRows({ hk: Array.headNonEmpty(locked.tools.hk).version }),
-            [PYPROJECT]: tomlRows(
-                Optic.id<PixiWorkspace>()
-                    .key('tool')
-                    .key('pixi')
-                    .key('workspace')
-                    .key('platforms')
-                    .modify(Array.map((row) => Function.pipe(typeof row === 'string' ? row : row.platform, (platform) => (platform.startsWith('osx-') ? { platform, macos: version } : row)))),
-            ),
+    return { author, repository, version, swift, linker, tools: tools.version, hk: Array.headNonEmpty(locked.tools.hk).version };
+});
+const writers = {
+    [Xcconfig.file]: ({ author, repository, version, linker, swift, tools }) =>
+        xcconfigRows({
+            COPYRIGHT_HOLDER: author,
+            MACOSX_DEPLOYMENT_TARGET: version,
+            OTHER_LDFLAGS: linker,
+            OTHER_SWIFT_FLAGS: swift,
+            SPARKLE_FEED_URL: `${repository.replace('//', '/$()/')}/releases/download/$(PRODUCT_NAME)-updates/appcast.xml`,
+            SWIFT_VERSION: tools.replace(TOOLS_MINOR, '.0'),
         }),
-        Effect.fnUntraced(function* ([file, update]) {
-            return { file, next: yield* update(yield* Effect.fromNullishOr(tree.read(file, 'utf-8')), file) };
+    '.swiftlint.yml': ({ version }) => yamlRow('deployment_target', 'macOS_deployment_target', version),
+    'Directory.Build.props': ({ author, repository }) => propertyRows({ Authors: author, PackageProjectUrl: repository }),
+    [Mise.file]: ({ version }) =>
+        tomlRows(
+            Optic.id<MiseEnvironment>()
+                .key('env')
+                .key('MACOSX_DEPLOYMENT_TARGET')
+                .modify(() => version),
+        ),
+    '.config/hk.pkl': ({ hk }) => packageRows({ hk }),
+    [PYPROJECT]: ({ version }) =>
+        tomlRows(
+            Optic.id<PixiWorkspace>()
+                .key('tool')
+                .key('pixi')
+                .key('workspace')
+                .key('platforms')
+                .modify(Array.map((row) => Function.pipe(typeof row === 'string' ? row : row.platform, (platform) => (platform.startsWith('osx-') ? { platform, macos: version } : row)))),
+        ),
+} as const satisfies Record<string, (held: Effect.Success<ReturnType<typeof readSettings>>) => (text: string, file: string) => Effect.Effect<string, unknown>>;
+const rows = Effect.fnUntraced(function* (tree: Tree) {
+    const held = yield* readSettings(tree);
+    return yield* Effect.validate(
+        Object.entries(writers),
+        Effect.fnUntraced(function* ([file, write]) {
+            return { file, next: yield* write(held)(yield* Effect.fromNullishOr(tree.read(file, 'utf-8')), file) };
         }),
     );
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const buildSettings = syncGenerator(`Build settings differ from package.json, ${SWIFT_MANIFEST}, or ${MiseLock.file}`, rows);
+const buildSettings = Object.assign(syncGenerator(`Build settings differ from package.json, ${SWIFT_MANIFEST}, or ${MiseLock.file}`, rows), { files: [Package.file, SWIFT_MANIFEST, MiseLock.file, ...Object.keys(writers)] });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

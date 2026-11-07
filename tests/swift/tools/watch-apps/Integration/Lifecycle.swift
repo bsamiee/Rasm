@@ -45,8 +45,9 @@ extension Integration {
                 try await lines.launched(fixture)
             }
             if !wait { try send(0, to: ended.outcome) }
-            expectNoDifference(ended.lines.last?[fixture.identifier, ended.outcome, "exited"] != nil, wait)
-            expectNoDifference(ended.status, .exited(0))
+            let signal: Int32? = ended.lines.last?[fixture.identifier, ended.outcome, "exited", "signal"]?.argument.flatMap(Int32.init)
+            expectNoDifference(signal != nil, wait)
+            expectNoDifference(ended.status, .exited(signal.map { signal in 128 + signal } ?? 0))
         }
 
         @Test(.application(FixtureApplication.self, launches: false))

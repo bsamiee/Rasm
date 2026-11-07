@@ -73,7 +73,7 @@ struct Outline: Encodable {
     let status: String
     var windows: [CGWindowID]
 
-    func fitted(measuring length: (Self) throws -> Int) rethrows -> Self {
+    func fitted<Failure: Error>(measuring length: (Self) throws(Failure) -> Int) throws(Failure) -> Self {
         var cut: Self = self
         var excess: Int = try length(cut) - lineLimit
         while excess > 0 {
@@ -251,14 +251,14 @@ private final class Run: Sendable {
 
     func finish(signal: Int32? = nil) -> Never {
         let status: ExitCode = held.withLock { held in held.status }
-        append(Record<JSONValue>(exit: signal.map { number in ["signal": number] } ?? ["status": status.rawValue]))
+        append(Record<JSONValue>(exit: ["status": status.rawValue, "signal": signal].compactMapValues(\.self)))
         WatchApps.exit(withError: status)
     }
 
     static func execute(serving: Bool = false, waiting: Bool = false, _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void) async {
         let run: Run = Run(output: serving ? nil : .standardOutput, waiting: waiting)
         let endings: AsyncMerge2Sequence<AsyncStream<Int32?>, AsyncStream<Int32?>> = merge(processEndings(), run.closed.stream)
-        await withDiscardingTaskGroup { group in
+        await withTaskGroup(of: Int32??.self) { group in
             group.addTask {
                 do throws(ApplicationFailure) {
                     if !serving { try checkAccessibilityTrust() }
@@ -266,11 +266,14 @@ private final class Run: Sendable {
                 } catch {
                     run.fail(program, error)
                 }
-                run.finish()
+                return nil
             }
-            for await ending: Int32? in endings {
-                await run.release()
-                run.finish(signal: ending)
+            group.addTask { await endings.first { _ in true } }
+            switch await group.next() {
+                case .some(.some(let ending)):
+                    await run.release()
+                    run.finish(signal: ending)
+                case .some(.none), .none: run.finish()
             }
         }
     }
@@ -399,9 +402,6 @@ private struct Launch: AsyncParsableCommand {
     @Option(parsing: .upToNextOption, help: ArgumentHelp("Files to open", valueName: "path"), transform: { path in URL(filePath: path) })
     var document: [URL] = []
 
-    @Argument(parsing: .postTerminator, help: ArgumentHelp("Command-line arguments of new instance after --", valueName: "argument"))
-    var arguments: [String] = []
-
     @Option(
         parsing: .upToNextOption,
         help: "NAME=VALUE environment variables of new instance",
@@ -412,6 +412,9 @@ private struct Launch: AsyncParsableCommand {
         },
     )
     var environment: [(String, String)] = []
+
+    @Option(parsing: .remaining, help: ArgumentHelp("Command-line arguments of new instance, every input after it", valueName: "argument"))
+    var arguments: [String] = []
 
     func validate() throws(ValidationError) {
         guard !names.isEmpty || !document.isEmpty else { throw ValidationError("Pass names or --document") }

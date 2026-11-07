@@ -35,7 +35,7 @@ const bundleInfo = (bundle: string, { host }: Call) => Effect.map(host.output(['
 const backgrounded = ({ LSBackgroundOnly, LSUIElement }: typeof BundleInfo.Type): boolean => [LSBackgroundOnly, LSUIElement].some((declared) => PLIST_TRUE.test(`${declared}`));
 
 const launchLine = (subjects: readonly string[], documents: readonly string[], environment: readonly Word[] = [], args: readonly Word[] = []): string =>
-    [WATCHER, 'launch', ...subjects, ...(documents.length > 0 ? ['--document', ...documents] : []), ...(environment.length > 0 ? ['--environment', ...environment.map(({ raw }) => raw)] : []), ...(args.length > 0 ? ['--', ...args.map(({ raw }) => raw)] : [])].join(' ');
+    [WATCHER, 'launch', ...subjects, ...(documents.length > 0 ? ['--document', ...documents] : []), ...(environment.length > 0 ? ['--environment', ...environment.map(({ raw }) => raw)] : []), ...(args.length > 0 ? ['--arguments', ...args.map(({ raw }) => raw)] : [])].join(' ');
 
 const appBundles = ({ text }: Word, cwd: Option.Option<string>, identifying: boolean, { host }: Call) =>
     text.includes('/')

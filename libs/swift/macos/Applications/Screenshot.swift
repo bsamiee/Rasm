@@ -21,6 +21,7 @@ extension NSRunningApplication {
         configuration: SCScreenshotConfiguration = .background,
     ) async throws(ApplicationFailure) -> [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] {
         guard CGPreflightScreenCaptureAccess() else { throw ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: .noCaptureAccess) }
+        await NSApplication.loadApplication()
         let content: SCShareableContent
         do { content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false) } catch {
             throw ApplicationFailure(subject: String(processIdentifier), reason: .host(error as NSError))

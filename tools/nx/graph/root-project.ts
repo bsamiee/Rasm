@@ -205,7 +205,7 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, scanExclusions }: 
             '.': {
                 root: '.',
                 targets: {
-                    'lint:nx': { inputs: rules(ruleDirs) },
+                    'lint:nx': { inputs: [`{workspaceRoot}/${Sgconfig.file}`, ...rules(ruleDirs)] },
                     'lint:ast-grep': {
                         dependsOn: built,
                         command: `${scan} --error=no-suppress-all`,

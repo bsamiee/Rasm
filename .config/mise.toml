@@ -10,6 +10,7 @@ dotnet.cli_telemetry_optout         = true
 experimental                        = true
 idiomatic_version_file_enable_tools = ["dotnet", "rust"]
 java.shorthand_vendor               = "corretto"
+minimum_release_age                 = "0s"
 prereleases                         = true
 python.uv_venv_auto                 = "source"
 registry_floating                   = true
@@ -22,6 +23,7 @@ use_versions_host_track             = false
 _.path                       = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
 BLENDER_MCP_URL              = "http://127.0.0.1:{{ env.BLENDER_LAB_PORT }}/"
 CARGO_LLVM_COV_DENY_WARNINGS = "1"
+CF_QUIET                     = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH = "{{config_root}}/.cache/cloudflare/registry"
 DOPPLER_CONFIG               = "dev"
 DOPPLER_PROJECT              = "agent-runtime"
@@ -71,7 +73,6 @@ cargo-insta                                                                  = "
 cmake                                                                        = "latest"
 colima                                                                       = { os = ["macos"], postinstall = 'mkdir -p "$COLIMA_HOME"', version = "latest" }
 difftastic                                                                   = "latest"
-docker-cli                                                                   = { os = ["macos", "linux"], version = "latest" }
 doppler                                                                      = "latest"
 "dotnet:ilspycmd"                                                            = "latest"
 "dotnet:Microsoft.AITools.BinlogMcp"                                         = "latest"
@@ -83,6 +84,7 @@ fd                                                                           = "
 gh                                                                           = "latest"
 git-lfs                                                                      = "latest"
 "github:fonttools/fontspector"                                               = { version = "latest", version_prefix = "fontspector-v" }
+"github:hostinger/api-cli"                                                   = "latest"
 "github:linebender/resvg"                                                    = { matching = "usvg", version = "latest" }
 "github:sbdchd/squawk"                                                       = "latest"
 "github:trailofbits/dylint"                                                  = { matching = "cargo-dylint-", version = "latest" }
@@ -123,6 +125,13 @@ bin           = "pkl-vscode.vsix"
 format        = "raw"
 version       = "latest"
 
+[tools."github:docker/docker-credential-helpers"]
+bin      = "docker-credential-osxkeychain"
+format   = "raw"
+matching = "docker-credential-osxkeychain"
+os       = ["macos"]
+version  = "latest"
+
 [tools."github:NationalSecurityAgency/ghidra"]
 asset_pattern    = "ghidra_*_PUBLIC_*.zip"
 bin_path         = "support"
@@ -146,6 +155,15 @@ asset_pattern  = "pmd-dist-*-bin.zip"
 version        = "latest"
 version_prefix = "pmd_releases/"
 version_regex  = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$'
+
+[tools."http:docker-cli"]
+checksum_url     = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz.sha256'
+os               = ["macos", "linux"]
+url              = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz'
+version          = "latest"
+version_list_url = "https://download.docker.com/mac/static/test/aarch64/"
+version_order    = "semver"
+version_regex    = 'href="docker-cli_([^"]+)\.tgz"'
 
 [tools."http:jdtls"]
 url              = 'https://download.eclipse.org/jdtls/milestones/{{ version }}/{{ exec(command="curl -fsSL https://download.eclipse.org/jdtls/milestones/" ~ version ~ "/latest.txt") }}'
