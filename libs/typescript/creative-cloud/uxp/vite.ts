@@ -6,7 +6,7 @@ import { bundle, dialed, type Link, release } from '@rasm/automation/vite';
 import { paint } from '@rasm/mark';
 import { Array, Effect, FileSystem, Record, Schema, String, Struct } from 'effect';
 import { defaultClientConditions, defaultServerConditions, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { UxpManifest } from '#/manifest.ts';
+import { UxpManifest } from '#/index.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

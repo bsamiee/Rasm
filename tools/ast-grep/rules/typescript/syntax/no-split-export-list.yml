@@ -11,5 +11,6 @@ rule:
     all:
         - matches: local-export-list
         - follows: {matches: local-export-list, stopBy: end}
+        - not: {follows: {matches: local-export-list}}
 message: 'Export list repeats a module export statement'
 note: 'List every export in one `export { .. }`, a type marked inline as `type Name`'

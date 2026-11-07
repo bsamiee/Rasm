@@ -41,6 +41,7 @@ MACOSX_DEPLOYMENT_TARGET     = "27.0"
 NO_COLOR                     = "1"
 NODE_COMPILE_CACHE           = "{{config_root}}/.cache/node"
 NX_ISOLATE_PLUGINS           = "false"
+NX_PARALLEL                  = "75%"
 NX_WORKSPACE_DATA_DIRECTORY  = "{{config_root}}/.cache/nx/workspace-data"
 OMIT_DYNAMIC_TEST_SUPPORT    = "1"
 PITCHFORK_LOG_TIME_RETENTION = "7d"
@@ -243,7 +244,7 @@ port       = 7412
 proxy      = false
 ready_port = 7412
 retry      = true
-run        = "exec playwright run-test-mcp-server --headless -c tests/typescript/playwright.config.ts --host 127.0.0.1 --port $PORT"
+run        = "exec playwright run-test-mcp-server --headless -c tests/typescript/apps/web/portfolio --host 127.0.0.1 --port $PORT"
 
 [daemons.roslyn-codelens]
 boot_start  = true
@@ -264,7 +265,7 @@ set -euo pipefail
 if [[ -d .cache ]]; then
     fd --no-ignore --hidden --max-depth 1 --exclude ast-grep --exclude binlog-mcp --exclude fetched --exclude ghidra --exclude jdtls --exclude nx --exclude pulumi --exclude swiftpm --exclude typescript --exclude xcode . .cache --exec-batch rm -rf
 fi
-rm -rf .cache/swiftpm/build .cache/swiftpm/index .cache/swiftpm/vscode .cache/ast-grep/*/parser .build .swiftpm .playwright-cli
+rm -rf .cache/swiftpm/build .cache/swiftpm/index .cache/swiftpm/vscode .cache/ast-grep/*/parser .build .swiftpm .playwright-cli .playwright-mcp
 if [[ -d .artifacts ]]; then
     fd --no-ignore --hidden --max-depth 1 --exclude logs --exclude search --exclude workflows . .artifacts --exec-batch rm -rf
 fi

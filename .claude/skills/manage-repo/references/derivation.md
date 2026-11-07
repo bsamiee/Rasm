@@ -144,17 +144,21 @@ Sections list one system's mechanisms in axis order: members, policy, modes, val
 ## [12]-[PNPM]
 
 - Members come from `packages` globs with `!` exclusions, the root package always included
-- Policy sits in `catalog` and `catalogs.<name>`, referenced as `catalog:` and `catalog:<name>`, `catalogMode: strict` enforces them
-- `workspace:` resolves members, `overrides` rewrite edges across the graph, `packageConfigs` set per-project settings
+- Policy sits in `catalog` and `catalogs.<name>`, referenced as `catalog:` and `catalog:<name>`, `workspace:` resolving members
+- `include` hands named settings to local YAML files or config dependencies, one owner per setting, the root alone holding `include`
+- `packageConfigs` sets per-project settings, resolution and layout settings applying per project under `sharedWorkspaceLockfile: false` alone
 - Modes take `--filter` selectors (`<name>...`, `...<name>`, `./<glob>`, `[<ref>]`, `!`) and `supportedArchitectures`
-- `${<NAME>}` and `${<NAME>:-<default>}` expand in `pnpm-workspace.yaml`, `pnpm_config_<name>` variables override it
-- Derivation covers computed per-member settings in `.pnpmfile` hooks (`readPackage`, `updateConfig`, `afterAllResolved`)
+- Values expand `${<NAME>}` and `${<NAME>:-<default>}` in `pnpm-workspace.yaml` outside registry URLs, `pnpm_config_<name>` variables override it
+- `pnpm outdated -r --format json` compares members with the registry, `--frozen-lockfile` fails an install whose lock its manifests contradict
+- Derivation covers computed per-member settings in `.pnpmfile.mjs` hooks (`readPackage`, `updateConfig`, `afterAllResolved`)
 
 ## [13]-[TSCONFIG]
 
 - Members come from `include`, `exclude`, and `files`, `exclude` filtering `include` alone
-- Policy takes `extends` as a string or array, later entries win and every field except `references` inherits
+- Policy takes `extends` as a string or array, later entries win, every field except `references` inherits, and a list replaces the inherited one
+- `types` defaults to `[]`, a project lists each typings package declaring a global or ambient module, `"*"` restoring every `@types` package
 - Modes take `customConditions` under `node16`, `nodenext`, or `bundler` resolution, `moduleSuffixes` for platform files
+- `imports` `#/` specifiers resolve under `nodenext` and `bundler` resolution, `node16` refusing them
 - `${configDir}` at a path's start resolves to the leaf config's folder
 - `tsc --showConfig`, `--explainFiles`, and `tsc -b --dry` print the resolved program
 - Derivation covers `references`, which take literal paths and never inherit, and every condition or token past `${configDir}`
@@ -162,10 +166,12 @@ Sections list one system's mechanisms in axis order: members, policy, modes, val
 ## [14]-[VITE]
 
 - Members come from Vitest `test.projects` globs, folders, config files, inline objects, and functions, `--project` patterns select them
-- Policy merges through `mergeConfig`, inline projects inherit their declaring config unless `extends: false`
+- Inline projects inherit their declaring config unless `extends: false`, project files inherit nothing and merge shared values through `mergeConfig`
+- Root configs decide global options (`reporters`, `coverage`) alone, `defineProject` rejecting them in a project file
 - Modes take `defineConfig(({ command, mode, isSsrBuild, isPreview }) => …)` and named `environments`, `vite build --app` building each
 - `loadEnv(mode, envDir, prefixes)` reads `.env`, `.env.local`, `.env.<mode>`, and `.env.<mode>.local`, `envPrefix` filters keys
 - Values come from plugin hooks `config`, `configEnvironment`, `applyToEnvironment`, and `perEnvironmentPlugin`
+- `vitest list --json` prints the tests each project collects
 - Derivation covers workspace members, Vite reads one root
 
 ## [15]-[PULUMI]

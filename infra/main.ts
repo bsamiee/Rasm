@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import process from 'node:process';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
@@ -99,7 +100,7 @@ const hosted = Effect.fnUntraced(function* (directory: string, target: Option.Op
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 Command.make(
-    'infra',
+    'rasm-infra',
     {
         directory: Argument.Path('directory', { pathType: 'directory', mustExist: true }).pipe(Argument.withDescription('Project folder, the workspace root for repository resources')),
         target: Argument.Literals('target', Record.keys(hostingTargets)).pipe(Argument.optional, Argument.withDescription('Hosting target, the output tag of the project when absent')),

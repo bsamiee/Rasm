@@ -4,14 +4,15 @@
     "description": "Shared Storybook and Vitest configuration",
     "type": "module",
     "exports": {
-        "./main": "./main.ts",
-        "./preview": "./preview.ts",
+        "./storybook": "./storybook.ts",
+        "./storybook/node": "./storybook-node.ts",
         "./vitest": "./vitest.ts"
     },
     "dependencies": {
         "@storybook/addon-a11y": "catalog:",
         "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",
+        "@storybook/react-vite": "catalog:",
         "@vitest/browser-playwright": "catalog:",
         "effect": "catalog:",
         "vite": "catalog:",

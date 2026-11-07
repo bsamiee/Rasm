@@ -7,11 +7,10 @@ import { bundle, dialed, type Link, release } from '@rasm/automation/vite';
 import { paint } from '@rasm/mark';
 import type { JscTarget } from '@swc/wasm';
 import { load } from 'cheerio';
-import { Array, Effect, FileSystem, flow, Record, Struct } from 'effect';
-import { build, type Plugin } from 'rolldown';
-import { type ConfigEnv, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { lower } from '#/lower.ts';
+import { Array, Effect, FileSystem, flow, Record, Schema } from 'effect';
+import { build, type ConfigEnv, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
 import { ExtensionManifest } from '#/manifest.ts';
+import { lower } from '#/node.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,23 +30,33 @@ const SCALES = [
     { factor: 2, suffix: '@2X' },
 ] as const;
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Built = Schema.Struct({ output: Schema.NonEmptyArray(Schema.Struct({ code: Schema.String })) }).annotate({ description: 'Single-environment Vite build output, entry chunk first' });
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const extendscript = (target: JscTarget) => ({ name: 'extendscript', renderChunk: (code) => Effect.runPromise(lower(code, target)) }) satisfies Plugin;
+const extendscript = (target: JscTarget) => ({ name: 'extendscript', renderChunk: (code) => Effect.runPromise(lower(code, target)) }) satisfies Rolldown.Plugin;
 const script = Effect.fn('script')(function* (entry: string, { name, target }: { readonly name: string; readonly target: JscTarget }) {
     const refused = HostError.refused(`Build of ${entry}`);
     const built = yield* Effect.tryPromise({
         try: () =>
             build({
-                input: entry,
-                platform: 'neutral',
-                preserveEntrySignatures: 'exports-only',
-                write: false,
-                output: { format: 'iife', name, exports: 'named', esModule: false, strict: false, generatedCode: { symbols: false }, codeSplitting: false },
+                configFile: false,
+                logLevel: 'warn',
+                build: {
+                    write: false,
+                    rolldownOptions: {
+                        input: entry,
+                        platform: 'neutral',
+                        preserveEntrySignatures: 'exports-only',
+                        output: { format: 'iife', name, exports: 'named', esModule: false, strict: false, generatedCode: { symbols: false }, codeSplitting: false, minify: false, plugins: extendscript(target) },
+                    },
+                },
             }),
         catch: refused,
-    });
-    return yield* Effect.map(lower(built.output[0].code, target), Struct.get('code'));
+    }).pipe(Effect.flatMap(flow(Schema.decodeUnknownEffect(Built), Effect.mapError(refused))));
+    return Array.headNonEmpty(built.output).code;
 });
 const faceIcons = Effect.fnUntraced(function* (glyph: string) {
     const folder = 'icons';

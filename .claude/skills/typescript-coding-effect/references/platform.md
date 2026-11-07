@@ -59,7 +59,7 @@ Command.make(
 - `fs.makeTempFileScoped({ suffix })` owns one file a host writes and `makeTempDirectoryScoped()` a folder, each deleted when its scope closes
 - `fs.stream` and `fs.sink` stream bytes, and `fs.watch(path)` streams changes
 - `Url.fromString('../Resources/<file>', base)` resolves a bundle resource, `base` from `path.toFileUrl(executable)`, in place of `dirname` chains
-- `import.meta.resolve('<pkg>/<file>')` locates a dependency file through `path.fromFileUrl` in an effect and `fileURLToPath` in a build config
+- `import.meta.resolve('<pkg>/<file>')` locates a dependency file through `path.fromFileUrl` in an effect
 - `FileSystem.layerNoop({ ...overrides })` stubs the service for a test
 
 ## [04]-[CRYPTO]

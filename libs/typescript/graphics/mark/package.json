@@ -5,9 +5,12 @@
     "sideEffects": false,
     "type": "module",
     "exports": {
-        ".": "./fill.ts"
+        ".": "./index.ts"
     },
-    "dependencies": {
+    "devDependencies": {
         "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
     }
 }

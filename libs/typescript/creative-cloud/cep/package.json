@@ -9,7 +9,7 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./lower": "./lower.ts",
+        "./node": "./node.ts",
         "./panel": "./panel.ts",
         "./vite": "./vite.ts"
     },
@@ -23,14 +23,22 @@
         "acorn-walk": "catalog:",
         "cheerio": "catalog:",
         "culori": "catalog:",
-        "effect": "catalog:",
         "fast-xml-builder": "catalog:",
-        "fast-xml-parser": "catalog:",
-        "rolldown": "catalog:",
-        "vite": "catalog:"
+        "fast-xml-parser": "catalog:"
     },
     "devDependencies": {
         "@types/culori": "catalog:",
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers",
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "vite": {
+            "optional": true
+        }
     }
 }

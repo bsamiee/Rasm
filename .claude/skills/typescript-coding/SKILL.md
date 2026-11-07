@@ -25,7 +25,6 @@ Covers functional TypeScript on Effect modules, with a native construct where no
 - [05]-[SCHEMA](references/schema.md): Schemas as codecs at a boundary
 - [06]-[SERVICES](references/services.md): Services, layers, and runtimes
 - [07]-[CONCURRENCY](references/concurrency.md): Concurrent work and the state it shares
-- [08]-[MODULES](references/modules.md): Package entries, files, and programs
 
 ## [01]-[DECLARATIONS]
 
@@ -277,28 +276,19 @@ Quantities with a unit are values of their module, a plain number holds a count 
 
 ## [08]-[MODULES]
 
-Packages are libraries, which export values and choose no runtime, or programs, which compose a runtime and run. Modules hold one concept, and a class holds its data with operations reading one instance as methods and getters, statics building or relating instances. Concepts caller data configures are a `Schema.Class` of the data with each use a method:
+Classes hold their data with operations reading one instance as methods and getters, statics building or relating instances. Concepts caller data configures are a `Schema.Class` of the data with each use a method:
 - Packages hold their capability and the host facts it detects, app values (names, paths, timeouts, prose) enter as composition root arguments
-- `index.ts` re-exports the modules every importing runtime loads, and a module set needing one runtime or dependency is an entry named for it (`./node`, `./uxp`, `./shaping`)
 - Exported names read correctly beside other packages' names: nouns for owners, verb-noun for functions
-- Union schemas, components, and primary functions hold their variants as members `Object.assign` or an expando sets, `erasableSyntaxOnly` refusing a `namespace`
-- Contracts a second runtime decodes sit in the root entry, both sides importing one module
-- Surface changes edit every consumer in the same change, with no deprecated alias, stability prefix, or internal entry
+- Union schemas, components, and primary functions hold their variants as members `Object.assign` or an expando sets
 - Libraries never call `NodeRuntime.runMain` or provide a platform layer
-- Bundled programs root at their build config, which bundles the package's entry export and defines app values as an `ImportMetaEnv` member
-- App entry modules that only call a package entry restate it
 - Package types pass whole, and consumers read returned host handles and the context a host passes its callback, a re-read from source restating them
 - Host process-global defaults (`GlobalWorkerOptions.workerSrc`) stay unset, each instance taking the value through its constructor option
 - Resources a caller passes to a host handle release with the caller
 - Values a renderer escapes for its context pass unescaped, a hand `<` escape in React `<style>` text restating it
-- Project `dependencies` rows and `imports` entries name what the project's own files import, a package a builder or dependency loads staying out
 - JSON fixed at build (a repository or dependency manifest) imports `with { type: 'json' }`, a read and decode standing for files changing after build
 - Modules loaded by name are a table of `() => import('<path>')` thunks typed by the import, a schema over the loaded module restating it
-- Modules export named declarations, a default export stands where a host loads one
+- Programs started per call import only what their verdict reads, heavy subsystems behind `import()`
 - Members only their owner reads stay module-private, a published one letting a consumer change the owner's state
 - Types, schemas, and operations of one concept share one name under one `export { X }`, a `thing`, `ThingView`, or `thingFor` beside it restating them
-- Imports name the paths dependency `exports` entries declare, a `paths` mapping or file path into a dependency restating them
-- Repeated Node source entry points use `NODE_COMPILE_CACHE`; V8 coverage runs with `NODE_DISABLE_COMPILE_CACHE=1`
-- Layered host configuration merges through the host's function (`mergeConfig`), a spread standing where a concatenated array must be replaced
-- Modules load without side effects, a registry, cache, or connection building in its layer, and a package entry export a build takes runs at load
+- Modules load without side effects, a registry, cache, or connection building in its layer
 - Use `typescript-coding-effect` for Effect module families and telemetry

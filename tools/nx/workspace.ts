@@ -182,10 +182,9 @@ const readDaemons = Effect.fnUntraced(function* (workspaceRoot: string, declared
 const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfiguration }: Pick<CreateNodesContext, 'workspaceRoot' | 'nxJsonConfiguration'>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const pyproject = yield* Effect.cached(readPyproject(workspaceRoot));
-    let cacheChanged = false;
     const cache = yield* Effect.acquireRelease(
         Effect.sync(() => new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.cache'))),
-        (held) => (cacheChanged ? Effect.sync(held.writeToDisk.bind(held)) : Effect.void),
+        (held) => Effect.sync(held.writeToDisk.bind(held)),
     );
     const cached = Effect.fnUntraced(function* <A, I>(
         schema: Schema.Codec<A, I>,
@@ -198,19 +197,18 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         const ignored = (yield* Effect.forEach(ignoredInputs, (pattern) => fs.glob(pattern, { root: workspaceRoot, dot: true }))).flat().toSorted();
         const extra = [...paths.toSorted(), ...ignored, ...(yield* Effect.forEach(ignored, (file) => fs.readFileString(path.join(workspaceRoot, file))))];
         const hash = extra.length === 0 ? content : hashArray([content, ...extra]);
-        const prior = cache.get(key);
-        const output = prior?.hash === hash ? prior.output : yield* runCommand(command, args, { cwd: workspaceRoot, env, extendEnv: true });
+        const output = yield* Option.match(Option.filter(Option.fromUndefinedOr(cache.get(key)), Predicate.Struct({ hash: Equal.equals(hash) })), {
+            onSome: (held) => Effect.succeed(held.output),
+            onNone: () => runCommand(command, args, { cwd: workspaceRoot, env, extendEnv: true }),
+        });
         const value = yield* Schema.decodeEffect(Schema.fromJsonString(schema))(output);
-        if (prior?.hash !== hash) {
-            cache.set(key, { hash, output });
-            cacheChanged = true;
-        }
+        cache.set(key, { hash, output });
         return value;
     });
     const swiftManifest = <A, I>(schema: Schema.Codec<A, I>, ...args: readonly string[]) => cached(schema, [SWIFT_MANIFEST], ['swift', 'package', ...args], { env: { SWIFTPM_BUILD_DIR: path.join(workspaceRoot, '.cache/swiftpm/nx-manifest') } });
     const crates = yield* Effect.cached(
         Effect.map(
-            cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, 'rust-toolchain.toml', '.cargo/config.toml'], ['cargo', 'metadata', '--format-version', '1', '--no-deps'], { pathInputs: ['**/*.rs'] }),
+            cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, 'rust-toolchain.toml', '.cargo/config.toml'], ['cargo', 'metadata', '--format-version', '1', '--no-deps'], { pathInputs: ['**/{build.rs,src/{main,lib}.rs,{src/bin,examples,tests,benches}/{*.rs,*/main.rs}}'] }),
             Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) }))),
         ),
     );

@@ -25,7 +25,6 @@ Return types infer from the body, and every type a consumer names derives at its
 - Host member types read by indexed access (`Viewer['scale']`, `Parameters<Events['error']>[1]`), a restated field type drifting from its host
 - `Parameters` reads an overload set's last signature, one overload reading through `typeof f extends { (o: infer O): unknown; (...rest: never): unknown }`
 - Host constants the typings declare and the runtime omits are literals `satisfies typeof <type-only import>`, failing to compile when a release changes one
-- Build configs type a `define` value `satisfies ImportMetaEnv['<KEY>']` and derive their options from it through `Omit`
 - Structs whose field types depend on each field's own type map through `Struct.map(record, Struct.lambda<L>(f))`, `Struct.Apply<L, V>` naming one output
 - Per-member types of a generic schema factory are a same-named alias distributing `Schema.Struct<{...}>['Encoded']`, where `typeof f<M>` reads the constraint
 - Code that loads no Effect types wire cases through a type-only import as `Extract<typeof X.Encoded, { readonly _tag: Tag }>`, its `switch` closed by `x satisfies never`

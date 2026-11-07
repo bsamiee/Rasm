@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
@@ -25,7 +26,7 @@ const scalar = (document: ReturnType<typeof parseDocument>, name: string) => {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const upgrade = Command.make(
-    'upgrade',
+    'rasm-upgrade-typescript',
     {},
     Effect.fn('upgrade')(function* () {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);

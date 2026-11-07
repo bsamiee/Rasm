@@ -19,9 +19,9 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
             encode: SchemaGetter.forbiddenEncoding,
         }),
     );
-    static readonly Instructions = Context.Reference<readonly string[]>('@rasm/mcp/Server/Instructions', { defaultValue: () => [] });
-    static readonly Visible = Context.Reference<Effect.Effect<boolean, Error>>('@rasm/mcp/Server/Visible', { defaultValue: () => Effect.succeed(true) });
-    static readonly ToolCall = Context.Reference<{ readonly add: (block: McpSchema.ContentBlock) => Effect.Effect<void>; readonly respond: (refusal: Error) => Effect.Effect<void> }>('@rasm/mcp/Server/ToolCall', { defaultValue: () => ({ add: () => Effect.void, respond: () => Effect.void }) });
+    static readonly Instructions = Context.Reference<readonly string[]>('@rasm/mcp/server/Instructions', { defaultValue: () => [] });
+    static readonly Visible = Context.Reference<Effect.Effect<boolean, Error>>('@rasm/mcp/server/Visible', { defaultValue: () => Effect.succeed(true) });
+    static readonly ToolCall = Context.Reference<{ readonly add: (block: McpSchema.ContentBlock) => Effect.Effect<void>; readonly respond: (refusal: Error) => Effect.Effect<void> }>('@rasm/mcp/server/ToolCall', { defaultValue: () => ({ add: () => Effect.void, respond: () => Effect.void }) });
     static readonly orInternalError = Effect.mapError(({ message }: Error) => McpSchema.InternalError.make({ message }));
     static readonly progress = <A>(report: (value: A, index: number) => Omit<typeof McpSchema.ProgressNotification.payloadSchema.Type, 'progressToken' | '_meta'>) =>
         Effect.fnUntraced(function* <E, R>(self: Stream.Stream<A, E, R>) {

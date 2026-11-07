@@ -65,7 +65,7 @@ You own the table's files, seed file, configs, and page stay as found:
 
 Read in order before the first `browser_*` call, from the repository root:
 1. `references/test-generation.md` under the base directory of `playwright:playwright-cli` whole
-2. `tests/typescript/playwright.config.ts` whole, then directory `tests/typescript/<project>`, the `testDir` of `<project>`
+2. `tests/typescript/apps/web/portfolio/playwright.config.ts` whole, the config the server loads, its `projects[].name` as `<project>` and its folder as `<testDir>`
 3. `Glob` `pattern: "<testDir>/**/*seed*"`, then the seed file and the fixture module it imports `test` from whole
 4. `planner_setup_page` once with `project` `<project>` and `seedFile` the seed path
 

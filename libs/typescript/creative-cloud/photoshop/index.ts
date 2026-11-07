@@ -4,7 +4,7 @@ import { RpcMiddleware } from 'effect/rpc';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class DisplayDialogs extends RpcMiddleware.Service<DisplayDialogs>()('@rasm/photoshop/contract/DisplayDialogs', { error: HostError }) {}
+class DisplayDialogs extends RpcMiddleware.Service<DisplayDialogs>()('@rasm/photoshop/DisplayDialogs', { error: HostError }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -9,6 +9,12 @@
     "exports": {
         ".": "./index.ts"
     },
+    "bin": {
+        "rasm-install-adobe-plugins": "./install-adobe-plugins.ts",
+        "rasm-release": "./release.ts",
+        "rasm-upgrade-swift": "./upgrade/swift.ts",
+        "rasm-upgrade-typescript": "./upgrade/typescript.ts"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
@@ -16,13 +22,16 @@
         "@rasm/cep": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "dependency-cruiser": "catalog:",
-        "effect": "catalog:",
         "jsonc-parser": "catalog:",
         "nx": "catalog:",
         "verkit": "catalog:",
         "yaml": "catalog:"
     },
     "devDependencies": {
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
     }
 }

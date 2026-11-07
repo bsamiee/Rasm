@@ -72,7 +72,7 @@ You own the table's file, plan, seed file, configs, and page stay as found:
 
 Read in order before the first `browser_*` call, from the repository root:
 1. `references/test-generation.md` under the base directory of `playwright:playwright-cli` whole
-2. `tests/typescript/playwright.config.ts` whole, then the `tests/typescript/e2e-<app>` directory holding `<test-file>`, its name as `<project>`
+2. `tests/typescript/apps/web/portfolio/playwright.config.ts` whole, the config the server loads, its `projects[].name` as `<project>` and its folder as `<testDir>`
 3. `Grep` `pattern: "<test-name>"` `glob: "<testDir>/specs/*.plan.md"`, then the plan whole, its suite heading and `**Seed:**` line
 4. Seed file and the fixture module it imports `test` from whole
 5. `Glob` `pattern: "<testDir>/**/*.spec.ts"`, then one existing test whole when one exists, its import and fixture form the new file repeats

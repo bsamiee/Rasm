@@ -1,10 +1,17 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
+utils:
+    type-only: {kind: import_statement, has: {pattern: $$_KEYWORD, regex: '^type$'}}
+    namespace: {kind: import_statement, has: {kind: import_clause, has: {kind: namespace_import}}}
 rule:
     kind: import_statement
     all:
         - has: {field: source, pattern: $SOURCE}
-        - follows: {stopBy: end, kind: import_statement, has: {field: source, pattern: $SOURCE}}
+        - any:
+              - {matches: namespace, follows: {stopBy: end, kind: import_statement, has: {field: source, pattern: $SOURCE}}}
+              - {follows: {stopBy: end, matches: namespace, has: {field: source, pattern: $SOURCE}}}
+              - {matches: type-only, follows: {stopBy: end, kind: import_statement, not: {matches: type-only}, has: {field: source, pattern: $SOURCE}}}
+              - {not: {matches: type-only}, follows: {stopBy: end, matches: type-only, has: {field: source, pattern: $SOURCE}}}
 message: 'Import statement repeats source $SOURCE'
 note: 'Merge into one statement, `import { type A, b }` when it holds a value and `import type { A }` when it holds types alone'

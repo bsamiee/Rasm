@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { serve } from '@rasm/mcp/node';

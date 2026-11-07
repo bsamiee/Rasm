@@ -37,7 +37,7 @@ Rasm/
 ├── package.json              # Workspace root package
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
-├── tsconfig.json             # Root TypeScript project over files outside every package
+├── tsconfig.json             # Root TypeScript project over each project's config files
 ├── tsconfig.web.json         # Browser `lib` every web project extends
 ├── vitest.config.ts          # Root Vitest run over every project suite
 ├── biome.json                # TypeScript and JSON formatting and lint
@@ -139,11 +139,9 @@ Products reach a person through separate levels:
 |  [15]   | Python runtime                 | Mise defaults to 3.15, Blender declares 3.13 in its project manifests                                |
 |  [16]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                          |
 |  [17]   | Container runtime              | Mise clients, a `[daemons]` `docker` row per `.config/mise.<os>.toml`, Colima on macOS               |
-|  [18]   | Shared Vite configuration      | `@rasm/ui/vite` React Compiler plugin, `@rasm/hosting/vite` `cloudflareWorker`                       |
-|  [19]   | Shared Vitest and Storybook    | `@rasm/test-support/vitest` `defaults`, `@rasm/test-support/main` and `/preview`                     |
-|  [20]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
-|  [21]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |
-|  [22]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                  |
+|  [18]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
+|  [19]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |
+|  [20]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                  |
 
 - Tool rows stay at `latest`, a `version_regex` over release tags excludes a development build `latest` resolves
 

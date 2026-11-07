@@ -6,4 +6,4 @@ import application from '#/vite.config.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig((env) => application(env).then((config) => mergeConfig(mergeConfig(config, defaults(import.meta.filename)), defineProject({ plugins: [storybookTest({ configDir: join(import.meta.dirname, '.storybook') })], test: { browser: { enabled: true }, api: { allowWrite: true } } }))));
+export default defineConfig((env) => mergeConfig(mergeConfig(application(env), defaults(import.meta.filename)), defineProject({ plugins: [storybookTest({ configDir: join(import.meta.dirname, '.storybook') })], test: { browser: { enabled: true, screenshotFailures: true }, api: { allowWrite: true } } })));

@@ -1,4 +1,4 @@
-import { Effect, Schema, Stream, String } from 'effect';
+import { Array, Effect, Exit, Schema, Stream, String, type Types } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -16,6 +16,11 @@ const run = Effect.fn('run')(function* (command: string, args: readonly string[]
     const [output, errors, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
     return code === 0 ? output : yield* ExitError.make({ argv: [command, ...args], code, output: `${output}${errors}` });
 }, Effect.scoped);
+const accumulate = <A, B, E, R>(items: Iterable<A>, each: (item: A) => Effect.Effect<B, E, R>, options?: { readonly concurrency?: Types.Concurrency }) =>
+    Effect.flatMap(
+        Effect.forEach(items, (item) => Effect.exit(each(item)), options),
+        (exits) => Effect.as(Exit.asVoidAll(exits), Array.getSomes(exits.map(Exit.getSuccess))),
+    );
 const runCommand = Object.assign(run, {
     records: (separator: string, command: string, args: readonly string[], options?: ChildProcess.CommandOptions) => Effect.map(run(command, args, options), (text) => text.split(separator).filter(String.isNonEmpty)),
     shown: (command: string, args: readonly string[]) => run(command, args, { stdout: 'inherit', stderr: 'inherit' }),
@@ -23,4 +28,4 @@ const runCommand = Object.assign(run, {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { runCommand };
+export { accumulate, runCommand };

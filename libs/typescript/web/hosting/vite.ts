@@ -1,33 +1,49 @@
 import { join, relative } from 'node:path';
-import { Config, Effect, flow } from 'effect';
-import { type ConfigEnv, type PluginOption, searchForWorkspaceRoot, type UserConfig, type UserConfigFnPromise } from 'vite';
+import process from 'node:process';
+import { Config, Effect, flow, Option } from 'effect';
+import { type ConfigEnv, type Plugin, searchForWorkspaceRoot } from 'vite';
+import { HostingError } from '#/error.ts';
 import type { Head } from '#/head.ts';
 import { nodeBundle } from '#/node-bundle.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const cloudflareWorker = ({ directory, plugins, hosts, head, nodeEntry }: { readonly directory: string; readonly plugins: () => PluginOption; readonly hosts?: () => PluginOption; readonly head: Head; readonly nodeEntry?: string }): UserConfigFnPromise =>
-    flow(
-        Effect.fnUntraced(function* ({ command, mode }: ConfigEnv) {
-            const [storybook, analyze] = yield* Effect.all([Config.withDefault(Config.Boolean('STORYBOOK'), false), Config.withDefault(Config.Boolean('ANALYZE'), false)]);
-            const root = searchForWorkspaceRoot(directory);
-            const hosted =
-                mode === 'test' || storybook
-                    ? []
-                    : yield* Effect.map(Effect.all([Effect.promise(() => import('#/head.ts')), Effect.promise(() => import('@cloudflare/vite-plugin'))], { concurrency: 'unbounded' }), ([{ siteHead }, { cloudflare }]) => [
-                          hosts?.(),
-                          siteHead(head),
-                          nodeEntry === undefined ? [] : nodeBundle(nodeEntry, join(root, '.artifacts', relative(root, directory))),
-                          cloudflare({ types: { generate: false }, ...(mode === 'e2e' ? { persistState: false, inspectorPort: false } : { persistState: { path: join(root, '.cache', 'cloudflare', relative(root, directory)) } }) }),
-                      ]);
-            return {
-                build: { target: 'esnext', rolldownOptions: { experimental: { lazyBarrel: true }, output: { strictExecutionOrder: true }, ...(analyze && command === 'build' && mode !== 'test' ? { devtools: { mode: 'report' } } : {}) } },
-                plugins: [plugins(), hosted],
-            } satisfies UserConfig;
-        }),
-        Effect.runPromise,
-    );
+const hosting = flow(
+    Effect.fnUntraced(
+        function* ({ head, nodeEntry, mode }: { readonly head: Head; readonly nodeEntry: string; readonly mode: ConfigEnv['mode'] }) {
+            const [{ siteHead }, { cloudflare }, analyze, context] = yield* Effect.all([Effect.promise(() => import('#/head.ts')), Effect.promise(() => import('@cloudflare/vite-plugin')), Config.withDefault(Config.Boolean('ANALYZE'), false), Effect.context<never>()], { concurrency: 'unbounded' });
+            const workspace = searchForWorkspaceRoot(process.cwd());
+            const project = relative(workspace, process.cwd());
+            const bundle: Plugin = {
+                name: '@rasm/hosting',
+                config: (_, { command }) => ({
+                    environments: {
+                        [nodeBundle.layout.environment]: {
+                            consumer: 'server',
+                            resolve: { noExternal: true },
+                            build: { outDir: join(workspace, '.artifacts', project), assetsDir: 'chunks', emptyOutDir: true, copyPublicDir: false, rolldownOptions: { input: { [nodeBundle.layout.entry]: nodeEntry }, platform: 'node' } },
+                        },
+                    },
+                    ...(analyze && command === 'build' ? { build: { rolldownOptions: { devtools: { mode: 'report' } } } } : {}),
+                }),
+                buildApp: {
+                    order: 'post',
+                    handler: (builder) =>
+                        Effect.fromNullishOr(builder.environments[nodeBundle.layout.environment]).pipe(
+                            Effect.flatMap((target) => Effect.tryPromise({ try: () => builder.build(target), catch: HostingError.build(nodeBundle.layout.environment, nodeEntry) })),
+                            Effect.asVoid,
+                            Effect.runPromiseWith(context),
+                        ),
+                },
+            };
+            return [bundle, siteHead(head), cloudflare({ types: { generate: false }, ...(mode === 'e2e' ? { persistState: false, inspectorPort: false } : { persistState: { path: join(workspace, '.cache', 'cloudflare', project) } }) })];
+        },
+        Effect.when(Effect.map(Effect.all([Config.withDefault(Config.Boolean('VITEST'), false), Config.withDefault(Config.Boolean('STORYBOOK'), false)]), ([vitest, storybook]) => !(vitest || storybook))),
+        Effect.map(Option.getOrElse(() => [])),
+    ),
+    Effect.runPromise,
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { cloudflareWorker };
+export { hosting };

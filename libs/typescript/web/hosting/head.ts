@@ -123,7 +123,7 @@ const siteHead = (head: Head): Plugin => {
         ),
     );
     return {
-        name: '@rasm/hosting/head',
+        name: '@rasm/hosting:head',
         applyToEnvironment: ({ config }) => config.consumer === 'client',
         configResolved: (config) => {
             resolved = config;

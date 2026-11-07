@@ -20,6 +20,7 @@ buildServer.json
 *.pending-snap
 *.snap.new
 .playwright-cli/
+.playwright-mcp/
 
 # --- [HOST_WRITES] ----------------------------------------------------------------------
 

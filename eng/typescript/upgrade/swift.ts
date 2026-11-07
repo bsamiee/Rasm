@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { Buffer } from 'node:buffer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
@@ -9,7 +10,7 @@ import nx from 'nx/package.json' with { type: 'json' };
 import { compare, normalizeFull } from 'verkit';
 import { stringify } from 'yaml';
 import { Sgconfig, XCODE_REQUIREMENT, XcodeProject, XcodeRemote } from '#/manifest.ts';
-import { runCommand } from '#/run-command.ts';
+import { accumulate, runCommand } from '#/run-command.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -48,7 +49,7 @@ const manifest = Effect.fnUntraced(function* (language: string, file: string, te
     const matches = yield* runCommand('ast-grep', ['scan', '--inline-rules', rules, '--custom-languages', 'allow', '--stdin', '--json=compact'], { stdin: Stream.encodeText(Stream.make(text)) }).pipe(Effect.flatMap(Schema.decodeEffect(Matches)));
     const bytes = Buffer.from(text);
     const offset = (at: number) => bytes.subarray(0, at).toString().length;
-    return yield* Effect.validate(
+    return yield* accumulate(
         matches,
         Match.type<(typeof Matches.Type)[number]>().pipe(
             Match.discriminatorsExhaustive('ruleId')({
@@ -75,7 +76,7 @@ const manifest = Effect.fnUntraced(function* (language: string, file: string, te
 const project = Effect.fnUntraced(function* (file: string, text: string) {
     const { packages } = yield* Schema.decodeEffect(XcodeProject.schema)(text);
     const remotes = Array.filterMap(packages, (item, index) => (Schema.is(XcodeRemote)(item) ? Result.succeed({ ...item, index }) : Result.failVoid));
-    return yield* Effect.validate(remotes, ({ repository, version, index }) => {
+    return yield* accumulate(remotes, ({ repository, version, index }) => {
         const stated = Object.keys(version);
         const current = stated.length === 1 ? version[XCODE_REQUIREMENT] : undefined;
         return Effect.map(
@@ -104,7 +105,7 @@ const read = Effect.fnUntraced(function* (language: string, file: string) {
     return { file, text, requirements };
 });
 const prepare = Effect.fnUntraced(function* ({ file, text, requirements }: Effect.Success<ReturnType<typeof read>>, releases: Readonly<Record<string, string>>) {
-    const changes = yield* Effect.validate(requirements, ({ repository, version, edits: replace }) => {
+    const changes = yield* accumulate(requirements, ({ repository, version, edits: replace }) => {
         const tag = releases[repository];
         const current = normalizeFull(version);
         if (tag === undefined || current === null) {
@@ -123,7 +124,7 @@ const prepare = Effect.fnUntraced(function* ({ file, text, requirements }: Effec
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const upgrade = Command.make(
-    'upgrade',
+    'rasm-upgrade-swift',
     {},
     Effect.fn('upgrade')(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -134,11 +135,11 @@ const upgrade = Command.make(
             () => new Cause.NoSuchElementError(`${Sgconfig.file} declares no Swift grammar`),
         );
         const listed = yield* runCommand.records('\0', 'git', ['ls-files', '--cached', '--others', '--exclude-standard', '--deduplicate', '-z', '--', `:(glob)**/${MANIFEST}`, `:(glob)**/${XcodeProject.file}`]);
-        const documents = yield* Effect.validate(listed, (file) => read(language, file), parallel);
+        const documents = yield* accumulate(listed, (file) => read(language, file), parallel);
         const repositories = Array.dedupe(documents.flatMap(({ requirements }) => requirements.map(Struct.get('repository'))));
-        const releases = Record.fromEntries(Array.zip(repositories, yield* Effect.validate(repositories, newest, parallel)));
-        const prepared = Array.getSomes(yield* Effect.validate(documents, (document) => prepare(document, releases), parallel));
-        yield* Effect.validate(prepared, ({ file, text }) => fs.writeFileString(file, text), { discard: true });
+        const releases = Record.fromEntries(Array.zip(repositories, yield* accumulate(repositories, newest, parallel)));
+        const prepared = Array.getSomes(yield* accumulate(documents, (document) => prepare(document, releases), parallel));
+        yield* accumulate(prepared, ({ file, text }) => fs.writeFileString(file, text));
         yield* Effect.flatMap(Schema.encodeEffect(Moves)(prepared.flatMap(Struct.get('moves'))), Console.log);
     }),
 );

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { HostError } from '@rasm/automation';
@@ -40,7 +41,7 @@ const cep = Effect.fn('cep')(function* (built: string) {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const install = Command.make(
-    'install',
+    'rasm-install-adobe-plugins',
     { built: Argument.Directory('built', { mustExist: true }) },
     Effect.fn('install')(function* ({ built }) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);

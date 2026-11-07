@@ -6,7 +6,7 @@ import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import { parse } from 'acorn';
 import { Array, Cause, Effect, Exit, flow, Layer, Match, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
-import { Photoshop } from '#/contract.ts';
+import { Photoshop } from '#/index.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

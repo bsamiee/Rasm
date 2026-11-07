@@ -495,7 +495,7 @@ catalog:
 
     '@ast-grep/napi': 0.51.1 # Structural search and rewrite over syntax trees from Node
     '@biomejs/biome': 2.6.5
-    dependency-cruiser: 18.8.0-beta-2 # Library root entry load closures, first release driving native TypeScript 7.1
+    dependency-cruiser: 18.8.0-beta-2 # Library root entry load closures
     '@tree-sitter-grammars/tree-sitter-xml': github:tree-sitter-grammars/tree-sitter-xml#5000ae8f22d11fbe93939b05c1e37cf21117162d
     tree-sitter-bash: 0.25.1
     tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit whose grammar holds C# 14 `extension` declarations, newest release 0.23.5 stops at C# 13
@@ -527,10 +527,11 @@ catalog:
     '@vitest/coverage-v8': 5.1.0
     '@vitest/browser': 5.1.0
     '@vitest/browser-playwright': 5.1.0
+    '@vitest/ui': 5.1.0
     vitest-browser-react: 2.3.0
-    '@playwright/test': 1.65.0-alpha-2026-11-01
-    playwright: 1.65.0-alpha-2026-11-01
-    '@axe-core/playwright': 4.14.1-e9cf392.0.sha-e9cf392
+    '@playwright/test': 1.66.0-alpha-2026-11-07
+    playwright: 1.66.0-alpha-2026-11-07
+    '@axe-core/playwright': 4.14.1-b609be2.0.sha-b609be2
     axe-core: 4.14.0-canary.c50bf8e
     storybook: 11.0.0-beta.0
     '@storybook/react-vite': 11.0.0-beta.0
@@ -541,6 +542,22 @@ catalog:
     testcontainers: 12.2.1
     '@testcontainers/postgresql': 12.2.1
     '@modelcontextprotocol/inspector': 2.13.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
+
+catalogs:
+
+    # --- [PEERS]
+
+    peers:
+        vite: ^8.0.0
+        react: ^19.0.0
+        react-dom: ^19.0.0
+        effect: ^4.0.0
+        '@uppy/core': ^6.0.0
+        react-aria-components: ^3.0.0-0
+        '@effect/atom-react': ^4.0.0
+        '@effect/sql-pg': ^4.0.0
+        '@effect/sql-d1': ^4.0.0
+        pdfjs-dist: ^6.0.0
 
 # --- [OVERRIDES] ------------------------------------------------------------------------
 
@@ -566,13 +583,6 @@ overrides:
     '@effect/opentelemetry>@opentelemetry/sdk-logs': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/sdk-metrics': 'catalog:'
     '@vitejs/plugin-react>@rolldown/plugin-babel': 'catalog:'
-
-# --- [PEER_DEPENDENCIES] ----------------------------------------------------------------
-
-peerDependencyRules:
-    allowedVersions:
-        '@loaders.gl/core': '>=4.4.0'
-        '@axe-core/playwright>playwright-core': '>=1.0.0-0'
 
 # --- [BUILDS] ---------------------------------------------------------------------------
 

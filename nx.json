@@ -9,6 +9,7 @@
         { "plugin": "@nx/js/typescript", "options": { "typecheck": { "targetName": "typecheck:tsc" } } },
         "@nx/vite/plugin",
         { "plugin": "@nx/vitest", "include": [ "*/**/vitest.config.ts" ], "options": { "testMode": "run" } },
+        "@nx/playwright/plugin",
         {
             "plugin": "@rasm/nx",
             "options": {
@@ -78,14 +79,14 @@
                     "upgrade:python": { "executor": "nx:run-commands", "options": { "commands": [ "pixi update", "python -m eng.python.blender upgrade", "uv lock --upgrade", "pixi run --locked uv sync --locked" ], "parallel": false } },
                     "upgrade:typescript": {
                         "executor": "nx:run-commands",
-                        "options": { "commands": [ "ncu --workspaces --target newest --upgrade --install never --reject @typescript/native", "node eng/typescript/upgrade/typescript.ts", "pnpm install", "playwright install --only-shell chromium" ], "parallel": false },
+                        "options": { "commands": [ "ncu --workspaces --target newest --upgrade --install never --reject @typescript/native", "rasm-upgrade-typescript", "pnpm install", "playwright install --only-shell --no-remove chromium" ], "parallel": false },
                         "parallelism": false
                     },
                     "upgrade:rust": { "executor": "nx:run-commands", "options": { "commands": [ "cargo upgrade --incompatible", "cargo update", "hk fix --step=tombi Cargo.toml" ], "parallel": false } },
-                    "upgrade:swift": { "executor": "nx:run-commands", "options": { "commands": [ "node eng/typescript/upgrade/swift.ts", "swift package update" ], "parallel": false }, "dependsOn": [ { "projects": [ "grammars" ], "target": "grammar:swift" } ], "parallelism": false },
+                    "upgrade:swift": { "executor": "nx:run-commands", "options": { "commands": [ "rasm-upgrade-swift", "swift package update" ], "parallel": false }, "dependsOn": [ { "projects": [ "grammars" ], "target": "grammar:swift" } ], "parallelism": false },
                     "upgrade:actions": { "command": "actions-up --yes --style preserve --min-age 0" },
                     "upgrade:docker": { "command": "colima update && mise daemons restart docker", "dependsOn": [ "docker" ] },
-                    "release": { "command": "doppler run --no-fallback --attempts 1 -- node eng/typescript/release.ts", "parallelism": false },
+                    "release": { "command": "doppler run --no-fallback --attempts 1 -- rasm-release", "parallelism": false },
                     "infra": {}
                 }
             }
@@ -155,12 +156,12 @@
             { "filter": { "plugin": "@nx/vite/plugin" }, "options": { "args": [ "--configLoader", "native" ] }, "inputs": [ "...", "typescript", "nodePlatform" ] },
             { "filter": { "projects": [ "tag:output:cloudflare" ] }, "outputs": [ "...", "{projectRoot}/.cloudflare/output", "{workspaceRoot}/.artifacts/{projectRoot}" ] },
             {
-                "filter": { "projects": [ "tag:host:uxp" ] },
-                "inputs": [ "...", "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/*.svg", { "env": "LINK_PORT" }, { "runtime": "resvg --version" }, { "runtime": "usvg --version" }, "version" ],
+                "filter": { "projects": [ "tag:host:uxp", "tag:host:cep" ] },
+                "inputs": [ "production", "^production", "typescript", "nodePlatform", "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/*.svg", { "env": "LINK_PORT" }, { "runtime": "resvg --version" }, { "runtime": "usvg --version" }, "version" ],
                 "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ]
-            },
-            { "filter": { "projects": [ "tag:host:cep" ] }, "inputs": [ "...", { "env": "LINK_PORT" }, "version" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] }
+            }
         ],
+        "serve": [ { "filter": { "projects": [ "tag:output:cloudflare" ] }, "configurations": { "e2e": { "args": [ "--mode", "e2e", "--strictPort" ] } } } ],
         "assets": [
             {
                 "command": "python -m eng.python.blender assets {projectRoot} .artifacts/blender/{projectName}/assets",
@@ -216,7 +217,7 @@
                 "filter": { "projects": [ "tag:output:command" ] },
                 "command": "uv export --frozen --no-hashes --no-emit-local --no-default-groups --quiet --output-file .artifacts/python/{projectName}.constraints.txt && uv tool install --python \"$(mise which python)\" --constraints .artifacts/python/{projectName}.constraints.txt --editable {projectRoot}"
             },
-            { "filter": { "projects": [ "tag:host:uxp", "tag:host:cep" ] }, "command": "node eng/typescript/install-adobe-plugins.ts .artifacts/{projectRoot}", "dependsOn": [ "pack" ] },
+            { "filter": { "projects": [ "tag:host:uxp", "tag:host:cep" ] }, "command": "rasm-install-adobe-plugins .artifacts/{projectRoot}", "dependsOn": [ "pack" ] },
             {
                 "filter": { "projects": [ "tag:language:rust" ] },
                 "executor": "nx:run-commands",
@@ -245,9 +246,9 @@
                 "command": "doppler run --no-fallback --attempts 1 --command 'tag=$(git describe --tags --exact-match --match \"$MinVerTagPrefix*\") && archives=.artifacts/blender/{projectName}/archives && trap \"rm -f \\\"$archives/index.json\\\" \\\"$archives/index.html\\\"\" EXIT && \"$BLENDER_PATH\" --factory-startup --command extension server-generate --repo-dir \"$archives\" --html && gh release upload \"$tag\" \"$archives\"/*.zip --clobber && gh release upload {projectName}-updates \"$archives\"/*.zip \"$archives/index.json\" \"$archives/index.html\" --clobber'",
                 "dependsOn": [ "pack" ]
             },
-            { "filter": { "projects": [ "tag:output:cloudflare" ] }, "command": "doppler run --no-fallback --attempts 1 -- node infra/main.ts {projectRoot} --apply" }
+            { "filter": { "projects": [ "tag:output:cloudflare" ] }, "command": "doppler run --no-fallback --attempts 1 -- rasm-infra {projectRoot} --apply" }
         ],
-        "infra": { "command": "doppler run --no-fallback --attempts 1 -- node infra/main.ts {projectRoot}", "parallelism": false },
+        "infra": { "command": "doppler run --no-fallback --attempts 1 -- rasm-infra {projectRoot}", "parallelism": false },
         "types": { "command": "cf workers types", "options": { "cwd": "{projectRoot}" }, "inputs": [ "default", "^production", { "externalDependencies": [ "cf" ] } ], "outputs": [ "{projectRoot}/.cloudflare/types" ], "cache": true },
         "typecheck:*": { "cache": true },
         "typecheck:swift": { "cache": false },

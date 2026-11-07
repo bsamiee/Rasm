@@ -1,13 +1,5 @@
 name: Setup
-description: Installs toolchain and dependencies, restores the task cache
-
-outputs:
-    task-paths:
-        description: Paths the job saves into the task cache after its checks
-        value: ${{ steps.tasks.outputs.paths }}
-    task-key:
-        description: Key the job saves the task cache under
-        value: ${{ steps.tasks.outputs.key }}
+description: Installs toolchain and dependencies
 
 runs:
     using: composite
@@ -56,17 +48,3 @@ runs:
             cache-directories: ~/.dylint_drivers
             cache-on-failure: true
             save-if: ${{ github.event_name == 'push' }}
-        - id: tasks
-          run: nx show projects > /dev/null && database=$(basename "$NX_WORKSPACE_DATA_DIRECTORY"/*.db) && prefix="tasks-$RUNNER_OS-$RUNNER_ARCH-${database##*-}-" && printf 'database=%s\nprefix=%s\nkey=%s%s-%s\npaths<<PATHS\n%s\n%s/*-%s\nPATHS\n' "$database" "$prefix" "$prefix" "$GITHUB_SHA" "$GITHUB_RUN_ATTEMPT" "$(jq -r .cacheDirectory nx.json)" "$NX_WORKSPACE_DATA_DIRECTORY" "${database##*-}" >> "$GITHUB_OUTPUT"
-          shell: bash
-        - id: restored
-          uses: actions/cache/restore@v6
-          with:
-            path: ${{ steps.tasks.outputs.paths }}
-            key: ${{ steps.tasks.outputs.key }}
-            restore-keys: ${{ steps.tasks.outputs.prefix }}
-        - if: steps.restored.outputs.cache-matched-key != ''
-          run: find "$NX_WORKSPACE_DATA_DIRECTORY" -maxdepth 1 -name "*-${DATABASE##*-}" ! -name "$DATABASE" -exec mv {} "$NX_WORKSPACE_DATA_DIRECTORY/$DATABASE" \;
-          env:
-            DATABASE: ${{ steps.tasks.outputs.database }}
-          shell: bash

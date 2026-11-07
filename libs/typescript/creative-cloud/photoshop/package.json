@@ -8,19 +8,22 @@
         "#/*": "./*"
     },
     "exports": {
-        ".": "./contract.ts",
+        ".": "./index.ts",
         "./uxp": "./uxp.ts"
     },
     "dependencies": {
         "@rasm/automation": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/uxp": "workspace:*",
-        "acorn": "catalog:",
-        "effect": "catalog:"
+        "acorn": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/photoshop": "catalog:",
         "@adobe-uxp-types/uxp": "catalog:",
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
     }
 }

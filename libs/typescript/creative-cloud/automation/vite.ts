@@ -39,7 +39,7 @@ const dialed = Effect.fnUntraced(function* ({ path, redial, listen }: Link) {
 });
 const bundle = (directory: string, config: UserConfig): UserConfig => {
     const root = searchForWorkspaceRoot(directory);
-    return mergeConfig({ build: { outDir: join(root, '.artifacts', relative(root, directory)), emptyOutDir: false, rolldownOptions: { experimental: { lazyBarrel: true }, output: { codeSplitting: false } } } }, config);
+    return mergeConfig({ build: { outDir: join(root, '.artifacts', relative(root, directory)), emptyOutDir: false, rolldownOptions: { output: { codeSplitting: false } } } }, config);
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

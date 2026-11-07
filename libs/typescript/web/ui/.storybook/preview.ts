@@ -1,6 +1,6 @@
-import { storybookAddons } from '@rasm/test-support/preview';
+import { storybookPreview } from '@rasm/test-support/storybook';
 import { definePreview } from '@storybook/react-vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default definePreview({ addons: storybookAddons, tags: ['autodocs'] });
+export default definePreview(storybookPreview);

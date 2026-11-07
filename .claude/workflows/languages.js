@@ -33,7 +33,7 @@ return {
       companion: '.claude/workflows/TYPESCRIPT.md',
       catalog: 'pnpm-workspace.yaml',
       sources: 'node_modules/.pnpm',
-      release: 'tsconfig.base.json `target` and `lib`, and each package at the release pnpm-workspace.yaml catalogs',
+      release: 'tsconfig.base.json `lib`, and each package at the release pnpm-workspace.yaml catalogs',
       outlines: ['typescript', 'sql', 'pgsql', 'plpgsql'],
       metadata: [],
       pathspec: ["'*.ts'", "'*.tsx'", "'*.mts'", "'*.cts'", "'*.js'", "'*.jsx'", "'*.mjs'", "'*.cjs'", "'*.jxa'", "'*.jsxinc'", "'*package.json'", "'*tsconfig*.json'", "'biome.json'", "'pnpm-workspace.yaml'"],

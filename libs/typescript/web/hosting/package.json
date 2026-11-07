@@ -11,9 +11,7 @@
         ".": "./index.ts",
         "./browser": "./browser.ts",
         "./cloudflare": "./cloudflare.ts",
-        "./head": "./head.ts",
         "./node": "./node.ts",
-        "./node-bundle": "./node-bundle.ts",
         "./template": "./template.ts",
         "./vite": "./vite.ts",
         "./worker": "./worker.ts"
@@ -27,18 +25,35 @@
         "cf": "catalog:",
         "cheerio": "catalog:",
         "culori": "catalog:",
-        "effect": "catalog:",
         "partial-content": "catalog:",
-        "postcss": "catalog:",
-        "react": "catalog:",
-        "react-dom": "catalog:",
-        "vite": "catalog:"
+        "postcss": "catalog:"
     },
     "devDependencies": {
         "@types/culori": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
-        "@types/web-app-manifest": "catalog:"
+        "@types/web-app-manifest": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "vite": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers",
+        "react": "catalog:peers",
+        "react-dom": "catalog:peers",
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "react": {
+            "optional": true
+        },
+        "react-dom": {
+            "optional": true
+        },
+        "vite": {
+            "optional": true
+        }
     }
 }

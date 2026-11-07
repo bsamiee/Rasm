@@ -4,12 +4,12 @@ Planner, generator, and healer agents drive the `playwright-test` server over th
 
 ## [01]-[SERVER]
 
-Server loads `tests/typescript/playwright.config.ts`, one project per `tests/typescript/e2e-<app>` directory, named after it with `testDir` at it:
+Server loads `tests/typescript/apps/web/portfolio/playwright.config.ts`, the `@rasm/test-portfolio` suite package, its `chromium` project with `testDir` at that folder:
 - Tools take no config, `project` of a setup tool, `projects` and `locations` of `test_run`, and the test id of `test_debug` select a suite
 - `project` names a `projects[].name`, the first top-level project without it, a missing name fails `Project <name> not found`
 - `seedFile` resolves against the project's `testDir`, the config directory, then the client root, a miss fails `seed test not found.`
 - Setup without `seedFile` takes the project's first test file with `seed` in its name, or writes `<testDir>/seed.spec.ts` with one empty test
-- Suite fixtures start one app instance per worker and set `baseURL`, a setup or debug run starts its own instance
+- Config `webServer` starts the app through `nx run @rasm/portfolio:serve:e2e` once per run and `use.baseURL` points at it, a running server is reused outside CI
 - Setup tools and `test_debug` run one headless worker with no test timeout
 - Setup pauses the seed at its end, `### Paused at end of test. ready for interaction` and `### Page state` holding URL, title, and snapshot
 - Setup results ending `Error: seed test not found.` or `Error while running the seed test.` hold no page
@@ -73,12 +73,12 @@ Generated files hold one `test.describe` named for the suite and one test named 
 - `browser_verify_list_visible` records `toMatchAriaSnapshot` over `page.locator('body')` with a `- list:` of the items
 - `browser_verify_text_visible` records `toBeVisible()` on visible elements containing `text` in any case
 - Locators and assertions come from the log as recorded, a locator read twice takes one local variable
-- Files import `test` from the module the seed imports it from, the fixture opening the page and setting `baseURL`
+- Files import `test` from the module the seed imports it from, `#/fixtures.ts` adding `makeAxeBuilder`, an `AxeBuilder` over the page for page scans
 - `generator_write_test` replaces the whole file, a `fileName` outside every project's `testDir` fails `Test file did not match any of the test dirs: <dirs>`
 
 ## [04]-[HEALING]
 
-`test_list` prints one `[id=<id>] [project=<name>] › <file>:<line>:<column> › <title>` row per test, `<file>` relative to `tests/typescript/`, the config directory:
+`test_list` prints one `[id=<id>] [project=<name>] › <file>:<line>:<column> › <title>` row per test, `<file>` relative to `tests/typescript/apps/web/portfolio/`, the config directory:
 - `test_run` takes `locations` as a folder, a file, or `file:line`, and `projects` as `projects[].name` entries, every project without them
 - `test_run` prints each failure with its id, error, call log, and source lines, then `<n> failed` with the failing rows and `<n> passed`
 - `test_debug` runs one test by id with a 5 second action timeout and pauses at the first error
@@ -99,7 +99,7 @@ Plans a test came from change with the steps and outcomes a correction changed.
 
 ## [05]-[EVIDENCE]
 
-Server runs disable config reporters, an ordinary run `playwright test -c tests/typescript/e2e-<app>` writes the retained report:
-- Suite runs write `results` and an HTML `report` under `.artifacts/typescript/playwright/e2e-<app>`, server runs write `results` under `.artifacts/typescript/playwright/typescript`
+Server runs disable config reporters, an ordinary run `nx run @rasm/test-portfolio:e2e` writes the retained report:
+- Runs write `results` under `.artifacts/typescript/playwright/tests/typescript/apps/web/portfolio`, suite runs also an HTML `report` and, under CI, `junit.xml`
 - Failed tests keep `trace.zip` with DOM, aria, and screen snapshots, read through playwright-trace
 - `test_list` releases the paused test before an ordinary run of its suite clears the `outputDir` the paused test writes

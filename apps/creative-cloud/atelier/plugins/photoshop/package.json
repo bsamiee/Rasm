@@ -5,7 +5,8 @@
     "type": "module",
     "dependencies": {
         "@rasm/photoshop": "workspace:*",
-        "@rasm/uxp": "workspace:*"
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/photoshop": "catalog:",

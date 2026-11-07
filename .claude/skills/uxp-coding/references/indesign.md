@@ -15,7 +15,6 @@ InDesign holds its running object model as ExtendScript's `$.dictionary`, read t
 - Aggregate `.properties` invokes nested getters before a failure can be isolated, and readers read each getter with its metadata
 - Find/Change drop-shadow and inner-shadow `angle`, `distance`, `xOffset`, and `yOffset` accessors crash without a native owner
 - Encoders refuse a promise a storage getter returns, and write an entry's `url` through `String`
-- Modules a Node program imports for their schemas import `adobe:indesign` for types alone and read the module from a service inside effects
 
 ## [02]-[SPECIFIERS]
 
@@ -419,7 +418,7 @@ const script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcSer
 
 `layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExitWith` runs the launch inside the script, a launch that suspends exits with an `AsyncFiberError` defect naming its fiber, and the script interrupts that fiber. Runs that set no result and servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Missing or misshapen `uxp.script` leaves no `setResult` to answer through, and its decode failure logs through `Effect.logError`, where the interrupt ending each completed run logs nothing. Typings omit `script` from `uxp`. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
 
-- Script roots pass the `adobe:indesign` module to a one-call server layer (`script({ uxp, fs }, server(indesign))`), and their entry imports no Node module into the bundle
+- Script roots pass the `adobe:indesign` module to a one-call server layer (`script({ uxp, fs }, server(indesign))`)
 - Clients find each install through Launch Services as an application that opens an `.idjs` URL, and send each request as a `do script` event in `uxpscript`
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments, and modules the entry requires escape the test

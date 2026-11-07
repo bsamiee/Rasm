@@ -1,5 +1,5 @@
 import { illegalArgument, readProperty } from '@rasm/extendscript';
-import { assignProperties, fileFromUrl, handleEnvelope, preserve, specifierStep } from '@rasm/extendscript/handler';
+import { assignProperties, fileFromUrl, handleEnvelope, preserve, specifierStep } from '@rasm/extendscript/host';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

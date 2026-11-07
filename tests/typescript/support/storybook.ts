@@ -3,8 +3,8 @@ import addonDocs from '@storybook/addon-docs';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const storybookAddons = [addonA11y(), addonDocs(), { parameters: { a11y: { test: 'error' } } satisfies A11yTypes['parameters'] }];
+const storybookPreview = { addons: [addonA11y(), addonDocs()], parameters: { a11y: { test: 'error' } } satisfies A11yTypes['parameters'], tags: ['autodocs'] };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { storybookAddons };
+export { storybookPreview };

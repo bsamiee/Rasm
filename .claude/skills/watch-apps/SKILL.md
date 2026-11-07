@@ -89,7 +89,7 @@ watch-apps serve
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
 - `log` prints one line per run of the session with its `pid`, `at`, `argv`, `exit`, and last line per key, a run pid every record of that run
 - Runs append `{at, pid, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to `$WATCH_APPS_LOG` (`.artifacts/logs/watch-apps.log`), run `exit` holding `status`, or `signal` for a run a signal ended
-- `serve` answers the `ApplicationServer` wire over standard input and output, holding its parent's grants, for clients of `@rasm/applications`
+- `serve` answers the `ApplicationServer` wire over standard input and output, holding its parent's grants
 
 ## [03]-[STATES]
 

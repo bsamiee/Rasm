@@ -13,9 +13,12 @@
         "@effect/tsgo": "catalog:",
         "@nx/dotnet": "catalog:",
         "@nx/js": "catalog:",
+        "@nx/playwright": "catalog:",
         "@nx/vite": "catalog:",
         "@nx/vitest": "catalog:",
         "@playwright/test": "catalog:",
+        "@rasm/eng": "workspace:*",
+        "@rasm/infra": "workspace:*",
         "@rasm/test-support": "workspace:*",
         "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",
@@ -23,6 +26,7 @@
         "@typescript/native": "catalog:",
         "@vitest/browser": "catalog:",
         "@vitest/coverage-v8": "catalog:",
+        "@vitest/ui": "catalog:",
         "actions-up": "catalog:",
         "axe-core": "catalog:",
         "bootstrap-icons": "catalog:",
@@ -36,6 +40,5 @@
         "typescript": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
-    },
-    "packageManager": "pnpm@12.18.0"
+    }
 }

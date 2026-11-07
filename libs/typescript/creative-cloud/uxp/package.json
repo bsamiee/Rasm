@@ -8,7 +8,7 @@
         "#/*": "./*"
     },
     "exports": {
-        ".": "./manifest.ts",
+        ".": "./index.ts",
         "./plugin": "./plugin.ts",
         "./vite": "./vite.ts"
     },
@@ -16,12 +16,21 @@
         "@effect/platform-node": "catalog:",
         "@exodus/bytes": "catalog:",
         "@rasm/automation": "workspace:*",
-        "@rasm/mark": "workspace:*",
-        "effect": "catalog:",
-        "vite": "catalog:"
+        "@rasm/mark": "workspace:*"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers",
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "vite": {
+            "optional": true
+        }
     }
 }

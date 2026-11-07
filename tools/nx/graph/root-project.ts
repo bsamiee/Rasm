@@ -34,7 +34,7 @@ const importInputs = (graph: Effect.Success<ReturnType<typeof reach>>) => [...Ob
 
 // --- [TARGETS]
 
-const pythonChecks = Effect.fnUntraced(function* ({ workspaceRoot, hosts, pyproject, pythonScopes }: Workspace) {
+const pythonChecks = Effect.fnUntraced(function* ({ hosts, pyproject, pythonScopes }: Workspace) {
     const [path, folders, { fawltydeps }, scopes] = yield* Effect.all([Path.Path, hosts, pyproject, pythonScopes]);
     const restore = 'restore:python';
     const groups = Record.collect(Array.groupBy(scopes, Struct.get('version')), (version, members) => {
@@ -75,7 +75,7 @@ const pythonChecks = Effect.fnUntraced(function* ({ workspaceRoot, hosts, pyproj
         const hosted = Option.flatMap(Array.findFirst(scopes, Predicate.Struct({ scope: Equal.equals(member) })), ({ version }) => Array.findFirst(groups, Predicate.Struct({ version: Equal.equals(version) })));
         const checker = Option.match(hosted, {
             onNone: () => ({ command: 'fawltydeps --check-unused', inputs: [] }),
-            onSome: ({ environment, interpreterInput }) => ({ command: `fawltydeps --check-unused --pyenv ${path.join(workspaceRoot, environment)}`, dependsOn: [restore], inputs: [interpreterInput] }),
+            onSome: ({ environment, interpreterInput }) => ({ command: `fawltydeps --check-unused --pyenv ${path.relative(member, environment)}`, dependsOn: [restore], inputs: [interpreterInput] }),
         });
         return [`lint:fawltydeps:${project.name}`, { ...checker, options: { cwd: member, env: { FAWLTYDEPS_CUSTOM_MAPPING: fawltydeps.mapping } }, inputs: ['python', folderInput(member), ...checker.inputs] }] as const;
     });

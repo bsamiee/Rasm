@@ -13,10 +13,13 @@
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
-        "@rasm/search": "workspace:*",
-        "effect": "catalog:"
+        "@rasm/search": "workspace:*"
     },
     "devDependencies": {
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
     }
 }

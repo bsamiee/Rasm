@@ -10,7 +10,6 @@
     "exports": {
         "./plugin.config": "./plugin.config.ts"
     },
-    "bin": "./main.ts",
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/aftereffects": "workspace:*",
@@ -28,13 +27,8 @@
         "image-size": "catalog:"
     },
     "devDependencies": {
-        "@effect/vitest": "catalog:",
         "@rasm/extendscript": "workspace:*",
         "@types/node": "catalog:",
-        "fast-xml-parser": "catalog:",
-        "jszip": "catalog:",
-        "sharp": "catalog:",
-        "vite": "catalog:",
-        "vitest": "catalog:"
+        "vite": "catalog:"
     }
 }

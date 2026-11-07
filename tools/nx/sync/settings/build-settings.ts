@@ -65,7 +65,6 @@ const written =
             ),
         ).pipe(Effect.map((edits) => applyEdits(text, edits.flat())));
 const xcconfigRows = written((key) => new RegExp(`(?<=^${key} = ).*$`, 'gmu'));
-const jsonRows = written((key) => new RegExp(`(?<="${key}": ").*?(?=")`, 'gu'));
 const yamlRow = (parent: string, key: string, value: string) => (text: string, file: string) => {
     const document = parseDocument(text);
     return Option.fromNullishOr(document.value instanceof YAMLMap ? document.value.get(parent) : undefined).pipe(
@@ -119,7 +118,6 @@ const rows = Effect.fnUntraced(function* (tree: Tree) {
                     .modify(() => version),
             ),
             '.config/hk.pkl': packageRows({ hk: Array.headNonEmpty(locked.tools.hk).version }),
-            [Package.file]: jsonRows({ packageManager: `pnpm@${Array.headNonEmpty(locked.tools.pnpm).version}` }),
             [PYPROJECT]: tomlRows(
                 Optic.id<PixiWorkspace>()
                     .key('tool')

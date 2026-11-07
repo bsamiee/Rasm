@@ -6,6 +6,6 @@ rule:
     all:
         - has: {any: [{kind: pair, has: {field: key, regex: '^specifier$'}}, {kind: shorthand_property_identifier, regex: '^specifier$'}]}
         - has: {any: [{kind: pair, has: {field: key, regex: '^valid$'}}, {kind: shorthand_property_identifier, regex: '^valid$'}]}
-        - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^@rasm/extendscript/handler$'}}}}
+        - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^@rasm/extendscript/host$'}}}}
 message: 'Object restates the descriptor `reply` encodes from `specifier` hook'
 note: 'Return the host object'

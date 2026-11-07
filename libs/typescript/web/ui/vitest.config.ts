@@ -5,4 +5,4 @@ import { defineProject, mergeConfig } from 'vitest/config';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default mergeConfig(defaults(import.meta.filename), defineProject({ plugins: [storybookTest({ configDir: join(import.meta.dirname, '.storybook') })], test: { browser: { enabled: true }, api: { allowWrite: true } } }));
+export default mergeConfig(defaults(import.meta.filename), defineProject({ plugins: [storybookTest({ configDir: join(import.meta.dirname, '.storybook') })], test: { browser: { enabled: true, screenshotFailures: true }, api: { allowWrite: true } } }));

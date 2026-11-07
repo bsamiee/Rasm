@@ -11,7 +11,12 @@
         ".": "./index.ts"
     },
     "dependencies": {
-        "@leeoniya/ufuzzy": "catalog:",
+        "@leeoniya/ufuzzy": "catalog:"
+    },
+    "devDependencies": {
         "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
     }
 }

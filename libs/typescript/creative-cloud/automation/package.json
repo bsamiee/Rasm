@@ -15,11 +15,20 @@
     },
     "dependencies": {
         "@rasm/applications": "workspace:*",
-        "@rasm/search": "workspace:*",
+        "@rasm/search": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
         "effect": "catalog:",
         "vite": "catalog:"
     },
-    "devDependencies": {
-        "@types/node": "catalog:"
+    "peerDependencies": {
+        "effect": "catalog:peers",
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "vite": {
+            "optional": true
+        }
     }
 }

@@ -6,6 +6,9 @@
     "imports": {
         "#/*": "./*"
     },
+    "bin": {
+        "rasm-infra": "./main.ts"
+    },
     "dependencies": {
         "@cloudflare/build-output-utils": "catalog:",
         "@cloudflare/config": "catalog:",

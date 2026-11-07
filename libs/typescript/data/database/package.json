@@ -9,17 +9,27 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./pg": "./pg.ts"
+        "./pg-client": "./pg-client.ts"
     },
     "dependencies": {
-        "@effect/sql-d1": "catalog:",
-        "@effect/sql-pg": "catalog:",
         "@pgsql/traverse": "catalog:",
         "@pgsql/types": "catalog:",
-        "effect": "catalog:",
         "pgsql-parser": "catalog:"
     },
     "devDependencies": {
-        "@types/node": "catalog:"
+        "@effect/sql-d1": "catalog:",
+        "@effect/sql-pg": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "@effect/sql-d1": "catalog:peers",
+        "@effect/sql-pg": "catalog:peers",
+        "effect": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "@effect/sql-pg": {
+            "optional": true
+        }
     }
 }

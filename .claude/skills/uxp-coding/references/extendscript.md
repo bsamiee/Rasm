@@ -75,22 +75,14 @@ Host code and bodies are TypeScript that swc lowers under `jsc.target: 'es3'`, w
 
 ## [03]-[CEP]
 
-Linked hosts serve requests from a headless CEP extension the build writes from the host package contract (host `app`, `minVersion`, host script entry):
-
-| [INDEX] | [FILE]              | [HOLDS]                                                                                 |
-| :-----: | :------------------ | :-------------------------------------------------------------------------------------- |
-|  [01]   | `CSXS/manifest.xml` | CSXS runtime `12.0`, host `Name` and `Version`, `MainPath`, `ScriptPath`, lifecycle, UI |
-|  [02]   | `index.html`        | Chromium 99 panel (`chrome99` target) that dials the link and calls `evalScript`        |
-|  [03]   | `host.jsx`          | ES3 bundle of the host script's default export as global `handle`                       |
-
+Linked hosts serve requests from a headless CEP 12 extension, and its Chromium 99 page dials the link and calls `evalScript`:
 - `ScriptPath` loads into the host's ExtendScript engine and defines the global the panel calls
 - `__adobe_cep__.evalScript(source, callback)` answers text, `EvalScript error.` for an uncaught throw or a missing global
 - `__adobe_cep__.getSystemPath('hostApplication')` returns the application URL, and `getExtensionId()` the extension id
 - `Custom` UI of 1x1 with `AutoVisible` false, started on `applicationActivate` and `com.adobe.csxs.events.ApplicationActivate`, runs headless
-- Build config `face` writes a `Panel`, `Modeless`, or `ModalDialog` UI whose page runs the project's `main.ts`, and `main.svg` beside it paints `Normal` and `DarkNormal` icons at 23 and 46 pixels
-- Bundled CEP icons hold `#000000A6` for `Normal` and `#FFFFFFA6` for `DarkNormal` with a `@2X` sibling in every host, Photoshop's `_x2` an alternative it also reads
-- `__adobe_cep__.getHostEnvironment()` answers JSON with `appSkinInfo`, `com.adobe.csxs.events.ThemeColorChanged` fires on a host theme change, and `skin` from `@rasm/cep/panel` streams it into a face's `--cep-host-*` custom properties
-- Faces paint `appSkinInfo` sRGB colors, and text takes the `ExtensionManifest.fills` icon fill with the higher WCAG contrast over the panel
+- Bundled CEP icons are 23 pixels and hold `#000000A6` for `Normal` and `#FFFFFFA6` for `DarkNormal` with a 46-pixel `@2X` sibling in every host, Photoshop's `_x2` an alternative it also reads
+- `__adobe_cep__.getHostEnvironment()` answers JSON with `appSkinInfo`, and `com.adobe.csxs.events.ThemeColorChanged` fires on a host theme change
+- Panels paint `appSkinInfo` sRGB colors, and text takes the `ExtensionManifest.fills` icon fill with the higher WCAG contrast over the panel
 - Host `Version` of one number names that release and later, and `[min,max]` a range
 - Illustrator loads UXP plugins from `Contents/Required/UXP/extensions` alone
 - UXP logs hold no `upic::` line, and a row in `UXP/PluginsInfo/v1/AI.json` loads nothing

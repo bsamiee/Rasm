@@ -9,27 +9,38 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./vite": "./vite.ts",
-        "./stories/*": "./.storybook/*.stories.tsx"
+        "./vite": "./vite.ts"
     },
     "dependencies": {
-        "@effect/atom-react": "catalog:",
         "@vitejs/plugin-react": "catalog:",
-        "effect": "catalog:",
-        "lucide-react": "catalog:",
-        "react": "catalog:",
-        "react-aria-components": "catalog:"
+        "lucide-react": "catalog:"
     },
     "devDependencies": {
+        "@effect/atom-react": "catalog:",
         "@rasm/test-support": "workspace:*",
         "@storybook/addon-vitest": "catalog:",
         "@storybook/react-vite": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "react-aria-components": "catalog:",
         "react-dom": "catalog:",
         "storybook": "catalog:",
         "typescript": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
+    },
+    "peerDependencies": {
+        "@effect/atom-react": "catalog:peers",
+        "effect": "catalog:peers",
+        "react": "catalog:peers",
+        "react-aria-components": "catalog:peers",
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "vite": {
+            "optional": true
+        }
     }
 }

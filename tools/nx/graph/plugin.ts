@@ -71,7 +71,7 @@ const createNodes: CreateNodes<{ readonly root: Record<string, TargetConfigurati
             [
                 'nx.json',
                 rootTargets({
-                    restore: { options: logged(context.workspaceRoot, 'restore') },
+                    restore: { options: logged(path, '.', 'restore') },
                     upgrade: { options: { args: Record.keys(Record.filter(daemons, booted)) } },
                     'upgrade:dotnet': dotnetUpgrade,
                     ...Record.map(Record.filter(daemons, Predicate.not(booted)), (_, daemon) => ({ command: `mise daemons start ${daemon}` })),

@@ -382,7 +382,7 @@ class Typeset extends Schema.Class<Typeset, { readonly brand: unique symbol }>('
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class ScriptPreferences extends RpcMiddleware.Service<ScriptPreferences>()('@rasm/indesign/contract/ScriptPreferences', { error: HostError }) {}
+class ScriptPreferences extends RpcMiddleware.Service<ScriptPreferences>()('@rasm/indesign/ScriptPreferences', { error: HostError }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

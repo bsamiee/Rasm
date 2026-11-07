@@ -70,13 +70,13 @@ ilspycmd --dump-table Assembly --json <dll> | jq -r '.rows[0] | "\(.Name)/\(.Ver
 ilspycmd -p -o <main>/.artifacts/ilspy/<Name>/<Version> <dll>
 ```
 
-TypeScript package under `node_modules/<pkg>`, `package.json` `types` names the entry file:
+TypeScript package under `<project>/node_modules/<pkg>` of a project declaring it, `package.json` `exports` naming each entry file:
 1. Exports of one declaration file, `export * as <Module>` names the module file step 2 searches
 2. Declaration with file and line, following overloads and its preceding doc comment read through `Read` at the line
 
 ```bash
-rg -n '^export ' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg>/<file>.d.ts
-rg -n --no-ignore -A8 '^export (declare )?(abstract )?(const|function|class|interface|type|enum|namespace) <Symbol>\b' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg> --glob '*.d.ts'
+rg -n '^export ' ${CLAUDE_PROJECT_DIR}/<project>/node_modules/<pkg>/<file>.d.ts
+rg -n --no-ignore -A8 '^export (declare )?(abstract )?(const|function|class|interface|type|enum|namespace) <Symbol>\b' ${CLAUDE_PROJECT_DIR}/<project>/node_modules/<pkg> --glob '*.d.ts'
 ```
 
 TypeScript type and enum values of one configuration schema definition:
@@ -177,7 +177,7 @@ Cited README lines of an installed .NET or TypeScript package:
 
 ```bash
 rg -n -A6 '<term>' ~/.nuget/packages/<id>/<version> --glob '*.md'
-rg -n --no-ignore -A6 '<term>' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg> --glob '*.md'
+rg -n --no-ignore -A6 '<term>' ${CLAUDE_PROJECT_DIR}/<project>/node_modules/<pkg> --glob '*.md'
 ```
 
 Python cited lines of a package's long description at one version, case sensitive:

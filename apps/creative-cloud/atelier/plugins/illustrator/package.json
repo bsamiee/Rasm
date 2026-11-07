@@ -5,7 +5,8 @@
     "type": "module",
     "dependencies": {
         "@rasm/cep": "workspace:*",
-        "@rasm/illustrator": "workspace:*"
+        "@rasm/illustrator": "workspace:*",
+        "effect": "catalog:"
     },
     "devDependencies": {
         "@rasm/atelier": "workspace:*"

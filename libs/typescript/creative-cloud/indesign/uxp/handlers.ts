@@ -4,7 +4,7 @@ import { Peer } from '@rasm/automation/peer';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import { Array, Cache, Cause, Effect, Equivalence, Filter, Function, flow, identity, Layer, Match, Number, Option, Path, Predicate, pipe, Record, Result, Schema, SchemaGetter, Scope, Semaphore, String, Struct } from 'effect';
-import { type Adjust, Call, type Change, type FindChange, type FontFile, InDesign, Inspect, type Invoke, type Kerns, Menu, Preflight, type Runs, type Typeset } from '#/contract.ts';
+import { type Adjust, Call, type Change, type FindChange, type FontFile, InDesign, Inspect, type Invoke, type Kerns, Menu, Preflight, type Runs, type Typeset } from '#/index.ts';
 import { AGGREGATE_FIELD, declaredMember, unavailableReason } from '#/internal/dictionary.ts';
 import type { Slice } from '#/internal/slice.ts';
 import { Specifier } from '#/internal/specifier.ts';

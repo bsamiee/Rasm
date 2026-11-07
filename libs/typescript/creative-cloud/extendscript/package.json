@@ -8,14 +8,18 @@
         "#/*": "./*"
     },
     "exports": {
-        ".": "./reply.ts",
-        "./handler": "./handler.ts"
+        ".": "./index.ts",
+        "./host": "./host.ts"
     },
     "dependencies": {
         "@rasm/automation": "workspace:*",
         "@rasm/cep": "workspace:*"
     },
     "devDependencies": {
+        "effect": "catalog:",
         "types-for-adobe": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
     }
 }

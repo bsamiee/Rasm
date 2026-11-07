@@ -1,0 +1,17 @@
+{
+    "name": "@rasm/test-portfolio",
+    "private": true,
+    "description": "Portfolio end-to-end suites against the served app",
+    "type": "module",
+    "imports": {
+        "#/*": "./*"
+    },
+    "devDependencies": {
+        "@axe-core/playwright": "catalog:",
+        "@playwright/test": "catalog:",
+        "@rasm/portfolio": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:"
+    }
+}

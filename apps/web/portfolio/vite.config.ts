@@ -1,12 +1,13 @@
-import { cloudflareWorker } from '@rasm/hosting/vite';
+import { sites } from '@openai/sites-vite-plugin';
+import { hosting } from '@rasm/hosting/vite';
+import { pdfjs } from '@rasm/media/vite';
 import { react } from '@rasm/ui/vite';
+import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from 'vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default cloudflareWorker({
-    directory: import.meta.dirname,
-    plugins: () => [react(), import('@tailwindcss/vite').then(({ default: tailwindcss }) => tailwindcss()), import('@rasm/media/vite').then(({ pdfjs }) => pdfjs())],
-    hosts: () => import('@openai/sites-vite-plugin').then(({ sites }) => sites()),
-    head: { master: 'favicon.svg', stylesheet: 'site/theme.css', fill: '--color-accent', background: '--color-background' },
-    nodeEntry: './server/main.ts',
-});
+export default defineConfig(({ mode }) => ({
+    build: { target: 'esnext', rolldownOptions: { experimental: { lazyBarrel: true }, output: { strictExecutionOrder: true } } },
+    plugins: [react(), tailwindcss(), pdfjs(), sites(), hosting({ head: { master: 'favicon.svg', stylesheet: 'site/theme.css', fill: '--color-accent', background: '--color-background' }, nodeEntry: './server/main.ts', mode })],
+}));

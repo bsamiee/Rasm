@@ -117,8 +117,8 @@ const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
     tags: ['language:swift', ...tags],
     targets: Record.fromIterableWith(['build', ...targets], (target) => [target, {}]),
 });
-const binlog = (workspaceRoot: string, target: string) => `-bl:${workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/${target.replaceAll(':', '-')}.binlog`;
-const logged = (workspaceRoot: string, target: string) => ({ env: { MSBUILD_LOGGING_ARGS: binlog(workspaceRoot, target) } });
+const binlog = (path: Path.Path, cwd: string, target: string) => `-bl:${path.join(path.relative(cwd, '.'), '.artifacts/dotnet/binlog/{projectName}', `${target.replaceAll(':', '-')}.binlog`)}`;
+const logged = (path: Path.Path, cwd: string, target: string) => ({ env: { MSBUILD_LOGGING_ARGS: binlog(path, cwd, target) } });
 const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | ((file: Path.Path.Parsed, workspace: Inference & { readonly file: string }) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, Error, PluginServices>)>> = {
     '*.csproj': Effect.fnUntraced(function* ({ dir, name }, workspace) {
         const { file, workspaceRoot } = workspace;
@@ -129,20 +129,20 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         const licensed = Project.ItemGroup.flatMap(({ PackageReference = [] }) => PackageReference).some((reference) => reference['@_Include'] === 'SixLabors.ImageSharp');
         const tags = ['language:dotnet', ...(plugin ? ['output:rhp'] : []), ...(product ? ['platform:windows'] : []), ...(licensed ? ['license:imagesharp'] : [])];
         const runtime = ['--runtime', 'win-x64'];
-        const logs = Record.fromIterableWith((target: string) => [target, { options: logged(workspaceRoot, target) }]);
+        const logs = Record.fromIterableWith((target: string) => [target, { options: logged(path, dir, target) }]);
         const windowsTargets = {
-            'build:windows': { command: 'dotnet build', options: { cwd: '{projectRoot}', args: [...runtime, '--configuration', 'Release'], ...logged(workspaceRoot, 'build:windows') }, parallelism: false },
-            'pack:windows': { options: { args: runtime, ...logged(workspaceRoot, 'pack:windows') } },
+            'build:windows': { command: 'dotnet build', options: { cwd: '{projectRoot}', args: [...runtime, '--configuration', 'Release'], ...logged(path, dir, 'build:windows') }, parallelism: false },
+            'pack:windows': { options: { args: runtime, ...logged(path, dir, 'pack:windows') } },
         };
         const configurations = {
             debug: { args: ['--no-restore', '--configuration', 'Debug'] },
             release: { args: ['--no-restore', '--configuration', 'Release'] },
         };
-        const build = product ? Record.map({ build: ['--no-restore'], 'build:release': configurations.release.args }, (args, target) => ({ dependsOn: [], options: { args, ...logged(workspaceRoot, target) }, configurations, parallelism: false })) : logs(['build', 'build:release']);
+        const build = product ? Record.map({ build: ['--no-restore'], 'build:release': configurations.release.args }, (args, target) => ({ dependsOn: [], options: { args, ...logged(path, dir, target) }, configurations, parallelism: false })) : logs(['build', 'build:release']);
         const packaged = {
             ...(product ? windowsTargets : {}),
             ...(plugin ? logs(['pack', 'install', 'publish']) : {}),
-            ...(skin ? { install: { command: 'dotnet msbuild -target:InstallRhinoSkin -property:Configuration=Release', options: { cwd: '{projectRoot}', ...logged(workspaceRoot, 'install') }, dependsOn: ['pack:windows'] } } : {}),
+            ...(skin ? { install: { command: 'dotnet msbuild -target:InstallRhinoSkin -property:Configuration=Release', options: { cwd: '{projectRoot}', ...logged(path, dir, 'install') }, dependsOn: ['pack:windows'] } } : {}),
         };
         return {
             ...externalInputs(
@@ -160,6 +160,7 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         };
     }),
     '*.cs': Effect.fnUntraced(function* ({ dir, base, ext }, { file, workspaceRoot }) {
+        const path = yield* Path.Path;
         yield* Effect.filterOrFail(decodeFile(Schema.String, workspaceRoot, file), (text) => text.startsWith('#!'));
         return {
             name: dir,
@@ -167,8 +168,8 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
             targets: {
                 build: { executor: 'nx:noop', dependsOn: [{ target: `build:*${ext}`, params: 'forward' }] },
                 format: { executor: 'nx:noop', dependsOn: [{ target: `format:*${ext}` }] },
-                [`restore:${base}`]: { options: { args: [file, binlog(workspaceRoot, `restore:${base}`)] } },
-                [`build:${base}`]: { command: 'dotnet build', dependsOn: [`restore:${base}`], options: { args: [file, '--no-restore', binlog(workspaceRoot, `build:${base}`)] } },
+                [`restore:${base}`]: { options: { args: [file, binlog(path, '.', `restore:${base}`)] } },
+                [`build:${base}`]: { command: 'dotnet build', dependsOn: [`restore:${base}`], options: { args: [file, '--no-restore', binlog(path, '.', `build:${base}`)] } },
                 [`format:${base}`]: { options: { args: [file, '--no-restore'] }, dependsOn: [`restore:${base}`] },
                 check: {},
             },
@@ -266,6 +267,18 @@ const markers: Readonly<Record<string, Optional<ProjectConfiguration, 'root'> | 
         return { ...python, name: path.basename(dir), tags: ['language:python'] };
     }),
     'tsconfig.json': { tags: ['language:typescript'], targets: { check: {} } },
+    '.storybook/main.ts': {
+        targets: {
+            storybook: { command: 'storybook dev --ci', options: { cwd: '{projectRoot}' }, continuous: true },
+            'build-storybook': {
+                command: 'storybook build --output-dir "$NX_WORKSPACE_ROOT/.artifacts/typescript/storybook/{projectRoot}"',
+                options: { cwd: '{projectRoot}' },
+                cache: true,
+                inputs: ['default', '^production', 'typescript'],
+                outputs: ['{workspaceRoot}/.artifacts/typescript/storybook/{projectRoot}'],
+            },
+        },
+    },
     [`${VITEST_INTEGRATION}.ts`]: { targets: { 'test:integration': { command: `vitest run --config ${VITEST_INTEGRATION}.ts`, options: { cwd: '{projectRoot}' }, outputs: [`{workspaceRoot}/.artifacts/typescript/vitest/{projectRoot}/${VITEST_INTEGRATION}`] } } },
     'vite.config.ts': Effect.fnUntraced(function* ({ dir }, { configFiles }) {
         const path = yield* Path.Path;

@@ -5,7 +5,7 @@ import { Automation } from '@rasm/applications/node';
 import { ExecuteScript, HostError, ObjectModel, Reference, Render } from '@rasm/automation';
 import { Peer } from '@rasm/automation/peer';
 import { Completion, ExtensionManifest } from '@rasm/cep';
-import { lower, traced } from '@rasm/cep/lower';
+import { lower, traced } from '@rasm/cep/node';
 import { Resource, Route, registerRpcGroup, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Array, Context, Duration, Effect, flow, Number, Option, Path, Schema, Stream, Struct, SubscriptionRef } from 'effect';

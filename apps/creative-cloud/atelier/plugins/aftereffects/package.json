@@ -5,7 +5,8 @@
     "type": "module",
     "dependencies": {
         "@rasm/aftereffects": "workspace:*",
-        "@rasm/cep": "workspace:*"
+        "@rasm/cep": "workspace:*",
+        "effect": "catalog:"
     },
     "devDependencies": {
         "@rasm/atelier": "workspace:*"

@@ -56,7 +56,7 @@ const Mise = {
     ...manifest('.config/mise.toml', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ daemons: Schema.Record(Schema.String, Schema.Union([Schema.String, Daemon])) })))),
     declared: Schema.Array(Schema.Struct({ name: Schema.String, source: Schema.NullOr(Schema.String) })),
 };
-const MiseLock = manifest('.config/mise.lock', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ tools: Schema.Record(Schema.Literals(['hk', 'pnpm']), Schema.NonEmptyArray(Schema.Struct({ version: Schema.String }))) }))));
+const MiseLock = manifest('.config/mise.lock', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ tools: Schema.Record(Schema.Literals(['hk']), Schema.NonEmptyArray(Schema.Struct({ version: Schema.String }))) }))));
 const Xcconfig = manifest('Xcode.xcconfig', Schema.String.pipe(Schema.decodeTo(Schema.Record(Schema.String, Schema.String), { decode: SchemaGetter.splitKeyValue(XCCONFIG_ROW), encode: SchemaGetter.joinKeyValue(XCCONFIG_ROW) }), Schema.decodeTo(Schema.Struct({ DEVELOPMENT_TEAM: Schema.String }))));
 const XcodeProject = manifest(
     'project.xcproj',

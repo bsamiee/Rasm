@@ -11,7 +11,7 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 - [01]-[NX](references/nx.md): Task graph, how Nx composes inferred targets and decides what a task hashes and runs
 - [02]-[TOOLING](references/tooling.md): Toolchain no language owns, from what installs a tool to what keeps a service running
 - [03]-[HK](references/hk.md): File checkers and writers under one runner, how hooks, selection, scheduling, and patches decide each step row
-- [04]-[TYPESCRIPT](references/typescript.md): One catalog resolving packages, each host runtime deciding a program's types and build
+- [04]-[TYPESCRIPT](references/typescript.md): Package resolution and boundaries, Biome rules, and Adobe plugin packaging
 - [05]-[PYTHON](references/python.md): Project resolution under uv, each embedded interpreter bounding what resolves, builds, and bundles
 - [06]-[DOTNET](references/dotnet.md): Shared MSBuild declarations and central versions, installed Rhino deciding what a host project builds against
 - [07]-[SWIFT](references/swift.md): SwiftPM modules and Xcode apps linking them, each setting and lock at the system that reads it

@@ -1,10 +1,11 @@
+#!/usr/bin/env node
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Cause, Console, Effect, Record, Result, Schema } from 'effect';
 import { Command, Flag } from 'effect/cli';
 import nx from 'nx/package.json' with { type: 'json' };
 import { releaseChangelog, releaseVersion } from 'nx/release';
-import { runCommand } from '#/run-command.ts';
+import { accumulate, runCommand } from '#/run-command.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -13,7 +14,7 @@ const Released = Schema.fromJsonString(Schema.Struct({ versions: Schema.Record(S
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const release = Command.make(
-    'release',
+    'rasm-release',
     { apply: Flag.Boolean('apply').pipe(Flag.withDefault(false)), specifier: Flag.String('specifier').pipe(Flag.optional) },
     Effect.fn('release')(function* ({ apply, specifier }) {
         if (apply) {
@@ -31,7 +32,7 @@ const release = Command.make(
         }
         const published = Object.values(Record.filterMap(projectChangelogs ?? {}, (_, project) => (releaseGraph.getVersionActionsForProject(project)?.projectGraphNode.data.targets?.publish === undefined ? Result.failVoid : Result.succeed(`${project}:publish`))));
         if (apply) {
-            yield* Effect.validate(published, (target) => runCommand.shown('nx', ['run', target]), { discard: true });
+            yield* accumulate(published, (target) => runCommand.shown('nx', ['run', target]));
         }
         yield* Effect.flatMap(Schema.encodeEffect(Released)({ versions: Record.map(projectsVersionData, ({ currentVersion, newVersion }) => ({ currentVersion, newVersion })), published }), Console.log);
     }),

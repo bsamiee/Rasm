@@ -50,28 +50,22 @@ Context decides what code holds across calls:
 
 Differences from a browser or Node hold in InDesign, Photoshop, and Premiere Pro, each with one owner:
 
-| [INDEX] | [DIFFERENCE]                                  | [OWNER]   | [FORM]                                   |
-| :-----: | :-------------------------------------------- | :-------- | :--------------------------------------- |
-|  [01]   | Global constructed at load (`TextEncoder`)    | Bundle    | Package implementation injected per read |
-|  [02]   | Member of another type (`hrtime.bigint`)      | Runtime   | `Clock` layer over `performance.now()`   |
-|  [03]   | Absent global or module (`Worker`, `node:*`)  | Bundle    | Dependencies reading one stay out        |
-|  [04]   | Module typed as Node's (`fs`, `path`)         | Read site | Value decoded where read                 |
-|  [05]   | Feature with a missing part (`Response.body`) | Call site | Whole-body read, flag on whole pattern   |
+| [INDEX] | [DIFFERENCE]                                  | [OWNER]   | [FORM]                                 |
+| :-----: | :-------------------------------------------- | :-------- | :------------------------------------- |
+|  [01]   | Member of another type (`hrtime.bigint`)      | Runtime   | `Clock` layer over `performance.now()` |
+|  [02]   | Absent global or module (`Worker`, `node:*`)  | Bundle    | Dependencies reading one stay out      |
+|  [03]   | Module typed as Node's (`fs`, `path`)         | Read site | Value decoded where read               |
+|  [04]   | Feature with a missing part (`Response.body`) | Call site | Whole-body read, flag on whole pattern |
 
-Effect's encoding and socket modules construct `TextEncoder` at load, and bundles replace each encoding-global read with an `@exodus/bytes` import. Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.bigint` returns a number. Host `Clock` layer reads monotonic nanoseconds from `performance.now()`, wall nanoseconds from each `currentTimeMillis` read, and keeps native sleep. Offsets computed once skip the skew correction Effect's wall clock performs. Host callbacks running effects receive caller services through `run*With`.
+Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.bigint` returns a number. Host `Clock` layer reads monotonic nanoseconds from `performance.now()`, wall nanoseconds from each `currentTimeMillis` read, and keeps native sleep. Offsets computed once skip the skew correction Effect's wall clock performs. Host callbacks running effects receive caller services through `run*With`.
 
-- Encoding packages must implement the `{ stream: true }` option Effect decodes with
 - `structuredClone`, `Buffer`, `MessageChannel`, and `Worker` are absent in every host, and `require` of `util`, `buffer`, or a `node:` name throws
 - `fs` holds synchronous reads, writes, and `lstatSync`, and no `existsSync`, `appendFileSync`, `mkdirSync`, or `statSync`
 - `writeFileSync` reads its receiver, and code calls it on the module's default import
 - `path` is a function with `resolve` and `basename`
 - Effect's POSIX `Path` service converts paths and `file:` URLs, `toFileUrl` percent-encoding `%`, `#`, `?`, and space a `file:${path}` template breaks on
-
-Bundles keep one form:
-- Output is one CommonJS script with each host module left as a `require` call by module name, and an unresolved dependency throws at its first read
-- Resolution uses neutral conditions: browser conditions select builds that construct absent globals at load, Node conditions emit `node:` requires
 - Plugin `main` is a script that renders into `document.body`, and UXP never runs `<script type="module">`
-- CommonJS output holds no top-level `await`, and dependencies instantiating WebAssembly through one at import stay out
+- Plugin scripts hold no top-level `await`, and dependencies instantiating WebAssembly through one at import stay out
 
 ## [03]-[TYPINGS]
 
@@ -86,10 +80,7 @@ Typings declare a host module under its `require` name, under an `adobe:` scheme
 |  [05]   | `premierepro`             | `@adobe/premierepro`         | Type `premierepro` of the module object, no module               |
 |  [06]   | ExtendScript              | `types-for-adobe`            | Global classes per host folder (`AfterEffects/26.0`), no module  |
 
-- Imports name host modules under `adobe:`, a prefix that separates `fs`, `os`, and `path` from Node's
 - `types-for-adobe` host folders load `shared/JavaScript.d.ts` beside the project `lib`, where ES5 built-ins ExtendScript lacks type-check
-- `types` lists `node` beside each `with-protocol` entry, and `node` types `require`, `process`, and `adobe:fs` members
-- `paths` entries resolve against the declaring config's folder, and a shared config writes `${configDir}/node_modules/...` to resolve in each extending project
 - Diagnostics on a call the object model states name a typings gap, and every other diagnostic names a defect in the call
 - Typings can state another enumeration value than the host holds, and code reads enumeration members from the module
 
@@ -306,7 +297,7 @@ const serve = <E, F>({
 
 ## [09]-[MANIFESTS]
 
-One manifest serves one host. Host package contracts state `host` (`app` of `ID`, `PS`, `premierepro`, `ame`, or `aftereffects`, with `minVersion`) and `requiredPermissions` once, build configs pass `panels` and `commands` tables, `link`, `mark`, `addon`, `strings`, and `featureFlags`, and builds derive every other key: `id`, `name`, and `version` from product identity, `manifestVersion` 6 and `enableAddon` where `addon` appears else `manifestVersion` 5, `main` from the entry, `host.data.loadEvent` `startup` to dial at launch, `network.domains` from the dial origin beside stated domains, and `icons` from `mark` and each panel's `<id>.svg`. Hosts enforce each `requiredPermissions` and `featureFlags` key:
+One manifest serves one host, `host.app` naming `ID`, `PS`, `premierepro`, `ame`, or `aftereffects`, and `host.data.loadEvent` `startup` loads a plugin at host launch. Hosts enforce each `requiredPermissions` and `featureFlags` key:
 
 | [INDEX] | [KEY]                                   | [GRANTS]                                                 | [WITHOUT]                        |
 | :-----: | :-------------------------------------- | :------------------------------------------------------- | :------------------------------- |
@@ -323,7 +314,6 @@ One manifest serves one host. Host package contracts state `host` (`app` of `ID`
 |  [11]   | `featureFlags.enableAlerts`             | `alert`, `prompt`, and `confirm` dialogs                 | No dialogs                       |
 
 - `entrypoints` rows name a `panel` or `command` `id` with `label.default`, `description`, and `hostUIContext`, and hosts refuse a manifest naming neither `main` nor an entrypoint
-- Entrypoint ids and labels sit in one `as const` table the build maps into `entrypoints`, and `main` checks handler records with `satisfies Record<keyof typeof <table>, unknown>`
 - Icon rows state a base `path` with `scale`, and hosts resolve `<base>@<scale>x.<extension>` for each factor
 - Panel icons are 23-pixel `toolbar` PNGs at 1x and 2x, plugin icons 24-pixel `pluginList` SVGs the plugins panel reads at that size
 - Icons take one row per theme fill, `medium` in the dark group as Adobe's manifests place it

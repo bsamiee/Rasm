@@ -4,7 +4,7 @@ import { HostError } from '@rasm/automation';
 import { fillColor } from '@rasm/mark';
 import { Array, Cause, Clock, Console, Context, Deferred, Duration, Effect, Exit, Fiber, FiberHandle, FiberSet, Function, flow, Layer, Logger, ManagedRuntime, Option, Path, PlatformError, Predicate, pipe, Queue, Record, Result, Schema, SchemaGetter, Scope, ScopedRef, Sink, Stdio, Stream, Struct } from 'effect';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
-import { UxpManifest } from '#/manifest.ts';
+import { UxpManifest } from '#/index.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

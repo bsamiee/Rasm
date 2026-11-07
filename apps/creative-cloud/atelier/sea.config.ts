@@ -21,6 +21,7 @@ export default Effect.fnUntraced(
         const directory = import.meta.dirname;
         const code = yield* script(createRequire(join(directory, 'package.json')).resolve('@rasm/extendscript'), { name: 'runtime', target: ExtensionManifest.target });
         return bundle(directory, {
+            build: { rolldownOptions: { experimental: { lazyBarrel: true } } },
             define: { 'import.meta.env.EXTENDSCRIPT_RUNTIME': yield* encodeJsonString(code) },
             plugins: [yield* helper(join(directory, 'main.ts'), 'server', { KeepAlive: true, EnvironmentVariables: { MCP_LISTEN: NetAddress.formatInet(atelierLink.listen) } })],
         });

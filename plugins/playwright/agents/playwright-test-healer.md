@@ -49,7 +49,7 @@ You own the table's files, page under test stays as found:
 
 Read in order before the first edit, from the repository root:
 1. `references/test-generation.md` under the base directory of `playwright:playwright-cli` whole
-2. `tests/typescript/playwright.config.ts` whole, then each `tests/typescript/e2e-<app>` directory in scope, its name the project `name` and its path the `testDir`
+2. `tests/typescript/apps/web/portfolio/playwright.config.ts` whole, the config the server loads, its `projects[].name` as `<project>` and its folder as `<testDir>`
 3. `test_list`, every test with its id, project, and `file:line` location
 4. `test_run` with `locations` the scope and `projects` each `<project>` in scope, its failing list as baseline
 5. Each failing spec file whole
