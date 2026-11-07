@@ -1,6 +1,5 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
-# --- [IDENTITY]
 [package]
 name              = "rasm-regex-classes"
 edition.workspace = true
@@ -9,7 +8,6 @@ publish.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
-# --- [BIN]
 [[bin]]
 name  = "rasm-regex-classes"
 path  = "main.rs"
@@ -18,17 +16,17 @@ bench = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
-# --- [RUNTIME]
 [dependencies]
-ast-grep-config     = { workspace = true }
-ast-grep-core       = { workspace = true }
-ast-grep-dynamic    = { workspace = true }
-regex-automata      = { workspace = true }
-regex-syntax        = { workspace = true }
-serde               = { workspace = true }
-serde_json          = { workspace = true }
-serde_path_to_error = { workspace = true }
-thiserror           = { workspace = true }
+ast-grep-config      = { workspace = true }
+ast-grep-core        = { workspace = true }
+ast-grep-dynamic     = { workspace = true }
+fs-err               = { workspace = true }
+nonempty-collections = { workspace = true }
+regex-syntax         = { workspace = true }
+serde                = { workspace = true }
+serde_json           = { workspace = true }
+serde_path_to_error  = { workspace = true }
+thiserror            = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

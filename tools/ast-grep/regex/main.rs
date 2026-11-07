@@ -1,48 +1,41 @@
-#![feature(error_reporter, iterator_try_collect, type_alias_impl_trait)]
+#![feature(deref_patterns, error_reporter, iterator_try_collect, type_alias_impl_trait)]
 
-use core::iter::successors;
+use core::{error::Error, iter, mem, num::NonZero};
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     error::Report,
-    fs, io,
+    io,
     path::{Path, PathBuf},
+    sync::LazyLock,
 };
 
 use ast_grep_config::{SelectorError, Transformation, parse_selector};
-use ast_grep_core::{AstGrep, Language as _, Matcher as _, PatternError, matcher::PatternNode, tree_sitter::LanguageExt as _};
+use ast_grep_core::{
+    Matcher as _, Pattern, PatternError,
+    matcher::PatternNode,
+    tree_sitter::{LanguageExt as _, TSLanguage},
+};
 use ast_grep_dynamic::{CustomLang, DynamicLang, DynamicLangError};
+use nonempty_collections::{NEVec, nev};
 use regex_syntax::{
-    ast::{self, Ast, ClassSetItem, Flag, Visitor, parse::Parser, visit},
+    ast::{self, Ast, ClassBracketed, ClassSet, ClassSetItem, ClassSetRange, ClassSetUnion, Flag, FlagsItem, FlagsItemKind, Group, GroupKind, Visitor, parse::Parser, visit},
     hir::{
-        self, Hir, HirKind, Look, LookSet,
+        self, ClassUnicode, ClassUnicodeRange, Hir, HirKind, Look, LookSet,
         literal::Extractor,
         translate::{Translator, TranslatorBuilder},
     },
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{
+    Value,
+    de::{IoRead, SliceRead},
+};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Unparsed = impl core::error::Error + Send + Sync + 'static;
-
-#[derive(Serialize)]
-enum Polarity {
-    Stated,
-    Complement,
-}
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const SCOPED: [Flag; 2] = [Flag::CaseInsensitive, Flag::Unicode];
+type Unparsed = impl Error + Send + Sync + 'static;
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-#[derive(Deserialize)]
-struct Token {
-    pattern: String,
-    caseless: bool,
-}
 
 #[derive(Deserialize)]
 struct Kind {
@@ -52,50 +45,28 @@ struct Kind {
 }
 
 #[derive(Deserialize)]
-struct Field {
-    types: Vec<Kind>,
-}
-
-#[derive(Deserialize)]
 struct NodeType {
     #[serde(flatten)]
     kind: Kind,
     #[serde(default)]
     fields: HashMap<String, Field>,
-    #[serde(default)]
-    subtypes: Vec<Kind>,
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Grammar {
-    #[serde(flatten)]
-    library: CustomLang,
-    node_types: PathBuf,
-}
-
-#[derive(Deserialize)]
-struct Placement {
-    field: String,
-    subject: Subject,
+struct Field {
+    types: Vec<Kind>,
 }
 
 #[derive(Deserialize)]
 struct Subject {
     kinds: Vec<String>,
-    parent: Option<Box<Placement>>,
-}
-
-#[derive(Deserialize)]
-struct Site {
-    language: String,
-    subject: Subject,
+    parent: Option<Box<(String, Self)>>,
 }
 
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum Written {
-    Regex { regex: String, site: Option<Site> },
+    Regex { regex: String, site: Option<(String, Subject)> },
     Transform { transform: Value },
 }
 
@@ -110,18 +81,21 @@ struct Transformed {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Request {
-    tokens: Vec<Token>,
+    tokens: Vec<(String, bool)>,
     regexes: Vec<Written>,
-    languages: HashMap<String, Grammar>,
+    languages: HashMap<String, CustomLang>,
+    node_types: HashMap<String, PathBuf>,
 }
 
 #[derive(Serialize)]
 #[serde(tag = "_tag")]
-enum Class {
-    Characters { source: String, polarity: Polarity, ranges: Vec<(u32, u32)> },
+enum Finding {
+    Characters { source: String, negated: bool, ranges: Vec<(u32, u32)> },
     UnicodePerl { source: String },
     UnicodeBoundary { source: String },
+    Literal { kind: String, text: String },
 }
 
 #[derive(Serialize)]
@@ -132,26 +106,161 @@ enum Node {
     Quantifier { min: u32, max: Option<u32>, alternatives: Vec<Vec<Self>> },
 }
 
-#[derive(Serialize)]
-struct Literal {
-    kind: String,
-    text: String,
+struct Walker<'pattern> {
+    pattern: &'pattern str,
+    scopes: NEVec<TranslatorBuilder>,
+    findings: Vec<Finding>,
 }
 
-#[derive(Serialize)]
-struct Read {
-    classes: Vec<Class>,
-    literal: Option<Literal>,
+impl Walker<'_> {
+    fn translated(&self, class: &Ast) -> Result<Hir, hir::Error> { self.scopes.last().build().translate(self.pattern, class) }
+
+    // --- [CLASSES]
+
+    fn collected(&mut self, class: &Ast, negated: bool) -> Result<(), hir::Error> {
+        let hir = self.translated(class)?;
+        let source = self.pattern[class.span().start.offset..class.span().end.offset].to_owned();
+        self.findings.extend(match (class, hir.kind()) {
+            (Ast::ClassPerl(_), HirKind::Class(hir::Class::Unicode(_))) => Some(Finding::UnicodePerl { source }),
+            (_, HirKind::Look(look)) => LookSet::singleton(*look).contains_word_unicode().then_some(Finding::UnicodeBoundary { source }),
+            (_, HirKind::Class(held)) => Some(Finding::Characters { source, negated, ranges: ranges(held) }),
+            (_, HirKind::Literal(hir::Literal(bytes))) => Some(Finding::Characters { source, negated, ranges: letters(bytes).map(|letter| (u32::from(letter), u32::from(letter))).collect() }),
+            (_, HirKind::Empty | HirKind::Repetition(_) | HirKind::Capture(_) | HirKind::Concat(_) | HirKind::Alternation(_)) => None,
+        });
+        Ok(())
+    }
+
+    // --- [FOLDING]
+
+    fn folded(&mut self, node: &mut Ast) -> Result<(), hir::Error> {
+        match node {
+            Ast::Flags(flags) => *self.scopes.last_mut() = scoped(self.scopes.last(), Some(&flags.flags)),
+            Ast::Group(group) => {
+                self.scopes.push(scoped(self.scopes.last(), group.flags()));
+                self.folded(&mut group.ast)?;
+                self.scopes.pop();
+            }
+            Ast::Repetition(repetition) => self.folded(&mut repetition.ast)?,
+            Ast::Alternation(ast::Alternation { span: _, asts }) | Ast::Concat(ast::Concat { span: _, asts }) => asts.iter_mut().try_for_each(|part| self.folded(part))?,
+            Ast::Empty(_) | Ast::Dot(_) | Ast::Assertion(_) => {}
+            Ast::Literal(_) | Ast::ClassUnicode(_) | Ast::ClassPerl(_) => self.leaf(node)?,
+            Ast::ClassBracketed(class) =>
+                if self.folded_set(&mut class.kind)? {
+                    wrapped(node);
+                },
+        }
+        Ok(())
+    }
+
+    fn leaf(&self, node: &mut Ast) -> Result<(), hir::Error> {
+        let mut item = match &*node {
+            Ast::Literal(literal) => ClassSetItem::Literal((**literal).clone()),
+            Ast::ClassUnicode(class) => ClassSetItem::Unicode((**class).clone()),
+            Ast::ClassPerl(class) => ClassSetItem::Perl((**class).clone()),
+            Ast::Empty(_) | Ast::Flags(_) | Ast::Dot(_) | Ast::Assertion(_) | Ast::ClassBracketed(_) | Ast::Repetition(_) | Ast::Group(_) | Ast::Alternation(_) | Ast::Concat(_) => return Ok(()),
+        };
+        if self.folded_item(&mut item)? {
+            if let ClassSetItem::Bracketed(class) = item {
+                *node = Ast::ClassBracketed(class);
+            }
+            wrapped(node);
+        }
+        Ok(())
+    }
+
+    fn folded_set(&self, set: &mut ClassSet) -> Result<bool, hir::Error> {
+        match set {
+            ClassSet::Item(item) => self.folded_item(item),
+            ClassSet::BinaryOp(operation) => Ok(self.folded_set(&mut operation.lhs)? | self.folded_set(&mut operation.rhs)?),
+        }
+    }
+
+    fn folded_item(&self, item: &mut ClassSetItem) -> Result<bool, hir::Error> {
+        static EXOTIC: LazyLock<ClassUnicode> = LazyLock::new(|| {
+            let mut folded = ClassUnicode::new([ClassUnicodeRange::new('A', 'z')]);
+            folded.case_fold_simple();
+            folded.difference(&ClassUnicode::new([ClassUnicodeRange::new('\0', '\x7F')]));
+            folded
+        });
+        let negated = match item {
+            ClassSetItem::Bracketed(class) => return self.folded_set(&mut class.kind),
+            ClassSetItem::Union(union) => return union.items.iter_mut().try_fold(false, |folds, item| Ok(folds | self.folded_item(item)?)),
+            ClassSetItem::Empty(_) => return Ok(false),
+            ClassSetItem::Literal(_) | ClassSetItem::Range(_) => false,
+            ClassSetItem::Ascii(class) => class.negated,
+            ClassSetItem::Perl(class) => class.negated,
+            ClassSetItem::Unicode(class) => class.is_negated(),
+        };
+        let span = *item.span();
+        let written = Ast::class_bracketed(ClassBracketed { span, negated: false, kind: ClassSet::Item(item.clone()) });
+        let scoped = self.translated(&written)?;
+        let HirKind::Class(hir::Class::Unicode(_)) = scoped.kind() else { return Ok(false) };
+        let plain = TranslatorBuilder::new().utf8(false).build().translate(self.pattern, &written)?;
+        if scoped == plain {
+            return Ok(false);
+        }
+        let mut operand = match plain.into_kind() {
+            HirKind::Class(hir::Class::Unicode(class)) => class,
+            HirKind::Literal(hir::Literal(bytes)) => ClassUnicode::new(letters(&bytes).map(|letter| ClassUnicodeRange::new(letter, letter))),
+            HirKind::Empty | HirKind::Class(hir::Class::Bytes(_)) | HirKind::Look(_) | HirKind::Repetition(_) | HirKind::Capture(_) | HirKind::Concat(_) | HirKind::Alternation(_) =>
+                ClassUnicode::empty(),
+        };
+        if negated {
+            operand.negate();
+        }
+        let mut asked = EXOTIC.clone();
+        asked.intersect(&operand);
+        let mut folded = operand.clone();
+        folded.difference(&EXOTIC);
+        folded.case_fold_simple();
+        folded.difference(&EXOTIC);
+        folded.union(&asked);
+        if folded != operand {
+            let literal = |letter| ast::Literal { span, kind: ast::LiteralKind::Verbatim, c: letter };
+            let items = folded.ranges().iter().map(|range| ClassSetItem::Range(ClassSetRange { span, start: literal(range.start()), end: literal(range.end()) })).collect();
+            *item = ClassSetItem::Bracketed(Box::new(ClassBracketed { span, negated, kind: ClassSet::Item(ClassSetUnion { span, items }.into_item()) }));
+        }
+        Ok(true)
+    }
 }
 
-#[derive(Serialize)]
-struct Reply {
-    tokens: Vec<Node>,
-    regexes: Vec<Read>,
-}
+impl Visitor for Walker<'_> {
+    type Err = hir::Error;
+    type Output = Vec<Finding>;
 
-#[derive(Clone, Copy)]
-struct Scope([bool; SCOPED.len()]);
+    fn finish(self) -> Result<Self::Output, Self::Err> { Ok(self.findings) }
+
+    fn visit_pre(&mut self, node: &Ast) -> Result<(), Self::Err> {
+        match node {
+            Ast::Flags(flags) => *self.scopes.last_mut() = scoped(self.scopes.last(), Some(&flags.flags)),
+            Ast::Group(group) => self.scopes.push(scoped(self.scopes.last(), group.flags())),
+            Ast::ClassPerl(class) => self.collected(node, class.negated)?,
+            Ast::ClassUnicode(class) => self.collected(node, class.is_negated())?,
+            Ast::ClassBracketed(class) => self.collected(node, class.negated)?,
+            Ast::Assertion(_) => self.collected(node, false)?,
+            Ast::Empty(_) | Ast::Literal(_) | Ast::Dot(_) | Ast::Repetition(_) | Ast::Alternation(_) | Ast::Concat(_) => {}
+        }
+        Ok(())
+    }
+
+    fn visit_post(&mut self, node: &Ast) -> Result<(), Self::Err> {
+        if let Ast::Group(_) = node {
+            self.scopes.pop();
+        }
+        Ok(())
+    }
+
+    fn visit_class_set_item_pre(&mut self, item: &ClassSetItem) -> Result<(), Self::Err> {
+        if let ClassSetItem::Perl(perl) = item
+            && let HirKind::Class(hir::Class::Unicode(_)) = self.translated(&Ast::ClassPerl(Box::new(perl.clone())))?.kind()
+            && let Some(finding) = self.findings.last_mut()
+            && let Finding::Characters { source, negated: _, ranges: _ } = finding
+        {
+            *finding = Finding::UnicodePerl { source: mem::take(source) };
+        }
+        Ok(())
+    }
+}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -161,14 +270,18 @@ enum Failure {
     Request(#[source] serde_path_to_error::Error<serde_json::Error>),
     #[error("cannot read pattern {pattern}")]
     Pattern { pattern: String, source: Box<regex_syntax::Error> },
-    #[error("cannot read {document}")]
-    Document { document: Value, source: serde_path_to_error::Error<serde_json::Error> },
+    #[error("cannot decode transform {transform}")]
+    Transform { transform: Value, source: serde_path_to_error::Error<serde_json::Error> },
     #[error("cannot parse transform {transform}")]
     Text { transform: Value, source: Unparsed },
     #[error("cannot load the custom languages")]
     Library(#[source] DynamicLangError),
-    #[error("cannot read node types at {path}")]
-    ReadNodeTypes { path: PathBuf, source: io::Error },
+    #[error("cannot find language {language}")]
+    Language { language: String },
+    #[error("cannot find field {field}")]
+    Field { field: String },
+    #[error("cannot read node types")]
+    ReadNodeTypes(#[from] io::Error),
     #[error("cannot decode node types at {path}")]
     DecodeNodeTypes { path: PathBuf, source: serde_path_to_error::Error<serde_json::Error> },
     #[error("cannot encode JSON")]
@@ -184,139 +297,137 @@ impl Failure {
     where E: Into<regex_syntax::Error> {
         move |source| Self::Pattern { pattern: pattern.to_owned(), source: Box::new(source.into()) }
     }
-
-    fn document(document: &Value) -> impl Fn(serde_path_to_error::Error<serde_json::Error>) -> Self { move |source| Self::Document { document: document.clone(), source } }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 struct Table {
     language: DynamicLang,
-    fields: HashMap<String, HashMap<String, BTreeSet<u16>>>,
+    fields: BTreeMap<(NonZero<u16>, u16), Vec<u16>>,
 }
 
 impl Table {
-    fn registered(languages: HashMap<String, Grammar>) -> Result<HashMap<String, Self>, Failure> {
-        let (libraries, mut types): (HashMap<_, _>, HashMap<_, _>) = languages.into_iter().map(|(name, Grammar { library, node_types })| ((name.clone(), library), (name, node_types))).unzip();
-        CustomLang::register(Path::new(""), libraries).map_err(Failure::Library)?;
-        DynamicLang::all_langs()
+    fn registered(languages: HashMap<String, CustomLang>, node_types: HashMap<String, PathBuf>) -> Result<HashMap<String, Self>, Failure> {
+        CustomLang::register(Path::new(""), languages).map_err(Failure::Library)?;
+        node_types
             .into_iter()
-            .filter_map(|language| types.remove(language.name()).map(|path| (language, path)))
-            .map(|(language, path)| Self::load(language, path).map(|table| (language.name().to_owned(), table)))
+            .map(|(name, path)| {
+                let language = name.parse().map_err(|_: String| Failure::Language { language: name.clone() })?;
+                Ok((name, Self::load(language, path)?))
+            })
             .try_collect()
     }
 
     fn load(language: DynamicLang, path: PathBuf) -> Result<Self, Failure> {
-        fn expanded<'held>(supertypes: &HashMap<&str, &'held [Kind]>, kind: &'held Kind) -> Vec<&'held Kind> {
-            supertypes.get(kind.name.as_str()).map_or_else(|| vec![kind], |subtypes| subtypes.iter().flat_map(|subtype| expanded(supertypes, subtype)).collect())
+        fn concrete(grammar: &TSLanguage, kind: u16) -> Vec<u16> {
+            if grammar.node_kind_is_supertype(kind) { grammar.subtypes_for_supertype(kind).iter().flat_map(|&subtype| concrete(grammar, subtype)).collect() } else { vec![kind] }
         }
-        #[expect(clippy::disallowed_methods, reason = "The error retains this path and workspace fs-err would add Tokio to the checker.")]
-        let source = fs::read(&path).map_err(|source| Failure::ReadNodeTypes { path: path.clone(), source })?;
-        let mut document = serde_json::Deserializer::from_slice(&source);
-        let mut track = serde_path_to_error::Track::new();
-        let types = Vec::<NodeType>::deserialize(serde_path_to_error::Deserializer::new(&mut document, &mut track))
-            .and_then(|types| document.end().map(|()| types))
-            .map_err(|source| Failure::DecodeNodeTypes { path, source: serde_path_to_error::Error::new(track.path(), source) })?;
-        let grammar = language.get_ts_language();
-        let supertypes: HashMap<&str, &[Kind]> = types.iter().map(|held| (held.kind.name.as_str(), held.subtypes.as_slice())).filter(|(_, subtypes)| !subtypes.is_empty()).collect();
+        let source = fs_err::read(&path)?;
+        let types: Vec<NodeType> = decoded(SliceRead::new(&source)).map_err(|source| Failure::DecodeNodeTypes { path, source })?;
+        let grammar = &language.get_ts_language();
         let fields = types
             .iter()
-            .map(|held| {
-                (
-                    held.kind.name.clone(),
-                    held.fields
-                        .iter()
-                        .map(|(field, Field { types })| {
-                            (field.clone(), types.iter().flat_map(|kind| expanded(&supertypes, kind)).map(|Kind { name, named }| grammar.id_for_node_kind(name, *named)).collect())
-                        })
-                        .collect(),
-                )
+            .flat_map(|NodeType { kind: Kind { name, named }, fields }| fields.iter().map(move |(field, Field { types })| (field, grammar.id_for_node_kind(name, *named), types)))
+            .map(|(field, owner, types)| {
+                let field = grammar.field_id_for_name(field).ok_or_else(|| Failure::Field { field: field.clone() })?;
+                Ok::<_, Failure>(((field, owner), types.iter().flat_map(|Kind { name, named }| concrete(grammar, grammar.id_for_node_kind(name, *named))).collect()))
             })
-            .collect();
+            .try_collect()?;
         Ok(Self { language, fields })
     }
 
-    fn stated(&self, kind: &str) -> Result<Option<BTreeSet<u16>>, Failure> {
-        let selector = parse_selector(kind, self.language).map_err(|source| Failure::Selector { selector: kind.to_owned(), source: Box::new(source) })?;
-        Ok(selector.potential_kinds().map(|kinds| kinds.iter().filter_map(|id| u16::try_from(id).ok()).collect()))
-    }
-
     fn tested(&self, Subject { kinds, parent }: &Subject) -> Result<Option<BTreeSet<u16>>, Failure> {
-        let grammar = self.language.get_ts_language();
-        let placed = parent
-            .as_deref()
-            .map(|Placement { field, subject }| {
-                Ok::<Option<BTreeSet<u16>>, Failure>(
-                    self.tested(subject)?.map(|parents| parents.iter().filter_map(|&parent| self.fields.get(grammar.node_kind_for_id(parent)?)?.get(field)).flatten().copied().collect()),
-                )
-            })
-            .transpose()?
-            .flatten();
+        let placed = match parent {
+            Some((name, subject)) => {
+                let field = self.language.get_ts_language().field_id_for_name(name).ok_or_else(|| Failure::Field { field: name.clone() })?;
+                Some(match self.tested(subject)? {
+                    Some(parents) => parents.iter().filter_map(|&parent| self.fields.get(&(field, parent))).flatten().copied().collect(),
+                    None => self.fields.range((field, u16::MIN)..=(field, u16::MAX)).flat_map(|(_, kinds)| kinds).copied().collect(),
+                })
+            }
+            None => None,
+        };
         kinds.iter().try_fold(placed, |held, kind| {
-            Ok(match (held, self.stated(kind)?) {
-                (Some(held), Some(stated)) => Some(held.intersection(&stated).copied().collect()),
+            let selector = parse_selector(kind, self.language).map_err(|source| Failure::Selector { selector: kind.clone(), source: Box::new(source) })?;
+            let stated = selector.potential_kinds().map(|kinds| kinds.iter().filter_map(|id| u16::try_from(id).ok()).collect());
+            Ok(match (held, stated) {
+                (Some(held), Some(stated)) => Some(&held & &stated),
                 (held, stated) => held.or(stated),
             })
         })
     }
 
-    fn leaf(&self, text: &str) -> Result<Option<(u16, String)>, Failure> {
-        let parsed = AstGrep::try_new(&self.language.pre_process_pattern(text), self.language).map_err(PatternError::Parse)?;
-        let root = parsed.root();
-        if root.get_inner_node().has_error() {
-            return Ok(None);
-        }
-        let goal = successors(Some(root), |node| match node.children().len() {
-            1 => node.child(0),
-            2 if node.child(1).is_some_and(|last| last.kind().is_empty()) => node.child(0),
-            _ => None,
-        })
-        .skip(1)
-        .last()
-        .filter(ast_grep_core::Node::is_leaf);
-        Ok(goal.and_then(|node| match PatternNode::from(node) {
-            PatternNode::Terminal { text: parsed, is_named: true, kind_id } if parsed == text => self.language.get_ts_language().node_kind_for_id(kind_id).map(|kind| (kind_id, kind.to_owned())),
-            _ => None,
-        }))
-    }
-
-    fn literal(&self, regex: &str, tree: &Ast, subject: &Subject) -> Result<Option<Literal>, Failure> {
-        let hir = Translator::new().translate(regex, tree).map_err(Failure::pattern(regex))?;
+    fn literal(&self, hir: &Hir, subject: &Subject) -> Result<Option<Finding>, Failure> {
         let properties = hir.properties();
         let whole =
             properties.look_set() == LookSet::singleton(Look::Start).insert(Look::End) && properties.look_set_prefix().contains(Look::Start) && properties.look_set_suffix().contains(Look::End);
-        let exact = Extractor::new().extract(&hir);
-        let Some([literal]) = exact.literals().filter(|_| whole) else {
-            return Ok(None);
-        };
+        let exact = Extractor::new().extract(hir);
+        let Some([literal]) = exact.literals().filter(|_| whole) else { return Ok(None) };
         let Some(text) = literal.is_exact().then(|| String::from_utf8_lossy(literal.as_bytes()).into_owned()) else { return Ok(None) };
-        let Some((id, kind)) = self.leaf(&text)? else {
-            return Ok(None);
+        let kind = match Pattern::try_new(&text, self.language) {
+            Ok(Pattern { node: PatternNode::Terminal { text: parsed, is_named: true, kind_id }, .. }) if parsed == text => kind_id,
+            Ok(Pattern { .. }) | Err(PatternError::NoContent(_) | PatternError::MultipleNode(_)) => return Ok(None),
+            Err(source) => return Err(Failure::LiteralPattern(source)),
         };
-        Ok((self.tested(subject)? == Some(BTreeSet::from([id]))).then_some(Literal { kind, text }))
+        let grammar = self.language.get_ts_language();
+        Ok(self.tested(subject)?.filter(|kinds| *kinds == BTreeSet::from([kind])).and_then(|_| grammar.node_kind_for_id(kind)).map(|name| Finding::Literal { kind: name.to_owned(), text }))
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [STRUCTURE]
+// --- [DECODE]
 
-fn class_ranges(class: &hir::Class) -> Vec<(u32, u32)> {
+fn decoded<'de, T, R>(read: R) -> Result<T, serde_path_to_error::Error<serde_json::Error>>
+where
+    T: Deserialize<'de>,
+    R: serde_json::de::Read<'de>,
+{
+    let mut document = serde_json::Deserializer::new(read);
+    let mut track = serde_path_to_error::Track::new();
+    T::deserialize(serde_path_to_error::Deserializer::new(&mut document, &mut track))
+        .and_then(|value| document.end().map(|()| value))
+        .map_err(|source| serde_path_to_error::Error::new(track.path(), source))
+}
+
+// --- [SCOPES]
+
+fn scoped(scope: &TranslatorBuilder, flags: Option<&ast::Flags>) -> TranslatorBuilder {
+    let mut scope = scope.clone();
+    [(Flag::CaseInsensitive, TranslatorBuilder::case_insensitive as fn(&mut TranslatorBuilder, bool) -> &mut TranslatorBuilder), (Flag::Unicode, TranslatorBuilder::unicode)]
+        .into_iter()
+        .filter_map(|(flag, set)| flags?.flag_state(flag).map(|state| (set, state)))
+        .fold(&mut scope, |scope, (set, state)| set(scope, state));
+    scope
+}
+
+fn wrapped(node: &mut Ast) {
+    let span = *node.span();
+    let flags = ast::Flags { span, items: [FlagsItemKind::Negation, FlagsItemKind::Flag(Flag::CaseInsensitive)].map(|kind| FlagsItem { span, kind }).to_vec() };
+    *node = Ast::group(Group { span, kind: GroupKind::NonCapturing(flags), ast: Box::new(mem::replace(node, Ast::empty(span))) });
+}
+
+// --- [RANGES]
+
+fn ranges(class: &hir::Class) -> Vec<(u32, u32)> {
     match class {
         hir::Class::Unicode(unicode) => unicode.ranges().iter().map(|range| (u32::from(range.start()), u32::from(range.end()))).collect(),
         hir::Class::Bytes(bytes) => bytes.ranges().iter().map(|range| (u32::from(range.start()), u32::from(range.end()))).collect(),
     }
 }
 
-fn literal_ranges(bytes: &[u8]) -> Vec<(u32, u32)> { String::from_utf8_lossy(bytes).chars().map(|letter| (u32::from(letter), u32::from(letter))).collect() }
+fn letters(bytes: &[u8]) -> impl Iterator<Item = char> { bytes.utf8_chunks().flat_map(|chunk| chunk.valid().chars()) }
 
-fn token_structure(Token { pattern, caseless }: &Token) -> Result<Node, Failure> {
+// --- [TOKENS]
+
+fn structure((pattern, caseless): &(String, bool)) -> Result<Node, Failure> {
     const GENERATOR_CLASSES: [(&str, &str); 6] = [(r"\w", "[0-9A-Za-z_]"), (r"\s", r"[\t-\r ]"), (r"\d", "[0-9]"), (r"\W", "[^0-9A-Za-z_]"), (r"\S", r"[^\t-\r ]"), (r"\D", "[^0-9]")];
     fn structured(hir: &Hir) -> Node {
         match hir.kind() {
             HirKind::Empty | HirKind::Look(_) => Node::Alternation { alternatives: vec![Vec::new()] },
-            HirKind::Literal(hir::Literal(bytes)) => Node::Alternation { alternatives: vec![literal_ranges(bytes).into_iter().map(|range| Node::CharacterClass { ranges: vec![range] }).collect()] },
-            HirKind::Class(class) => Node::CharacterClass { ranges: class_ranges(class) },
+            HirKind::Literal(hir::Literal(bytes)) =>
+                Node::Alternation { alternatives: vec![letters(bytes).map(|letter| Node::CharacterClass { ranges: vec![(u32::from(letter), u32::from(letter))] }).collect()] },
+            HirKind::Class(class) => Node::CharacterClass { ranges: ranges(class) },
             HirKind::Repetition(repetition) => Node::Quantifier { min: repetition.min, max: repetition.max, alternatives: vec![vec![structured(&repetition.sub)]] },
             HirKind::Capture(capture) => structured(&capture.sub),
             HirKind::Concat(parts) => Node::Alternation { alternatives: vec![parts.iter().map(structured).collect()] },
@@ -324,123 +435,41 @@ fn token_structure(Token { pattern, caseless }: &Token) -> Result<Node, Failure>
         }
     }
     let source = GENERATOR_CLASSES.iter().fold(pattern.clone(), |text, (written, spelled)| text.replace(written, spelled));
-    let tree = Parser::new().parse(&source).map_err(Failure::pattern(pattern))?;
-    Ok(structured(&TranslatorBuilder::new().utf8(false).case_insensitive(*caseless).build().translate(&source, &tree).map_err(Failure::pattern(pattern))?))
-}
-
-// --- [CLASSES]
-
-impl Scope {
-    fn applied(self, flags: &ast::Flags) -> Self { Self(core::array::from_fn(|at| flags.flag_state(SCOPED[at]).unwrap_or(self.0[at]))) }
-}
-
-struct Collector<'pattern> {
-    pattern: &'pattern str,
-    scope: Scope,
-    enclosing: Vec<Scope>,
-    classes: Vec<Class>,
-}
-
-impl Collector<'_> {
-    fn collected(&mut self, class: &Ast, negated: bool) -> Result<(), hir::Error> {
-        let Scope([caseless, unicode]) = self.scope;
-        let span = class.span();
-        let source = || self.pattern[span.start.offset..span.end.offset].to_owned();
-        if matches!(class, Ast::ClassPerl(_)) && unicode {
-            self.classes.push(Class::UnicodePerl { source: source() });
-            return Ok(());
-        }
-        let hir = TranslatorBuilder::new().utf8(false).case_insensitive(caseless).unicode(unicode).build().translate(self.pattern, class)?;
-        let ranges = match hir.kind() {
-            HirKind::Class(held) => class_ranges(held),
-            HirKind::Literal(hir::Literal(bytes)) => literal_ranges(bytes),
-            HirKind::Look(look) => {
-                if LookSet::singleton(*look).contains_word_unicode() {
-                    self.classes.push(Class::UnicodeBoundary { source: source() });
-                }
-                return Ok(());
-            }
-            _ => Vec::new(),
-        };
-        self.classes.push(Class::Characters { source: source(), polarity: if negated { Polarity::Complement } else { Polarity::Stated }, ranges });
-        Ok(())
-    }
-}
-
-impl Visitor for Collector<'_> {
-    type Err = hir::Error;
-    type Output = Vec<Class>;
-
-    fn finish(self) -> Result<Self::Output, Self::Err> { Ok(self.classes) }
-
-    fn visit_pre(&mut self, node: &Ast) -> Result<(), Self::Err> {
-        match node {
-            Ast::Flags(flags) => {
-                self.scope = self.scope.applied(&flags.flags);
-                Ok(())
-            }
-            Ast::Group(group) => {
-                self.enclosing.push(self.scope);
-                self.scope = group.flags().map_or(self.scope, |flags| self.scope.applied(flags));
-                Ok(())
-            }
-            Ast::ClassPerl(class) => self.collected(node, class.negated),
-            Ast::ClassUnicode(class) => self.collected(node, class.is_negated()),
-            Ast::ClassBracketed(class) => self.collected(node, class.negated),
-            Ast::Assertion(_) if self.scope.0[1] => self.collected(node, false),
-            _ => Ok(()),
-        }
-    }
-
-    fn visit_post(&mut self, node: &Ast) -> Result<(), Self::Err> {
-        if matches!(node, Ast::Group(_)) {
-            self.scope = self.enclosing.pop().unwrap_or(self.scope);
-        }
-        Ok(())
-    }
-
-    fn visit_class_set_item_pre(&mut self, item: &ClassSetItem) -> Result<(), Self::Err> {
-        if let ClassSetItem::Perl(_) = item
-            && let Scope([_, true]) = self.scope
-            && let Some(class) = self.classes.last_mut()
-            && let Class::Characters { source, polarity: _, ranges: _ } = class
-        {
-            *class = Class::UnicodePerl { source: core::mem::take(source) };
-        }
-        Ok(())
-    }
+    let mut tree = Parser::new().parse(&source).map_err(Failure::pattern(pattern))?;
+    let base = TranslatorBuilder::new().utf8(false).case_insensitive(*caseless).clone();
+    Walker { pattern: &source, scopes: nev![base.clone()], findings: Vec::new() }.folded(&mut tree).map_err(Failure::pattern(pattern))?;
+    base.build().translate(&source, &tree).map(|hir| structured(&hir)).map_err(Failure::pattern(pattern))
 }
 
 // --- [RULES]
 
 #[define_opaque(Unparsed)]
-fn read(written: Written, tables: &HashMap<String, Table>) -> Result<Read, Failure> {
+fn read(written: Written, tables: &HashMap<String, Table>) -> Result<Vec<Finding>, Failure> {
     let (pattern, site) = match written {
         Written::Regex { regex, site } => (regex, site),
         Written::Transform { transform } => {
-            let parsed = match serde_path_to_error::deserialize(&transform).map_err(Failure::document(&transform))? {
+            let decode = |source| Failure::Transform { transform: transform.clone(), source };
+            let parsed = match serde_path_to_error::deserialize(&transform).map_err(decode)? {
                 Transformation::Simplied(text) => Transformation::Object(text.parse().map_err(|source| Failure::Text { transform: transform.clone(), source })?),
                 object @ Transformation::Object(_) => object,
             };
-            let serialized = serde_path_to_error::serialize(&parsed, serde_json::value::Serializer).map_err(Failure::document(&transform))?;
-            let Transformed { replace: Some(Replaced { replace }) } = serde_path_to_error::deserialize(&serialized).map_err(Failure::document(&transform))? else {
-                return Ok(Read { classes: Vec::new(), literal: None });
-            };
+            let Transformed { replace: Some(Replaced { replace }) } = serde_path_to_error::deserialize(serde_json::to_value(parsed)?).map_err(decode)? else { return Ok(Vec::new()) };
             (replace, None)
         }
     };
     let tree = Parser::new().parse(&pattern).map_err(Failure::pattern(&pattern))?;
-    let classes = visit(&tree, Collector { pattern: &pattern, scope: Scope([false, true]), enclosing: Vec::new(), classes: Vec::new() }).map_err(Failure::pattern(&pattern))?;
-    let literal = site.and_then(|Site { language, subject }| tables.get(&language).map(|table| table.literal(&pattern, &tree, &subject))).transpose()?.flatten();
-    Ok(Read { classes, literal })
+    let hir = Translator::new().translate(&pattern, &tree).map_err(Failure::pattern(&pattern))?;
+    let classes = visit(&tree, Walker { pattern: &pattern, scopes: nev![TranslatorBuilder::new()], findings: Vec::new() }).map_err(Failure::pattern(&pattern))?;
+    let literal = site.and_then(|(language, subject)| tables.get(&language).map(|table| table.literal(&hir, &subject))).transpose()?.flatten();
+    Ok(iter::chain(classes, literal).collect())
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() -> Result<(), Report<Failure>> {
-    let Request { tokens, regexes, languages }: Request = serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_reader(io::stdin().lock())).map_err(Failure::Request)?;
-    let tables = Table::registered(languages)?;
-    let reply = Reply { tokens: tokens.iter().map(token_structure).try_collect()?, regexes: regexes.into_iter().map(|written| read(written, &tables)).try_collect()? };
+    let Request { tokens, regexes, languages, node_types } = decoded(IoRead::new(io::stdin().lock())).map_err(Failure::Request)?;
+    let tables = Table::registered(languages, node_types)?;
+    let reply = (tokens.iter().map(structure).try_collect::<Vec<_>>()?, regexes.into_iter().map(|written| read(written, &tables)).try_collect::<Vec<_>>()?);
     serde_json::to_writer(io::stdout().lock(), &reply).map_err(Failure::from)?;
     Ok(())
 }
