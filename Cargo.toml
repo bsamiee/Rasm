@@ -474,16 +474,17 @@ rustfft      = "6.4.1"                                     # FFT of any length
 
 # --- [SOLVERS]
 
-argmin      = { version = "0.11.0", default-features = false }                             # Brent root brackets, rand_xoshiro adds rand_core 0.9 beside 0.10
-argmin-math = "0.5.1"                                                                      # Vec backend of argmin solvers, faer and nalgebra backends link faer 0.23 and nalgebra 0.34 beside the catalog
-basin       = "3.2.0"                                                                      # Native scalar minimization with absolute and relative position tolerances
-clarabel    = "0.11.1"                                                                     # Conic interior-point solves over typed cone blocks, its `sdp` cone over Accelerate on macOS, static OpenBLAS on Linux and static MKL on Windows, adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
-diffsol     = "0.18.0"                                                                     # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
-fmi         = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes, and fmi adds zip 8 with its default `time` beside zip 9
-good_lp     = { version = "1.15.3", default-features = false, features = ["highs"] }       # LP and MIP models over HiGHS built through CMake and bindgen on libclang, bindgen adds itertools 0.13 beside the catalog's, default `coin_cbc` replaces HiGHS as `default_solver` with single-threaded CBC
-kasuari     = "0.4.13"                                                                     # Cassowary constraint solving of layouts
-nlopt       = "0.8.1"                                                                      # Bounded, constrained, local and global optimization over NLopt 2.9.1 linked static, its Luksan algorithms under LGPL
-nuts-rs     = "0.19.1"                                                                     # No-U-Turn sampling chains over a `CpuLogpFunc`
+argmin       = { version = "0.11.0", default-features = false }                             # Brent root brackets, rand_xoshiro adds rand_core 0.9 beside 0.10
+argmin-math  = "0.5.1"                                                                      # Vec backend of argmin solvers, faer and nalgebra backends link faer 0.23 and nalgebra 0.34 beside the catalog
+basin        = "3.2.0"                                                                      # Native scalar minimization with absolute and relative position tolerances
+clarabel     = "0.11.1"                                                                     # Conic interior-point solves over typed cone blocks, its `sdp` cone over Accelerate on macOS and OpenBLAS elsewhere, adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
+diffsol      = "0.18.0"                                                                     # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
+fmi          = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes, and fmi adds zip 8 with its default `time` beside zip 9
+good_lp      = { version = "1.15.3", default-features = false, features = ["highs"] }       # LP and MIP models over HiGHS built through CMake and bindgen on libclang, bindgen adds itertools 0.13 beside the catalog's, default `coin_cbc` replaces HiGHS as `default_solver` with single-threaded CBC
+kasuari      = "0.4.13"                                                                     # Cassowary constraint solving of layouts
+nlopt        = "0.8.1"                                                                      # Bounded, constrained, local and global optimization over NLopt 2.9.1 linked static, its Luksan algorithms under LGPL
+nuts-rs      = "0.19.1"                                                                     # No-U-Turn sampling chains over a `CpuLogpFunc`
+openblas-src = "0.10.16"                                                                    # BLAS and LAPACK under clarabel's `sdp` cone, built from source on Linux and linked from vcpkg on Windows through `system`
 
 # --- [GRAPHS]
 
@@ -793,8 +794,10 @@ use_debug      = "warn" # `{:?}` in format strings, text people read renders thr
 
 # --- [ATTRIBUTES]
 
-cfg_not_test          = "warn" # `#[cfg(not(test))]` code, tests run what product runs
-redundant_test_prefix = "warn" # `test_` prefixes on `#[test]` functions, each fact is stated once
+allow_attributes                = "warn" # `#[allow]` on lints, `#[expect]` fails once the suppressed lint stops firing
+allow_attributes_without_reason = "warn" # `#[expect]` and `#[allow]` without `reason`, each suppression names the fact excusing it
+cfg_not_test                    = "warn" # `#[cfg(not(test))]` code, tests run what product runs
+redundant_test_prefix           = "warn" # `test_` prefixes on `#[test]` functions, each fact is stated once
 
 # --- [RESULTS]
 

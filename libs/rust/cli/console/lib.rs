@@ -1,6 +1,6 @@
 #![feature(control_flow_into_value, deref_patterns, try_blocks_heterogeneous)]
 
-use core::{fmt::Display, pin::pin};
+use core::pin::pin;
 use std::{io, panic, process};
 
 use clap::{CommandFactory, FromArgMatches};
@@ -16,7 +16,7 @@ use rasm_command::{
     Augmented, CommandError, Process,
     telemetry::{Defaults, Failure, Handle, Layer},
 };
-use serde::{Serialize, ser};
+use serde::Serialize;
 use sysexits::ExitCode;
 use tokio::task;
 use tracing_indicatif::{
@@ -35,13 +35,6 @@ pub enum EncodingError {
     Json(#[from] serde_json::Error),
     #[error(transparent)]
     Value(#[from] serde_content::Error),
-}
-
-impl ser::Error for EncodingError {
-    fn custom<T>(msg: T) -> Self
-    where T: Display {
-        Self::Json(serde_json::Error::custom(msg))
-    }
 }
 
 #[derive(Debug, thiserror::Error)]

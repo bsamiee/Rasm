@@ -10,7 +10,7 @@ use std::{
 use hayro::hayro_interpret::TransformExt as _;
 use hayro_syntax::{
     DecryptionError, LoadPdfError, Pdf,
-    object::dict::keys::{LAST_MODIFIED, PIECE_INFO, PRIVATE, USER_UNIT},
+    object::dict::keys::{KIDS, LAST_MODIFIED, PIECE_INFO, PRIVATE, USER_UNIT},
     page::Page,
 };
 use jiff::Zoned;
@@ -40,7 +40,7 @@ use rasn_cms::tsp::PkiStatus;
 use secrecy::{ExposeSecret as _, SecretString};
 use uom::si::{
     f64::{Length, LinearNumberDensity},
-    length::{inch, millimeter},
+    length::{millimeter, point_computer},
 };
 use validated::Validated;
 
@@ -316,10 +316,7 @@ fn page(document: &Document, index: usize) -> Result<&Page<'_>, PdfError> {
     pages.get(index).ok_or(PdfError::Page { index, count: pages.len() })
 }
 
-fn points_per_millimeter() -> f64 {
-    const POINTS_PER_INCH: f64 = 72.0;
-    Length::new::<millimeter>(1.0).get::<inch>() * POINTS_PER_INCH
-}
+fn points_per_millimeter() -> f64 { Length::new::<millimeter>(1.0).get::<point_computer>() }
 
 fn frame(page: &Page<'_>) -> (Affine, Size) {
     let unit = page.raw().get::<f64>(USER_UNIT).filter(|unit| unit.is_normal() && unit.is_sign_positive()).unwrap_or(1.0) / points_per_millimeter();
@@ -343,7 +340,7 @@ fn nested<'held>(structure: &'held lopdf::Document, holder: &'held Dictionary, p
     path.iter().try_fold(Some(holder), |found, key| found.map(|parent| entry(structure, parent, key)?.map(Object::as_dict).transpose()).transpose().map(Option::flatten))
 }
 
-fn leaves<K, F>(structure: &lopdf::Document, root: &Dictionary, list: &str, key: &F) -> Result<Vec<(K, Object)>, lopdf::Error>
+fn leaves<K, F>(structure: &lopdf::Document, root: &Dictionary, list: &[u8], key: &F) -> Result<Vec<(K, Object)>, lopdf::Error>
 where F: Fn(&Object) -> Result<K, lopdf::Error> {
     enum Step<'node> {
         Node(&'node Dictionary),
@@ -362,7 +359,7 @@ where F: Fn(&Object) -> Result<K, lopdf::Error> {
                     .into_iter()
                     .flat_map(|pairs| pairs.as_chunks::<2>().0)
                     .try_for_each(|[name, value]| key(name).map(|name| found.push((name, value.clone()))))?;
-                pending.extend(entry(structure, node, b"Kids")?.map(Object::as_array).transpose()?.into_iter().flatten().rev().map(Step::Child));
+                pending.extend(entry(structure, node, KIDS)?.map(Object::as_array).transpose()?.into_iter().flatten().rev().map(Step::Child));
             }
             Step::Child(child) => {
                 let id = child.as_reference()?;

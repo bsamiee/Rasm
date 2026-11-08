@@ -108,9 +108,7 @@ pub enum Day {
 }
 
 impl Day {
-    pub fn date(self, year: i16) -> Result<civil::Date, WeatherError> { self.resolved(year).map_err(WeatherError::Time) }
-
-    fn resolved(self, year: i16) -> Result<civil::Date, jiff::Error> {
+    pub fn date(self, year: i16) -> Result<civil::Date, jiff::Error> {
         match self {
             Self::Date { month, day } => civil::Date::new(year, month, day),
             Self::Ordinal(day) => civil::Date::new(year, 1, 1)?.with().day_of_year_no_leap(day).build(),
@@ -121,7 +119,7 @@ impl Day {
     fn checked(self) -> Result<Self, Malformed> {
         const LEAP_YEAR: i16 = 2000;
         match self {
-            Self::Date { month: _, day: _ } | Self::Ordinal(_) => Ok(self.resolved(LEAP_YEAR).map(|_| self)?),
+            Self::Date { month: _, day: _ } | Self::Ordinal(_) => Ok(self.date(LEAP_YEAR).map(|_| self)?),
             Self::Weekday { nth: -1 | 1..=5, weekday: _, month } => Ok(civil::Date::new(LEAP_YEAR, month, 1).map(|_| self)?),
             Self::Weekday { nth, weekday: _, month: _ } => Err(Malformed::Day { text: nth.to_string(), term: Term::Rank }),
         }

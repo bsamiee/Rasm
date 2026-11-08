@@ -97,32 +97,8 @@ where F: Fn(f64) -> f64 + Sync {
         .ok()?;
     let equation = |at: f64| Ok::<_, AnalysisError>(function(at));
     let pole_free = |outcome: Result<(f64, f64), AnalysisError>| match outcome {
-        Ok(found) => Ok(Some(found)),
-        Err(AnalysisError::Function { interval: _ }) => Ok(None),
-        Err(
-            error @ (AnalysisError::Shape { input: _, expected: _, found: _ }
-            | AnalysisError::Site { dimension: _, point: _, placement: _ }
-            | AnalysisError::Value { index: _ }
-            | AnalysisError::Weight { dimension: _, point: _, weight: _ }
-            | AnalysisError::Underdetermined { found: _, needed: _ }
-            | AnalysisError::Outside { dimension: _, at: _ }
-            | AnalysisError::Period { dimension: _, span: _, period: _ }
-            | AnalysisError::Point { breakdown: _, point: _ }
-            | AnalysisError::NoConvergence
-            | AnalysisError::Zero
-            | AnalysisError::Coefficient { index: _, coefficient: _, leading: _ }
-            | AnalysisError::Root { bracket: _, source: _ }
-            | AnalysisError::SearchStopped { bracket: _, report: _ }
-            | AnalysisError::Tangent { root: _ }
-            | AnalysisError::System { point: _, residual: _ }
-            | AnalysisError::Integral { estimate: _, error: _ }
-            | AnalysisError::Breakline { from: _, to: _ }
-            | AnalysisError::Drift { term: _ }
-            | AnalysisError::Spline(_)
-            | AnalysisError::Quadrature(_)
-            | AnalysisError::Triangulation(_)
-            | AnalysisError::Reshape(_)),
-        ) => Err(error),
+        Err(error) if error.is_function() => Ok(None),
+        outcome => outcome.map(Some),
     };
     let solve = |start: f64, last: f64, bound: f64| {
         let found = Executor::new(Equation(equation), BrentRoot::new(start, last, tolerance.map_or_default(Tolerance::into_inner)))

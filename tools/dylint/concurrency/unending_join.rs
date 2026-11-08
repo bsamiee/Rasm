@@ -14,9 +14,9 @@ use clippy_utils::{
 use itertools::Either;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::{
-    Body, Expr, ExprKind, HirId, LetStmt, Mutability, Node, Pat, PatKind,
+    Body, BodyId, Expr, ExprKind, HirId, LetStmt, Mutability, Node, Pat, PatKind,
     def::{DefKind, Res},
-    def_id::{DefId, LocalDefId},
+    def_id::DefId,
 };
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, TyCtxt, UpvarCapture};
@@ -43,7 +43,7 @@ pub(crate) struct Pass {
     senders: FxHashSet<DefId>,
     subscriptions: FxHashSet<DefId>,
     channels: FxHashSet<DefId>,
-    bodies: FxHashMap<LocalDefId, BodyUses>,
+    bodies: FxHashMap<BodyId, BodyUses>,
 }
 
 lint!(Pass; UNENDING_JOIN: "joined futures draining a `watch` or `broadcast` stream with a sender that outlives the join");
@@ -94,7 +94,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         })
         .is_some()
         {
-            self.bodies.insert(cx.tcx.hir_body_owner_def_id(body.id()), BodyUses::default());
+            self.bodies.insert(body.id(), BodyUses::default());
         }
     }
 
@@ -109,8 +109,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             }
         }
 
-        let body_owner = cx.tcx.hir_enclosing_body_owner(expr.hir_id);
-        let Some(uses) = self.bodies.get_mut(&body_owner) else { return };
+        let Some(body) = cx.enclosing_body else { return };
+        let Some(uses) = self.bodies.get_mut(&body) else { return };
+        let body_owner = cx.tcx.hir_body_owner_def_id(body);
         let native_sender = |binding: HirId| {
             let declared = cx.typeck_results().node_type(binding);
             let held = match declared.kind() {
@@ -233,5 +234,5 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
     }
 
-    fn check_body_post(&mut self, cx: &LateContext<'tcx>, body: &Body<'tcx>) { self.bodies.remove(&cx.tcx.hir_body_owner_def_id(body.id())); }
+    fn check_body_post(&mut self, _: &LateContext<'tcx>, body: &Body<'tcx>) { self.bodies.remove(&body.id()); }
 }

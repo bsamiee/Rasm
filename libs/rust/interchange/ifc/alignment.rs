@@ -45,8 +45,8 @@ enum Cant {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Evaluation {
-    pub degree: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 15),
-    pub iterations: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 7),
+    pub degree: NonZero<usize> = NonZero::new(16).unwrap(),
+    pub iterations: NonZero<usize> = NonZero::new(8).unwrap(),
     pub rail_head_distance: Option<PositiveLength> = None,
     pub tolerance: Option<PositiveLength> = None,
 }

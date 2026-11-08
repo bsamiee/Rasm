@@ -15,6 +15,7 @@ use nalgebra::Vector2;
 use ndarray_interp::BuilderError;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use rasm_numerical_analysis::AnalysisError;
+use rasm_proximity::ProximityError;
 use rasm_site::Place;
 use rasm_solar_geometry::{SolarError, Sun};
 use solar_positioning::{PreparedPositions, SolarPosition};
@@ -195,6 +196,8 @@ pub enum Malformed {
     Decode(NEVec<GribError>),
     #[error("root search: {}", .0.iter().format("; "))]
     Analysis(NEVec<AnalysisError>),
+    #[error(transparent)]
+    Proximity(ProximityError),
     #[error("{text} names no {term}")]
     Day { text: String, term: epw::Term },
     #[error("{text} names no ordinal day")]
@@ -227,8 +230,6 @@ pub enum WeatherError {
     Time(#[from] jiff::Error),
     #[error(transparent)]
     Conversion(#[from] ConversionError),
-    #[error("GRIB decode: {}", .0.iter().format("; "))]
-    Decode(NEVec<GribError>),
     #[error("root search: {}", .0.iter().format("; "))]
     Analysis(NEVec<AnalysisError>),
 }
@@ -306,7 +307,6 @@ pub fn resampled(hours: &Hours, step: SignedDuration, gap: SignedDuration) -> Re
 
 fn instant<D>(run: &[Hour], node: impl Fn(&Hour) -> i128, gap: SignedDuration, field: impl Fn(&Hour) -> Option<Measure<D>>) -> impl FnMut(i128) -> Result<Option<Measure<D>>, ConversionError>
 where D: si::Dimension + ?Sized {
-    #[expect(clippy::arithmetic_side_effects, reason = "Dashu interpolation is exact and bracketing timestamp durations are positive")]
     let interpolated = |earlier: f64, later: f64, elapsed: i128, duration: i128| {
         if ordinary(earlier) && ordinary(later) {
             Ok(f64::from((TwoFloat::from_f64(later) - earlier) * (TwoFloat::from(elapsed) / TwoFloat::from(duration)) + earlier))
@@ -372,7 +372,6 @@ fn weighted(readings: impl IntoIterator<Item = (f64, f64)>) -> Result<Option<f64
 
 fn ordinary(value: f64) -> bool { value.classify() == FpCategory::Zero || (f64::MIN_POSITIVE.sqrt()..=f64::MAX.sqrt()).contains(&value.abs()) }
 
-#[expect(clippy::arithmetic_side_effects, reason = "Dashu arithmetic is exact and divisors are positive source durations or one")]
 fn accumulated(totals: &mut Totals, (value, weight): (f64, f64), divisor: f64) -> Result<(), ConversionError> {
     if let Either::Left((sum, total)) = totals
         && !ordinary(value)
@@ -393,7 +392,6 @@ fn accumulated(totals: &mut Totals, (value, weight): (f64, f64), divisor: f64) -
     Ok(())
 }
 
-#[expect(clippy::arithmetic_side_effects, reason = "Dashu arithmetic is exact and coverage sums positive interval durations or unit weights")]
 fn reduced(totals: Totals, multiplier: f64) -> Result<f64, ConversionError> {
     totals.either(|(sum, total)| Ok(f64::from(sum / total * multiplier)), |(sum, total)| Ok((sum / total * RBig::try_from(multiplier)?).to_f64().value()))
 }

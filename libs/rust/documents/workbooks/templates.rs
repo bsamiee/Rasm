@@ -25,7 +25,6 @@ use crate::{Refusal, Value, WorkbooksError};
 
 pub fn fill(book: &mut Workbook, name: &str, block: &Range<Data>) -> Result<(), WorkbooksError> {
     let refused = |refusal| WorkbooksError::Template { name: name.to_owned(), refusal };
-    let values = crate::values(block).try_collect::<Vec<_>>()?;
     let (scope, index, defined) = book
         .defined_names()
         .iter()
@@ -55,6 +54,7 @@ pub fn fill(book: &mut Workbook, name: &str, block: &Range<Data>) -> Result<(), 
     if column_span > last_column.strict_sub(first_column) {
         return Err(refused(Refusal::Width));
     }
+    let values = crate::values(block, (first_row, first_column)).try_collect::<Vec<_>>()?;
     let template = book.sheet_by_name(&sheet_name)?;
     let styles = (first_column..=last_column).filter_map(|column| template.cell((column, first_row)).map(|cell| (column, cell.style().clone()))).collect::<Vec<_>>();
     let extra = row_span.saturating_sub(last_row.strict_sub(first_row));
@@ -82,8 +82,8 @@ pub fn fill(book: &mut Workbook, name: &str, block: &Range<Data>) -> Result<(), 
     for (_, cell) in sheet.collection_to_hashmap_mut().iter_mut().filter(|&(&(row, column), _)| (first_row..=bottom).contains(&row) && (first_column..=last_column).contains(&column)) {
         cell.set_blank();
     }
-    for (offset, value) in values {
-        let cell = sheet.cell_mut((first_column.strict_add(offset.1), first_row.strict_add(offset.0)));
+    for ((row, column), value) in values {
+        let cell = sheet.cell_mut((column, row));
         match value {
             Value::Integer(integer) => cell.set_value(integer.to_string()),
             Value::Number(number) => cell.set_value_number(number),

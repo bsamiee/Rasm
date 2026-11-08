@@ -33,6 +33,7 @@
                     },
                     "lint:rustfmt": { "command": "cargo fmt --check", "inputs": [ "rustWorkspace", "{workspaceRoot}/rustfmt.toml" ] },
                     "lint:dylint": { "command": "cargo dylint --fail-on-no-libraries --all --workspace -- --locked --lib --bins --tests", "inputs": [ "rustWorkspace", { "runtime": "cargo dylint --version" } ], "parallelism": false },
+                    "lint:cargo-deny": { "command": "cargo deny --locked check --deny warnings advisories sources", "inputs": [ "{workspaceRoot}/{Cargo.lock,.cargo/deny.toml}" ] },
                     "lint:swift-format": { "command": "hk check --glob='**/*' --step=swift-format", "inputs": [ "hk", "swiftFiles", "{workspaceRoot}/.swift-format", { "runtime": "xcrun swift-format --version" } ] },
                     "lint:swiftlint": { "command": "hk check --glob='**/*' --step=swiftlint", "inputs": [ "hk", "swiftFiles", "{workspaceRoot}/.swiftlint.yml", { "runtime": "swiftlint version" } ] },
                     "lint:periphery": { "command": "periphery scan --config .config/periphery.yml --index-store-path \"$SWIFTPM_BUILD_DIR/out\" --retain-public", "dependsOn": [ "typecheck:swift" ] },
@@ -266,6 +267,7 @@
         ],
         "typecheck:claude": { "command": "tsc --pretty false -p {projectRoot}/tsconfig.claude.json", "inputs": [ "tsc", "{projectRoot}/**/*.ts", "{projectRoot}/tsconfig*.json", { "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts", "includeIgnored": true } ], "cache": true },
         "lint:*": { "cache": true },
+        "lint:cargo-deny": { "cache": false },
         "lint:dotnet-format{,:*.cs}": { "command": "dotnet format style --verify-no-changes --no-restore", "dependsOn": [ "build" ], "inputs": [ "default", "dotnet", { "dependentTasksOutputFiles": "**/ref/*.dll", "transitive": true } ], "cache": true },
         "lint:claude": { "command": "claude plugin validate {projectRoot}", "inputs": [ "{projectRoot}/**/*", { "externalDependencies": [] }, { "runtime": "claude --version" } ], "cache": true },
         "lint:periphery": [

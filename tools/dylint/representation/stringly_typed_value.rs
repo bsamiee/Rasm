@@ -1,4 +1,4 @@
-use core::{iter, mem};
+use core::{cell::LazyCell, iter, mem};
 
 use clippy_utils::{
     consts::{ConstEvalCtxt, Constant},
@@ -114,49 +114,54 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 compared.extend(tags.iter().copied());
             }
         };
-        if (!expanded_externally(cx, expr.span) || root_macro_call(expr.span).is_some_and(|call| cx.tcx.is_diagnostic_item(sym::matches_macro, call.def_id))) && !in_test(cx.tcx, expr.hir_id) {
-            if let ExprKind::Match(scrutinee, arms, MatchSource::Normal) = expr.kind
-                && is_text(cx, typeck.expr_ty(scrutinee))
-                && let tagged = arms.iter().filter_map(|arm| Some((tags(cx, arm.pat)?, arm.body))).collect::<Vec<_>>()
-                && !tagged.iter().all(|(_, body)| decoded(cx, body))
-            {
-                branch(scrutinee, site, &tagged.into_iter().flat_map(|(tags, _)| tags).collect::<Vec<_>>());
-            }
-            if let ExprKind::Binary(operator, left, right) = expr.kind
-                && matches!(operator.node, BinOpKind::Eq | BinOpKind::Ne)
-                && let Some((subject, compared)) = [(left, right), (right, left)].into_iter().find_map(|(subject, other)| Some((subject, tag(cx, other)?)))
-                && is_text(cx, typeck.expr_ty(subject))
-                && !get_parent_expr(cx, expr)
-                    .and_then(|condition| if let ExprKind::DropTemps(_) = condition.kind { get_parent_expr(cx, condition) } else { Some(condition) })
-                    .is_some_and(|conditional| matches!(conditional.kind, ExprKind::If(_, then, _) if decoded(cx, then)))
-            {
-                branch(subject, site, &[compared]);
-            }
-            if let ExprKind::MethodCall(segment, receiver, [subject], _) = expr.kind
-                && segment.ident.name == sym::contains
-                && fn_def_id(cx, expr).and_then(|method| impl_owner(cx.tcx, method)).is_some_and(Ty::is_slice)
-                && let ExprKind::Array(items) = receiver.peel_borrows().kind
-                && let Some(listed) = items.iter().map(|item| tag(cx, item)).collect::<Option<Vec<_>>>()
-                && is_text(cx, typeck.expr_ty(subject))
-            {
-                branch(subject, site, &listed);
-            }
-            if let ExprKind::MethodCall(_, collection, [key, ..], _) | ExprKind::Index(collection, key, _) = expr.kind
-                && let ty::Adt(keyed, args) = typeck.expr_ty_adjusted(collection).peel_refs().kind()
-                && self.collections.contains(&keyed.did())
-                && (matches!(expr.kind, ExprKind::Index(..))
-                    || fn_def_id(cx, expr)
-                        .and_then(|method| cx.tcx.inherent_impl_of_assoc(method))
-                        .is_some_and(|implementation| cx.tcx.type_of(implementation).instantiate_identity().skip_normalization().ty_adt_def() == Some(*keyed)))
-                && is_text(cx, args.type_at(0))
-                && let Some(literal) = tag(cx, key)
-                && let Some(held) =
-                    place(cx, peel_hir_expr_while(collection, |inner| if let ExprKind::AddrOf(_, _, operand) | ExprKind::Unary(UnOp::Deref, operand) = inner.kind { Some(operand) } else { None }))
-            {
-                let (sites, keys) = self.keyed.entry(held).or_default();
-                sites.push(key.span);
-                keys.insert(literal);
-            }
+        let branched = LazyCell::new(|| {
+            (!expanded_externally(cx, expr.span) || root_macro_call(expr.span).is_some_and(|call| cx.tcx.is_diagnostic_item(sym::matches_macro, call.def_id))) && !in_test(cx.tcx, expr.hir_id)
+        });
+        if let ExprKind::Match(scrutinee, arms, MatchSource::Normal) = expr.kind
+            && *branched
+            && is_text(cx, typeck.expr_ty(scrutinee))
+            && let tagged = arms.iter().filter_map(|arm| Some((tags(cx, arm.pat)?, arm.body))).collect::<Vec<_>>()
+            && !tagged.iter().all(|(_, body)| decoded(cx, body))
+        {
+            branch(scrutinee, site, &tagged.into_iter().flat_map(|(tags, _)| tags).collect::<Vec<_>>());
+        }
+        if let ExprKind::Binary(operator, left, right) = expr.kind
+            && matches!(operator.node, BinOpKind::Eq | BinOpKind::Ne)
+            && *branched
+            && let Some((subject, compared)) = [(left, right), (right, left)].into_iter().find_map(|(subject, other)| Some((subject, tag(cx, other)?)))
+            && is_text(cx, typeck.expr_ty(subject))
+            && !get_parent_expr(cx, expr)
+                .and_then(|condition| if let ExprKind::DropTemps(_) = condition.kind { get_parent_expr(cx, condition) } else { Some(condition) })
+                .is_some_and(|conditional| matches!(conditional.kind, ExprKind::If(_, then, _) if decoded(cx, then)))
+        {
+            branch(subject, site, &[compared]);
+        }
+        if let ExprKind::MethodCall(segment, receiver, [subject], _) = expr.kind
+            && segment.ident.name == sym::contains
+            && *branched
+            && fn_def_id(cx, expr).and_then(|method| impl_owner(cx.tcx, method)).is_some_and(Ty::is_slice)
+            && let ExprKind::Array(items) = receiver.peel_borrows().kind
+            && let Some(listed) = items.iter().map(|item| tag(cx, item)).collect::<Option<Vec<_>>>()
+            && is_text(cx, typeck.expr_ty(subject))
+        {
+            branch(subject, site, &listed);
+        }
+        if let ExprKind::MethodCall(_, collection, [key, ..], _) | ExprKind::Index(collection, key, _) = expr.kind
+            && let ty::Adt(keyed, args) = typeck.expr_ty_adjusted(collection).peel_refs().kind()
+            && self.collections.contains(&keyed.did())
+            && *branched
+            && (matches!(expr.kind, ExprKind::Index(..))
+                || fn_def_id(cx, expr)
+                    .and_then(|method| cx.tcx.inherent_impl_of_assoc(method))
+                    .is_some_and(|implementation| cx.tcx.type_of(implementation).instantiate_identity().skip_normalization().ty_adt_def() == Some(*keyed)))
+            && is_text(cx, args.type_at(0))
+            && let Some(literal) = tag(cx, key)
+            && let Some(held) =
+                place(cx, peel_hir_expr_while(collection, |inner| if let ExprKind::AddrOf(_, _, operand) | ExprKind::Unary(UnOp::Deref, operand) = inner.kind { Some(operand) } else { None }))
+        {
+            let (sites, keys) = self.keyed.entry(held).or_default();
+            sites.push(key.span);
+            keys.insert(literal);
         }
         if let Some((_, fields)) = constructed(typeck, expr) {
             let written =

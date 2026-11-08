@@ -19,6 +19,7 @@ thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive_more          = { workspace = true }
 strum                = { workspace = true }
+enum-map             = { workspace = true }
 indexmap             = { workspace = true }
 itertools            = { workspace = true }
 smallvec             = { workspace = true }
@@ -36,6 +37,7 @@ aws-lc-rs            = { workspace = true }
 nalgebra             = { workspace = true }
 uom                  = { workspace = true }
 color                = { workspace = true }
+imagesize            = { workspace = true }
 rasm-ifc             = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------

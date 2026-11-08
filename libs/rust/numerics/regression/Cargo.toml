@@ -22,7 +22,6 @@ itertools               = { workspace = true }
 serde                   = { workspace = true }
 almost                  = { workspace = true }
 faer                    = { workspace = true }
-libm                    = { workspace = true }
 nalgebra                = { workspace = true }
 num-dual                = { workspace = true }
 statrs                  = { workspace = true }

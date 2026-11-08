@@ -9,11 +9,9 @@ use crate::WorkbooksError;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn block(book: &mut WorkBook, sheet: &mut Sheet, origin: (u32, u32), block: &Range<Data>) -> Result<(), WorkbooksError> {
-    let cells = crate::values(block)
+    let cells = crate::values(block, origin)
         .map(|value| {
-            let (offset, value) = value?;
-            let at = (u64::from(origin.0).strict_add(u64::from(offset.0)), u64::from(origin.1).strict_add(u64::from(offset.1)));
-            let cell = u32::try_from(at.0).and_then(|row| u32::try_from(at.1).map(|column| (row, column))).map_err(|source| WorkbooksError::Coordinate { cell: at, source })?;
+            let (cell, value) = value?;
             match value {
                 crate::Value::Integer(integer) => Ok((Value::from(integer), None, false)),
                 crate::Value::Number(number) => Ok((Value::from(number), None, false)),

@@ -23,7 +23,7 @@ use statrs::{
 };
 use validated::Validated;
 
-use crate::{Bounds, Moment, Sample, Space, StatsError, descriptive::quantile_data};
+use crate::{Bounds, Moment, Sample, Space, StatsError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -244,7 +244,7 @@ where K: Ord {
             }))?;
             let mut ordered = Data::new(values.clone());
             let bulk = scores(&mut ordered);
-            let [low, median, high] = [0.05, 0.5, 0.95].map(|tail| quantile_data(&mut ordered, tail));
+            let [low, median, high] = [0.05, 0.5, 0.95].map(|tail| ordered.quantile(tail));
             let folded = split(&scores(&mut Data::new(values.iter().map(|value| (value - median).abs()).collect())));
             let [below, above] = [low, high].map(|quantile| {
                 let indicators = values.iter().map(|&value| if value <= quantile { 1.0 } else { 0.0 }).collect::<Vec<_>>();

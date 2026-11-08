@@ -2,7 +2,7 @@ use core::iter;
 use std::collections::{BTreeMap, BTreeSet};
 
 use color::{OpaqueColor, Srgb};
-use hayro_syntax::object::dict::keys::RESOURCES;
+use hayro_syntax::object::dict::keys::{COLORSPACE, CONTENTS, N, RESOURCES};
 use krilla::{
     SerializeSettings,
     blend::BlendMode,
@@ -88,11 +88,10 @@ fn recolored<I>(document: &Document, pages: I, color: OpaqueColor<Srgb>) -> Resu
 where I: IntoIterator<Item = usize> {
     fn spaces<'held, I>(structure: &lopdf::Document, resources: I) -> Result<BTreeMap<Vec<u8>, Option<Mixing>>, lopdf::Error>
     where I: IntoIterator<Item = &'held Dictionary> {
-        const COLOR_SPACE: &[u8] = b"ColorSpace";
         resources
             .into_iter()
-            .filter(|held| held.has(COLOR_SPACE))
-            .map(|held| structure.get_dict_in_dict(held, COLOR_SPACE))
+            .filter(|held| held.has(COLORSPACE))
+            .map(|held| structure.get_dict_in_dict(held, COLORSPACE))
             .try_collect::<Vec<_>>()?
             .into_iter()
             .flat_map(Dictionary::iter)
@@ -109,7 +108,7 @@ where I: IntoIterator<Item = usize> {
         }
         match structure.dereference(space)?.1 {
             Object::Name(name) => Ok(device(name)),
-            Object::Array([Object::Name(b"ICCBased"), profile]) => structure.dereference(profile)?.1.as_stream()?.dict.get(b"N")?.as_i64().map(channels),
+            Object::Array([Object::Name(b"ICCBased"), profile]) => structure.dereference(profile)?.1.as_stream()?.dict.get(N)?.as_i64().map(channels),
             Object::Array([Object::Name(b"CalGray" | b"CalRGB"), ..]) => Ok(Some(Mixing::Additive)),
             Object::Array([Object::Name(b"Separation" | b"DeviceN"), ..]) => Ok(Some(Mixing::Subtractive)),
             _ => Ok(None),
@@ -132,7 +131,7 @@ where I: IntoIterator<Item = usize> {
         .map(|(sheet, resources)| {
             structure
                 .get_dictionary(*sheet)?
-                .has(b"Contents")
+                .has(CONTENTS)
                 .then(|| {
                     spaces(&structure, resources.iter().copied()).and_then(|colorspaces| {
                         structure.get_and_decode_page_content(*sheet).and_then(|content| {

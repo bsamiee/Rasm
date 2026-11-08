@@ -46,10 +46,10 @@ pub enum Weight {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Settings {
-    pub degree: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 9),
+    pub degree: NonZero<usize> = NonZero::new(10).unwrap(),
     pub absolute: Option<Tolerance> = None,
     pub relative: Tolerance = TOLERANCE,
-    pub limit: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 49),
+    pub limit: NonZero<usize> = NonZero::new(50).unwrap(),
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use clippy_utils::{diagnostics::span_lint_hir_and_then, source::walk_span_to_context};
 use rustc_hir::Expr;
 use rustc_lint::{LateContext, LateLintPass};
@@ -8,13 +10,13 @@ use crate::{Recorded, is_error};
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
-    recorded: Recorded,
+    recorded: Rc<Recorded>,
 }
 
 lint!(Pass; ERROR_FIELD_WITHOUT_SOURCES: "tracing fields recording an error outside `std::error::Report`");
 
 impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { recorded: Recorded::new(tcx) } }
+    pub(crate) const fn new(_: TyCtxt<'_>, recorded: Rc<Recorded>) -> Self { Self { recorded } }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -83,12 +83,12 @@ where
         SkyMeasure::ViewFactor | SkyMeasure::VerticalComponent => |cosine| cosine,
         SkyMeasure::Exposure => |cosine| f64::from(cosine > 0.0),
     };
-    let mut horizontal = 0.0;
     let sky = patches(subdivision, UnitQuaternion::identity())
         .filter(|patch| patch.direction.z > 0.0)
         .map(|patch| (patch.direction, luminance(patch.direction.z) * patch.solid_angle.get::<steradian>()))
-        .inspect(|&(direction, weight)| horizontal = response(direction.z).mul_add(weight, horizontal));
-    let received = accumulated(assembly, translucent, offset, sensors, sky.map(Ok), response)?;
+        .collect_vec();
+    let horizontal = sky.iter().map(|&(direction, weight)| response(direction.z) * weight).sum::<f64>();
+    let received = accumulated(assembly, translucent, offset, sensors, sky.into_iter().map(Ok), response)?;
     Ok(received.mapv(|received| Ratio::new::<ratio>(received / horizontal)))
 }
 

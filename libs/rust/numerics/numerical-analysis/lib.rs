@@ -136,7 +136,7 @@ pub enum RootSource {
     Basin(Box<basin::ConstraintSolveError<AnalysisError>>),
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, derive_more::IsVariant)]
 pub enum AnalysisError {
     #[error("{input} holds {found} entries where {expected} are needed")]
     Shape { input: Input, expected: usize, found: usize },

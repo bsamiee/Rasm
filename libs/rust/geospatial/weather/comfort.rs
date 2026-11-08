@@ -11,7 +11,7 @@ use thermalcomfort::{
     environment::{OperativeTemperatureInputs, OperativeTemperatureOptions, operative_temperature},
     models::{
         AtOptions, HeatIndexRothfuszOptions, HumidexOptions, PetInputs, PetOptions, SetInputs, SetOptions, WindChillTemperatureOptions,
-        adaptive::{AdaptiveAshraeResult, AdaptiveEnResult, AdaptiveInputs, AdaptiveOptions, adaptive_ashrae, adaptive_en},
+        adaptive::{AdaptiveAshraeResult, AdaptiveInputs, AdaptiveOptions, adaptive_ashrae, adaptive_en},
         at, heat_index_rothfusz, humidex, pet_steady,
         pmv::{PmvPpdAshraeOptions, PmvPpdInputs, PmvPpdIsoOptions, pmv_ppd_ashrae},
         set_tmp,
@@ -238,38 +238,26 @@ pub fn adaptive(conditions: Conditions, running_mean: ThermodynamicTemperature, 
     let (tdb, tr, speed, _) = environment(conditions);
     let inputs = AdaptiveInputs { tdb, tr, t_running_mean: temperature(running_mean), v: speed };
     let limit = |low: Temperature, up: Temperature, acceptable: bool| Limit { operative: RangeInclusive { start: quantity(low), last: quantity(up) }, acceptable };
-    let (comfort, limits, use_ashrae) = match standard {
+    let (comfort, limits) = match standard {
         Standard::Ashrae => {
             let AdaptiveAshraeResult { tmp_cmf, tmp_cmf_80_low, tmp_cmf_80_up, tmp_cmf_90_low, tmp_cmf_90_up, acceptability_80, acceptability_90 } = adaptive_ashrae(inputs, options);
-            (tmp_cmf, Limits::Ashrae { acceptability_80: limit(tmp_cmf_80_low, tmp_cmf_80_up, acceptability_80), acceptability_90: limit(tmp_cmf_90_low, tmp_cmf_90_up, acceptability_90) }, true)
+            (tmp_cmf, Limits::Ashrae { acceptability_80: limit(tmp_cmf_80_low, tmp_cmf_80_up, acceptability_80), acceptability_90: limit(tmp_cmf_90_low, tmp_cmf_90_up, acceptability_90) })
         }
         Standard::En => {
-            let AdaptiveEnResult {
-                tmp_cmf,
-                tmp_cmf_cat_i_low,
-                tmp_cmf_cat_i_up,
-                tmp_cmf_cat_ii_low,
-                tmp_cmf_cat_ii_up,
-                tmp_cmf_cat_iii_low,
-                tmp_cmf_cat_iii_up,
-                acceptability_cat_i,
-                acceptability_cat_ii,
-                acceptability_cat_iii,
-            } = adaptive_en(inputs, options);
+            let result = adaptive_en(inputs, options);
             (
-                tmp_cmf,
+                result.tmp_cmf,
                 Limits::En {
-                    category_i: limit(tmp_cmf_cat_i_low, tmp_cmf_cat_i_up, acceptability_cat_i),
-                    category_ii: limit(tmp_cmf_cat_ii_low, tmp_cmf_cat_ii_up, acceptability_cat_ii),
-                    category_iii: limit(tmp_cmf_cat_iii_low, tmp_cmf_cat_iii_up, acceptability_cat_iii),
+                    category_i: limit(result.tmp_cmf_cat_i_low, result.tmp_cmf_cat_i_up, result.acceptability_cat_i),
+                    category_ii: limit(result.tmp_cmf_cat_ii_low, result.tmp_cmf_cat_ii_up, result.acceptability_cat_ii),
+                    category_iii: limit(result.tmp_cmf_cat_iii_low, result.tmp_cmf_cat_iii_up, result.acceptability_cat_iii),
                 },
-                false,
             )
         }
     };
     comfort.as_kelvin().is_finite().then(|| Adaptive {
         comfort: quantity(comfort),
-        operative: quantity(operative_temperature(OperativeTemperatureInputs { tdb, tr, v: speed }, OperativeTemperatureOptions { use_ashrae })),
+        operative: quantity(operative_temperature(OperativeTemperatureInputs { tdb, tr, v: speed }, OperativeTemperatureOptions { use_ashrae: standard == Standard::Ashrae })),
         limits,
     })
 }

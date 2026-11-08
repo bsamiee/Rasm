@@ -18,7 +18,7 @@ lint-commented-code                          = true
 
 # --- [NUMERICS]
 
-arithmetic-side-effects-allowed       = ["acadrust::Vector3", "centrality::Centrality", "f128", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Isometry", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Transform", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "twofloat::TwoFloat", "typst::layout::Axes", "uom::si::Quantity"]
+arithmetic-side-effects-allowed       = ["acadrust::Vector3", "centrality::Centrality", "dashu::rational::RBig", "f128", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Isometry", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Transform", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "twofloat::TwoFloat", "typst::layout::Axes", "uom::si::Quantity"]
 arithmetic-side-effects-allowed-unary = ["acadrust::Vector3", "kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]

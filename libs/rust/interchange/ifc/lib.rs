@@ -401,7 +401,7 @@ pub struct Model {
     roots: Vec<Arc<Composed>>,
     nodes: Vec<Arc<Composed>>,
     holders: HashMap<Path, Vec<(Name, Arc<Composed>)>>,
-    holding: HashMap<Box<str>, Vec<Arc<Composed>>>,
+    holding: hashbrown::HashMap<Box<str>, Vec<Arc<Composed>>>,
 }
 
 impl Model {

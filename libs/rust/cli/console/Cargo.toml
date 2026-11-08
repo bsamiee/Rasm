@@ -21,13 +21,11 @@ sysexits             = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
 indexmap             = { workspace = true }
+itertools            = { workspace = true }
 csv                  = { workspace = true }
-itoa                 = { workspace = true }
 serde                = { workspace = true }
 serde-content        = { workspace = true }
 serde_json           = { workspace = true }
-zmij                 = { workspace = true }
-bstr                 = { workspace = true }
 tracing-subscriber   = { workspace = true }
 anstream             = { workspace = true }
 anstyle              = { workspace = true }

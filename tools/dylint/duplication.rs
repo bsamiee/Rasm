@@ -1,10 +1,15 @@
-use core::{cell::RefCell, iter, ops::ControlFlow};
+use core::{
+    cell::{OnceCell, RefCell},
+    iter,
+    ops::ControlFlow,
+};
 use std::rc::Rc;
 
 use clippy_utils::{SpanlessEq, visitors::for_each_expr_without_closures};
+use itertools::Itertools as _;
 use rustc_data_structures::{
     fingerprint::Fingerprint,
-    fx::FxHashMap,
+    fx::{FxBuildHasher, FxHashMap},
     stable_hash::{StableHash as _, StableHasher},
 };
 use rustc_hir::{
@@ -50,9 +55,21 @@ pub(crate) struct Callable<'tcx> {
 pub(crate) struct Bodies<'tcx> {
     facts: RefCell<FxHashMap<LocalDefId, Option<Rc<BodyFacts<'tcx>>>>>,
     callables: RefCell<FxHashMap<LocalDefId, Option<Rc<Callable<'tcx>>>>>,
+    implementations: OnceCell<FxHashMap<LocalDefId, Vec<(DefId, LocalDefId)>>>,
 }
 
 impl<'tcx> Bodies<'tcx> {
+    pub(crate) fn implementations(&self, tcx: TyCtxt<'tcx>) -> &FxHashMap<LocalDefId, Vec<(DefId, LocalDefId)>> {
+        self.implementations.get_or_init(|| {
+            tcx.all_local_trait_impls(())
+                .iter()
+                .flat_map(|(&implemented, implementations)| implementations.iter().map(move |&implementation| (implemented, implementation)))
+                .filter_map(|implementation @ (_, local)| Some((tcx.type_of(local).instantiate_identity().skip_normalization().peel_refs().ty_adt_def()?.did().as_local()?, implementation)))
+                .into_grouping_map_with_hasher(FxBuildHasher)
+                .collect()
+        })
+    }
+
     pub(crate) fn callable(&self, tcx: TyCtxt<'tcx>, function: LocalDefId) -> Option<Rc<Callable<'tcx>>> {
         self.callables
             .borrow_mut()

@@ -10,10 +10,6 @@ use rasm_command::{CommandError, Process, telemetry::Defaults};
 use rasm_process::Run;
 use tracing_subscriber::layer::Identity;
 
-#[cfg(target_os = "macos")]
-mod adobe;
-mod blender;
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Parser)]
@@ -48,3 +44,7 @@ fn main() -> ExitCode {
         .await
     })
 }
+
+#[cfg(target_os = "macos")]
+mod adobe;
+mod blender;

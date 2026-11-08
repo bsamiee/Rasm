@@ -233,15 +233,15 @@ impl Region {
 
     pub fn transform(&self, affine: Placement) -> Result<Self, LineworkError> {
         let mirrored = affine.determinant().is_sign_negative();
-        let moved = self
-            .iter()
+        self.iter()
             .map(|Contour { path, parent, outer }| {
                 let moved = *affine * path;
-                Contour { path: if mirrored { moved.reverse_subpaths() } else { moved }, parent: *parent, outer: *outer }
+                let path = if mirrored { moved.reverse_subpaths() } else { moved };
+                finite(&path).map(|()| Contour { path, parent: *parent, outer: *outer })
             })
-            .collect::<Arc<[_]>>();
-        moved.iter().try_for_each(|contour| finite(&contour.path))?;
-        Ok(Self(moved))
+            .collect::<Result<Arc<[_]>, _>>()
+            .map(Self)
+            .map_err(LineworkError::from)
     }
 }
 

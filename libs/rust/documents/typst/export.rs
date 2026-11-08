@@ -59,22 +59,16 @@ pub fn paged(
     prior: &IndexMap<VirtualPath, u128>,
 ) -> Validated<Export<impl IndexedParallelIterator<Item = Result<File, TypesetError>>>, TypesetError> {
     let main = world.main().get().vpath();
-    let extension = match format {
-        PagedFormat::Pdf => "pdf",
-        PagedFormat::Png => "png",
-        PagedFormat::Svg => "svg",
+    let (extension, identity, whole) = match format {
+        PagedFormat::Pdf => ("pdf", hash128(&(document, &options.pdf)), true),
+        PagedFormat::Png => ("png", hash128(&mem::discriminant(&raster.compression)), false),
+        PagedFormat::Svg => ("svg", hash128(&options.svg), false),
     };
-    let file = move |number: NonZero<usize>| main.with_extension(&format!("{number}.{extension}"));
     let scaled = move |page: &Page| {
         let extent = extent(page, &options.png);
         let pixel_per_pt = options.png.pixel_per_pt.get();
         let pixel_per_pt = raster.fit.map_or(pixel_per_pt, |fit| pixel_per_pt.min(f64::from(fit.x.get()) / extent.x.to_pt()).min(f64::from(fit.y.get()) / extent.y.to_pt()));
         RenderOptions { pixel_per_pt: pixel_per_pt.into(), ..options.png.clone() }
-    };
-    let identity = match format {
-        PagedFormat::Pdf => hash128(&(document, &options.pdf)),
-        PagedFormat::Svg => hash128(&options.svg),
-        PagedFormat::Png => hash128(&mem::discriminant(&raster.compression)),
     };
     let selected = document
         .pages()
@@ -88,12 +82,12 @@ pub fn paged(
     {
         return Validated::Fail(errors);
     }
-    let limit = if format == PagedFormat::Pdf { 1 } else { selected.len() };
+    let limit = if whole { 1 } else { selected.len() };
     let (hashes, changed) = selected
         .into_par_iter()
         .take(limit)
         .map(|(number, page)| {
-            let path = if format == PagedFormat::Pdf { main.with_extension(extension) } else { file(number) };
+            let path = if whole { main.with_extension(extension) } else { main.with_extension(&format!("{number}.{extension}")) };
             let hash = match format {
                 PagedFormat::Pdf => identity,
                 PagedFormat::Svg => hash128(&(page, identity)),

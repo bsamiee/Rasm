@@ -1,5 +1,4 @@
 use core::{
-    cmp::Ordering,
     f64::consts::{LOG2_E, TAU},
     iter,
 };
@@ -16,7 +15,7 @@ use itertools::{Itertools as _, izip};
 use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView, Dyn, MatrixView2xX, Point2, U1, convert};
 use nonempty_collections::NEVec;
 use rasm_stats::Tolerance;
-use rayon::iter::ParallelIterator as _;
+use rayon::iter::{IndexedParallelIterator as _, ParallelIterator as _};
 use spade::{
     ConstrainedDelaunayTriangulation, DelaunayTriangulation, FloatTriangulation as _, HasPosition, HierarchyHintGenerator, InsertionError, Triangulation as _,
     handles::{FixedVertexHandle, VertexHandle},
@@ -47,6 +46,10 @@ pub enum Kernel {
     Matern52,
     Gaussian,
 }
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const TASK_EVALUATIONS: usize = 8192;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -234,10 +237,11 @@ pub fn krige(observations: &Observations, kernel: Kernel, lengths: &[Tolerance],
     let lengths = DVector::from_iterator(dimensions, lengths.iter().map(|length| length.into_inner()));
     let variance = variance.into_inner();
     let nugget = noise.map_or_default(Tolerance::into_inner);
-    let covariance = DMatrix::from_fn(points, points, |row, column| match row.cmp(&column) {
-        Ordering::Less => 0.0,
-        Ordering::Equal => variance + nugget / observation_weights[row],
-        Ordering::Greater => variance * correlation(kernel, &lengths, sites.column(row), sites.column(column)),
+    let mut covariance = DMatrix::<f64>::zeros(points, points);
+    covariance.par_column_iter_mut().with_min_len(TASK_EVALUATIONS.div_ceil(points)).enumerate().for_each(|(column, mut entries)| {
+        entries.iter_mut().enumerate().skip(column).for_each(|(row, entry)| {
+            *entry = if row == column { variance + nugget / observation_weights[row] } else { variance * correlation(kernel, &lengths, sites.column(row), sites.column(column)) };
+        });
     });
     let factor = MatRef::from_column_major_slice(covariance.as_slice(), points, points)
         .llt(Side::Lower)
@@ -261,8 +265,10 @@ pub fn predict(kriging: &Kriging, sites: DMatrixView<'_, f64>) -> Result<Vec<Pre
         .chain(refused_sites(&sites, |coordinate: &f64| coordinate.is_finite()))
         .collect::<Validated<(), _>>()
         .ok()?;
-    let cross =
-        DMatrix::from_fn(kriging.sites.ncols(), sites.ncols(), |known, query| kriging.variance * correlation(kriging.kernel, &kriging.lengths, kriging.sites.column(known), sites.column(query)));
+    let mut cross = DMatrix::<f64>::zeros(kriging.sites.ncols(), sites.ncols());
+    cross.par_column_iter_mut().with_min_len(TASK_EVALUATIONS.div_ceil(kriging.sites.ncols())).zip(sites.par_column_iter()).for_each(|(mut entries, query)| {
+        iter::zip(entries.iter_mut(), kriging.sites.column_iter()).for_each(|(entry, known)| *entry = kriging.variance * correlation(kriging.kernel, &kriging.lengths, known, query));
+    });
     let reduced = solved(&kriging.factor, cross.clone());
     let terms = design(&kriging.drift.exponents, &sites).transpose();
     let gap = &terms - kriging.basis.tr_mul(&reduced);

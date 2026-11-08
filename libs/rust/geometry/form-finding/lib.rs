@@ -3,14 +3,14 @@
 use core::{cmp, iter, num::NonZero};
 
 use faer::{
-    Accum, MatMut, MatRef, Side, get_global_parallelism,
+    ColRef, Mat, MatRef, RowRef, Side,
     sparse::{
         Argsort, CreationError, Pair, SparseColMat, SymbolicSparseColMat, Triplet,
-        linalg::{LltError, matmul::sparse_dense_matmul, solvers::SymbolicLlt},
+        linalg::{LltError, solvers::SymbolicLlt},
     },
 };
 use itertools::Itertools as _;
-use nalgebra::{DVector, DVectorView, Matrix3xX, Point3, Vector3};
+use nalgebra::{DVector, DVectorView, Point3, Vector3};
 use nonempty_collections::NEVec;
 use petgraph::unionfind::UnionFind;
 use rasm_optimization::OptimizeError;
@@ -47,8 +47,8 @@ pub struct Network {
     index: Vec<Option<usize>>,
     free: SparseColMat<usize, f64>,
     supports: SparseColMat<usize, f64>,
-    anchors: Matrix3xX<f64>,
-    loads: Matrix3xX<f64>,
+    anchors: Mat<f64>,
+    loads: Mat<f64>,
     symbolic: SymbolicSparseColMat<usize>,
     argsort: Argsort<usize>,
     llt: SymbolicLlt<usize>,
@@ -71,7 +71,8 @@ impl Network {
         .ok()?;
         let side = |project: fn(&Node) -> Option<Vector3<f64>>| {
             let ranks = nodes.iter().scan(0_usize.., |rank, node| Some(project(node).and_then(|_| rank.next()))).collect::<Vec<_>>();
-            (Matrix3xX::from_iterator(ranks.iter().flatten().count(), nodes.iter().filter_map(project).flat_map(<[f64; 3]>::from)), ranks)
+            let rows = nodes.iter().filter_map(project).collect::<Vec<_>>();
+            (Mat::from_fn(rows.len(), 3, |row, axis| rows[row][axis]), ranks)
         };
         let ((loads, index), (positions, supported)) = (
             side(|node| match *node {
@@ -107,10 +108,9 @@ impl Network {
         };
         let (free, supports) = incidence(&index).map2(incidence(&supported), |free, supports| (free, supports)).ok()?;
         (try bikeshed Result<Self, FormError> {
-            let mut anchors = Matrix3xX::zeros(edges.len());
-            sparse_dense_matmul(view_mut(&mut anchors), Accum::Replace, supports.as_ref(), view(&positions), 1.0, get_global_parallelism());
+            let anchors = supports.as_ref() * positions.as_ref();
             let pattern = grounded(&index, &edges, iter::repeat(1.0)).map(|(pair, _)| pair).collect::<Vec<_>>();
-            let (symbolic, argsort) = SymbolicSparseColMat::<usize>::try_new_from_indices(loads.ncols(), loads.ncols(), &pattern)?;
+            let (symbolic, argsort) = SymbolicSparseColMat::<usize>::try_new_from_indices(loads.nrows(), loads.nrows(), &pattern)?;
             let llt = SymbolicLlt::try_new(symbolic.as_ref(), Side::Lower).map_err(LltError::Generic)?;
             Self { nodes, edges, index, free, supports, anchors, loads, symbolic, argsort, llt }
         })
@@ -150,15 +150,6 @@ pub enum FormError {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [VIEWS]
-
-fn view(matrix: &Matrix3xX<f64>) -> MatRef<'_, f64> { MatRef::from_column_major_slice(matrix.as_slice(), matrix.nrows(), matrix.ncols()).transpose() }
-
-fn view_mut(matrix: &mut Matrix3xX<f64>) -> MatMut<'_, f64> {
-    let (rows, columns) = matrix.shape();
-    MatMut::from_column_major_slice_mut(matrix.as_mut_slice(), rows, columns).transpose_mut()
-}
-
 // --- [ASSEMBLY]
 
 fn grounded<I>(index: &[Option<usize>], edges: &[[usize; 2]], weights: I) -> impl Iterator<Item = (Pair<usize, usize>, f64)>
@@ -185,37 +176,27 @@ fn laplacian(network: &Network, magnitudes: impl IntoIterator<Item = f64>) -> Re
 
 // --- [EQUILIBRIUM]
 
-fn spans(network: &Network, free: &Matrix3xX<f64>) -> Matrix3xX<f64> {
-    let mut spans = network.anchors.clone();
-    sparse_dense_matmul(view_mut(&mut spans), Accum::Add, network.free.as_ref(), view(free), 1.0, get_global_parallelism());
-    spans
+fn spans(network: &Network, free: MatRef<'_, f64>) -> Mat<f64> { &network.anchors + network.free.as_ref() * free }
+
+fn balance<'network>(network: &'network Network, spans: MatRef<'_, f64>, densities: DVectorView<'_, f64>) -> (Mat<f64>, impl FnOnce() -> Mat<f64> + use<'network>) {
+    let weighted = ColRef::from_slice(densities.as_slice()).as_diagonal() * spans;
+    (&network.loads - network.free.as_ref().transpose() * &weighted, move || network.supports.as_ref().transpose() * &weighted)
 }
 
-fn balance<'network>(network: &'network Network, spans: &Matrix3xX<f64>, densities: DVectorView<'_, f64>) -> (Matrix3xX<f64>, impl FnOnce() -> Matrix3xX<f64> + use<'network>) {
-    let weighted = Matrix3xX::from_iterator(spans.ncols(), iter::zip(spans.column_iter(), densities.iter()).flat_map(|(span, &density)| <[f64; 3]>::from(span * density)));
-    let mut residual = network.loads.clone();
-    sparse_dense_matmul(view_mut(&mut residual), Accum::Add, network.free.transpose(), view(&weighted), -1.0, get_global_parallelism());
-    (residual, move || {
-        let mut reactions = Matrix3xX::zeros(network.supports.ncols());
-        sparse_dense_matmul(view_mut(&mut reactions), Accum::Replace, network.supports.transpose(), view(&weighted), 1.0, get_global_parallelism());
-        reactions
-    })
-}
+fn vector(row: RowRef<'_, f64>) -> Vector3<f64> { Vector3::from_iterator(row.iter().copied()) }
 
-fn form(network: &Network, free: &Matrix3xX<f64>, spans: &Matrix3xX<f64>, densities: DVectorView<'_, f64>, (residual, reactions): (Matrix3xX<f64>, impl FnOnce() -> Matrix3xX<f64>)) -> Form {
-    let (positions, reactions) = {
-        let supports = reactions();
-        let (mut moved, mut held) = (iter::zip(free.column_iter(), residual.column_iter()), supports.column_iter());
-        network
-            .nodes
-            .iter()
-            .filter_map(|node| match *node {
-                Node::Support(position) => held.next().map(|reaction| (position, reaction.into_owned())),
-                Node::Free { position: _, load: _ } => moved.next().map(|(position, imbalance)| (Point3::from(position.into_owned()), -imbalance)),
-            })
-            .unzip()
-    };
-    let lengths = DVector::from_iterator(spans.ncols(), spans.column_iter().map(|span| span.norm()));
+fn form(network: &Network, free: MatRef<'_, f64>, spans: MatRef<'_, f64>, densities: DVectorView<'_, f64>, (residual, reactions): (Mat<f64>, impl FnOnce() -> Mat<f64>)) -> Form {
+    let supports = reactions();
+    let (mut moved, mut held) = (iter::zip(free.row_iter(), residual.row_iter()), supports.row_iter());
+    let (positions, reactions) = network
+        .nodes
+        .iter()
+        .filter_map(|node| match *node {
+            Node::Support(position) => held.next().map(|reaction| (position, vector(reaction))),
+            Node::Free { position: _, load: _ } => moved.next().map(|(position, imbalance)| (Point3::from(vector(position)), -vector(imbalance))),
+        })
+        .unzip();
+    let lengths = DVector::from_iterator(spans.nrows(), spans.row_iter().map(|span| span.norm_l2()));
     Form { positions, forces: densities.component_mul(&lengths), lengths, reactions }
 }
 

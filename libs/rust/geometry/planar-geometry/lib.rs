@@ -169,6 +169,13 @@ pub fn winding_number(region: &Region, point: Point2<f64>, tolerance: Tolerance)
         .sum()
 }
 
+pub fn boolean(left: &Polyline<{ Closure::Closed }>, right: &Polyline<{ Closure::Closed }>, operation: BooleanOp, tolerance: Tolerance) -> Result<Region, PlanarError> {
+    let IndexedPolyline { polyline: first, spatial_index } = &left.outline;
+    let BooleanResult { pos_plines: bodies, neg_plines: holes, result_info: _ } =
+        first.boolean_opt(&right.outline.polyline, operation, &PlineBooleanOptions { pline1_aabb_index: Some(spatial_index), pos_equal_eps: tolerance.into_inner(), collapsed_area_eps: None });
+    resulting(bodies.iter().map(|body| body.pline.iter_vertexes()), holes.iter().map(|hole| hole.pline.iter_vertexes()), tolerance)
+}
+
 fn checked<const CLOSURE: Closure>(vertices: impl Iterator<Item = PlineVertex<f64>>, tolerance: Tolerance) -> Result<IndexedPolyline<f64>, Defect> {
     let source = polyline::Polyline::from_iter(vertices, CLOSURE == Closure::Closed);
     source.iter_vertexes().position(|vertex| ![vertex.x, vertex.y, vertex.bulge].into_iter().all(f64::is_finite)).map_or(Ok(()), |vertex| Err(Defect::NonFinite { vertex }))?;
@@ -439,7 +446,6 @@ fn position(point: impl Into<[f64; 2]>) -> spade::Point2<f64> { spade::mitigate_
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-mod booleans;
 mod cells;
 mod offsets;
 mod paths;
@@ -447,7 +453,6 @@ mod triangulation;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use booleans::boolean;
 pub use cells::voronoi;
 pub use offsets::{parallel, region};
 pub use paths::{Clearance, Station, clearance, closest, intersections, pieces, slice, station};

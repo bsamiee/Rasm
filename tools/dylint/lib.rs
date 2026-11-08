@@ -32,16 +32,16 @@ use clippy_utils::{
     fn_def_id, get_expr_use_site, get_parent_expr, is_from_proc_macro, is_in_cfg_test, is_in_test_function,
     macros::{FormatArgsStorage, macro_backtrace},
     paths::{PathNS, lookup_path_str},
-    peel_blocks, peel_hir_expr_refs,
+    peel_hir_expr_refs,
     res::{MaybeDef as _, MaybeResPath as _},
     sym,
     ty::{implements_trait, is_copy},
 };
-use itertools::{Either, Itertools as _};
+use itertools::Either;
 use rustc_abi::FieldIdx;
 use rustc_ast::{Crate, Expr as AstExpr, ExprKind as AstExprKind, FormatArgs};
 use rustc_attr_ir::lang_items::LangItem;
-use rustc_data_structures::fx::{FxBuildHasher, FxHashMap, FxHashSet};
+use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_errors::{Applicability, Diag, DiagMessage};
 use rustc_hir::{
     Body, BodyId, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Mutability, Node, Pat, PatExpr, PatKind, UnOp,
@@ -49,15 +49,12 @@ use rustc_hir::{
     def_id::{DefId, LocalDefId, LocalDefIdMap},
     pat_util::EnumerateAndAdjustIterator as _,
 };
-use rustc_infer::infer::TyCtxtInferExt as _;
 use rustc_lint::{EarlyContext, EarlyLintPass, LateContext, LateLintPass, LintId, LintPass, LintVec};
 use rustc_middle::ty::{
-    self, Clause, ExistentialPredicateStableCmpExt as _, FieldDef, FnSig, Interner as _, PolyTraitClause, Ty, TyCtxt, TypeckResults, TypingEnv, Unnormalized, VariantDef,
-    adjustment::{Adjust, AutoBorrow, DerefAdjustKind, PointerCoercion},
+    self, Clause, FieldDef, FnSig, PolyTraitClause, Ty, TyCtxt, TypeckResults, TypingEnv, Unnormalized, VariantDef,
+    adjustment::{Adjust, AutoBorrow, DerefAdjustKind},
 };
 use rustc_span::{ExpnKind, FileName, MacroKind, RemapPathScopeComponents, Span, Symbol};
-use rustc_trait_selection::traits::{Obligation, ObligationCause, ObligationCtxt};
-use rustc_type_ir::elaborate::{elaborate, supertraits};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -184,18 +181,13 @@ where
     M: Into<DiagMessage>,
     R: ToString,
 {
-    let generated = match cx.tcx.hir_node(node) {
-        Node::Expr(expr) => is_from_proc_macro(cx, expr),
-        Node::Pat(pat) => is_from_proc_macro(cx, pat),
-        Node::Item(item) => is_from_proc_macro(cx, item),
-        Node::TraitItem(item) => is_from_proc_macro(cx, item),
-        Node::ImplItem(item) => is_from_proc_macro(cx, item),
-        Node::Field(field) => is_from_proc_macro(cx, field),
-        Node::Variant(variant) => is_from_proc_macro(cx, variant),
-        Node::Ty(ty) => is_from_proc_macro(cx, ty),
-        _ => false,
-    };
-    if span.from_expansion() || generated {
+    if span.from_expansion()
+        || match cx.tcx.hir_node(node) {
+            Node::Expr(expr) => is_from_proc_macro(cx, expr),
+            Node::Pat(pat) => is_from_proc_macro(cx, pat),
+            _ => false,
+        }
+    {
         diag.span_help(span, help);
     } else {
         diag.span_suggestion(span, help, replacement, applicability);
@@ -227,24 +219,20 @@ fn associated_trait(tcx: TyCtxt<'_>, item: DefId) -> Option<DefId> { tcx.trait_o
 // --- [TYPES]
 
 fn result_parts<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Option<(Ty<'tcx>, Ty<'tcx>)> {
-    if let ty::Adt(result, args) = ty.kind()
-        && result.is_diag_item(cx, sym::Result)
-    {
-        Some((args.type_at(0), args.type_at(1)))
-    } else {
-        None
+    match ty.kind() {
+        ty::Adt(result, args) if result.is_diag_item(cx, sym::Result) => Some((args.type_at(0), args.type_at(1))),
+        _ => None,
     }
 }
 
 fn pointee<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
     let referent = ty.peel_refs();
-    if let ty::Adt(owner, args) = referent.kind()
-        && (owner.is_box() || matches!(owner.opt_diag_name(cx), Some(sym::Arc | sym::Rc | sym::Cow)))
-        && let Some(inner) = args.types().next()
-    {
-        inner
-    } else {
-        referent
+    match referent.kind() {
+        ty::Adt(owner, args)
+            if (owner.is_box() || matches!(owner.opt_diag_name(cx), Some(sym::Arc | sym::Rc | sym::Cow)))
+                && let Some(inner) = args.types().next() =>
+            inner,
+        _ => referent,
     }
 }
 
@@ -266,105 +254,6 @@ fn awaited_output(tcx: TyCtxt<'_>, item: DefId) -> Ty<'_> {
 
 fn bounds_of<'tcx>(tcx: TyCtxt<'tcx>, item: DefId, param: Ty<'tcx>) -> impl Iterator<Item = PolyTraitClause<'tcx>> {
     tcx.param_env(item).caller_bounds().filter_map(Clause::as_trait_clause).filter(move |bound| bound.self_ty().skip_binder() == param)
-}
-
-fn upcast(cx: &LateContext<'_>, method: LocalDefId) -> Option<DefId> {
-    let tcx = cx.tcx;
-    let trait_owner = tcx.local_parent(method);
-    if exported(cx, trait_owner) {
-        return None;
-    }
-    let subtrait = trait_owner.to_def_id();
-    let method_id = method.to_def_id();
-    let raw = tcx.fn_sig(method).instantiate_identity().skip_normalization();
-    let signature = raw.skip_binder();
-    if !matches!(signature.inputs(), [_]) || !matches!(pointee(cx, signature.output()).kind(), ty::Dynamic(..) | ty::Alias(..)) {
-        return None;
-    }
-    let mut bodies = tcx
-        .local_trait_impls(subtrait)
-        .iter()
-        .filter_map(|implementation| tcx.impl_item_implementor_ids(implementation.to_def_id()).get(&method_id)?.as_local())
-        .chain(tcx.defaultness(method).has_value().then_some(method))
-        .peekable();
-    if bodies.peek().is_none()
-        || !bodies.all(|owner| {
-            tcx.hir_maybe_body_owned_by(owner).is_some_and(|body| {
-                let value = peel_blocks(body.value);
-                parameter(body, value) == Some(0) && tcx.typeck(owner).expr_adjustments(value).iter().any(|adjustment| matches!(adjustment.kind, Adjust::Pointer(PointerCoercion::Unsize)))
-            })
-        })
-    {
-        return None;
-    }
-    let region = ty::Region::new_bound(tcx, ty::INNERMOST, ty::BoundRegion { var: ty::BoundVar::from_usize(raw.bound_vars().len()), kind: ty::BoundRegionKind::Anon });
-    let (declared, region) = tcx.liberate_late_bound_regions(
-        method_id,
-        ty::Binder::bind_with_vars((signature, region), tcx.mk_bound_variable_kinds_from_iter(raw.bound_vars().iter().chain([ty::BoundVariableKind::Region(ty::BoundRegionKind::Anon)]))),
-    );
-    let (infcx, param_env) = tcx.infer_ctxt().build_with_typing_env(TypingEnv::non_body_analysis(tcx, method_id));
-    let obligations = ObligationCtxt::new(&infcx);
-    let cause = ObligationCause::dummy();
-    let declared = obligations.normalize(&cause, param_env, Unnormalized::new(declared));
-    let ty::Dynamic(bounds, ..) = pointee(cx, declared.output()).kind() else { return None };
-    let supertrait = bounds.principal_def_id()?;
-    let inherited = tcx.supertrait_def_ids(subtrait).any(|ancestor| ancestor == supertrait);
-    let sized = tcx.generics_require_sized_self(method_id);
-    if supertrait == subtrait || !(inherited || sized && tcx.is_diagnostic_item(sym::Any, supertrait)) {
-        return None;
-    }
-    let coercion = (declared.inputs()[0], declared.output());
-    let (receiver, output, param_env) = if sized {
-        (coercion.0, coercion.1, param_env)
-    } else {
-        if !tcx.is_dyn_compatible(subtrait) {
-            return None;
-        }
-        let principal = ty::TraitRef::identity(tcx, subtrait);
-        let projections = supertraits(tcx, ty::Binder::dummy(principal))
-            .flat_map(|bound| tcx.associated_items(bound.def_id()).in_definition_order().map(move |item| (bound, item)))
-            .filter(|(_, item)| item.can_have_equality_constraint(tcx) && !item.is_impl_trait_in_trait() && !tcx.generics_require_sized_self(item.def_id))
-            .map(|(bound, item)| {
-                let kind = if item.is_type() { ty::AliasTermKind::ProjectionTy { def_id: item.def_id } } else { ty::AliasTermKind::ProjectionConst { def_id: item.def_id } };
-                let alias = ty::AliasTerm::new_from_args(tcx, kind, bound.skip_binder().args);
-                bound.rebind(ty::ExistentialPredicate::Projection(ty::ExistentialProjection::erase_self_ty(
-                    tcx,
-                    ty::ProjectionClause { projection_term: alias, term: alias.to_term(tcx, ty::IsRigid::No) },
-                )))
-            });
-        let auto_traits = elaborate(tcx, param_env.caller_bounds())
-            .filter_only_self()
-            .filter_map(Clause::as_trait_clause)
-            .filter(|bound| bound.skip_binder().polarity == ty::ClausePolarity::Positive && bound.self_ty().skip_binder().is_self_param() && tcx.trait_is_auto(bound.def_id()))
-            .map(|bound| ty::Binder::dummy(ty::ExistentialPredicate::AutoTrait(bound.def_id())));
-        let predicates = tcx.mk_poly_existential_predicates_from_iter(
-            iter::once(ty::Binder::dummy(ty::ExistentialPredicate::Trait(ty::ExistentialTraitRef::erase_self_ty(tcx, principal))))
-                .chain(projections)
-                .chain(auto_traits)
-                .unique_with_hasher(FxBuildHasher)
-                .sorted_by(|left, right| left.skip_binder().stable_cmp(tcx, &right.skip_binder())),
-        );
-        let object = Ty::new_dynamic(tcx, predicates, region);
-        let args = ty::GenericArgs::for_item(tcx, method_id, |parameter, _| {
-            let argument = tcx.mk_param_from_def(parameter);
-            if argument.as_type().is_some_and(Ty::is_self_param) { object.into() } else { argument }
-        });
-        let conditions = tcx.clauses_of(method).instantiate_identity(tcx).clauses;
-        let original = conditions.iter().copied().map(Unnormalized::skip_normalization);
-        let substituted = original
-            .clone()
-            .filter(|clause| {
-                clause
-                    .as_projection_clause()
-                    .is_none_or(|bound| bound.skip_binder().projection_term.args.iter().flat_map(ty::GenericArg::walk).filter_map(ty::GenericArg::as_type).any(Ty::is_self_param))
-            })
-            .map(|clause| ty::EarlyBinder::bind(tcx, clause).instantiate(tcx, args).skip_normalization());
-        let param_env = obligations.normalize(&cause, param_env, Unnormalized::new(ty::ParamEnv::new(tcx, elaborate(tcx, original.chain(substituted)))));
-        let (receiver, output) = obligations.normalize(&cause, param_env, ty::EarlyBinder::bind(tcx, coercion).instantiate(tcx, args));
-        (receiver, output, param_env)
-    };
-    obligations.register_obligation(Obligation::new(tcx, cause, param_env, ty::TraitRef::new(tcx, tcx.lang_items().coerce_unsized_trait()?, [receiver, output])));
-    (obligations.evaluate_obligations_error_on_ambiguity().no_errors() && obligations.resolve_regions(method, param_env, [receiver]).is_empty()).then_some(supertrait)
 }
 
 // --- [PLACES]
@@ -419,24 +308,16 @@ fn access<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> Access<'tcx> 
     }
 }
 
-fn cloned<'tcx>(cx: &LateContext<'tcx>, call: &'tcx Expr<'tcx>) -> Option<&'tcx Expr<'tcx>> {
-    let (ExprKind::Call(_, [source]) | ExprKind::MethodCall(_, source, [], _)) = call.kind else { return None };
-    fn_def_id(cx, call).and_then(|method| associated_trait(cx.tcx, method)).is_diag_item(cx, sym::Clone).then_some(source.peel_borrows())
-}
-
 fn pattern_fields<'tcx>(typeck: &TypeckResults<'tcx>, pat: &'tcx Pat<'tcx>) -> impl Iterator<Item = (DefId, &'tcx Pat<'tcx>)> {
     let variant = |qpath| typeck.pat_ty(pat).ty_adt_def().map(|adt| adt.variant_of_res(typeck.qpath_res(qpath, pat.hir_id)));
-    let named = if let PatKind::Struct(qpath, fields, _) = &pat.kind {
-        variant(qpath).map(|variant| fields.iter().map(move |field| (variant.fields[typeck.field_index(field.hir_id)].did, field.pat)))
-    } else {
-        None
-    };
-    let positional = if let PatKind::TupleStruct(qpath, fields, rest) = &pat.kind {
-        variant(qpath).map(|variant| fields.iter().enumerate_and_adjust(variant.fields.len(), *rest).map(move |(index, field)| (variant.fields[FieldIdx::from_usize(index)].did, field)))
-    } else {
-        None
-    };
-    named.into_iter().flatten().chain(positional.into_iter().flatten())
+    match &pat.kind {
+        PatKind::Struct(qpath, fields, _) => variant(qpath).map(|variant| Either::Left(fields.iter().map(move |field| (variant.fields[typeck.field_index(field.hir_id)].did, field.pat)))),
+        PatKind::TupleStruct(qpath, fields, rest) => variant(qpath)
+            .map(|variant| Either::Right(fields.iter().enumerate_and_adjust(variant.fields.len(), *rest).map(move |(index, field)| (variant.fields[FieldIdx::from_usize(index)].did, field)))),
+        _ => None,
+    }
+    .into_iter()
+    .flatten()
 }
 
 // --- [EXPRESSIONS]
@@ -467,13 +348,12 @@ fn literal_or_const(typeck: &TypeckResults<'_>, expr: &Expr<'_>) -> bool {
 }
 
 fn fn_item_value(cx: &LateContext<'_>, expr: &Expr<'_>) -> Option<DefId> {
-    if let ExprKind::Path(qpath) = &expr.kind
-        && let Res::Def(DefKind::Fn | DefKind::AssocFn, function) = cx.qpath_res(qpath, expr.hir_id)
-        && !get_parent_expr(cx, expr).is_some_and(|call| matches!(call.kind, ExprKind::Call(callee, _) if callee.hir_id == expr.hir_id))
-    {
-        Some(function)
-    } else {
-        None
+    match &expr.kind {
+        ExprKind::Path(qpath)
+            if let Res::Def(DefKind::Fn | DefKind::AssocFn, function) = cx.qpath_res(qpath, expr.hir_id)
+                && !get_parent_expr(cx, expr).is_some_and(|call| matches!(call.kind, ExprKind::Call(callee, _) if callee.hir_id == expr.hir_id)) =>
+            Some(function),
+        _ => None,
     }
 }
 
@@ -496,15 +376,6 @@ fn generated(cx: &LateContext<'_>, node: HirId) -> bool {
     iter::once(node.owner)
         .chain(cx.tcx.hir_parent_owner_iter(node).map(|(owner, _)| owner))
         .any(|owner| derived(cx.tcx, owner.to_def_id()) || macro_backtrace(cx.tcx.def_span(owner)).any(|call| call.kind == MacroKind::Attr))
-}
-
-fn trait_impls(tcx: TyCtxt<'_>) -> FxHashMap<LocalDefId, Vec<(DefId, LocalDefId)>> {
-    tcx.all_local_trait_impls(())
-        .iter()
-        .flat_map(|(&implemented, implementations)| implementations.iter().map(move |&implementation| (implemented, implementation)))
-        .filter_map(|implementation @ (_, local)| Some((tcx.type_of(local).instantiate_identity().skip_normalization().peel_refs().ty_adt_def()?.did().as_local()?, implementation)))
-        .into_grouping_map_with_hasher(FxBuildHasher)
-        .collect()
 }
 
 fn item_path(cx: &LateContext<'_>, item: DefId) -> String {
@@ -628,11 +499,7 @@ macro_rules! lints {
 
             impl<$([<$module:camel>]),+> LintPass for Pass<$([<$module:camel>]),+> {
                 fn name(&self) -> &'static str { env!("CARGO_PKG_NAME") }
-                fn get_lints(&self) -> LintVec {
-                    let mut lints = Vec::new();
-                    $(lints.extend($folder::$module::Pass::lint_vec());)+
-                    lints
-                }
+                fn get_lints(&self) -> LintVec { [$($folder::$module::Pass::lint_vec()),+].concat() }
             }
 
             impl<'tcx, $([<$module:camel>]: LateLintPass<'tcx>),+> LateLintPass<'tcx> for Pass<$([<$module:camel>]),+> {
@@ -691,6 +558,7 @@ dylint_linting::__maybe_mangle! {
             store, tcx;
             {
                 let bodies = LazyCell::new(|| Rc::new(duplication::Bodies::default()));
+                let recorded = LazyCell::new(|| Rc::new(Recorded::new(tcx)));
                 let reported = (!tcx.skippable_lints(()).contains(&LintId::of(macros::formatting::DISPLAY_FORMAT))).then(|| Rc::new(RefCell::new(LocalDefIdMap::default())));
             }
             concurrency::blocking_call_in_async,
@@ -705,7 +573,7 @@ dylint_linting::__maybe_mangle! {
             errors::decode_without_path,
             errors::discarded_error,
             errors::discarded_error_source,
-            errors::error_field_without_sources,
+            errors::error_field_without_sources(Rc::clone(&recorded)),
             errors::manual_error_impl,
             errors::partition_by_result,
             errors::redundant_error_conversion,
@@ -742,7 +610,7 @@ dylint_linting::__maybe_mangle! {
             manual::manual_vec_from_fn,
             patterns::rest_pattern_workspace_field,
             patterns::wildcard_workspace_enum_match_arm,
-            representation::formatted_tracing_value(reported.clone()),
+            representation::formatted_tracing_value(Rc::clone(&recorded), reported.clone()),
             representation::manual_reference_impl,
             representation::manual_serialization,
             representation::manual_variant_array,

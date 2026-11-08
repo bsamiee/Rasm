@@ -44,6 +44,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Lint groups take a priority below single lints, Clippy's `lint_groups_priority` fails a group and a lint sharing one
 - Restriction lints join one row at a time with repository rule each enforces, `blanket_clippy_restriction_lints` flags the whole group
 - Lints demanding docs take `allow`, names and types state each contract
+- Suppressions take `#[expect]` with `reason`, Clippy `allow_attributes` fails an `#[allow]` and `allow_attributes_without_reason` a bare one
 - Lints take `allow` where their fix writes worse code than the flagged form, row comment naming that form
 - `clippy.toml` API bans name their replacement
 - `clippy.toml` bans hold paths no dependency macro or derive writes, Clippy reports inside proc-macro output (`#[tokio::test]` writes `tokio::pin!`)
@@ -93,6 +94,9 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Both clients set `CARGO_BUILD_BUILD_DIR` through `cargo.extraEnv` with Cargo's path template to keep build locks separate from Nx
 - Both clients set `rustc.source = "discover"`, reading `rustc_*` crate source from the sysroot folder `rustc-dev` installs, and turn `checkOnSave` off, a client check running unlocked over the lint fixtures
 - `cargo fmt` runs once at the virtual root, one invocation formats every member
+- `cargo deny` checks advisories and sources once at root against `Cargo.lock`, `--deny warnings` failing each finding, uncached since the advisory database moves without a repository input
+- `.cargo/deny.toml` reports unmaintained crates a member names, a transitive one has no member row to change, and licenses and bans stay off
+- nextest ends a test after three 60 s slow periods, a hung test failing its suite in place of the CI job timeout
 - `rustfmt.toml` holds keys the pinned nightly rustfmt applies, a nightly key needs no `unstable_features` row and stable rustfmt ignores it
 - `rustfmt.toml` sets `edition` and `style_edition`, plain `rustfmt` reads neither from `Cargo.toml`
 - `rustfmt.toml` fails the check on each line it cannot fit in `max_width`

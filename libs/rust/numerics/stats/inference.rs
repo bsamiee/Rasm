@@ -6,10 +6,10 @@ use rand::{Rng, RngExt as _, SeedableRng};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use statrs::{
     distribution::{ContinuousCDF as _, Normal, StudentsT},
-    statistics::Data,
+    statistics::{Data, OrderStatistics as _},
 };
 
-use crate::{Sample, StatsError, descriptive::quantile_data};
+use crate::{Sample, StatsError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -122,6 +122,6 @@ where
         }
     };
     let mut ordered = Data::new(estimates);
-    let [start, last] = levels.map(|level| quantile_data(&mut ordered, level));
+    let [start, last] = levels.map(|level| ordered.quantile(level));
     Ok(RangeInclusive { start, last })
 }

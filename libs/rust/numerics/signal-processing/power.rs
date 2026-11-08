@@ -110,22 +110,20 @@ pub fn transfer(input: &Series, output: &Series, welch: Welch) -> Result<Transfe
     (input.rate == output.rate).ok_or(SpectraError::Rates { rates: [input.rate, output.rate] })?;
     let Frames { values: [source, target], factors, frequencies, hop: _ } = frames(input.rate, [&input.samples, &output.samples], welch, |&bin| bin)?;
     let [inputs, outputs] = [&source, &target].map(|bins| averaged(bins, welch.average, &factors, Complex::norm_sqr));
-    if let Some((&frequency, _)) = iter::zip(&frequencies, iter::zip(&inputs, &outputs)).find(|(_, (from, to))| **from <= 0.0 || **to <= 0.0) {
-        Err(SpectraError::Power { frequency })
-    } else {
-        let mut products = source;
-        products.zip_mut_with(&target, |from, to| *from = from.conj() * to);
-        drop(target);
-        let (real, imaginary) = (averaged(&products, welch.average, &factors, |product| product.re), averaged(&products, welch.average, &factors, |product| product.im));
-        drop(products);
-        let cross = Zip::from(&real).and(&imaginary).map_collect(|&re, &im| Complex::new(re, im));
-        Ok(Transfer {
-            coherence: Zip::from(&cross).and(&inputs).and(&outputs).map_collect(|product, &from, &to| product.norm_sqr() / (from * to)),
-            response: Zip::from(&cross).and(&inputs).map_collect(|&product, &from| product / from),
-            frequencies,
-            cross,
-        })
-    }
+    iter::zip(&frequencies, iter::zip(&inputs, &outputs)).find(|(_, (from, to))| **from <= 0.0 || **to <= 0.0).map_or(Ok(()), |(&frequency, _)| Err(SpectraError::Power { frequency }))?;
+    let mut products = source;
+    products.zip_mut_with(&target, |from, to| *from = from.conj() * to);
+    drop(target);
+    let cross = Zip::from(&averaged(&products, welch.average, &factors, |product| product.re))
+        .and(&averaged(&products, welch.average, &factors, |product| product.im))
+        .map_collect(|&re, &im| Complex::new(re, im));
+    drop(products);
+    Ok(Transfer {
+        coherence: Zip::from(&cross).and(&inputs).and(&outputs).map_collect(|product, &from, &to| product.norm_sqr() / (from * to)),
+        response: Zip::from(&cross).and(&inputs).map_collect(|&product, &from| product / from),
+        frequencies,
+        cross,
+    })
 }
 
 #[must_use]

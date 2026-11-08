@@ -12,6 +12,8 @@ use std::{
 
 use aws_lc_rs::digest::{self, Digest};
 use data_encoding::{DecodeError, Encoding, HEXLOWER};
+use enum_map::EnumMap;
+use imagesize::{ImageError, ImageType};
 use indexmap::{IndexMap, IndexSet};
 use newtype_uuid_macros::impl_typed_uuid_kinds;
 use nonempty_collections::{NEVec, nev};
@@ -47,6 +49,17 @@ pub enum Guid {
     Document(DocumentUuid),
     #[display("document reference {_0}")]
     DocumentReference(DocumentReferenceUuid),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, enum_map::Enum, strum::IntoStaticStr)]
+pub enum Extension {
+    TopicType,
+    TopicStatus,
+    Priority,
+    TopicLabel,
+    User,
+    SnippetType,
+    Stage,
 }
 
 impl Simple for Uuid {
@@ -135,10 +148,10 @@ impl TryFrom<Box<[u8]>> for Image {
     type Error = Box<[u8]>;
 
     fn try_from(value: Box<[u8]>) -> Result<Self, Self::Error> {
-        match *value {
-            [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1A, b'\n', ..] => Ok(Self { format: ImageFormat::Png, content: value }),
-            [0xFF, 0xD8, 0xFF, ..] => Ok(Self { format: ImageFormat::Jpg, content: value }),
-            _ => Err(value),
+        match imagesize::image_type(&value) {
+            Ok(ImageType::Png) => Ok(Self { format: ImageFormat::Png, content: value }),
+            Ok(ImageType::Jpeg) => Ok(Self { format: ImageFormat::Jpg, content: value }),
+            Ok(_) | Err(ImageError::NotSupported | ImageError::CorruptedImage | ImageError::IoError(_)) => Err(value),
         }
     }
 }
@@ -165,7 +178,7 @@ pub struct Issues {
     #[as_ref]
     project: Option<Project>,
     #[as_ref]
-    extensions: Extensions,
+    extensions: EnumMap<Extension, IndexSet<Text>>,
     #[as_ref]
     documents: IndexMap<DocumentUuid, Document>,
     #[as_ref]
@@ -173,7 +186,12 @@ pub struct Issues {
 }
 
 impl Issues {
-    pub fn new(project: Option<Project>, extensions: Extensions, documents: IndexMap<DocumentUuid, Document>, topics: IndexMap<TopicUuid, Topic>) -> Result<Self, NEVec<BcfError>> {
+    pub fn new(
+        project: Option<Project>,
+        extensions: EnumMap<Extension, IndexSet<Text>>,
+        documents: IndexMap<DocumentUuid, Document>,
+        topics: IndexMap<TopicUuid, Topic>,
+    ) -> Result<Self, NEVec<BcfError>> {
         let dangling = topics
             .iter()
             .flat_map(|(&topic, body)| {
@@ -202,17 +220,6 @@ pub struct Project {
     pub name: Option<Text>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Extensions {
-    pub topic_types: IndexSet<Text>,
-    pub topic_statuses: IndexSet<Text>,
-    pub priorities: IndexSet<Text>,
-    pub topic_labels: IndexSet<Text>,
-    pub users: IndexSet<Text>,
-    pub snippet_types: IndexSet<Text>,
-    pub stages: IndexSet<Text>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Document {
     pub filename: Text,
@@ -225,15 +232,14 @@ codec! {
         attribute id(&[], "ProjectId"),
         element name(&[], "Name"),
     }
-    Extensions {
-        element topic_types(&["TopicTypes"], "TopicType"),
-        element topic_statuses(&["TopicStatuses"], "TopicStatus"),
-        element priorities(&["Priorities"], "Priority"),
-        element topic_labels(&["TopicLabels"], "TopicLabel"),
-        element users(&["Users"], "User"),
-        element snippet_types(&["SnippetTypes"], "SnippetType"),
-        element stages(&["Stages"], "Stage"),
+}
+
+impl Codec for EnumMap<Extension, IndexSet<Text>> {
+    fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, BcfError> {
+        EnumMap::from_fn(|kind| reader.element(node, &[plural(kind)], kind.into()).map(|values| (kind, values))).into_values().collect()
     }
+
+    fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> { self.iter().try_for_each(|(kind, values)| writer.element(node, &[plural(kind)], kind.into(), values)) }
 }
 
 impl Keyed<DocumentUuid> for Document {
@@ -356,7 +362,7 @@ where R: Read + Seek {
         .collect::<Validated<Vec<_>, _>>();
     document(&open, upgrading, PROJECT_INFO, |reader, root| reader.element(root, &[], PROJECT))
         .map4(
-            document(&open, upgrading, EXTENSIONS, Extensions::read),
+            document(&open, upgrading, EXTENSIONS, EnumMap::read),
             document(&open, upgrading, DOCUMENT_INFO, |reader, root| reader.keyed(root, &[DOCUMENTS], DOCUMENT, None)),
             topics.ok().map_or_else(Validated::Fail, |held| unique(CENTRAL_DIRECTORY, held)),
             |project, extensions, documents, topics| (project, extensions.unwrap_or_default(), documents.unwrap_or_default(), topics),
@@ -387,23 +393,21 @@ where W: Write + Seek {
         writer.xot.set_attribute(root, name, RELEASE);
         Ok(())
     })?;
-    let predefined = topics.values().fold(extensions.clone(), |mut listed, topic| {
-        listed.topic_types.insert(topic.r#type.clone());
-        listed.topic_statuses.insert(topic.status.clone());
-        listed.priorities.extend(topic.priority.iter().cloned());
-        listed.topic_labels.extend(topic.labels.iter().cloned());
-        listed.users.extend(
-            iter::once(&topic.creation_author)
-                .chain(&topic.modified_author)
-                .chain(&topic.assigned_to)
-                .chain(topic.comments.values().flat_map(|comment| iter::once(&comment.author).chain(&comment.modified_author)))
-                .cloned(),
-        );
-        listed.snippet_types.extend(topic.bim_snippet.iter().map(|snippet| snippet.snippet_type.clone()));
-        listed.stages.extend(topic.stage.iter().cloned());
-        listed
-    });
-    if predefined != Extensions::default() {
+    let predefined = topics
+        .values()
+        .flat_map(|topic| {
+            let users = iter::once(&topic.creation_author).chain(&topic.modified_author).chain(&topic.assigned_to);
+            iter::chain([(Extension::TopicType, &topic.r#type), (Extension::TopicStatus, &topic.status)], topic.priority.iter().map(|priority| (Extension::Priority, priority)))
+                .chain(topic.labels.iter().map(|label| (Extension::TopicLabel, label)))
+                .chain(users.chain(topic.comments.values().flat_map(|comment| iter::once(&comment.author).chain(&comment.modified_author))).map(|user| (Extension::User, user)))
+                .chain(topic.bim_snippet.iter().map(|snippet| (Extension::SnippetType, &snippet.snippet_type)))
+                .chain(topic.stage.iter().map(|stage| (Extension::Stage, stage)))
+        })
+        .fold(extensions.clone(), |mut listed, (kind, value)| {
+            listed[kind].insert(value.clone());
+            listed
+        });
+    if predefined.values().any(|values| !values.is_empty()) {
         stored(&store, EXTENSIONS, |writer, root| predefined.write(writer, root))?;
     }
     if let Some(info) = project {
@@ -429,27 +433,32 @@ pub fn merge(left: Issues, right: Issues) -> Issues {
     let Issues { project, mut extensions, mut documents, mut topics } = left;
     let Issues { project: other_project, extensions: other_extensions, documents: other_documents, topics: other_topics } = right;
     documents.extend(other_documents);
-    other_topics.into_iter().for_each(|(guid, topic)| {
-        let merged = match topics.swap_remove(&guid) {
-            Some(held) => markup::merged(held, topic),
-            None => topic,
-        };
-        topics.insert(guid, merged);
+    other_topics.into_iter().for_each(|(guid, topic)| match topics.swap_remove_full(&guid) {
+        Some((index, guid, held)) => {
+            let (last, _) = topics.insert_full(guid, markup::merged(held, topic));
+            topics.swap_indices(index, last);
+        }
+        None => drop(topics.insert(guid, topic)),
     });
-    let Extensions { topic_types, topic_statuses, priorities, topic_labels, users, snippet_types, stages } = other_extensions;
-    extensions.topic_types.extend(topic_types);
-    extensions.topic_statuses.extend(topic_statuses);
-    extensions.priorities.extend(priorities);
-    extensions.topic_labels.extend(topic_labels);
-    extensions.users.extend(users);
-    extensions.snippet_types.extend(snippet_types);
-    extensions.stages.extend(stages);
+    other_extensions.into_iter().for_each(|(kind, values)| extensions[kind].extend(values));
     Issues { project: project.or(other_project), extensions, documents, topics }
 }
 
-// --- [ENTRIES]
+// --- [NAMES]
 
 fn document_entry(guid: DocumentUuid) -> String { format!("{DOCUMENTS}/{guid}") }
+
+const fn plural(kind: Extension) -> &'static str {
+    match kind {
+        Extension::TopicType => "TopicTypes",
+        Extension::TopicStatus => "TopicStatuses",
+        Extension::Priority => "Priorities",
+        Extension::TopicLabel => "TopicLabels",
+        Extension::User => "Users",
+        Extension::SnippetType => "SnippetTypes",
+        Extension::Stage => "Stages",
+    }
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

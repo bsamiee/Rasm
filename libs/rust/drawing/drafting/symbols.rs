@@ -11,7 +11,6 @@ use rasm_drawing::{
     Alignment, Anchor, Baseline, Color, Content, Dash, DashOffset, DashOffsetError, Dashes, DashesError, Element, FontSize, FontSizeError, FontStyle, FontWeight, FontWeightError, FontWidth, Linetype,
     LineworkError, MiterLimit, MiterLimitError, Opacity, Path, Pen, Placement, Region, Side, Target, Text, Tolerance, ToleranceError, Width, WidthError, regions, strokes,
 };
-use stacksafe::StackSafe;
 use uom::{
     ConstZero,
     si::{
@@ -115,10 +114,10 @@ impl Definition {
                 .collect::<Validated<Vec<_>, _>>();
             refusals.map3(parts, validated(clipped(group.clip_path(), basis, tolerance)), |(), children, clip| {
                 let (elements, slots): (Vec<_>, Vec<_>) = children.into_iter().map(|Lowered { elements, slots }| (elements, slots)).unzip();
-                let drawn = elements.into_iter().flatten().collect();
+                let drawn = elements.into_iter().flatten().collect::<Vec<_>>();
                 Lowered {
                     elements: match clip {
-                        Some(region) => vec![Element::Clip { region, keep: Side::Inside, elements: StackSafe::new(drawn) }],
+                        Some(region) => vec![Element::Clip { region, keep: Side::Inside, elements: drawn.into() }],
                         None => drawn,
                     },
                     slots: slots.into_iter().flatten().collect(),

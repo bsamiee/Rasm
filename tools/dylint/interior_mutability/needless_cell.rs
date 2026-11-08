@@ -12,7 +12,7 @@ use rustc_data_structures::{
     unord::{UnordItems, UnordSet},
 };
 use rustc_hir::{
-    Body, Expr, ExprKind, HirId, LetStmt, PatKind,
+    Body, BodyId, Expr, ExprKind, HirId, LetStmt, PatKind,
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::{LateContext, LateLintPass};
@@ -25,7 +25,7 @@ use crate::{expanded_externally, resolve};
 
 pub(crate) struct Pass {
     operations: FxHashMap<DefId, bool>,
-    locals: FxHashMap<LocalDefId, FxIndexMap<HirId, (HirId, Span, Ident)>>,
+    locals: FxHashMap<BodyId, FxIndexMap<HirId, (HirId, Span, Ident)>>,
     captures: FxHashMap<LocalDefId, UnordSet<HirId>>,
 }
 
@@ -67,14 +67,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 .entry(typeck.hir_owner.def_id)
                 .or_insert_with(|| typeck.closure_min_captures.items().flat_map(|(_, captures)| UnordItems::new(captures.keys().copied())).collect())
                 .contains(&binding)
+            && let Some(body) = cx.enclosing_body
         {
-            self.locals.entry(cx.tcx.hir_enclosing_body_owner(local.hir_id)).or_default().insert(binding, (local.hir_id, local.span, name));
+            self.locals.entry(body).or_default().insert(binding, (local.hir_id, local.span, name));
         }
     }
 
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         if let Some(binding) = expr.res_local_id()
-            && let Some(locals) = self.locals.get_mut(&cx.tcx.hir_enclosing_body_owner(expr.hir_id))
+            && let Some(locals) = cx.enclosing_body.and_then(|body| self.locals.get_mut(&body))
             && let IndexEntry::Occupied(candidate) = locals.entry(binding)
             && !get_parent_expr(cx, expr).is_some_and(|call| {
                 matches!(call.kind, ExprKind::MethodCall(_, receiver, arguments, _)
@@ -87,9 +88,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     }
 
     fn check_body_post(&mut self, cx: &LateContext<'tcx>, body: &Body<'tcx>) {
-        let owner = cx.tcx.hir_body_owner_def_id(body.id());
-        self.captures.remove(&owner);
-        for (node, span, name) in self.locals.remove(&owner).into_iter().flat_map(FxIndexMap::into_values) {
+        self.captures.remove(&cx.tcx.hir_body_owner_def_id(body.id()));
+        for (node, span, name) in self.locals.remove(&body.id()).into_iter().flat_map(FxIndexMap::into_values) {
             span_lint_hir_and_then(cx, NEEDLESS_CELL, node, span, format!("`{name}` uses `Cell` only to access and replace a copyable value"), |diag| {
                 diag.help(format!("bind the value with `let mut {name}`, use reads and assignment, and use `core::mem::replace` or `core::mem::take` for returned old values"));
             });

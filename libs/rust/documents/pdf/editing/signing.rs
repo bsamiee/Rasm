@@ -1,6 +1,7 @@
 use core::{iter, num::TryFromIntError};
 use std::{collections::HashSet, io};
 
+use hayro_syntax::object::dict::keys::{ACRO_FORM, ANNOTS, F, FIELDS, FT, P, RECT, ROOT, SIG_FLAGS, SUBTYPE, T, TYPE, V};
 use lopdf::{IncrementalDocument, Object, ObjectId, decode_text_string, dictionary, text_string, xref::XrefType};
 use pdf_oxide::{
     crypto::{self, HashAlgorithm},
@@ -35,14 +36,12 @@ pub enum Level {
 
 pub fn sign(document: &Document, credentials: &SigningCredentials, options: SignOptions, level: &Level) -> Result<Document, PdfError> {
     fn fielded(document: &Document, level: PadesLevel, material: &RevocationMaterial) -> Result<Vec<u8>, PdfError> {
-        const ACROFORM: &str = "AcroForm";
-        const FIELDS: &str = "Fields";
         const SIGNATURES_EXIST_APPEND_ONLY: i64 = 3;
         const PRINT_LOCKED: i64 = 132;
-        fn appended(update: &mut IncrementalDocument, holder: ObjectId, key: &str, items: Vec<Object>) -> Result<(), lopdf::Error> {
+        fn appended(update: &mut IncrementalDocument, holder: ObjectId, key: &[u8], items: Vec<Object>) -> Result<(), lopdf::Error> {
             let extend = |target: &mut Object| target.as_array_mut().map(|array| array.extend(items));
             update.opt_clone_object_to_new_document(holder)?;
-            let listed = update.new_document.get_dictionary_mut(holder)?.as_hashmap_mut().entry(key.as_bytes().to_vec()).or_insert_with(|| Object::Array(Vec::new()));
+            let listed = update.new_document.get_dictionary_mut(holder)?.as_hashmap_mut().entry(key.to_vec()).or_insert_with(|| Object::Array(Vec::new()));
             if let Object::Reference(list) = listed {
                 let list = *list;
                 update.opt_clone_object_to_new_document(list)?;
@@ -54,17 +53,17 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
         let bytes = document.data().as_ref().to_vec();
         let mut prior = lopdf::Document::load_mem(&bytes)?;
         prior.reference_table.cross_reference_type = XrefType::CrossReferenceTable;
-        let root = prior.trailer.get(b"Root")?.as_reference()?;
+        let root = prior.trailer.get(ROOT)?.as_reference()?;
         let page = prior.page_iter().next().ok_or(PdfError::Page { index: 0, count: 0 })?;
         let catalog = prior.get_dictionary(root)?;
-        let form = catalog.as_hashmap().get(ACROFORM.as_bytes()).cloned();
+        let form = catalog.as_hashmap().get(ACRO_FORM).cloned();
         let roots = match form.as_ref().map(|form| resolved(&prior, form)).transpose()? {
             Some(Object::Dictionary(held)) => entry(&prior, held, FIELDS)?.map(Object::as_array).transpose()?.cloned().unwrap_or_default(),
             Some(_) | None => Vec::new(),
         };
         let taken = roots
             .iter()
-            .map(|field| resolved(&prior, field).and_then(Object::as_dict).and_then(|field| entry(&prior, field, "T")?.map(decode_text_string).transpose()))
+            .map(|field| resolved(&prior, field).and_then(Object::as_dict).and_then(|field| entry(&prior, field, T)?.map(decode_text_string).transpose()))
             .try_collect::<Vec<_>>()?
             .into_iter()
             .flatten()
@@ -76,9 +75,9 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
             .filter(|name| !taken.contains(name))
             .take(if archival { 2 } else { 1 })
             .map(|name| {
-                update.new_document.try_add_object(
-                    dictionary! { "Type" => "Annot", "Subtype" => "Widget", "FT" => "Sig", "T" => text_string(&name), "F" => PRINT_LOCKED, "Rect" => vec![Object::from(0); 4], "P" => page },
-                )
+                update
+                    .new_document
+                    .try_add_object(dictionary! { TYPE => "Annot", SUBTYPE => "Widget", FT => "Sig", T => text_string(&name), F => PRINT_LOCKED, RECT => vec![Object::from(0); 4], P => page })
             })
             .try_collect::<Vec<_>>()?;
         let listed = widgets.iter().copied().map(Object::Reference).collect::<Vec<_>>();
@@ -89,12 +88,12 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
         };
         if !matches!(form, Some(Object::Reference(_))) {
             update.opt_clone_object_to_new_document(root)?;
-            update.new_document.get_dictionary_mut(root)?.set(ACROFORM, holder);
+            update.new_document.get_dictionary_mut(root)?.set(ACRO_FORM, holder);
         }
         appended(&mut update, holder, FIELDS, listed.clone())?;
-        appended(&mut update, page, "Annots", listed)?;
+        appended(&mut update, page, ANNOTS, listed)?;
         update.opt_clone_object_to_new_document(holder)?;
-        update.new_document.get_dictionary_mut(holder)?.set("SigFlags", SIGNATURES_EXIST_APPEND_ONLY);
+        update.new_document.get_dictionary_mut(holder)?.set(SIG_FLAGS, SIGNATURES_EXIST_APPEND_ONLY);
         let signature = update.new_document.max_id.checked_add(1).ok_or(lopdf::Error::ObjectIdOverflow)?;
         let values = iter::once(Ok(signature)).chain(archival.then(|| {
             [&material.certificates, &material.crls, &material.ocsp_responses].into_iter().try_fold(signature.checked_add(2).ok_or(lopdf::Error::ObjectIdOverflow)?, |next, items| {
@@ -104,7 +103,7 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
         }));
         iter::zip(&widgets, values).try_for_each(|(&widget, value)| {
             let value = value?;
-            update.new_document.get_dictionary_mut(widget).map(|field| field.set("V", Object::Reference((value, 0))))
+            update.new_document.get_dictionary_mut(widget).map(|field| field.set(V, Object::Reference((value, 0))))
         })?;
         let mut fielded = Vec::new();
         update.save_to(&mut fielded).map_err(lopdf::Error::from)?;

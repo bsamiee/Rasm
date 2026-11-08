@@ -24,7 +24,7 @@ use rustc_middle::{
     ty::{self, BorrowKind, ClosureKind as Called, TyCtxt, UpvarCapture},
 };
 
-use crate::{bounds_of, cloned, expanded_externally, parameter_of, suggest};
+use crate::{associated_trait, bounds_of, expanded_externally, parameter_of, suggest};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -108,7 +108,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
         fn cloning<'tcx>(cx: &LateContext<'tcx>, used: &'tcx Expr<'tcx>) -> Option<(&'tcx Expr<'tcx>, String)> {
             let call = get_parent_expr(cx, used).and_then(|parent| if let ExprKind::AddrOf(..) = parent.kind { get_parent_expr(cx, parent) } else { Some(parent) })?;
             let callee = fn_def_id(cx, call)?;
-            let copies = cloned(cx, call).is_some()
+            let copies = associated_trait(cx.tcx, callee).is_diag_item(cx, sym::Clone)
                 || matches!(cx.tcx.opt_associated_item(callee).and_then(|item| item.trait_item_or_self().ok()).opt_diag_name(cx), Some(sym::to_owned_method | sym::to_string_method));
             let direct = matches!(call.kind, ExprKind::MethodCall(_, receiver, [], _) if receiver.hir_id == used.hir_id)
                 || matches!(call.kind, ExprKind::Call(_, [argument]) if matches!(argument.kind, ExprKind::AddrOf(_, _, operand) if operand.hir_id == used.hir_id));

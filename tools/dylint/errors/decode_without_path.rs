@@ -1,4 +1,4 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, paths::PathNS};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, paths::PathNS, sym};
 use rustc_ast::tokenstream::TokenTree;
 use rustc_attr_ir::{AttrArgs, Attribute, HasAttrs as _};
 use rustc_data_structures::fx::FxHashSet;
@@ -43,7 +43,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 .iter()
                 .filter_map(|attribute| {
                     if let Attribute::DeriveHelper(helper) = attribute
-                        && helper.path.segments.iter().eq([&Symbol::intern("serde")])
+                        && helper.path.segments.iter().eq([&sym::serde])
                         && let AttrArgs::Delimited(arguments) = &helper.args
                     {
                         Some(&arguments.tokens)
@@ -70,7 +70,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         !(self.value.contains(&held.did())
                             || source_adt.is_some_and(|source| self.str_deserializers.contains(&source.did()))
                                 && held.is_enum()
-                                && !delegated(held.did(), &[Symbol::intern("from"), Symbol::intern("try_from")])
+                                && !delegated(held.did(), &[sym::from, sym::try_from])
                                 && held
                                     .variants()
                                     .iter()

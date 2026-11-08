@@ -9,7 +9,7 @@ use acadrust::{
     tables::{Table, TextStyle},
     types::{Color, Matrix3, Vector3},
 };
-use itertools::Itertools as _;
+use itertools::{Either, Itertools as _};
 use kurbo::{Affine, Point, Rect, Shape as _, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::NEVec;
@@ -30,13 +30,13 @@ pub(super) struct Lettering {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub(super) fn lifted(
-    entity: &EntityType,
+    entity: Either<&Text, &MText>,
     styles: &Table<TextStyle>,
     families: &[FontFamilyName<'static>],
     frame: Affine,
     tolerance: Tolerance,
     subject: &Subject,
-) -> Result<Option<Lettering>, NEVec<CadError>> {
+) -> Result<Lettering, NEVec<CadError>> {
     const fn weighted(bold: bool) -> FontWeight { if bold { const { FontWeight::try_new(parlance::FontWeight::BOLD.value()).ok().unwrap() } } else { FontWeight::NORMAL } }
     const fn slanted(italic: bool) -> FontStyle { if italic { FontStyle::Italic } else { FontStyle::Normal } }
     let refused = |reason| CadError::Refused { subject: subject.clone(), reason };
@@ -57,33 +57,6 @@ pub(super) fn lifted(
         TextVerticalAlignment::Bottom => (Baseline::Bottom, Affine::IDENTITY),
         TextVerticalAlignment::Middle => (Baseline::Middle, Affine::IDENTITY),
         TextVerticalAlignment::Top => (Baseline::Alphabetic, Affine::translate((0.0, -size.into_inner()))),
-    };
-    let attributed = |attribute: &AttributeEntity| Text {
-        value: attribute.value.clone(),
-        insertion_point: attribute.insertion_point,
-        alignment_point: Some(attribute.alignment_point),
-        height: attribute.height,
-        rotation: attribute.rotation,
-        width_factor: attribute.width_factor,
-        oblique_angle: attribute.oblique_angle,
-        style: attribute.text_style.clone(),
-        horizontal_alignment: match attribute.horizontal_alignment {
-            HorizontalAlignment::Left => TextHorizontalAlignment::Left,
-            HorizontalAlignment::Center => TextHorizontalAlignment::Center,
-            HorizontalAlignment::Right => TextHorizontalAlignment::Right,
-            HorizontalAlignment::Aligned => TextHorizontalAlignment::Aligned,
-            HorizontalAlignment::Middle => TextHorizontalAlignment::Middle,
-            HorizontalAlignment::Fit => TextHorizontalAlignment::Fit,
-        },
-        vertical_alignment: match attribute.vertical_alignment {
-            VerticalAlignment::Baseline => TextVerticalAlignment::Baseline,
-            VerticalAlignment::Bottom => TextVerticalAlignment::Bottom,
-            VerticalAlignment::Middle => TextVerticalAlignment::Middle,
-            VerticalAlignment::Top => TextVerticalAlignment::Top,
-        },
-        normal: attribute.normal,
-        generation_flags: attribute.text_generation_flags,
-        ..Text::new()
     };
     let single = |text: &Text| -> Result<rasm_drawing::Text, CadError> {
         let (size, family, weight, style) = typeface(styles.get(&text.style), text.height)?;
@@ -199,58 +172,37 @@ pub(super) fn lifted(
             )
             .ok()
     };
-    let lettered = |text: &Text| single(text).map(|text| Some(Lettering { text, background: None })).map_err(NEVec::new);
-    let paragraphed = |mtext: &MText| multi(mtext).map(Some);
-    match entity {
-        EntityType::Text(text) => lettered(text),
-        EntityType::MText(mtext) => paragraphed(mtext),
-        EntityType::AttributeEntity(attribute) if !attribute.is_visible() => Ok(None),
-        EntityType::AttributeEntity(attribute) => attribute.embedded_mtext.as_deref().map_or_else(|| lettered(&attributed(attribute)), paragraphed),
-        EntityType::AttributeDefinition(definition) => lettered(&attributed(&AttributeEntity::from_definition(definition, Some(definition.tag.clone())))),
-        EntityType::Point(_)
-        | EntityType::Line(_)
-        | EntityType::Circle(_)
-        | EntityType::Arc(_)
-        | EntityType::Ellipse(_)
-        | EntityType::Polyline(_)
-        | EntityType::Polyline2D(_)
-        | EntityType::Polyline3D(_)
-        | EntityType::LwPolyline(_)
-        | EntityType::Spline(_)
-        | EntityType::Helix(_)
-        | EntityType::Dimension(_)
-        | EntityType::Hatch(_)
-        | EntityType::Solid(_)
-        | EntityType::Face3D(_)
-        | EntityType::Insert(_)
-        | EntityType::Block(_)
-        | EntityType::BlockEnd(_)
-        | EntityType::Ray(_)
-        | EntityType::XLine(_)
-        | EntityType::Viewport(_)
-        | EntityType::Leader(_)
-        | EntityType::MultiLeader(_)
-        | EntityType::MLine(_)
-        | EntityType::Mesh(_)
-        | EntityType::RasterImage(_)
-        | EntityType::Solid3D(_)
-        | EntityType::Region(_)
-        | EntityType::Body(_)
-        | EntityType::Surface(_)
-        | EntityType::Table(_)
-        | EntityType::Tolerance(_)
-        | EntityType::PolyfaceMesh(_)
-        | EntityType::Wipeout(_)
-        | EntityType::Shape(_)
-        | EntityType::Underlay(_)
-        | EntityType::Seqend(_)
-        | EntityType::Ole2Frame(_)
-        | EntityType::PolygonMesh(_)
-        | EntityType::Light(_)
-        | EntityType::SectionSymbol(_)
-        | EntityType::ViewBorder(_)
-        | EntityType::Extended(_)
-        | EntityType::Unknown(_) => Ok(None),
+    entity.either(|text| single(text).map(|text| Lettering { text, background: None }).map_err(NEVec::new), multi)
+}
+
+#[must_use]
+pub(super) fn attributed(attribute: &AttributeEntity) -> Text {
+    Text {
+        value: attribute.value.clone(),
+        insertion_point: attribute.insertion_point,
+        alignment_point: Some(attribute.alignment_point),
+        height: attribute.height,
+        rotation: attribute.rotation,
+        width_factor: attribute.width_factor,
+        oblique_angle: attribute.oblique_angle,
+        style: attribute.text_style.clone(),
+        horizontal_alignment: match attribute.horizontal_alignment {
+            HorizontalAlignment::Left => TextHorizontalAlignment::Left,
+            HorizontalAlignment::Center => TextHorizontalAlignment::Center,
+            HorizontalAlignment::Right => TextHorizontalAlignment::Right,
+            HorizontalAlignment::Aligned => TextHorizontalAlignment::Aligned,
+            HorizontalAlignment::Middle => TextHorizontalAlignment::Middle,
+            HorizontalAlignment::Fit => TextHorizontalAlignment::Fit,
+        },
+        vertical_alignment: match attribute.vertical_alignment {
+            VerticalAlignment::Baseline => TextVerticalAlignment::Baseline,
+            VerticalAlignment::Bottom => TextVerticalAlignment::Bottom,
+            VerticalAlignment::Middle => TextVerticalAlignment::Middle,
+            VerticalAlignment::Top => TextVerticalAlignment::Top,
+        },
+        normal: attribute.normal,
+        generation_flags: attribute.text_generation_flags,
+        ..Text::new()
     }
 }
 

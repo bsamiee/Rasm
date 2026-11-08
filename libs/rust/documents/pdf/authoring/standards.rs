@@ -72,13 +72,11 @@ pub(crate) fn settings(standards: &Standards) -> Result<SerializeSettings, PdfEr
     })
 }
 
-#[must_use]
-pub(crate) fn forbids(standards: &Standards) -> bool { standards.accessibility.is_some() || older_archival(standards) }
-
 pub(crate) fn close(structure: &mut lopdf::Document, standards: &Standards) -> Result<(), PdfError> {
     const CUSTOM_CONDITION: &str = "Custom";
     const TRAPPED: &str = "Trapped";
     const UNTRAPPED: &str = "False";
+    let older = standards.archival.is_some_and(|level| level.max() < PdfVersion::Pdf20);
     let metadata = |structure: &mut lopdf::Document, standards: &Standards| -> Result<(), PdfError> {
         const RDF_NAMESPACE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
         const PDF_NAMESPACE: &str = "http://ns.adobe.com/pdf/1.3/";
@@ -124,7 +122,7 @@ pub(crate) fn close(structure: &mut lopdf::Document, standards: &Standards) -> R
             xot.append(description, added)?;
             xot.append_text(added, value)
         })?;
-        if standards.press.is_some() && older_archival(standards) {
+        if standards.press.is_some() && older {
             let extension = xot.add_namespace(EXTENSION_NAMESPACE);
             let schemas_name = xot.add_name_ns("schemas", extension);
             let bag_name = xot.add_name_ns("Bag", rdf);
@@ -166,7 +164,7 @@ pub(crate) fn close(structure: &mut lopdf::Document, standards: &Standards) -> R
             .try_for_each(|intent| structure.get_dictionary_mut(intent).map(|dictionary| described.iter().for_each(|(key, value)| dictionary.set(*key, value.clone()))))?;
         let press_intent = iter::chain([(TYPE, Object::Name(OUTPUT_INTENT.to_vec())), (S, Object::from("GTS_PDFX"))], described).collect::<Dictionary>();
         structure.catalog_mut()?.set(OUTPUT_INTENTS, iter::chain(held, [Object::from(press_intent)]).collect::<Vec<_>>());
-        if standards.archival.is_none() || older_archival(standards) {
+        if standards.archival.is_none() || older {
             let entry = structure.trailer.as_hashmap().get(INFO).map(Object::as_reference).transpose()?.map_or_else(
                 || {
                     let created = structure.try_add_object(Dictionary::new())?;
@@ -189,5 +187,3 @@ pub(crate) fn close(structure: &mut lopdf::Document, standards: &Standards) -> R
     }
     if standards.press.is_some() || universal { metadata(structure, standards) } else { Ok(()) }
 }
-
-fn older_archival(standards: &Standards) -> bool { standards.archival.is_some_and(|level| level.max() < PdfVersion::Pdf20) }

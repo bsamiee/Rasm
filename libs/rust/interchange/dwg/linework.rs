@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashSet, sync::Arc, vec::IntoIter};
 
 use acadrust::{
     CadDocument, Color, DxfVersion, Handle, LineWeight, Transparency, Vector2, Vector3,
-    entities::{AttributeEntity, EntityCommon, EntityType, Hatch, HatchPattern, HatchPatternLine, HatchPatternType, Insert, Viewport},
+    entities::{AttributeEntity, EntityCommon, EntityType, Hatch, HatchPattern, HatchPatternLine, HatchPatternType, Insert, MText, Text, Viewport},
     objects::{KnownXRecordKind, ObjectType, XRecordValue},
     plot_style::PlotStyleTable,
     tables::{Layer, LayerFlags, LineType, LineTypeElement, TextStyle, normalize_name},
@@ -269,16 +269,16 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
                     Err(NEVec::new(refusing(Refusal::Unsupported)))
                 }
                 parts => {
-                    #[expect(clippy::needless_collect, reason = "frame owns Vec::IntoIter and appends attributes before traversal")]
-                    let mut shown = parts
+                    #[expect(clippy::needless_collect, reason = "frame owns Vec::IntoIter")]
+                    let shown = parts
                         .into_iter()
                         .filter_map(|part| match part {
                             EntityType::AttributeDefinition(definition) =>
                                 definition.is_constant().then(|| EntityType::AttributeEntity(AttributeEntity::from_definition(&definition, Some(definition.default_value.clone())))),
                             shown => Some(shown),
                         })
+                        .chain(insert.attributes.iter().cloned().map(EntityType::AttributeEntity))
                         .collect::<Vec<_>>();
-                    shown.extend(insert.attributes.iter().cloned().map(EntityType::AttributeEntity));
                     Ok(Expansion { entities: shown.into_iter(), name: Some(block_key) })
                 }
             }
@@ -292,6 +292,20 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
             })
         };
         let filled = |region: Region| penned().map(|pen| piece(vec![Element::Fill { region, color: pen.color, opacity: pen.opacity }])).ok();
+        let lettered = |shape: Either<&Text, &MText>| {
+            text::lifted(shape, &document.text_styles, &projection.families, frame, tolerance, subject)
+                .map_or_else(Validated::Fail, Validated::Good)
+                .map2(penned(), |text::Lettering { text, background }, pen| {
+                    piece(
+                        iter::chain(
+                            background.map(|(region, color)| Element::Fill { region, color: rasm_drawing::Color::Srgb(plotted(document, color, &layer, context).0), opacity: pen.opacity }),
+                            iter::once(Element::Text { text, color: pen.color, opacity: pen.opacity }),
+                        )
+                        .collect(),
+                    )
+                })
+                .ok()
+        };
         let outlined = || curves::path(entity, frame, tolerance).map_err(|reason| NEVec::new(refusing(reason))).and_then(stroked);
         let polygon = |corners: &[Vector3], plane: Affine| {
             let mut points = corners.iter().map(|corner| plane * Point::new(corner.x, corner.y));
@@ -306,21 +320,11 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
                 Ok(None) => outlined(),
                 Err(source) => Err(NEVec::new(misshapen(source))),
             },
-            EntityType::Text(_) | EntityType::MText(_) | EntityType::AttributeEntity(_) | EntityType::AttributeDefinition(_) =>
-                text::lifted(entity, &document.text_styles, &projection.families, frame, tolerance, subject)
-                    .map_or_else(Validated::Fail, Validated::Good)
-                    .map2(penned(), |lettering, pen| {
-                        lettering.map_or_default(|text::Lettering { text, background }| {
-                            piece(
-                                iter::chain(
-                                    background.map(|(region, color)| Element::Fill { region, color: rasm_drawing::Color::Srgb(plotted(document, color, &layer, context).0), opacity: pen.opacity }),
-                                    iter::once(Element::Text { text, color: pen.color, opacity: pen.opacity }),
-                                )
-                                .collect(),
-                            )
-                        })
-                    })
-                    .ok(),
+            EntityType::Text(text) => lettered(Either::Left(text)),
+            EntityType::MText(mtext) => lettered(Either::Right(&**mtext)),
+            EntityType::AttributeEntity(attribute) if !attribute.is_visible() => Ok(Vec::new()),
+            EntityType::AttributeEntity(attribute) => attribute.embedded_mtext.as_deref().map_or_else(|| lettered(Either::Left(&text::attributed(attribute))), |mtext| lettered(Either::Right(mtext))),
+            EntityType::AttributeDefinition(definition) => lettered(Either::Left(&text::attributed(&AttributeEntity::from_definition(definition, Some(definition.tag.clone()))))),
             EntityType::Hatch(hatch) if hatch.gradient_color.is_enabled() => Err(NEVec::new(refusing(Refusal::Gradient))),
             EntityType::Hatch(hatch) if hatch.is_solid =>
                 Validated::from(curves::boundary(hatch, frame, tolerance, subject)).map2(penned(), |region, pen| piece(vec![Element::Fill { region, color: pen.color, opacity: pen.opacity }])).ok(),

@@ -16,8 +16,10 @@ pub(crate) struct Pass {
 lint!(default Pass; NEEDLESS_STRUCT: "crate-private one-field structs with no impl beyond `Debug` that every use builds or destructures whole");
 
 impl Pass {
-    fn disqualify(&mut self, held: Ty<'_>) {
-        if let Some(structure) = held.peel_refs().ty_adt_def().filter(|adt| adt.is_struct() && !adt.has_ctor() && adt.non_enum_variant().fields.len() == 1).and_then(|adt| adt.did().as_local()) {
+    fn disqualify(&mut self, held: Ty<'_>, generated: impl FnOnce() -> bool) {
+        if let Some(structure) = held.peel_refs().ty_adt_def().filter(|adt| adt.is_struct() && !adt.has_ctor() && adt.non_enum_variant().fields.len() == 1).and_then(|adt| adt.did().as_local())
+            && !generated()
+        {
             self.structs.insert(structure, false);
         }
     }
@@ -37,7 +39,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 self.structs.entry(item.owner_id.def_id).or_insert(true);
             }
             ItemKind::Impl(implementation) if !implementation.of_trait.is_some_and(|declared| declared.trait_ref.trait_def_id().is_diag_item(cx, sym::Debug)) => {
-                self.disqualify(cx.tcx.type_of(item.owner_id).instantiate_identity().skip_normalization());
+                self.disqualify(cx.tcx.type_of(item.owner_id).instantiate_identity().skip_normalization(), || false);
             }
             _ => {}
         }
@@ -49,14 +51,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             ExprKind::Struct(_, _, StructTailExpr::Base(_) | StructTailExpr::DefaultFields(_) | StructTailExpr::NoneWithError(_)) => cx.typeck_results().expr_ty(expr),
             _ => return,
         };
-        if !generated(cx, expr.hir_id) {
-            self.disqualify(held);
-        }
+        self.disqualify(held, || generated(cx, expr.hir_id));
     }
 
     fn check_pat(&mut self, cx: &LateContext<'tcx>, pat: &'tcx Pat<'tcx>) {
         if let PatKind::Struct(_, _, Some(_)) = pat.kind {
-            self.disqualify(cx.typeck_results().pat_ty(pat));
+            self.disqualify(cx.typeck_results().pat_ty(pat), || false);
         }
     }
 

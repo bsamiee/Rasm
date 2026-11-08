@@ -2,7 +2,7 @@ use core::cmp::Ordering;
 use std::sync::Arc;
 
 use itertools::Itertools as _;
-use kurbo::{BezPath, Rect, Shape as _, Triangle};
+use kurbo::{BezPath, Shape as _, Triangle};
 use linesweeper::{BinaryOp, FillRule};
 use manifold_rust::cancel::{self, CancelToken};
 use nalgebra::Point3;
@@ -13,14 +13,13 @@ use rasm_mesh::{Source, Trim, export, trim};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use validated::Validated;
 
-use crate::{Body, Feature, Frame, Operation, Prepared, View, ViewsError, clip, depth, picture, visibility::window};
+use crate::{Body, Feature, Frame, Operation, Prepared, View, ViewsError, clip, depth, picture, window};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn sections(view: &View) -> Result<Vec<(usize, Region)>, NEVec<ViewsError>> {
     let View { frame, scene, lines: _, crease: _, tolerance } = view;
-    let [corner, _, opposite, _] = window(frame);
-    let border = Rect::from_points(corner, opposite);
+    let border = window(view);
     let pictured = |vertex| picture(frame, clip(frame, &Point3::from(vertex))).ok_or(linesweeper::Error::Infinity);
     scene
         .bodies

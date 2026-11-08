@@ -1,4 +1,5 @@
 use core::ops::ControlFlow;
+use std::rc::Rc;
 
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
@@ -32,14 +33,14 @@ enum Rendering<'tcx> {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
-    recorded: Recorded,
+    recorded: Rc<Recorded>,
     renderings: ReportedRenderings,
 }
 
 lint!(Pass; FORMATTED_TRACING_VALUE: "tracing events and spans recording values rendered to text in place of typed fields");
 
 impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>, renderings: ReportedRenderings) -> Self { Self { recorded: Recorded::new(tcx), renderings } }
+    pub(crate) const fn new(_: TyCtxt<'_>, recorded: Rc<Recorded>, renderings: ReportedRenderings) -> Self { Self { recorded, renderings } }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

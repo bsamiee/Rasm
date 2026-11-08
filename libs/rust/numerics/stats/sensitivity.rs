@@ -102,18 +102,12 @@ pub struct Effects {
 #[nutype::nutype(validate(greater_or_equal = 2, predicate = |levels| levels.is_multiple_of(2)), derive(Debug, Clone, Copy, PartialEq, Eq))]
 pub struct Levels(u16);
 
-#[derive(Debug, Clone, Copy)]
-struct Step {
-    position: usize,
-    delta: f64,
-}
-
 #[derive(Debug, derive_more::AsRef)]
 pub struct Morris<'space, K> {
     space: &'space Space<K>,
     #[as_ref]
     points: DMatrix<f64>,
-    steps: Box<[Step]>,
+    steps: Box<[(usize, f64)]>,
 }
 
 impl<'space, K> Morris<'space, K> {
@@ -141,7 +135,7 @@ impl<'space, K> Morris<'space, K> {
                     dimensions.strict_add(1),
                     moves.iter().flat_map(|&(rank, start, delta)| (0..=dimensions).map(move |point| if rank < point { start + delta } else { start })),
                 ),
-                moves.iter().map(|&(position, _, delta)| Step { position, delta }).collect::<Vec<_>>(),
+                moves.iter().map(|&(position, _, delta)| (position, delta)).collect::<Vec<_>>(),
             )
         })
         .take(NonZero::<usize>::from(trajectories).get().strict_add(surplus.map_or_default(|surplus| NonZero::<usize>::from(surplus).get())))
@@ -183,9 +177,9 @@ impl<'space, K> Morris<'space, K> {
                 dimensions,
                 runs.ncols(),
                 runs.column_iter().zip(steps).flat_map(|(group, steps)| {
-                    steps.iter().map(move |step| {
-                        let change = group.fixed_rows::<2>(step.position);
-                        (change.y - change.x) / step.delta
+                    steps.iter().map(move |&(position, delta)| {
+                        let change = group.fixed_rows::<2>(position);
+                        (change.y - change.x) / delta
                     })
                 }),
             );

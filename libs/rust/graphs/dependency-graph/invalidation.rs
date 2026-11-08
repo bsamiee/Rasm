@@ -36,16 +36,10 @@ impl Ready<'_> {
     pub const fn node(&self) -> NodeIndex { self.node }
 }
 
-#[derive(Debug, Clone, Copy)]
-struct Pending {
-    inputs: usize,
-    received: Outcome,
-}
-
 #[derive(Debug)]
 pub struct Propagation<'graph, 'id, N, E> {
     graph: &'graph StableDiGraph<N, E>,
-    pending: Vec<Option<Pending>>,
+    pending: Vec<Option<(usize, Outcome)>>,
     dirty: BTreeSet<NodeIndex>,
     brand: Brand<'id>,
 }
@@ -56,21 +50,21 @@ impl<'id, N, E> Propagation<'_, 'id, N, E> {
         self.advance(released)
     }
 
-    pub fn outstanding(&self) -> impl Iterator<Item = (NodeIndex, Outcome)> { entries(&self.pending).map(|(node, &Pending { inputs: _, received })| (node, received)) }
+    pub fn outstanding(&self) -> impl Iterator<Item = (NodeIndex, Outcome)> { entries(&self.pending).map(|(node, &(_, received))| (node, received)) }
 
     pub fn dirty(&self) -> impl Iterator<Item = NodeIndex> { self.dirty.iter().copied() }
 
     fn settle(&mut self, node: NodeIndex, outcome: Outcome) -> Vec<NodeIndex> {
         if let Some(slot) = self.pending.get_mut(node.index()) {
-            *slot = slot.filter(|_| outcome == Outcome::Failed).map(|pending| Pending { received: outcome, ..pending });
+            *slot = slot.filter(|_| outcome == Outcome::Failed).map(|(inputs, _)| (inputs, outcome));
         }
         let graph = self.graph;
         graph
             .neighbors_directed(node, Direction::Outgoing)
             .filter(|&target| match self.pending.get_mut(target.index()).and_then(Option::as_mut) {
                 Some(pending) => {
-                    *pending = Pending { inputs: pending.inputs.strict_sub(1), received: pending.received.max(outcome) };
-                    pending.inputs == 0
+                    *pending = (pending.0.strict_sub(1), pending.1.max(outcome));
+                    pending.0 == 0
                 }
                 None if outcome == Outcome::Changed => {
                     self.dirty.insert(target);
@@ -85,8 +79,8 @@ impl<'id, N, E> Propagation<'_, 'id, N, E> {
         let mut ready = Vec::new();
         while let Some(node) = released.pop() {
             match at(&self.pending, node) {
-                Some(Pending { inputs: _, received: Outcome::Changed }) => ready.push(Ready { node, brand: PhantomData }),
-                Some(Pending { inputs: _, received: received @ (Outcome::Unchanged | Outcome::Failed) }) => released.extend(self.settle(node, received)),
+                Some((_, Outcome::Changed)) => ready.push(Ready { node, brand: PhantomData }),
+                Some((_, received @ (Outcome::Unchanged | Outcome::Failed))) => released.extend(self.settle(node, received)),
                 None => {}
             }
         }
@@ -118,10 +112,10 @@ pub fn propagate<'graph, N, E, R>(
         evaluation.node_bound(),
         downstream.ones().map(NodeIndex::new).filter(|&node| member(node)).map(|node| {
             let inputs = evaluation.neighbors_directed(node, Direction::Incoming).filter(|&source| member(source)).count();
-            (node, Pending { inputs, received: if dirty.contains(&node) { Outcome::Changed } else { Outcome::Unchanged } })
+            (node, (inputs, if dirty.contains(&node) { Outcome::Changed } else { Outcome::Unchanged }))
         }),
     );
-    let released = entries(&pending).filter_map(|(node, &Pending { inputs, received: _ })| (inputs == 0).then_some(node)).collect();
+    let released = entries(&pending).filter_map(|(node, &(inputs, _))| (inputs == 0).then_some(node)).collect();
     let deferred = dirty.iter().copied().filter(|&node| !member(node)).collect();
     let mut propagation = Propagation { graph: evaluation.inner(), pending, dirty: deferred, brand: PhantomData };
     let ready = propagation.advance(released);

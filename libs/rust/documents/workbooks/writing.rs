@@ -2,7 +2,7 @@ use core::cell::LazyCell;
 
 use calamine::{CellErrorType, Data, Range};
 use jiff::SignedDuration;
-use rust_xlsxwriter::{ColNum, Format, Formula, RowNum, Worksheet, XlsxError};
+use rust_xlsxwriter::{ColNum, Format, Formula, RowNum, Worksheet};
 
 use crate::{Value, WorkbooksError};
 
@@ -10,10 +10,7 @@ use crate::{Value, WorkbooksError};
 
 pub fn block(worksheet: &mut Worksheet, origin: (RowNum, ColNum), block: &Range<Data>) -> Result<(), WorkbooksError> {
     let duration_format = LazyCell::new(|| Format::new().set_num_format_index(46));
-    crate::values(block).try_collect::<Vec<_>>()?.into_iter().try_for_each(|(offset, value)| {
-        let cell = (u64::from(origin.0).strict_add(u64::from(offset.0)), u64::from(origin.1).strict_add(u64::from(offset.1)));
-        let (row, column) =
-            RowNum::try_from(cell.0).and_then(|row| ColNum::try_from(cell.1).map(|column| (row, column))).map_err(|_| WorkbooksError::Write { cell, source: XlsxError::RowColumnLimitError })?;
+    crate::values(block, origin).try_collect::<Vec<_>>()?.into_iter().try_for_each(|(cell @ (row, column), value)| {
         match value {
             Value::Integer(integer) => worksheet.write(row, column, integer),
             Value::Number(number) => worksheet.write(row, column, number),

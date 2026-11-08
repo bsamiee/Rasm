@@ -177,9 +177,9 @@ pub fn project(
 ) -> Result<Vec<Option<Point3<f64>>>, ImplicitError> {
     (0..iterations.get())
         .try_fold(points.into_iter().map(|point| ControlFlow::Continue(*point.borrow())).collect::<Vec<_>>(), |mut steps, _| {
-            let samples = sample::<(f64, Vector3<f64>)>(shape, evaluation, steps.iter().copied().filter_map(ControlFlow::continue_value)).map_err(|error| match error {
-                #[expect(clippy::needless_collect, reason = "Suggested nth requires unwrapping a guaranteed sample index")]
-                ImplicitError::NotFinite { index } => ImplicitError::NotFinite { index: steps.iter().positions(ControlFlow::is_continue).collect::<Vec<_>>()[index] },
+            let active = steps.iter().positions(ControlFlow::is_continue).collect::<Vec<_>>();
+            let samples = sample::<(f64, Vector3<f64>)>(shape, evaluation, active.iter().map(|&index| steps[index].into_value())).map_err(|error| match error {
+                ImplicitError::NotFinite { index } => ImplicitError::NotFinite { index: active[index] },
                 unmapped @ (ImplicitError::Evaluation(_)
                 | ImplicitError::Singular { cell: _ }
                 | ImplicitError::Resolution { size: _, extent: _ }
@@ -187,9 +187,9 @@ pub fn project(
                 | ImplicitError::Capacity { vertices: _, source: _ }
                 | ImplicitError::Mesh(_)) => unmapped,
             })?;
-            steps.iter_mut().filter(|step| step.is_continue()).zip(samples).for_each(|(step, (value, gradient))| {
-                let point = (*step).into_value();
-                *step = if value.abs() > tolerance {
+            iter::zip(active, samples).for_each(|(index, (value, gradient))| {
+                let point = steps[index].into_value();
+                steps[index] = if value.abs() > tolerance {
                     ControlFlow::Continue(Unit::try_new_and_get(gradient, 0.0).map_or(point, |(normal, norm)| point - normal.into_inner() * (value / norm)))
                 } else {
                     ControlFlow::Break(point)

@@ -328,6 +328,7 @@ impl<'xml> Writer<'xml> {
     pub(super) fn keyed<K, V>(&mut self, node: Node, ancestors: &[&'static str], element: &'static str, index: Option<&'static str>, entries: &IndexMap<TypedUuid<K>, V>) -> Result<(), BcfError>
     where
         K: TypedUuidKind,
+        TypedUuid<K>: Into<Guid>,
         V: Keyed<TypedUuid<K>>,
     {
         iter::zip(0_i32.., entries).try_for_each(|(position, (&key, value))| {

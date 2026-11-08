@@ -58,14 +58,6 @@ pub struct Lateral {
     pub level: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct Regression {
-    first: usize,
-    intercept: f64,
-    slope: f64,
-    nonlinearity: f64,
-}
-
 impl Decay {
     pub fn new(response: &Series, truncation: Option<Lundeby>) -> Result<Self, SpectraError> {
         const ONSET: f64 = 1.0e-2;
@@ -83,7 +75,7 @@ impl Decay {
                 let size = width.round().to_int_saturating::<usize>().max(1);
                 let levels = squared.exact_chunks(size).into_iter().filter_map(|window| window.mean()).map(level).collect::<Array1<f64>>();
                 let (loudest, _) = levels.iter().enumerate().max_by(|(_, left), (_, right)| left.total_cmp(right))?;
-                let Regression { first, intercept, slope, nonlinearity: _ } =
+                let (first, [intercept, slope], _) =
                     regression(levels.slice_axis(Axis(0), Slice::from(loudest..)), RangeInclusive { start: level(noise) + HEADROOM + span, last: level(noise) + HEADROOM })?;
                 let spacing = convert::<usize, f64>(size);
                 let origin = (convert::<usize, f64>(loudest) + convert::<usize, f64>(first)).mul_add(spacing, (spacing - 1.0) / 2.0);
@@ -141,7 +133,7 @@ pub fn reverberation(decay: &Decay, range: RangeInclusive<f64>) -> Option<Reverb
     (decay.noise.is_none_or(|noise| level(noise.get::<ratio>()) <= floor) && levels.last().is_some_and(|end| *end <= floor))
         .then(|| regression(levels.view(), range))
         .flatten()
-        .map(|Regression { first: _, intercept: _, slope, nonlinearity }| Reverberation { time: -60.0 / slope / *decay.curve.series.rate, nonlinearity: Ratio::new::<ratio>(nonlinearity) })
+        .map(|(_, [_, slope], nonlinearity)| Reverberation { time: -60.0 / slope / *decay.curve.series.rate, nonlinearity: Ratio::new::<ratio>(nonlinearity) })
 }
 
 pub fn clarity(decay: &Decay, early: Time) -> Result<f64, SpectraError> {
@@ -223,15 +215,14 @@ fn split(decay: &Decay, early: Time) -> Result<[f64; 2], SpectraError> {
     Ok([early_part.sum() + decay.remainder - beyond, late_part.sum() + beyond])
 }
 
-fn regression(levels: ArrayView1<'_, f64>, range: RangeInclusive<f64>) -> Option<Regression> {
+fn regression(levels: ArrayView1<'_, f64>, range: RangeInclusive<f64>) -> Option<(usize, [f64; 2], f64)> {
     let first = levels.iter().position(|level| *level <= range.start)?;
     let run = levels.iter().skip(first).take_while(|level| **level >= range.last).copied().collect::<Col<f64>>();
     let design = (run.nrows() > 1).then(|| Mat::from_fn(run.nrows(), 2, |row, power| if power == 0 { 1.0 } else { convert::<usize, f64>(row) }))?;
     let fit = design.qr().solve_lstsq(&run);
-    let (intercept, slope) = (fit[0], fit[1]);
     let residual = (&run - &design * &fit).squared_norm_l2();
     let spread = (&run - Col::full(run.nrows(), run.sum() / convert::<usize, f64>(run.nrows()))).squared_norm_l2();
-    (slope < 0.0).then_some(Regression { first, intercept, slope, nonlinearity: residual / spread })
+    (fit[1] < 0.0).then_some((first, [fit[0], fit[1]], residual / spread))
 }
 
 const fn seconds(value: f64) -> Time { Time { dimension: PhantomData, units: PhantomData, value } }

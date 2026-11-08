@@ -1,6 +1,11 @@
 use core::{borrow::Borrow, iter, mem};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
+use hayro_syntax::object::dict::keys::{
+    A, ACRO_FORM, ANNOTS, CLASS_MAP, COUNT, CROP_BOX, D, DEST, DESTS, DR, ENCRYPT, FIELDS, K, KIDS, MARK_INFO, MEDIA_BOX, NAME, NAMES, NEED_APPEARANCES, NUMS, OBJR, OCG, OCPROPERTIES, OPEN_ACTION,
+    OUTLINES, P, PAGE_LABELS, PAGES, PARENT, PARENT_TREE, PARENT_TREE_NEXT_KEY, PG, PREV, RESOURCES, ROLE_MAP, ROOT, ROTATE, S, STRUCT_PARENT, STRUCT_PARENTS, STRUCT_TREE_ROOT, SUBTYPE, TYPE, XFA,
+    XREF_STM,
+};
 use itertools::Either;
 use lopdf::{Dictionary, Object, ObjectId, decode_text_string, dictionary};
 use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
@@ -17,15 +22,6 @@ use crate::{
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Directory = BTreeMap<Vec<u8>, BTreeMap<Vec<u8>, Object>>;
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const ANNOTS: &str = "Annots";
-const KIDS: &str = "Kids";
-const PARENT: &str = "Parent";
-const RESOURCES: &str = "Resources";
-const STRUCT_PARENTS: &str = "StructParents";
-const STRUCT_TREE_ROOT: &str = "StructTreeRoot";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -119,15 +115,6 @@ fn selection(source: &Source, pages: Option<&NEVec<usize>>) -> Result<Vec<(usize
 }
 
 fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, PdfError> {
-    const ACROFORM: &str = "AcroForm";
-    const DEFAULT_RESOURCES: &str = "DR";
-    const DEST: &str = "Dest";
-    const DESTS: &str = "Dests";
-    const FIELDS: &str = "Fields";
-    const NAMES: &str = "Names";
-    const NEED_APPEARANCES: &str = "NeedAppearances";
-    const OPEN_ACTION: &str = "OpenAction";
-    const OPTIONAL_CONTENT: &str = "OCProperties";
     let opens = |assembly: &Assembly, explicit: &[Object]| matches!(explicit.first(), Some(Object::Reference(page)) if assembly.held.contains(page));
     let linked = |assembly: &mut Assembly, page: ObjectId, dests: &BTreeMap<Vec<u8>, Vec<Object>>| -> Result<(), lopdf::Error> {
         let Some(listed) = entry(&assembly.structure, assembly.structure.get_dictionary(page)?, ANNOTS)?.map(Object::as_array).transpose()?.cloned() else {
@@ -135,13 +122,13 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
         };
         let link = |annotation: &Dictionary| -> Result<Link, lopdf::Error> {
             let structure = &assembly.structure;
-            let action = entry(structure, annotation, "A")?.map(Object::as_dict).transpose()?;
+            let action = entry(structure, annotation, A)?.map(Object::as_dict).transpose()?;
             let destination = match (entry(structure, annotation, DEST)?, action) {
                 (Some(destination), _) => Some(destination),
-                (None, Some(action)) if matches!(entry(structure, action, "S")?, Some(Object::Name(kind)) if kind == b"GoTo") => entry(structure, action, "D")?,
+                (None, Some(action)) if matches!(entry(structure, action, S)?, Some(Object::Name(kind)) if kind == b"GoTo") => entry(structure, action, D)?,
                 (None, Some(_) | None) => None,
             };
-            let dead = if matches!(entry(structure, annotation, "Subtype")?, Some(Object::Name(subtype)) if subtype == b"Link") { Link::Dropped } else { Link::Unlinked };
+            let dead = if matches!(entry(structure, annotation, SUBTYPE)?, Some(Object::Name(subtype)) if subtype == b"Link") { Link::Dropped } else { Link::Unlinked };
             Ok(match destination {
                 None => Link::Kept,
                 Some(Object::Array(explicit)) if opens(assembly, explicit) => Link::Kept,
@@ -173,12 +160,12 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
             .filter_map(|(element, verdict)| match verdict {
                 Link::Kept => Some(Ok(element)),
                 Link::Redirected(explicit) => Some(edited(&mut assembly.structure, element, &|annotation| {
-                    annotation.remove(b"A");
+                    annotation.remove(A);
                     annotation.set(DEST, explicit.clone());
                 })),
                 Link::Unlinked => Some(edited(&mut assembly.structure, element, &|annotation| {
-                    annotation.remove(b"A");
-                    annotation.remove(DEST.as_bytes());
+                    annotation.remove(A);
+                    annotation.remove(DEST);
                 })),
                 Link::Dropped => None,
             })
@@ -187,7 +174,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
     };
     let mut merged = lopdf::Document::with_version(parts.nonempty_iter().map(|(source, _)| source.structure.version.as_str()).max());
     let placed = parts.nonempty_iter().map(|&(source, chosen)| placed(source, &mut merged, chosen)).collect::<Result<NEVec<_>, _>>()?;
-    let roots = placed.nonempty_iter().map(|placement| placement.trailer.get(b"Root").and_then(Object::as_reference)).collect::<Result<NEVec<_>, _>>()?;
+    let roots = placed.nonempty_iter().map(|placement| placement.trailer.get(ROOT).and_then(Object::as_reference)).collect::<Result<NEVec<_>, _>>()?;
     let catalogs = roots.nonempty_iter().map(|&root| merged.get_dictionary(root).cloned()).collect::<Result<NEVec<_>, _>>()?;
     let mut seen = HashSet::new();
     let kept = placed
@@ -201,8 +188,8 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
                         Ok((page, page))
                     } else {
                         let mut copy = merged.get_dictionary(page)?.clone();
-                        copy.remove(ANNOTS.as_bytes());
-                        copy.remove(STRUCT_PARENTS.as_bytes());
+                        copy.remove(ANNOTS);
+                        copy.remove(STRUCT_PARENTS);
                         merged.try_add_object(copy).map(|duplicate| (page, duplicate))
                     }
                 })
@@ -213,9 +200,9 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
     let mut assembly = Assembly { structure: merged, held: pages.iter().copied().collect() };
     let page_tree = assembly.structure.try_new_object_id()?;
     pages.iter().try_for_each(|&page| assembly.structure.get_dictionary_mut(page).map(|sheet| sheet.set(PARENT, page_tree)))?;
-    assembly.structure.objects.insert(
+    assembly.structure.set_object(
         page_tree,
-        Object::Dictionary(dictionary! { "Type" => "Pages", KIDS => pages.iter().copied().map(Object::Reference).collect::<Vec<_>>(), "Count" => pages.len().saturating_cast::<i64>() }),
+        dictionary! { TYPE => Object::Name(PAGES.to_vec()), KIDS => pages.iter().copied().map(Object::Reference).collect::<Vec<_>>(), COUNT => pages.len().saturating_cast::<i64>() },
     );
     let directory = |catalog: &Dictionary| -> Result<Directory, lopdf::Error> {
         let structure = &assembly.structure;
@@ -232,7 +219,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
                     .map(|found| (kind.clone(), found.into_iter().collect::<BTreeMap<_, _>>()))
             })
             .try_collect::<BTreeMap<_, _>>()?;
-        let dests = trees.entry(DESTS.as_bytes().to_vec()).or_default();
+        let dests = trees.entry(DESTS.to_vec()).or_default();
         for (key, value) in entry(structure, catalog, DESTS)?.map(Object::as_dict).transpose()?.into_iter().flat_map(Dictionary::iter) {
             dests.entry(key.clone()).or_insert_with(|| value.clone());
         }
@@ -242,7 +229,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
     let explicit = |value: &Object| -> Result<Option<Vec<Object>>, lopdf::Error> {
         Ok(match resolved(&assembly.structure, value)? {
             Object::Array(explicit) => Some(explicit.clone()),
-            Object::Dictionary(action) => entry(&assembly.structure, action, "D")?.map(Object::as_array).transpose()?.cloned(),
+            Object::Dictionary(action) => entry(&assembly.structure, action, D)?.map(Object::as_array).transpose()?.cloned(),
             Object::Null | Object::Boolean(_) | Object::Integer(_) | Object::Real(_) | Object::Name(_) | Object::String(_, _) | Object::Stream(_) | Object::Reference(_) => None,
         })
     };
@@ -250,7 +237,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
         .iter()
         .map(|named| {
             named
-                .get(DESTS.as_bytes())
+                .get(DESTS)
                 .into_iter()
                 .flatten()
                 .map(|(name, value)| explicit(value).map(|target| target.map(|target| (name.clone(), target))))
@@ -260,7 +247,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
         .try_collect::<Vec<_>>()?;
     iter::zip(&kept, &destinations).try_for_each(|(sheets, dests)| sheets.iter().filter(|(original, page)| original == page).try_for_each(|&(_, page)| linked(&mut assembly, page, dests)))?;
     let widgets = pages.iter().map(|&page| annotations(&assembly, page)).try_collect::<Vec<_>>()?.concat().into_iter().collect::<HashSet<_>>();
-    let forms = catalogs.iter().map(|catalog| entry(&assembly.structure, catalog, ACROFORM)?.map(Object::as_dict).transpose().map(Option::<&Dictionary>::cloned)).try_collect::<Vec<_>>()?;
+    let forms = catalogs.iter().map(|catalog| entry(&assembly.structure, catalog, ACRO_FORM)?.map(Object::as_dict).transpose().map(Option::<&Dictionary>::cloned)).try_collect::<Vec<_>>()?;
     let fields = forms
         .iter()
         .flatten()
@@ -277,7 +264,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
         .iter()
         .flatten()
         .map(|form| {
-            entry(&assembly.structure, form, DEFAULT_RESOURCES)?
+            entry(&assembly.structure, form, DR)?
                 .map(Object::as_dict)
                 .transpose()?
                 .into_iter()
@@ -302,9 +289,9 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
         .try_fold(false, |any, needed| needed.map(|needed| any || needed))?;
     let interactive = forms.iter().flatten().next().cloned().filter(|_| !fields.is_empty()).map(|mut form| {
         form.set(FIELDS, fields);
-        form.remove(b"XFA");
+        form.remove(XFA);
         if !resources.is_empty() {
-            form.set(DEFAULT_RESOURCES, resources.into_iter().map(|(category, entries)| (category, Object::Dictionary(entries))).collect::<Dictionary>());
+            form.set(DR, resources.into_iter().map(|(category, entries)| (category, Object::Dictionary(entries))).collect::<Dictionary>());
         }
         if appearances {
             form.set(NEED_APPEARANCES, true);
@@ -320,44 +307,44 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
         })
     })?;
     let dests = destinations.iter().flatten().filter(|(_, target)| opens(&assembly, target)).rev().map(|(name, target)| (name.clone(), Object::Array(target.clone()))).collect::<BTreeMap<_, _>>();
-    let others = trees.iter().flat_map(|named| named.iter().filter(|(kind, _)| kind.as_slice() != DESTS.as_bytes())).fold(Directory::new(), |mut first, (kind, entries)| {
+    let others = trees.iter().flat_map(|named| named.iter().filter(|(kind, _)| kind.as_slice() != DESTS)).fold(Directory::new(), |mut first, (kind, entries)| {
         let slot = first.entry(kind.clone()).or_default();
         for (name, value) in entries {
             slot.entry(name.clone()).or_insert_with(|| value.clone());
         }
         first
     });
-    let directory = iter::once((DESTS.as_bytes().to_vec(), dests))
+    let directory = iter::once((DESTS.to_vec(), dests))
         .chain(others)
         .filter(|(_, entries)| !entries.is_empty())
         .map(|(kind, entries)| (kind, Object::Dictionary(dictionary! { NAMES => entries.into_iter().flat_map(|(name, value)| [Object::string_literal(name), value]).collect::<Vec<_>>() })))
         .collect::<Dictionary>();
     let root = *roots.first();
     let mut catalog = catalogs.first().clone();
-    for key in ["Outlines", "PageLabels", DESTS, NAMES, ACROFORM, STRUCT_TREE_ROOT, OPTIONAL_CONTENT] {
-        catalog.remove(key.as_bytes());
+    for key in [OUTLINES, PAGE_LABELS, DESTS, NAMES, ACRO_FORM, STRUCT_TREE_ROOT, OCPROPERTIES] {
+        catalog.remove(key);
     }
-    catalog.set("Pages", page_tree);
+    catalog.set(PAGES, page_tree);
     let opening = match entry(&assembly.structure, &catalog, OPEN_ACTION)? {
         None => true,
         Some(Object::Array(explicit)) => opens(&assembly, explicit),
-        Some(Object::Dictionary(action)) => match entry(&assembly.structure, action, "D")? {
+        Some(Object::Dictionary(action)) => match entry(&assembly.structure, action, D)? {
             Some(Object::Array(explicit)) => opens(&assembly, explicit),
             Some(_) | None => true,
         },
         Some(_) => false,
     };
     if !opening {
-        catalog.remove(OPEN_ACTION.as_bytes());
+        catalog.remove(OPEN_ACTION);
     }
     if !directory.is_empty() {
         catalog.set(NAMES, directory);
     }
     if let Some(interactive) = interactive {
-        catalog.set(ACROFORM, interactive);
+        catalog.set(ACRO_FORM, interactive);
     }
     if !tagged.is_empty() {
-        let unioned = |key: &str| {
+        let unioned = |key: &[u8]| {
             tagged.iter().map(|tagging| entry(&assembly.structure, &tagging.tree, key)?.map(Object::as_dict).transpose().map(Option::<&Dictionary>::cloned)).try_collect::<Vec<_>>().map(|found| {
                 found.into_iter().flatten().flatten().fold(Dictionary::new(), |mut first, (name, value)| {
                     first.as_hashmap_mut().entry(name).or_insert(value);
@@ -368,46 +355,38 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
         let numbers =
             tagged.iter().flat_map(|tagging| tagging.numbers.iter().cloned()).collect::<BTreeMap<_, _>>().into_iter().flat_map(|(key, value)| [Object::Integer(key), value]).collect::<Vec<_>>();
         let structure = dictionary! {
-            "Type" => STRUCT_TREE_ROOT,
-            "K" => tagged.iter().flat_map(|tagging| tagging.kids.iter().cloned()).collect::<Vec<_>>(),
-            "ParentTree" => dictionary! { "Nums" => numbers },
-            "ParentTreeNextKey" => next_key,
-            "RoleMap" => unioned("RoleMap")?,
-            "ClassMap" => unioned("ClassMap")?,
+            TYPE => Object::Name(STRUCT_TREE_ROOT.to_vec()),
+            K => tagged.iter().flat_map(|tagging| tagging.kids.iter().cloned()).collect::<Vec<_>>(),
+            PARENT_TREE => dictionary! { NUMS => numbers },
+            PARENT_TREE_NEXT_KEY => next_key,
+            ROLE_MAP => unioned(ROLE_MAP)?,
+            CLASS_MAP => unioned(CLASS_MAP)?,
         };
-        assembly.structure.objects.insert(structure_root, Object::Dictionary(structure));
+        assembly.structure.set_object(structure_root, structure);
         catalog.set(STRUCT_TREE_ROOT, structure_root);
-        catalog.set("MarkInfo", dictionary! { "Marked" => true });
+        catalog.set(MARK_INFO, dictionary! { "Marked" => true });
     }
-    assembly.structure.objects.insert(root, Object::Dictionary(catalog));
+    assembly.structure.set_object(root, catalog);
     let mut trailer = placed.first().trailer.clone();
-    for key in ["Prev", "XRefStm", "Encrypt"] {
-        trailer.remove(key.as_bytes());
+    for key in [PREV, XREF_STM, ENCRYPT] {
+        trailer.remove(key);
     }
     assembly.structure.trailer = trailer;
-    {
-        let live = reachable(&assembly.structure, assembly.structure.trailer.iter().flat_map(|(_, value)| referenced(value)).collect(), |_, _| true);
-        assembly.structure.objects.retain(|id, _| live.contains(id));
-    };
+    let live = reachable(&assembly.structure, assembly.structure.trailer.iter().flat_map(|(_, value)| referenced(value)).collect(), |_, _| true);
+    assembly.structure.objects.retain(|id, _| live.contains(id));
     let bindings = placed.iter().flat_map(|placement| &placement.groups).map(|(id, group)| (*id, group)).collect::<HashMap<_, _>>();
     let registered = assembly
         .structure
         .objects
         .iter()
-        .filter_map(|(&id, object)| if let Object::Dictionary(node) = object { node.has_type(b"OCG").then_some((id, node)) } else { None })
+        .filter_map(|(&id, object)| if let Object::Dictionary(node) = object { node.has_type(OCG).then_some((id, node)) } else { None })
         .map(|(id, node)| {
             bindings.get(&id).map_or_else(
-                || node.get_deref(b"Name", &assembly.structure).and_then(decode_text_string).map(|name| (id, Group { name: name.into(), print: Visibility::Visible, view: Visibility::Visible })),
+                || node.get_deref(NAME, &assembly.structure).and_then(decode_text_string).map(|name| (id, Group { name: name.into(), print: Visibility::Visible, view: Visibility::Visible })),
                 |&group| Ok((id, group.clone())),
             )
         })
         .try_collect::<Vec<_>>()?;
-    if !registered.is_empty() {
-        assembly
-            .structure
-            .get_dictionary_mut(root)?
-            .set(OPTIONAL_CONTENT, dictionary! { "OCGs" => registered.iter().map(|&(id, _)| Object::Reference(id)).collect::<Vec<_>>(), "D" => Dictionary::new() });
-    }
     let indices = parts.iter().map(|(_, chosen)| chosen.iter().map(|&(index, _)| index).collect::<Vec<_>>()).collect::<Vec<_>>();
     navigation::write(&mut assembly.structure, &navigation::assembled(iter::zip(parts, &indices).map(|((source, _), sheets)| (&source.navigation, sheets.as_slice()))))?;
     if !registered.is_empty() {
@@ -419,17 +398,13 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
 fn placed(source: &Source, merged: &mut lopdf::Document, chosen: &[(usize, ObjectId)]) -> Result<Placement, lopdf::Error> {
     let structure = &source.structure;
     let inherited = |page: ObjectId| -> Result<Vec<(Vec<u8>, Object)>, lopdf::Error> {
-        const INHERITED: [&str; 4] = [RESOURCES, "MediaBox", "CropBox", "Rotate"];
+        const INHERITED: [&[u8]; 4] = [RESOURCES, MEDIA_BOX, CROP_BOX, ROTATE];
         let node = |id: ObjectId| if let Some(Object::Dictionary(node)) = structure.objects.get(&id) { Some(node) } else { None };
-        let parent = |held: &Dictionary| if let Some(Object::Reference(parent)) = held.as_hashmap().get(PARENT.as_bytes()) { Some(*parent) } else { None };
+        let parent = |held: &Dictionary| if let Some(Object::Reference(parent)) = held.as_hashmap().get(PARENT) { Some(*parent) } else { None };
         let sheet = structure.get_dictionary(page)?;
         let mut visited = HashSet::from([page]);
         let ancestors = iter::successors(parent(sheet), |&id| node(id).and_then(parent)).take_while(|&id| visited.insert(id)).filter_map(node).collect::<Vec<_>>();
-        Ok(INHERITED
-            .into_iter()
-            .filter(|key| !sheet.has(key.as_bytes()))
-            .filter_map(|key| ancestors.iter().find_map(|held| held.as_hashmap().get(key.as_bytes())).map(|value| (key.as_bytes().to_vec(), value.clone())))
-            .collect())
+        Ok(INHERITED.into_iter().filter(|key| !sheet.has(key)).filter_map(|key| ancestors.iter().find_map(|held| held.as_hashmap().get(key)).map(|value| (key.to_vec(), value.clone()))).collect())
     };
     let sheets = structure.page_iter().collect::<HashSet<_>>();
     let selected = chosen.iter().map(|&(_, page)| page).collect::<BTreeSet<_>>();
@@ -441,7 +416,7 @@ fn placed(source: &Source, merged: &mut lopdf::Document, chosen: &[(usize, Objec
         .chain(selected.iter().copied())
         .chain(inheritance.iter().flat_map(|(_, held)| held.iter().flat_map(|(_, value)| referenced(value))))
         .collect::<Vec<_>>();
-    let admitted = reachable(structure, roots, |id, object| if sheets.contains(&id) { selected.contains(&id) } else { !matches!(object, Object::Dictionary(node) if node.has_type(b"Pages")) });
+    let admitted = reachable(structure, roots, |id, object| if sheets.contains(&id) { selected.contains(&id) } else { !matches!(object, Object::Dictionary(node) if node.has_type(PAGES)) });
     let offset = merged.max_id;
     let ceiling = admitted.iter().map(|&(number, _)| number).max().unwrap_or_default();
     merged.max_id = offset.checked_add(ceiling).ok_or(lopdf::Error::ObjectIdOverflow)?;
@@ -525,15 +500,14 @@ fn retained(assembly: &mut Assembly, root: ObjectId, widgets: &HashSet<ObjectId>
 }
 
 fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, ObjectId)], base: i64, root: ObjectId) -> Result<Option<Tagging>, lopdf::Error> {
-    const STRUCT_PARENT: &str = "StructParent";
     fn marked(structure: &mut lopdf::Document, held: &HashSet<ObjectId>, root: ObjectId) -> Result<bool, lopdf::Error> {
-        let placed = |holder: &Dictionary, inherited: Option<bool>| match holder.as_hashmap().get(b"Pg".as_slice()) {
+        let placed = |holder: &Dictionary, inherited: Option<bool>| match holder.as_hashmap().get(PG) {
             Some(Object::Reference(sheet)) => Some(held.contains(sheet)),
             Some(_) => Some(false),
             None => inherited,
         };
         let children = |document: &lopdf::Document, node: &Dictionary, page| {
-            entry(document, node, "K").map(|content| {
+            entry(document, node, K).map(|content| {
                 (
                     placed(node, page),
                     content.cloned().map(|content| match content {
@@ -561,7 +535,7 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
             let current = pending.last_mut();
             let Some(item) = current.2.next() else {
                 let keep = !current.3.is_empty();
-                structure.get_dictionary_mut(current.0)?.set("K", mem::take(&mut current.3));
+                structure.get_dictionary_mut(current.0)?.set(K, mem::take(&mut current.3));
                 active.remove(&current.0);
                 let Some((element, _, _, _)) = pending.pop() else {
                     return Ok(keep);
@@ -572,7 +546,7 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
             let keep = match (&item, resolved(structure, &item)?) {
                 (Object::Integer(_), _) => current.1 == Some(true),
                 (Object::Dictionary(reference), _) => placed(reference, current.1) == Some(true),
-                (Object::Reference(_), Object::Dictionary(reference)) if reference.has_type(b"MCR") || reference.has_type(b"OBJR") => placed(reference, current.1) == Some(true),
+                (Object::Reference(_), Object::Dictionary(reference)) if reference.has_type(b"MCR") || reference.has_type(OBJR) => placed(reference, current.1) == Some(true),
                 (Object::Reference(element), Object::Dictionary(reference)) => {
                     active.insert(*element).ok_or(lopdf::Error::ReferenceCycle(*element))?;
                     match children(structure, reference, current.1)? {
@@ -592,15 +566,15 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
     let Some(tree) = entry(&assembly.structure, catalog, STRUCT_TREE_ROOT)?.map(Object::as_dict).transpose()?.cloned() else {
         return Ok(None);
     };
-    let numbers = entry(&assembly.structure, &tree, "ParentTree")?
+    let numbers = entry(&assembly.structure, &tree, PARENT_TREE)?
         .map(Object::as_dict)
         .transpose()?
-        .map(|numbers| crate::leaves(&assembly.structure, numbers, "Nums", &Object::as_i64))
+        .map(|numbers| crate::leaves(&assembly.structure, numbers, NUMS, &Object::as_i64))
         .transpose()?
         .unwrap_or_default()
         .into_iter()
         .collect::<BTreeMap<_, _>>();
-    let declared = entry(&assembly.structure, &tree, "ParentTreeNextKey")?.map(Object::as_i64).transpose()?;
+    let declared = entry(&assembly.structure, &tree, PARENT_TREE_NEXT_KEY)?.map(Object::as_i64).transpose()?;
     let span = iter::chain(numbers.keys().next_back().map(|&key| i64::try_from(i128::from(key).strict_add(1))).transpose()?, declared).max().unwrap_or_default();
     let originals = sheets.iter().filter(|(original, page)| original == page).map(|&(page, _)| page).collect::<Vec<_>>();
     let annotated = originals.iter().map(|&page| annotations(assembly, page)).try_collect::<Vec<_>>()?.concat();
@@ -632,7 +606,7 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
             let Some(holder) = holder else {
                 return Ok(None);
             };
-            let Some(own) = holder.as_hashmap().get(key.as_bytes()).map(Object::as_i64).transpose()? else {
+            let Some(own) = holder.as_hashmap().get(key).map(Object::as_i64).transpose()? else {
                 return Ok(None);
             };
             let shifted = i64::try_from(i128::from(own).strict_add(i128::from(base)))?;
@@ -643,7 +617,7 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
-    let kids = match entry(&assembly.structure, &tree, "K")?.cloned() {
+    let kids = match entry(&assembly.structure, &tree, K)?.cloned() {
         Some(Object::Array(kids)) => kids,
         Some(single) => vec![single],
         None => Vec::new(),
@@ -656,7 +630,7 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
-    tops.iter().try_for_each(|&element| assembly.structure.get_dictionary_mut(element).map(|node| node.set("P", root)))?;
+    tops.iter().try_for_each(|&element| assembly.structure.get_dictionary_mut(element).map(|node| node.set(P, root)))?;
     Ok(Some(Tagging { kids: tops.into_iter().map(Object::Reference).collect(), numbers: numbered, span, tree }))
 }
 

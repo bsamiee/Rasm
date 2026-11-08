@@ -7,7 +7,6 @@ use std::io::{self, IsTerminal as _, Write as _};
 
 use anstream::{AutoStream, ColorChoice};
 use anstyle::Style;
-use bstr::ByteSlice as _;
 use clap::{Args, ValueEnum};
 use comfy_table::{Cell, CellAlignment, ContentArrangement, Table, presets};
 use csv::IntoInnerError;
@@ -79,7 +78,7 @@ enum Sink {
 
 fn failed(source: impl Into<io::Error>) -> OutputError { OutputError::Write { source: source.into() } }
 
-fn cell(text: &[u8]) -> Cell {
+fn cell(text: &str) -> Cell {
     Cell::new(fmt::from_fn(|formatter| {
         text.chars().try_for_each(|character| if character.is_control() && character != '\n' { fmt::Display::fmt(&character.escape_default(), formatter) } else { formatter.write_char(character) })
     }))
@@ -92,70 +91,10 @@ fn delivered(out: &mut Out, scratch: &[u8]) -> io::Result<usize> {
     Ok(lines.len())
 }
 
-fn appended(sink: &mut Sink, row: usize, value: &impl Serialize) -> Result<(), OutputError> {
-    let flattened = |columns: &mut Columns| cells::flattened(value, columns).map_err(|source| OutputError::Encode { row, source });
-    match sink {
-        Sink::Jsonl { out: _, scratch } => {
-            let mark = scratch.len();
-            serde_json::to_writer(&mut *scratch, value).map(|()| scratch.push(b'\n')).map_err(|source| {
-                scratch.truncate(mark);
-                OutputError::Encode { row, source: source.into() }
-            })
-        }
-        Sink::Json { out: _, scratch, formatter, first } => {
-            let (mark, mut next) = (scratch.len(), formatter.clone());
-            let encoded = try bikeshed Result<(), serde_json::Error> {
-                if *first {
-                    next.begin_array(&mut *scratch).map_err(serde_json::Error::io)?;
-                }
-                next.begin_array_value(&mut *scratch, *first).map_err(serde_json::Error::io)?;
-                value.serialize(&mut Serializer::with_formatter(&mut *scratch, next.clone()))?;
-                next.end_array_value(&mut *scratch).map_err(serde_json::Error::io)?
-            };
-            if let Err(source) = encoded {
-                scratch.truncate(mark);
-                return Err(OutputError::Encode { row, source: source.into() });
-            }
-            (*formatter, *first) = (next, false);
-            Ok(())
-        }
-        Sink::Csv { out: _, writer, columns, width } => {
-            let Row { named, fields } = flattened(columns)?;
-            let first = width.is_none();
-            let width = *width.get_or_insert(columns.names.len());
-            if first && named {
-                writer.write_record(columns.names.values().map(Box::as_ref)).map_err(failed)?;
-            }
-            if let Some(name) = columns.names.values().zip(&fields).skip(width).find_map(|(name, field)| field.as_ref().map(|_| name.to_string())) {
-                columns.names.truncate(width);
-                return Err(OutputError::Column { row, name });
-            }
-            writer.write_record((0..width).map(|index| fields.get(index).and_then(Option::as_ref).map_or_default(|field| field.text.as_slice()))).map_err(failed)
-        }
-        Sink::Grid { table, columns } => {
-            let Row { named: row_named, fields } = flattened(columns)?;
-            let (table, named) = table.get_or_insert_with(|| {
-                let mut table = Box::new(Table::new());
-                table.load_style(presets::UTF8_FULL_CONDENSED).set_content_arrangement(ContentArrangement::Dynamic);
-                (table, false)
-            });
-            *named |= row_named;
-            table.add_row(fields.into_iter().map(|field| match field {
-                Some(Field { text, numeric }) => cell(&text).set_alignment(if numeric { CellAlignment::Right } else { CellAlignment::Left }),
-                None => Cell::new(""),
-            }));
-            Ok(())
-        }
-    }
-}
-
 fn finished(sink: Sink, header: Style, paging: Paging, unpaged: bool) -> Result<(), OutputError> {
     match sink {
         Sink::Jsonl { out: _, scratch: _ } | Sink::Csv { out: _, writer: _, columns: _, width: _ } | Sink::Grid { table: None, columns: _ } => Ok(()),
-        Sink::Json { mut out, mut scratch, mut formatter, first } => (try bikeshed io::Result<()> {
-            if first {
-                formatter.begin_array(&mut scratch)?;
-            }
+        Sink::Json { mut out, mut scratch, mut formatter, first: _ } => (try bikeshed io::Result<()> {
             formatter.end_array(&mut scratch)?;
             scratch.push(b'\n');
             delivered(&mut out, &scratch)?;
@@ -170,7 +109,7 @@ fn finished(sink: Sink, header: Style, paging: Paging, unpaged: bool) -> Result<
                 }
             };
             if named {
-                table.set_header(columns.names.values().map(|name| theme::styled(cell(name.as_bytes()), &style)));
+                table.set_header(columns.names.values().map(|name| theme::styled(cell(name), &style)));
             }
             suspend_tracing_indicatif(|| match (paging, unpaged) {
                 (Paging::Never, _) | (Paging::Auto | Paging::Always, true) => writeln!(anstream::stdout(), "{table}").map_err(failed),
@@ -196,6 +135,54 @@ where
     F: Future + Unpin,
 {
     const BATCH: usize = 256;
+    fn appended(sink: &mut Sink, row: usize, value: &impl Serialize) -> Result<(), OutputError> {
+        let flattened = |columns: &mut Columns| cells::flattened(value, columns).map_err(|source| OutputError::Encode { row, source });
+        match sink {
+            Sink::Jsonl { out: _, scratch } => {
+                let mark = scratch.len();
+                serde_json::to_writer(&mut *scratch, value)
+                    .inspect(|()| scratch.push(b'\n'))
+                    .inspect_err(|_| scratch.truncate(mark))
+                    .map_err(|source| OutputError::Encode { row, source: source.into() })
+            }
+            Sink::Json { out: _, scratch, formatter, first } => {
+                let (mark, mut next) = (scratch.len(), formatter.clone());
+                let encoded = try bikeshed Result<(), serde_json::Error> {
+                    next.begin_array_value(&mut *scratch, *first).map_err(serde_json::Error::io)?;
+                    value.serialize(&mut Serializer::with_formatter(&mut *scratch, next.clone()))?;
+                    next.end_array_value(&mut *scratch).map_err(serde_json::Error::io)?
+                };
+                encoded.inspect(|()| (*formatter, *first) = (next, false)).inspect_err(|_| scratch.truncate(mark)).map_err(|source| OutputError::Encode { row, source: source.into() })
+            }
+            Sink::Csv { out: _, writer, columns, width } => {
+                let Row { named, fields } = flattened(columns)?;
+                let first = width.is_none();
+                let width = *width.get_or_insert(columns.names.len());
+                if first && named {
+                    writer.write_record(columns.names.values().map(Box::as_ref)).map_err(failed)?;
+                }
+                if let Some(name) = columns.names.values().zip(&fields).skip(width).find_map(|(name, field)| field.as_ref().map(|_| name.to_string())) {
+                    columns.names.truncate(width);
+                    return Err(OutputError::Column { row, name });
+                }
+                writer.write_record((0..width).map(|index| fields.get(index).and_then(Option::as_ref).map_or_default(|field| field.text.as_str()))).map_err(failed)
+            }
+            Sink::Grid { table, columns } => {
+                let Row { named: row_named, fields } = flattened(columns)?;
+                let (table, named) = table.get_or_insert_with(|| {
+                    let mut table = Box::new(Table::new());
+                    table.load_style(presets::UTF8_FULL_CONDENSED).set_content_arrangement(ContentArrangement::Dynamic);
+                    (table, false)
+                });
+                *named |= row_named;
+                table.add_row(fields.into_iter().map(|field| match field {
+                    Some(Field { text, numeric }) => cell(&text).set_alignment(if numeric { CellAlignment::Right } else { CellAlignment::Left }),
+                    None => Cell::new(""),
+                }));
+                Ok(())
+            }
+        }
+    }
     let flushed = |sink: &mut Sink| {
         match sink {
             Sink::Jsonl { out, scratch } | Sink::Json { out, scratch, formatter: _, first: _ } => delivered(out, scratch).map(|lines| {
@@ -212,7 +199,11 @@ where
     let opened = match (format, terminal) {
         (Some(Format::Grid), _) | (None, true) => Sink::Grid { table: None, columns: Columns::default() },
         (Some(Format::Csv), _) => Sink::Csv { out: out(), writer: Box::new(csv::Writer::from_writer(Vec::new())), columns: Columns::default(), width: None },
-        (Some(Format::Json), _) => Sink::Json { out: out(), scratch: Vec::new(), formatter: PrettyFormatter::new(), first: true },
+        (Some(Format::Json), _) => {
+            let (mut scratch, mut formatter) = (Vec::new(), PrettyFormatter::new());
+            formatter.begin_array(&mut scratch).map_err(failed)?;
+            Sink::Json { out: out(), scratch, formatter, first: true }
+        }
         (Some(Format::Jsonl), _) | (None, false) => Sink::Jsonl { out: out(), scratch: Vec::new() },
     };
     let (flow, stopped) = {

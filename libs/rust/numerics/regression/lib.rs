@@ -1,14 +1,13 @@
-#![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values, integer_casts)]
+#![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values)]
 
 use core::{cell::LazyCell, cmp, iter, num::NonZero, ops::ControlFlow, range::RangeInclusive};
 
 use faer::{MatRef, linalg::svd::SvdError};
 use itertools::{Itertools as _, izip};
-use libm::frexp;
-use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView, Matrix2, Vector2, convert};
+use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView, convert};
 use nlopt::Target;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use num_dual::{Dual2DVec64, DualDVec64, DualNum, gradient, hessian, jacobian};
+use num_dual::{Dual2DVec64, DualDVec64, DualNum, first_derivative, gradient, hessian, jacobian};
 use rasm_numerical_analysis::{AnalysisError, Input, Observations, Placement, Polynomial, Prediction, SearchHooks, design, roots::minimum};
 use rasm_optimization::{OptimizeError, Settings, Solution, optimize};
 use rasm_stats::{Confidence, Space, Tolerance};
@@ -69,7 +68,7 @@ pub enum Band {
 pub struct Options {
     pub regularization: Regularization = Regularization::Truncated,
     pub loss: Loss = Loss::Squared,
-    pub iterations: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 24),
+    pub iterations: NonZero<usize> = NonZero::new(25).unwrap(),
     pub tolerance: Tolerance = Tolerance::try_new(almost::F64_TOLERANCE).ok().unwrap(),
 }
 
@@ -283,136 +282,26 @@ fn estimate(design: &DMatrix<f64>, target: &DMatrix<f64>, regularization: Regula
 
 // --- [LOSS]
 
-fn rho<D>(loss: Loss, residual: &D) -> D
+#[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot match arithmetic allowances through DualNum bounds")]
+fn rho<D>(loss: Loss, residual: D) -> D
 where D: DualNum<Primitive = f64> {
-    #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot match arithmetic allowances through DualNum bounds")]
-    fn lifted<D, I>(residual: &D, value: f64, coefficients: impl FnOnce() -> I) -> D
-    where
-        D: DualNum<Primitive = f64>,
-        I: Iterator<Item = (f64, i128)>,
-    {
-        fn scaled<D>(value: &D, exponent: u128, direction: f64) -> D
-        where D: DualNum<Primitive = f64> {
-            let chunk = if direction > 0.0 { u128::from(f64::MAX_EXP.unsigned_abs().strict_sub(1)) } else { u128::from(f64::MIN_EXP.unsigned_abs()) };
-            (0..exponent.div_ceil(chunk)).fold(value.clone(), |value, index| value * (direction * convert::<u128, f64>(exponent.strict_sub(index.strict_mul(chunk)).min(chunk))).exp2())
+    match (loss, residual.re().abs()) {
+        (Loss::Squared, _) => residual.powi(2),
+        (Loss::Huber(scale), real) if real <= scale.into_inner() => residual.powi(2),
+        (Loss::Huber(scale), _) => residual.abs().mul_add(D::from(2.0 * scale.into_inner()), D::from(-scale.into_inner().powi(2))),
+        (Loss::SoftL1(scale), real) if real <= scale.into_inner() => residual.clone() / (((residual.clone() / scale.into_inner()).powi(2) + 1.0).sqrt() + 1.0) * residual * 2.0,
+        (Loss::SoftL1(scale), _) => {
+            let inverse = residual.recip() * scale.into_inner();
+            residual.abs() / ((inverse.powi(2) + 1.0).sqrt() + inverse.abs()) * scale.into_inner() * 2.0
         }
-
-        if D::NDERIV == 0 {
-            return D::from(value);
-        }
-        let delta = residual.clone() - residual.re();
-        coefficients().zip(0..D::NDERIV).filter(|((coefficient, _), _)| *coefficient != 0.0).fold(D::from(value), |sum, ((coefficient, exponent), index)| {
-            let order = NonZero::<u128>::MIN.saturating_add(index.strict_cast::<u128>());
-            let magnitude = exponent.unsigned_abs();
-            let (quotient, remainder) = (magnitude / order, magnitude % order);
-            let direction = if exponent < 0 { -1.0 } else { 1.0 };
-            let lower = scaled(&delta, quotient, direction);
-            let upper = LazyCell::new(|| scaled(&lower, 1, direction));
-            sum + (0..order.get()).fold(D::from(coefficient), |term, power| term * if power < remainder { &*upper } else { &lower })
-        })
-    }
-
-    fn cauchy<D>(scale: f64, residual: &D) -> D
-    where D: DualNum<Primitive = f64> {
-        let real = residual.re();
-        let inside = real.abs() <= scale;
-        let ratio = if inside { real / scale } else { scale / real };
-        let square = ratio.powi(2);
-        let value = if inside {
-            let factor = if square == 0.0 { 1.0 } else { square.ln_1p() / square };
-            real * factor * real
-        } else {
-            let logarithm = if ratio == 0.0 { real.abs().ln() - scale.ln() } else { -ratio.abs().ln() };
-            (2.0_f64.mul_add(logarithm, square.ln_1p()) * scale) * scale
-        };
-        lifted(residual, value, move || {
-            let (scale_mantissa, scale_exponent) = frexp(scale);
-            let (real_mantissa, real_exponent) = frexp(real);
-            let (scale_exponent, real_exponent) = (i128::from(scale_exponent), i128::from(real_exponent));
-            let divisor = if inside { (scale_mantissa, scale_exponent) } else { (real_mantissa, real_exponent) };
-            (1..=D::NDERIV).scan((Vector2::new(1.0, 0.0), scale_mantissa.powi(2), scale_exponent.strict_mul(2)), move |state, order| {
-                let (inverse, mantissa, exponent) = *state;
-                let even = order.is_multiple_of(2);
-                let (real_factor, cross_factor, imaginary_factor) = match (inside, even) {
-                    (true, false) => (1.0, 1.0, square),
-                    (true, true) => (square, 1.0, 1.0),
-                    (false, _) => (1.0, square, 1.0),
-                };
-                let inverse = Matrix2::new(real_factor, cross_factor, -1.0, imaginary_factor) * inverse / (1.0 + square);
-                let (mantissa, shift) = frexp(mantissa / divisor.0);
-                let exponent = exponent.strict_add(i128::from(shift)).strict_sub(divisor.1);
-                let factor = inverse[0] * (if even { -2.0 } else { 2.0 }) / convert::<usize, f64>(order);
-                let coefficient =
-                    if inside && !even { (mantissa * factor * real_mantissa / scale_mantissa, exponent.strict_add(real_exponent).strict_sub(scale_exponent)) } else { (mantissa * factor, exponent) };
-                *state = (inverse, mantissa, exponent);
-                Some(coefficient)
-            })
-        })
-    }
-
-    fn soft_l1<D>(scale: f64, residual: &D) -> D
-    where D: DualNum<Primitive = f64> {
-        let real = residual.re();
-        let inside = real.abs() <= scale;
-        let ratio = if inside { real / scale } else { scale / real };
-        let unit = 1.0_f64.hypot(ratio);
-        let value = if inside { real / (unit + 1.0) * 2.0 * real } else { real.abs() / (unit + ratio.abs()) * scale * 2.0 };
-        lifted(residual, value, move || {
-            let (scale_mantissa, scale_exponent) = frexp(scale);
-            let (real_mantissa, real_exponent) = frexp(real);
-            let (scale_exponent, real_exponent) = (i128::from(scale_exponent), i128::from(real_exponent));
-            let (radius_mantissa, radius_exponent) = {
-                let (mantissa, exponent) = if inside { (scale_mantissa, scale_exponent) } else { (real_mantissa.abs(), real_exponent) };
-                let (mantissa, shift) = frexp(mantissa * unit);
-                (mantissa, exponent.strict_add(i128::from(shift)))
-            };
-            let coordinate = if inside { ratio / unit } else { real.signum() / unit };
-            (1..=D::NDERIV).scan((Vector2::new(0.5, 0.0), scale_mantissa.powi(3) / radius_mantissa, scale_exponent.strict_mul(3).strict_sub(radius_exponent)), move |state, order| {
-                let (previous, mantissa, exponent) = *state;
-                let degree = convert::<usize, f64>(order);
-                let previous = if order > 2 { Matrix2::new(-(2.0_f64.mul_add(degree, -3.0)) * coordinate / degree, -(degree - 3.0) / degree, 1.0, 0.0) * previous } else { previous };
-                let (mantissa, shift) = frexp(mantissa / radius_mantissa);
-                let exponent = exponent.strict_add(i128::from(shift)).strict_sub(radius_exponent);
-                let coefficient = match (order == 1, inside) {
-                    (true, true) => (real_mantissa * (2.0 / unit), real_exponent),
-                    (true, false) => (scale_mantissa.copysign(real) * (2.0 / unit), scale_exponent),
-                    (false, _) => (mantissa * 2.0 * previous[0], exponent),
-                };
-                *state = (previous, mantissa, exponent);
-                Some(coefficient)
-            })
-        })
-    }
-
-    match loss {
-        Loss::Squared => residual.powi(2),
-        Loss::Huber(scale) => {
-            let scale = scale.into_inner();
-            if residual.re().abs() <= scale { residual.powi(2) } else { residual.abs().mul_add(D::from(2.0 * scale), D::from(-scale * scale)) }
-        }
-        Loss::SoftL1(scale) => soft_l1(scale.into_inner(), residual),
-        Loss::Cauchy(scale) => cauchy(scale.into_inner(), residual),
+        (Loss::Cauchy(scale), real) if real <= scale.into_inner() => (residual / scale.into_inner()).powi(2).ln_1p() * scale.into_inner() * scale.into_inner(),
+        (Loss::Cauchy(scale), _) => ((residual.abs().ln() - scale.into_inner().ln()) * 2.0 + (residual.recip() * scale.into_inner()).powi(2).ln_1p()) * scale.into_inner() * scale.into_inner(),
     }
 }
 
 fn reweight(loss: Loss, residual: f64) -> f64 {
-    match loss {
-        Loss::Squared => 1.0,
-        Loss::Huber(scale) => {
-            let scale = scale.into_inner();
-            if residual.abs() <= scale { 1.0 } else { scale.sqrt() / residual.abs().sqrt() }
-        }
-        Loss::SoftL1(scale) => {
-            let scale = scale.into_inner();
-            let magnitude = residual.abs().max(scale);
-            (scale.sqrt() / magnitude.sqrt()) / (residual / magnitude).hypot(scale / magnitude).sqrt()
-        }
-        Loss::Cauchy(scale) => {
-            let scale = scale.into_inner();
-            let magnitude = residual.abs().max(scale);
-            (scale / magnitude) / (residual / magnitude).hypot(scale / magnitude)
-        }
-    }
+    let (_, slope) = first_derivative(|dual| rho(loss, dual), residual);
+    if residual == 0.0 { 1.0 } else { (slope / (2.0 * residual)).sqrt() }
 }
 
 fn robust(design: &DMatrix<f64>, target: &DMatrix<f64>, options: Options, hooks: SearchHooks<'_>) -> Result<Estimate, RegressionError> {
@@ -552,7 +441,7 @@ where
     M: Model,
     D: DualNum<Primitive = f64>,
 {
-    residuals(model, observations, scales, parameters).map(|residual| rho(loss, &residual)).sum()
+    residuals(model, observations, scales, parameters).map(|residual| rho(loss, residual)).sum()
 }
 
 fn searched<M>(model: &M, observations: &Observations, scales: &DVector<f64>, loss: Loss, point: &[f64], slot: Option<&mut [f64]>) -> Result<f64, RegressionError>

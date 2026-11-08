@@ -1,6 +1,6 @@
 #![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, default_field_values, float_conversions, map_try_insert)]
 
-use core::{borrow::Borrow, error::Error, f64::consts::FRAC_1_SQRT_2, iter};
+use core::{borrow::Borrow, f64::consts::FRAC_1_SQRT_2, iter};
 use std::sync::Arc;
 
 use color::{AlphaColor, Srgb};
@@ -189,80 +189,38 @@ pub struct Drawing {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-#[derive(Debug, derive_more::Display, derive_more::From)]
+#[derive(Debug, thiserror::Error)]
 pub enum DraftingError {
-    #[from]
-    Linework(LineworkError),
-    #[from]
-    Svg(usvg::Error),
-    #[display("font {position} holds no readable face")]
-    Font {
-        position: usize,
-    },
-    #[display("font family list {list} fails to parse")]
-    Stack {
-        list: Arc<str>,
-        source: ParseFontFamilyError,
-    },
-    #[display("no {lookup} named {name}")]
-    Unknown {
-        lookup: Lookup,
-        name: Arc<str>,
-    },
-    #[display("face {index} {defect}")]
-    Face {
-        index: u32,
-        defect: Defect,
-    },
-    #[display("glyph {glyph} draws no outline")]
-    Outline {
-        glyph: u32,
-        source: ScaleError,
-    },
+    #[error(transparent)]
+    Linework(#[from] LineworkError),
+    #[error(transparent)]
+    Svg(#[from] usvg::Error),
+    #[error("font {position} holds no readable face")]
+    Font { position: usize },
+    #[error("font family list {list} fails to parse")]
+    Stack { list: Arc<str>, source: ParseFontFamilyError },
+    #[error("no {lookup} named {name}")]
+    Unknown { lookup: Lookup, name: Arc<str> },
+    #[error("face {index} {defect}")]
+    Face { index: u32, defect: Defect },
+    #[error("glyph {glyph} draws no outline")]
+    Outline { glyph: u32, source: ScaleError },
+    #[error("{0}")]
     Geometry(Geometry),
-    #[display("{_0} lies outside the linework model")]
+    #[error("{0} lies outside the linework model")]
     Unsupported(Feature),
-    #[from]
-    Tolerance(ToleranceError),
-    #[from]
-    Image(ImageError),
-    #[display("raster of {} by {} pixels spans no placeable extent", _0.width, _0.height)]
+    #[error(transparent)]
+    Tolerance(#[from] ToleranceError),
+    #[error(transparent)]
+    Image(#[from] ImageError),
+    #[error("raster of {} by {} pixels spans no placeable extent", .0.width, .0.height)]
     Raster(ImageSize),
-    #[display("scan density {} is not a positive normal value", _0.into_format_args(per_millimeter, Abbreviation))]
+    #[error("scan density {} is not a positive normal value", .0.into_format_args(per_millimeter, Abbreviation))]
     Density(LinearNumberDensity),
-    #[display("viewport {name} sits on sheets {} and {}", sheets[0], sheets[1])]
-    Duplicate {
-        name: Arc<str>,
-        sheets: [Arc<str>; 2],
-    },
-    #[display("{subject}")]
-    Within {
-        subject: Subject,
-        source: stacksafe::StackSafe<Box<Self>>,
-    },
-}
-
-impl Error for DraftingError {
-    #[stacksafe::stacksafe]
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Linework(source) => source.source(),
-            Self::Svg(source) => source.source(),
-            Self::Stack { list: _, source } => Some(source),
-            Self::Outline { glyph: _, source } => Some(source),
-            Self::Within { subject: _, source } => Some(&**source),
-            Self::Tolerance(source) => source.source(),
-            Self::Image(source) => source.source(),
-            Self::Font { position: _ }
-            | Self::Unknown { lookup: _, name: _ }
-            | Self::Face { index: _, defect: _ }
-            | Self::Geometry(_)
-            | Self::Unsupported(_)
-            | Self::Raster(_)
-            | Self::Density(_)
-            | Self::Duplicate { name: _, sheets: _ } => None,
-        }
-    }
+    #[error("viewport {name} sits on sheets {} and {}", sheets[0], sheets[1])]
+    Duplicate { name: Arc<str>, sheets: [Arc<str>; 2] },
+    #[error("{subject}")]
+    Within { subject: Subject, source: Box<Self> },
 }
 
 impl From<DraftingError> for NEVec<DraftingError> {
@@ -300,8 +258,7 @@ fn drawn(typesetter: &mut Typesetter, style: &Style, placement: Placement, conte
 }
 
 fn within<T>(subject: &Subject, result: Result<T, NEVec<DraftingError>>) -> Validated<T, DraftingError> {
-    result
-        .map_or_else(|errors| Validated::Fail(errors.into_nonempty_iter().map(|source| DraftingError::Within { subject: subject.clone(), source: Box::new(source).into() }).collect()), Validated::Good)
+    result.map_or_else(|errors| Validated::Fail(errors.into_nonempty_iter().map(|source| DraftingError::Within { subject: subject.clone(), source: Box::new(source) }).collect()), Validated::Good)
 }
 
 fn indexed<T, C, I>(results: I) -> Result<C, NEVec<DraftingError>>

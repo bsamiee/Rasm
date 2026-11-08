@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
-use hayro_syntax::object::dict::keys::{COUNT, FIRST, LAST};
+use hayro_syntax::object::dict::keys::{COUNT, D, DEST, DESTS, FIRST, LAST, NAMES, NEXT, NUMS, OUTLINES, P, PAGE_LABELS, PARENT, PREV, S, ST, TITLE, TYPE};
 use itertools::Itertools as _;
 use lopdf::{Dictionary, Object, ObjectId, dictionary, text_string};
 use nonempty_collections::{IntoNonEmptyIterator as _, NonEmptyIterator as _};
@@ -115,24 +115,21 @@ where I: IntoIterator<Item = (&'part Navigation, &'part [usize])> {
 }
 
 pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) -> Result<(), PdfError> {
-    const DESTS: &str = "Dests";
-    const NAMES: &str = "Names";
-    const OUTLINES: &str = "Outlines";
     fn linked(structure: &mut lopdf::Document, siblings: &[(ObjectId, i64)], parent: ObjectId) -> Result<(i64, Option<[ObjectId; 2]>), lopdf::Error> {
         let count = siblings.iter().enumerate().try_fold(0_i64, |count, (index, &(id, descendants))| {
             structure.get_dictionary_mut(id)?.as_hashmap_mut().extend(present([
-                (b"Parent", Some(parent.into())),
-                (b"Prev", index.checked_sub(1).and_then(|before| siblings.get(before)).map(|&(previous_id, _)| previous_id.into())),
-                (b"Next", siblings.get(index.strict_add(1)).map(|&(next_id, _)| next_id.into())),
+                (PARENT, Some(parent.into())),
+                (PREV, index.checked_sub(1).and_then(|before| siblings.get(before)).map(|&(previous_id, _)| previous_id.into())),
+                (NEXT, siblings.get(index.strict_add(1)).map(|&(next_id, _)| next_id.into())),
             ]));
             Ok::<_, lopdf::Error>(count.strict_add(descendants).strict_add(1))
         })?;
         Ok((count, siblings.first().zip(siblings.last()).map(|(first, last)| [first.0, last.0])))
     }
     let destination = |page: ObjectId| Object::Array(vec![page.into(), "XYZ".into(), Object::Null, Object::Null, Object::Null]);
-    let place = |dictionary: &mut Dictionary, key: &str, value: Option<Object>| match value {
+    let place = |dictionary: &mut Dictionary, key: &[u8], value: Option<Object>| match value {
         Some(value) => dictionary.set(key, value),
-        None => drop(dictionary.remove(key.as_bytes())),
+        None => drop(dictionary.remove(key)),
     };
     let pages = structure.page_iter().collect::<Vec<_>>();
     navigation
@@ -153,25 +150,25 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
         .into_iter()
         .collect::<BTreeMap<Vec<u8>, Vec<ObjectId>>>();
     let catalog = structure.catalog()?;
-    let prior = catalog.get(OUTLINES.as_bytes()).and_then(Object::as_reference).ok();
-    let mut directory = crate::nested(structure, catalog, &[NAMES.as_bytes()])?.cloned().unwrap_or_default();
+    let prior = catalog.get(OUTLINES).and_then(Object::as_reference).ok();
+    let mut directory = crate::nested(structure, catalog, &[NAMES])?.cloned().unwrap_or_default();
     let held = pages.iter().copied().collect::<BTreeSet<_>>();
     let opens = |value: &Object| {
         crate::resolved(structure, value)
             .and_then(|target| match target {
-                Object::Dictionary(action) => crate::entry(structure, action, b"D"),
+                Object::Dictionary(action) => crate::entry(structure, action, D),
                 Object::Null | Object::Boolean(_) | Object::Integer(_) | Object::Real(_) | Object::Name(_) | Object::String(_, _) | Object::Array(_) | Object::Stream(_) | Object::Reference(_) =>
                     Ok(Some(target)),
             })
             .is_ok_and(|target| matches!(target, Some(Object::Array(explicit)) if matches!(explicit.first(), Some(Object::Reference(page)) if held.contains(page))))
     };
-    let legacy = crate::nested(structure, catalog, &[DESTS.as_bytes()])?
+    let legacy = crate::nested(structure, catalog, &[DESTS])?
         .into_iter()
         .flat_map(Dictionary::iter)
         .filter(|&(_, value)| opens(value))
         .map(|(name, value)| (name.clone(), value.clone()))
         .collect::<Dictionary>();
-    let named = crate::nested(structure, &directory, &[DESTS.as_bytes()])?.map(|tree| crate::leaves(structure, tree, NAMES, &|name: &Object| name.as_str().map(<[u8]>::to_vec))).transpose()?;
+    let named = crate::nested(structure, &directory, &[DESTS])?.map(|tree| crate::leaves(structure, tree, NAMES, &|name: &Object| name.as_str().map(<[u8]>::to_vec))).transpose()?;
     let destinations = iter::chain(
         labeled.iter().filter_map(|(name, owners)| match owners {
             [page] => Some((name.clone(), destination(*page))),
@@ -199,11 +196,11 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
                         structure.set_object(
                             id,
                             present([
-                                (b"Title", Some(text_string(&item.title))),
+                                (TITLE, Some(text_string(&item.title))),
                                 (FIRST, ends.map(|[first, _]| first.into())),
                                 (LAST, ends.map(|[_, last]| last.into())),
                                 (COUNT, ends.map(|_ends| count.into())),
-                                (b"Dest", dest),
+                                (DEST, dest),
                             ])
                             .collect::<Dictionary>(),
                         );
@@ -224,7 +221,7 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
             let key = i64::try_from(page).map_err(lopdf::Error::from)?;
             Ok::<_, lopdf::Error>([
                 Object::Integer(key),
-                Object::Dictionary(present([(b"S", range.style.to_name().map(Object::from)), (b"P", range.prefix.as_deref().map(text_string)), (b"St", Some(range.start_value.into()))]).collect()),
+                Object::Dictionary(present([(S, range.style.to_name().map(Object::from)), (P, range.prefix.as_deref().map(text_string)), (ST, Some(range.start_value.into()))]).collect()),
             ])
         })
         .process_results(|pairs| pairs.flatten().collect::<Vec<_>>())?;
@@ -242,14 +239,14 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
         let (count, ends) = linked(structure, &outline, root)?;
         structure.set_object(
             root,
-            present([(b"Type", Some(OUTLINES.into())), (FIRST, ends.map(|[first, _]| first.into())), (LAST, ends.map(|[_, last]| last.into())), (COUNT, ends.map(|_ends| count.into()))])
+            present([(TYPE, Some(Object::Name(OUTLINES.to_vec()))), (FIRST, ends.map(|[first, _]| first.into())), (LAST, ends.map(|[_, last]| last.into())), (COUNT, ends.map(|_ends| count.into()))])
                 .collect::<Dictionary>(),
         );
     }
     let written = structure.catalog_mut()?;
     for (key, value) in [
         (OUTLINES, root.map(Object::Reference)),
-        ("PageLabels", (!nums.is_empty()).then(|| dictionary! { "Nums" => nums }.into())),
+        (PAGE_LABELS, (!nums.is_empty()).then(|| dictionary! { NUMS => nums }.into())),
         (NAMES, Some(directory).filter(|names| !names.is_empty()).map(Object::from)),
         (DESTS, (!legacy.is_empty()).then(|| legacy.into())),
     ] {

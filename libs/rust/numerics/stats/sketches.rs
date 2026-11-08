@@ -8,24 +8,18 @@ use crate::StatsError;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, derive_more::AsRef)]
 pub struct Summary {
+    #[as_ref]
     moments: Variance,
     #[serde(serialize_with = "encode", deserialize_with = "decode")]
     digest: TDigestMut,
+    #[as_ref]
     non_finite: u64,
 }
 
 impl Summary {
     pub fn new(compression: u16) -> Result<Self, StatsError> { Ok(Self { moments: Variance::new(), digest: TDigestMut::new(compression)?, non_finite: 0 }) }
-}
-
-const impl AsRef<Variance> for Summary {
-    fn as_ref(&self) -> &Variance { &self.moments }
-}
-
-const impl AsRef<u64> for Summary {
-    fn as_ref(&self) -> &u64 { &self.non_finite }
 }
 
 impl From<Summary> for TDigest {

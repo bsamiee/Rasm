@@ -1,11 +1,11 @@
 use core::iter;
 
-use faer::{Side, linalg::solvers::Solve as _, sparse::linalg::solvers::Llt};
-use nalgebra::{DVectorView, Matrix3xX};
+use faer::{Mat, Side, linalg::solvers::Solve as _, sparse::linalg::solvers::Llt};
+use nalgebra::DVectorView;
 use nonempty_collections::NEVec;
 use validated::Validated;
 
-use crate::{Form, FormError, Input, Network, balance, form, laplacian, spans, view_mut};
+use crate::{Form, FormError, Input, Network, balance, form, laplacian, spans};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -13,8 +13,8 @@ use crate::{Form, FormError, Input, Network, balance, form, laplacian, spans, vi
 pub(crate) struct Solved {
     pub(crate) factor: Llt<usize, f64>,
     pub(crate) sign: f64,
-    pub(crate) spans: Matrix3xX<f64>,
-    pub(crate) free: Matrix3xX<f64>,
+    pub(crate) spans: Mat<f64>,
+    pub(crate) free: Mat<f64>,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -29,10 +29,9 @@ const fn sign(densities: &[f64]) -> f64 {
 pub(crate) fn solved(network: &Network, densities: DVectorView<'_, f64>) -> Result<Solved, FormError> {
     let sign = sign(densities.as_slice());
     let factor = Llt::try_new_with_symbolic(network.llt.clone(), laplacian(network, densities.iter().map(|density| density * sign))?.as_ref(), Side::Lower)?;
-    let (residual, _) = balance(network, &network.anchors, densities);
-    let mut free = residual * sign;
-    factor.solve_in_place(view_mut(&mut free));
-    Ok(Solved { factor, sign, spans: spans(network, &free), free })
+    let (residual, _) = balance(network, network.anchors.as_ref(), densities);
+    let free = sign * factor.solve(&residual);
+    Ok(Solved { factor, sign, spans: spans(network, free.as_ref()), free })
 }
 
 pub fn equilibrium(network: &Network, densities: DVectorView<'_, f64>) -> Result<Form, NEVec<FormError>> {
@@ -45,5 +44,5 @@ pub fn equilibrium(network: &Network, densities: DVectorView<'_, f64>) -> Result
     .collect::<Validated<(), _>>()
     .ok()?;
     let Solved { factor: _, sign: _, spans, free } = solved(network, densities).map_err(NEVec::new)?;
-    Ok(form(network, &free, &spans, densities, balance(network, &spans, densities)))
+    Ok(form(network, free.as_ref(), spans.as_ref(), densities, balance(network, spans.as_ref(), densities)))
 }

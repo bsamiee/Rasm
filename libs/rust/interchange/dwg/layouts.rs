@@ -11,6 +11,7 @@ use acadrust::{
     sheet_set::{CUSTOM_SHEET_PROP, LayoutReference, SheetSetDatabase, custom_properties, set_custom_property},
     tables::normalize_name,
 };
+use itertools::Itertools as _;
 use kurbo::{Affine, Point, Rect, Shape as _, Size, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
@@ -37,7 +38,7 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
     let code = document.header.insertion_units;
     let model = Length::from(projection.unit.or_else(|| Unit::from_repr(code)).ok_or(CadError::Unit { code }).map_err(NEVec::new)?).get::<millimeter>();
     let space = document.header.model_space_block_handle;
-    let mut layouts = document
+    let layouts = document
         .objects
         .values()
         .filter_map(|object| {
@@ -49,8 +50,7 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
                 None
             }
         })
-        .collect::<Vec<_>>();
-    layouts.sort_by_key(|layout| layout.tab_order);
+        .sorted_by_key(|layout| layout.tab_order);
     let mut paged = |layout: &Layout| -> Result<(Arc<str>, Page), NEVec<CadError>> {
         let unit = match PlotPaperUnits::from_code(layout.plot_paper_units) {
             PlotPaperUnits::Inches => Ok(Unit::Inches),
@@ -152,7 +152,7 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
         let viewports = ports.iter().map(|viewport| viewed(viewport).map_or_else(Validated::Fail, Validated::Good)).collect::<Validated<Vec<_>, _>>();
         drawn.map2(viewports, |layers, viewports| (Arc::from(layout.name.as_str()), Page { size, viewports, layers, fields, .. })).ok()
     };
-    layouts.iter().map(|layout| paged(layout).map_or_else(Validated::Fail, Validated::Good)).collect::<Validated<Vec<_>, _>>().ok()
+    layouts.map(|layout| paged(&layout).map_or_else(Validated::Fail, Validated::Good)).collect::<Validated<Vec<_>, _>>().ok()
 }
 
 pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<CadDocument, NEVec<CadError>> {
@@ -300,15 +300,10 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
     let named = distinct
         .into_iter()
         .map(|mut layer| {
-            if !seen.insert(normalize_name(&layer.name)) {
-                let mut repeat = 1_usize;
-                layer.name = loop {
-                    repeat = repeat.strict_add(1);
-                    let name = Arc::<str>::from(format!("{} {repeat}", layer.name));
-                    if taken.insert(normalize_name(&name)) {
-                        break name;
-                    }
-                };
+            if !seen.insert(normalize_name(&layer.name))
+                && let Some(name) = (2..=usize::MAX).map(|repeat| Arc::<str>::from(format!("{} {repeat}", layer.name))).find(|name| taken.insert(normalize_name(name)))
+            {
+                layer.name = name;
             }
             layer
         })

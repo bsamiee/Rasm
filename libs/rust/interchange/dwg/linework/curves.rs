@@ -359,17 +359,6 @@ pub(super) fn signed(dashes: &Dashes, offset: f64) -> Vec<f64> {
 }
 
 fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], tolerance: f64) -> Option<BezPath> {
-    #[derive(Debug, Clone, Copy)]
-    struct Homogeneous {
-        weighted: [f128; 2],
-        weight: f128,
-    }
-    impl Homogeneous {
-        fn cartesian(&self) -> Point {
-            let [x, y] = self.weighted.map(|coordinate| (coordinate / self.weight).cast::<f64>());
-            Point::new(x, y)
-        }
-    }
     fn polynomial<T>(control: &[T], point: impl Fn(&T) -> Point) -> Option<PathEl> {
         match control {
             [_, end] => Some(PathEl::LineTo(point(end))),
@@ -378,7 +367,8 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
             _ => None,
         }
     }
-    let inserted = |weighted: &[Homogeneous], spread: &[f64], value: f64| -> Option<(Vec<Homogeneous>, Vec<f64>)> {
+    let cartesian = |&[x, y, weight]: &[f128; 3]| Point::new((x / weight).cast::<f64>(), (y / weight).cast::<f64>());
+    let inserted = |weighted: &[[f128; 3]], spread: &[f64], value: f64| -> Option<(Vec<[f128; 3]>, Vec<f64>)> {
         let span = spread.partition_point(|knot| *knot <= value).checked_sub(1)?;
         let present = spread.iter().filter(|knot| knot.total_cmp(&value).is_eq()).count();
         let (kept, shifted) = (span.checked_sub(degree)?, span.checked_sub(present)?);
@@ -392,12 +382,9 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
                     let width = high - low;
                     let (before, after) = ((high - value) / width, (value - low) / width);
                     let (previous, current) = (weighted.get(at.checked_sub(1)?)?, weighted.get(at)?);
-                    Some(Homogeneous {
-                        #[expect(clippy::suboptimal_flops, reason = "native f128 mul_add produces incorrect results on Darwin")]
-                        weighted: array::from_fn(|axis| previous.weighted[axis] * before + current.weighted[axis] * after),
-                        #[expect(clippy::suboptimal_flops, reason = "native f128 mul_add produces incorrect results on Darwin")]
-                        weight: previous.weight * before + current.weight * after,
-                    })
+                    #[expect(clippy::suboptimal_flops, reason = "native f128 mul_add produces incorrect results on Darwin")]
+                    let blended = array::from_fn(|axis| previous[axis] * before + current[axis] * after);
+                    Some(blended)
                 }
             })
             .collect::<Option<Vec<_>>>()?;
@@ -429,7 +416,7 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
             iter::zip(control, weights.iter().copied().chain(iter::repeat(1.0)))
                 .map(|(vertex, weight)| {
                     let weight = f128::from(weight);
-                    Homogeneous { weighted: [vertex.x, vertex.y].map(|coordinate| f128::from(coordinate) * weight), weight }
+                    [f128::from(vertex.x) * weight, f128::from(vertex.y) * weight, weight]
                 })
                 .collect::<Vec<_>>(),
             knots.to_vec(),
@@ -447,26 +434,26 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
         })
         .collect::<Option<Vec<_>>>()?;
     let mut path = BezPath::new();
-    path.move_to(pieces.first()?.first()?.cartesian());
+    path.move_to(cartesian(pieces.first()?.first()?));
     let mut pieces = pieces.into_iter();
     let mut pending = Vec::new();
-    let mut cartesian = Vec::new();
+    let mut controls = Vec::new();
     while let Some(piece) = pending.pop().map(Cow::Owned).or_else(|| pieces.next().map(Cow::Borrowed)) {
-        if !rational && let Some(element) = polynomial(&piece, Homogeneous::cartesian) {
+        if !rational && let Some(element) = polynomial(&piece, cartesian) {
             path.push(element);
             continue;
         }
-        cartesian.clear();
-        cartesian.extend(piece.iter().map(Homogeneous::cartesian));
+        controls.clear();
+        controls.extend(piece.iter().map(cartesian));
         let last = piece.len().strict_sub(1);
-        let (start, end) = (cartesian[0], cartesian[last]);
-        let magnitude = cartesian.iter().map(|point| point.x.abs().max(point.y.abs())).fold(0.0, |largest, next| max_by(largest, next, f64::total_cmp));
+        let (start, end) = (controls[0], controls[last]);
+        let magnitude = controls.iter().map(|point| point.x.abs().max(point.y.abs())).fold(0.0, |largest, next| max_by(largest, next, f64::total_cmp));
         let flat = magnitude == 0.0 || {
             let scale = magnitude.max(tolerance);
             let normalized = |point: Point| Point::new(point.x / scale, point.y / scale);
             let chord = Line::new(normalized(start), normalized(end));
             let reach = (tolerance / scale).max((magnitude / scale) * f64::EPSILON * 64.0);
-            cartesian.iter().all(|&point| chord.nearest(normalized(point), 0.0).distance_sq <= reach * reach)
+            controls.iter().all(|&point| chord.nearest(normalized(point), 0.0).distance_sq <= reach * reach)
         };
         if flat {
             path.line_to(end);
@@ -477,7 +464,7 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
         for level in 1..=last {
             for index in (level..=last).rev() {
                 let (low, high) = (left[index.strict_sub(1)], left[index]);
-                left[index] = Homogeneous { weighted: array::from_fn(|axis| low.weighted[axis].midpoint(high.weighted[axis])), weight: low.weight.midpoint(high.weight) };
+                left[index] = array::from_fn(|axis| low[axis].midpoint(high[axis]));
             }
             right[last.strict_sub(level)] = left[last];
         }

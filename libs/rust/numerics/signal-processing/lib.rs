@@ -21,7 +21,15 @@ use uom::{
 )]
 pub struct Rate(Frequency);
 
-#[nutype::nutype(validate(with = finite, error = SpectraError), derive(Debug, Clone, PartialEq, Deref))]
+#[nutype::nutype(
+    validate(
+        with = |samples: &Array1<f64>| -> Result<(), SpectraError> {
+            samples.iter().position(|sample| !sample.is_finite()).map_or_else(|| (!samples.is_empty()).ok_or(SpectraError::Empty), |index| Err(SpectraError::Sample { index }))
+        },
+        error = SpectraError
+    ),
+    derive(Debug, Clone, PartialEq, Deref)
+)]
 pub struct Samples(Array1<f64>);
 
 #[derive(Debug, Clone, PartialEq)]
@@ -108,14 +116,6 @@ pub enum SpectraError {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn finite(samples: &Array1<f64>) -> Result<(), SpectraError> {
-    match samples.iter().position(|sample| !sample.is_finite()) {
-        Some(index) => Err(SpectraError::Sample { index }),
-        None if samples.is_empty() => Err(SpectraError::Empty),
-        None => Ok(()),
-    }
-}
 
 const fn real_bins(len: usize) -> usize { len.strict_div(2).strict_add(1) }
 

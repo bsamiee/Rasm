@@ -143,7 +143,10 @@ impl Pass {
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         if !matches!(expr.kind, ExprKind::MethodCall(..) | ExprKind::Call(..))
-            || !matches!(cx.tcx.coroutine_kind(cx.tcx.hir_enclosing_body_owner(expr.hir_id)), Some(CoroutineKind::Desugared(CoroutineDesugaring::Async | CoroutineDesugaring::AsyncGen, _)))
+            || !matches!(
+                cx.enclosing_body.and_then(|body| cx.tcx.coroutine_kind(cx.tcx.hir_body_owner_def_id(body))),
+                Some(CoroutineKind::Desugared(CoroutineDesugaring::Async | CoroutineDesugaring::AsyncGen, _))
+            )
         {
             return;
         }

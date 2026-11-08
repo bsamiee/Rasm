@@ -71,9 +71,8 @@ pub fn schedule<N, E, T>(
 where
     T: Copy + Ord + Zero,
 {
-    if let Some(nodes) = NEBTreeSet::try_from_set(evaluation.node_indices().filter(|&node| duration(&evaluation[node]) < T::zero()).collect()) {
-        return Err(DependencyError::Refused { reason: Refusal::Duration, nodes });
-    }
+    NEBTreeSet::try_from_set(evaluation.node_indices().filter(|&node| duration(&evaluation[node]) < T::zero()).collect())
+        .map_or(Ok(()), |nodes| Err(DependencyError::Refused { reason: Refusal::Duration, nodes }))?;
     let refused = |nodes: NEVec<NodeIndex>| DependencyError::Refused { reason: Refusal::Date, nodes: nodes.into_nonempty_iter().collect() };
     let dated = |direction: Direction, origin: (Event, T)| {
         let tighter = match direction {

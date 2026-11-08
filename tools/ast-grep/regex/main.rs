@@ -18,7 +18,10 @@ use ast_grep_core::{
 use ast_grep_dynamic::{CustomLang, DynamicLang, DynamicLangError};
 use nonempty_collections::{NEVec, nev};
 use regex_syntax::{
-    ast::{self, Ast, ClassBracketed, ClassSet, ClassSetItem, ClassSetRange, ClassSetUnion, Flag, FlagsItem, FlagsItemKind, Group, GroupKind, Visitor, parse::Parser, visit},
+    ast::{
+        self, Ast, ClassAscii, ClassAsciiKind, ClassBracketed, ClassPerl, ClassPerlKind, ClassSet, ClassSetItem, ClassSetRange, ClassSetUnion, Flag, FlagsItem, FlagsItemKind, Group, GroupKind,
+        Visitor, parse::Parser, visit,
+    },
     hir::{
         self, ClassUnicode, ClassUnicodeRange, Hir, HirKind, Look, LookSet,
         literal::Extractor,
@@ -148,8 +151,12 @@ impl Walker<'_> {
             Ast::Repetition(repetition) => self.folded(&mut repetition.ast)?,
             Ast::Alternation(ast::Alternation { span: _, asts }) | Ast::Concat(ast::Concat { span: _, asts }) => asts.iter_mut().try_for_each(|part| self.folded(part))?,
             Ast::Empty(_) | Ast::Dot(_) | Ast::Assertion(_) => {}
-            Ast::Literal(_) | Ast::ClassUnicode(_) | Ast::ClassPerl(_) => {
-                let negated = matches!(node, Ast::ClassUnicode(class) if class.is_negated()) || matches!(node, Ast::ClassPerl(class) if class.negated);
+            Ast::ClassPerl(perl) => {
+                *node = Ast::class_bracketed(ascii(perl));
+                self.folded(node)?;
+            }
+            Ast::Literal(_) | Ast::ClassUnicode(_) => {
+                let negated = matches!(node, Ast::ClassUnicode(class) if class.is_negated());
                 if let Some(class) = self.refolded(node, negated)? {
                     *node = Ast::class_bracketed(class);
                     wrapped(node);
@@ -177,7 +184,10 @@ impl Walker<'_> {
             ClassSetItem::Empty(_) => return Ok(false),
             ClassSetItem::Literal(_) | ClassSetItem::Range(_) => false,
             ClassSetItem::Ascii(class) => class.negated,
-            ClassSetItem::Perl(class) => class.negated,
+            ClassSetItem::Perl(perl) => {
+                *item = ClassSetItem::Bracketed(Box::new(ascii(perl)));
+                return self.folded_item(item);
+            }
             ClassSetItem::Unicode(class) => class.is_negated(),
         };
         let written = Ast::class_bracketed(ClassBracketed { span: *item.span(), negated: false, kind: ClassSet::Item(item.clone()) });
@@ -411,8 +421,16 @@ fn letters(bytes: &[u8]) -> impl Iterator<Item = char> { bytes.utf8_chunks().fla
 
 // --- [TOKENS]
 
+const fn ascii(perl: &ClassPerl) -> ClassBracketed {
+    let kind = match perl.kind {
+        ClassPerlKind::Digit => ClassAsciiKind::Digit,
+        ClassPerlKind::Space => ClassAsciiKind::Space,
+        ClassPerlKind::Word => ClassAsciiKind::Word,
+    };
+    ClassBracketed { span: perl.span, negated: perl.negated, kind: ClassSet::Item(ClassSetItem::Ascii(ClassAscii { span: perl.span, kind, negated: false })) }
+}
+
 fn structure((pattern, caseless): &(String, bool)) -> Result<Node, Failure> {
-    const GENERATOR_CLASSES: [(&str, &str); 6] = [(r"\w", "[0-9A-Za-z_]"), (r"\s", r"[\t-\r ]"), (r"\d", "[0-9]"), (r"\W", "[^0-9A-Za-z_]"), (r"\S", r"[^\t-\r ]"), (r"\D", "[^0-9]")];
     fn structured(hir: &Hir) -> Node {
         match hir.kind() {
             HirKind::Empty | HirKind::Look(_) => Node::Alternation { alternatives: vec![Vec::new()] },
@@ -425,11 +443,10 @@ fn structure((pattern, caseless): &(String, bool)) -> Result<Node, Failure> {
             HirKind::Alternation(parts) => Node::Alternation { alternatives: parts.iter().map(|part| vec![structured(part)]).collect() },
         }
     }
-    let source = GENERATOR_CLASSES.iter().fold(pattern.clone(), |text, (written, spelled)| text.replace(written, spelled));
-    let mut tree = Parser::new().parse(&source).map_err(Failure::pattern)?;
+    let mut tree = Parser::new().parse(pattern).map_err(Failure::pattern)?;
     let base = TranslatorBuilder::new().utf8(false).case_insensitive(*caseless).clone();
-    Walker { pattern: &source, scopes: nev![base.clone()], findings: Vec::new() }.folded(&mut tree).map_err(Failure::pattern)?;
-    base.build().translate(&source, &tree).map(|hir| structured(&hir)).map_err(Failure::pattern)
+    Walker { pattern, scopes: nev![base.clone()], findings: Vec::new() }.folded(&mut tree).map_err(Failure::pattern)?;
+    base.build().translate(pattern, &tree).map(|hir| structured(&hir)).map_err(Failure::pattern)
 }
 
 // --- [RULES]

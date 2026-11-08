@@ -316,7 +316,7 @@ pub fn crossings(spline: &Spline, level: f64, derivative: u8) -> Result<Vec<f64>
             .collect::<Vec<_>>();
         match real(&shifted, RangeInclusive { start: 0.0, last: last - start }) {
             Ok(roots) => Ok(roots.into_iter().map(|root| root + start).collect::<Vec<_>>()),
-            Err(errors) if errors.iter().all(|error| matches!(error, AnalysisError::Zero)) => Ok(Vec::new()),
+            Err(errors) if errors.iter().all(AnalysisError::is_zero) => Ok(Vec::new()),
             Err(errors) => Err(errors),
         }
     });

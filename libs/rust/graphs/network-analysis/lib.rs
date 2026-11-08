@@ -94,6 +94,6 @@ mod spanning;
 pub use centrality::{Centrality, Convergence, eigenvector, geodesic, katz};
 pub use connectivity::{Biconnected, Connectedness, Cut, biconnected, components, min_cut};
 pub use flows::{Cardinality, Flow, matching, maximum};
-pub use partition::{Communities, communities};
+pub use partition::{Communities, Trace, communities};
 pub use paths::{Catchment, Reached, Route, catchment, route, segments};
 pub use spanning::{steiner, tree};

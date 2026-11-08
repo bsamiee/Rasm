@@ -1,4 +1,4 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, paths::PathNS};
+use clippy_utils::{diagnostics::span_lint_and_help, paths::PathNS};
 use rustc_hir::{Expr, ExprKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::TyCtxt;
@@ -30,15 +30,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && called == Some(banned)
             && !expanded_externally(cx, expr.span)
         {
-            span_lint_hir_and_then(
+            span_lint_and_help(
                 cx,
                 CANONICALIZE_WITHOUT_PATH,
-                expr.hir_id,
                 span,
                 "`Path::canonicalize` returns an `io::Error` that names no path and a Windows path that holds the verbatim prefix",
-                |diag| {
-                    diag.help("use `dunce::simplified(&fs_err::canonicalize(..)?)`");
-                },
+                None,
+                "use `dunce::simplified(&fs_err::canonicalize(..)?)`",
             );
         }
     }

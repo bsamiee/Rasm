@@ -24,11 +24,12 @@ use grib::{
 use indexmap::IndexMap;
 use itertools::{Either, Itertools as _};
 use jiff::{SignedDuration, Span, Timestamp, civil, tz::Offset};
-use nalgebra::{Rotation2, Vector2, Vector3};
+use nalgebra::{Point3, Rotation2, Vector2, Vector3};
 use ndarray::{aview1, aview2};
 use ndarray_interp::{InterpolateError, interp2d::Interp2D};
-use nonempty_collections::nev;
+use nonempty_collections::{NESlice, nev};
 use rasm_numerical_analysis::roots;
+use rasm_proximity::{Cloud, Neighbor, nearest};
 use rasm_site::Place;
 use rasm_solar_geometry::{Sun, lapsed};
 use solar_positioning::Location;
@@ -190,18 +191,17 @@ where
             }) else {
                 return Ok(None);
             };
-            let member = |EnsembleForecast { ensemble_forecast_type: _, perturbation_num, num_forecasts: _ }: EnsembleForecast| Some(perturbation_num);
+            let member = |EnsembleForecast { perturbation_num, .. }: EnsembleForecast| Some(perturbation_num);
             let (forecast_time, statistical, member) = match message.section4()?.payload.template {
-                ProductDefinitionTemplate::_4_0(Template4_0 { param: _, generating_process: _, forecast_time, horizontal: _ }) => (forecast_time, None, None),
-                ProductDefinitionTemplate::_4_1(Template4_1 { param: _, generating_process: _, forecast_time, horizontal: _, emsemble_forecast }) => (forecast_time, None, member(emsemble_forecast)),
-                ProductDefinitionTemplate::_4_8(Template4_8 { param: _, generating_process: _, forecast_time, horizontal: _, time_interval }) => (forecast_time, Some(time_interval), None),
-                ProductDefinitionTemplate::_4_11(Template4_11 { param: _, generating_process: _, forecast_time, horizontal: _, emsemble_forecast, time_interval }) =>
-                    (forecast_time, Some(time_interval), member(emsemble_forecast)),
+                ProductDefinitionTemplate::_4_0(Template4_0 { forecast_time, .. }) => (forecast_time, None, None),
+                ProductDefinitionTemplate::_4_1(Template4_1 { forecast_time, emsemble_forecast, .. }) => (forecast_time, None, member(emsemble_forecast)),
+                ProductDefinitionTemplate::_4_8(Template4_8 { forecast_time, time_interval, .. }) => (forecast_time, Some(time_interval), None),
+                ProductDefinitionTemplate::_4_11(Template4_11 { forecast_time, emsemble_forecast, time_interval, .. }) => (forecast_time, Some(time_interval), member(emsemble_forecast)),
                 _ => return Ok(None),
             };
             let valid = span(&forecast_time.time).and_then(|offset| stamped(&message.section1()?.payload.ref_time, offset))?;
             let statistic = statistical
-                .map(|Statistical { end_of_overall_time_interval, num_time_ranges: _, num_missing: _, time_ranges }| {
+                .map(|Statistical { end_of_overall_time_interval, time_ranges, .. }| {
                     stamped(&end_of_overall_time_interval, Span::new()).map(|end| (end, <[StatisticalProcess; 1]>::try_from(time_ranges).ok().map(|[process]| process.statistical_process_type)))
                 })
                 .transpose()?;
@@ -223,63 +223,19 @@ where
         };
         let grid = grid.get_or_try_init(|| -> Result<_, Malformed> {
             const GRID_RELATIVE: u8 = 0b0000_1000;
-            let sign = |positive: bool| if positive { 1.0_f64 } else { -1.0 };
-            let sites = match &message.section3()?.payload.template {
-                GridDefinitionTemplate::_3_0(Template3_0 { earth: _, lat_lon: LatLonGrid { grid: _, i_direction_inc: _, j_direction_inc: _, scanning_mode } })
-                | GridDefinitionTemplate::_3_40(Template3_40 { earth: _, gaussian: GaussianGrid { grid: _, i_direction_inc: _, n: _, scanning_mode } }) =>
-                    geographic(&message, sign(scanning_mode.scans_positively_for_i()), locations),
-                GridDefinitionTemplate::_3_1(Template3_1 { earth: _, lat_lon: LatLonGrid { grid, i_direction_inc: _, j_direction_inc: _, scanning_mode }, rotation: _ })
-                | GridDefinitionTemplate::_3_41(Template3_41 { earth: _, gaussian: GaussianGrid { grid, i_direction_inc: _, n: _, scanning_mode }, rotation: _ }) =>
-                    projected(&message, grid.resolution_and_component_flags.0 & GRID_RELATIVE != 0, sign(scanning_mode.scans_positively_for_i()), locations),
-                GridDefinitionTemplate::_3_10(Template3_10 {
-                    earth_shape: _,
-                    ni: _,
-                    nj: _,
-                    first_point_lat: _,
-                    first_point_lon: _,
-                    resolution_and_component_flags,
-                    lad: _,
-                    last_point_lat: _,
-                    last_point_lon: _,
-                    scanning_mode,
-                    orientation: _,
-                    di: _,
-                    dj: _,
-                })
-                | GridDefinitionTemplate::_3_20(Template3_20 {
-                    earth_shape: _,
-                    ni: _,
-                    nj: _,
-                    first_point_lat: _,
-                    first_point_lon: _,
-                    resolution_and_component_flags,
-                    lad: _,
-                    lov: _,
-                    dx: _,
-                    dy: _,
-                    projection_centre: _,
-                    scanning_mode,
-                })
-                | GridDefinitionTemplate::_3_30(Template3_30 {
-                    earth_shape: _,
-                    ni: _,
-                    nj: _,
-                    first_point_lat: _,
-                    first_point_lon: _,
-                    resolution_and_component_flags,
-                    lad: _,
-                    lov: _,
-                    dx: _,
-                    dy: _,
-                    projection_centre: _,
-                    scanning_mode,
-                    latin1: _,
-                    latin2: _,
-                    south_pole_lat: _,
-                    south_pole_lon: _,
-                }) => projected(&message, resolution_and_component_flags.0 & GRID_RELATIVE != 0, sign(scanning_mode.scans_positively_for_i()), locations),
-                _ => Err(Malformed::Grid),
-            }?;
+            let (flags, positive) = match &message.section3()?.payload.template {
+                GridDefinitionTemplate::_3_0(Template3_0 { lat_lon: LatLonGrid { scanning_mode, .. }, .. })
+                | GridDefinitionTemplate::_3_40(Template3_40 { gaussian: GaussianGrid { scanning_mode, .. }, .. }) => (None, scanning_mode.scans_positively_for_i()),
+                GridDefinitionTemplate::_3_1(Template3_1 { lat_lon: LatLonGrid { grid, scanning_mode, .. }, .. })
+                | GridDefinitionTemplate::_3_41(Template3_41 { gaussian: GaussianGrid { grid, scanning_mode, .. }, .. }) =>
+                    (Some(grid.resolution_and_component_flags.0), scanning_mode.scans_positively_for_i()),
+                GridDefinitionTemplate::_3_10(Template3_10 { resolution_and_component_flags, scanning_mode, .. })
+                | GridDefinitionTemplate::_3_20(Template3_20 { resolution_and_component_flags, scanning_mode, .. })
+                | GridDefinitionTemplate::_3_30(Template3_30 { resolution_and_component_flags, scanning_mode, .. }) => (Some(resolution_and_component_flags.0), scanning_mode.scans_positively_for_i()),
+                _ => return Err(Malformed::Grid),
+            };
+            let sign = if positive { 1.0 } else { -1.0 };
+            let sites = flags.map_or_else(|| geographic(&message, sign, locations), |flags| projected(&message, flags & GRID_RELATIVE != 0, sign, locations))?;
             let wanted = sites.iter().flatten().flat_map(|cell| cell.corners).collect::<HashSet<_>>();
             let indices = message.ij()?.enumerate().filter_map(|(index, (column, row))| wanted.contains(&(row, column)).then_some((index, (row, column)))).collect_vec();
             Ok(Grid { sites, indices })
@@ -522,25 +478,18 @@ fn projected<R>(message: &SubMessage<'_, R>, relative: bool, sign: f64, location
         .map2(Validated::from(message.latlons()), Iterator::zip)
         .ok()
         .map_err(Malformed::Decode)?
-        .map(|((column, row), (latitude, longitude))| (row.strict_mul(ni).strict_add(column), unit(latitude, longitude).0))
+        .map(|((column, row), (latitude, longitude))| (row.strict_mul(ni).strict_add(column), Point3::from(unit(latitude, longitude).0)))
         .sorted_unstable_by_key(|&(index, _)| index)
         .map(|(_, point)| point)
         .collect_vec();
-    locations
-        .iter()
-        .map(|location| {
-            let (up, east) = unit(location.latitude, location.longitude);
+    let frames = locations.iter().map(|location| unit(location.latitude, location.longitude)).collect_vec();
+    let cloud = NESlice::try_from_slice(&points).ok_or(Malformed::Grid).and_then(|points| Cloud::new(&points).map_err(Malformed::Proximity))?;
+    let closest = nearest(&cloud, &frames.iter().map(|&(up, _)| Point3::from(up)).collect_vec()).map_err(Malformed::Proximity)?;
+    iter::zip(frames, closest)
+        .map(|((up, east), Neighbor { point: _, item, distance: _ })| {
             let north = up.cross(&east);
-            let plane = |point: &Vector3<f64>| (point.dot(&up) > 0.0).then(|| Vector2::new(point.dot(&east), point.dot(&north)));
-            let Some((nearest_row, nearest_column)) = points
-                .iter()
-                .enumerate()
-                .filter_map(|(index, point)| plane(point).map(|projected| (index, projected.norm_squared())))
-                .min_by(|(_, nearer), (_, farther)| nearer.total_cmp(farther))
-                .map(|(index, _)| (index / width, index % width))
-            else {
-                return Ok(None);
-            };
+            let plane = |point: &Point3<f64>| (point.coords.dot(&up) > 0.0).then(|| Vector2::new(point.coords.dot(&east), point.coords.dot(&north)));
+            let (nearest_row, nearest_column) = (item / width, item % width);
             let corner = |row: usize, column: usize| points.get(row.strict_mul(ni).strict_add(column)).and_then(plane);
             let shares = |south: usize, west: usize| {
                 let (upper, right) = (south.strict_add(1), west.strict_add(1));

@@ -12,7 +12,7 @@ use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, AdtDef, TyCtxt};
 
 use super::{collects_vec, iterator_method};
-use crate::{derived_impl, duplication::Bodies, expanded_externally, exported, trait_impls};
+use crate::{derived_impl, duplication::Bodies, expanded_externally, exported};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -115,15 +115,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                             })
                 })
         };
-        let mut implementations = trait_impls(tcx);
-        for (&structure, &site) in &self.mentions {
-            if let Some(site) = site
-                && let Some(owned) = implementations.remove(&structure)
-                && !exported(cx, structure)
+        let implementations = self.bodies.implementations(tcx);
+        let candidates = self.mentions.iter().filter_map(|(&structure, &site)| {
+            let (site, owned) = (site?, implementations.get(&structure)?);
+            let anonymous = (!exported(cx, structure)
                 && !expanded_externally(cx, tcx.def_span(structure))
                 && tcx.inherent_impls(structure).is_empty()
-                && owned.iter().any(|&(_, implementation)| !derived_impl(tcx, implementation.to_def_id()))
-                && let Ok(Some(anonymous)) = owned
+                && owned.iter().any(|&(_, implementation)| !derived_impl(tcx, implementation.to_def_id())))
+            .then(|| {
+                owned
                     .iter()
                     .map(|&(implemented, _)| match tcx.get_diagnostic_name(implemented) {
                         Some(sym::Display | sym::Debug) => Some(Anonymous::Formatter),
@@ -131,39 +131,44 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                         _ => None,
                     })
                     .all_equal_value()
-                && match anonymous {
-                    Anonymous::Generator =>
-                        consumed(site)
-                            && owned.iter().all(|&(_, implementation)| tcx.associated_items(implementation.to_def_id()).in_definition_order().all(|item| !item.is_fn() || item.name() == sym::next)),
-                    Anonymous::Formatter => owned
-                        .iter()
-                        .flat_map(|&(_, implementation)| tcx.associated_items(implementation.to_def_id()).in_definition_order())
-                        .filter(|item| item.is_fn())
-                        .filter_map(|item| item.def_id.as_local())
-                        .tuple_windows()
-                        .all(|(left, right)| {
-                            self.bodies.callable(tcx, left).zip(self.bodies.callable(tcx, right)).is_some_and(|(left_contract, right_contract)| left_contract == right_contract)
-                                && self.bodies.equal(cx, left, right, |_, _, _, _| false, |left_type, right_type| left_type == right_type).is_some()
-                        }),
-                }
-            {
-                let (name, traits) = (tcx.item_name(structure), owned.iter().map(|&(implemented, _)| implemented).unique().map(|implemented| tcx.item_name(implemented)).format("`, `"));
-                let (lint, help) = match anonymous {
-                    Anonymous::Formatter => (MANUAL_FMT_FROM_FN, format!("replace `{name}` with `fmt::from_fn(move |formatter| ..)` at its construction site")),
-                    Anonymous::Generator => (MANUAL_GEN_BLOCK, format!("replace `{name}` with a `gen move {{ .. }}` block at its construction site under `#![feature(gen_blocks)]`")),
-                };
-                span_lint_hir_and_then(
-                    cx,
-                    lint,
-                    tcx.local_def_id_to_hir_id(structure),
-                    tcx.def_ident_span(structure).unwrap_or_else(|| tcx.def_span(structure)),
-                    format!("`{name}` is built at one site and implements only `{traits}`"),
-                    |diag| {
-                        diag.span_note(tcx.hir_span(site), "built here");
-                        diag.help(help);
-                    },
-                );
+                    .ok()
+                    .flatten()
+            })
+            .flatten()?;
+            match anonymous {
+                Anonymous::Generator =>
+                    consumed(site)
+                        && owned.iter().all(|&(_, implementation)| tcx.associated_items(implementation.to_def_id()).in_definition_order().all(|item| !item.is_fn() || item.name() == sym::next)),
+                Anonymous::Formatter => owned
+                    .iter()
+                    .flat_map(|&(_, implementation)| tcx.associated_items(implementation.to_def_id()).in_definition_order())
+                    .filter(|item| item.is_fn())
+                    .filter_map(|item| item.def_id.as_local())
+                    .tuple_windows()
+                    .all(|(left, right)| {
+                        self.bodies.callable(tcx, left).zip(self.bodies.callable(tcx, right)).is_some_and(|(left_contract, right_contract)| left_contract == right_contract)
+                            && self.bodies.equal(cx, left, right, |_, _, _, _| false, |left_type, right_type| left_type == right_type).is_some()
+                    }),
             }
+            .then_some((structure, site, owned, anonymous))
+        });
+        for (structure, site, owned, anonymous) in candidates {
+            let (name, traits) = (tcx.item_name(structure), owned.iter().map(|&(implemented, _)| implemented).unique().map(|implemented| tcx.item_name(implemented)).format("`, `"));
+            let (lint, help) = match anonymous {
+                Anonymous::Formatter => (MANUAL_FMT_FROM_FN, format!("replace `{name}` with `fmt::from_fn(move |formatter| ..)` at its construction site")),
+                Anonymous::Generator => (MANUAL_GEN_BLOCK, format!("replace `{name}` with a `gen move {{ .. }}` block at its construction site under `#![feature(gen_blocks)]`")),
+            };
+            span_lint_hir_and_then(
+                cx,
+                lint,
+                tcx.local_def_id_to_hir_id(structure),
+                tcx.def_ident_span(structure).unwrap_or_else(|| tcx.def_span(structure)),
+                format!("`{name}` is built at one site and implements only `{traits}`"),
+                |diag| {
+                    diag.span_note(tcx.hir_span(site), "built here");
+                    diag.help(help);
+                },
+            );
         }
     }
 }

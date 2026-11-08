@@ -31,11 +31,11 @@ rasm-stats           = { workspace = true }
 [target."cfg(target_os = \"macos\")".dependencies]
 clarabel = { workspace = true, features = ["sdp-accelerate"] }
 
-[target."cfg(target_os = \"linux\")".dependencies]
+[target."cfg(not(target_os = \"macos\"))".dependencies]
 clarabel = { workspace = true, features = ["sdp-openblas"] }
 
 [target."cfg(windows)".dependencies]
-clarabel = { workspace = true, features = ["sdp-mkl"] }
+openblas-src = { workspace = true, features = ["system"] }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

@@ -12,7 +12,7 @@ use itertools::Itertools as _;
 use rustc_ast::tokenstream::TokenTree;
 use rustc_attr_ir::{AttrArgs, AttrItem, Attribute};
 use rustc_data_structures::{
-    fx::{FxHashMap, FxHashSet, FxIndexMap, FxIndexSet},
+    fx::{FxBuildHasher, FxHashMap, FxHashSet, FxIndexMap, FxIndexSet},
     sorted_map::SortedIndexMultiMap,
 };
 use rustc_errors::listify;
@@ -36,7 +36,7 @@ use rustc_trait_selection::{
 };
 
 use super::{Bodies, canonical, declaration, normalized, owner, substitute_types};
-use crate::{accessed_field, associated_trait, constructed, expanded_externally, pattern_fields, signature, trait_impls};
+use crate::{accessed_field, associated_trait, constructed, expanded_externally, pattern_fields, signature};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -580,7 +580,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
         let owned = shapes.iter().filter(|shape| shape.item.is_local()).map(|shape| (shape.item, shape)).collect::<FxHashMap<_, _>>();
         let by_item = shapes.iter().map(|shape| (shape.item, shape)).collect::<FxHashMap<_, _>>();
         let position = locals.iter().enumerate().map(|(order, &item)| (item.to_def_id(), order)).collect::<FxHashMap<_, _>>();
-        let impls = trait_impls(tcx);
+        let impls = bodies.implementations(tcx);
         let projects = |source: DefId, kind: &Shape<'tcx>| {
             by_item.get(&source).is_some_and(|full| !full.record() && !unit(full) && full.cases.iter().map(|case| case.variant.name).eq(kind.cases.iter().map(|case| case.variant.name)))
         };
@@ -606,10 +606,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 let adt = tcx.type_of(implementation).instantiate_identity().skip_normalization().ty_adt_def()?.did().as_local()?;
                 Some((adt, (item.ident.name, item.owner_id.def_id)))
             })
-            .fold(FxHashMap::<LocalDefId, Vec<(Symbol, LocalDefId)>>::default(), |mut inherent, (adt, member)| {
-                inherent.entry(adt).or_default().push(member);
-                inherent
-            });
+            .into_grouping_map_with_hasher(FxBuildHasher)
+            .collect::<Vec<_>>();
         let metadata = RefCell::new(FxHashMap::default());
         let behavior = |item: LocalDefId| {
             Rc::clone(metadata.borrow_mut().entry(item).or_insert_with(|| {

@@ -43,7 +43,7 @@ pub enum WorkbooksError {
     #[error("record {index} refused")]
     Record { index: usize, source: calamine::DeError },
     #[error("worksheet cell at row {}, column {} refused", cell.0, cell.1)]
-    Write { cell: (u64, u64), source: rust_xlsxwriter::XlsxError },
+    Write { cell: (rust_xlsxwriter::RowNum, rust_xlsxwriter::ColNum), source: rust_xlsxwriter::XlsxError },
     #[error("worksheet cell at row {}, column {} exceeds supported coordinates", cell.0, cell.1)]
     Coordinate { cell: (u64, u64), source: TryFromIntError },
     #[error("template name {name} {refusal}")]
@@ -89,8 +89,17 @@ fn cells(block: &Range<Data>) -> impl Iterator<Item = ((u32, u32), (u32, u32), &
     })
 }
 
-fn values(block: &Range<Data>) -> impl Iterator<Item = Result<((u32, u32), Value<'_>), WorkbooksError>> {
-    cells(block).filter(|&(_, _, cell)| !cell.is_empty()).map(|(offset, at, cell)| value(at, cell).map(|value| (offset, value)))
+fn values<R, C>(block: &Range<Data>, (row, column): (R, C)) -> impl Iterator<Item = Result<((R, C), Value<'_>), WorkbooksError>>
+where
+    R: Into<u64> + TryFrom<u64, Error = TryFromIntError>,
+    C: Into<u64> + TryFrom<u64, Error = TryFromIntError>,
+{
+    let (top, left): (u64, u64) = (row.into(), column.into());
+    cells(block).filter(|&(_, _, cell)| !cell.is_empty()).map(move |((down, across), at, cell)| -> Result<_, WorkbooksError> {
+        let target = (top.strict_add(u64::from(down)), left.strict_add(u64::from(across)));
+        let placed = R::try_from(target.0).and_then(|placed_row| C::try_from(target.1).map(|placed_column| (placed_row, placed_column)));
+        Ok((placed.map_err(|source| WorkbooksError::Coordinate { cell: target, source })?, value(at, cell)?))
+    })
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

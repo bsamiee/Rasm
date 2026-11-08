@@ -168,14 +168,14 @@ fn opened(settings: SerializeSettings, options: &Options) -> Result<krilla::Docu
 
 fn closed(document: krilla::Document, sheets: &[&Page], groups: &[Vec<Group>], options: &Options) -> Result<Document, PdfError> {
     let mut structure = lopdf::Document::load_mem(&document.finish()?)?;
+    standards::close(&mut structure, &options.standards)?;
     if groups.iter().any(|layer_groups| !layer_groups.is_empty()) {
-        layers::bind(&mut structure, groups, standards::forbids(&options.standards))?;
+        layers::bind(&mut structure, groups)?;
     }
     measurement::write(&mut structure, sheets.iter().copied())?;
     navigation::write(&mut structure, &options.navigation)?;
     let identifiers = structure.page_iter().collect::<Vec<_>>();
     iter::zip(identifiers, sheets).try_for_each(|(identifier, sheet)| crate::write_fields(&mut structure, identifier, &sheet.fields, &options.created))?;
-    standards::close(&mut structure, &options.standards)?;
     crate::saved(structure)
 }
 

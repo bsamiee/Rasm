@@ -1,10 +1,7 @@
 use core::{cmp, iter, num::NonZero, ops::ControlFlow};
 
-use faer::{
-    Accum, MatMut, MatRef, get_global_parallelism,
-    sparse::{SparseColMatRef, linalg::matmul::sparse_dense_matmul},
-};
-use nalgebra::{DVector, Matrix3xX};
+use faer::{ColRef, Mat, sparse::SparseColMatRef};
+use nalgebra::DVector;
 use nonempty_collections::NEVec;
 use rasm_stats::Tolerance;
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
@@ -45,14 +42,14 @@ pub fn equilibrium(network: &Network, members: &[Member], tolerance: Tolerance, 
     let (symbolic, values) = network.free.parts();
     let values = values.iter().copied().map(f64::abs).collect::<Vec<_>>();
     let unsigned = SparseColMatRef::new(symbolic, &values);
-    let settle = |step: u32, free: &Matrix3xX<f64>| {
-        let spans = spans(network, free);
+    let settle = |step: u32, free: &Mat<f64>| {
+        let spans = spans(network, free.as_ref());
         let densities = DVector::from_vec(
             spans
-                .par_column_iter()
+                .par_row_iter()
                 .zip(members.par_iter())
                 .map(|(span, &Member { stiffness, rest, response })| {
-                    let stretch = if rest > 0.0 { 1.0 - rest / span.norm() } else { 1.0 };
+                    let stretch = if rest > 0.0 { 1.0 - rest / span.norm_l2() } else { 1.0 };
                     let [compression, tension] = cmp::minmax_by(stretch, 0.0, f64::total_cmp);
                     stiffness
                         * match response {
@@ -63,43 +60,33 @@ pub fn equilibrium(network: &Network, members: &[Member], tolerance: Tolerance, 
                 })
                 .collect(),
         );
-        let (residual, reactions) = balance(network, &spans, densities.as_view());
-        let peak = residual.column_iter().map(|force| force.norm()).try_fold(0.0_f64, |peak, norm| norm.is_finite().then_some(peak.max(norm)));
+        let (residual, reactions) = balance(network, spans.as_ref(), densities.as_view());
+        let peak = residual.row_iter().map(|force| force.norm_l2()).try_fold(0.0_f64, |peak, norm| norm.is_finite().then_some(peak.max(norm)));
         match peak {
             None => ControlFlow::Break(Err(FormError::Diverged { step })),
-            Some(peak) if peak <= tolerance.into_inner() => ControlFlow::Break(Ok(form(network, free, &spans, densities.as_view(), (residual, reactions)))),
+            Some(peak) if peak <= tolerance.into_inner() => ControlFlow::Break(Ok(form(network, free.as_ref(), spans.as_ref(), densities.as_view(), (residual, reactions)))),
             Some(peak) => ControlFlow::Continue((residual, densities, peak)),
         }
     };
-    let start = Matrix3xX::from_iterator(
-        network.loads.ncols(),
-        network
-            .nodes
-            .iter()
-            .filter_map(|node| match *node {
-                Node::Support(_) => None,
-                Node::Free { position, load: _ } => Some(position),
-            })
-            .flat_map(|position| <[f64; 3]>::from(position.coords)),
-    );
+    let start = network
+        .nodes
+        .iter()
+        .filter_map(|node| match *node {
+            Node::Support(_) => None,
+            Node::Free { position, load: _ } => Some(position),
+        })
+        .collect::<Vec<_>>();
+    let start = Mat::from_fn(start.len(), 3, |row, axis| start[row][axis]);
     let outcome = try bikeshed ControlFlow<Result<Form, FormError>, Result<Form, FormError>> {
-        let (positions, ..) = (0..steps.get()).try_fold((start, Matrix3xX::zeros(network.loads.ncols()), 0.0_f64), |(positions, velocity, previous), step| {
+        let (positions, ..) = (0..steps.get()).try_fold((start, Mat::zeros(network.loads.nrows(), 3), 0.0_f64), |(positions, velocity, previous), step| {
             let (residual, densities, _) = settle(step, &positions)?;
-            let stiffness = DVector::from_iterator(members.len(), iter::zip(members, densities.iter()).map(|(member, density)| member.stiffness + density.abs()));
-            let mut masses = DVector::zeros(positions.ncols());
-            sparse_dense_matmul(
-                MatMut::from_column_major_slice_mut(masses.as_mut_slice(), positions.ncols(), 1),
-                Accum::Replace,
-                unsigned.transpose(),
-                MatRef::from_column_major_slice(stiffness.as_slice(), members.len(), 1),
-                1.0,
-                get_global_parallelism(),
-            );
-            let accelerations = Matrix3xX::from_iterator(positions.ncols(), iter::zip(residual.column_iter(), masses.iter()).flat_map(|(force, &mass)| <[f64; 3]>::from(force / mass)));
-            let velocity = velocity + &accelerations * if previous > 0.0 { 1.0 } else { 0.5 };
-            let energy = iter::zip(velocity.column_iter(), masses.iter()).map(|(motion, &mass)| mass * motion.norm_squared()).sum::<f64>();
+            let stiffness = iter::zip(members, densities.iter()).map(|(member, density)| member.stiffness + density.abs()).collect::<Vec<_>>();
+            let masses = unsigned.transpose() * ColRef::from_slice(&stiffness);
+            let accelerations = Mat::from_fn(residual.nrows(), 3, |row, axis| residual[(row, axis)] / masses[row]);
+            let velocity = velocity + if previous > 0.0 { 1.0 } else { 0.5 } * &accelerations;
+            let energy = iter::zip(velocity.row_iter(), masses.iter()).map(|(motion, &mass)| mass * motion.squared_norm_l2()).sum::<f64>();
             ControlFlow::<Result<Form, FormError>, _>::Continue(if energy < previous {
-                (positions - (velocity - accelerations) * 0.5, Matrix3xX::zeros(masses.len()), 0.0)
+                (positions - 0.5 * (velocity - accelerations), Mat::zeros(masses.nrows(), 3), 0.0)
             } else {
                 (positions + &velocity, velocity, energy)
             })

@@ -1,4 +1,4 @@
-#![feature(const_convert, const_trait_impl, float_conversions, gen_blocks, iterator_try_collect)]
+#![feature(float_conversions, gen_blocks, iterator_try_collect)]
 
 use core::{num::NonZero, range::RangeInclusive};
 

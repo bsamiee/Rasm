@@ -21,6 +21,7 @@ use reqwest::{
 };
 use rmp_serde::{decode, encode};
 use serde::{Serialize, de::DeserializeOwned};
+use skrifa::raw::{FileRef, ReadError};
 use tracing::{
     Span,
     field::{self, Empty},
@@ -84,7 +85,7 @@ pub enum TypesetError {
     #[error("value decoding failed{}", fmt::from_fn(|formatter| .element.map_or(Ok(()), |index| write!(formatter, " at queried element {index}"))))]
     Deserialize { element: Option<usize>, source: serde_path_to_error::Error<decode::Error> },
     #[error("font buffer {index} face {face} is unreadable")]
-    Font { index: usize, face: u32 },
+    Font { index: usize, face: u32, source: Option<ReadError> },
     #[error("{spec} template refused")]
     Template { spec: PackageSpec, source: FileError },
     #[error("{report}")]
@@ -293,7 +294,13 @@ where
         .into_par_iter()
         .enumerate()
         .map(|(index, data)| {
-            (0..ttf_parser::fonts_in_collection(&data).unwrap_or(1).max(1)).map(|face| Font::new(data.clone(), face).ok_or(TypesetError::Font { index, face })).try_collect::<Vec<_>>()
+            let refused = |face: u32| move |source: Option<ReadError>| TypesetError::Font { index, face, source };
+            FileRef::new(&data)
+                .map_err(|source| refused(0)(Some(source)))?
+                .fonts()
+                .zip(0_u32..)
+                .map(|(read, face)| read.map_err(|source| refused(face)(Some(source))).and_then(|_| Font::new(data.clone(), face).ok_or_else(|| refused(face)(None))))
+                .try_collect::<Vec<_>>()
         })
         .collect::<Validated<Vec<_>, _>>()
         .map(|buffers| {

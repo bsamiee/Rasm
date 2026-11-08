@@ -22,7 +22,7 @@ runs:
             MISE_PYTHON_UV_VENV_AUTO: create|source
             MISE_ENABLE_TOOLS: >-
                 aqua:nextest-rs/nextest/cargo-nextest,cmake,docker-cli,dotnet,dotnet:minver-cli,fd,github:fonttools/fontspector,github:linebender/resvg,github:sbdchd/squawk,github:trailofbits/dylint,jq,node,pnpm,python,resvg,ripgrep,rust,uv
-                ${{ runner.os == 'macOS' && ',ast-grep,github:NationalSecurityAgency/ghidra,github:pmd/pmd,google-java-format,hk,imagemagick,jactionlint,java,periphery,shellcheck,shfmt,swiftlint,tombi,tree-sitter' || '' }}
+                ${{ runner.os == 'macOS' && ',aqua:EmbarkStudios/cargo-deny,ast-grep,github:NationalSecurityAgency/ghidra,github:pmd/pmd,google-java-format,hk,imagemagick,jactionlint,java,periphery,shellcheck,shfmt,swiftlint,tombi,tree-sitter' || '' }}
           with:
             auto_update: true
             minimum_release_age: 0s

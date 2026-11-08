@@ -16,8 +16,13 @@ use crate::{NetworkError, Weight, compact, present};
 pub struct Communities {
     pub membership: BTreeMap<NodeIndex, usize>,
     pub quality: f64,
-    pub levels: Vec<(BTreeMap<NodeIndex, usize>, f64)>,
-    pub history: Vec<f64>,
+    pub trace: Trace,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Trace {
+    Levels(Vec<(BTreeMap<NodeIndex, usize>, f64)>),
+    History(Vec<f64>),
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -45,9 +50,9 @@ where
     let membership = |communities: &[usize]| network.node_weights().copied().zip(communities.iter().copied()).collect::<BTreeMap<_, _>>();
     Ok(if labels.len() == seed.len() {
         let HierarchicalOutput { levels, partition, quality, .. } = leiden.run_hierarchical(&data)?;
-        Communities { membership: membership(partition.as_slice()), quality, levels: levels.iter().map(|level| (membership(&level.membership), level.quality)).collect(), history: Vec::new() }
+        Communities { membership: membership(partition.as_slice()), quality, trace: Trace::Levels(levels.iter().map(|level| (membership(&level.membership), level.quality)).collect()) }
     } else {
         let LeidenOutput { partition, quality, quality_history, .. } = leiden.run_with_initial_partition(&data, Partition::from_membership(seed))?;
-        Communities { membership: membership(partition.as_slice()), quality, levels: Vec::new(), history: quality_history }
+        Communities { membership: membership(partition.as_slice()), quality, trace: Trace::History(quality_history) }
     })
 }

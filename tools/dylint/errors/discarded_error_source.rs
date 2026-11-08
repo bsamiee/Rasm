@@ -1,4 +1,4 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, is_from_proc_macro, peel_blocks, res::MaybeDef as _, sym};
+use clippy_utils::{diagnostics::span_lint_and_help, fn_def_id, is_from_proc_macro, peel_blocks, res::MaybeDef as _, sym};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
@@ -33,9 +33,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let error = with_forced_trimmed_paths!(error.to_string());
             let help =
                 if text { String::from("hold the text or the subject it names as a field the message prints") } else { format!("hold `{error}` as `#[source]` of the error the closure builds") };
-            span_lint_hir_and_then(cx, DISCARDED_ERROR_SOURCE, expr.hir_id, segment.ident.span.to(expr.span.shrink_to_hi()), format!("`{name}` replaces `{error}` without reading it"), |diag| {
-                diag.help(help);
-            });
+            span_lint_and_help(cx, DISCARDED_ERROR_SOURCE, segment.ident.span.to(expr.span.shrink_to_hi()), format!("`{name}` replaces `{error}` without reading it"), None, help);
         }
     }
 }

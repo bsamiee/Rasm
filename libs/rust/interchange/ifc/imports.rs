@@ -33,7 +33,7 @@ pub enum Sri {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fetch {
-    pub limit: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 7),
+    pub limit: NonZero<usize> = NonZero::new(8).unwrap(),
     pub lock: Option<Sri> = None,
 }
 

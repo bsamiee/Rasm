@@ -17,14 +17,6 @@ use rustc_span::{Span, sym};
 
 use crate::{expanded_externally, impl_owner, paths, resolve, signature};
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-struct Unread {
-    span: Span,
-    handle: DefId,
-    work: &'static str,
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
@@ -33,7 +25,7 @@ pub(crate) struct Pass {
     tracked: FxHashSet<DefId>,
     spawns: FxHashSet<DefId>,
     detach_all: FxHashSet<DefId>,
-    unread: FxIndexMap<HirId, Option<Unread>>,
+    unread: FxIndexMap<HirId, Option<(Span, DefId)>>,
 }
 
 lint!(Pass; DETACHED_TASK: "task and thread handle drops that detach work, and `JoinSet::detach_all` calls");
@@ -89,9 +81,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         if let Some(init) = local.init
             && !expanded_externally(cx, local.span)
             && let PatKind::Binding(_, binding, _, None) = local.pat.kind
-            && let Some((handle, work)) = self.detached(cx, init)
+            && let Some((handle, _)) = self.detached(cx, init)
         {
-            self.unread.insert(binding, Some(Unread { span: local.span, handle, work }));
+            self.unread.insert(binding, Some((local.span, handle)));
         }
     }
 
@@ -126,8 +118,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     }
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
-        for (binding, Unread { span, handle, work }) in mem::take(&mut self.unread).into_iter().filter_map(|(binding, unread)| Some((binding, unread?))) {
-            Self::report(cx, (handle, work), binding, span);
+        let unread = mem::take(&mut self.unread).into_iter().filter_map(|(binding, unread)| unread.and_then(|(span, dropped)| Some((binding, span, (dropped, *self.handles.get(&dropped)?)))));
+        for (binding, span, handle) in unread {
+            Self::report(cx, handle, binding, span);
         }
     }
 }
