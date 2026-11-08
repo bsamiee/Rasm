@@ -74,7 +74,7 @@ Each fact a review settles has one owner, read before a verdict states it and ed
 | :-----: | :--------------------------------------------------- | :-------------------------------------------------------------------------------- |
 |  [01]   | Level, option, threshold, or ban of an included rule | Checker configuration `languages.js` names, its ban rows included                 |
 |  [02]   | Form syntax decides alone, in any parsed language    | `tools/ast-grep/rules/<language>`, a capture in `utils/<language>`, outline row   |
-|  [03]   | Form resolved names, types, or attributes decide     | `tools/dylint`, `tools/roslyn`, `tools/refurb`, a `tsconfig.base.json` row        |
+|  [03]   | Form resolved names, types, or attributes decide     | `tools/dylint`, `tools/roslyn`, `tools/refurb`, a `.config/tsconfig.base.json` row        |
 |  [04]   | Fact a checker computes from a grammar or engine     | That checker's code under `tools/`, consumers rebuilt to its finding              |
 |  [05]   | Fact no checker decides soundly for every instance   | Language skill section whose heading covers it, else the family skill covering it |
 |  [06]   | Placement, target, entry point, or catalog feature   | `manage-repo` and its references, the catalog or manifest row                     |

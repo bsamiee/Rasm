@@ -16,7 +16,7 @@ const repositoryStack = {
         const [fs, path, license] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.Redacted(secretName)]);
         const [manifest, readme, graph, nx] = yield* Effect.all([Package.read(workspaceRoot), fs.readFileString(path.join(workspaceRoot, 'README.md')), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)], { concurrency: 'unbounded' });
         const [url, pattern, paragraph] = yield* Effect.all([Effect.fromNullishOr(manifest.repository), Effect.fromNullishOr(nx.release?.releaseTag?.pattern), Effect.fromNullishOr(readme.split('\n\n').find((block) => !block.startsWith('#')))]);
-        const feeds = findMatchingProjects(['tag:output:appcast', 'tag:output:extension'], graph.nodes);
+        const feeds = findMatchingProjects(['tag:output:extension'], graph.nodes);
         const name = path.basename(url, '.git');
         const { name: repository, fullName } = new Repository(
             name,

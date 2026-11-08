@@ -35,9 +35,7 @@ Rasm/
 ├── nx.json                   # Task graph
 ├── package.json              # Workspace root package
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
-├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over each project's config files
-├── tsconfig.web.json         # Browser `lib` every web project extends
 ├── vitest.config.ts          # Root Vitest run over every project suite
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── pyproject.toml            # Python workspace root, catalog groups, and checker settings
@@ -52,15 +50,11 @@ Rasm/
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
 ├── Cargo.toml                # Rust workspace and dependency catalog
-├── clippy.toml               # Clippy lint options Cargo.toml lint tables lack
 ├── rust-toolchain.toml       # Rust toolchain channel and components
-├── rustfmt.toml              # Rust format rules
 ├── .editorconfig             # Editor settings and .NET formatting options
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .gitignore                # Generated, secret, and machine-local paths
-├── .shellcheckrc             # ShellCheck checks off where an ast-grep rule owns the form
 ├── .swift-format             # Swift lint and format rules
-├── .swiftlint.yml            # Swift lint rules swift-format lacks
 ├── .cargo/                   # Cargo build settings and compiler source link
 ├── .config/                  # Files tools find in .config/ or read through a path setting
 ├── .playwright/              # Playwright CLI workspace and browser options every CLI session reads
@@ -150,8 +144,7 @@ Products reach a person through separate levels:
 - Packages are named by the term its practitioners use for that concern
 - Caches sit under root `.cache/` and a project's generated output under `.artifacts/`, each tool moved by one setting every run reads
 - Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, a tool with one partition per run or session holds a folder there
-- Xcode apps holding a UXP script build in a folder reference build that script first
-- Task graph tags a .NET project `host:rhino` from the `RhinoHost` its nearest `Directory.Build.props` states, and every other project `host:<host>` for each `apps/<host>/` folder name in its path, a Swift module and the root project also for each `Package.swift` platform naming an `apps/` folder
+- Task graph tags a .NET project `host:rhino` from the `RhinoHost` its nearest `Directory.Build.props` states, and every other project `host:<host>` for each `apps/<host>/` folder name in its path
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files are the language manifests and markers Nx plugins read, never `project.json`
 - `Workspace.slnx` lists every project `.csproj`

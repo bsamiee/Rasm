@@ -1,5 +1,5 @@
 {
-    "$schema": "./node_modules/@typescript/native/schemas/tsconfig.schema.json",
+    "$schema": "../node_modules/@typescript/native/schemas/tsconfig.schema.json",
     "compilerOptions": {
         "allowImportingTsExtensions": true,
         "erasableSyntaxOnly": true,
@@ -55,7 +55,7 @@
                     "strictBooleanExpressions": "suggestion",
                     "unnecessaryArrowBlock": "suggestion"
                 },
-                "overrides": [ { "include": [ "**/*.test.tsx", "**/.storybook/*.stories.tsx", "**/plugins/function-hooks/hooks/*.ts" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
+                "overrides": [ { "include": [ "../**/*.test.tsx", "../**/.storybook/*.stories.tsx", "../plugins/function-hooks/hooks/*.ts" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
             }
         ],
         "skipLibCheck": true,

@@ -51,6 +51,7 @@ PULUMI_HOME                  = "{{config_root}}/.cache/pulumi"
 PYTHONPYCACHEPREFIX          = "{{config_root}}/.cache/pycache"
 RUSTUP_AUTO_INSTALL          = "0"
 RUSTUP_TOOLCHAIN             = false
+SHELLCHECK_OPTS              = "--rcfile={{config_root}}/.config/shellcheckrc"
 STORYBOOK_DISABLE_TELEMETRY  = "1"
 SWIFTPM_BUILD_DIR            = "{{config_root}}/.cache/swiftpm/build"
 TOMBI_CACHE_HOME             = "{{config_root}}/.cache/tombi"
@@ -96,7 +97,6 @@ java                                                                         = "
 jq                                                                           = "latest"
 lima                                                                         = { os = ["macos"], version = "latest" }
 node                                                                         = "26"
-periphery                                                                    = { os = ["macos"], version = "latest" }
 pitchfork                                                                    = "latest"
 pixi                                                                         = "latest"
 pkl                                                                          = "latest"
@@ -176,14 +176,6 @@ postinstall      = { run = 'rm -rf "$MISE_TOOL_INSTALL_PATH/src/llvm-project" &&
 strip_components = 1
 url              = "https://static.rust-lang.org/dist/{{ version }}/rustc-nightly-src.tar.xz"
 version          = "{{ read_toml(path=config_root ~ '/rust-toolchain.toml')['toolchain']['channel'] | trim_start(pat='nightly-') }}"
-
-[tools."http:xcode-build-server"]
-os                = ["macos"]
-url               = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz"
-version           = "latest"
-version_json_path = ".[].tag_name"
-version_list_url  = "https://api.github.com/repos/SolaWing/xcode-build-server/releases"
-version_order     = "semver"
 
 [tools."http:zxpsigncmd"]
 os      = ["macos"]

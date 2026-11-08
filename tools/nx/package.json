@@ -13,7 +13,6 @@
     },
     "dependencies": {
         "@cloudflare/config": "catalog:",
-        "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/vitest": "catalog:",

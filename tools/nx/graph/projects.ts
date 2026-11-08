@@ -2,12 +2,12 @@ import { createRequire, isBuiltin } from 'node:module';
 import type { CreateNodesResult, Optional, ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { findMatchingProjects, interpolate } from '@nx/devkit/internal';
 import { createNodes } from '@nx/vitest';
-import { ClaudeHooks, decodeFile, TextFormat, Xcconfig, XcodeProject } from '@rasm/eng';
-import { Array, Effect, Equal, FileSystem, Function, Option, Path, Predicate, Record, Result, Schema, String, Struct } from 'effect';
+import { ClaudeHooks, decodeFile, TextFormat } from '@rasm/eng';
+import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Result, Schema, String, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parseSync } from 'rolldown/utils';
 import { parse, quote } from 'shell-quote';
-import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, type PluginServices, PYPROJECT, type readPython, type Workspace, WorkspaceError } from '#/workspace.ts';
+import { CARGO_MANIFEST, CLOUDFLARE_CONFIG, type PluginServices, PYPROJECT, type readPython, type Workspace } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -60,11 +60,6 @@ const reach = <A extends Effect.Success<ReturnType<ReturnType<typeof imports>>>,
     return pending.length === 0 ? Effect.succeed(known) : Effect.flatMap(Effect.forEach(pending, read, { concurrency: 'unbounded' }), (found) => reach(read, found.flatMap(Struct.get('files')), { ...known, ...Object.fromEntries(Array.zip(pending, found)) }));
 };
 const lineage = (path: Path.Path, dir: string) => [...Array.unfold(dir, (at) => (at === path.dirname(at) ? Option.none() : Option.some([at, path.dirname(at)] as const))), '.'];
-const owning = Effect.fnUntraced(function* ({ packages }: Workspace, dir: string) {
-    const [path, manifests] = yield* Effect.all([Path.Path, packages]);
-    const owner = yield* Effect.fromOption(Array.findFirst(lineage(path, dir), (at) => Record.has(manifests, at)));
-    return { owner, manifest: yield* Effect.fromOption(Record.get(manifests, owner)) };
-});
 const rhinoHost = Effect.fnUntraced(function* (workspaceRoot: string, dir: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const props = yield* Effect.findFirst(
@@ -109,10 +104,6 @@ const tagPrefix = ({ nxJsonConfiguration: { release } }: Workspace, root: string
             ([releaseGroupName, group]) => Option.map(Option.fromNullishOr(group.releaseTag?.pattern ?? release?.releaseTag?.pattern), (pattern) => interpolate(pattern, { projectName, releaseGroupName }).replace('{version}', '')),
         ),
     );
-const swiftProject = (tags: readonly string[], targets: readonly string[]) => ({
-    tags: ['language:swift', ...tags],
-    targets: Record.fromIterableWith(['build', ...targets], (target) => [target, {}]),
-});
 const binlog = (path: Path.Path, cwd: string, target: string) => `-bl:${path.join(path.relative(cwd, '.'), '.artifacts/dotnet/binlog/{projectName}', `${target.replaceAll(':', '-')}.binlog`)}`;
 const logged = (path: Path.Path, cwd: string, target: string) => ({ env: { MSBUILD_LOGGING_ARGS: binlog(path, cwd, target) } });
 const markers: Readonly<
@@ -230,45 +221,6 @@ const markers: Readonly<
             },
         };
     }),
-    [XcodeProject.file]: Effect.fnUntraced(function* ({ dir }, workspace) {
-        const [path, fs, { files, targets }, { products }, { DEVELOPMENT_TEAM }, submodules] = yield* Effect.all([Path.Path, FileSystem.FileSystem, decodeFile(XcodeProject.schema, workspace.workspaceRoot, workspace.file), workspace.swift, Xcconfig.read(workspace.workspaceRoot), workspace.submodules]);
-        const [root, name] = [path.dirname(dir), path.parse(dir).name];
-        const links = yield* Effect.forEach(yield* glob(workspace.workspaceRoot, [`${root}/**/*.xcassets/**/*.svg`]), (file) => Effect.option(fs.readLink(path.join(workspace.workspaceRoot, file))));
-        const catalogs = Array.dedupe(Array.getSomes(links).flatMap((target) => target.split(`${MODULES}/`).slice(1, 2).map(packageName)));
-        const signing = yield* Effect.fromOption(
-            Option.flatMap(
-                Array.findFirst(targets, (target) => target.name === name),
-                ({ settings }) => Option.all({ PRODUCT_BUNDLE_IDENTIFIER: settings.PRODUCT_BUNDLE_IDENTIFIER, CODE_SIGN_ENTITLEMENTS: Option.map(Option.fromNullishOr(settings.CODE_SIGN_ENTITLEMENTS), (file) => path.join(root, file)) }),
-            ),
-            () => WorkspaceError.missing(`${workspace.file} target ${name}`, 'PRODUCT_BUNDLE_IDENTIFIER and CODE_SIGN_ENTITLEMENTS'),
-        );
-        const members = targets.flatMap(Struct.get('members'));
-        const updated = members.some(Predicate.Struct({ product: Equal.equals('Sparkle') }));
-        const local = new Set(members.filter((member) => member.package === '..').map(Struct.get('product')));
-        const owners = yield* Effect.forEach(
-            Array.getSomes(files.map(Struct.get('path')))
-                .map((entry) => path.relative('.artifacts', path.join(root, entry)))
-                .filter((source) => !source.startsWith('..')),
-            (source) => Effect.map(owning(workspace, path.join(path.dirname(source), path.parse(source).name)), Function.flow(Struct.get('manifest'), Struct.get('name'))),
-        );
-        const bundled = Array.match(Array.dedupe(owners), { onEmpty: () => [], onNonEmpty: (projects) => [{ projects, target: 'pack' }] });
-        const xcode = swiftProject(['build:xcode', ...(updated ? ['output:appcast'] : [])], ['check', 'lint:periphery', 'pack', 'install', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
-        const options = { env: { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root), ...signing, DEVELOPMENT_TEAM } };
-        return {
-            root,
-            name,
-            ...xcode,
-            ...externalInputs(
-                path,
-                root,
-                submodules,
-                targets.flatMap(({ settings }) => [settings.CODE_SIGN_ENTITLEMENTS, settings.INFOPLIST_FILE]),
-                catalogs,
-            ),
-            implicitDependencies: products.filter((product) => local.has(product.name)).flatMap(Struct.get('targets')),
-            targets: { ...Record.map(xcode.targets, () => ({ options })), ...Record.fromIterableWith(['build', 'pack'], (step) => [step, { options, dependsOn: bundled }]) },
-        };
-    }),
     'tsconfig.json': { tags: ['language:typescript'], targets: { check: {} } },
     '.storybook/main.ts': {
         targets: {
@@ -331,12 +283,8 @@ const markers: Readonly<
             },
         };
     }),
-    'sea.config.ts': Effect.fnUntraced(function* ({ dir, base }, { configFiles, workspaceRoot }) {
+    'sea.config.ts': Effect.fnUntraced(function* ({ dir, base }) {
         const path = yield* Path.Path;
-        const projects = [...configFiles].filter((file) => path.basename(file) === XcodeProject.file && !path.relative(dir, file).startsWith('..'));
-        const decoded = yield* Effect.forEach(projects, (file) => decodeFile(XcodeProject.schema, workspaceRoot, file));
-        const settings = Array.flatten(Array.zipWith(projects, decoded, (file, { targets }) => targets.map(({ settings: held }) => [file, held.CODE_SIGN_ENTITLEMENTS] as const)));
-        const entitlements = Array.filterMap(settings, ([file, held]) => Result.map(Result.fromNullishOr(held, Function.constVoid), (found) => path.join(path.dirname(path.dirname(file)), found)));
         const output = `{workspaceRoot}/.artifacts/${dir}`;
         const name = path.basename(dir);
         return {
@@ -345,7 +293,7 @@ const markers: Readonly<
                 pack: {
                     command: 'vite build',
                     options: { args: [...VITE.args, '--config', `{projectRoot}/${base}`] },
-                    inputs: [...[...projects, Xcconfig.file, ...entitlements].map((file) => `{workspaceRoot}/${file}`), 'production', '^production', ...VITE.inputs],
+                    inputs: ['production', '^production', ...VITE.inputs],
                     outputs: [`${output}/{${name},${name}.mjs,sea.json,sea.entitlements,LaunchAgents}`],
                 },
             },
@@ -373,4 +321,4 @@ const infer = Effect.fnUntraced(function* (file: string, workspace: Inference) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { BLENDER_MANIFEST, folderInput, type Inference, imports, infer, logged, markers, owning, packageName, reach, rootTargets, swiftProject, TESTS };
+export { BLENDER_MANIFEST, folderInput, type Inference, imports, infer, logged, markers, packageName, reach, rootTargets, TESTS };

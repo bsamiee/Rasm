@@ -78,7 +78,7 @@ Use JSON discovery from workspace root:
 |  [06]   | `{ "dependentTasksOutputFiles": "<glob>" }`    | Outputs of dependency tasks, `transitive: true` recurses     |
 |  [07]   | `{ "json": "<path>", "fields": ["<field>"] }`  | Listed fields of a JSON file, `excludeFields` the rest       |
 
-- Every task hashes all targets of its project, `nx.json` and `.gitignore` whole, and root `tsconfig.base.json`, no input excludes them
+- Every task hashes all targets of its project, `nx.json` and `.gitignore` whole, and the first of root `tsconfig.base.json` or `tsconfig.json` read without its `extends`, no input excludes them
 - File inputs include untracked files and exclude ignored files
 - `includeIgnored: true` on a `{ "fileset": "<glob>" }` entry hashes ignored matches from disk, on a `!` entry excludes ignored matches
 - `includeIgnored` filesets rooted at `{workspaceRoot}/**` walk every ignored tree on disk per task graph
@@ -105,12 +105,12 @@ Products and packable .NET libraries version by Conventional Commits into tags a
 - `nx release` fails on a commit scope matching more than one project of a group, the `commit-msg` step `rasm-release scope` refuses one and names the projects
 - Untagged commits pack the next patch prerelease, with height unless the project sets `MinVerIgnoreHeight`
 - `pack` caches where every input it reads hashes, Blender's through a runtime input over `HEAD` and its group's tags
-- Xcode, Rhino, and library `pack` read host state or tags no input hashes and run uncached
+- Rhino and library `pack` read host state or tags no input hashes and run uncached
 - `publish` reads its release tag from `HEAD` under the project's `MinVerTagPrefix`, a `git describe --exact-match` failing on an untagged commit
 - Products on a channel with no publish API hold no `publish` target and take tag and release from `rasm:release` alone
 - `nuget` passes preid `alpha` through `versionActionsOptions`, `@rasm/nx/release` applies it while a committed `packages*.lock.json` lists a prerelease `Direct` or `Project` dependency, else steps a held prerelease to its release
 - `nuget` sets `strictPreid: false`, so the latest tag resolves with or without a prerelease label
 - Library `publish` attaches the `.nupkg` to its release and pushes it to GitHub Packages with `--skip-duplicate`, reading Doppler `GH_PROJECTS_TOKEN`
-- Feed channels (`output:appcast`, `output:extension`) take a rolling `<project>-updates` release from `infra/`
+- Feed channels (`output:extension`) take a rolling `<project>-updates` release from `infra/`
 - First releases start from `0.0.0`, GitHub creates each tag with its release, libraries from a pushed `nuget-<project>-v0.0.0` tag
 - `rasm-release` fetches tags first, and `fetch.pruneTags` deletes a tag the remote lacks

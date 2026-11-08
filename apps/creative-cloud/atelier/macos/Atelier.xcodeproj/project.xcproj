@@ -26,21 +26,8 @@
     { "path": "../../../../.artifacts/apps/creative-cloud/atelier/atelier", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
     { "path": "../../../../.artifacts/apps/creative-cloud/atelier/LaunchAgents", "target-membership": [ "Atelier/copy/Embed Server Agent" ] },
     { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
+    { "kind": "folder", "path": ".", "target-membership": [ "Atelier" ] },
     {
-      "kind": "folder",
-      "path": ".",
-      "target-membership": [
-        "Atelier",
-      ],
-      "membership-exceptions": [
-        {
-          "target": "Atelier",
-          "exclusions": [
-            "buildServer.json",
-          ],
-        },
-      ],
-    }, {
       "kind": "group",
       "name": "Products",
       "children": [

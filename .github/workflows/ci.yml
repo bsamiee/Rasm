@@ -86,9 +86,7 @@ jobs:
                     .artifacts/dotnet/binlog
                     .artifacts/dotnet/test
                     .artifacts/python/test
-                    .artifacts/swift/test
                     .artifacts/typescript/playwright
                     .artifacts/typescript/vitest
-                    .artifacts/xcode/build
                 include-hidden-files: true
                 retention-days: 14

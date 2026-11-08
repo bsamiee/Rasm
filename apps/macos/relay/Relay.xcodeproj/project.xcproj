@@ -42,7 +42,6 @@
           "exclusions": [
             "AGENTS.md",
             "CLAUDE.md",
-            "buildServer.json",
           ],
         },
       ],

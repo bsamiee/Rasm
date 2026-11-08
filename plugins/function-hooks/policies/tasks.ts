@@ -1,7 +1,7 @@
 import process from 'node:process';
 import type { ProjectGraph, ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
-import { Array, Effect, Equal, Option, type Predicate, Record, String } from 'effect';
-import { all, become, type Call, cut, edited, type Fix, feedsJq, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, unassign, when, whole } from '#/policies/fix.ts';
+import { Array, Cache, Effect, Equal, Option, type Predicate, Record, String } from 'effect';
+import { all, become, type Call, cut, edited, ensure, type Fix, feedsJq, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, unassign, when, whole } from '#/policies/fix.ts';
 import type { Word } from '#/shell/script.ts';
 import { analyzed, Shell, type Site } from '#/shell/site.ts';
 
@@ -244,6 +244,29 @@ const customLanguages: Fix = (site) => {
     return site.has('--custom-languages') ? [] : inserted(site, (subcommand.text.startsWith('-') ? site.head : subcommand).end, ' --custom-languages allow');
 };
 
+const configFlag = (flag: `--${string}`, file: string, forwarded = false): Fix =>
+    Effect.fnUntraced(function* (site, { host }) {
+        const place = host.path.join(host.root, '.config', file);
+        const folder = Option.getOrUndefined(site.command.cwd);
+        const grammar = yield* Shell.use(({ grammars }) => Cache.get(grammars, site.program));
+        const reads = forwarded || site.path.length === 0 || site.path.reduce((deeper, name) => deeper.commands.get(name) ?? deeper, grammar).options.has(flag);
+        const held = forwarded ? site.tail.some(({ text }) => text === flag || text.startsWith(`${flag}=`)) : site.has(flag);
+        if (!reads || held || folder === undefined || !host.inside(folder, host.root) || !(yield* host.exists(place))) {
+            return [];
+        }
+        const words = `${flag} ${quote(host.path.relative(folder, place))}`;
+        return forwarded
+            ? inserted(
+                  site,
+                  Option.getOrElse(
+                      Option.map(site.separator, ({ end }) => end),
+                      () => Array.lastNonEmpty(site.words).end,
+                  ),
+                  `${Option.isSome(site.separator) ? '' : ' --'} ${words}`,
+              )
+            : ensure(words)(site);
+    });
+
 // --- [NX]
 
 const addressOf = ({ operands }: Site) => {
@@ -371,7 +394,13 @@ const TASKS: Policy = {
             informational: ['-v', '-b', '--build', '-w', '--watch', '--init', '--showConfig'],
             routes: { selects: ['--project'], config: 'tsconfig.json', ignores: ['--noEmit', '--pretty', '--incremental', '--tsBuildInfoFile'] },
         },
-        cargo: { flags: ['-p, --package=', '--profile='], routes: { modes: ['--fix'], selects: ['--package'], config: 'Cargo.toml' } },
+        cargo: {
+            flags: ['-p, --package=', '--profile='],
+            routes: { modes: ['--fix', '--check'], selects: ['--package'], config: 'Cargo.toml' },
+            fixes: [when(({ path, operands }) => [...path, ...operands.map(({ text }) => text)].find((word) => !word.startsWith('+')) === 'fmt', configFlag('--config-path', 'rustfmt.toml', true))],
+        },
+        rustfmt: { flags: ['--config-path=', '--config=', '--edition=', '--emit=', '--print-config='], fixes: [configFlag('--config-path', 'rustfmt.toml')] },
+        swiftlint: { dump: true, fixes: [configFlag('--config', 'swiftlint.yml')] },
         ruff: {
             flags: ['--isolated', '--cache-dir='],
             fixes: [projectOptions(respell({ '--isolated': '', '--cache-dir': '' }, { notify: true }), unassign(/^RUFF_CACHE_DIR=/u))],

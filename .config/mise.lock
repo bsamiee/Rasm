@@ -884,15 +884,6 @@ url = "https://static.rust-lang.org/dist/2026-10-30/rustc-nightly-src.tar.xz"
 checksum = "sha256:9715422b73c0c4922f11a2b321bb6d86a25ff170dea3739566f1b8cdfeb5a5ff"
 url = "https://static.rust-lang.org/dist/2026-10-30/rustc-nightly-src.tar.xz"
 
-[[tools."http:xcode-build-server"]]
-version = "1.3.0"
-backend = "http:xcode-build-server"
-specifiers = ["latest"]
-
-[tools."http:xcode-build-server"."platforms.macos-arm64"]
-checksum = "sha256:92c4bb848af5c8128d4600a93f45e49b89ed953d885c60092459303a5d80e312"
-url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v1.3.0.tar.gz"
-
 [[tools."http:zxpsigncmd"]]
 version = "4.1.3"
 backend = "http:zxpsigncmd"
@@ -1098,17 +1089,6 @@ url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.gz"
 [tools.node."platforms.macos-arm64"]
 checksum = "sha256:d38bd5e5a2ddce6bbb5ce45e46e208337da4d51fffe611e567fd32073d6439f6"
 url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-darwin-arm64.tar.gz"
-
-[[tools.periphery]]
-version = "3.8.0"
-backend = "aqua:peripheryapp/periphery"
-specifiers = ["latest"]
-
-[tools.periphery."platforms.macos-arm64"]
-checksum = "sha256:07d4e286e31dd79164df39097e0b59f533c94badbe18158464a455ea88a166d7"
-checksum_source = "mise-versions"
-url = "https://github.com/peripheryapp/periphery/releases/download/3.8.0/periphery-3.8.0.zip"
-url_api = "https://api.github.com/repos/peripheryapp/periphery/releases/assets/489291944"
 
 [[tools.pitchfork]]
 version = "2.33.1"

@@ -23,11 +23,11 @@ steps {
     }
     ["ruff"] = Builtins.ruff
     ["ruff-format"] = (Builtins.ruff_format) { depends = "ruff" }
-    ["rustfmt"] { glob = "**/*.rs"; fix = "rustfmt --config skip_children=true {{files}}" }
+    ["rustfmt"] { glob = "**/*.rs"; fix = "rustfmt --config-path .config/rustfmt.toml --config skip_children=true {{files}}" }
     ["shfmt"] = (Builtins.shfmt) { glob = "**/*.sh"; match_any = null }
     ["swiftlint"] = (Builtins.swiftlint) {
-        check { command { argv = List("swiftlint", "lint", "--quiet", "{{files}}") } }
-        fix { command { argv = List("swiftlint", "lint", "--fix", "--quiet", "{{files}}") } }
+        check { command { argv = List("swiftlint", "lint", "--config", ".config/swiftlint.yml", "--quiet", "{{files}}") } }
+        fix { command { argv = List("swiftlint", "lint", "--config", ".config/swiftlint.yml", "--fix", "--quiet", "{{files}}") } }
     }
     ["swift-format"] {
         glob = "**/*.swift"

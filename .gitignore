@@ -15,7 +15,6 @@ dist/
 .cloudflare/
 .artifacts/
 .vs/
-buildServer.json
 *.received.*
 *.pending-snap
 *.snap.new

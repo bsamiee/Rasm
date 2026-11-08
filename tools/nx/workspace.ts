@@ -3,7 +3,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateNodesContext, hashArray } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { decodeFile, Mise, Package, runCommand, TextFormat } from '@rasm/eng';
-import { Array, Config, Effect, Equal, FileSystem, Filter, Function, Layer, ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, SchemaGetter, type Scope, String, Struct } from 'effect';
+import { Array, Config, Effect, Equal, FileSystem, Function, Layer, ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, SchemaGetter, type Scope, String, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -14,7 +14,6 @@ type PluginServices = ManagedRuntime.ManagedRuntime.Services<typeof pluginRuntim
 
 const CARGO_MANIFEST = 'Cargo.toml';
 const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
-const SWIFT_MANIFEST = 'Package.swift';
 const PYPROJECT = 'pyproject.toml';
 const UV_LOCK = 'uv.lock';
 const APPS = 'apps';
@@ -66,15 +65,6 @@ const CargoMetadata = Schema.Struct({
         }).pipe(Schema.encodeKeys({ manifest: 'manifest_path' })),
     ),
     metadata: Schema.OptionFromNullOr(Schema.Struct({ dylint: Schema.OptionFromOptionalKey(Schema.Struct({ libraries: Schema.Array(Schema.Struct({ path: Schema.String })) })) })),
-});
-const SwiftPackage = Schema.Struct({
-    targets: Schema.Array(
-        Schema.Struct({ name: Schema.String, c99name: Schema.String, type: Schema.Literals(['executable', 'library', 'test', 'macro', 'plugin', 'snippet', 'system-target', 'binary']), path: Schema.String, locals: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(
-            Schema.encodeKeys({ locals: 'target_dependencies' }),
-        ),
-    ),
-    products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String) })),
-    platforms: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.String })),
 });
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -181,7 +171,6 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         cache.set(key, { hash, output });
         return value;
     });
-    const swiftManifest = <A, I>(schema: Schema.Codec<A, I>, ...args: readonly string[]) => cached(schema, [SWIFT_MANIFEST], ['swift', 'package', ...args], { env: { SWIFTPM_BUILD_DIR: path.join(workspaceRoot, '.cache/swiftpm/nx-manifest') } });
     const cargo = yield* Effect.cached(cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, 'rust-toolchain.toml', '.cargo/config.toml'], ['cargo', 'metadata', '--format-version', '1', '--no-deps'], { pathInputs: ['**/{build.rs,src/{main,lib}.rs,{src/bin,examples,tests,benches}/{*.rs,*/main.rs}}'] }));
     const crates = Effect.map(cargo, Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) }))));
     const hosts = yield* Effect.cached(fs.readDirectory(path.join(workspaceRoot, APPS)));
@@ -190,7 +179,6 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         crates,
         dylintLibraries: Effect.map(cargo, Function.flow(Struct.get('metadata'), Option.flatMap(Struct.get('dylint')), Option.match({ onNone: Array.empty, onSome: ({ libraries }) => libraries.map((library) => path.resolve(workspaceRoot, library.path)) }))),
         hosts,
-        swiftManifest,
         nxJsonConfiguration,
         ...(yield* Effect.all({
             mise: Effect.cached(
@@ -205,12 +193,6 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
                     Array.map((row) => row.slice(row.indexOf(' ') + 1)),
                 ),
             ),
-            swift: Effect.cached(
-                Effect.map(swiftManifest(SwiftPackage, 'describe', '--type', 'json'), (described) => ({
-                    ...described,
-                    tests: Array.partition(described.targets, Filter.fromPredicate<(typeof described.targets)[number]>(Predicate.Struct({ type: Equal.equals('test') }))),
-                })),
-            ),
         })),
     };
 });
@@ -222,4 +204,4 @@ const runPlugin = <A, E>(effect: Effect.Effect<A, E, Scope.Scope | PluginService
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, openWorkspace, type PluginServices, PYPROJECT, readPython, runPlugin, SWIFT_MANIFEST, UV_LOCK, type Workspace, WorkspaceError };
+export { APPS, CARGO_MANIFEST, CLOUDFLARE_CONFIG, glob, openWorkspace, type PluginServices, PYPROJECT, readPython, runPlugin, UV_LOCK, type Workspace, WorkspaceError };

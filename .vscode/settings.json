@@ -18,11 +18,11 @@
         "*.xcscheme": "xml",
         "*.xfdf": "xml",
         "*.xmp": "xml",
-        ".shellcheckrc": "properties",
         ".swift-format": "json",
         "Package.resolved": "json",
         "pixi.lock": "yaml",
-        "project.xcproj": "jsonc"
+        "project.xcproj": "jsonc",
+        "shellcheckrc": "properties"
     },
 
     // --- [ICONS]
@@ -47,17 +47,19 @@
     "explorer.fileNesting.patterns": {
         "*.csproj": "packages.lock.json, packages.*.lock.json, xunit.runner.json",
         ".gitignore": ".gitattributes, .gitmodules",
-        "Cargo.toml": "Cargo.lock, clippy.toml, rust-toolchain.toml, rustfmt.toml",
+        "Cargo.toml": "Cargo.lock, rust-toolchain.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
+        "clippy.toml": "nextest.toml, rustfmt.toml",
         "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
-        "hk.pkl": "analyzers.globalconfig, periphery.json, periphery.yml, pmd.xml, squawk.toml, stubtest.ini, yamllint.yaml",
+        "hk.pkl": "analyzers.globalconfig, pmd.xml, shellcheckrc, squawk.toml, stubtest.ini, swiftlint.yml, yamllint.yaml",
         "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
-        "nx.json": ".editorconfig, .nxignore, .shellcheckrc, sgconfig.yml",
-        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, tsconfig.web.json, vitest.config.ts",
-        "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
+        "nx.json": ".editorconfig, .nxignore, sgconfig.yml",
+        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.json, vitest.config.ts",
+        "Package.swift": ".swift-format, Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "pixi.lock, uv.lock",
         "README.md": "LICENSE, TODO.md",
-        "Sparkle-Info.plist": "Enhanced.entitlements"
+        "Sparkle-Info.plist": "Enhanced.entitlements",
+        "tsconfig.base.json": "tsconfig.web.json"
     },
 
     // --- [WATCHING]
@@ -155,6 +157,7 @@
     "rust-analyzer.cargo.targetDir": ".artifacts/rust/vscode",
     "rust-analyzer.checkOnSave": false,
     "rust-analyzer.rustc.source": "discover",
+    "rust-analyzer.rustfmt.extraArgs": [ "--config-path", "${workspaceFolder}/.config/rustfmt.toml" ],
 
     // --- [SHELL] -----------------------------------------------------------------------
 

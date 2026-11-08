@@ -3,8 +3,8 @@ import type { CreateNodesResult, TargetConfiguration } from '@nx/devkit';
 import { decodeFile, librarySurface, Sgconfig } from '@rasm/eng';
 import { Array, Cache, Effect, FileSystem, Option, Order, Path, Record, Schema, String, Struct } from 'effect';
 import { quote } from 'shell-quote';
-import { BLENDER_MANIFEST, folderInput, type Inference, imports, packageName, reach, swiftProject } from '#/graph/projects.ts';
-import { glob, PYPROJECT, SWIFT_MANIFEST, UV_LOCK, type Workspace } from '#/workspace.ts';
+import { BLENDER_MANIFEST, folderInput, type Inference, imports, packageName, reach } from '#/graph/projects.ts';
+import { glob, PYPROJECT, UV_LOCK, type Workspace } from '#/workspace.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -84,56 +84,6 @@ const pythonChecks = Effect.fnUntraced(function* ({ python, packages, configFile
             },
         },
     } satisfies CreateNodesResult;
-});
-const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
-    const [{ targets, platforms, tests }, folders] = yield* Effect.all([swift, hosts]);
-    const [suites, sources] = tests;
-    const platformed = platforms.map(Struct.get('name'));
-    const suiteTargets = Record.fromIterableWith(suites, (suite) => [suite.name, suite]);
-    const excluded = Array.match(Array.difference(targets, sources), { onEmpty: () => ({}), onNonEmpty: (all) => ({ options: { args: ['--exclude-targets', ...all.map(Struct.get('c99name'))] } }) });
-    const modules = sources.map((target) => {
-        const segments = target.path.split('/');
-        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, segments), folders).map(String.concat.bind(null, 'host:'))], target.type === 'executable' ? ['install'] : []);
-        const testTargets = Record.map(Record.getSomes({ test: Record.get(suiteTargets, `${target.name}Tests`) }), (suite) => {
-            const projects = Array.difference(suite.locals, [target.name]);
-            const inputs: NonNullable<TargetConfiguration['inputs']> = [
-                folderInput(suite.path),
-                ...(projects.length === 0
-                    ? []
-                    : [
-                          { input: 'default', projects },
-                          { input: 'default', projects, dependencies: true },
-                      ]),
-            ];
-            return { inputs, options: { args: ['--test-product', suite.name] } };
-        });
-        return [
-            target.path,
-            {
-                ...project,
-                root: target.path,
-                name: target.name,
-                implicitDependencies: [...target.locals],
-                targets: {
-                    ...project.targets,
-                    ...testTargets,
-                },
-            },
-        ] as const;
-    });
-    return {
-        projects: {
-            ...Object.fromEntries(modules),
-            '.': {
-                root: '.',
-                tags: Array.intersection(platformed, folders).map(String.concat.bind(null, 'host:')),
-                targets: {
-                    'typecheck:swift': { inputs: ['swift', ...sources.map(Struct.get('path')).map(folderInput)] },
-                    'lint:periphery': { ...excluded, inputs: ['swift', 'periphery', ...sources.map(Struct.get('path')).map(folderInput)] },
-                },
-            },
-        },
-    };
 });
 const upstreamScanners = Effect.fnUntraced(function* (workspaceRoot: string, file: string, specifiers: readonly string[]) {
     const path = yield* Path.Path;
@@ -236,7 +186,7 @@ const neutrality = Effect.fnUntraced(function* ({ workspaceRoot, packages }: Wor
         }),
     });
 });
-const roots = { [UV_LOCK]: pythonChecks, [SWIFT_MANIFEST]: swiftModules, [Sgconfig.file]: astGrep } as const;
+const roots = { [UV_LOCK]: pythonChecks, [Sgconfig.file]: astGrep } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

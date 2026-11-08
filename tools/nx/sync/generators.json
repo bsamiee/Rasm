@@ -3,7 +3,7 @@
         "build-settings": {
             "factory": "./settings/build-settings.ts#buildSettings",
             "schema": "./schema.json",
-            "description": "Writes Xcode.xcconfig, .swiftlint.yml, Directory.Build.props, .config/mise.toml and Pixi platform rows from package.json and Package.swift, and .config/hk.pkl package URLs from .config/mise.lock"
+            "description": "Writes Directory.Build.props identity rows from package.json and .config/hk.pkl package URLs from .config/mise.lock"
         },
         "injection-utils": {
             "factory": "./ast-grep/injection-utils.ts#injectionUtils",
