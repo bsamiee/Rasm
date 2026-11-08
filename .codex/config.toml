@@ -133,27 +133,3 @@ disabled_tools              = [
 default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7408/"
 tool_timeout_sec            = 600
-
-# --- [PLUGINS] --------------------------------------------------------------------------
-
-[marketplaces.rasm]
-source_type = "local"
-source      = "./plugins"
-
-[plugins."argus@rasm"]
-enabled                                       = true
-mcp_servers.argus.default_tools_approval_mode = "approve"
-
-[plugins."playwright@rasm"]
-enabled                                                 = true
-mcp_servers.playwright-test.default_tools_approval_mode = "approve"
-
-# --- [HOOKS] ----------------------------------------------------------------------------
-
-[[hooks.PreToolUse]]
-matcher = "^Bash$"
-
-[[hooks.PreToolUse.hooks]]
-type    = "command"
-command = 'node "$(git rev-parse --show-toplevel)/plugins/function-hooks/codex.ts" || exit 2'
-timeout = 30

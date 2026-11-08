@@ -1,6 +1,6 @@
 # [MONOREPO_STANDARDS]
 
-@README.md
+@TODO2.md
 
 - Commits and pushes happen on user request alone
 - Create or run tests only when the user requests them
@@ -17,16 +17,13 @@
 - Agent language servers run with background indexing and checking off, reading modules that builds write
 - Hooks rewrite a wrong command form or refuse it with one short reason, cover forms the owner named, and block no action the owner asks for
 - Configuration states each fact at its owner and varies by subject and mode through the tool's own mechanism, an addition edits its declaration alone
-- Changes to root files, `eng/`, `infra/`, and `tools/` extend the owning target, setting, or package, a parallel script or one-off flag is a defect
+- Changes to root files, `infra/`, and `tools/` extend the owning target, setting, or package, a parallel script or one-off flag is a defect
 
 ## [01]-[TOOLING]
 
 [TOOL_ROUTING]:
 - ALWAYS use `ast-grep outline <path>` to choose what to read in an unread file or folder
 - ALWAYS use `watch-apps` skill for opening, driving, observing, or quitting a desktop app
-- ALWAYS use `playwright:playwright-cli` skill for a browser session
-- ALWAYS use `playwright:playwright-trace` skill for a Playwright trace
-- ALWAYS use `manage-repo` skill for a change to how the repository is structured, built, or checked
 - ALWAYS use `refactor-code` skill for refactoring, reducing, or rebuilding a code file or folder
 - ALWAYS use `search-web` skill for a question the open web answers
 - ALWAYS use `search-code` skill for any fact about a dependency

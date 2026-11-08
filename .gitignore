@@ -18,8 +18,6 @@ dist/
 *.received.*
 *.pending-snap
 *.snap.new
-.playwright-cli/
-.playwright-mcp/
 
 # --- [HOST_WRITES] ----------------------------------------------------------------------
 
@@ -63,6 +61,7 @@ mise.local.toml
 .LSOverride
 Thumbs.db
 .archive/
+.tmp/
 
 # --- [AI_TOOLING] -----------------------------------------------------------------------
 
@@ -73,3 +72,7 @@ docs/research
 # --- [PLAN] -----------------------------------------------------------------------------
 
 plan/
+
+.nx/cache
+.nx/workspace-data
+.nx/migrate-runs

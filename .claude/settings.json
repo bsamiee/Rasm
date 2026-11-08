@@ -13,20 +13,6 @@
     "worktree": {
         "bgIsolation": "none"
     },
-    "enabledPlugins": {
-        "argus@rasm": true,
-        "function-hooks@rasm": true,
-        "playwright@rasm": true
-    },
-    "extraKnownMarketplaces": {
-        "rasm": {
-            "source": {
-                "source": "directory",
-                "path": "./plugins"
-            },
-            "autoUpdate": true
-        }
-    },
     "effortLevel": "high",
     "showClearContextOnPlanAccept": true,
     "claudeMdExcludes": [ "**/.cache/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md", "**/.venv/**/CLAUDE.md", "**/.artifacts/**/CLAUDE.md" ]

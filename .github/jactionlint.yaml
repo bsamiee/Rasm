@@ -1,4 +1,0 @@
-rules:
-    unpinned-uses: 'off'
-    checkout-static-credentials:
-        allow: [ASSETS_DEPLOY_KEY]
