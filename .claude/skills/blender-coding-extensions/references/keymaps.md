@@ -11,7 +11,6 @@ Keymap items join `bpy.context.window_manager.keyconfigs.addon`, present in back
 - `keymap_items.new` appends with `repeat` off, `head=True` prepends, and held-key items pass `repeat=True`
 - Modifier keywords take `1` held, `0` released, or `-1` either state, and `any=True` matches every modifier state
 - Keymap rows take the built-in keyconfig data form `(<operator>, <event>, {"properties": [(<name>, <value>), ...], "active": False})`
-- Row events name pressed modifiers alone
 - `"active": False` adds a binding the user enables in preferences
 - `keymap_init_from_data` prints a warning for a property the operator lacks and keeps the item without it
 - Items calling an operator no class registers read `properties` as `None` after `keyconfigs.update()` without `keep_properties`

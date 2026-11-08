@@ -5,9 +5,7 @@ description: "Use when writing or reviewing Python over a Blender node tree, cov
 
 # [BLENDER_CODING_NODES]
 
-Covers `bpy` code over node trees:
-- Use `blender-coding` for data references, host faults, and evaluation
-- Use `blender-coding-render` for compositor effect stacks and strips
+Covers `bpy` code over node trees.
 
 [REFERENCES]:
 - [01]-[EXPRESSIONS](references/expressions.md): Node graphs as expression records built into trees by content hash

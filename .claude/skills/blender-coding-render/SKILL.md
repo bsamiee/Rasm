@@ -5,9 +5,7 @@ description: "Use when writing or reviewing Python that sets Blender render, com
 
 # [BLENDER_CODING_RENDER]
 
-Covers `bpy` code over render settings, color management, view layers, compositor effects, renders and their files, bakes, images, strips, and render engines:
-- Use `blender-coding` for member write order, dynamic enums, library loads, handler threads, and pixel buffers
-- Use `blender-coding-nodes` for node trees
+Covers `bpy` code over render settings, color management, view layers, compositor effects, renders and their files, bakes, images, strips, and render engines.
 
 [REFERENCES]:
 - [01]-[FILES](references/files.md): Written render files and their OpenImageIO reads

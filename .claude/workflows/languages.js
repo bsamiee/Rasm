@@ -103,7 +103,7 @@ return {
     }),
     dotnet: owned({
       libs: 'libs/dotnet',
-      skills: ['dotnet-coding', 'dotnet-document', 'dotnet-roslyn-codelens'],
+      skills: ['dotnet-coding', 'dotnet-roslyn-codelens'],
       families: ['dotnet-coding-languageext', 'dotnet-coding-mapperly', 'dotnet-coding-memory', 'dotnet-coding-thinktecture', 'dotnet-coding-ui', 'dotnet-msbuild-antipatterns', 'dotnet-msbuild-diagnostics', 'dotnet-msbuild-evaluation', 'dotnet-msbuild-execution', 'dotnet-msbuild-packaging'],
       companion: null,
       catalog: 'Directory.Packages.props',

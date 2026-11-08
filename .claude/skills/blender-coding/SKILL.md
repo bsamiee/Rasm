@@ -5,11 +5,8 @@ description: "Use when writing or reviewing Python that runs inside Blender, cov
 
 # [BLENDER_CODING]
 
-Covers what Blender requires of `bpy` code. Use `python-coding` for Python design.
-
 Code runs on Blender's bundled Python 3.13 and takes no 3.14 or 3.15 form: imports stay eager, frozen mappings are `types.MappingProxyType`, `TypeForm` imports from `typing_extensions`, annotations read through `inspect.get_annotations(owner, eval_str=True)`, and text another program parses escapes each value at its format site (`shlex.join`) in place of a t-string. A package entry that also runs on 3.15 names its private modules in `__lazy_modules__`, which 3.13 ignores.
 
-[PRINCIPLES]:
 - Kinds, keys, and states are Blender's own values (`rna_enums` literals, `<Class>.bl_idname`)
 - Rewrites keep every used behavior, failure cause, public export, and named value
 
@@ -95,27 +92,9 @@ Identity and lookup follow host keys:
 - `UILayout.enum_item_name(data, prop, identifier)` reads a dynamic enum's live label and `""` for an identifier outside the live items
 - Collections can hold `None` items (`texture_slots`), and iteration enumerates before skipping `None` to keep host indices
 
-Keys and drivers go through the holding struct's `keyframe_insert(member)` and `driver_add(member)`. Path arguments come from `path_from_id(member)`, collection items keyed by name:
-
-```python
-type Struct = bpy.types.bpy_struct[object]
-
-
-def targeted(target: bpy.types.DriverTarget, source: Struct, member: str, /) -> None:
-    owner: bpy.types.ID = source.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    target.id_type, target.id, target.data_path = owner.id_type, owner, source.path_from_id(member)
-```
-
-`targeted(variable.targets[0], modifier, "width")` drives from `modifiers["Bevel"].width` on the modifier's object:
-- ID property keys pass as `f'["{bpy.utils.escape_identifier(key)}"]'`, and registered properties pass by identifier
-- `path_from_id()` raises `ValueError` for structs with no ID path (preferences, `Region`, `RegionView3D`, `CurveMapping`, `Stereo3dFormat`)
-- `path_from_module()` returns a full path with the ID, and nested structs with no ID path join their member name to the holding struct's path
-
 ## [02]-[OPERATORS]
 
-Per-object operator loops compound edits and costs, each call acting on the whole selection. Calls pay a context resolve, a view-layer update before the call and after `FINISHED`, and undo bookkeeping.
-
-Work takes a data API member where one does it, else a built-in operator, `bpy_extras`, `_bpy_internal`, or bundled add-on member Blender includes:
+Per-object operator loops compound edits and costs, each call acting on the whole selection. Calls pay a context resolve, a view-layer update before the call and after `FINISHED`, and undo bookkeeping. Work takes a data API member where one does it, else a built-in operator, `bpy_extras`, `_bpy_internal`, or bundled add-on member Blender includes:
 
 | [INDEX] | [WORK]                      | [FORM]                                                       |
 | :-----: | :-------------------------- | :----------------------------------------------------------- |
@@ -184,48 +163,7 @@ def imported(importer: Callable[..., Returns], source: Path, /) -> Outcome[froze
 
 `imported(bpy.ops.wm.obj_import, source)` returns the created mesh and object, and an unreadable file returns one fault holding the importer's report.
 
-## [03]-[EVALUATION]
-
-Original geometry holds no modifier result, and each read or write takes its path:
-
-| [INDEX] | [NEED]                                         | [PATH]                                                                              |
-| :-----: | :--------------------------------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | Modified or animated state                     | `evaluated_get(context.evaluated_depsgraph_get())` under its scene/layer override   |
-|  [02]   | Selection, identity, any write                 | Evaluated ID's `.original`                                                          |
-|  [03]   | Constraint, parent, and rigid body placement   | Original `matrix_world` after `view_layer.update()`, `location` keeping its channel |
-|  [04]   | `dimensions`, `bound_box`                      | `view_layer.update()` after data write                                              |
-|  [05]   | Keyed F-curve value at other frames            | `fcurve.evaluate(frame)`                                                            |
-|  [06]   | Evaluated state at another frame               | `frame_set` on window scene, frame restored after                                   |
-|  [07]   | Instances                                      | `depsgraph.object_instances`                                                        |
-|  [08]   | Evaluated mesh                                 | `evaluated_get(depsgraph).to_mesh()`                                                |
-|  [09]   | Evaluated attributes, instance references      | `obj.evaluated_get(depsgraph).evaluated_geometry()`                                 |
-|  [10]   | Persistent evaluated mesh                      | `new_from_object(evaluated, preserve_all_data_layers=True, depsgraph=depsgraph)`    |
-|  [11]   | Result after a write that tags nothing         | `id.update_tag()` on written ID, then evaluation                                    |
-|  [12]   | Result after a modifier input write            | `obj.update_tag()`, then evaluation                                                 |
-|  [13]   | Original mesh read in Edit Mode                | `obj.update_from_editmode()` first                                                  |
-|  [14]   | `view_layer.objects` after a link or `exclude` | `view_layer.update()` first                                                         |
-
-- Writes to an evaluated ID succeed with no raise and drop at the next evaluation
-- Evaluated IDs hold a `session_uid` of their own, and keys read it from `.original`
-- Built-in RNA writes tag their owner
-- `id["key"]`, script `bpy.props`, and `CurveProfile` point writes, `PointCloud.resize`, and `GreasePencilFrames.move` tag nothing
-- `scene.frame_current = n` applies at the next `view_layer.update()`, and `frame_set` evaluates at the call
-- Frame changes write animated values into original members, and a script write to an animated member holds until the next frame change
-- Rigid bodies advance one step per consecutive `frame_set` from `point_cache.frame_start`, a jump past uncached frames keeping the last cached state
-- `rigidbody_world.collection` starts `None` after `world_add`, and members joining it gain an `ACTIVE` `CONVEX_HULL` `rigid_body` at the next update
-- `view_layer.update()` ensures its owner's graph; `view_layer.depsgraph` reads it after evaluation
-- `evaluated_depsgraph_get()` ensures and updates the context scene/layer graph, selected through `temp_override`
-- `evaluated_depsgraph_get()` uses viewport settings, render exports passing `evaluation_mode` (USD, Alembic, PLY, STL) or `export_eval_mode` (OBJ)
-- `evaluated_geometry()` raises `TypeError` on an original or an object without geometry, and `instances_pointcloud()` reads `None` with no instances
-- Instances stay out of the evaluated mesh and `dimensions`
-- `Object.hide_viewport`, `Collection.hide_viewport`, and `LayerCollection.exclude` take objects out of the depsgraph, and `hide_set` objects evaluate
-- Empties instance a collection through `instance_type` `COLLECTION` and `instance_collection`, mesh objects refusing `COLLECTION` with a `TypeError`
-- Collection instances sit at the empty's `matrix_world` less `instance_offset`, `Collection.users_dupli_group` listing its empties
-- Instanced collections evaluate unlinked and under `exclude`, and `Collection.hide_viewport` or a member's `hide_viewport` drops instances
-- `instance_collection` set to a collection holding the empty stays `None` with an `ERROR` log, and linking the empty into it raises `RuntimeError`
-- Evaluated meshes hold their source mesh's name, and code branches on the object it evaluated
-
-## [04]-[PROPERTIES]
+## [03]-[PROPERTIES]
 
 Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes. Properties take Blender's keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`), a `use_<name>` `BoolProperty` beside each value it switches. Copies of an RNA member take every keyword its RNA states, enum items as 5-tuples keeping each item's RNA `value`. Update callbacks act on `self.id_data` in place of the active item:
 
@@ -262,11 +200,10 @@ class Lamp(bpy.types.PropertyGroup):
 
 `kind` starts at `POINT` and stores `AREA` as its `Light.type` value 4, where 3-tuples store position 3. `copied(<class>, <member>)` copies static or context-free RNA enum items, booleans, and scalar floats; `light` binds owner and callback once.
 
-`bpy.props` definitions take the form the host registers:
+`bpy.props` definitions take the form Blender registers:
 - `poll` and `update` take function objects with exact positional arity, defaulted parameters counted, and a factory returns the closure
 - Bad arguments print `TypeError` at `register_class` and drop the property from the registered class, `int32` overflows printing `OverflowError`
 - Float bounds past `float32` store as infinity, and `min > max` and out-of-range defaults register with no error
-- Assignment clamps to hard bounds with no raise and leaves soft bounds unenforced
 - Operator properties hold IDs by name or `session_uid`, ID `PointerProperty` printing `ValueError` at `register_class` and dropping from operator
 - `PointerProperty` takes ID and `PropertyGroup` types, `CurveMapping`, `ColorRamp`, `Scopes`, and `Histogram` coming from an owning ID
 - `PointerProperty` `poll` filters UI assignment alone, and assigning an embedded ID (`Scene.collection`, `Material.node_tree`) raises `RuntimeError`
@@ -281,7 +218,7 @@ class Lamp(bpy.types.PropertyGroup):
 - `FILE_PATH` and `DIR_PATH` properties accepting `//` declare `PATH_SUPPORTS_BLEND_RELATIVE`
 - Operator property update callbacks receive properties alone as `self`, with the window manager as `id_data`
 
-Registered values read and write through the host:
+Registered values read and write through Blender:
 - Registered properties on IDs use system storage outside `ID.keys()`; nested `PropertyGroup` members share the group's storage
 - `ob["prop"] = value` on a registered name creates a separate custom property
 - `property_unset` resets a value, and `is_property_set(name)` counts a value reused from the last run as unset, `ghost=False` counting it as set
@@ -330,7 +267,7 @@ Handler, timer, msgbus, and modal bodies run in a context Blender chose:
 
 ## [07]-[BOUNDARIES]
 
-Each entry point translates the result once into the host's form:
+Each entry point translates the result once into Blenders form:
 
 | [INDEX] | [ENTRY]                         | [RESULT]                                                                   |
 | :-----: | :------------------------------ | :------------------------------------------------------------------------- |
@@ -359,13 +296,13 @@ def answered(operator: bpy.types.Operator, outcome: Outcome[tuple[Fault, ...]], 
 
 `--python` scripts read their arguments after `--` in `sys.argv`, Blender's own flags filling the entries before it.
 
-Host calls that raise nothing decide the result through their return:
+Blender calls that raise nothing decide the result through their return:
 - `None` returns and invalid results (false `NodeLink.is_valid`, targetless `Constraint.is_valid`) are faults at the call
 - `CANCELLED` keeps the writes a body made before its fault outside undo, and dependent steps roll back through the body's `ExitStack` scope
 - Python raises inside `RenderEngine.render` complete the render as `FINISHED`, and `error_set` cancels nothing
 - Modifier reorder plans keep `use_pin_to_last` modifiers after unpinned ones
 
-Values cross the boundary in host units and axes:
+Values cross the boundary in Blenders units and axes:
 - Lengths are Blender units scaled by `unit_settings.scale_length` and angles radians, and decoded values hold SI quantities
 - Display strings come from `bpy.utils.units.to_string(system, category, value, split_unit=True)` and parse through `bpy.utils.units.to_value`
 - `to_value` reads `-` and `+` as arithmetic and unitless numbers as the base unit

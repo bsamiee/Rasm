@@ -15,7 +15,7 @@ Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, c
 - Error cases exist where a caller branches on them, every other failure joins its owner's error
 - Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
 - Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
-- Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
+- Changes leave code smaller and more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values, from partial application and dispatch to iteration, topological order, and pipelines

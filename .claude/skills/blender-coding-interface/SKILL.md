@@ -5,9 +5,7 @@ description: "Use when writing or reviewing Python that builds Blender's interfa
 
 # [BLENDER_CODING_INTERFACE]
 
-Covers `bpy` code that builds Blender's interface and draws in its editors:
-- Use `blender-coding` for work an element triggers
-- Use `blender-coding-extensions` for what an extension acquires and releases
+Covers `bpy` code that builds Blender's interface and draws in its editors.
 
 [REFERENCES]:
 - [01]-[DRAWING](references/drawing.md): Pixels code draws itself, for what layout elements cannot show

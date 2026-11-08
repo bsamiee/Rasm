@@ -126,13 +126,6 @@ Each shape replaces one spam or nesting form:
 |  [09]   | Builder fold                   | Sequence of mutations on one object                |
 |  [10]   | One parameterized member       | Members differing by a value, flag, or case        |
 
-Tests after a restructure:
-- Decision test: each decision appears once, a discriminant tested at more than one site fails
-- Name test: no function, named closure, or type appears that the base lacked, the one addition is the enum or relation of the choice or shape test
-- Line test: the member ends with fewer or equal lines and fewer branches
-- Depth test: nesting past the `CLAUDE.md` limit fails, a body under the limit matching a replaced form of the table is rebuilt, the limit is a floor
-- Family test: members, arms, rows, files, or targets differing by one value become one parameterized form, the search starts at the second
-
 Algebraic forms hold where a relation is real and are never forced:
 - Relation test: quantities a caller computes from each other are one derivation solvable for any of them, a member or file per quantity fails
 - Choice test: a caller's choice among methods is an enum parameter, a `bool` holds a computed fact, a string naming a branch is a typed value
@@ -143,7 +136,6 @@ Every member gets faster through logic, the language skill's hot-path line holds
 - Level test: name the level touched (grammar, regex class, rule shape, util, file walk, cache key, checker option), another level hides the cause
 - Capability test: every input handled before is handled after, a narrowed grammar, class, or skipped case is a regression with a timing
 - Concurrency test: many agents share the tree, correctness comes from hashing, caching, and per-task output folders
-- Measure test: one `hyperfine` run per stage on the real command before and after, a speed claim without the run is `Unverified:`
 
 ## [06]-[ADVERSARY]
 
@@ -159,12 +151,9 @@ Brief contents:
 - Nothing of the previous pass's report, judgments, or reasons for what it kept, and no checking, probing, or measuring instruction narrowing the pass
 
 Conduct:
-- Reads the diff as syntax through `GIT_EXTERNAL_DIFF=difft git diff <base>` and counts per edited member after against before
-- Runs each entry point on repository input, base against new differs on intended changes alone, served products run live
 - Fixes each regression in place in the same pass, no finding list goes to a later pass
 - Reads "a consumer needed it", "left as is", "kept for the lint", and "to be safe" as failure reports
 - Re-derives no verified fact and relitigates no recorded decision without a new fact
-- Probes with repository inputs on a real document in the running host, a hand-typed input stands for a branch the repository never reaches alone
 
 Regressions an adversary restores in place:
 

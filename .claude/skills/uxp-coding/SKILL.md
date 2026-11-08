@@ -14,7 +14,6 @@ Ranges, enumerations, and localized names come from the running host, extents fr
 - [02]-[PHOTOSHOP](references/photoshop.md): Photoshop behavior its prototypes and typings leave unstated, for descriptor and DOM calls
 - [03]-[PREMIERE](references/premiere.md): Premiere Pro and Media Encoder behavior their manifests and typings leave unstated, for edits as actions
 - [04]-[EXTENDSCRIPT](references/extendscript.md): Illustrator and After Effects behavior `reflect` and typings leave unstated, for their ES3 source
-- [05]-[TRANSPORT](references/transport.md): Typed calls a plugin serves over a socket it dials
 
 ## [01]-[CONTEXTS]
 

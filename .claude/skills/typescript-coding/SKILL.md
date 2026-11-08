@@ -5,7 +5,7 @@ description: "Use when writing or reviewing TypeScript, covering functional desi
 
 # [TYPESCRIPT_CODING]
 
-Covers functional TypeScript on Effect modules, with a native construct where no Effect module states a value.
+Covers functional TypeScript on Effect modules.
 
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
@@ -60,13 +60,9 @@ class Line extends Schema.Class<Line, { readonly brand: unique symbol }>('Line')
 
 Signatures state every value a function accepts and every outcome its caller handles. Parameters and fields are `readonly`, arrays `readonly A[]`, or `Array.NonEmptyReadonlyArray<A>` where the rule needs an element, and `Effect.forEach` over a non-empty input (`Array.range`, `Array.makeBy`) returns one.
 
-### [02.1]-[TOTAL_FUNCTIONS]
-
 Total functions return a declared output for each accepted input, narrowing the input to a decoded type or widening the output to `Option`, `Result`, or `Effect`:
 - Parameters take the decoded type (`Quantity`, an `OrderId` brand)
 - `Schema.decodeUnknownOption(Schema.NumberFromString)` states every outcome of a parse
-
-### [02.2]-[PURITY]
 
 Pure functions depend on their arguments alone and cause no side effect. Clock, randomness, environment, logging, and I/O are effects.
 

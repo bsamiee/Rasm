@@ -5,10 +5,7 @@ description: "Use when writing or reviewing a Blender extension's registration, 
 
 # [BLENDER_CODING_EXTENSIONS]
 
-Covers what an extension acquires and releases across its lifecycle, and what its package holds:
-- Use `blender-coding` for what registered code does and stores
-- Use `blender-coding-interface` for what registered code draws
-- Use `use-blender` for operating an extension in Blender
+Covers what an extension acquires and releases across its lifecycle, and what its package holds.
 
 [REFERENCES]:
 - [01]-[KEYMAPS](references/keymaps.md): How an extension's key bindings resolve against built-in items and user edits
@@ -17,14 +14,14 @@ Covers what an extension acquires and releases across its lifecycle, and what it
 
 ## [01]-[REGISTRATION]
 
-Registration runs under host rules:
+Registration runs:
 - Import and `register()` run under `RestrictBlend`: `bpy.context` holds `window_manager` and `preferences` alone, `bpy.data` raises `AttributeError`
 - Module-level `from bpy import context, data` binds the restricted stand-ins permanently, and code reads `bpy.context` and `bpy.data` per call
 - Raising `register()` gets no `unregister()`, its classes, handlers, and timers staying registered
 - Classes register once, a second `register_class` raising `ValueError` and a second `unregister_class` `RuntimeError`
 - Classes whose `register` classmethod raises stay registered with `bl_rna` in their own namespace
 
-Acquisitions follow host dependency order and releases reverse it, an attachment naming an unregistered group crashing Blender at its next read:
+Acquisitions follow Blender dependency order and releases reverse it, an attachment naming an unregistered group crashing Blender at its next read:
 
 | [INDEX] | [FIRST]         | [THEN]                                                   | [OTHERWISE]                                   |
 | :-----: | :-------------- | :------------------------------------------------------- | :-------------------------------------------- |
@@ -86,7 +83,7 @@ unregister = held.close
 
 `CLASSES` lists classes in any order. A raise inside the `with` block releases every earlier acquisition, then reaches Blender as raised.
 
-Attachments follow host rules:
+Attachments:
 - `attached` takes any `bpy.props` definition onto a host type, `delattr` releasing it
 - Group storage on an ID starts at its first read, saves with files, and outlives a release, reading back once the group attaches again
 - Static RNA members (`render`, `frame_current`) refuse an attachment with `ValueError`, and `name`, RNA functions, and `bl_rna` take a shadowing one
@@ -122,7 +119,7 @@ Callback kinds pair one acquisition with one release on the same object, pushed 
 |  [09]   | Manual links | `utils.register_manual_map(fn)`                                    | `utils.unregister_manual_map(fn)`                    |
 |  [10]   | Presets      | `utils.register_preset_path(<folder holding presets/>)`            | `utils.unregister_preset_path(<same path>)`          |
 
-Acquisitions follow host identity rules:
+Acquisitions follow Blender identity rules:
 - Handler lists, timers, UI extensions, manual maps, and message bus keys hold one entry per acquisition call
 - Timers store one callable and match it by identity, each read of a bound method building a new object
 - `bpy.app.timers.unregister` raises `ValueError` for a function no longer registered, a timer that stopped itself included
@@ -131,7 +128,7 @@ Acquisitions follow host identity rules:
 - `<Menu>.remove` drops the first equal entry, a fresh bound method of one object included, and ignores an absent one
 - Message bus subscriptions take one private `object()` owner per extension
 
-Presets resolve through host paths:
+Presets resolve through Blenders paths:
 - Typed presets are JSON records decoded by record type, in place of the Python files `script.execute_preset` runs
 - Typed presets resolve under `presets/<extension id>/<key>` of each `utils.preset_paths` folder
 - User presets save under `utils.user_resource('SCRIPTS', path="presets/<extension id>/<key>")`, which uninstall leaves
