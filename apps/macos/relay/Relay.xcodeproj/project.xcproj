@@ -42,6 +42,7 @@
           "exclusions": [
             "AGENTS.md",
             "CLAUDE.md",
+            "Info.plist",
           ],
         },
       ],
@@ -49,7 +50,7 @@
       "kind": "group",
       "name": "Products",
       "children": [
-        { "path": "<PRODUCTS>/.app", "id": "DF48A6EC3089FB4E003F171A", "type": "wrapper.application", "index": false },
+        { "path": "<PRODUCTS>/Relay.app", "id": "DF48A6EC3089FB4E003F171A", "type": "wrapper.application", "index": false },
       ],
     },
   ],
@@ -57,7 +58,7 @@
     {
       "name": "Relay",
       "id": "DF48A6EB3089FB4E003F171A",
-      "product": "Products/.app",
+      "product": "Products/Relay.app",
       "product-type": "application",
       "build-phases": [
         "compile-sources",
@@ -120,8 +121,8 @@
         },
       ],
       "build-settings": {
-        "CODE_SIGN_ENTITLEMENTS": "../../../.config/Enhanced.entitlements",
-        "INFOPLIST_FILE": "../../../.config/Sparkle-Info.plist",
+        "CODE_SIGN_ENTITLEMENTS": "Relay.entitlements",
+        "INFOPLIST_FILE": "Info.plist",
         "INFOPLIST_KEY_LSUIElement": "YES",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.relay",
         "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",

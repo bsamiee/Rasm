@@ -1,0 +1,21 @@
+{
+    "name": "@rasm/nx-apple",
+    "version": "0.0.0",
+    "description": "Nx plugin inferring SwiftPM packages, Xcode projects, and Xcode workspaces from the toolchain's own output",
+    "license": "MIT",
+    "type": "module",
+    "exports": {
+        ".": "./plugin.ts",
+        "./package.json": "./package.json",
+        "./executors.json": "./executors.json"
+    },
+    "executors": "./executors.json",
+    "scripts": {
+        "prepare": "swift build -c release --product nx-apple-analyzer"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "effect": "catalog:"
+    }
+}

@@ -1,7 +1,45 @@
+# --- [WORKSPACE] ------------------------------------------------------------------------
+
 packages:
-  - apps/nx/*
+    - 'libs/typescript/*/*'
+    - 'apps/**'
+    - 'tests/typescript/**'
+    - 'plugins/*'
+    - 'infra'
 catalogMode: strict
+saveExact: true
+minimumReleaseAge: 0
+
+# --- [CATALOG] --------------------------------------------------------------------------
+
 catalog:
-  nx: 24.0.5
+
+    # --- [CORE]
+
+    effect: 4.1.2
+    '@effect/platform-node': 4.1.2
+
+    # --- [ICONS]
+
+    bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
+
+    # --- [COMPILERS]
+
+    '@effect/tsgo': 0.67.5 # Effect diagnostics for native TypeScript compiler and language server
+    typescript: 7.1.0-dev.20261106.1 # Native TypeScript release `@effect/tsgo` supports
+    '@types/node': 26.6.6
+
+    # --- [BUILD]
+
+    nx: 24.0.5
+    '@nx/devkit': 24.0.5
+
+# --- [BUILDS] ---------------------------------------------------------------------------
+
 allowBuilds:
-  nx: true
+    nx: true
+
+# --- [SKILLS] ---------------------------------------------------------------------------
+
+skills:
+    dirs: []

@@ -26,12 +26,25 @@
     { "path": "../../../../.artifacts/apps/creative-cloud/atelier/atelier", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
     { "path": "../../../../.artifacts/apps/creative-cloud/atelier/LaunchAgents", "target-membership": [ "Atelier/copy/Embed Server Agent" ] },
     { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
-    { "kind": "folder", "path": ".", "target-membership": [ "Atelier" ] },
     {
+      "kind": "folder",
+      "path": ".",
+      "target-membership": [
+        "Atelier",
+      ],
+      "membership-exceptions": [
+        {
+          "target": "Atelier",
+          "exclusions": [
+            "Info.plist",
+          ],
+        },
+      ],
+    }, {
       "kind": "group",
       "name": "Products",
       "children": [
-        { "path": "<PRODUCTS>/.app", "id": "DF819D1F3089FBAF00B8A072", "type": "wrapper.application", "index": false },
+        { "path": "<PRODUCTS>/Atelier.app", "id": "DF819D1F3089FBAF00B8A072", "type": "wrapper.application", "index": false },
       ],
     },
     { "path": "../../../../.artifacts/apps/creative-cloud/atelier/plugins/indesign.ccx", "target-membership": [ "Atelier/copy/Embed Plugins" ] },
@@ -41,7 +54,7 @@
     {
       "name": "Atelier",
       "id": "DF819D1E3089FBAF00B8A072",
-      "product": "Products/.app",
+      "product": "Products/Atelier.app",
       "product-type": "application",
       "build-phases": [
         "compile-sources",
@@ -101,8 +114,8 @@
       ],
       "build-settings": {
         "AUTOMATION_APPLE_EVENTS": "YES",
-        "CODE_SIGN_ENTITLEMENTS": "../../../../.config/Enhanced.entitlements",
-        "INFOPLIST_FILE": "../../../../.config/Sparkle-Info.plist",
+        "CODE_SIGN_ENTITLEMENTS": "Atelier.entitlements",
+        "INFOPLIST_FILE": "Info.plist",
         "INFOPLIST_KEY_LSBackgroundOnly": "YES",
         "INFOPLIST_KEY_NSAppleEventsUsageDescription": "Atelier runs scripting commands in Adobe apps when an MCP client requests them.",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.atelier",

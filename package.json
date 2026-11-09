@@ -1,6 +1,18 @@
 {
+    "name": "rasm",
+    "private": true,
+    "description": "Repository Node tooling",
+    "repository": "https://github.com/bsamiee/Rasm",
+    "license": "MIT",
+    "author": "Bardia Samiee",
     "type": "module",
+    "scripts": { "prepare": "effect-tsgo patch" },
     "devDependencies": {
-        "nx": "catalog:"
+        "@effect/tsgo": "catalog:",
+        "@rasm/nx-apple": "workspace:*",
+        "@types/node": "catalog:",
+        "bootstrap-icons": "catalog:",
+        "nx": "catalog:",
+        "typescript": "catalog:"
     }
 }

@@ -1,0 +1,35 @@
+// --- [BUILD] ---------------------------------------------------------------------------
+ALWAYS_SEARCH_USER_PATHS = NO
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
+COPY_PHASE_STRIP = NO
+COPYRIGHT_HOLDER = Bardia Samiee
+CURRENT_PROJECT_VERSION = 0
+DEAD_CODE_STRIPPING = YES
+DEBUG_INFORMATION_FORMAT[config=Release] = dwarf-with-dsym
+ENABLE_DEBUG_DYLIB = NO
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.utilities
+INFOPLIST_KEY_NSHumanReadableCopyright = ©$(COPYRIGHT_YEAR) $(COPYRIGHT_HOLDER)
+LD_RUNPATH_SEARCH_PATHS = @executable_path/../Frameworks
+LM_SKIP_METADATA_EXTRACTION = YES
+MACOSX_DEPLOYMENT_TARGET = 27.0
+MARKETING_VERSION = 0.0.0
+OTHER_LDFLAGS = -Xlinker -fatal_warnings
+PRODUCT_NAME = $(TARGET_NAME)
+
+// --- [SIGNING] -------------------------------------------------------------------------
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM = BBXB9R367P
+ENABLE_ENHANCED_SECURITY = YES
+ENABLE_HARDENED_RUNTIME = YES
+ENABLE_POINTER_AUTHENTICATION = NO
+
+// --- [SPARKLE] -------------------------------------------------------------------------
+SPARKLE_FEED_URL = https:/$()/github.com/bsamiee/Rasm/releases/download/$(PRODUCT_NAME)-updates/appcast.xml
+SPARKLE_PUBLIC_KEY = G+D8EhYh31mwjGKL88W2ft9PRIPMSgt6t8zV6lIBa3Y=
+
+// --- [SWIFT] ---------------------------------------------------------------------------
+OTHER_SWIFT_FLAGS = -enable-upcoming-feature ExistentialAny -enable-upcoming-feature ImmutableWeakCaptures -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature InternalImportsByDefault -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature NonisolatedNonsendingByDefault -strict-memory-safety -warn-soft-deprecated -Xfrontend -warn-long-expression-type-checking-scopes -Xfrontend 200 -warnings-as-errors -Werror ExplicitSendable -Werror StrictLanguageFeatures
+SWIFT_COMPILATION_MODE[config=Release] = wholemodule
+SWIFT_OPTIMIZATION_LEVEL[config=Debug] = -Onone
+SWIFT_VERSION = 6.0

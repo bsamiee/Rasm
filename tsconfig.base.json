@@ -1,0 +1,89 @@
+{
+    "compilerOptions": {
+        "allowImportingTsExtensions": true,
+        "erasableSyntaxOnly": true,
+        "exactOptionalPropertyTypes": true,
+        "lib": [
+            "esnext"
+        ],
+        "module": "nodenext",
+        "noEmit": true,
+        "noImplicitOverride": true,
+        "noImplicitReturns": true,
+        "noUncheckedIndexedAccess": true,
+        "plugins": [
+            {
+                "name": "@effect/language-service",
+                "ignoreEffectSuggestionsInTscExitCode": false,
+                "allowedUnstableApis": [
+                    "effect",
+                    "@effect"
+                ],
+                "barrelImportPackages": [
+                    "effect"
+                ],
+                "effectFn": [
+                    "span",
+                    "untraced"
+                ],
+                "keyPatterns": [
+                    {
+                        "target": "service"
+                    },
+                    {
+                        "target": "custom"
+                    },
+                    {
+                        "target": "error",
+                        "pattern": "identifier"
+                    },
+                    {
+                        "target": "taggedClass",
+                        "pattern": "identifier"
+                    }
+                ],
+                "diagnosticSeverity": {
+                    "anyUnknownInErrorContext": "error",
+                    "mapMapErrorToMapBoth": "error",
+                    "unsafeEffectTypeAssertion": "error",
+                    "extendsNativeError": "warning",
+                    "asyncFunction": "warning",
+                    "newPromise": "warning",
+                    "cryptoRandomUUID": "warning",
+                    "cryptoRandomUUIDInEffect": "warning",
+                    "globalDate": "warning",
+                    "globalDateInEffect": "warning",
+                    "globalFetch": "warning",
+                    "globalFetchInEffect": "warning",
+                    "globalJsonInEffect": "warning",
+                    "globalRandom": "warning",
+                    "globalRandomInEffect": "warning",
+                    "globalTimers": "warning",
+                    "globalTimersInEffect": "warning",
+                    "instanceOfSchema": "warning",
+                    "processEnv": "warning",
+                    "processEnvInEffect": "warning",
+                    "schemaSync": "warning",
+                    "deterministicKeys": "suggestion",
+                    "effectDoNotation": "suggestion",
+                    "missedPipeableOpportunity": "suggestion",
+                    "missingEffectServiceDependency": "suggestion",
+                    "nestedEffectGenYield": "suggestion",
+                    "newSchemaClass": "suggestion",
+                    "preferBarrelImport": "suggestion",
+                    "preferSchemaTaggedError": "suggestion",
+                    "preferSchemaTypeProperty": "suggestion",
+                    "schemaUnionOfLiterals": "suggestion",
+                    "serviceNotAsClass": "suggestion",
+                    "strictBooleanExpressions": "suggestion",
+                    "unnecessaryArrowBlock": "suggestion"
+                }
+            }
+        ],
+        "skipLibCheck": true,
+        "strict": true,
+        "target": "esnext",
+        "types": [],
+        "verbatimModuleSyntax": true
+    }
+}
