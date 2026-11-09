@@ -1,7 +1,14 @@
 {
     "name": "@rasm/atelier-extendscript",
+    "version": "0.0.0",
     "private": true,
     "description": "ExtendScript side of Atelier's CEP wire: the reply encoder the server inlines into unlinked scripts and the request dispatcher each CEP plugin's host script serves",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "apps/creative-cloud/atelier/extendscript"
+    },
+    "license": "MIT",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -11,9 +18,20 @@
         ".": "./index.ts",
         "./host": "./host.ts"
     },
+    "files": [ "dist" ],
     "devDependencies": {
         "@rasm/atelier-protocol": "workspace:*",
         "@rasm/automation": "workspace:*",
         "types-for-adobe": "catalog:"
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js",
+            "./host": "./dist/host.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
     }
 }

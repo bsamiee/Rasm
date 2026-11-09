@@ -16,7 +16,6 @@ type Tracking = NonNullable<Node['releases']>;
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PROJECTS = ['.csproj', '.fsproj', '.vbproj'];
-const RELEASE = 'release';
 const FILES = `**/{*.{${PROJECTS.map((extension) => extension.slice(1)).join(',')},props,targets,globalconfig},global.json,Directory.Build.rsp,nuget.config,NuGet.config,NuGet.Config,.editorconfig}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -35,7 +34,7 @@ const Node = Schema.Struct({
     bases: Schema.Array(Schema.String),
     packages: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String, hash: Schema.String, direct: Schema.Boolean, dependencies: Schema.Array(Schema.String) })),
     restored: Schema.String,
-    results: Schema.NullOr(Schema.String),
+    results: Schema.Array(Schema.String),
     releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
 });
 const Report = Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String) });
@@ -166,7 +165,7 @@ const createNodes: CreateNodes<Options> = [
                                     metadata: { technologies: ['dotnet', node.language] },
                                     targets: aggregated(configured(targets(plugin, path, node, 'production' in getNamedInputs(root, context) ? 'production' : 'default'), options), ['dotnet', node.language]),
                                     ...(releasable(node)
-                                        ? { tags: [RELEASE], release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { projectFile: path.basename(node.file), releases: Array.dedupeWith(carried(node), (left, right) => left.unshipped === right.unshipped) } } } }
+                                        ? { tags: ['release'], release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { projectFile: path.basename(node.file), releases: Array.dedupeWith(carried(node), (left, right) => left.unshipped === right.unshipped) } } } }
                                         : {}),
                                 },
                             },

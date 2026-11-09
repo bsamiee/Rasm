@@ -1,4 +1,3 @@
-
 use core::{
     fmt, iter,
     marker::PhantomData,
@@ -101,16 +100,9 @@ pub(crate) trait Column {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, DeserializeFromStr)]
 pub enum Day {
-    Date {
-        month: i8,
-        day: i8,
-    },
+    Date { month: i8, day: i8 },
     Ordinal(i16),
-    Weekday {
-        nth: i8,
-        weekday: civil::Weekday,
-        month: i8,
-    },
+    Weekday { nth: i8, weekday: civil::Weekday, month: i8 },
 }
 
 impl Day {
@@ -583,7 +575,7 @@ where W: io::Write {
             present_weather: record.present_weather.unwrap_or([9; 9]).iter().join(""),
         } from record))
     };
-    let rows = series.iter().zip(years.iter().flatten().copied().map(Some).chain(iter::repeat(None))).map(row).collect::<Result<Vec<_>, _>>()?;
+    let rows = iter::zip(series, years.iter().flatten().copied().map(Some).chain(iter::repeat(None))).map(row).collect::<Result<Vec<_>, _>>()?;
     let dated =
         runs(series).count() == 1 && series.first().zip(series.last()).is_some_and(|(first, last)| offset.to_datetime(first.interval.start).year() != offset.to_datetime(last.interval.start).year());
     let date = |stated: &Row| if dated { format!("{}/{}/{}", stated.month, stated.day, stated.year) } else { format!("{:>2}/{:>2}", stated.month, stated.day) };

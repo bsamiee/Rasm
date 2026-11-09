@@ -2,7 +2,7 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_partition.rs
 ---
-warning: two `filter` passes split `self.words` on one predicate and its negation
+error: two `filter` passes split `self.words` on one predicate and its negation
   --> tools/dylint/examples/manual_partition.rs:16:22
    |
 16 |         let filled = self.words.iter().filter(|word| !word.is_empty()).copied().collect();
@@ -14,18 +14,18 @@ note: other pass here
 15 |         let blank = self.words.iter().filter(|word| word.is_empty()).copied().collect();
    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: iterate `self.words` once with `Iterator::partition`
-   = note: `#[warn(manual_partition)]` on by default
+   = note: `#[deny(manual_partition)]` on by default
 
-warning: `static CALLS` holds interior mutable `Atomic<usize>`
+error: `static CALLS` holds interior mutable `Atomic<usize>`
   --> tools/dylint/examples/manual_partition.rs:44:8
    |
 44 | static CALLS: AtomicUsize = AtomicUsize::new(0);
    |        ^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
-   = note: `#[warn(interior_mutable_static)]` on by default
+   = note: `#[deny(interior_mutable_static)]` on by default
 
-warning: two `filter` passes split `words` on one predicate and its negation
+error: two `filter` passes split `words` on one predicate and its negation
   --> tools/dylint/examples/manual_partition.rs:51:18
    |
 51 |     let filled = words.iter().filter(|word| !str::is_empty(word)).copied().collect();
@@ -38,7 +38,7 @@ note: other pass here
    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: iterate `words` once with `Iterator::partition`
 
-warning: two `filter` passes split `words` on one predicate and its negation
+error: two `filter` passes split `words` on one predicate and its negation
   --> tools/dylint/examples/manual_partition.rs:70:22
    |
 70 |         let filled = words.iter().filter(|word| !word.is_empty()).copied().collect();
@@ -51,7 +51,7 @@ note: other pass here
    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: iterate `words` once with `Iterator::partition`
 
-warning: two `filter` passes split `items` on one predicate and its negation
+error: two `filter` passes split `items` on one predicate and its negation
   --> tools/dylint/examples/manual_partition.rs:84:20
    |
 84 |     let negative = items.iter().filter(|(value, _)| !(*value > 0)).copied().collect();
@@ -64,7 +64,7 @@ note: other pass here
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: iterate `items` once with `Iterator::partition`
 
-warning: two `filter` passes split `items` on one predicate and its negation
+error: two `filter` passes split `items` on one predicate and its negation
   --> tools/dylint/examples/manual_partition.rs:90:20
    |
 90 |     let rejected = items.iter().filter(|value| !(**value > 0)).collect();
@@ -77,7 +77,7 @@ note: other pass here
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: iterate `items` once with `Iterator::partition`
 
-warning: two `filter` passes split `items` on one predicate and its negation
+error: two `filter` passes split `items` on one predicate and its negation
    --> tools/dylint/examples/manual_partition.rs:120:20
     |
 120 |     let rejected = Iterator::collect(Iterator::copied(Iterator::filter(<[u8]>::iter(items), |value| !(**value > 0))));
@@ -90,7 +90,7 @@ note: other pass here
     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: iterate `items` once with `Iterator::partition`
 
-warning: `EMPTY` has one reader, `as_ref`
+error: `EMPTY` has one reader, `as_ref`
   --> tools/dylint/examples/manual_partition.rs:45:1
    |
 45 | static EMPTY: Catalog = Catalog { words: Vec::new() };
@@ -102,4 +102,4 @@ note: read here
 24 |         &EMPTY
    |          ^^^^^
    = help: move `EMPTY` into `as_ref` as a nested item
-   = note: `#[warn(single_reader)]` on by default
+   = note: `#[deny(single_reader)]` on by default

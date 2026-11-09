@@ -2,16 +2,16 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/tests/expansions/interior_mutable_static.rs
 ---
-warning: `static HITS` holds interior mutable `Atomic<u32>`
+error: `static HITS` holds interior mutable `Atomic<u32>`
   --> tools/dylint/tests/expansions/interior_mutable_static.rs:27:8
    |
 27 | static HITS: AtomicU32 = AtomicU32::new(0);
    |        ^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
-   = note: `#[warn(interior_mutable_static)]` on by default
+   = note: `#[deny(interior_mutable_static)]` on by default
 
-warning: `static ROOT` holds interior mutable `OnceLock<String>`
+error: `static ROOT` holds interior mutable `OnceLock<String>`
   --> tools/dylint/tests/expansions/interior_mutable_static.rs:29:8
    |
 29 | static ROOT: OnceLock<String> = OnceLock::new();
@@ -19,7 +19,7 @@ warning: `static ROOT` holds interior mutable `OnceLock<String>`
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
-warning: `static ORIGIN` holds interior mutable `OnceLock<String>`
+error: `static ORIGIN` holds interior mutable `OnceLock<String>`
   --> tools/dylint/tests/expansions/interior_mutable_static.rs:31:12
    |
 31 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
@@ -27,7 +27,7 @@ warning: `static ORIGIN` holds interior mutable `OnceLock<String>`
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
-warning: `static COUNTER` holds interior mutable `Atomic<u32>`
+error: `static COUNTER` holds interior mutable `Atomic<u32>`
   --> tools/dylint/tests/expansions/interior_mutable_static.rs:35:8
    |
 35 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
@@ -35,7 +35,7 @@ warning: `static COUNTER` holds interior mutable `Atomic<u32>`
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
-warning: `static SHARED` holds interior mutable `Mutex<Vec<u8>>` in `Arc<Mutex<Vec<u8>>>`
+error: `static SHARED` holds interior mutable `Mutex<Vec<u8>>` in `Arc<Mutex<Vec<u8>>>`
   --> tools/dylint/tests/expansions/interior_mutable_static.rs:37:8
    |
 37 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
@@ -43,7 +43,7 @@ warning: `static SHARED` holds interior mutable `Mutex<Vec<u8>>` in `Arc<Mutex<V
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
-warning: `static VISITS` holds interior mutable `Cell<u32>`
+error: `static VISITS` holds interior mutable `Cell<u32>`
   --> tools/dylint/tests/expansions/interior_mutable_static.rs:44:12
    |
 44 |     static VISITS: Cell<u32> = const { Cell::new(0) };
@@ -51,7 +51,7 @@ warning: `static VISITS` holds interior mutable `Cell<u32>`
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
-warning: `static CALLS` holds interior mutable `Atomic<u32>`
+error: `static CALLS` holds interior mutable `Atomic<u32>`
   --> tools/dylint/tests/expansions/interior_mutable_static.rs:48:10
    |
 48 | counter!(CALLS);
@@ -59,7 +59,7 @@ warning: `static CALLS` holds interior mutable `Atomic<u32>`
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
-warning: `static SEEN` holds interior mutable `Atomic<u32>`
+error: `static SEEN` holds interior mutable `Atomic<u32>`
   --> tools/dylint/tests/expansions/interior_mutable_static.rs:54:12
    |
 54 |     static SEEN: AtomicU32 = AtomicU32::new(0);
@@ -67,11 +67,11 @@ warning: `static SEEN` holds interior mutable `Atomic<u32>`
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
-warning: `unwrap_or_default` replaces `PoisonError<MutexGuard<'_, Vec<u8>>>` with a fallback value
+error: `unwrap_or_default` replaces `PoisonError<MutexGuard<'_, Vec<u8>>>` with a fallback value
   --> tools/dylint/tests/expansions/interior_mutable_static.rs:62:50
    |
 62 |     SHARED.lock().map(|mut bytes| bytes.push(1)).unwrap_or_default();
    |                                                  ^^^^^^^^^^^^^^^^^^^
    |
    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
-   = note: `#[warn(discarded_error)]` on by default
+   = note: `#[deny(discarded_error)]` on by default

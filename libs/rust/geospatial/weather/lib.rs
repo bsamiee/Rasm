@@ -148,15 +148,9 @@ pub enum Defect {
 #[derive(Debug, Clone, Copy, PartialEq, thiserror::Error)]
 pub enum Refusal {
     #[error("hour {index} {defect}")]
-    Hour {
-        index: usize,
-        defect: Defect,
-    },
+    Hour { index: usize, defect: Defect },
     #[error("step {step} is not positive or leaves a remainder of the run from {start}")]
-    Resolution {
-        start: Timestamp,
-        step: SignedDuration,
-    },
+    Resolution { start: Timestamp, step: SignedDuration },
     #[error("series states the one valid time {0} and no duration")]
     Instant(Timestamp),
     #[error("quantile {} lies outside 0 to 1", .0.get::<ratio>())]
@@ -172,28 +166,15 @@ pub enum Refusal {
     #[error("height {} m is not positive and finite", .0.get::<meter>())]
     Height(Length),
     #[error("power-law exponent {exponent} lies outside 0 to 1 or boundary layer {} m is not positive", .thickness.get::<meter>())]
-    Terrain {
-        exponent: f64,
-        thickness: Length,
-    },
+    Terrain { exponent: f64, thickness: Length },
     #[error("roughness {} m or displacement {} m is not finite", .roughness.get::<meter>(), .displacement.get::<meter>())]
-    Logarithmic {
-        roughness: Length,
-        displacement: Length,
-    },
+    Logarithmic { roughness: Length, displacement: Length },
     #[error("dry bulb {} K, relative humidity {} or pressure {} Pa lies outside the psychrometric range", .dry_bulb.get::<kelvin>(), .relative_humidity.get::<ratio>(), .pressure.get::<pascal>())]
-    Psychrometric {
-        dry_bulb: ThermodynamicTemperature,
-        relative_humidity: Ratio,
-        pressure: Pressure,
-    },
+    Psychrometric { dry_bulb: ThermodynamicTemperature, relative_humidity: Ratio, pressure: Pressure },
     #[error("typical year takes every month, month {0} holds no hours")]
     Typical(i8),
     #[error("{stated} stated years for {hours} hours")]
-    Years {
-        stated: usize,
-        hours: usize,
-    },
+    Years { stated: usize, hours: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -203,10 +184,7 @@ pub enum Record {
     #[display("row {_0}")]
     Row(u64),
     #[display("message {message} of file {file}")]
-    Message {
-        file: usize,
-        message: usize,
-    },
+    Message { file: usize, message: usize },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -222,15 +200,9 @@ pub enum Malformed {
     #[error("GRIB decode: {}", .0.iter().format("; "))]
     Decode(NEVec<GribError>),
     #[error("{text} names no {term}")]
-    Day {
-        text: String,
-        term: epw::Term,
-    },
+    Day { text: String, term: epw::Term },
     #[error("{text} names no ordinal day")]
-    Ordinal {
-        text: String,
-        source: ParseIntError,
-    },
+    Ordinal { text: String, source: ParseIntError },
     #[error("required record is absent")]
     Absent,
     #[error("message states no valid time")]
@@ -246,13 +218,9 @@ pub enum Malformed {
 #[derive(Debug, thiserror::Error)]
 pub enum WeatherError {
     #[error("refused {}", .refusals.iter().format(", "))]
-    Refused {
-        refusals: NEVec<Refusal>,
-    },
+    Refused { refusals: NEVec<Refusal> },
     #[error("malformed records{}", fmt::from_fn(|formatter| .records.iter().try_for_each(|(record, malformed)| write!(formatter, "\n{record}: {malformed}"))))]
-    Records {
-        records: NEVec<(Record, Malformed)>,
-    },
+    Records { records: NEVec<(Record, Malformed)> },
     #[error(transparent)]
     Csv(#[from] csv::Error),
     #[error(transparent)]
@@ -408,6 +376,10 @@ fn redated(hour: Hour, zone: &TimeZone, year: i16) -> Result<Hour, jiff::Error> 
 pub fn completed(hours: &Hours<Sun>) -> Result<Hours<Sun>, WeatherError> {
     const ERBS_LOW: f64 = 0.22;
     const ERBS_HIGH: f64 = 0.8;
+    let normal = |horizontal: HeatFluxDensity, prepared: &PreparedPositions, solar: &SolarPosition| {
+        let cosine = cos_zenith(solar);
+        if cosine > 0.0 { (horizontal / cosine).min(extraterrestrial(prepared)) } else { HeatFluxDensity::ZERO }
+    };
     let lacking = hours.records.iter().positions(|hour| hour.extraterrestrial_horizontal.is_none() || hour.extraterrestrial_normal.is_none()).collect_vec();
     let incoming = sampled(&hours.site, lacking.iter().map(|&index| hours.records[index].interval), &GaussLegendre::new(const { NonZero::new(3).unwrap() }))?
         .into_iter()
@@ -502,11 +474,6 @@ fn extraterrestrial(prepared: &PreparedPositions) -> HeatFluxDensity {
 }
 
 fn cos_zenith(solar: &SolarPosition) -> f64 { solar.elevation_angle().to_radians().sin().max(0.0) }
-
-fn normal(horizontal: HeatFluxDensity, prepared: &PreparedPositions, solar: &SolarPosition) -> HeatFluxDensity {
-    let cosine = cos_zenith(solar);
-    if cosine > 0.0 { (horizontal / cosine).min(extraterrestrial(prepared)) } else { HeatFluxDensity::ZERO }
-}
 
 // --- [CODECS]
 

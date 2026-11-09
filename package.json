@@ -7,13 +7,10 @@
     "author": "Bardia Samiee",
     "type": "module",
     "scripts": { "prepare": "effect-tsgo patch" },
-    "nx": { "includedScripts": [] },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
         "@effect/tsgo": "catalog:",
         "@nx/js": "catalog:",
-        "@nx/playwright": "catalog:",
-        "@nx/vitest": "catalog:",
         "@rasm/nx-apple": "workspace:*",
         "@rasm/nx-cargo": "workspace:*",
         "@rasm/nx-distribution": "workspace:*",
@@ -23,9 +20,11 @@
         "@rasm/nx-typescript": "workspace:*",
         "@rasm/nx-uv": "workspace:*",
         "@types/node": "catalog:",
+        "@typescript/native": "catalog:",
         "bootstrap-icons": "catalog:",
         "nx": "catalog:",
         "publint": "catalog:",
         "typescript": "catalog:"
-    }
+    },
+    "nx": { "includedScripts": [] }
 }

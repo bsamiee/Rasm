@@ -2,7 +2,7 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/sentinel_default.rs
 ---
-warning: `unwrap_or_default` replaces `None` with a `u32` default tested immediately
+error: `unwrap_or_default` replaces `None` with a `u32` default tested immediately
   --> tools/dylint/examples/sentinel_default.rs:90:48
    |
 90 | fn numeric(value: Option<u32>) -> bool { value.unwrap_or_default() == 0 }
@@ -14,9 +14,9 @@ note: tested here
 90 | fn numeric(value: Option<u32>) -> bool { value.unwrap_or_default() == 0 }
    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: test the `Option` directly with `is_none_or`, `is_some_and`, or a match; preserve mapping and `Some` values equal to the default
-   = note: `#[warn(sentinel_default)]` on by default
+   = note: `#[deny(sentinel_default)]` on by default
 
-warning: `unwrap_or` replaces `None` with a `&str` default tested immediately
+error: `unwrap_or` replaces `None` with a `&str` default tested immediately
   --> tools/dylint/examples/sentinel_default.rs:92:49
    |
 92 | fn textual(value: Option<&str>) -> bool { value.unwrap_or("").is_empty() }
@@ -29,7 +29,7 @@ note: tested here
    |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: test the `Option` directly with `is_none_or`, `is_some_and`, or a match; preserve mapping and `Some` values equal to the default
 
-warning: `unwrap_or_default` replaces `None` with a `&[u8]` default tested immediately
+error: `unwrap_or_default` replaces `None` with a `&[u8]` default tested immediately
   --> tools/dylint/examples/sentinel_default.rs:94:51
    |
 94 | fn borrowed(value: Option<&[u8]>) -> bool { value.unwrap_or_default().is_empty() }
@@ -42,7 +42,7 @@ note: tested here
    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: test the `Option` directly with `is_none_or`, `is_some_and`, or a match; preserve mapping and `Some` values equal to the default
 
-warning: `map_or` replaces `None` with a `u32` default tested immediately
+error: `map_or` replaces `None` with a `u32` default tested immediately
   --> tools/dylint/examples/sentinel_default.rs:96:52
    |
 96 | fn mapped_test(value: Option<u32>) -> bool { value.map_or(0, |value| value.saturating_mul(2)) == 0 }
@@ -55,7 +55,7 @@ note: tested here
    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: test the `Option` directly with `is_none_or`, `is_some_and`, or a match; preserve mapping and `Some` values equal to the default
 
-warning: `unwrap_or_default` replaces `None` with a `char` default tested immediately
+error: `unwrap_or_default` replaces `None` with a `char` default tested immediately
    --> tools/dylint/examples/sentinel_default.rs:99:17
     |
  99 |     match value.unwrap_or_default() {

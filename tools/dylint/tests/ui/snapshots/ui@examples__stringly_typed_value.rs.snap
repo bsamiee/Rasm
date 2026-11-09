@@ -2,16 +2,16 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/stringly_typed_value.rs
 ---
-warning: `unwrap_or_default` replaces `Error` with a fallback value
+error: `unwrap_or_default` replaces `Error` with a fallback value
    --> tools/dylint/examples/stringly_typed_value.rs:159:34
     |
 159 |     input.read_line(&mut answer).unwrap_or_default();
     |                                  ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
-    = note: `#[warn(discarded_error)]` on by default
+    = note: `#[deny(discarded_error)]` on by default
 
-warning: `level` holds one of `"warn"`, `"info"` as text
+error: `level` holds one of `"warn"`, `"info"` as text
   --> tools/dylint/examples/stringly_typed_value.rs:14:22
    |
 14 |     fn weight(&self, level: &str) -> usize {
@@ -26,9 +26,9 @@ note: branched on here
 17 |         } else if level == "info" {
    |                   ^^^^^^^^^^^^^^^
    = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
-   = note: `#[warn(stringly_typed_value)]` on by default
+   = note: `#[deny(stringly_typed_value)]` on by default
 
-warning: field `kind` holds one of `"build"`, `"test"` as text
+error: field `kind` holds one of `"build"`, `"test"` as text
   --> tools/dylint/examples/stringly_typed_value.rs:34:5
    |
 34 |     kind: String,
@@ -45,7 +45,7 @@ note: branched on here
    | |_____^
    = help: declare `kind` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
-warning: field `state` holds one of `"done"`, `"pending"` as text
+error: field `state` holds one of `"done"`, `"pending"` as text
   --> tools/dylint/examples/stringly_typed_value.rs:52:5
    |
 52 |     state: &'static str,
@@ -58,7 +58,7 @@ note: branched on here
    |                                                                   ^^^^^^^^^^^^^^^^^^
    = help: declare `state` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
-warning: `level` holds one of `"warn"`, `"info"` as text
+error: `level` holds one of `"warn"`, `"info"` as text
   --> tools/dylint/examples/stringly_typed_value.rs:86:11
    |
 86 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
@@ -71,7 +71,7 @@ note: branched on here
    |                                                   ^^^^^^^^^^^^^^^
    = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
-warning: `mode` holds one of `"fast"`, `"slow"`, `"pause"` as text
+error: `mode` holds one of `"fast"`, `"slow"`, `"pause"` as text
    --> tools/dylint/examples/stringly_typed_value.rs:107:9
     |
 107 |     let mode = "fast";
@@ -89,7 +89,7 @@ note: branched on here
     | |_____^
     = help: declare `mode` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
-warning: `level` holds one of `"warn"`, `"info"` as text
+error: `level` holds one of `"warn"`, `"info"` as text
    --> tools/dylint/examples/stringly_typed_value.rs:147:12
     |
 147 | fn leveled(level: &str, text: &str) -> usize {
@@ -105,7 +105,7 @@ note: branched on here
     |               ^^^^^^^^^^^^^^^
     = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
-warning: `mode` holds one of `"fast"`, `"slow"` as text
+error: `mode` holds one of `"fast"`, `"slow"` as text
    --> tools/dylint/examples/stringly_typed_value.rs:170:10
     |
 170 | fn speed(mode: &str) -> u32 {
@@ -122,7 +122,7 @@ note: branched on here
     | |_____^
     = help: declare `mode` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
-warning: field `kind` holds one of `"json"`, `"text"` as text
+error: field `kind` holds one of `"json"`, `"text"` as text
    --> tools/dylint/examples/stringly_typed_value.rs:188:5
     |
 188 |     pub kind: String,
@@ -138,7 +138,7 @@ note: branched on here
     |               ^^^^^^^^^^^^^^^^^^^^^^
     = help: declare `kind` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
-warning: text-keyed `tally` is addressed by fixed keys `"ok"`, `"err"`
+error: text-keyed `tally` is addressed by fixed keys `"ok"`, `"err"`
    --> tools/dylint/examples/stringly_typed_value.rs:164:9
     |
 164 |     let mut tally = BTreeMap::new();

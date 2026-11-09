@@ -6,16 +6,22 @@ edition.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
-[lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+[[test]]
+name = "solar-geometry"
+path = "solar-geometry.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dev-dependencies]
+approx              = { workspace = true }
+claims              = { workspace = true }
+jiff                = { workspace = true }
+nalgebra            = { workspace = true }
+rasm-site           = { workspace = true }
 rasm-solar-geometry = { workspace = true }
+rstest              = { workspace = true }
+solar-positioning   = { workspace = true }
+uom                 = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

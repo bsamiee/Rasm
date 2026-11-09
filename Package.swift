@@ -82,8 +82,40 @@ let executables: [Target] = [
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
-        path: "tools/watch-apps",
+        path: "apps/macos/watch-apps",
     )
+]
+let tests: [Target] = [
+
+    // --- [CORE]
+
+    .testTarget(
+        name: "EncodingTests",
+        dependencies: [
+            "Encoding", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "PropertyBased", package: "swift-property-based"),
+        ],
+        path: "tests/swift/libs/core/Encoding",
+    ),
+    .testTarget(
+        name: "ResultsTests",
+        dependencies: ["Results", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based")],
+        path: "tests/swift/libs/core/Results",
+    ),
+    .testTarget(name: "JSONRPCTests", dependencies: ["Encoding", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/swift/libs/core/JSONRPC"),
+    .testTarget(
+        name: "EffectRPCTests",
+        dependencies: ["EffectRPC", "Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
+        path: "tests/swift/libs/core/EffectRPC",
+    ),
+
+    // --- [MACOS]
+
+    .testTarget(
+        name: "ApplicationsTests",
+        dependencies: ["Applications", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based")],
+        path: "tests/swift/libs/macos/Applications",
+    ),
 ]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -111,7 +143,7 @@ let package: Package = Package(
         .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.2"),
         .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.0.1"),
     ],
-    targets: modules + executables,
+    targets: modules + executables + tests,
 )
 
 for target: Target in package.targets {

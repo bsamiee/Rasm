@@ -2,16 +2,16 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_fmt_from_fn.rs
 ---
-warning: `format!` wraps one `Display` value without formatting options
+error: `format!` wraps one `Display` value without formatting options
   --> tools/dylint/examples/manual_fmt_from_fn.rs:97:18
    |
 97 |     let joined = format!("{}", Joined(&values));
    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: call the `ToString::to_string` trait method on the formatted value
-   = note: `#[warn(display_format)]` on by default
+   = note: `#[deny(display_format)]` on by default
 
-warning: `Joined` is built at one site and implements only `Display`
+error: `Joined` is built at one site and implements only `Display`
   --> tools/dylint/examples/manual_fmt_from_fn.rs:5:8
    |
  5 | struct Joined<'items>(&'items [u8]);
@@ -23,4 +23,4 @@ note: built here
 97 |     let joined = format!("{}", Joined(&values));
    |                                ^^^^^^^^^^^^^^^
    = help: replace `Joined` with `fmt::from_fn(move |formatter| ..)` at its construction site
-   = note: `#[warn(manual_fmt_from_fn)]` on by default
+   = note: `#[deny(manual_fmt_from_fn)]` on by default

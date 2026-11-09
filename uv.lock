@@ -25,7 +25,6 @@ members = [
     "rasm-records",
     "rasm-refurb",
     "rasm-refurb-tests",
-    "rasm-testing",
     "rasm-typography",
 ]
 overrides = [
@@ -7521,6 +7520,14 @@ statistics = [
     { name = "scikit-learn" },
     { name = "skl2onnx" },
 ]
+test = [
+    { name = "hypothesis" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-randomly" },
+    { name = "pytest-socket" },
+    { name = "pytest-timeout" },
+]
 typography = [
     { name = "blackrenderer" },
     { name = "fontbakery" },
@@ -7845,6 +7852,14 @@ statistics = [
     { name = "scikit-learn" },
     { name = "skl2onnx" },
 ]
+test = [
+    { name = "hypothesis" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-randomly" },
+    { name = "pytest-socket" },
+    { name = "pytest-timeout" },
+]
 typography = [
     { name = "blackrenderer" },
     { name = "fontbakery" },
@@ -7906,7 +7921,6 @@ dependencies = [
     { name = "pytest" },
     { name = "rasm-foundry" },
     { name = "rasm-records" },
-    { name = "rasm-testing" },
     { name = "sysexits" },
 ]
 
@@ -7918,7 +7932,6 @@ requires-dist = [
     { name = "pytest" },
     { name = "rasm-foundry", editable = "apps/cli/foundry" },
     { name = "rasm-records", editable = "libs/python/data/records" },
-    { name = "rasm-testing", editable = "tests/python/support" },
     { name = "sysexits" },
 ]
 
@@ -7975,7 +7988,6 @@ dependencies = [
     { name = "mypy" },
     { name = "pytest" },
     { name = "rasm-refurb" },
-    { name = "rasm-testing" },
     { name = "refurb" },
     { name = "structlog" },
 ]
@@ -7988,32 +8000,8 @@ requires-dist = [
     { name = "mypy" },
     { name = "pytest" },
     { name = "rasm-refurb", editable = "tools/refurb" },
-    { name = "rasm-testing", editable = "tests/python/support" },
     { name = "refurb" },
     { name = "structlog" },
-]
-
-[[package]]
-name = "rasm-testing"
-version = "0.0.0"
-source = { editable = "tests/python/support" }
-dependencies = [
-    { name = "hypothesis" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-randomly" },
-    { name = "pytest-socket" },
-    { name = "pytest-timeout" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "hypothesis" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-randomly" },
-    { name = "pytest-socket" },
-    { name = "pytest-timeout" },
 ]
 
 [[package]]

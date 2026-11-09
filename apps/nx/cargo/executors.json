@@ -10,7 +10,8 @@
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Publishes a crate with cargo publish, skipping a version the registry already holds"
+            "description": "Publishes a crate with cargo publish, skipping a version the registry already holds; runs through nx release publish",
+            "hidden": true
         }
     }
 }

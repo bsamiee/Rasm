@@ -23,7 +23,8 @@
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
-        "effect": "catalog:"
+        "effect": "catalog:",
+        "verkit": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",

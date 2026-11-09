@@ -1,7 +1,14 @@
 {
     "name": "@rasm/search",
+    "version": "0.0.0",
     "private": true,
     "description": "Name lookup with fuzzy-ranked near matches across numbering systems",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/data/search"
+    },
+    "license": "MIT",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -10,6 +17,7 @@
     "exports": {
         ".": "./index.ts"
     },
+    "files": [ "dist" ],
     "dependencies": {
         "@leeoniya/ufuzzy": "catalog:"
     },
@@ -18,5 +26,14 @@
     },
     "peerDependencies": {
         "effect": "catalog:peers"
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
     }
 }

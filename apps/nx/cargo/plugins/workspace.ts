@@ -8,6 +8,7 @@ import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 const MANIFEST = 'Cargo.toml';
 const CRATE = 'nx_cargo';
 const UNWIND = 'unwind';
+const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem) => [`${stem}.toml`, `.${stem}.toml`, `.cargo/${stem}.toml`]);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -31,7 +32,8 @@ const Metadata = Schema.fromJsonString(
 );
 const Locked = Schema.Struct({ name: Schema.String, version: Schema.String, source: Schema.optionalKey(Schema.String), checksum: Schema.optionalKey(Schema.String), dependencies: Listed });
 const Lock = Schema.Struct({ package: Schema.Array(Locked).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) });
-const Tables = Schema.Record(Schema.String, Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
+const Table = Schema.Record(Schema.String, Schema.Unknown);
+const Tables = Table.pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Manifest = Schema.Struct({
     profile: Schema.Record(Schema.String, Schema.Struct({ inherits: Schema.optionalKey(Schema.String), panic: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     workspace: Schema.Struct({ lints: Tables }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({ lints: {} }))),
@@ -96,11 +98,11 @@ const externals = (lock: readonly (typeof Locked.Type)[], roots: ReadonlyMap<str
 const workspace = Effect.fnUntraced(
     function* (workspaceRoot: string, manifest: string, files: ReadonlySet<string>) {
         const path = yield* Path.Path;
-        const metadata = yield* Effect.flatMap(spawned('cargo', ['metadata', '--format-version', '1', '--no-deps', '--offline', '--manifest-path', manifest], workspaceRoot), Schema.decodeEffect(Metadata));
+        const metadata = yield* Effect.flatMap(spawned('cargo', ['metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], workspaceRoot), Schema.decodeEffect(Metadata));
         const root = path.relative(workspaceRoot, metadata.workspace_root) || '.';
         const lockFile = path.join(root, 'Cargo.lock');
-        const types = Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types)));
-        const denied = nearest(path, files, root, ['deny.toml', '.deny.toml', '.cargo/deny.toml']);
+        const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
+        const denied = nearest(path, files, root, DENY.config);
         const top = path.join(metadata.workspace_root, MANIFEST);
         const [lock, read, printed, deny] = yield* Effect.all(
             [
@@ -110,7 +112,7 @@ const workspace = Effect.fnUntraced(
                     Record.fromEntries,
                 ),
                 Effect.map(spawned('rustc', ['--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], path.join(workspaceRoot, root), ''), (text) => text.split('\n')),
-                Effect.forEach(Option.toArray(denied), (file) => Effect.map(toml(Schema.Record(Schema.String, Schema.Unknown), path.join(workspaceRoot, file)), (tables) => ({ file, tables: Record.keys(tables) }))).pipe(Effect.map(Array.head)),
+                Effect.transposeOption(Option.map(denied, (file) => Effect.map(toml(Table, path.join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(path, files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
             ],
             { concurrency: 'unbounded' },
         );
@@ -163,4 +165,4 @@ const workspaces = (workspaceRoot: string, manifests: readonly string[], files: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ancestors, CargoError, MANIFEST, Metadata, nearest, spawned, toml, type Workspace, workspaces };
+export { ancestors, CargoError, DENY, MANIFEST, Metadata, nearest, spawned, toml, type Workspace, workspaces };

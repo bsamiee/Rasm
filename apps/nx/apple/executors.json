@@ -5,6 +5,11 @@
             "schema": "./executors/install/schema.json",
             "description": "Builds a SwiftPM executable product and replaces it in SwiftPM's install folder"
         },
+        "release-publish": {
+            "implementation": "./dist/executors/release-publish/executor#execute",
+            "schema": "./executors/release-publish/schema.json",
+            "description": "Attaches the zips a SwiftPM executable product's release build wrote to the GitHub release of its tag"
+        },
         "run": {
             "implementation": "./dist/executors/run/executor#execute",
             "schema": "./executors/run/schema.json",
@@ -13,7 +18,7 @@
         "zip": {
             "implementation": "./dist/executors/zip/executor#execute",
             "schema": "./executors/zip/schema.json",
-            "description": "Zips each archived app, exporting, notarizing, and stapling it first under a notary profile"
+            "description": "Zips each archived app and each SwiftPM executable product's release build, exporting, notarizing, and stapling a Developer ID app first under a notary profile"
         }
     }
 }

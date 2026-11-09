@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "version": 2,
     "title": "Zip",
-    "description": "Zips each archived app with ditto; an archive with a method is exported with it first, notarized with notarytool, stapled, and zipped again",
+    "description": "Zips each archived app and each SwiftPM executable product's release build with ditto; an archive with a method is exported with it first, notarized with notarytool, stapled, and zipped again",
     "type": "object",
     "properties": {
         "exports": {
@@ -18,8 +18,20 @@
             },
             "description": "Archives the plugin infers for the scheme's archive configuration, none in any other configuration"
         },
+        "products": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "package": { "type": "string", "description": "Package folder, passed as --package-path to swift build --show-bin-path" },
+                    "product": { "type": "string", "description": "Executable product swift package describe names" },
+                    "folder": { "type": "string", "description": "Folder holding <product>.zip" }
+                },
+                "required": [ "package", "product", "folder" ]
+            },
+            "description": "Executable products the plugin infers for the release configuration, none in any other configuration"
+        },
         "profile": { "type": "string", "description": "notarytool keychain profile from the plugin's notaryProfile option, required by archives with a method" },
         "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to notarytool submit, else to ditto" }
-    },
-    "required": [ "exports" ]
+    }
 }

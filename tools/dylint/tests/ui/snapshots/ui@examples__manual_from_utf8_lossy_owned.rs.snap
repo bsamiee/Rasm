@@ -2,51 +2,51 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_from_utf8_lossy_owned.rs
 ---
-warning: lossy decoding copies `bytes`, which nothing reads afterwards
+error: lossy decoding copies `bytes`, which nothing reads afterwards
   --> tools/dylint/examples/manual_from_utf8_lossy_owned.rs:20:40
    |
 20 | fn decoded(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).into_owned() }
    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `String::from_utf8_lossy_owned`: `String::from_utf8_lossy_owned(bytes)`
    |
-   = note: `#[warn(manual_from_utf8_lossy_owned)]` on by default
+   = note: `#[deny(manual_from_utf8_lossy_owned)]` on by default
 applicability MachineApplicable: call `String::from_utf8_lossy_owned`
 
-warning: lossy decoding copies `output.stdout`, which nothing reads afterwards
+error: lossy decoding copies `output.stdout`, which nothing reads afterwards
   --> tools/dylint/examples/manual_from_utf8_lossy_owned.rs:22:47
    |
 22 | fn decoded_output(output: Output) -> String { String::from_utf8_lossy(&output.stdout).into_owned() }
    |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `String::from_utf8_lossy_owned`: `String::from_utf8_lossy_owned(output.stdout)`
 applicability MachineApplicable: call `String::from_utf8_lossy_owned`
 
-warning: lossy decoding copies `bytes`, which nothing reads afterwards
+error: lossy decoding copies `bytes`, which nothing reads afterwards
   --> tools/dylint/examples/manual_from_utf8_lossy_owned.rs:43:42
    |
 43 | fn qualified(bytes: Vec<u8>) -> String { std::borrow::Cow::into_owned(String::from_utf8_lossy(&bytes)) }
    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `String::from_utf8_lossy_owned`: `String::from_utf8_lossy_owned(bytes)`
 applicability MachineApplicable: call `String::from_utf8_lossy_owned`
 
-warning: lossy decoding copies `bytes`, which nothing reads afterwards
+error: lossy decoding copies `bytes`, which nothing reads afterwards
   --> tools/dylint/examples/manual_from_utf8_lossy_owned.rs:45:42
    |
 45 | fn converted(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).into() }
    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `String::from_utf8_lossy_owned`: `String::from_utf8_lossy_owned(bytes)`
 applicability MachineApplicable: call `String::from_utf8_lossy_owned`
 
-warning: lossy decoding copies `bytes`, which nothing reads afterwards
+error: lossy decoding copies `bytes`, which nothing reads afterwards
   --> tools/dylint/examples/manual_from_utf8_lossy_owned.rs:47:42
    |
 47 | fn displayed(bytes: Vec<u8>) -> String { String::from_utf8_lossy(&bytes).to_string() }
    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `String::from_utf8_lossy_owned`: `String::from_utf8_lossy_owned(bytes)`
 applicability MachineApplicable: call `String::from_utf8_lossy_owned`
 
-warning: lossy decoding copies `bytes`, which nothing reads afterwards
+error: lossy decoding copies `bytes`, which nothing reads afterwards
   --> tools/dylint/examples/manual_from_utf8_lossy_owned.rs:76:9
    |
 76 |         String::from_utf8_lossy(&bytes).into_owned()
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `String::from_utf8_lossy_owned`: `String::from_utf8_lossy_owned(bytes)`
 applicability MachineApplicable: call `String::from_utf8_lossy_owned`
 
-warning: lossy decoding copies `bytes`, which nothing reads afterwards
+error: lossy decoding copies `bytes`, which nothing reads afterwards
   --> tools/dylint/examples/manual_from_utf8_lossy_owned.rs:84:5
    |
 84 |     std::string::String::from_utf8_lossy(&bytes).into_owned()

@@ -21,8 +21,7 @@ const tooling = Effect.runSync(Effect.map(Effect.all([Config.withDefault(Config.
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig(({ command, mode }) => ({
-    cacheDir: join(workspace, '.cache', 'vite', name),
+export default defineConfig(({ command }) => ({
     build: { target: 'esnext', rolldownOptions: { experimental: { lazyBarrel: true }, output: { strictExecutionOrder: true } } },
     environments: { [nodeBundle.environment]: { build: { outDir: join(workspace, '.artifacts', 'vite', name) } } },
     plugins: [
@@ -37,7 +36,7 @@ export default defineConfig(({ command, mode }) => ({
                   nodeServer({ entry: './server/main.ts' }),
                   cloudflare({
                       types: { generate: false },
-                      ...(mode === 'e2e' ? { persistState: false, inspectorPort: false } : { persistState: { path: join(workspace, '.cache', 'cloudflare', name) } }),
+                      persistState: { path: join(workspace, '.cache', 'cloudflare', name) },
                       ...(command === 'serve' && { config: (loaded) => ({ ...loaded, worker: { ...loaded.worker, env: { ...loaded.worker.env, OWNER_EMAIL: bindings.text(Sites.local.email) } } }) }),
                   }),
               ]),

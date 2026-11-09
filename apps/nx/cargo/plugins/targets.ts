@@ -33,7 +33,7 @@ const locked = () => (isCI() === false ? [] : ['--locked']);
 
 const tokened = (path: Path.Path, file: string) => path.join('{workspaceRoot}', file);
 
-const target = (plugin: Plugin, help: string, description: string, options: typeof Cargo.Type, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
+const target = (plugin: Plugin, help: string, description: string, options: typeof Cargo.Type & { readonly outputs?: readonly string[] }, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
     executor: `${plugin.name}:cargo`,
     options,
     metadata: { technologies: TECHNOLOGIES, description, help: { command: `cargo ${help} --help`, example: { args: ['--verbose'] } } },
@@ -68,13 +68,13 @@ const crateTargets = (plugin: Plugin, path: Path.Path, found: Workspace, files: 
                 .filter((file) => files.has(file))
                 .map((file) => tokened(path, file)),
         ),
-        { externalDependencies: [] },
     ];
     const nextest = Option.liftPredicate(path.join(found.root, '.config/nextest.toml'), (file) => files.has(file));
     const tested = crate.targets.some(({ test }) => test);
     const documented = crate.targets.some(({ doctest }) => doctest);
     const filters = Record.keys(Record.filter(SELECTIONS, (selects) => crate.targets.some(selects)));
-    const products = crate.targets.filter(({ kind, crate_types }) => kind.join() === crate_types.join());
+    const products = crate.targets.filter(({ kind, crate_types }) => kind.join() === crate_types.join()).flatMap(found.files);
+    const written = (folder: string) => Option.toArray(found.output).flatMap((at) => products.map((file) => tokened(path, path.join(at, folder, file))));
     const profiles = ['release', ...found.profiles];
     const configured = nearest(path, files, root, ['.clippy.toml', 'clippy.toml']);
     const compiler =
@@ -89,25 +89,37 @@ const crateTargets = (plugin: Plugin, path: Path.Path, found: Workspace, files: 
             ),
             (profile): Command => ({ ...placed([...filters, ...profile, '--keep-going', ...locked()]), report: 'messages' }),
         );
-    const tests: readonly Command[] = Option.match(nextest, {
-        onNone: () => (tested || documented ? [{ args: ['test', ...locked()], report: 'status' }] : []),
-        onSome: () => [...(tested ? [{ args: ['nextest', 'run', ...locked()], report: 'tests' } as const] : []), ...(documented ? [{ args: ['test', '--doc', ...locked()], report: 'status' } as const] : [])],
+    const runs = (runner: Readonly<Record<'nextest' | 'test', Array.NonEmptyReadonlyArray<string>>>): readonly Command[] => {
+        const [main, documentation] = Option.match(nextest, {
+            onNone: () => [{ args: runner.test, report: 'status', selected: tested || documented }, false] as const,
+            onSome: () => [{ args: runner.nextest, report: 'tests', selected: tested }, documented] as const,
+        });
+        return [...(main.selected ? [{ args: [...main.args, ...locked()], report: main.report } as const] : []), ...(documentation ? [{ args: ['test', '--doc', ...locked()], report: 'status' } as const] : [])];
+    };
+    const covered = Option.map(found.output, (at) => {
+        const tool = 'llvm-cov';
+        const report = tokened(path, path.join(at, tool, `${crate.name}.lcov`));
+        const exported = ['--lcov', '--output-path', report];
+        const subjects = found.members.filter((member) => crate.dependencies.some(({ name, path: to }) => to !== undefined && name === member.crate.name)).map((member) => ({ root: member.root, name: member.crate.name }));
+        return { outputs: ['{options.outputs.0}'], configurations: { coverage: { commands: runs({ nextest: [tool, 'nextest', ...exported], test: [tool, 'test', ...exported] }).map((command) => ({ ...command, packages: subjects })), outputs: [report] } } };
     });
     return {
         'build--cargo': target(
             plugin,
             'build',
             `Builds ${crate.name} with cargo`,
-            { ...selected, commands: built([]) },
+            { ...selected, commands: built([]), outputs: written('debug') },
             {
                 cache: false,
-                outputs: Option.toArray(found.output).flatMap((at) => ['debug', ...profiles].flatMap((profile) => products.flatMap(found.files).map((file) => tokened(path, path.join(at, profile, file))))),
-                configurations: Record.fromIterableWith(profiles, (profile) => [profile, { commands: built(['--profile', profile]) }] as const),
+                outputs: written('debug').map((_, index) => `{options.outputs.${index}}`),
+                configurations: Record.fromIterableWith(profiles, (profile) => [profile, { commands: built(['--profile', profile]), outputs: written(profile) }] as const),
             },
         ),
-        ...Array.match(tests, {
+        ...Array.match(runs({ nextest: ['nextest', 'run'], test: ['test'] }), {
             onEmpty: () => ({}),
-            onNonEmpty: (commands) => ({ test: target(plugin, Option.isSome(nextest) ? 'nextest run' : 'test', `Tests ${crate.name}`, { ...selected, commands }, { cache: true, inputs: [...shared, ...Option.toArray(Option.map(nextest, (file) => tokened(path, file)))] }) }),
+            onNonEmpty: (commands) => ({
+                test: target(plugin, Option.isSome(nextest) ? 'nextest run' : 'test', `Tests ${crate.name}`, { ...selected, commands }, { cache: true, inputs: [...shared, ...Option.toArray(Option.map(nextest, (file) => tokened(path, file)))], ...Option.getOrElse(covered, () => ({})) }),
+            }),
         }),
         [`check--${compiler.tool}`]: target(plugin, compiler.check.join(' '), `Reports ${compiler.tool} findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: [...compiler.check, ...selection] })) }, { cache: true, inputs: [...shared, ...compiler.inputs] }),
         [`fix--${compiler.tool}`]: target(plugin, compiler.check.join(' '), `Applies ${compiler.tool} suggestions to ${crate.name}`, { ...selected, commands: [{ args: [...compiler.fix, '--allow-dirty', ...filters, '--keep-going'], report: 'messages' }] }, { cache: false }),
@@ -126,7 +138,7 @@ const workspaceTargets = (plugin: Plugin, path: Path.Path, found: Workspace): Ta
     return {
         ...Option.match(found.deny, {
             onNone: () => ({}),
-            onSome: ({ file, tables }) => {
+            onSome: ({ files, tables }) => {
                 const checks = CHECKS.filter((check) => tables.includes(check));
                 return {
                     'check--cargo-deny': target(
@@ -136,7 +148,7 @@ const workspaceTargets = (plugin: Plugin, path: Path.Path, found: Workspace): Ta
                         { cwd: found.root, commands: [{ args: ['deny', '--workspace', ...locked(), 'check', '--deny', 'warnings', ...checks], report: 'status' }] },
                         {
                             cache: !checks.includes('advisories'),
-                            inputs: [...manifests, lock, tokened(path, file), { externalDependencies: [] }],
+                            inputs: [...manifests, lock, ...files.map((file) => tokened(path, file))],
                         },
                     ),
                 };

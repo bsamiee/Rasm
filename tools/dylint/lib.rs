@@ -485,7 +485,7 @@ macro_rules! lint {
         impl $pass { pub(crate) fn new(_: ::rustc_middle::ty::TyCtxt<'_>) -> Self { Self::default() } }
     };
     ($pass:ty; $($visibility:vis $lint:ident: $description:literal),+ $(,)?) => {
-        $(::rustc_lint::declare_lint! { $visibility $lint, Warn, $description })+
+        $(::rustc_lint::declare_lint! { $visibility $lint, Deny, $description })+
         ::rustc_lint::impl_lint_pass!($pass => [$($lint),+]);
     };
 }

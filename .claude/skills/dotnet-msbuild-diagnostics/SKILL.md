@@ -206,7 +206,7 @@ build_check.BC0101.severity = error
 
 ### [04.1]-[WORKFLOW]
 
-1. Run `nx run rasm:lint:msbuild` for the solution, or `nx run <project>:build -- -check` for one project
+1. Run `nx run <project>:build--dotnet -- -check`, BuildCheck reporting through the one-run argument the tool-named target receives
 2. Read each `BC` line on the console, or run `mcp__binlog__binlog_errors` then `mcp__binlog__binlog_warnings` with `category=BuildCheck`
 3. Fix the file the report names, `BC0201` and `BC0202` name `file(line,col)`, `BC0101` and `BC0102` name the path and both projects
 

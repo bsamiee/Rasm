@@ -38,7 +38,7 @@ const Locked = Schema.Struct({
     package: Schema.Array(
         Schema.Struct({
             name: Schema.String,
-            metadata: Schema.optionalKey(Schema.Struct({ 'requires-dist': Schema.Array(Schema.Struct({ name: Schema.String, extras: Schema.optionalKey(Schema.Array(Schema.String)), marker: Schema.optionalKey(Schema.String) })) })),
+            metadata: Schema.optionalKey(Schema.Struct({ 'requires-dist': Schema.optionalKey(Schema.Array(Schema.Struct({ name: Schema.String, extras: Schema.optionalKey(Schema.Array(Schema.String)), marker: Schema.optionalKey(Schema.String) }))) })),
         }),
     ),
 });

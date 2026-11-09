@@ -1,7 +1,7 @@
 {
     "name": "@rasm/ast-grep",
     "private": true,
-    "description": "Tree-sitter grammars and outline catalogs ast-grep lacks, built by CMake into grammars/build",
+    "description": "Tree-sitter grammars and outline catalogs ast-grep lacks, built by CMake",
     "type": "module",
     "imports": {
         "#/*": "./*"

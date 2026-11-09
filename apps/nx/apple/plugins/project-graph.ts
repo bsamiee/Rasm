@@ -1,9 +1,9 @@
 import { join, matchesGlob, relative } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, getOutputsForTargetAndConfiguration, hashArray, logger, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Result, Schema } from 'effect';
-import { Described, MANIFEST, type Package, packageEdges, packageParts, sources } from '#/plugins/swift-package';
+import { Described, MANIFEST, NPM, Npm, type Package, packageEdges, packageParts, sources } from '#/plugins/swift-package';
 import { AppleError, core, type Part, present, spawned, target, tokened } from '#/plugins/targets';
 import { Analyzed, evaluated, Host, invocation, Request, released, xcodeParts } from '#/plugins/xcode-project';
 
@@ -35,7 +35,7 @@ const combined = (left: TargetConfiguration, right: TargetConfiguration): Target
 });
 
 const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Options, located: Effect.Success<typeof core>, files: readonly string[]) {
-    const path = yield* Path.Path;
+    const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const plugin = yield* located.plugin(workspaceRoot);
     const manifests = files.filter((file) => path.basename(file) === MANIFEST);
     const containers = files.filter((file) => path.basename(file) === 'project.xcproj' || (path.basename(file) === 'contents.xcworkspacedata' && path.extname(path.dirname(path.dirname(file))) !== '.xcodeproj'));
@@ -49,7 +49,13 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.flatMap(spawned('swift', ['package', '--package-path', path.dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json'], { cwd: workspaceRoot }), Schema.decodeEffect(Described))), {
         concurrency: 'unbounded',
     });
-    const packages = Array.zip(readable, describedResults).flatMap(([file, held]): readonly Package[] => (Result.isSuccess(held) ? [{ file, root: path.dirname(file), held: held.success }] : []));
+    const published = yield* Effect.forEach(readable, (file) =>
+        Effect.map(
+            Effect.option(Effect.flatMap(fs.readFileString(path.join(workspaceRoot, path.dirname(file), NPM)), Schema.decodeEffect(Npm))),
+            Option.exists((npm) => npm.private !== true),
+        ),
+    );
+    const packages = Array.filterMap(Array.zip(Array.zip(readable, published), describedResults), ([[file, npm], held]) => Result.map(held, (success): Package => ({ file, root: path.dirname(file), npm, held: success })));
     const described = new Map(packages.map((found) => [path.resolve(workspaceRoot, found.root), found] as const));
     const local = (at: string) => Option.fromUndefinedOr(described.get(path.resolve(workspaceRoot, at)));
     const analysis = yield* Option.match(analyzer, {
@@ -79,7 +85,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         ...Array.zip(analyzed.containers, evaluatedResults).flatMap(([container, held]) => (Result.isFailure(held) ? [{ file: marker(container.path), reason: held.failure.message }] : [])),
         ...unsupported.map((file) => ({ file, reason: 'project.pbxproj has no reader, and no project.xcproj sits beside it' })),
     ];
-    yield* Effect.forEach(unread, ({ file, reason }) => Effect.logWarning(`${file} takes its project and targets from the file alone, and its runs report the tool's own failure: ${reason}`));
+    yield* Effect.forEach(unread, ({ file, reason }) => Effect.sync(() => logger.warn(`${file} takes its project and targets from the file alone, and its runs report the tool's own failure: ${reason}`)));
     const filed = unread.map(({ file, reason }) =>
         path.basename(file) === MANIFEST
             ? { file, reason, root: path.dirname(file), name: path.basename(path.resolve(workspaceRoot, path.dirname(file))), technology: 'swift', tool: 'swift-build', run: ['swift', 'build', '--package-path', path.dirname(file), ...(Predicate.isTruthy(isCI()) ? ['--disable-automatic-resolution'] : [])] as const }
@@ -89,10 +95,10 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     const platforms = (at: string) => Option.match(local(at), { onNone: () => [], onSome: (found) => found.held.platforms.map((platform) => platform.name) });
     const destinations = (folders: readonly string[]) => Array.dedupe(folders.flatMap((folder) => (platforms(folder).length === 0 ? Option.toArray(host) : platforms(folder))));
     const nested = packages.flatMap((owner) => owner.held.targets.map((module) => ({ owner: owner.file, folder: `${path.join(owner.root, module.path)}/` }))).flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${path.dirname(other)}/`.startsWith(folder)).map((inner) => ({ owner, inner })));
-    yield* Effect.forEach(nested, ({ owner, inner }) => Effect.logWarning(`${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`));
+    yield* Effect.forEach(nested, ({ owner, inner }) => Effect.sync(() => logger.warn(`${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`)));
     const linked = (container: (typeof xcode)[number]['container']) => container.projects.flatMap((at) => Option.toArray(local(at))).flatMap((found) => sources(path, found, described));
     const parts: readonly Part[] = [
-        ...packages.flatMap((found) => packageParts(path, plugin, found, described)),
+        ...packages.flatMap((found) => packageParts(path, options, plugin, found, described)),
         ...xcode.map(({ container, inputs, archives }) =>
             xcodeParts(path, options, plugin, marker(container.path), container, Array.dedupe([...inputs.flatMap((at) => tokened(path, at)), ...linked(container).filter((input) => !input.endsWith('Package.resolved'))]), archives, built(container.path), destinations, packaged),
         ),
@@ -171,7 +177,7 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: Optio
     const plugin = yield* core;
     const compiled = yield* Effect.option(Effect.flatMap(plugin.analyzer, fs.stat));
     const hash = hashArray([
-        yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [`**/{${READ.join(',')}}`, path.join(path.relative(workspaceRoot, plugin.folder), '**/*.{ts,json,swift}')])),
+        yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [`**/{${READ.join(',')}}`, path.join(path.relative(workspaceRoot, plugin.folder), '**/*.{ts,json,swift}'), ...files.filter((file) => path.basename(file) === MANIFEST).map((file) => path.join(path.dirname(file), NPM))])),
         plugin.version,
         String(
             Option.getOrElse(

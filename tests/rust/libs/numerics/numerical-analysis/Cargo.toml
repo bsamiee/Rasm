@@ -6,16 +6,19 @@ edition.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
-[lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+[[test]]
+name = "numerical-analysis"
+path = "numerical-analysis.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dev-dependencies]
+approx                  = { workspace = true }
+claims                  = { workspace = true }
+nalgebra                = { workspace = true }
+nonempty-collections    = { workspace = true }
 rasm-numerical-analysis = { workspace = true }
+rasm-stats              = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

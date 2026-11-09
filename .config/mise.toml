@@ -65,6 +65,7 @@ doppler                                                                      = "
 "dotnet:NuGet.Mcp.Server"                                                    = "latest"
 "dotnet:RoslynCodeLens.Mcp"                                                  = "latest"
 duckdb                                                                       = "latest"
+editorconfig-checker                                                         = "latest"
 fd                                                                           = "latest"
 gh                                                                           = "latest"
 git-lfs                                                                      = "latest"
@@ -216,14 +217,6 @@ proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7402/" }
 retry      = true
 run        = "exec rasm-mcp-proxy -- nuget-mcp-server"
-
-[daemons.playwright-test]
-boot_start = true
-port       = 7412
-proxy      = false
-ready_port = 7412
-retry      = true
-run        = "exec playwright run-test-mcp-server --headless -c tests/typescript/apps/web/portfolio --host 127.0.0.1 --port $PORT"
 
 [daemons.roslyn-codelens]
 boot_start  = true

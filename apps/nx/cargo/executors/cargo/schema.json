@@ -16,6 +16,11 @@
                 "properties": {
                     "args": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Arguments before the package selection" },
                     "trailing": { "type": "array", "items": { "type": "string" }, "description": "Arguments after --, passed on to the compiler run" },
+                    "packages": {
+                        "type": "array",
+                        "items": { "type": "object", "properties": { "root": { "type": "string" }, "name": { "type": "string" } }, "required": [ "root", "name" ] },
+                        "description": "Packages the command selects beside each task's own, each by its folder relative to the Nx workspace root and its name"
+                    },
                     "report": {
                         "enum": [ "messages", "tests", "status" ],
                         "description": "What decides each task: cargo's JSON messages (`messages`), nextest's per-suite results (`tests`), or the exit status alone (`status`)"
@@ -24,7 +29,8 @@
                 "required": [ "args", "report" ]
             }
         },
-        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to every command" }
+        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to every command" },
+        "outputs": { "type": "array", "items": { "type": "string" }, "description": "Files the commands write, each folder created before the run, which the target's outputs read for the running configuration" }
     },
     "required": [ "cwd", "commands" ]
 }

@@ -7,6 +7,10 @@
         <PackageReference Include="RhinoCommon" />
     </ItemGroup>
 
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>

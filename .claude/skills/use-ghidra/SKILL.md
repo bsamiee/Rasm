@@ -285,5 +285,5 @@ Every file opens with `// --- [INDEX]` over `// <program> <language> <counts>`, 
 ## [07]-[EXTEND]
 
 Each new postscript is one `GhidraScript` file in the bundle, arguments through `Arguments.Usage` or `Arguments.parse`, lines through `Report.write`:
-- Checks: `nx run rasm:typecheck:javac`, `rasm:lint:pmd`, `rasm:lint:google-java-format`, and `rasm:lint:ast-grep` pass on every script
+- Checks: `hk check <script paths>` passes on every script, its `javac`, `pmd`, `google-java-format`, and `ast-grep` steps included
 - Source: `lib/<module>-src.zip` beside each module jar under `$GHIDRA_INSTALL_DIR/Ghidra` holds the installed source

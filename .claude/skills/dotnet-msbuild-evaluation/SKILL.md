@@ -206,9 +206,10 @@ Each declaration has one owning file, chosen by what it reads and who overrides 
 |  [09]   | Custom targets and `DependsOn` extensions                                                            | `Directory.Build.targets`        |
 |  [10]   | `TargetFramework`, `OutputType`, `ArtifactsPivots`, `PackageReference`, `ProjectReference`           | Project file                     |
 |  [11]   | Package versions, `PackageVersion`, `GlobalPackageReference`                                         | `Directory.Packages.props`       |
-|  [12]   | Analyzer severity, `build_check.*` severity and options                                              | `.editorconfig`                  |
-|  [13]   | Machine-local overrides                                                                              | `$(MSBuildProjectFullPath).user` |
-|  [14]   | Properties and targets a package gives its consumers                                                 | Package `build/` files           |
+|  [12]   | Analyzer severity and options, reaching diagnostics with no source location                          | `.globalconfig`                  |
+|  [13]   | Formatting, code style, path-scoped severity, `build_check.*` severity and options                   | `.editorconfig`                  |
+|  [14]   | Machine-local overrides                                                                              | `$(MSBuildProjectFullPath).user` |
+|  [15]   | Properties and targets a package gives its consumers                                                 | Package `build/` files           |
 
 - MSBuild imports the nearest `Directory.Build.props` and `.targets` above a project, a nested file imports the outer one
 - Nested `.props` files set properties the outer file's conditions read before the import, every other property after it

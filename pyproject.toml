@@ -33,6 +33,14 @@ dev                   = [
     "types-reportlab",
     "types-shapely",
 ]
+test                  = [
+    "hypothesis",                                                                 # Property-based tests
+    "pytest",                                                                     # Test collection, assertions, and fixtures
+    "pytest-cov",                                                                 # Coverage collection
+    "pytest-randomly",                                                            # Random test order and seeds
+    "pytest-socket",                                                              # Block unrequested network connections
+    "pytest-timeout",                                                             # Per-test deadline
+]
 core                  = [
     "beartype",                                                                   # Runtime type checks over annotations
     "pydantic-settings",                                                          # Settings models read from environment and files
@@ -357,7 +365,6 @@ members = [
     "libs/python/data/records",
     "libs/python/graphics/typography",
     "tests/python/apps/cli/foundry",
-    "tests/python/support",
     "tests/python/tools/refurb",
     "tools/refurb",
 ]
@@ -366,7 +373,6 @@ members = [
 rasm-foundry    = { workspace = true }
 rasm-records    = { workspace = true }
 rasm-refurb     = { workspace = true }
-rasm-testing    = { workspace = true }
 rasm-typography = { workspace = true }
 
 [tool.uv.config-settings-package.manifold3d]
@@ -420,7 +426,7 @@ cache-dir   = ".cache/ruff"
 preview     = true
 line-length = 200
 src         = ["apps/cli/*", "libs/python/*/*", "tools/refurb"]
-format      = { exclude = ["*.md"], line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
+format      = { exclude = ["*.md"], docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
 select                    = ["ALL"]
@@ -703,7 +709,7 @@ testpaths                = ["tests/python"]
 collect_imported_tests   = false
 empty_parameter_set_mark = "fail_at_collect"
 addopts                  = [
-    "--disable-plugin-autoload",                                                   # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
+    "--disable-plugin-autoload",             # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
     "-p",
     "hypothesispytest",
     "-p",
@@ -716,16 +722,11 @@ addopts                  = [
     "timeout",
     "--tb=short",
     "--import-mode=importlib",
-    "-m",
-    "not integration",
     "--disable-socket",
     "--allow-unix-socket",
 ]
 filterwarnings           = ["error"]
 timeout                  = "30"
-markers                  = [
-    "integration: needs a host, service, or network resource outside the process",
-]
 
 # --- [COVERAGE] -------------------------------------------------------------------------
 

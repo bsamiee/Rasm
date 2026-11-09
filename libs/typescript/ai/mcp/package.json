@@ -1,7 +1,14 @@
 {
     "name": "@rasm/mcp",
+    "version": "0.0.0",
     "private": true,
     "description": "Effect programs exposed to agents as tools and resources",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/ai/mcp"
+    },
+    "license": "MIT",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -11,6 +18,7 @@
         ".": "./index.ts",
         "./node": "./node.ts"
     },
+    "files": [ "dist" ],
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/search": "workspace:*"
@@ -21,5 +29,15 @@
     },
     "peerDependencies": {
         "effect": "catalog:peers"
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js",
+            "./node": "./dist/node.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
     }
 }

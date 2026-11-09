@@ -2,7 +2,7 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/rest_pattern_workspace_field.rs
 ---
-warning: `..` covers `Window` fields the pattern leaves unnamed
+error: `..` covers `Window` fields the pattern leaves unnamed
   --> tools/dylint/examples/rest_pattern_workspace_field.rs:37:9
    |
 37 |     let Window { start, .. } = window;
@@ -10,10 +10,10 @@ warning: `..` covers `Window` fields the pattern leaves unnamed
    |                         |
    |                         help: name each field `..` covers as `field: _`: `end: _, label: _`
    |
-   = note: `#[warn(rest_pattern_workspace_field)]` on by default
+   = note: `#[deny(rest_pattern_workspace_field)]` on by default
 applicability MachineApplicable: name each field `..` covers as `field: _`
 
-warning: `..` covers `Drag` fields the pattern leaves unnamed
+error: `..` covers `Drag` fields the pattern leaves unnamed
   --> tools/dylint/examples/rest_pattern_workspace_field.rs:48:9
    |
 48 |         Gesture::Drag { from, .. } => from,
@@ -22,7 +22,7 @@ warning: `..` covers `Drag` fields the pattern leaves unnamed
    |                               help: name each field `..` covers as `field: _`: `to: _`
 applicability MachineApplicable: name each field `..` covers as `field: _`
 
-warning: `..` covers `Pinch` fields the pattern leaves unnamed
+error: `..` covers `Pinch` fields the pattern leaves unnamed
   --> tools/dylint/examples/rest_pattern_workspace_field.rs:49:9
    |
 49 |         Gesture::Pinch(first, ..) => first,
@@ -30,7 +30,7 @@ warning: `..` covers `Pinch` fields the pattern leaves unnamed
    |
    = help: replace `..` with `_`
 
-warning: `..` covers `Token` fields the pattern leaves unnamed
+error: `..` covers `Token` fields the pattern leaves unnamed
   --> tools/dylint/examples/rest_pattern_workspace_field.rs:63:9
    |
 63 |     let sealed::Token { id, .. } = token;
@@ -39,7 +39,7 @@ warning: `..` covers `Token` fields the pattern leaves unnamed
    |                             help: name each field `..` covers as `field: _`: `scope: _,`
 applicability MachineApplicable: name each field `..` covers as `field: _`
 
-warning: `..` covers `Fields` fields the pattern leaves unnamed
+error: `..` covers `Fields` fields the pattern leaves unnamed
   --> tools/dylint/examples/rest_pattern_workspace_field.rs:97:9
    |
 97 |     let Fields { kept, .. } = fields;

@@ -13,11 +13,9 @@
         "@rasm/nx-docker",
         "@rasm/nx-pulumi",
         { "plugin": "@rasm/nx-typescript", "options": { "outputPath": ".artifacts" } },
-        { "plugin": "@nx/vitest", "options": { "testMode": "run" } },
-        { "plugin": "@nx/playwright/plugin", "options": { "targetName": "test" } },
         { "plugin": "@rasm/nx-distribution", "options": { "outputPath": ".artifacts" } }
     ],
-    "pluginsConfig": { "@nx/js": { "projectsAffectedByDependencyUpdates": "auto" } },
+    "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" } },
     "release": {
         "projects": [ "tag:npm:public", "tag:release" ],
         "projectsRelationship": "independent",

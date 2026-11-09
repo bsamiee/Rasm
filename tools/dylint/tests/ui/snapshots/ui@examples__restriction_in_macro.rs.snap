@@ -2,7 +2,7 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/restriction_in_macro.rs
 ---
-warning: `std::option::Option::unwrap` in a local macro expansion panics on `None`
+error: `std::option::Option::unwrap` in a local macro expansion panics on `None`
   --> tools/dylint/examples/restriction_in_macro.rs:9:16
    |
  7 | macro_rules! taken {
@@ -14,9 +14,9 @@ warning: `std::option::Option::unwrap` in a local macro expansion panics on `Non
    |                                           ------------- in this macro invocation
    |
    = help: convert `None` into an error with `ok_or_else` and return it with `?`
-   = note: `#[warn(unwrap_used_in_macro)]` on by default
+   = note: `#[deny(unwrap_used_in_macro)]` on by default
 
-warning: `std::result::Result::expect` in a local macro expansion panics on `Err`
+error: `std::result::Result::expect` in a local macro expansion panics on `Err`
   --> tools/dylint/examples/restriction_in_macro.rs:27:16
    |
 25 | macro_rules! required {
@@ -28,9 +28,9 @@ warning: `std::result::Result::expect` in a local macro expansion panics on `Err
    |                                                         ---------------- in this macro invocation
    |
    = help: return the error with `?`
-   = note: `#[warn(expect_used_in_macro)]` on by default
+   = note: `#[deny(expect_used_in_macro)]` on by default
 
-warning: `std::option::Option::unwrap` in a local macro expansion panics on `None`
+error: `std::option::Option::unwrap` in a local macro expansion panics on `None`
   --> tools/dylint/examples/restriction_in_macro.rs:15:9
    |
 13 | macro_rules! taken_qualified {
@@ -43,7 +43,7 @@ warning: `std::option::Option::unwrap` in a local macro expansion panics on `Non
    |
    = help: convert `None` into an error with `ok_or_else` and return it with `?`
 
-warning: `std::result::Result::expect` in a local macro expansion panics on `Err`
+error: `std::result::Result::expect` in a local macro expansion panics on `Err`
   --> tools/dylint/examples/restriction_in_macro.rs:21:9
    |
 19 | macro_rules! required_qualified {
@@ -56,7 +56,7 @@ warning: `std::result::Result::expect` in a local macro expansion panics on `Err
    |
    = help: return the error with `?`
 
-warning: `panic!` in a local macro expansion panics
+error: `panic!` in a local macro expansion panics
   --> tools/dylint/examples/restriction_in_macro.rs:34:13
    |
 31 | macro_rules! ensured {
@@ -68,9 +68,9 @@ warning: `panic!` in a local macro expansion panics
    |                          ------------------- in this macro invocation
    |
    = help: return a typed error for a failure the input causes, or state the invariant in the types
-   = note: `#[warn(panic_in_macro)]` on by default
+   = note: `#[deny(panic_in_macro)]` on by default
 
-warning: `todo!` in a local macro expansion panics
+error: `todo!` in a local macro expansion panics
   --> tools/dylint/examples/restriction_in_macro.rs:41:9
    |
 39 | macro_rules! pending {
@@ -83,7 +83,7 @@ warning: `todo!` in a local macro expansion panics
    |
    = help: replace `todo!` with the implementation
 
-warning: `println!` in a local macro expansion writes to stdout
+error: `println!` in a local macro expansion writes to stdout
   --> tools/dylint/examples/restriction_in_macro.rs:47:9
    |
 45 | macro_rules! said {
@@ -95,9 +95,9 @@ warning: `println!` in a local macro expansion writes to stdout
    |                          ---------------- in this macro invocation
    |
    = help: emit a `tracing` event in place of `println!`
-   = note: `#[warn(print_in_macro)]` on by default
+   = note: `#[deny(print_in_macro)]` on by default
 
-warning: `write!` in a local macro expansion formats through `Debug`
+error: `write!` in a local macro expansion formats through `Debug`
   --> tools/dylint/examples/restriction_in_macro.rs:85:9
    |
 83 | macro_rules! written {
@@ -109,18 +109,18 @@ warning: `write!` in a local macro expansion formats through `Debug`
    |                                                                 -------------------- in this macro invocation
    |
    = help: format through `Display` with `{}`
-   = note: `#[warn(use_debug_in_macro)]` on by default
+   = note: `#[deny(use_debug_in_macro)]` on by default
 
-warning: `tokio::pin!` duplicates standard pinning
+error: `tokio::pin!` duplicates standard pinning
   --> tools/dylint/examples/restriction_in_macro.rs:96:5
    |
 96 |     tokio::pin!(first, second);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: bind pinned values with `core::pin::pin!`
-   = note: `#[warn(tokio_pin)]` on by default
+   = note: `#[deny(tokio_pin)]` on by default
 
-warning: `tokio::pin!` duplicates standard pinning
+error: `tokio::pin!` duplicates standard pinning
    --> tools/dylint/examples/restriction_in_macro.rs:102:5
     |
 102 |     pinned!(value);
@@ -128,7 +128,7 @@ warning: `tokio::pin!` duplicates standard pinning
     |
     = help: bind pinned values with `core::pin::pin!`
 
-warning: `tokio::pin!` duplicates standard pinning
+error: `tokio::pin!` duplicates standard pinning
    --> tools/dylint/examples/restriction_in_macro.rs:107:5
     |
 107 | /     tokio::pin! {
@@ -142,7 +142,7 @@ warning: `tokio::pin!` duplicates standard pinning
     |
     = help: bind pinned values with `core::pin::pin!`
 
-warning: `tokio::pin!` duplicates standard pinning
+error: `tokio::pin!` duplicates standard pinning
    --> tools/dylint/examples/restriction_in_macro.rs:110:13
     |
 110 |             pinned!(inner);

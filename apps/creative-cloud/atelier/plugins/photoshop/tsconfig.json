@@ -1,6 +1,8 @@
 {
     "extends": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.json",
     "compilerOptions": {
+        "declaration": false,
+        "noEmit": true,
         "types": [ "node", "@adobe-uxp-types/uxp/with-protocol", "@adobe-uxp-types/photoshop/with-protocol" ]
     }
 }

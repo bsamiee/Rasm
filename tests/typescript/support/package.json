@@ -1,13 +1,22 @@
 {
     "name": "@rasm/test-support",
+    "version": "0.0.0",
     "private": true,
-    "description": "Shared Storybook and Vitest configuration",
+    "description": "Shared test configuration and fixtures: a Vitest policy plugin, Storybook preview and main settings, and running Compose service lookups",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "tests/typescript/support"
+    },
+    "license": "MIT",
     "type": "module",
     "exports": {
+        "./compose": "./compose.ts",
         "./storybook": "./storybook.ts",
         "./storybook/node": "./storybook-node.ts",
         "./vitest": "./vitest.ts"
     },
+    "files": [ "dist" ],
     "dependencies": {
         "@storybook/addon-a11y": "catalog:",
         "@storybook/addon-docs": "catalog:",
@@ -15,12 +24,39 @@
         "@storybook/react-vite": "catalog:",
         "@vitest/browser-playwright": "catalog:",
         "@vitest/coverage-v8": "catalog:",
-        "@vitest/ui": "catalog:",
+        "@vitest/ui": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
         "effect": "catalog:",
+        "storybook": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
     },
-    "devDependencies": {
-        "@types/node": "catalog:"
+    "peerDependencies": {
+        "effect": "catalog:peers",
+        "storybook": "catalog:peers",
+        "vite": "catalog:peers",
+        "vitest": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "storybook": {
+            "optional": true
+        },
+        "vite": {
+            "optional": true
+        },
+        "vitest": {
+            "optional": true
+        }
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            "./compose": "./dist/compose.js",
+            "./storybook": "./dist/storybook.js",
+            "./storybook/node": "./dist/storybook-node.js",
+            "./vitest": "./dist/vitest.js"
+        }
     }
 }

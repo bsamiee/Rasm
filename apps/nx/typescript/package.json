@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-typescript",
     "version": "0.0.0",
-    "description": "Nx plugin inferring TypeScript type checks and emits, Vite and Storybook builds, Cloudflare Worker types, Adobe plugin packages, and publint package checks from each tool's own configuration",
+    "description": "Nx plugin inferring TypeScript type checks and emits, Vite and Storybook builds, Cloudflare Worker types, Adobe plugin packages, publint package checks, and Vitest and Playwright suites from each tool's own configuration",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -29,12 +29,12 @@
     },
     "devDependencies": {
         "@types/node": "catalog:",
-        "nx": "catalog:",
-        "typescript": "catalog:"
+        "@typescript/native": "catalog:",
+        "nx": "catalog:"
     },
     "peerDependencies": {
-        "nx": "catalog:peers",
-        "typescript": "catalog:peers"
+        "@typescript/native": "catalog:peers",
+        "nx": "catalog:peers"
     },
     "publishConfig": {
         "access": "public",

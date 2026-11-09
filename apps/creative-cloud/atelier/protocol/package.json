@@ -1,7 +1,14 @@
 {
     "name": "@rasm/atelier-protocol",
+    "version": "0.0.0",
     "private": true,
     "description": "Atelier's request contracts, the link its plugins dial, the CEP wire to their ExtendScript, the CEP panel serving that link, and the Vite plugin compiling the link into a plugin build",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "apps/creative-cloud/atelier/protocol"
+    },
+    "license": "MIT",
     "sideEffects": [ "./panel.ts" ],
     "type": "module",
     "imports": {
@@ -14,6 +21,7 @@
         "./peer": "./peer.ts",
         "./vite": "./vite.ts"
     },
+    "files": [ "dist" ],
     "dependencies": {
         "@rasm/applications": "workspace:*",
         "@rasm/automation": "workspace:*",
@@ -35,6 +43,19 @@
     "peerDependenciesMeta": {
         "vite": {
             "optional": true
+        }
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js",
+            "./indesign": "./dist/indesign.js",
+            "./panel": "./dist/panel.js",
+            "./peer": "./dist/peer.js",
+            "./vite": "./dist/vite.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
         }
     }
 }

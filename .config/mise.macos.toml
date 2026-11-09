@@ -1,13 +1,12 @@
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-COLIMA_HOME                           = "{{ xdg_data_home }}/rasm/colima"
-DOCKER_CONFIG                         = "{{ xdg_data_home }}/rasm/docker"
-DOCKER_HOST                           = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
-PITCHFORK_SUPERVISOR_AUTO_START       = "false"
-RHINO_MCP_URL                         = "http://127.0.0.1:{{ env.RHINO_MCP_PLATFORM_PORT }}/"
-RHINO_TEST_PROFILE                    = "{{ env.HOME }}/Library/Application Support/Rasm/Rhino Tests"
-TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = "/var/run/docker.sock"
+COLIMA_HOME                     = "{{ xdg_data_home }}/rasm/colima"
+DOCKER_CONFIG                   = "{{ xdg_data_home }}/rasm/docker"
+DOCKER_HOST                     = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
+PITCHFORK_SUPERVISOR_AUTO_START = "false"
+RHINO_MCP_URL                   = "http://127.0.0.1:{{ env.RHINO_MCP_PLATFORM_PORT }}/"
+RHINO_TEST_PROFILE              = "{{ env.HOME }}/Library/Application Support/Rasm/Rhino Tests"
 
 # --- [DAEMONS] --------------------------------------------------------------------------
 

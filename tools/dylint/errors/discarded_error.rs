@@ -16,7 +16,11 @@ use clippy_utils::{
 };
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{Block, Expr, ExprKind, HirId, LetStmt, LocalSource, MatchSource, Pat, PatKind, Stmt, StmtKind, def_id::DefId};
+use rustc_hir::{
+    Block, Expr, ExprKind, HirId, LetStmt, LocalSource, MatchSource, Pat, PatKind, Stmt, StmtKind,
+    def::{DefKind, Res},
+    def_id::DefId,
+};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{Ty, TyCtxt, print::with_forced_trimmed_paths};
 use rustc_span::Span;
@@ -158,7 +162,7 @@ fn skipped(cx: &LateContext<'_>, pattern: &Pat<'_>, struct_rest: bool) -> bool {
                 PatKind::Or(_) => true,
                 PatKind::TupleStruct(qpath, fields, _) => {
                     found = (matches!(fields, [] | [Pat { kind: PatKind::Wild | PatKind::Binding(_, _, _, None), .. }])
-                        || struct_rest && matches!(fields, [Pat { kind: PatKind::Struct(_, [], Some(_)), .. }]))
+                        || struct_rest && matches!(fields, [Pat { kind: PatKind::Struct(whole, [], Some(_)), hir_id, .. }] if !matches!(cx.qpath_res(whole, *hir_id), Res::Def(DefKind::Variant, _))))
                         && cx.qpath_res(&qpath, branch.hir_id).ctor_parent(cx).is_lang_item(cx, LangItem::ResultErr);
                     false
                 }

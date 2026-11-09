@@ -47,15 +47,14 @@
         ".gitignore": ".gitattributes, .gitmodules",
         "Cargo.toml": "Cargo.lock, clippy.toml, rustfmt.toml, rust-toolchain.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
-        "Directory.Build.props": " Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config",
+        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
         "Info.plist": "*.entitlements",
         "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
         "nx.json": ".editorconfig, .globalconfig, .shellcheckrc, .squawk.toml, .yamllint.yaml, sgconfig.yml",
-        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, vitest.config.ts",
+        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.web.json, vitest.config.ts",
         "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
         "pyproject.toml": ".python-version, pixi.lock, uv.lock",
-        "README.md": "LICENSE, TODO.md",
-        "tsconfig.base.json": "tsconfig.web.json"
+        "README.md": "LICENSE, TODO.md"
     },
 
     // --- [WATCHING]
@@ -164,7 +163,7 @@
     "css.lint.unknownAtRules": "ignore",
     "js/ts.experimental.useTsgo": true,
     "js/ts.trace.server": "off",
-    "js/ts.tsdk.path": "./node_modules/typescript",
+    "js/ts.tsdk.path": "./node_modules/@typescript/native",
     "js/ts.tsserver.automaticTypeAcquisition.enabled": false,
 
     // --- [YAML] ------------------------------------------------------------------------

@@ -11,7 +11,7 @@
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
-        "#analyzer": "./dist/lib/MsbuildAnalyzer.dll"
+        "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll"
     },
     "exports": {
         ".": "./plugins/project-graph.ts",
@@ -19,7 +19,7 @@
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
+    "files": [ "dist", "analyzer/dist", "executors.json", "executors/*/schema.json" ],
     "scripts": {
         "prepare": "dotnet build analyzer --configuration Release"
     },
@@ -46,8 +46,11 @@
         },
         "imports": {
             "#/*": "./dist/*.js",
-            "#analyzer": "./dist/lib/MsbuildAnalyzer.dll"
+            "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll"
         }
     },
-    "executors": "./executors.json"
+    "executors": "./executors.json",
+    "nx": {
+        "includedScripts": []
+    }
 }

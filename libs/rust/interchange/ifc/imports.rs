@@ -50,20 +50,6 @@ pub struct Fetch {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn verified(metadata: &str, bytes: &[u8]) -> bool {
-    let tokens = metadata.split_whitespace().filter_map(|expression| {
-        let (name, hash) = expression.split_once('?').map_or(expression, |(hash, _)| hash).split_once('-')?;
-        Some((name.parse::<Sri>().ok()?, hash.trim_end_matches('=')))
-    });
-    tokens.clone().map(|(sri, _)| sri).max().is_none_or(|strongest| {
-        let digest = strongest.digest(bytes);
-        [BASE64_NOPAD, BASE64URL_NOPAD].iter().any(|encoding| {
-            let encoded = encoding.encode(&digest);
-            tokens.clone().filter(|(sri, _)| *sri == strongest).any(|(_, hash)| hash == encoded)
-        })
-    })
-}
-
 #[cfg(feature = "fetch")]
 pub async fn stack(client: &Client, fetch: &Fetch, mirrors: &BTreeMap<Url, Url>, main: Url) -> Result<NEVec<(Import, Layer)>, NEVec<IfcError>> {
     let load = async |url: &Url| -> Result<Bytes, IfcError> {
@@ -147,6 +133,19 @@ where
         DfsPostOrder::new(&graph, &main).iter(&graph).cloned().collect::<Vec<_>>()
     };
     let lock = fetch.lock;
+    let verified = |metadata: &str, bytes: &[u8]| {
+        let tokens = metadata.split_whitespace().filter_map(|expression| {
+            let (name, hash) = expression.split_once('?').map_or(expression, |(hash, _)| hash).split_once('-')?;
+            Some((name.parse::<Sri>().ok()?, hash.trim_end_matches('=')))
+        });
+        tokens.clone().map(|(sri, _)| sri).max().is_none_or(|strongest| {
+            let digest = strongest.digest(bytes);
+            [BASE64_NOPAD, BASE64URL_NOPAD].iter().any(|encoding| {
+                let encoded = encoding.encode(&digest);
+                tokens.clone().filter(|(sri, _)| *sri == strongest).any(|(_, hash)| hash == encoded)
+            })
+        })
+    };
     let (first, rest) = blocking::unblock(move || {
         let resolved = |url: Url, layer: Layer, bytes: Option<B>| {
             let bytes = bytes.as_ref().map(AsRef::as_ref);

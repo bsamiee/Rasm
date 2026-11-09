@@ -6,7 +6,7 @@ import { Image } from '@pulumi/docker-build';
 import { getIamPolicyDocumentOutput, IamServiceAccount, Provider, S3Bucket } from '@pulumi/minio';
 import { type Input, interpolate, jsonStringify, secret } from '@pulumi/pulumi';
 import { RandomPassword } from '@pulumi/random';
-import { App } from '@rasm/hosting';
+import { App } from '@rasm/hosting/app';
 import { nodeBundle } from '@rasm/hosting/node-bundle';
 import { Sites } from '@rasm/hosting/sites';
 import { Array, Cause, Config, Effect, Option, Predicate, Record, Redacted, Schema, Struct } from 'effect';

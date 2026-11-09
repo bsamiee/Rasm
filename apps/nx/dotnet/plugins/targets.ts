@@ -8,10 +8,6 @@ import type { Node } from '#/plugins/project-graph';
 type Targets = Readonly<Record<string, TargetConfiguration>>;
 type Options = Readonly<Record<string, (Partial<TargetConfiguration> & { readonly targetName?: string }) | false>>;
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const PUBLISHED = 'Release';
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const targets = (plugin: { readonly name: string; readonly inputs: NonNullable<TargetConfiguration['inputs']> }, path: Path.Path, node: Node, named: string): Targets => {
@@ -21,7 +17,7 @@ const targets = (plugin: { readonly name: string; readonly inputs: NonNullable<T
     const inputs: NonNullable<TargetConfiguration['inputs']> = [named, `^${named}`, ...node.inputs.map((input) => path.join('{workspaceRoot}', input)), ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${path.join('{workspaceRoot}', base, '**')}`), { externalDependencies: [] }];
     const metadata = (args: readonly string[], description: string) => ({ technologies, description, help: { command: `dotnet ${args[0]} --help`, example: { args: ['--verbosity', 'detailed'] } } });
     const modes = node.modes.map((mode) => {
-        const publishing = node.publishable && mode.configuration === PUBLISHED;
+        const publishing = node.publishable && mode.configuration === 'Release';
         return {
             name: [mode.configuration.toLowerCase(), ...Option.toArray(Option.fromNullOr(mode.runtime))].join('_'),
             args: ['--configuration', mode.configuration, ...(mode.runtime === null ? [] : ['--runtime', mode.runtime])],
@@ -47,7 +43,7 @@ const targets = (plugin: { readonly name: string; readonly inputs: NonNullable<T
     return {
         restore: { ...batched([['restore', '--no-dependencies']], `Restores ${node.name} with dotnet restore`), cache: false, outputs: [path.join('{workspaceRoot}', path.dirname(node.restored))] },
         'build--dotnet': {
-            ...command(['build', '--no-restore', '--no-dependencies'], node.publishable ? `Builds ${node.name} with dotnet build, publishing it with dotnet publish in ${PUBLISHED}` : `Builds ${node.name} with dotnet build`, true),
+            ...command(['build', '--no-restore', '--no-dependencies'], node.publishable ? `Builds ${node.name} with dotnet build, publishing it with dotnet publish in Release` : `Builds ${node.name} with dotnet build`, true),
             dependsOn: ['restore', '^build'],
             cache: false,
             inputs,
@@ -65,7 +61,7 @@ const targets = (plugin: { readonly name: string; readonly inputs: NonNullable<T
                       dependsOn: ['build--dotnet'],
                       cache: true,
                       inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }],
-                      outputs: Option.toArray(Option.map(Option.fromNullOr(node.results), (results) => path.join('{workspaceRoot}', results))),
+                      outputs: node.results.map((results) => path.join('{workspaceRoot}', results)),
                   },
               }
             : {}),

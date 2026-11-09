@@ -1,7 +1,14 @@
 {
     "name": "@rasm/database",
+    "version": "0.0.0",
     "private": true,
     "description": "Databases reconciled to their declared schemas",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/data/database"
+    },
+    "license": "MIT",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -13,6 +20,7 @@
         "./pg": "./pg.ts",
         "./sqlite": "./sqlite.ts"
     },
+    "files": [ "dist" ],
     "dependencies": {
         "@pgsql/traverse": "catalog:",
         "@pgsql/types": "catalog:",
@@ -35,6 +43,18 @@
         },
         "@effect/sql-pg": {
             "optional": true
+        }
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js",
+            "./d1": "./dist/d1.js",
+            "./pg": "./dist/pg.js",
+            "./sqlite": "./dist/sqlite.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
         }
     }
 }

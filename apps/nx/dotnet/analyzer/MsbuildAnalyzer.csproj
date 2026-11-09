@@ -7,7 +7,7 @@
         <ServerGarbageCollection>true</ServerGarbageCollection>
         <UseAppHost>false</UseAppHost>
         <DebugType>embedded</DebugType>
-        <OutputPath Condition="'$(Configuration)' == 'Release'">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', 'dist', 'lib'))</OutputPath>
+        <OutputPath Condition="'$(Configuration)' == 'Release'">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'dist'))</OutputPath>
     </PropertyGroup>
 
     <ItemGroup Label="Build Engine">

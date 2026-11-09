@@ -11,11 +11,11 @@
 | [INDEX] | [OPTION]        | [DEFAULT]                              | [EFFECT]                                                                                                        |
 | :-----: | :-------------- | :------------------------------------- | :-------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `trustPackages` | `false`                                | `-skipMacroValidation -skipPackagePluginValidation` for third-party macros and plugins                          |
-|  [02]   | `outputPath`    | Archives at Xcode's Organizer location | Archives and zips under `<outputPath>/xcode/<project>/<scheme>`, `build--ditto` or `build--notarytool` inferred |
+|  [02]   | `outputPath`    | Archives at Xcode's Organizer location | Archives and zips under `<outputPath>/xcode/<project>/<scheme>`, executable zips under `<outputPath>/swiftpm/<product>`, `build--ditto`, `build--notarytool`, and executable `nx-release-publish` inferred |
 |  [03]   | `notaryProfile` | None                                   | `notarytool submit --keychain-profile`, read when `build--notarytool` runs                                      |
 
 - Without `trustPackages`, `xcodebuild` stops at the first third-party macro or package plugin
-- `outputPath` exists because `-exportArchive` takes `-exportPath` from its caller alone, and Nx reads outputs only inside the workspace
+- `outputPath` exists because `-exportArchive` and `ditto` take their destination from their caller alone, and Nx reads outputs only inside the workspace
 - Projects never need `notaryProfile` to infer: `build--notarytool` follows the project's own signing settings, and a run without the profile fails naming it
 - `notaryProfile` exists because `notarytool` reads credentials from arguments alone; CI saves the profile with `notarytool store-credentials`
 - Under CI, as Nx detects it, builds pass `--disable-automatic-resolution` and `-disableAutomaticPackageResolution`, so a stale `Package.resolved` fails the build
@@ -63,7 +63,7 @@ Each tool builds at its own default location, which every caller reaches with no
 - Every edge is implicit, since each one reads files beyond its source project
 - `Package.swift` inside another package's target folder logs a warning, since SwiftPM compiles it into that target
 - Inference runs one `describe` per package with `--experimental-skip-acquiring-lock`, as SourceKit-LSP's build server does, so it never waits on a running build
-- Inference caches per options set by manifest, project, scheme, workspace, and xcconfig content, paths, plugin sources, and the built core
+- Inference caches per options set by manifest, project, scheme, workspace, and xcconfig content, the `package.json` beside each manifest, paths, plugin sources, and the built core
 - `createDependencies` reads the report `createNodes` built
 - Xcode projects reach each project whose declared `outputs` hold a build-phase file (`FileReference.buildFiles`), and no other project
 - Failures reach Nx as plain errors carrying their message, since Nx copies only an error's own properties out of the plugin worker
@@ -71,6 +71,7 @@ Each tool builds at its own default location, which every caller reaches with no
 - Hosts lacking `swift`, `xcodebuild`, or the core infer each project from its file alone: the folder names it, `build--<tool>` runs the tool on it, and no edge or scheme is read
 - Runs of an absent program fail with one line naming the program and the host platform, and inference logs which tools are absent
 - Inference results from such a host stay out of the graph cache, so the next run with the tools reads everything
+- Warnings go through Nx's `logger.warn`, which writes to standard error, so `nx show project --json` prints JSON alone
 
 ## [04]-[TARGETS]
 
@@ -81,10 +82,11 @@ Each tool builds at its own default location, which every caller reaches with no
 |  [03]   | `test`               | `swift test`           | Package `test`               | `xcodebuild test` per test plan |   Yes   |
 |  [04]   | `check--swift-build` | `build--swift-build`   | Package `check--swift-build` | None                            |   No    |
 |  [05]   | `check--xcodebuild`  | None                   | None                         | `build--xcodebuild`             |   No    |
-|  [06]   | `build--ditto`       | None                   | None                         | Zip of each archived app        |   No    |
+|  [06]   | `build--ditto`       | Executable product zip | Executable product zip       | Zip of each archived app        |   No    |
 |  [07]   | `build--notarytool`  | None                   | None                         | Export, notarize, staple, zip   |   No    |
 |  [08]   | `build`, `check`     | `build--*`, `check--*` | `build--*`, `check--*`       | `build--*`, `check--*`          |   No    |
 |  [09]   | `install`            | Executable product     | Executable product           | `xcodebuild install` per scheme |   No    |
+|  [10]   | `nx-release-publish` | Executable product     | Executable product           | None                            |   No    |
 
 - `check--swift-build` and `check--xcodebuild` run the compile as the type check, since the Swift compiler is the type checker
 - `build` and `check` are `nx:noop` targets over every `build--*` or `check--*` target, so plugins sharing a project add to one aggregate
@@ -102,7 +104,7 @@ Each tool builds at its own default location, which every caller reaches with no
 - `build--swift-build` and `test` pass the same flags, so neither invalidates the other's objects
 - Targets run by this plugin's executors read the `default` input of `@rasm/nx-apple` and every optional dependency its manifest names, since Nx hashes executor code only for `@nx/` packages, and `externalDependencies: []`, so a `pnpm-lock.yaml` change reruns none of them
 - Installed from a registry, the plugin states those packages as `externalDependencies` in place of projects
-- Package targets read target folders, manifests, `Package.resolved`, `.swiftpm/configuration`, and the root `.swift-version`
+- Package targets read target folders (test targets included), manifests, `Package.resolved`, `.swiftpm/configuration`, and the root `.swift-version`
 - Xcode targets read their folder, each referenced local package's sources, and the files `[03]` lists
 - Every target hashes `DEVELOPER_DIR` and `TOOLCHAINS`, which `xcrun` reads to select Xcode and its toolchain
 - `xcode-select -s` and an in-place Xcode update change no input, so `nx reset` clears results cached under the earlier Xcode
@@ -115,7 +117,7 @@ Each tool builds at its own default location, which every caller reaches with no
 - Schemes archive what their targets install (`SKIP_INSTALL = NO`), so `build--xcodebuild` in the archive configuration runs `xcodebuild archive`
 - Archives land at `<outputPath>/xcode/<project>/<scheme>/<scheme>.xcarchive`, else at Xcode's Organizer location, which the Xcode app lists
 - Under `outputPath`, archives whose installed targets sign in the archive configuration with a `CODE_SIGN_IDENTITY` naming a `Developer ID Application` certificate and `ENABLE_HARDENED_RUNTIME = YES` go to `build--notarytool`, every other archive to `build--ditto`
-- `build--ditto` zips the archived app into `<app>-<CFBundleShortVersionString>.zip` for a GitHub release
+- `build--ditto` zips the archived app into `<app>-<CFBundleShortVersionString>.zip` for a GitHub release, and an executable product's release build (the folder `swift build --configuration release --show-bin-path` prints) into `<outputPath>/swiftpm/<product>/<product>.zip` with the binary at the archive's root
 - Both run nothing outside the archive configuration
 - Export options hold the method alone, since team and signing style default to the archive's
 - Exports run `xcodebuild -exportArchive`, `ditto -c -k --keepParent` into `<app>-<CFBundleShortVersionString>.zip`, `notarytool submit --wait`, `stapler staple`, and `ditto` again
@@ -135,7 +137,7 @@ Each tool builds at its own default location, which every caller reaches with no
 - SwiftPM refuses to install over an installed product and to uninstall an absent one
 - `install` runs `experimental-uninstall` only when SwiftPM's install folder (`$XDG_CONFIG_HOME/swiftpm/bin`, else `~/.swiftpm/bin`) lists the product
 - `install` builds first, so a failing build leaves the installed copy in place
-- `install` sits on the project of the product's executable target, which `swift package describe` names
+- `install` sits on the project of the product's executable target, which `swift package describe` names, unless the package folder holds a `package.json` without `private: true`, whose npm package delivers the executable (the core's platform package)
 - Xcode's `install` action builds the scheme's archive configuration in derived data `ArchiveIntermediates`, signs, writes into `DSTROOT` at `INSTALL_PATH`, and registers the bundle with Launch Services
 - `DSTROOT=/` fails in Xcode 27 with `Cycle inside a single target`, since the build directory it creates at `/` contains the derived data folders, so the run moves the evaluated `INSTALL_PATH` into `DSTROOT`; a scheme whose installing targets state more than one `INSTALL_PATH` fails inference by name
 - `install` depends on `^build`, so producers of build-phase files (an embedded helper, a launch agent plist) build first; it never depends on the project's own `build`, since the install action is that build
@@ -149,7 +151,10 @@ Each tool builds at its own default location, which every caller reaches with no
 - Each `.xcodeproj` project names `@rasm/nx-apple/release/version-actions` with its `project.xcproj` as the manifest and carries the `release` tag, which `nx.json` selects
 - Version actions read the project-level `MARKETING_VERSION` as the current version
 - New versions write `MARKETING_VERSION` and raise the project-level `CURRENT_PROJECT_VERSION` by one, through `XcodeProjectFormat` in the core
-- SwiftPM packages carry no release, since they publish nothing
+- SwiftPM library modules carry no release, since SwiftPM resolves a dependency's versions only from plain repository-wide `X.Y.Z` tags
+- Executable products carry the `release` tag and the version actions with no manifest, since SwiftPM manifests hold no version: the current version is the project's newest `{projectName}@{version}` tag, which Nx's `git-tag` resolver reads, and a project with no tag reads `0.0.0`, the version Nx implies for an unreleased project, so a first release needs no starting tag
+- New versions write nothing, and `nx release` records each in its tag and GitHub release
+- Executable `nx-release-publish` attaches the zip `build--ditto` wrote in the release configuration to the GitHub release of the project's tag (`gh release view`, then `gh release upload`), skipping an asset the release holds, failing an immutable release or a missing zip by name, and logging each upload under `dryRun` or `NX_DRY_RUN`; run alone, the newest reachable tag (`git describe --tags --match`) names the release
 - Registry current-version resolution finds nothing, so Nx takes its configured fallback
 - Distributables come from `nx build <project> -c release`; GitHub release assets and Sparkle feeds belong to `@rasm/nx-distribution`
 
@@ -173,7 +178,8 @@ Each tool builds at its own default location, which every caller reaches with no
 |  [04]   | `plugins/targets.ts`                  | Toolchain inputs, core location, target builder, child process runner, plugin error |
 |  [05]   | `executors/run/`                      | `run` executor, its Nx schema, the invocation shape as Effect schema                |
 |  [06]   | `executors/install/`                  | `install` executor replacing a SwiftPM executable product, its Nx schema            |
-|  [07]   | `executors/zip/`                      | `zip` executor zipping archives, exporting and notarizing Developer ID ones first   |
-|  [08]   | `version-actions.ts`                  | Nx release version actions over the core's `version` subcommand                     |
-|  [09]   | `analyzer/`                           | `@rasm/nx-apple-darwin-arm64`: the core's SwiftPM package and its npm manifest      |
-|  [10]   | `analyzer/Sources/nx-apple-analyzer/` | Swift core over `XcodeProjectFormat`: `analyze` reports, `version` writes versions  |
+|  [07]   | `executors/zip/`                      | `zip` executor zipping archives and executable products, notarizing Developer ID apps |
+|  [08]   | `executors/release-publish/`          | `nx-release-publish` executor attaching executable zips to their GitHub release      |
+|  [09]   | `version-actions.ts`                  | Nx release version actions over the core's `version` subcommand                     |
+|  [10]   | `analyzer/`                           | `@rasm/nx-apple-darwin-arm64`: the core's SwiftPM package and its npm manifest      |
+|  [11]   | `analyzer/Sources/nx-apple-analyzer/` | Swift core over `XcodeProjectFormat`: `analyze` reports, `version` writes versions  |

@@ -2,6 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, describe, it } from '@effect/vitest';
 import { Catalog, Relation } from '@rasm/database';
+import { Sqlite } from '@rasm/database/sqlite';
 import { Effect, FileSystem, Layer, Path, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { cases } from '#/cases';
@@ -9,7 +10,10 @@ import { cases } from '#/cases';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('sqlite', () => {
-    cases(it, (options) => SqliteClient.layer({ filename: ':memory:', ...options }));
+    cases(
+        it,
+        Sqlite.layer((options) => SqliteClient.layer({ filename: ':memory:', ...options })),
+    );
     it.effect(
         'reopens the SQLite file in WAL mode and retains application tables with a D1 reserved prefix',
         Effect.fnUntraced(function* () {
@@ -17,7 +21,10 @@ describe('sqlite', () => {
             const directory = yield* fs.makeTempDirectoryScoped();
             const records = Relation.make('_cf_records', { id: Schema.String });
             const catalog = Catalog.make({ tables: [records] });
-            const storage = Catalog.layer(catalog, (options) => SqliteClient.layer({ filename: path.join(directory, 'database.sqlite'), ...options }));
+            const storage = Catalog.layer(
+                catalog,
+                Sqlite.layer((options) => SqliteClient.layer({ filename: path.join(directory, 'database.sqlite'), ...options })),
+            );
             const row = { id: 'saved' };
             yield* Relation.insert(records, [row]).pipe(Effect.provide(storage));
             const [stored, pending, journal] = yield* Effect.all([Relation.select(records, { id: [row.id] }), Effect.map(Catalog.plan(catalog), Struct.get('statements')), SqlClient.SqlClient.use((sql) => sql`PRAGMA journal_mode`)]).pipe(Effect.provide(Layer.fresh(storage)));

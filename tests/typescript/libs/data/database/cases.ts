@@ -1,6 +1,6 @@
 import { D1Client } from '@effect/sql-d1';
 import { assert, type TestContext, type Vitest } from '@effect/vitest';
-import { atomic, Catalog, Column, Relation } from '@rasm/database';
+import { Catalog, Column, Engine, Relation } from '@rasm/database';
 import { Array, BigDecimal, DateTime, Effect, Equal, Exit, Fiber, type Layer, Option, Order, Predicate, Schema, type Scope, String, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { SqlClient, SqlError } from 'effect/sql';
@@ -100,14 +100,14 @@ const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, 
                       Effect.flatMap(Catalog.plan(catalog, runtime), (planned) => record(title, planned)),
                       Catalog.reconcile(catalog, runtime),
                   );
-    const isolated = <Eff extends Effect.Effect<unknown, unknown, Layer.Success<ReturnType<typeof Catalog.client<never, F, R>>> | SecureRandom.SecureRandom | Scope.Scope | R>, A>(body: (reconcile: ReturnType<typeof reconciling>, sql: SqlClient.SqlClient) => Generator<Eff, A, never>) => {
+    const isolated = <Eff extends Effect.Effect<unknown, unknown, Layer.Success<Client<F, R>> | SecureRandom.SecureRandom | Scope.Scope | R>, A>(body: (reconcile: ReturnType<typeof reconciling>, sql: SqlClient.SqlClient) => Generator<Eff, A, never>) => {
         const execute = Effect.fnUntraced(body);
-        return ({ task }: TestContext) => SqlClient.SqlClient.use((sql) => execute(reconciling(task.name), sql)).pipe(Effect.provide([Catalog.client(client), SecureRandom.layerWebCrypto]));
+        return ({ task }: TestContext) => SqlClient.SqlClient.use((sql) => execute(reconciling(task.name), sql)).pipe(Effect.provide([client, SecureRandom.layerWebCrypto]));
     };
     const seeded = Effect.fn('seeded')(function* (reconcile: ReturnType<typeof reconciling>) {
         const sql = yield* SqlClient.SqlClient;
         yield* reconcile(declared([parents, children]));
-        yield* atomic([
+        yield* Engine.atomic([
             sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`,
             sql`INSERT INTO children ${sql.insert([
                 { id: 'a', parentId: 'p', rank: 1 },
@@ -120,7 +120,7 @@ const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, 
         Effect.fnUntraced(
             function* () {
                 const sql = yield* SqlClient.SqlClient;
-                yield* atomic([sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`, sql`INSERT INTO children ${sql.insert({ id: 'a', parentId: 'p', rank: 1 })}`]);
+                yield* Engine.atomic([sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`, sql`INSERT INTO children ${sql.insert({ id: 'a', parentId: 'p', rank: 1 })}`]);
                 yield* sql`UPDATE children SET ${sql.update({ parentId: 'p', rank: 2 })} WHERE ${sql('parentId')} = ${'p'}`;
                 assert.deepStrictEqual(yield* Relation.select(children, { parentId: ['p'] }), [{ id: 'a', parentId: 'p', rank: 2 }]);
                 assert.deepStrictEqual(yield* sql.withoutTransforms()`SELECT parent_id FROM children`, [{ parent_id: 'p' }]);

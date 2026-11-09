@@ -10,7 +10,6 @@ node_modules/
 .nx/workspace-data
 .nx/migrate-runs
 .build/
-/tools/ast-grep/grammars/build/
 .swiftpm/configuration/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 /.cargo/rustc-source

@@ -41,7 +41,7 @@ class Member extends Data.Class<{
         return { member, variations: { ...member.base.variations, ...decoded } };
     });
 
-    get rows() {
+    get rows(): readonly (Row & { readonly member: Member })[] {
         return [this.base, ...this.namedInstances].map((row) => ({ member: this, ...row }));
     }
 }

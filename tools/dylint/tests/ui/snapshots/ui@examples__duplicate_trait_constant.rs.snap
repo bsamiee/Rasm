@@ -2,7 +2,7 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/duplicate_trait_constant.rs
 ---
-warning: every `Arity` impl sets `ARITY` to `2_usize`
+error: every `Arity` impl sets `ARITY` to `2_usize`
   --> tools/dylint/examples/duplicate_trait_constant.rs:6:5
    |
  6 |     const ARITY: usize;
@@ -17,9 +17,9 @@ note: set here
 43 |     const ARITY: usize = 2;
    |     ^^^^^^^^^^^^^^^^^^
    = help: set the default of `Arity::ARITY` to `2_usize` and delete `ARITY` from each impl
-   = note: `#[warn(duplicate_trait_constant)]` on by default
+   = note: `#[deny(duplicate_trait_constant)]` on by default
 
-warning: every `Depth` impl sets `DEPTH` to `4_u8`
+error: every `Depth` impl sets `DEPTH` to `4_u8`
   --> tools/dylint/examples/duplicate_trait_constant.rs:14:5
    |
 14 |     const DEPTH: u8 = 1;
@@ -35,7 +35,7 @@ note: set here
    |     ^^^^^^^^^^^^^^^
    = help: set the default of `Depth::DEPTH` to `4_u8` and delete `DEPTH` from each impl
 
-warning: every `Meta` impl sets `VALUE` to `5_u32`
+error: every `Meta` impl sets `VALUE` to `5_u32`
    --> tools/dylint/examples/duplicate_trait_constant.rs:128:9
     |
 128 |         const VALUE: u32;
@@ -51,7 +51,7 @@ note: set here
     |             ^^^^^^^^^^^^^^^^
     = help: set the default of `Meta::VALUE` to `5_u32` and delete `VALUE` from each impl
 
-warning: every `Other` impl sets `NAME` to `"shared"`
+error: every `Other` impl sets `NAME` to `"shared"`
    --> tools/dylint/examples/duplicate_trait_constant.rs:173:9
     |
 173 |         const NAME: &'static str;
@@ -67,7 +67,7 @@ note: set here
     |         ^^^^^^^^^^^^^^^^^^^^^^^^
     = help: set the default of `Other::NAME` to `"shared"` and delete `NAME` from each impl
 
-warning: every `Own` impl sets `VALUE` to `<Self as Own>::NAME`
+error: every `Own` impl sets `VALUE` to `<Self as Own>::NAME`
    --> tools/dylint/examples/duplicate_trait_constant.rs:245:9
     |
 245 |         const VALUE: &'static str;
@@ -83,7 +83,7 @@ note: set here
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: set the default of `Own::VALUE` to `<Self as Own>::NAME` and delete `VALUE` from each impl
 
-warning: every `Generic` impl sets `VALUE` to `T::NAME`
+error: every `Generic` impl sets `VALUE` to `T::NAME`
    --> tools/dylint/examples/duplicate_trait_constant.rs:265:9
     |
 265 |         const VALUE: &'static str;
@@ -99,7 +99,7 @@ note: set here
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: set the default of `Generic::VALUE` to `T::NAME` and delete `VALUE` from each impl
 
-warning: every `Shortened` impl sets `VALUE` to `<Self as StaticSource>::NAME`
+error: every `Shortened` impl sets `VALUE` to `<Self as StaticSource>::NAME`
    --> tools/dylint/examples/duplicate_trait_constant.rs:363:9
     |
 363 |         const VALUE: &'a str;
@@ -115,7 +115,7 @@ note: set here
     |         ^^^^^^^^^^^^^^^^^^^^
     = help: set the default of `Shortened::VALUE` to `<Self as StaticSource>::NAME` and delete `VALUE` from each impl
 
-warning: `LIMIT` has one reader, `VALUE`
+error: `LIMIT` has one reader, `VALUE`
    --> tools/dylint/examples/duplicate_trait_constant.rs:141:9
     |
 141 |         const LIMIT: u32 = 5;
@@ -127,9 +127,9 @@ note: read here
 146 |             const VALUE: u32 = LIMIT;
     |                                ^^^^^
     = help: move `LIMIT` into `VALUE` as a nested item
-    = note: `#[warn(single_reader)]` on by default
+    = note: `#[deny(single_reader)]` on by default
 
-warning: `LIMIT` has one reader, `VALUE`
+error: `LIMIT` has one reader, `VALUE`
    --> tools/dylint/examples/duplicate_trait_constant.rs:154:9
     |
 154 |         const LIMIT: u32 = 5;

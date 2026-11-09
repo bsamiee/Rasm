@@ -1,15 +1,15 @@
-import { findPackageJSON } from 'node:module';
+import { matchesGlob } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, hashArray, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { createProjectRootMappingsFromProjectConfigurations, findProjectForPath, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Option, Order, Path, Record, Schema, Stream } from 'effect';
+import { type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, hashArray, logger, type ProjectGraphProjectNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getOutputs, hashObject, quoteShellArg } from '@nx/devkit/internal';
+import { Array, Effect, Function, Option, Order, Path, Record, Result, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FILES = '**/{compose,docker-compose}{,.override}.{yaml,yml}';
 const TECHNOLOGIES = ['compose'];
 const EVERY_PROFILE = { COMPOSE_PROFILES: '*' };
+const PRODUCERS = ['build--!(compose)', '^build'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,7 +26,6 @@ const Report = Schema.fromJsonString(
         ),
     }),
 );
-const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 const Variables = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -39,58 +38,71 @@ class ComposeError extends Schema.TaggedError<ComposeError, { readonly brand: un
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const spawned = (args: readonly string[], cwd: string) =>
-    Effect.scoped(
-        Effect.gen(function* () {
-            const handle = yield* ChildProcess.make('docker', ['compose', ...args], { cwd, env: EVERY_PROFILE, extendEnv: true, stdin: 'ignore' });
-            const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-            return code === 0 ? stdout : yield* ComposeError.make({ subject: ['docker', 'compose', ...args].join(' '), detail: `exited ${code} in ${cwd}: ${stderr.trim()}` });
-        }),
-    );
+const spawned = Effect.fnUntraced(function* (args: readonly string[], cwd: string) {
+    const handle = yield* ChildProcess.make('docker', ['compose', ...args], { cwd, env: EVERY_PROFILE, extendEnv: true, stdin: 'ignore' });
+    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? stdout : yield* ComposeError.make({ subject: ['docker', 'compose', ...args].join(' '), detail: `exited ${code} in ${cwd}: ${stderr.trim()}` });
+}, Effect.scoped);
 
-const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: string, files: Array.NonEmptyReadonlyArray<string>) {
+const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: string, held: Array.NonEmptyReadonlyArray<string>) {
     const path = yield* Path.Path;
     const cwd = path.join(workspaceRoot, root);
-    const [report, variables] = yield* Effect.all([Effect.flatMap(spawned(['config', '--format', 'json', '--no-interpolate'], cwd), Schema.decodeEffect(Report)), Effect.flatMap(spawned(['config', '--variables', '--format', 'json'], cwd), Schema.decodeEffect(Variables))], {
-        concurrency: 'unbounded',
-    });
-    const services = Record.values(report.services);
-    const builds = services.flatMap(({ build }) => Option.toArray(Option.fromUndefinedOr(build)));
+    const files = Array.sort(held, Order.String);
+    const read = yield* Effect.result(Effect.all([Effect.flatMap(spawned(['config', '--format', 'json', '--no-interpolate'], cwd), Schema.decodeEffect(Report)), Effect.flatMap(spawned(['config', '--variables', '--format', 'json'], cwd), Schema.decodeEffect(Variables))], { concurrency: 'unbounded' }));
     const local = (at: string) => Option.liftPredicate(path.relative(workspaceRoot, at), (relative) => path.isAbsolute(at) && !(relative.startsWith('..') || path.isAbsolute(relative)));
+    const own = [...files, path.join(root, '.env')];
     return {
         root,
-        name: report.name,
-        files: Array.sort(files, Order.String),
-        read: Array.dedupe([
-            ...files,
-            path.join(root, '.env'),
-            ...services.flatMap(({ env_file = [] }) => env_file.flatMap((held) => Option.toArray(local(held.path)))),
-            ...builds.flatMap(({ context, dockerfile }) => Option.toArray(Option.flatMap(Option.fromUndefinedOr(dockerfile), (file) => local(path.isAbsolute(file) ? file : path.join(context, file))))),
-        ]).toSorted(),
-        variables: Record.keys(variables).toSorted(),
-        profiles: Array.dedupe(services.flatMap(({ profiles = [] }) => profiles)).toSorted(),
-        built: builds.length > 0,
-        contexts: Array.dedupe(builds.flatMap(({ context, additional_contexts = {} }) => [context, ...Record.values(additional_contexts)].flatMap((at) => Option.toArray(local(at))))).toSorted(),
+        files,
+        unread: Result.getFailure(read),
+        ...Option.match(Result.getSuccess(read), {
+            onNone: () => ({ name: path.basename(cwd), read: Array.sort(own, Order.String), variables: [], profiles: [], built: false, contexts: [] }),
+            onSome: ([report, variables]) => {
+                const services = Object.values(report.services);
+                const builds = Array.getSomes(services.map(({ build }) => Option.fromUndefinedOr(build)));
+                return {
+                    name: report.name,
+                    read: Array.sort(
+                        Array.dedupe([
+                            ...own,
+                            ...services.flatMap(({ env_file = [] }) => Array.getSomes(env_file.map((file) => local(file.path)))),
+                            ...Array.getSomes(builds.map(({ context, dockerfile }) => Option.flatMap(Option.fromUndefinedOr(dockerfile), (file) => local(path.isAbsolute(file) ? file : path.join(context, file))))),
+                        ]),
+                        Order.String,
+                    ),
+                    variables: Array.sort(Record.keys(variables), Order.String),
+                    profiles: Array.sort(Array.dedupe(services.flatMap(({ profiles = [] }) => profiles)), Order.String),
+                    built: builds.length > 0,
+                    contexts: Array.dedupe(builds.flatMap(({ context, additional_contexts = {} }) => Array.getSomes([context, ...Object.values(additional_contexts)].map(local)))),
+                };
+            },
+        }),
     };
 });
 
 type Project = Effect.Success<ReturnType<typeof analyzed>>;
 
 const targets = (project: Project): Record<string, TargetConfiguration> => {
-    const inputs = [...project.read.map((file) => `{workspaceRoot}/${file}`), ...project.variables.map((env) => ({ env })), { externalDependencies: [] }];
+    const inputs = [
+        ...project.read.map((file) => `{workspaceRoot}/${file}`),
+        { runtime: ['docker', 'compose', '--project-directory', quoteShellArg(project.root), '--profile', quoteShellArg('*'), 'config', '--format', 'json', '--no-interpolate', '--no-path-resolution'].join(' ') },
+        ...project.variables.map((env) => ({ env })),
+        { externalDependencies: [] },
+    ];
     const configurations = Record.fromIterableWith(project.profiles, (profile) => [profile, { env: { COMPOSE_PROFILES: profile } }] as const);
+    const origin = Option.match(project.unread, { onNone: () => '', onSome: ({ message }) => `, inferred from ${project.files[0]} alone since Compose did not read it: ${message.split('\n')[0] ?? message}` });
     const compose = (args: Array.NonEmptyReadonlyArray<string>, description: string, { options, ...extra }: Partial<TargetConfiguration>): TargetConfiguration => ({
         ...extra,
         command: ['docker', 'compose', ...args].join(' '),
         options: { cwd: project.root, ...options },
-        metadata: { technologies: TECHNOLOGIES, description, help: { command: `docker compose ${args[0]} --help`, example: {} } },
+        metadata: { technologies: TECHNOLOGIES, description: `${description}${origin}`, help: { command: `docker compose ${args[0]} --help`, example: {} } },
     });
     const inferred: Record<string, TargetConfiguration> = {
         'check--compose': compose(['config', '--quiet'], `Validates every Compose service of ${project.name}, interpolation and env files included`, { cache: true, inputs, options: { env: EVERY_PROFILE } }),
         ...(project.built
             ? {
-                  'check--buildx': compose(['build', '--check'], `Lints every image ${project.name} builds through BuildKit, failing on any warning`, { cache: true, inputs, options: { env: EVERY_PROFILE } }),
-                  'build--compose': compose(['build'], `Builds the images of ${project.name} into the engine`, { cache: false, dependsOn: ['^build'], configurations }),
+                  'check--buildx': compose(['build', '--check'], `Lints every image ${project.name} builds through BuildKit, failing on any warning`, { cache: true, inputs, dependsOn: PRODUCERS, options: { env: EVERY_PROFILE } }),
+                  'build--compose': compose(['build'], `Builds the images of ${project.name} into the engine`, { cache: false, dependsOn: PRODUCERS, configurations }),
               }
             : {}),
         install: compose(['up', '--detach', '--wait', '--remove-orphans'], `Starts the services of ${project.name} and waits until each is healthy`, { cache: false, dependsOn: ['build', '^install'], configurations }),
@@ -114,59 +126,49 @@ const targets = (project: Project): Record<string, TargetConfiguration> => {
 
 const reports = new Map<string, readonly Project[]>();
 
-const scanned = Effect.fnUntraced(function* (workspaceRoot: string, files: readonly string[]) {
-    const path = yield* Path.Path;
-    const present = yield* Effect.isSuccess(spawned(['version', '--short'], workspaceRoot));
-    const [projects, failures] = present ? yield* Effect.partition(Record.toEntries(Array.groupBy(files, (file) => path.dirname(file))), ([root, held]) => Effect.mapError(analyzed(workspaceRoot, root, held), (error): [string, Error] => [root, new Error(error.message)]), { concurrency: 'unbounded' }) : [[], []];
-    return { cached: present && failures.length === 0, projects, failures };
-});
-
 const keyed = (workspaceRoot: string, options: unknown) => hashArray([workspaceRoot, hashObject(options ?? {})]);
 
 const graph = Effect.fnUntraced(function* (workspaceRoot: string, files: readonly string[], options: unknown) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
-    const { name } = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
-    const modules = [located, ...(yield* fs.readDirectory(import.meta.dirname)).toSorted().map((module) => path.join(import.meta.dirname, module))];
-    const hash = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [FILES])), ...(yield* Effect.forEach(modules, (module) => fs.readFileString(module))), ...files.toSorted()]);
-    const cache = new PluginCache<readonly Project[]>(path.join(workspaceDataDirectory, `${path.basename(name)}-${hashObject(options ?? {})}.hash`));
-    const found = yield* Option.match(Option.fromNullishOr(cache.get(hash)), {
-        onSome: (held) => Effect.succeed({ projects: held, failures: Array.empty<[string, Error]>() }),
-        onNone: () =>
-            Effect.tap(scanned(workspaceRoot, files), ({ cached, projects }) =>
-                cached
-                    ? Effect.sync(() => {
-                          cache.set(hash, projects);
-                          cache.writeToDisk();
-                      })
-                    : Effect.void,
-            ),
-    });
-    reports.set(keyed(workspaceRoot, options), found.projects);
-    return found;
+    const path = yield* Path.Path;
+    const projects = yield* Effect.forEach(Record.toEntries(Array.groupBy(files, (file) => path.dirname(file))), ([root, held]) => analyzed(workspaceRoot, root, held), { concurrency: 'unbounded' });
+    yield* Effect.forEach(Array.getSomes(projects.map(({ files: [file], unread }) => Option.map(unread, ({ message }) => `${file} takes check--compose and install from its folder alone, and their runs report Compose's own failure: ${message}`))), (warning) => Effect.sync(() => logger.warn(warning)));
+    reports.set(keyed(workspaceRoot, options), projects);
+    return projects;
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes = [
-    FILES,
+    '**/{compose,docker-compose}{,.override}.{yaml,yml}',
     (files, options, context) =>
-        Effect.runPromise(
-            Effect.flatMap(
-                Effect.mapError(graph(context.workspaceRoot, files, options), (error) => new AggregateCreateNodesError([[null, new Error(error.message)]], [])),
-                ({ projects, failures }) => {
-                    const nodes: CreateNodesResultArray = projects.map((project) => [project.files[0], { projects: { [project.root]: { name: project.name, metadata: { technologies: TECHNOLOGIES }, targets: targets(project) } } }]);
-                    return failures.length === 0 ? Effect.succeed(nodes) : Effect.fail(new AggregateCreateNodesError(failures, nodes));
-                },
-            ).pipe(Effect.provide(layer)),
+        graph(context.workspaceRoot, files, options).pipe(
+            Effect.map((projects): CreateNodesResultArray => projects.map((project) => [project.files[0], { projects: { [project.root]: { name: project.name, metadata: { technologies: TECHNOLOGIES }, targets: targets(project) } } }])),
+            Effect.provide(layer),
+            Effect.runPromise,
         ),
 ];
 
 const createDependencies: CreateDependencies = (options, { workspaceRoot, projects }) => {
     const roots = createProjectRootMappingsFromProjectConfigurations(projects);
+    const nodes = Record.fromEntries(Array.getSomes(Object.values(projects).map((data) => Option.map(Option.fromUndefinedOr(data.name), (name): readonly [string, ProjectGraphProjectNode] => [name, { name, type: 'lib', data }]))));
+    const produced = Object.values(nodes).flatMap(({ name, data }) =>
+        Record.keys(data.targets ?? {}).flatMap((target) =>
+            Result.getOrElse(
+                Result.try(() => getOutputs(nodes, { project: name, target }, {})),
+                () => [],
+            )
+                .filter((output) => !output.startsWith('!'))
+                .map((output) => [name, output] as const),
+        ),
+    );
+    const owners = (at: string) =>
+        Array.match(
+            produced.filter(([, output]) => matchesGlob(at, output) || matchesGlob(at, `${output}/**`)).map(([name]) => name),
+            { onEmpty: () => Option.toArray(Option.fromNullishOr(findProjectForPath(at, roots))), onNonEmpty: Function.identity },
+        );
     return (reports.get(keyed(workspaceRoot, options)) ?? []).flatMap(({ root, files, contexts }) =>
         Option.toArray(Option.fromUndefinedOr(roots.get(root))).flatMap((source) =>
-            Array.dedupe(contexts.flatMap((at) => Option.toArray(Option.fromNullishOr(findProjectForPath(at, roots)))))
+            Array.dedupe(contexts.flatMap(owners))
                 .filter((target) => target !== source)
                 .map((target): RawProjectGraphDependency => ({ source, target, type: DependencyType.static, sourceFile: files[0] })),
         ),

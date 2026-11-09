@@ -201,7 +201,7 @@ Code files hold section dividers and tool directives alone, laid out by `CLAUDE.
 - Commit and pull request bodies state past facts
 - Commit types mark behavior: `feat` adds, `fix` corrects, `refactor` reworks, and `perf` improves performance
 - Changes with no product behavior use `build`, `ci`, `docs`, `test`, `style`, or `chore`
-- Commit scopes use the changed project's Nx name; changes across projects omit scope
+- Commit scopes use the changed project's exact name as `nx show projects` prints it (`@rasm/ui`, never `ui`), changes across projects omit scope, and the commit-msg hook refuses any other scope
 - Comments warning of a wrong call result go; calls use parameters or forms that return the required result
 
 ## [06]-[PROCESS]

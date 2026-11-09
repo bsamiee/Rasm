@@ -1,7 +1,14 @@
 {
     "name": "@rasm/hosting",
+    "version": "0.0.0",
     "private": true,
     "description": "One web app declared once and served by any provider",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/web/hosting"
+    },
+    "license": "MIT",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -9,6 +16,7 @@
     },
     "exports": {
         ".": "./index.ts",
+        "./app": "./app.ts",
         "./browser": "./browser.ts",
         "./cloudflare": "./cloudflare.ts",
         "./head": "./head.ts",
@@ -20,6 +28,7 @@
         "./vite": "./vite.ts",
         "./worker": "./worker.ts"
     },
+    "files": [ "dist" ],
     "dependencies": {
         "cheerio": "catalog:",
         "partial-content": "catalog:"
@@ -85,6 +94,26 @@
         },
         "vite": {
             "optional": true
+        }
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js",
+            "./app": "./dist/app.js",
+            "./browser": "./dist/browser.js",
+            "./cloudflare": "./dist/cloudflare.js",
+            "./head": "./dist/head.js",
+            "./node": "./dist/node.js",
+            "./node-bundle": "./dist/node-bundle.js",
+            "./s3": "./dist/s3.js",
+            "./sites": "./dist/sites.js",
+            "./template": "./dist/template.js",
+            "./vite": "./dist/vite.js",
+            "./worker": "./dist/worker.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
         }
     }
 }

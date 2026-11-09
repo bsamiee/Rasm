@@ -1,3 +1,7 @@
 {
-    "extends": "../../../../../libs/typescript/creative-cloud/indesign/tsconfig.json"
+    "extends": "../../../../../libs/typescript/creative-cloud/indesign/tsconfig.json",
+    "compilerOptions": {
+        "declaration": false,
+        "noEmit": true
+    }
 }

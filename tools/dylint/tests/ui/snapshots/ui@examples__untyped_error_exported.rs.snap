@@ -2,20 +2,20 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/untyped_error_exported.rs
 ---
-warning: `map_err` replaces `ParseIntError` without reading it
+error: `map_err` replaces `ParseIntError` without reading it
  --> tools/dylint/examples/untyped_error_exported.rs:5:61
   |
 5 | pub fn probed(text: &str) -> Result<u16, ()> { text.parse().map_err(|_error: ParseIntError| ()) }
   |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
   = help: hold `ParseIntError` as `#[source]` of the error the closure builds
-  = note: `#[warn(discarded_error_source)]` on by default
+  = note: `#[deny(discarded_error_source)]` on by default
 
-warning: error `String` is text callers cannot match
+error: error `String` is text callers cannot match
  --> tools/dylint/examples/untyped_error_exported.rs:7:33
   |
 7 | pub fn described(text: &str) -> Result<u16, String> { text.parse().map_err(|error: ParseIntError| error.to_string()) }
   |                                 ^^^^^^^^^^^^^^^^^^^
   |
   = help: return the concrete source error, or add a domain error for context or distinct failures
-  = note: `#[warn(untyped_error)]` on by default
+  = note: `#[deny(untyped_error)]` on by default

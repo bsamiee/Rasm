@@ -2,15 +2,15 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/orphan_module.rs
 ---
-warning: `tools/dylint/examples/orphan_module/nested/mod.rs` sits in this module's folder with no module declaring it, declare it here or delete it
+error: `tools/dylint/examples/orphan_module/nested/mod.rs` sits in this module's folder with no module declaring it, declare it here or delete it
  --> tools/dylint/examples/orphan_module.rs:1:1
   |
 1 | use core::hint::black_box;
   | ^
   |
-  = note: `#[warn(orphan_module)]` on by default
+  = note: `#[deny(orphan_module)]` on by default
 
-warning: `tools/dylint/examples/orphan_module/undeclared.rs` sits in this module's folder with no module declaring it, declare it here or delete it
+error: `tools/dylint/examples/orphan_module/undeclared.rs` sits in this module's folder with no module declaring it, declare it here or delete it
  --> tools/dylint/examples/orphan_module.rs:1:1
   |
 1 | use core::hint::black_box;

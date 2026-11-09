@@ -1,6 +1,7 @@
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { isCI } from '@nx/devkit/internal';
-import { Array, Effect, Option, type Path, Predicate, Record, Schema } from 'effect';
+import { Effect, Option, type Path, Predicate, pipe, Record, Schema } from 'effect';
+import type { Options } from '#/plugins/project-graph';
 import { type Part, type Plugin, target } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -8,18 +9,21 @@ import { type Part, type Plugin, target } from '#/plugins/targets';
 interface Package {
     readonly file: string;
     readonly root: string;
+    readonly npm: boolean;
     readonly held: typeof Described.Type;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MANIFEST = 'Package.swift';
+const NPM = 'package.json';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Listed = Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
 const Tests = Schema.Literal('test');
 const Executable = Schema.Literal('executable');
+const Npm = Schema.fromJsonString(Schema.Struct({ private: Schema.optionalKey(Schema.Boolean) }));
 const Described = Schema.fromJsonString(
     Schema.Struct({
         name: Schema.String,
@@ -42,8 +46,8 @@ const sources = (path: Path.Path, { root, held }: Package, described: ReadonlyMa
         .filter((input) => !input.endsWith('Package.resolved')),
 ];
 
-const packageParts = (path: Path.Path, plugin: Plugin, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
-    const { file, root, held } = local;
+const packageParts = (path: Path.Path, options: Options, plugin: Plugin, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
+    const { file, root, npm, held } = local;
     const modules = held.targets.filter((module) => module.product_memberships.length > 0 && module.name !== held.name);
     const flags = Predicate.isTruthy(isCI()) ? ['--disable-automatic-resolution'] : [];
     const suites = held.targets.filter(({ type }) => Schema.is(Tests)(type));
@@ -70,28 +74,56 @@ const packageParts = (path: Path.Path, plugin: Plugin, local: Package, described
               }),
     };
     const executables = new Set(held.targets.filter(({ type }) => Schema.is(Executable)(type)).map(({ name }) => name));
-    const installed = (owner: string): Readonly<Record<string, TargetConfiguration>> =>
-        Option.match(
-            Array.findFirst(held.products, (product) => executables.has(owner) && product.targets.includes(owner)),
-            {
-                onNone: () => ({}),
-                onSome: ({ name }) => ({
-                    install: {
-                        executor: `${plugin.name}:install`,
-                        options: { package: root, product: name },
-                        inputs: plugin.inputs,
-                        cache: false,
-                        metadata: { technologies: ['swift'], description: `Builds ${name} in release and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
-                    },
-                }),
-            },
+    const products = new Map(held.products.flatMap(({ name, targets }) => targets.filter((owner) => executables.has(owner)).map((owner) => [owner, name] as const)));
+    const shipped = (product: string): Readonly<Record<string, TargetConfiguration>> => {
+        const zipped = pipe(
+            Option.fromUndefinedOr(options.outputPath),
+            Option.map((at) => path.join(at, 'swiftpm', product)),
+            Option.map((folder) => ({
+                'build--ditto': {
+                    executor: `${plugin.name}:zip`,
+                    dependsOn: ['build--swift-build'],
+                    inputs: plugin.inputs,
+                    options: { products: [] },
+                    configurations: { release: { products: [{ package: root, product, folder }] } },
+                    outputs: [path.join('{workspaceRoot}', folder, '*.zip')],
+                    metadata: { technologies: ['swift'], description: `Zips the release build of ${product} with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
+                },
+                'nx-release-publish': {
+                    executor: `${plugin.name}:release-publish`,
+                    dependsOn: ['^nx-release-publish'],
+                    inputs: plugin.inputs,
+                    options: { files: [path.join(folder, `${product}.zip`)] },
+                    metadata: { technologies: ['swift'], description: `Attaches the zip build--ditto wrote in its release configuration to the GitHub release of the project's tag`, help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+                },
+            })),
         );
+        return {
+            install: {
+                executor: `${plugin.name}:install`,
+                options: { package: root, product },
+                inputs: plugin.inputs,
+                cache: false,
+                metadata: { technologies: ['swift'], description: `Builds ${product} in release and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
+            },
+            ...Option.getOrElse(zipped, () => ({})),
+        };
+    };
     const forwarded = (module: string) =>
         Record.map(
             Record.filter(work, (_, verb) => verb !== 'test' || tested.has(module)),
             (_, verb): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [{ projects: [held.name], target: verb }], inputs, metadata: { technologies: ['swift'], description: `Runs ${held.name}:${verb}` } }),
         );
-    return [{ root, name: held.name, file, technologies: ['swift'], targets: { ...work, ...installed(held.name) } }, ...modules.map((module): Part => ({ root: path.join(root, module.path), name: module.name, file, technologies: ['swift'], targets: { ...forwarded(module.name), ...installed(module.name) } }))];
+    return [{ name: held.name, at: root, own: work }, ...modules.map((module) => ({ name: module.name, at: path.join(root, module.path), own: forwarded(module.name) }))].map(
+        ({ name, at, own }): Part =>
+            Option.match(
+                Option.filter(Option.fromUndefinedOr(products.get(name)), () => !npm),
+                {
+                    onNone: () => ({ root: at, name, file, technologies: ['swift'], targets: own }),
+                    onSome: (product) => ({ root: at, name, file, technologies: ['swift'], targets: { ...own, ...shipped(product) }, release: { version: { versionActions: `${plugin.name}/release/version-actions` } } }),
+                },
+            ),
+    );
 };
 
 const packageEdges = (held: typeof Described.Type, described: ReadonlyMap<string, Package>): readonly RawProjectGraphDependency[] => {
@@ -106,4 +138,4 @@ const packageEdges = (held: typeof Described.Type, described: ReadonlyMap<string
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Described, MANIFEST, type Package, packageEdges, packageParts, sources };
+export { Described, MANIFEST, NPM, Npm, type Package, packageEdges, packageParts, sources };

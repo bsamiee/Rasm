@@ -74,7 +74,6 @@
         <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" Condition="'$(TargetPlatformIdentifier)' == 'Windows'" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
-        <RuntimeHostConfigurationOption Include="RhinoInstallPath" Value="$(RhinoInstallPath)" Condition="'$(IsTestingPlatformApplication)' == 'true'" />
     </ItemGroup>
 
     <Import Project="libs/dotnet/rhino/Rasm.Rhino/buildTransitive/Rasm.Rhino.targets" Condition="'$(RhinoHost)' != ''" />

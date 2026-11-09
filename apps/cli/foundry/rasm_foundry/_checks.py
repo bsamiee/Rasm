@@ -2,6 +2,7 @@
 
 from enum import auto, StrEnum
 from pathlib import Path
+from typing import override
 lazy from collections.abc import Callable
 lazy from functools import partial
 lazy import subprocess
@@ -19,13 +20,18 @@ lazy from rasm_typography import Faces, Finding, OrnamentFace
 class _Severity(StrEnum):
     """Fontspector status of one subresult, in its own spelling."""
 
-    SKIP = "SKIP"
-    INFO = "INFO"
-    PASS = "PASS"
-    WARN = "WARN"
-    FAIL = "FAIL"
-    ERROR = "ERROR"
-    FATAL = "FATAL"
+    @override
+    @staticmethod
+    def _generate_next_value_(name: str, start: int, count: int, last_values: list[str]) -> str:
+        return name
+
+    SKIP = auto()
+    INFO = auto()
+    PASS = auto()
+    WARN = auto()
+    FAIL = auto()
+    ERROR = auto()
+    FATAL = auto()
 
 
 class _Program(StrEnum):
@@ -37,7 +43,6 @@ class _Program(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FAILING = frozenset({_Severity.FAIL, _Severity.ERROR, _Severity.FATAL})
 _ORNAMENT_EXCLUDED = frozenset({"opentype/monospace"})
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -97,7 +102,11 @@ def _breached(checks: Outcome[tuple[_Check, ...]], selected: Callable[[_Check], 
     """One breach per failed selected check, or one breach per fault where the run could not measure."""
     return checks.map(
         lambda found: tuple(
-            (f"{check.check_id} {result.code}".strip(), result.severity, "WARN") for check in found if selected(check) for result in check.subresults if result.severity in _FAILING
+            (f"{check.check_id} {result.code}".strip(), result.severity, "WARN")
+            for check in found
+            if selected(check)
+            for result in check.subresults
+            if result.severity in {_Severity.FAIL, _Severity.ERROR, _Severity.FATAL}
         )
     ).default_with(lambda faults: tuple((fault.subject, fault.message, "measured") for fault in faults))
 

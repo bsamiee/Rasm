@@ -90,8 +90,7 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
     const floor = (root: string) =>
         Option.flatMap(
             Option.flatMap(manifest(root), (project) => Option.fromUndefinedOr(project['requires-python'])),
-            (requires) =>
-                Option.map(Option.fromNullishOr(validRange(requires) ? minSatisfying([...releases], requires) : null), (lowest) => `${major(lowest)}.${minor(lowest)}`),
+            (requires) => Option.map(Option.fromNullishOr(validRange(requires) ? minSatisfying([...releases], requires) : null), (lowest) => `${major(lowest)}.${minor(lowest)}`),
         );
     const listed = metadata.members.map((member) => ({ ...member, root: path.relative(workspaceRoot, member.path) || '.' }));
     const members = listed.some((member) => member.root === workspace)
@@ -133,7 +132,8 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
                 checks: Record.getSomes(
                     Record.map(CHECKERS, (_, key) => {
                         const distributed = (node: typeof Node.Type) => node.name === key && Option.isNone(local(node));
-                        const group = Array.findFirst(groups, ({ id }) => closure(id).some(distributed));
+                        const provides = (id: string) => Option.exists(Option.fromUndefinedOr(resolution[id]), distributed);
+                        const group = Array.findFirst(groups, ({ id }) => (resolution[id]?.dependencies ?? []).some(provides));
                         const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
                         const projects = Array.dedupe(from.flatMap((id) => (Option.isSome(external(id)) ? [] : Option.toArray(Option.fromUndefinedOr(resolution[id]?.name))))).toSorted();
                         return Option.map(Option.all([declared(path, held, member.root, key), Array.findFirst(closure(member.id).concat(...from.map(closure)), distributed)]), ([found, tool]) => ({

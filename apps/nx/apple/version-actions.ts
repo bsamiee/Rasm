@@ -1,12 +1,16 @@
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { joinPathFragments, type Tree } from '@nx/devkit';
-import { Effect, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
 import { AppleError, core, spawned } from '#/plugins/targets';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const UNRELEASED = '0.0.0';
+
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ manifest: Schema.String });
+const Options = Schema.Struct({ manifest: Schema.optionalKey(Schema.String) });
 const Versioned = Schema.fromJsonString(Schema.Struct({ version: Schema.NullOr(Schema.String), project: Schema.String }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -25,14 +29,14 @@ class AppleVersionActions extends VersionActions {
     override readonly excludeManifestsFromFormatting = true;
 
     get manifest() {
-        return Effect.map(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ manifest }) => ({ manifest, at: joinPathFragments(this.projectGraphNode.data.root, manifest) }));
+        return Effect.map(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ manifest }) => Option.map(Option.fromUndefinedOr(manifest), (file) => ({ file, at: joinPathFragments(this.projectGraphNode.data.root, file) })));
     }
 
     override init(tree: Tree) {
         return run(
-            Effect.flatMap(this.manifest, ({ manifest }) =>
+            Effect.flatMap(this.manifest, (held) =>
                 Effect.promise(() => {
-                    this.validManifestFilenames = [manifest];
+                    this.validManifestFilenames = Option.toArray(Option.map(held, ({ file }) => file));
                     return super.init(tree);
                 }),
             ),
@@ -41,11 +45,16 @@ class AppleVersionActions extends VersionActions {
 
     override readCurrentVersionFromSourceManifest(tree: Tree) {
         return run(
-            Effect.flatMap(this.manifest, ({ at }) =>
-                versioned(tree, at, []).pipe(
-                    Effect.flatMap(({ version }) => Effect.mapError(Effect.fromNullishOr(version), () => AppleError.make({ subject: at, detail: 'sets no project-level MARKETING_VERSION' }))),
-                    Effect.map((currentVersion) => ({ currentVersion, manifestPath: at })),
-                ),
+            Effect.flatMap(
+                this.manifest,
+                Option.match({
+                    onNone: () => Effect.succeed({ currentVersion: UNRELEASED, manifestPath: this.projectGraphNode.data.root }),
+                    onSome: ({ at }) =>
+                        versioned(tree, at, []).pipe(
+                            Effect.flatMap(({ version }) => Effect.mapError(Effect.fromNullishOr(version), () => AppleError.make({ subject: at, detail: 'sets no project-level MARKETING_VERSION' }))),
+                            Effect.map((currentVersion) => ({ currentVersion, manifestPath: at })),
+                        ),
+                }),
             ),
         );
     }
@@ -60,11 +69,17 @@ class AppleVersionActions extends VersionActions {
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
         return run(
-            Effect.flatMap(this.manifest, ({ at }) =>
-                Effect.map(versioned(tree, at, ['--marketing-version', newVersion]), ({ project }) => {
-                    tree.write(at, project);
-                    return [`New version ${newVersion} written to manifest: ${at}`];
-                }),
+            this.manifest.pipe(
+                Effect.flatMap((held) => Effect.transposeOption(Option.map(held, ({ at }) => Effect.map(versioned(tree, at, ['--marketing-version', newVersion]), ({ project }) => ({ at, project }))))),
+                Effect.map(
+                    Option.match({
+                        onNone: () => [`New version ${newVersion} lives in its tag alone, since the project states no version`],
+                        onSome: ({ at, project }) => {
+                            tree.write(at, project);
+                            return [`New version ${newVersion} written to manifest: ${at}`];
+                        },
+                    }),
+                ),
             ),
         );
     }

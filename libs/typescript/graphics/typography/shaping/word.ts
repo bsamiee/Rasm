@@ -83,4 +83,4 @@ const joiningStep = (state: JoiningState, character: string): JoiningState => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Word };
+export { Span, Word };

@@ -1,7 +1,14 @@
 {
     "name": "@rasm/cep",
+    "version": "0.0.0",
     "private": true,
     "description": "CEP extension manifest, the panel runtime following the host skin and launching a caller link, the swc lowering of ExtendScript, and the Vite builders of CEP extensions and ExtendScript engines",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/creative-cloud/cep"
+    },
+    "license": "MIT",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -13,6 +20,7 @@
         "./panel": "./panel.ts",
         "./vite": "./vite.ts"
     },
+    "files": [ "dist" ],
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/automation": "workspace:*",
@@ -38,6 +46,18 @@
     "peerDependenciesMeta": {
         "vite": {
             "optional": true
+        }
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js",
+            "./node": "./dist/node.js",
+            "./panel": "./dist/panel.js",
+            "./vite": "./dist/vite.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
         }
     }
 }

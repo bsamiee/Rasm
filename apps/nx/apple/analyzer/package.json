@@ -21,5 +21,8 @@
     "publishConfig": {
         "access": "public",
         "executableFiles": [ "./.build/out/Products/Release/nx-apple-analyzer" ]
+    },
+    "nx": {
+        "includedScripts": []
     }
 }

@@ -17,7 +17,15 @@ public static partial class Session {
 
     private sealed record Bound(Either<Skin, PlugIn> Host, Assembly Assembly, ILoggerFactory Loggers, ILogger Logger, EnvIO Scope, JoinableTaskCollection Pending);
 
-    internal static readonly JoinableTaskContext Threading = new();
+    private static readonly Atom<Option<JoinableTaskContext>> UiThread = Atom(Option<JoinableTaskContext>.None);
+
+    private static IO<JoinableTaskContext> Threading =>
+        IO.liftAsync(static environment => UiThread.Value.IsSome || !RhinoApp.InvokeRequired
+                ? Task.FromResult(Joined())
+                : Eto.Forms.Application.Instance.InvokeAsync(Joined).WaitAsync(environment.Token))
+            .Bind(static joined => IO.lift(joined.ToFin()));
+
+    private static Option<JoinableTaskContext> Joined() => UiThread.Swap(static held => held.IsSome ? held : new JoinableTaskContext());
 
     private static readonly Ref<Option<Bound>> State = Ref(Option<Bound>.None);
 
@@ -53,8 +61,9 @@ public static partial class Session {
          select unit).Uninterruptible();
 
     private static IO<Unit> Opened(Either<Skin, PlugIn> host, Type category, Seq<Action<ILoggingBuilder>> logging) =>
-        from fresh in IO.lift(() => LoggerFactory.Create(builder => (Seq<Action<ILoggingBuilder>>(static window => window.AddProvider(new CommandWindowLoggerProvider())) + logging).Iter(row => row(builder))) switch {
-            var loggers => new Bound(host, category.Assembly, loggers, loggers.CreateLogger(category), EnvIO.New(token: CancellationToken.None), Threading.CreateCollection()),
+        from threading in Threading
+        from fresh in IO.lift(() => LoggerFactory.Create(builder => (Seq<Action<ILoggingBuilder>>(window => window.AddProvider(new CommandWindowLoggerProvider(threading))) + logging).Iter(row => row(builder))) switch {
+            var loggers => new Bound(host, category.Assembly, loggers, loggers.CreateLogger(category), EnvIO.New(token: CancellationToken.None), threading.CreateCollection()),
         })
         from bound in atomicIO(() => State.Swap(prior => prior | Some(fresh)))
         from taken in unless(bound.Exists(held => ReferenceEquals(held, fresh)), IO.lift(() => {
@@ -65,7 +74,8 @@ public static partial class Session {
 
     // --- [EXECUTION]
 
-    public static Fin<T> RunSafe<T>(IO<T> effect, CancellationToken token) => Threading.Factory.Run(() => RunSafeAsync(effect, token));
+    public static Fin<T> RunSafe<T>(IO<T> effect, CancellationToken token) =>
+        Threading.RunSafe().Bind(threading => threading.Factory.Run(() => RunSafeAsync(effect, token)));
 
     public static Task<Fin<T>> RunSafeAsync<T>(IO<T> effect, CancellationToken token, IDisposable? owned = null) =>
         IO.liftVAsync(async _ => {
@@ -84,7 +94,7 @@ public static partial class Session {
     public static Unit Start<T>(IO<T> effect, [CallerMemberName] string member = "", IDisposable? owned = null) => ignore(StartAsync(effect, member, owned));
 
     public static Task<Fin<T>> StartAsync<T>(IO<T> effect, [CallerMemberName] string member = "", IDisposable? owned = null) =>
-        Read(bound => Threading.CreateFactory(bound.Pending).RunAsync(async () => {
+        Read(bound => bound.Pending.Context.CreateFactory(bound.Pending).RunAsync(async () => {
             Fin<T> answer = await RunSafeAsync(effect, bound.Scope.Token, owned).ConfigureAwait(false);
             _ = answer.Match(Succ: static _ => unit, Fail: error => Failed(bound.Logger, error, member));
             return answer;
@@ -94,10 +104,10 @@ public static partial class Session {
 
     extension<T>(IO<T> effect) {
         public IO<T> OnUiThread() =>
-            IO.liftVAsync(async environment => {
-                await Threading.Factory.SwitchToMainThreadAsync(environment.Token);
+            Threading.Bind(threading => IO.liftVAsync(async environment => {
+                await threading.Factory.SwitchToMainThreadAsync(environment.Token);
                 return await effect.RunAsync(environment).ConfigureAwait(false);
-            });
+            }));
 
         public IO<T> Scoped(EnvIO scope) => IO.liftVAsync(_ => effect.RunAsync(scope));
 
@@ -143,8 +153,8 @@ internal sealed class CommandWindowLoggerProvider : ILoggerProvider, ISupportExt
     private readonly Atom<IExternalScopeProvider> scopes = Atom<IExternalScopeProvider>(new LoggerExternalScopeProvider());
     private readonly JoinableTask drain;
 
-    public CommandWindowLoggerProvider() =>
-        drain = Session.Threading.Factory.RunAsync(() => Source.lift(lines)
+    public CommandWindowLoggerProvider(JoinableTaskContext threading) =>
+        drain = threading.Factory.RunAsync(() => Source.lift(lines)
             .ReduceIO(unit, static (_, line) => IO.lift(() => RhinoApp.WriteLine(line)).OnUiThread().Map(static _ => Reduced.Continue(unit)))
             .RunAsync(CancellationToken.None)
             .AsTask());

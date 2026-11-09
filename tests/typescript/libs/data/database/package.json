@@ -14,13 +14,10 @@
         "@effect/sql-sqlite-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/database": "workspace:*",
-        "@rasm/hosting": "workspace:*",
         "@rasm/test-support": "workspace:*",
-        "@testcontainers/postgresql": "catalog:",
         "@types/node": "catalog:",
         "cf": "catalog:",
         "effect": "catalog:",
-        "testcontainers": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
     }

@@ -2,11 +2,11 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/needless_struct.rs
 ---
-warning: `Label` has no impl beyond `Debug`, and every use builds or destructures it whole
+error: `Label` has no impl beyond `Debug`, and every use builds or destructures it whole
   --> tools/dylint/examples/needless_struct.rs:11:1
    |
 11 | struct Label {
    | ^^^^^^^^^^^^
    |
    = help: replace `Label` with its field type `String`
-   = note: `#[warn(needless_struct)]` on by default
+   = note: `#[deny(needless_struct)]` on by default

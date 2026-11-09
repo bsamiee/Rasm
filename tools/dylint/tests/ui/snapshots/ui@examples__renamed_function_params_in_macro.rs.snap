@@ -2,7 +2,7 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/renamed_function_params_in_macro.rs
 ---
-warning: `scaled!` names the `Scale::scale` parameter `factor` as `by`
+error: `scaled!` names the `Scale::scale` parameter `factor` as `by`
   --> tools/dylint/examples/renamed_function_params_in_macro.rs:33:15
    |
 33 |         scale(by) => u32::wrapping_mul;
@@ -17,9 +17,9 @@ note: expanded here
 35 | |     }
    | |_____^
    = help: rename `by` to `factor`
-   = note: `#[warn(renamed_function_params_in_macro)]` on by default
+   = note: `#[deny(renamed_function_params_in_macro)]` on by default
 
-warning: `u32::wrapping_mul` wraps on overflow
+error: `u32::wrapping_mul` wraps on overflow
   --> tools/dylint/examples/renamed_function_params_in_macro.rs:21:52
    |
 19 |   macro_rules! scaled {
@@ -34,9 +34,9 @@ warning: `u32::wrapping_mul` wraps on overflow
    | |_____- in this macro invocation
    |
    = help: call `checked_mul` and return its `None` as an error, or `saturating_mul` to clamp at the `u32` bounds
-   = note: `#[warn(wrapping_arithmetic)]` on by default
+   = note: `#[deny(wrapping_arithmetic)]` on by default
 
-warning: `offset!` names the `Scale::shift` parameter `offset` as `delta`
+error: `offset!` names the `Scale::shift` parameter `offset` as `delta`
   --> tools/dylint/examples/renamed_function_params_in_macro.rs:27:25
    |
 25 | macro_rules! offset {
@@ -54,7 +54,7 @@ note: expanded here
    |     ^^^^^^^^^
    = help: rename `delta` to `offset`
 
-warning: `u32::wrapping_mul` wraps on overflow
+error: `u32::wrapping_mul` wraps on overflow
   --> tools/dylint/examples/renamed_function_params_in_macro.rs:21:52
    |
 19 |   macro_rules! scaled {

@@ -1,0 +1,5 @@
+<Project>
+    <ItemGroup Label="Rhino Test Host">
+        <TestingPlatformBuilderHook Include="56362C46-767E-4E07-B9CD-A2E5CCBFE3C8" DisplayName="Rhino test host" TypeFullName="Rasm.Rhino.Testing.RhinoTestHost" />
+    </ItemGroup>
+</Project>

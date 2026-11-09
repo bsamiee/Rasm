@@ -8,6 +8,12 @@
         "resolved": "0.9.0-beta.4",
         "contentHash": "YTYfAB8r5VuAJLuQF/sgTy+iRVM5AW0vXyVWp+BRNqNBjddLZdxc1rBFa2E4EM92uSxa8FraDw6pRw4tf5/qwA=="
       },
+      "LanguageExt.Core": {
+        "type": "Direct",
+        "requested": "[5.0.0-beta-78, )",
+        "resolved": "5.0.0-beta-78",
+        "contentHash": "amBmQqt8sHehM1IVPZQuM1W/uFhQh3cTHkHCAk3pZzZ1nBZ48fs8nyh1URHRj5d3eIwNr8htKg3BcFD26KA9xw=="
+      },
       "Meziantou.Analyzer": {
         "type": "Direct",
         "requested": "[3.0.321, )",
@@ -203,7 +209,6 @@
       "rasm.rhino.testing": {
         "type": "Project",
         "dependencies": {
-          "LanguageExt.Core": "[5.0.0-beta-78, )",
           "Microsoft.Testing.Platform": "[2.5.2, )"
         }
       },
@@ -224,12 +229,6 @@
         "requested": "[2.5.3, )",
         "resolved": "2.5.3",
         "contentHash": "Ht3UqRCqizBPbB5pvQ/yCNZIChY6Cy5nLn7TKIlJzWnf4pbqGKqDO+AY6MDTD+fXgEzzMb64Qzl4/Hy7vEqfLA=="
-      },
-      "LanguageExt.Core": {
-        "type": "CentralTransitive",
-        "requested": "[5.0.0-beta-78, )",
-        "resolved": "5.0.0-beta-78",
-        "contentHash": "amBmQqt8sHehM1IVPZQuM1W/uFhQh3cTHkHCAk3pZzZ1nBZ48fs8nyh1URHRj5d3eIwNr8htKg3BcFD26KA9xw=="
       },
       "LanguageExt.Streaming": {
         "type": "CentralTransitive",

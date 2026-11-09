@@ -1,4 +1,3 @@
-
 use core::{cell::OnceCell, convert, iter, range::Range};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -492,8 +491,7 @@ fn projected<R>(message: &SubMessage<'_, R>, template: &GridDefinitionTemplate, 
             };
             let projection = Merc::new(&MercParams { ellipsoid: ellipsoid(earth_shape)?, lat_ts: f64::from(*lad) * ANGLE, lon_0: west.midpoint(east) }).map_err(Malformed::Projection)?;
             let [start, end] = [(west, *first_point_lat), (east, *last_point_lat)]
-                .try_map(|(longitude, latitude)| projection.project(&radians(longitude, f64::from(latitude) * ANGLE), false))
-                .map_err(Malformed::Projection)?;
+                .try_map(|(longitude, latitude)| projection.project(&radians(longitude, f64::from(latitude) * ANGLE), false).map_err(Malformed::Projection))?;
             let spacing = [(end.0 - start.0, ni), (end.1 - start.1, nj)].map(|(span, count)| span / nalgebra::convert::<usize, f64>(count.strict_sub(1)));
             (Box::new(projection), radians(west, f64::from(*first_point_lat) * ANGLE), spacing)
         }
@@ -514,10 +512,12 @@ fn projected<R>(message: &SubMessage<'_, R>, template: &GridDefinitionTemplate, 
             let (x, y) = forward(site)?;
             let rotation = relative
                 .then(|| {
-                    projection.project(&(x + dx.abs(), y), true).map(|(east, north)| Rotation2::rotation_between(&Vector2::x(), &Vector2::new((east - site.0).sin() * site.1.cos(), north - site.1)))
+                    projection
+                        .project(&(x + dx.abs(), y), true)
+                        .map(|(east, north)| Rotation2::rotation_between(&Vector2::x(), &Vector2::new((east - site.0).sin() * site.1.cos(), north - site.1)))
+                        .map_err(Malformed::Projection)
                 })
-                .transpose()
-                .map_err(Malformed::Projection)?;
+                .transpose()?;
             Ok(cell((y - origin.1) / dy, nj).zip(cell((x - origin.0) / dx, ni)).map(|((south, row_at), (west, column_at))| {
                 let (upper, right) = (south.strict_add(1), west.strict_add(1));
                 Cell { corners: [(south, west), (south, right), (upper, west), (upper, right)], axes: [[0.0, 1.0], [0.0, 1.0]], at: (row_at, column_at), rotation }

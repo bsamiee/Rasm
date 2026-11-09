@@ -2,16 +2,16 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/untyped_json_access.rs
 ---
-warning: `Value::get` reads `"name"` from an untyped JSON document
+error: `Value::get` reads `"name"` from an untyped JSON document
   --> tools/dylint/examples/untyped_json_access.rs:49:17
    |
 49 |     Ok(document.get("name").and_then(Value::as_str).map(str::to_owned))
    |                 ^^^^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
-   = note: `#[warn(untyped_json_access)]` on by default
+   = note: `#[deny(untyped_json_access)]` on by default
 
-warning: `Value::as_str` reads an untyped JSON document by variant
+error: `Value::as_str` reads an untyped JSON document by variant
   --> tools/dylint/examples/untyped_json_access.rs:49:38
    |
 49 |     Ok(document.get("name").and_then(Value::as_str).map(str::to_owned))
@@ -19,7 +19,7 @@ warning: `Value::as_str` reads an untyped JSON document by variant
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
-warning: `Value::as_u64` reads an untyped JSON document by variant
+error: `Value::as_u64` reads an untyped JSON document by variant
   --> tools/dylint/examples/untyped_json_access.rs:54:34
    |
 54 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
@@ -27,7 +27,7 @@ warning: `Value::as_u64` reads an untyped JSON document by variant
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
-warning: indexing reads `["size"]["bytes"]` from an untyped JSON document
+error: indexing reads `["size"]["bytes"]` from an untyped JSON document
   --> tools/dylint/examples/untyped_json_access.rs:54:8
    |
 54 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
@@ -35,7 +35,7 @@ warning: indexing reads `["size"]["bytes"]` from an untyped JSON document
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
-warning: `Map::get` reads `"name"` from an untyped JSON document
+error: `Map::get` reads `"name"` from an untyped JSON document
   --> tools/dylint/examples/untyped_json_access.rs:62:72
    |
 62 | fn object_name(object: &Map<String, Value>) -> Option<&Value> { object.get("name") }
@@ -43,7 +43,7 @@ warning: `Map::get` reads `"name"` from an untyped JSON document
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
-warning: `Map::get` reads `"name"` from an untyped JSON document
+error: `Map::get` reads `"name"` from an untyped JSON document
   --> tools/dylint/examples/untyped_json_access.rs:64:67
    |
 64 | fn constant_name(object: &Map<String, Value>) -> Option<&Value> { Map::get(object, NAME) }
@@ -51,7 +51,7 @@ warning: `Map::get` reads `"name"` from an untyped JSON document
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
-warning: `Value::pointer` reads `"/items/0"` from an untyped JSON document
+error: `Value::pointer` reads `"/items/0"` from an untyped JSON document
   --> tools/dylint/examples/untyped_json_access.rs:68:57
    |
 68 | fn first(document: &Value) -> Option<&Value> { document.pointer("/items/0") }
@@ -59,7 +59,7 @@ warning: `Value::pointer` reads `"/items/0"` from an untyped JSON document
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
-warning: `Value::String` pattern reads an untyped JSON document by variant
+error: `Value::String` pattern reads an untyped JSON document by variant
   --> tools/dylint/examples/untyped_json_access.rs:70:55
    |
 70 | fn textual(document: &Value) -> Option<&str> { if let Value::String(text) = document { Some(text) } else { None } }
@@ -67,7 +67,7 @@ warning: `Value::String` pattern reads an untyped JSON document by variant
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
-warning: `Value::as_str` reads an untyped JSON document by variant
+error: `Value::as_str` reads an untyped JSON document by variant
   --> tools/dylint/examples/untyped_json_access.rs:76:124
    |
 76 | ...str) -> Option<&'document str> { object.get(key).and_then(Value::as_str) }
@@ -75,7 +75,7 @@ warning: `Value::as_str` reads an untyped JSON document by variant
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
-warning: `Value::as_str` reads an untyped JSON document by variant
+error: `Value::as_str` reads an untyped JSON document by variant
   --> tools/dylint/examples/untyped_json_access.rs:78:164
    |
 78 | ...iter().copied().filter_map(|key| object.get(key).and_then(Value::as_str)).collect() }
@@ -83,7 +83,7 @@ warning: `Value::as_str` reads an untyped JSON document by variant
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
-warning: `Value::get` reads `"name"` from an untyped JSON document
+error: `Value::get` reads `"name"` from an untyped JSON document
    --> tools/dylint/examples/untyped_json_access.rs:102:14
     |
 102 |     document.get(key)
@@ -91,7 +91,7 @@ warning: `Value::get` reads `"name"` from an untyped JSON document
     |
     = help: decode the document into a struct deriving `serde::Deserialize`
 
-warning: `transformed` has one reader, `indirect_key`
+error: `transformed` has one reader, `indirect_key`
    --> tools/dylint/examples/untyped_json_access.rs:137:1
     |
 137 | fn transformed(key: &str) -> String { format!("prefix-{key}") }
@@ -103,4 +103,4 @@ note: read here
 139 | fn indirect_key(document: &Value) -> Option<&Value> { document.get(transformed("name")) }
     |                                                                    ^^^^^^^^^^^
     = help: move `transformed` into `indirect_key` as a closure
-    = note: `#[warn(single_reader)]` on by default
+    = note: `#[deny(single_reader)]` on by default

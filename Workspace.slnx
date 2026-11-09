@@ -1,0 +1,52 @@
+<Solution>
+    <Folder Name="/apps/" />
+    <Folder Name="/apps/nx/" />
+    <Folder Name="/apps/nx/dotnet/" />
+    <Folder Name="/apps/nx/dotnet/analyzer/">
+        <Project Path="apps/nx/dotnet/analyzer/MsbuildAnalyzer.csproj" />
+    </Folder>
+    <Folder Name="/apps/rhino/">
+        <Project Path="apps/rhino/Arches/Arches.csproj" />
+        <Project Path="apps/rhino/Darkroom/Darkroom.csproj" />
+    </Folder>
+    <Folder Name="/apps/roslyn/">
+        <Project Path="apps/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
+        <Project Path="apps/roslyn/Rasm.Analyzers.Diagnostics/Rasm.Analyzers.Diagnostics.csproj" />
+        <Project Path="apps/roslyn/Rasm.Analyzers.Package/Rasm.Analyzers.Package.csproj" />
+        <Project Path="apps/roslyn/Rasm.Rhino.Generators/Rasm.Rhino.Generators.csproj" />
+    </Folder>
+    <Folder Name="/libs/" />
+    <Folder Name="/libs/dotnet/" />
+    <Folder Name="/libs/dotnet/drawing/">
+        <Project Path="libs/dotnet/drawing/Rasm.Drafting/Rasm.Drafting.csproj" />
+    </Folder>
+    <Folder Name="/libs/dotnet/geometry/">
+        <Project Path="libs/dotnet/geometry/Rasm.Geometry/Rasm.Geometry.csproj" />
+    </Folder>
+    <Folder Name="/libs/dotnet/graphics/">
+        <Project Path="libs/dotnet/graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
+    </Folder>
+    <Folder Name="/libs/dotnet/rhino/">
+        <Project Path="libs/dotnet/rhino/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Modeling/Rasm.Rhino.Modeling.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Rui/Rasm.Rhino.Rui.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
+    </Folder>
+    <Folder Name="/libs/dotnet/ui/">
+        <Project Path="libs/dotnet/ui/Rasm.UI.Eto/Rasm.UI.Eto.csproj" />
+        <Project Path="libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
+    </Folder>
+    <Folder Name="/tests/" />
+    <Folder Name="/tests/dotnet/" />
+    <Folder Name="/tests/dotnet/apps/" />
+    <Folder Name="/tests/dotnet/apps/roslyn/">
+        <Project Path="tests/dotnet/apps/roslyn/Rasm.Analyzers.Tests/Rasm.Analyzers.Tests.csproj" />
+    </Folder>
+    <Folder Name="/tests/dotnet/libs/" />
+    <Folder Name="/tests/dotnet/libs/rhino/">
+        <Project Path="tests/dotnet/libs/rhino/Rasm.Rhino.Tests/Rasm.Rhino.Tests.csproj" />
+    </Folder>
+    <Folder Name="/tests/dotnet/support/">
+        <Project Path="tests/dotnet/support/Rasm.Rhino.Testing/Rasm.Rhino.Testing.csproj" />
+    </Folder>
+</Solution>

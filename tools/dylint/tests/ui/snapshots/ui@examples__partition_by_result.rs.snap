@@ -2,16 +2,16 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/partition_by_result.rs
 ---
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:29:84
    |
 29 | fn named(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(passed) }
    |                                                                                    ^^^^^^^^^^^^^^^^^
    |
    = help: call `Itertools::partition_result` and delete the unwraps after it
-   = note: `#[warn(partition_by_result)]` on by default
+   = note: `#[deny(partition_by_result)]` on by default
 
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:31:85
    |
 31 | fn pathed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(Result::is_err) }
@@ -19,7 +19,7 @@ warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
    |
    = help: call `Itertools::partition_result`, swap the halves, and delete the unwraps after it
 
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:33:85
    |
 33 | fn closed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| result.is_ok()) }
@@ -27,7 +27,7 @@ warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
    |
    = help: call `Itertools::partition_result` and delete the unwraps after it
 
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:35:86
    |
 35 | fn negated(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| !result.as_ref().is_err()) }
@@ -35,7 +35,7 @@ warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
    |
    = help: call `Itertools::partition_result` and delete the unwraps after it
 
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:37:85
    |
 37 | fn called(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| Result::is_ok(result)) }
@@ -43,7 +43,7 @@ warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
    |
    = help: call `Itertools::partition_result` and delete the unwraps after it
 
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:39:68
    |
 39 | fn qualified(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { Iterator::partition(results.into_iter(), Result::is_ok) }
@@ -51,7 +51,7 @@ warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
    |
    = help: call `Itertools::partition_result` and delete the unwraps after it
 
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:41:82
    |
 41 | fn borrowed(results: &[Parsed]) -> (Vec<&Parsed>, Vec<&Parsed>) { results.iter().partition(|result| result.is_ok()) }
@@ -59,7 +59,7 @@ warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
    |
    = help: call `Itertools::partition_result` after mapping each borrowed result with `Result::as_ref` and delete the unwraps after it
 
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:45:86
    |
 45 | fn matched(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| matches!(result, Ok(_))) }
@@ -67,7 +67,7 @@ warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
    |
    = help: call `Itertools::partition_result` and delete the unwraps after it
 
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:47:91
    |
 47 | fn dereferenced(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| (*result).is_err()) }
@@ -75,7 +75,7 @@ warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
    |
    = help: call `Itertools::partition_result`, swap the halves, and delete the unwraps after it
 
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:49:148
    |
 49 | ...t<u8, TryFromIntError>>) { results.into_iter().partition(|&result| result.is_ok()) }
@@ -83,7 +83,7 @@ warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
    |
    = help: call `Itertools::partition_result` and delete the unwraps after it
 
-warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
   --> tools/dylint/examples/partition_by_result.rs:52:25
    |
 52 |       results.into_iter().partition(|result| match result {
@@ -95,7 +95,7 @@ warning: `partition` leaves each half of the results wrapped in `Ok` or `Err`
    |
    = help: call `Itertools::partition_result` and delete the unwraps after it
 
-warning: `passed` has one reader, `named`
+error: `passed` has one reader, `named`
   --> tools/dylint/examples/partition_by_result.rs:23:1
    |
 23 | const fn passed(result: &Parsed) -> bool { result.is_ok() }
@@ -107,9 +107,9 @@ note: read here
 29 | fn named(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(passed) }
    |                                                                                              ^^^^^^
    = help: move `passed` into `named` as a nested `fn`
-   = note: `#[warn(single_reader)]` on by default
+   = note: `#[deny(single_reader)]` on by default
 
-warning: `small` has one reader, `ranked`
+error: `small` has one reader, `ranked`
   --> tools/dylint/examples/partition_by_result.rs:27:1
    |
 27 | fn small(result: &Parsed) -> bool { result.is_small() }
@@ -122,7 +122,7 @@ note: read here
    |                                                                                               ^^^^^
    = help: move `small` into `ranked` as a closure
 
-warning: `large` has one reader, `sized`
+error: `large` has one reader, `sized`
   --> tools/dylint/examples/partition_by_result.rs:25:1
    |
 25 | const fn large(value: &u8) -> bool { *value > 9 }
@@ -135,11 +135,11 @@ note: read here
    |                                                                                ^^^^^
    = help: move `large` into `sized` as a nested `fn`
 
-warning: trait `Small` is implemented only for `Result<u8, ParseIntError>`
+error: trait `Small` is implemented only for `Result<u8, ParseIntError>`
   --> tools/dylint/examples/partition_by_result.rs:13:1
    |
 13 | trait Small {
    | ^^^^^^^^^^^
    |
    = help: replace `Small` with functions and constants for `Result<u8, ParseIntError>`
-   = note: `#[warn(single_impl_trait)]` on by default
+   = note: `#[deny(single_impl_trait)]` on by default

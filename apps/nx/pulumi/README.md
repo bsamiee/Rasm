@@ -21,7 +21,7 @@ const stacks: Stacks = (request) => [{ projectName: 'hosting', stackName: `${req
 export { stacks };
 ```
 
-`stacks` receives one `StackRequest` case and returns Pulumi's `InlineProgramArgs`, each optionally with `LocalWorkspaceOptions` fields (`projectSettings` with its backend, `stackSettings`, `secretsProvider`, `envVars`):
+`stacks` receives one `StackRequest` case and returns a promise of Pulumi's `InlineProgramArgs`, each optionally with `LocalWorkspaceOptions` fields (`projectSettings` with its backend, `stackSettings`, `secretsProvider`, `envVars`):
 
 | [INDEX] | [CASE]    | [FIELDS]             | [SENT_BY]                            |
 | :-----: | :-------- | :------------------- | :----------------------------------- |
@@ -42,7 +42,7 @@ export { stacks };
 - Packages depending on `@pulumi/pulumi` alone (component libraries) take no target
 - Nx's own package graph adds the edge from each hosted project to its program package, so `^install` reaches the program package's `install`
 - Target descriptions come from `executors.json`
-- Manifests that do not parse fail by name and keep every other project
+- Manifests that do not parse state no dependency to the plugin, so a broken fixture manifest outside the package workspaces fails no `nx` command
 
 ## [03]-[TARGETS]
 
@@ -53,6 +53,10 @@ export { stacks };
 |  [03]   | `nx-release-publish` | `Stack.up` with refresh, `Stack.preview` under a dry run  | `^nx-release-publish` |   No    |
 
 - Stacks run in their own temporary work folder unless their options name a `workDir`, so no `Pulumi.yaml` lands in the tree
+- Named `workDir` folders holding `Pulumi.yaml` and `Pulumi.<stack>.yaml` supply the settings `projectSettings` and `stackSettings` leave out
+- `pulumi config set` in such a folder persists
+- Secrets reach stacks through the environment the task inherits, `envVars`, or stack configuration, and the runner names no secret store
+- Interrupted tasks need no handler: Nx signals the whole process tree, and Pulumi cancels the update on its first `SIGINT` or `SIGTERM`
 - Selected stacks run concurrently in one process, each printing one JSON line: `project`, `stack`, and `changes` with non-secret `outputs`, `missing`, or `error`
 - `missing` marks a stack a preview or destroy found absent
 - Program packages failing to load or to state their stacks print the error to stderr while other programs' stacks run on

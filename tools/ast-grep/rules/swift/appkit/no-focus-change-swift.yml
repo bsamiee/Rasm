@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: swiftlang
 severity: error
-files: ['libs/**', 'tools/**', 'plugins/**', 'apps/creative-cloud/**', '.claude/**', '.codex/**']
+files: ['libs/**', 'apps/macos/watch-apps/**', 'plugins/**', 'apps/creative-cloud/**', '.claude/**', '.codex/**']
 rule:
     any:
         - kind: call_expression

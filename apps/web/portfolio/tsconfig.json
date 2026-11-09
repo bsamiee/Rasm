@@ -1,5 +1,9 @@
 {
-    "extends": "../../../.config/tsconfig.web.json",
+    "extends": "../../../tsconfig.web.json",
+    "compilerOptions": {
+        "declaration": false,
+        "noEmit": true
+    },
     "files": [ ".cloudflare/types/index.d.ts" ],
     "include": [ "**/*", ".storybook/*" ]
 }

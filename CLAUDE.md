@@ -1,6 +1,6 @@
 # [MONOREPO_STANDARDS]
 
-@TODO2.md
+@README.md
 
 - Commits and pushes happen on user request alone
 - Create or run tests only when the user requests them

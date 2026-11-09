@@ -8,12 +8,6 @@
         "resolved": "0.9.0-beta.4",
         "contentHash": "YTYfAB8r5VuAJLuQF/sgTy+iRVM5AW0vXyVWp+BRNqNBjddLZdxc1rBFa2E4EM92uSxa8FraDw6pRw4tf5/qwA=="
       },
-      "LanguageExt.Core": {
-        "type": "Direct",
-        "requested": "[5.0.0-beta-78, )",
-        "resolved": "5.0.0-beta-78",
-        "contentHash": "amBmQqt8sHehM1IVPZQuM1W/uFhQh3cTHkHCAk3pZzZ1nBZ48fs8nyh1URHRj5d3eIwNr8htKg3BcFD26KA9xw=="
-      },
       "Meziantou.Analyzer": {
         "type": "Direct",
         "requested": "[3.0.321, )",

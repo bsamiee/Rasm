@@ -1,7 +1,14 @@
 {
     "name": "@rasm/applications",
+    "version": "0.0.0",
     "private": true,
     "description": "Mac application server wire contract, the Node client of that server, and the build of a Node helper a Mac application embeds",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/macos/applications"
+    },
+    "license": "MIT",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -12,6 +19,7 @@
         "./node": "./node.ts",
         "./vite": "./vite.ts"
     },
+    "files": [ "dist" ],
     "dependencies": {
         "@rasm/search": "workspace:*",
         "plist": "catalog:"
@@ -28,6 +36,17 @@
     "peerDependenciesMeta": {
         "vite": {
             "optional": true
+        }
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js",
+            "./node": "./dist/node.js",
+            "./vite": "./dist/vite.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
         }
     }
 }

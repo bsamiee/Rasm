@@ -750,16 +750,15 @@ redundant_imports             = "deny"                                          
 redundant_lifetimes           = "deny"                                                             # Lifetime parameters that bounds make equal to another named lifetime
 rust_2018_idioms              = { level = "deny", priority = -1 }                                  # Hidden path lifetimes, inferable outlives bounds, and unused `extern crate` items
 single_use_lifetimes          = "deny"                                                             # Named lifetimes used once, `'_` states lifetime no second position shares
-unconditional_panic           = "forbid"                                                           # Operations rustc proves will panic
 unexpected_cfgs               = { level = "deny", check-cfg = ["cfg(dylint_lib, values(any()))"] } # `cfg` names and values no build states, Dylint's `dylint_lib` declared as its documented `cfg_attr` key
-unfulfilled_lint_expectations = "deny"                                                             # `#[expect]` whose lint no longer fires, a stale exception fails in place of warning
 unnameable_types              = "deny"                                                             # Types and traits public signatures expose but consumers cannot name
 unreachable_pub               = "deny"                                                             # `pub` items unreachable from the crate root, visibility states the reach consumers have
 unsafe_code                   = "deny"                                                             # Unsafe code and unsafe attributes, each exception an `#[expect]` on its narrowest item stating its safety argument
 unused_import_braces          = "deny"                                                             # `use a::{b}` braces around one import, code keeps the direct form
 unused_lifetimes              = "deny"                                                             # Lifetime parameters nothing reads, removals delete every mention
 unused_macro_rules            = "deny"                                                             # `macro_rules!` rules nothing invokes, removals delete every mention
-unused_qualifications         = "deny"                                                             # Qualified paths to names in scope, code calls owning APIs directly
+unused_qualifications         = "deny"
+warnings                      = { level = "deny", priority = -1 }                                  # Every lint rustc reports at warn by default, no finding passes as a warning                                                             # Qualified paths to names in scope, code calls owning APIs directly
 
 # --- [GROUPS]
 
@@ -771,16 +770,15 @@ pedantic = { level = "deny", priority = -1 } # Strict lints with occasional fals
 
 # --- [PARTIALITY]
 
-exit                   = "deny"   # `process::exit` outside `main`, boundary translates results into exit codes
-expect_used            = "deny"   # `expect` on `Option` and `Result`, consumers compose without unwrapping
-infinite_loop          = "deny"   # Endless loops in functions not returning `!`, signatures state divergence
-missing_assert_message = "deny"   # Assertions without message, each failure in a test or `const` block names its broken invariant
-out_of_bounds_indexing = "forbid" # Constant array indices and ranges Clippy proves exceed their bounds
-panic                  = "deny"   # `panic!` calls, expected failures use the result type
-todo                   = "deny"   # `todo!` placeholders, work runs to completion
-unimplemented          = "deny"   # `unimplemented!` placeholders, work runs to completion
-unreachable            = "deny"   # `unreachable!` calls, invalid states stay unrepresentable at construction
-unwrap_used            = "deny"   # `unwrap` on `Option` and `Result`, consumers compose without unwrapping
+exit                   = "deny" # `process::exit` outside `main`, boundary translates results into exit codes
+expect_used            = "deny" # `expect` on `Option` and `Result`, consumers compose without unwrapping
+infinite_loop          = "deny" # Endless loops in functions not returning `!`, signatures state divergence
+missing_assert_message = "deny" # Assertions without message, each failure in a test or `const` block names its broken invariant
+panic                  = "deny" # `panic!` calls, expected failures use the result type
+todo                   = "deny" # `todo!` placeholders, work runs to completion
+unimplemented          = "deny" # `unimplemented!` placeholders, work runs to completion
+unreachable            = "deny" # `unreachable!` calls, invalid states stay unrepresentable at construction
+unwrap_used            = "deny" # `unwrap` on `Option` and `Result`, consumers compose without unwrapping
 
 # --- [OUTPUT]
 

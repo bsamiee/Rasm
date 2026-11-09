@@ -30,7 +30,7 @@ internal sealed record Node(
     ImmutableArray<string> Bases,
     ImmutableArray<Package> Packages,
     string Restored,
-    string? Results,
+    ImmutableArray<string> Results,
     Tracking? Releases);
 
 internal sealed record Failure(string File, string Message);
@@ -116,7 +116,14 @@ internal static class Workspace {
                     .DistinctBy(static dependency => (dependency.Id, dependency.ResolvedVersion))
                     .Select(static dependency => new Package(dependency.Id, dependency.ResolvedVersion.ToNormalizedString(), dependency.ContentHash, dependency.Type is PackageDependencyType.Direct, [.. dependency.Dependencies.Select(static held => held.Id)]))],
                 Relative(root, Path.GetFullPath(Path.Combine(folder, outer.GetPropertyValue("MSBuildProjectExtensionsPath"), $"{outer.GetPropertyValue("MSBuildProjectFile")}.nuget.g.props"))),
-                Flag(outer, "UseArtifactsOutput") ? Relative(root, Path.Combine(outer.GetPropertyValue("ArtifactsPath"), "test", outer.GetPropertyValue("ArtifactsProjectName"))) : null,
+                [.. (Flag(outer, "UseArtifactsOutput")
+                    ? Seq(Path.Combine(outer.GetPropertyValue("ArtifactsPath"), "test", outer.GetPropertyValue("ArtifactsProjectName")))
+                    : instances.Exists(static instance => Flag(instance, "IsTestingPlatformApplication"))
+                        ? instances.Map(static instance => instance.GetPropertyValue("TargetDir")).Filter(static target => target.Length > 0).Map(static target => Path.Combine(target, "TestResults"))
+                        : Seq(Path.Combine(folder, "TestResults")))
+                    .Map(results => Relative(root, results))
+                    .Distinct()
+                    .Order(StringComparer.Ordinal)],
                 Tracked(root, instances)),
             Seq(file.Replace('\\', '/')) + inside + walked);
     }

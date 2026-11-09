@@ -56,6 +56,14 @@ enum Reason {
 }
 
 #[derive(Debug, thiserror::Error)]
+enum Bracket {
+    #[error("unbracketed between {lower} and {upper}")]
+    Unbracketed { lower: u32, upper: u32 },
+    #[error("empty")]
+    Empty,
+}
+
+#[derive(Debug, thiserror::Error)]
 enum Refusal {
     #[error("reserved")]
     Reserved,
@@ -149,6 +157,14 @@ fn worked(texts: &[&str]) -> u32 {
     match parse(texts[1]) {
         Ok(value) => derived.strict_add(value).strict_add(u32::from(held.is_some())),
         Err(error) => reported(&error),
+    }
+}
+
+fn bracketed(found: Result<u32, Bracket>) -> Result<Option<u32>, Bracket> {
+    match found {
+        Ok(value) => Ok(Some(value)),
+        Err(Bracket::Unbracketed { .. }) => Ok(None),
+        Err(error @ Bracket::Empty) => Err(error),
     }
 }
 
@@ -393,6 +409,7 @@ fn main() {
     black_box(&(single(&[16]), single_viewed(&[16]), single_batch(&[vec![16]]), locked(&Mutex::new(17)), worked(&["18", "19"]), PARSED, asserted("23")));
     black_box(&(rejected(Record::default()), rejected_absence(Record::default()), Record { closed: true }.step().map_err(|error| error.value)));
     black_box(&(partial(25), partial_mapped(26), conversion_outcomes(27)));
+    black_box(&(bracketed(Err(Bracket::Unbracketed { lower: 1, upper: 2 })), bracketed(Err(Bracket::Empty))));
     black_box(&(native_saturation(-28), opaque_saturation(|| u8::try_from(29_i64)), reversed_saturation(-30)));
     black_box(&(local_singleton(Err(Refusal::Reserved)), foreign_singleton(Err(SingleError)), singleton_items([Ok(31), Err(Refusal::Reserved)]), singleton_translation(Err(Refusal::Reserved))));
     black_box(&(open_error(Err(OpenError::default())), dropped_error(Err(DroppedError)), multiple_causes(Err(Reason::Closed)), singleton_outcomes(|| Err(SingleError))));

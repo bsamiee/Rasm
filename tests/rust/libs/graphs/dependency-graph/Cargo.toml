@@ -6,15 +6,18 @@ edition.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
-[lib]
-path    = "lib.rs"
-test    = false
-doctest = false
-bench   = false
+[[test]]
+name = "dependency-graph"
+path = "dependency-graph.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dev-dependencies]
+claims                = { workspace = true }
+enum-map              = { workspace = true }
+itertools             = { workspace = true }
+nonempty-collections  = { workspace = true }
+petgraph              = { workspace = true }
 rasm-dependency-graph = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------

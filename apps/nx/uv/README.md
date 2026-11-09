@@ -48,7 +48,8 @@
 |  [08]   | `nx-release-publish` | `uv publish <build--uv output>/*`                          | Released member (`[04]-[RELEASE]`)        |   No    |
 |  [09]   | `<verb>`             | `nx:noop` over `<verb>--*`                                 | Any `<verb>--*` target                    |   No    |
 
-- Checkers and `test` run as `uv run --locked --package <member> --group <group>`, the group holding the tool, so its stubs and plugins install too
+- Checkers and `test` run as `uv run --locked --package <member> --group <group>`, the group listing the tool, so its stubs and plugins install too
+- `test` adds `--isolated`, so each run holds the member's locked closure and the group alone, and an undeclared import fails
 - Tools only the member's own dependencies hold run without `--group`
 - Targets exist only where their tool is locked in reach of the member, so a checker a workspace never locks gets none
 - `--locked` fails a task on a stale lock with uv's own message, and never writes `uv.lock`

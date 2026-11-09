@@ -25,7 +25,7 @@ Verdicts rest on the file whole, each consumer, and the checks at base, one draf
 | :-----: | :------------- | :---------------------------------------------------------------------------------------------------------------------- |
 |  [01]   | Base and tree  | `git log -5 --stat`, `git status --short`, base is the named or last clean commit, the live tree is the subject         |
 |  [02]   | Standards      | `CLAUDE.md` standards, the language skill and its workflow companion, memory entries, cited research sheets             |
-|  [03]   | Checks at base | Every owner `languages.js` lists (`nx run <project>:check`, `nx run rasm:lint:<tool> -- <paths>`), before an edit       |
+|  [03]   | Checks at base | Every owner `languages.js` lists (`nx run <project>:check`, `hk check <paths>`), before an edit       |
 |  [04]   | Rules and rows | Rule folders, utils, lint rows, and the `tools/` lint list of the language, before a stronger form is proposed          |
 |  [05]   | File           | `ast-grep outline <path>` to choose, each file whole, consumers by `--items exports`, `rg -F '<name>'`, `ast-grep run`  |
 |  [06]   | Diff           | `GIT_EXTERNAL_DIFF=difft git diff <base> -- <paths>` for reshaped against moved code, `git diff --numstat <base>`       |
@@ -74,7 +74,7 @@ Each fact a review settles has one owner, read before a verdict states it and ed
 | :-----: | :--------------------------------------------------- | :-------------------------------------------------------------------------------- |
 |  [01]   | Level, option, threshold, or ban of an included rule | Checker configuration `languages.js` names, its ban rows included                 |
 |  [02]   | Form syntax decides alone, in any parsed language    | `tools/ast-grep/rules/<language>`, a capture in `utils/<language>`, outline row   |
-|  [03]   | Form resolved names, types, or attributes decide     | `tools/dylint`, `apps/roslyn`, `tools/refurb`, a `.config/tsconfig.base.json` row        |
+|  [03]   | Form resolved names, types, or attributes decide     | `tools/dylint`, `apps/roslyn`, `tools/refurb`, a `tsconfig.base.json` row        |
 |  [04]   | Fact a checker computes from a grammar or engine     | That checker's code under `tools/`, consumers rebuilt to its finding              |
 |  [05]   | Fact no checker decides soundly for every instance   | Language skill section whose heading covers it, else the family skill covering it |
 |  [06]   | Placement, target, entry point, or catalog feature   | `manage-repo` and its references, the catalog or manifest row                     |
@@ -142,4 +142,4 @@ Facts a change settled leave it as principles and checks, mined after the verdic
 9. Scratch files are deleted after their scan, zero findings alone prove nothing
 10. Adversary and prose passes of `[04]` read the modified lines alone
 
-Reviews are finished when every wrong, naive, and shuffle hunk is rebuilt or reverted in place, each principle sits at its owner and each check is proved, `hk fix <paths>` ran over edited paths, and `nx run <project>:check` of each edited and consumer project (`nx run rasm:lint:<tool> -- <paths>` for a root checker, `prose.py check` for guidance) passes with zero findings. Results state verdicts per hunk with their principle, counts and timings before and after, principles with owner file and section, checks with id and hits, mistakes with the step catching each earlier, and `Unverified:` claims with the command settling them.
+Reviews are finished when every wrong, naive, and shuffle hunk is rebuilt or reverted in place, each principle sits at its owner and each check is proved, `hk fix <paths>` ran over edited paths, and `nx run <project>:check` of each edited and consumer project (`hk check <paths>` for a file-level checker, `prose.py check` for guidance) passes with zero findings. Results state verdicts per hunk with their principle, counts and timings before and after, principles with owner file and section, checks with id and hits, mistakes with the step catching each earlier, and `Unverified:` claims with the command settling them.

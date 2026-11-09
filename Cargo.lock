@@ -324,6 +324,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "approx"
+version = "0.6.0-rc2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94fbdd65cc59dcc820bfb0fd01315963d4f9898bf3399a47134c9836698c47df"
+dependencies = [
+ "approx-derive",
+ "num-traits",
+ "paste",
+]
+
+[[package]]
+name = "approx-derive"
+version = "0.6.0-rc2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cd3b2c059ab6844ce55767dcf05f9103354b8bb96e783d34e350c2f58161de3"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "ar_archive_writer"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1675,6 +1698,12 @@ dependencies = [
  "serde",
  "serde_path_to_error",
 ]
+
+[[package]]
+name = "claims"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bba18ee93d577a8428902687bcc2b6b45a56b1981a1f6d779731c86cc4c5db18"
 
 [[package]]
 name = "clang-sys"
@@ -4145,6 +4174,12 @@ name = "futures-task"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd417de3d1d015fc3bfd2b1ea46dfc7bab72ef86f1cc7cc9c78e728b34a6d1fd"
+
+[[package]]
+name = "futures-timer"
+version = "3.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af43fadb8a98512d547e37b4e92e0ced13e205c061b87b4623eff01d918d6968"
 
 [[package]]
 name = "futures-util"
@@ -9939,6 +9974,11 @@ dependencies = [
 name = "rasm-dependency-graph-tests"
 version = "0.0.0"
 dependencies = [
+ "claims",
+ "enum-map",
+ "itertools 0.15.0",
+ "nonempty-collections",
+ "petgraph",
  "rasm-dependency-graph",
 ]
 
@@ -10401,7 +10441,12 @@ dependencies = [
 name = "rasm-numerical-analysis-tests"
 version = "0.0.0"
 dependencies = [
+ "approx 0.6.0-rc2",
+ "claims",
+ "nalgebra",
+ "nonempty-collections",
  "rasm-numerical-analysis",
+ "rasm-stats",
 ]
 
 [[package]]
@@ -10670,7 +10715,15 @@ dependencies = [
 name = "rasm-solar-geometry-tests"
 version = "0.0.0"
 dependencies = [
+ "approx 0.6.0-rc2",
+ "claims",
+ "jiff",
+ "nalgebra",
+ "rasm-site",
  "rasm-solar-geometry",
+ "rstest",
+ "solar-positioning",
+ "uom",
 ]
 
 [[package]]
@@ -11248,6 +11301,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "relative-path"
+version = "1.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
+
+[[package]]
 name = "reqwest"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11556,6 +11615,35 @@ dependencies = [
  "num-traits",
  "ordered-float",
  "smallvec 1.16.5",
+]
+
+[[package]]
+name = "rstest"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b376e512f30a7686a8dbc6aeaace99b3ade1c26c1c63473473a817ade226dafc"
+dependencies = [
+ "futures-timer",
+ "futures-util",
+ "rstest_macros",
+]
+
+[[package]]
+name = "rstest_macros"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88512dbfb5b73a0dfa38aef7bc73b5657035fce477b923faf12d332dd83051ea"
+dependencies = [
+ "cfg-if",
+ "glob",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "relative-path",
+ "rustc_version",
+ "syn 2.0.119",
+ "unicode-ident",
 ]
 
 [[package]]

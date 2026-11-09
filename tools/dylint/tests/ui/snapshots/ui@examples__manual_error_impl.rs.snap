@@ -2,16 +2,16 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_error_impl.rs
 ---
-warning: `Manual` implements `core::error::Error` by hand
+error: `Manual` implements `core::error::Error` by hand
   --> tools/dylint/examples/manual_error_impl.rs:32:1
    |
 32 | impl Error for Manual {}
    | ^^^^^^^^^^^^^^^^^^^^^
    |
    = help: derive `derive_more::Error`
-   = note: `#[warn(manual_error_impl)]` on by default
+   = note: `#[deny(manual_error_impl)]` on by default
 
-warning: `Sourced<E>` implements `core::error::Error` by hand
+error: `Sourced<E>` implements `core::error::Error` by hand
   --> tools/dylint/examples/manual_error_impl.rs:38:1
    |
 38 | impl<E: Error + 'static> Error for Sourced<E> {
@@ -19,7 +19,7 @@ warning: `Sourced<E>` implements `core::error::Error` by hand
    |
    = help: derive `derive_more::Error` with `#[error(ignore)]` and mark field `0` `#[error(source, not(backtrace))]`
 
-warning: `Hidden` implements `core::error::Error` by hand
+error: `Hidden` implements `core::error::Error` by hand
   --> tools/dylint/examples/manual_error_impl.rs:81:1
    |
 81 | impl Error for Hidden {}
