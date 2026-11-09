@@ -6,7 +6,7 @@
         "BASH_DEFAULT_TIMEOUT_MS": "300000"
     },
     "permissions": {
-        "deny": [ "mcp__rhino-mcp-platform__run_python", "mcp__rhino-mcp-platform__g1_*", "mcp__blender__*_for_cli" ]
+        "deny": [ "mcp__rhino-mcp-platform__run_python", "mcp__rhino-mcp-platform__g1_*", "mcp__blender__*_for_cli", "mcp__binlog__stop", "mcp__binlog__stop_instance" ]
     },
     "enableAllProjectMcpServers": true,
     "disabledMcpjsonServers": [ "greptile", "arena" ],

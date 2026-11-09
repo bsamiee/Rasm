@@ -30,10 +30,7 @@ pub struct Reduction {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Cloud<'points> {
     Plain(&'points [Point3<f64>]),
-    Colored {
-        points: &'points [(Point3<f64>, [f32; 3])],
-        color_weight: f32,
-    },
+    Colored { points: &'points [(Point3<f64>, [f32; 3])], color_weight: f32 },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -1,4 +1,3 @@
-
 use core::iter;
 
 use kurbo::{Affine, BezPath, Line, PathSeg, Point, QuadSpline, Shape as _};

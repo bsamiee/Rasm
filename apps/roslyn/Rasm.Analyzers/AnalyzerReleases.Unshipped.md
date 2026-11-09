@@ -1,0 +1,52 @@
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|------
+RASM1001 | LanguageExt | Error | ResultLiftAnalyzer
+RASM1003 | LanguageExt | Error | ErrorTypeTestAnalyzer
+RASM1004 | LanguageExt | Error | ValidationRoundTripAnalyzer
+RASM1005 | LanguageExt | Error | SeqSpreadAnalyzer
+RASM1007 | LanguageExt | Error | RedundantNarrowingAnalyzer
+RASM1008 | LanguageExt | Error | OptionHandlerAnalyzer
+RASM1009 | LanguageExt | Error | OptionHandlerAnalyzer
+RASM1010 | LanguageExt | Error | RecordLensAnalyzer
+RASM1011 | LanguageExt | Error | LiftedContinuationAnalyzer
+RASM1012 | LanguageExt | Error | MapFlattenAnalyzer
+RASM1013 | LanguageExt | Error | CatchPredicateAnalyzer
+RASM1014 | LanguageExt | Error | HandPairedExclusionAnalyzer
+RASM1101 | Thinktecture | Error | CatchAllArmAnalyzer
+RASM1102 | Thinktecture | Error | DefaultValidationErrorAnalyzer
+RASM1103 | Thinktecture | Error | ValidationMessageAnalyzer
+RASM1104 | Thinktecture | Error | ThrowingFactoryAnalyzer
+RASM1105 | Thinktecture | Error | DataFreeSmartEnumAnalyzer
+RASM1106 | Thinktecture | Error | HostPickingUnionAnalyzer
+RASM1202 | Microsoft.Extensions.Logging | Error | HandWrittenLogAnalyzer
+RASM1203 | Microsoft.Extensions.Logging | Error | DoubleReportAnalyzer
+RASM1204 | Microsoft.Extensions.Logging | Error | StaticSinkAnalyzer
+RASM1205 | Microsoft.Extensions.Logging | Error | LoggerCategoryAnalyzer
+RASM1206 | Microsoft.Extensions.Logging | Error | StaticSinkAnalyzer
+RASM3001 | CSharp | Error | SingleReaderAnalyzer
+RASM3002 | CSharp | Error | CatchAllArmAnalyzer
+RASM3003 | CSharp | Error | DiscardedAwaitableAnalyzer
+RASM3004 | CSharp | Error | CatchAllArmAnalyzer
+RASM3005 | CSharp | Error | NamespaceOwnerAnalyzer
+RASM3006 | CSharp | Error | NamespaceOwnerAnalyzer
+RASM3007 | CSharp | Error | TypeParameterTestAnalyzer
+RASM3008 | CSharp | Error | FolderNameAnalyzer
+RASM3009 | CSharp | Error | QualifiedNameAnalyzer
+RASM3010 | CSharp | Error | QualifiedNameAnalyzer
+RASM3011 | CSharp | Error | RestatedInstanceAnalyzer
+RASM3012 | CSharp | Error | ForwardingPropertyAnalyzer
+RASM3013 | CSharp | Error | ValueFactoryOverloadAnalyzer
+RASM3101 | CSharp | Error | TypeNameTextAnalyzer
+RASM3102 | CSharp | Error | SentinelAnalyzer
+RASM3104 | CSharp | Error | CapturedWriteAnalyzer
+RASM3105 | CSharp | Error | NullForgivingAnalyzer
+RASM3106 | CSharp | Error | AmbientClockAnalyzer
+RASM3107 | CSharp | Error | AmbientClockAnalyzer
+RASM3108 | CSharp | Error | RuntimeBindingAnalyzer
+RASM3109 | CSharp | Error | PlaceholderValueAnalyzer
+RASM3110 | CSharp | Error | TrySiblingAnalyzer
+RASM3111 | CSharp | Error | PlatformMemberAnalyzer
+RASM3112 | CSharp | Error | PlatformMemberAnalyzer
+RASM3113 | CSharp | Error | PlatformMemberAnalyzer

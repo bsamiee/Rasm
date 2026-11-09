@@ -12,18 +12,17 @@ use uom::si::{
     f64::{Angle, Length},
     length::meter,
 };
-use uuid::Uuid;
 use validated::Validated;
 use xot::Node;
 
 use crate::{
-    ASPECT_RATIO, Alphabet, BcfError, Constraint, Image, ImageFormat, ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA, REFERENCE, Text,
+    ASPECT_RATIO, Alphabet, BcfError, Constraint, IfcGuid, Image, ImageFormat, ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA, REFERENCE, Text,
     xml::{Codec, Reader, Simple, Writer, codec, named, sides},
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-pub type Reference = EitherOrBoth<Uuid, Text>;
+pub type Reference = EitherOrBoth<IfcGuid, Text>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, strum::IntoStaticStr, strum::VariantArray)]
 pub enum ViewSetupHint {
@@ -309,9 +308,9 @@ impl Codec for Vector3<f64> {
 
 impl Codec for Unit<Vector3<f64>> {
     fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, BcfError> {
-        Vector3::read(reader, node)
-            .ok()
-            .map_or_else(Validated::Fail, |vector| Self::try_new(vector, 0.0).map_or_else(|| Validated::fail(reader.local_name(node).map_or_else(convert::identity, |element| reader.refused(element, None))), Validated::Good))
+        Vector3::read(reader, node).ok().map_or_else(Validated::Fail, |vector| {
+            Self::try_new(vector, 0.0).map_or_else(|| Validated::fail(reader.local_name(node).map_or_else(convert::identity, |element| reader.refused(element, None))), Validated::Good)
+        })
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> { self.as_ref().write(writer, node) }
@@ -329,13 +328,13 @@ impl Codec for Point3<f64> {
 
 fn shown(visibility: &Visibility, hint: Option<ViewSetupHint>) -> bool { hint.map_or(visibility.default, |category| visibility.view_setup_hints.contains(&category)) }
 
-fn identities(reference: &Reference) -> impl Iterator<Item = Either<Uuid, &Text>> {
+fn identities(reference: &Reference) -> impl Iterator<Item = Either<IfcGuid, &Text>> {
     let (identity, tool) = reference.as_ref().left_and_right();
     iter::chain(identity.map(|identity| Either::Left(*identity)), tool.map(Either::Right))
 }
 
 pub fn presentation(components: &Components) -> impl Fn(Option<&Reference>, Option<ViewSetupHint>) -> Option<Presentation> {
-    fn keyed(listed: &[Component]) -> HashSet<Either<Uuid, &Text>> { listed.iter().flat_map(|component| identities(&component.reference)).collect() }
+    fn keyed(listed: &[Component]) -> HashSet<Either<IfcGuid, &Text>> { listed.iter().flat_map(|component| identities(&component.reference)).collect() }
     let Components { selection, visibility, coloring } = components;
     let selected = keyed(selection);
     let exceptions = visibility.as_ref().map(|stated| (stated, keyed(&stated.exceptions)));

@@ -65,7 +65,7 @@ Sessions open in order:
 Quitting saves preferences, the last GUI to quit overwriting what others saved. Restore preferences a task GUI changed before quitting it. Blender draws menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone. Quitting an edited file prints `refused` under a save prompt only `capture` shows, and `bpy.ops.wm.read_homefile()` before the quit discards a task GUI's edits.
 
 Script-driven task GUIs run a runner script:
-- `watch-apps launch org.blenderfoundation.blender --wait --environment BLENDER_USER_RESOURCES=<folder> TMPDIR=<folder> --arguments --python-use-system-env --python <runner.py>` runs one on a fresh profile without focus and returns its exit status once it quits
+- `watch-apps launch org.blenderfoundation.blender --wait --environment BLENDER_USER_RESOURCES=<folder> TMPDIR=<folder> --arguments --no-window-focus --python-use-system-env --python <runner.py>` runs one on a fresh profile without focus and returns its exit status once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
 - `--enable-event-simulate` enables `window.event_simulate` and discards real keyboard and mouse input, the call otherwise raising `RuntimeError`
 - Runners end with `bpy.ops.wm.quit_blender()` under a `temp_override` naming the first window

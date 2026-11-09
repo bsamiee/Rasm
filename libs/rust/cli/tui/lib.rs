@@ -30,6 +30,7 @@ use rasm_command::{
 use ratatui::{Frame, Terminal, backend::CrosstermBackend, layout::Rect};
 use sysexits::ExitCode;
 use tokio::{
+    runtime::Builder,
     task,
     time::{self, MissedTickBehavior},
 };
@@ -93,10 +94,7 @@ pub enum Input<K, I> {
 #[derive(Debug, thiserror::Error)]
 pub enum ScreenError {
     #[error("cannot {operation} the screen")]
-    Terminal {
-        operation: Operation,
-        source: io::Error,
-    },
+    Terminal { operation: Operation, source: io::Error },
     #[error("cannot {} the screen, standard output is not a terminal", Operation::Draw)]
     Detached,
 }
@@ -112,7 +110,7 @@ impl From<ScreenError> for ExitCode {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<A, L, P, S>(defaults: Defaults, layer: L, start: impl AsyncFnOnce(A, Handle) -> Result<(P, S), NEVec<P::Error>> + Send + 'static) -> process::ExitCode
+pub fn run<A, L, P, S>(defaults: Defaults, layer: L, runtime: impl FnOnce(&A) -> Builder, start: impl AsyncFnOnce(A, Handle) -> Result<(P, S), NEVec<P::Error>> + Send + 'static) -> process::ExitCode
 where
     A: CommandFactory + FromArgMatches + Send + 'static,
     L: Layer,
@@ -121,7 +119,7 @@ where
 {
     const BATCH: usize = 256;
     let held = Arc::new(Held { lines: Mutex::default(), depth: P::HISTORY });
-    rasm_command::run(defaults, Arc::clone(&held), TuiTracingSubscriberLayer.and_then(layer), async move |Process { args, styles, mut signals, filter, level }| {
+    rasm_command::run(defaults, Arc::clone(&held), TuiTracingSubscriberLayer.and_then(layer), runtime, async move |Process { args, styles, mut signals, filter, level }| {
         let styles = match AutoStream::choice(&io::stdout()) {
             ColorChoice::Never => Styles::plain(),
             ColorChoice::Auto | ColorChoice::AlwaysAnsi | ColorChoice::Always => styles,
@@ -211,10 +209,3 @@ mod view;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use keymap::{Action, Binding, Pane};
-pub use clap;
-pub use crossterm;
-pub use futures;
-pub use nonempty_collections;
-pub use rasm_command;
-pub use ratatui;
-pub use sysexits;

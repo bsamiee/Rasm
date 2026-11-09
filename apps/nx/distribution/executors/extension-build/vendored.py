@@ -27,3 +27,7 @@ stage, *wheels = map(Path, sys.argv[1:])
 names = frozenset[str]().union(*(unpacked(stage, wheel) for wheel in wheels))
 for module in stage.rglob("*.py"):
     module.write_text(rewrite_imports_in_module(module.read_text(encoding="utf-8", newline=""), names, len(module.parent.relative_to(stage).parts)), encoding="utf-8", newline="")
+
+# --- [EXPORTS] -------------------------------------------------------------------------
+
+__all__: list[str] = []

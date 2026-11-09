@@ -4,28 +4,12 @@
     </PropertyGroup>
 
     <ItemGroup Label="Analyzer Authoring">
-        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
-        <PackageReference Include="Microsoft.CodeAnalysis.Common" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
         <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" />
     </ItemGroup>
 
-    <ItemGroup Label="Collections">
-        <PackageReference Include="System.Collections.Immutable" />
-    </ItemGroup>
-
     <ItemGroup Label="Algorithms and Data Structures">
-        <PackageReference Include="QuikGraph" ExcludeAssets="" PrivateAssets="" />
+        <PackageReference Include="QuikGraph" />
+        <TargetPathWithTargetPlatformMoniker Include="$(PkgQuikGraph)/lib/netstandard2.0/QuikGraph.dll" IncludeRuntimeDependency="false" />
     </ItemGroup>
-
-    <ItemGroup Label="Workspace Projects">
-        <ProjectReference Include="../Rasm.Analyzers.Diagnostics/Rasm.Analyzers.Diagnostics.csproj" />
-    </ItemGroup>
-
-    <Target Name="GetAnalyzerDependencies" BeforeTargets="GetTargetPath" DependsOnTargets="ResolvePackageAssets">
-        <ItemGroup>
-            <TargetPathWithTargetPlatformMoniker Include="@(RuntimeCopyLocalItems)" IncludeRuntimeDependency="false" ResolveableAssembly="false" />
-        </ItemGroup>
-    </Target>
 </Project>

@@ -453,13 +453,7 @@ mod triangulation;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use cavalier_contours;
 pub use cells::voronoi;
-pub use geo_types;
-pub use itertools;
-pub use nalgebra;
-pub use nonempty_collections;
 pub use offsets::{parallel, region};
 pub use paths::{Clearance, Station, clearance, closest, intersections, pieces, slice, station};
-pub use spade;
 pub use triangulation::Triangulation;

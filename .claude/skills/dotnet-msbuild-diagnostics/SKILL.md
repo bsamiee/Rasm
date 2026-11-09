@@ -47,7 +47,6 @@ Targets running `dotnet build`, `restore`, `publish`, `msbuild`, `test`, or `for
 - Without `MSBUILDDEBUGPATH`, logs go under `.MSBuild_Logs/` in the current directory
 - Central node's log file name starts with `CentralNode_`
 - `-check` and `-profileEvaluation` write no binlog of their own, `-bl` beside them captures the run
-- `git clean -fdx -e "*.binlog"` keeps the logs
 - `-getProperty`, `-getItem`, `-getTargetResult`, and `-pp` take one project or `.props` file, a solution path fails `MSB1063` or refuses the switch
 - `Directory.Build.props` evaluates the root values without a project
 

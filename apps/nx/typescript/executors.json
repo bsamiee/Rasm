@@ -1,9 +1,9 @@
 {
     "executors": {
-        "package": {
-            "implementation": "./dist/executors/package/executor#execute",
-            "schema": "./executors/package/schema.json",
-            "description": "Packs a built Adobe UXP plugin into a .ccx and signs a built CEP extension into a .zxp"
+        "upgrade": {
+            "implementation": "./dist/executors/upgrade/executor#execute",
+            "schema": "./executors/upgrade/schema.json",
+            "description": "Moves every pnpm catalog row to the highest version its dist-tags name, then refreshes the lockfile with pnpm update"
         }
     }
 }

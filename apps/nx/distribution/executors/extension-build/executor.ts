@@ -65,35 +65,31 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
         listed.filter((file) => path.extname(file) === '.whl'),
         (wheel) => shipped(path.join(wheels, wheel), bundled),
     );
-    yield* Effect.forEach(
-        listed.filter((file) => !kept.includes(file)),
-        (file) => fs.remove(path.join(wheels, file)),
-    );
+    yield* Effect.forEach(Array.difference(listed, kept), (file) => fs.remove(path.join(wheels, file)));
     yield* fs.writeFileString(path.join(stage, EXTENSION), patch(text, { ...(yield* toml(text, EXTENSION)), platforms: [interpreter.platform], wheels: kept.map((wheel) => `./wheels/${wheel}`) }));
     return stage;
 });
 
+const built = Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
+    const [path, fs, { outputPath: folder }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Schema.decodeUnknownEffect(Build)(options)]);
+    const project = yield* Effect.fromNullishOr(context.projectName);
+    const { root } = (yield* Effect.fromNullishOr(context.projectGraph.nodes[project])).data;
+    const text = yield* fs.readFileString(path.join(context.root, root, EXTENSION));
+    const declared = yield* Effect.flatMap(toml(text, EXTENSION), Schema.decodeUnknownEffect(Manifest));
+    const bundle = yield* fs.exists(path.join(context.root, root, 'pyproject.toml'));
+    yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });
+    yield* Effect.forEach(
+        (yield* fs.readDirectory(path.join(context.root, folder))).filter((file) => file.startsWith(`${declared.id}-`) && path.extname(file) === '.zip'),
+        (file) => fs.remove(path.join(context.root, folder, file)),
+    );
+    const source = bundle ? yield* staged(context, root, text) : root;
+    yield* spawned('blender', ['--command', 'extension', 'build', ...(bundle || declared.platforms !== undefined ? ['--split-platforms'] : []), '--source-dir', source, '--output-dir', folder], context.root);
+    return { success: true };
+}, Effect.scoped);
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: unknown, context: ExecutorContext) =>
-    Effect.runPromise(
-        Effect.gen(function* () {
-            const [path, fs, { outputPath: folder }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Schema.decodeUnknownEffect(Build)(options)]);
-            const project = yield* Effect.fromNullishOr(context.projectName);
-            const { root } = (yield* Effect.fromNullishOr(context.projectGraph.nodes[project])).data;
-            const text = yield* fs.readFileString(path.join(context.root, root, EXTENSION));
-            const declared = yield* Effect.flatMap(toml(text, EXTENSION), Schema.decodeUnknownEffect(Manifest));
-            const bundle = yield* fs.exists(path.join(context.root, root, 'pyproject.toml'));
-            yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });
-            yield* Effect.forEach(
-                (yield* fs.readDirectory(path.join(context.root, folder))).filter((file) => file.startsWith(`${declared.id}-`) && path.extname(file) === '.zip'),
-                (file) => fs.remove(path.join(context.root, folder, file)),
-            );
-            const source = bundle ? yield* staged(context, root, text) : root;
-            yield* spawned('blender', ['--command', 'extension', 'build', ...(bundle || declared.platforms !== undefined ? ['--split-platforms'] : []), '--source-dir', source, '--output-dir', folder], context.root);
-            return { success: true };
-        }).pipe(Effect.scoped, Effect.provide(layer)),
-    );
+const execute = (options: unknown, context: ExecutorContext) => built(options, context).pipe(Effect.provide(layer), Effect.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

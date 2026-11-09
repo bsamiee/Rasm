@@ -3,7 +3,7 @@
         <Description>RhinoCommon as typed effects, with plug-ins declared as data</Description>
         <IsPackable>true</IsPackable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackPlugInShells</TargetsForTfmSpecificContentInPackage>
+        <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackAnalyzers</TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
     <ItemGroup Label="Global Usings">
@@ -63,14 +63,13 @@
         <ProjectReference Include="../../drawing/Rasm.Drafting/Rasm.Drafting.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Plug-In Shells">
-        <ProjectReference Include="../../../../apps/roslyn/Rasm.Rhino.Generators/Rasm.Rhino.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="PlugInShellGenerator" PrivateAssets="all" />
+    <ItemGroup Label="Package Files">
         <None Include="buildTransitive/*" Pack="true" PackagePath="buildTransitive/" />
     </ItemGroup>
 
-    <Target Name="PackPlugInShells" DependsOnTargets="ResolveProjectReferences" Condition="'$(TargetFramework)' == '$(RepoTargetFramework)'">
+    <Target Name="PackAnalyzers" DependsOnTargets="ResolveProjectReferences" Condition="'$(TargetFramework)' == '$(RepoTargetFramework)'">
         <ItemGroup>
-            <TfmSpecificPackageFile Include="@(PlugInShellGenerator)" PackagePath="analyzers/dotnet/cs" />
+            <TfmSpecificPackageFile Include="@(Analyzer->HasMetadata('PackagePath'))" />
         </ItemGroup>
     </Target>
 </Project>

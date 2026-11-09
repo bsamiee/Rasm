@@ -22,9 +22,7 @@ pub struct Chord(f64);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Breakline {
-    Zigzag {
-        stations: NEVec<f64>,
-    },
+    Zigzag { stations: NEVec<f64> },
     Wavy,
 }
 

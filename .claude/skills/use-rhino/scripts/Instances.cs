@@ -39,6 +39,8 @@ internal sealed class ShownAttribute(string present, string absent) : Attribute 
     };
 }
 
+internal sealed record Row(string Command, string[] Args, Dictionary<string, string?>? Env = null);
+internal sealed record Rows(Dictionary<string, Row> McpServers);
 internal sealed record Slot(string SlotId, int Port, int Pid, Uri Endpoint);
 internal sealed record Routed(Slot[]? Payload = null);
 internal sealed record Fault(string Message);
@@ -85,6 +87,7 @@ internal sealed record Listing(
 }
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true)]
+[JsonSerializable(typeof(Rows))]
 [JsonSerializable(typeof(Routed))]
 [JsonSerializable(typeof(Faulted))]
 [JsonSerializable(typeof(Output))]
@@ -103,6 +106,8 @@ internal sealed record Refused(string Text) : Expected(Text, 0);
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 internal static class Program {
+    private const string Server = "rhino-mcp-platform";
+
     public static async Task<int> Main(string[] args) => args switch {
         [] or [nameof(Listing)] => await RunAsync().ConfigureAwait(false),
         _ => Usage(args),
@@ -124,25 +129,33 @@ internal static class Program {
     private static void Answer(IReadOnlyDictionary<int, string> slots) =>
         Console.Write(Wire.Write(new Reply(RhinoApp.ExeVersion, RhinoApp.IsPreRelease, Environment.ProcessId, Listing.Query(slots))));
 
-    private static IO<Uri> Router() => Environment.GetEnvironmentVariable("RHINO_MCP_URL") is { } url
-        ? IO.pure(new Uri(url))
-        : IO.fail<Uri>(new Refused("RHINO_MCP_URL is unset"));
+    private static IO<Func<IClientTransport>> Router() =>
+        IO.lift(static () => Project(new DirectoryInfo(Environment.CurrentDirectory)).Bind(static file => Optional(Wire.Read<Rows>(File.ReadAllText(file)).McpServers.GetValueOrDefault(Server))))
+            .Bind(static row => row.Match(
+                Some: static row => IO.pure<Func<IClientTransport>>(() => new StdioClientTransport(new() { Name = Server, Command = row.Command, Arguments = row.Args, EnvironmentVariables = row.Env })),
+                None: static () => IO.fail<Func<IClientTransport>>(new Refused($"no {Server} row in a .mcp.json above the working directory"))));
 
-    private static IO<string> List(HttpClient http, Uri router) =>
-        from reply in Call(http, router, "list_slots", ReadOnlyDictionary<string, object?>.Empty).Map(static result => result.Content.OfType<TextContentBlock>().Single().Text)
+    private static Option<string> Project(DirectoryInfo? folder) => folder switch {
+        null => None,
+        _ when File.Exists(Path.Combine(folder.FullName, ".mcp.json")) => Path.Combine(folder.FullName, ".mcp.json"),
+        _ => Project(folder.Parent),
+    };
+
+    private static IO<string> List(HttpClient http, Func<IClientTransport> router) =>
+        from reply in Call(router, "list_slots", ReadOnlyDictionary<string, object?>.Empty).Map(static result => result.Content.OfType<TextContentBlock>().Single().Text)
         from slots in Wire.Read<Routed>(reply).Payload is { } payload ? IO.pure(payload) : IO.fail<Slot[]>(new Refused(Wire.Read<Faulted>(reply).Error.Message))
         from applications in toSeq(slots.GroupBy(static slot => slot.Pid)).Traverse(application => Ask(http, application)).As()
         select applications.IsEmpty ? "Rhino not running" : string.Join('\n', applications.Bind(identity));
 
     private static IO<Seq<string>> Ask(HttpClient http, IGrouping<int, Slot> application) =>
-        Call(http, application.First().Endpoint, "run_csharp", new Dictionary<string, object?>(StringComparer.Ordinal) { ["script"] = Loader(application) })
+        Call(() => new HttpClientTransport(new() { Endpoint = application.First().Endpoint }, http), "run_csharp", new Dictionary<string, object?>(StringComparer.Ordinal) { ["script"] = Loader(application) })
             .Bind(static result => result.IsError is true
                 ? IO.fail<Seq<string>>(new Refused(Wire.Read<Fault>(result.Content.OfType<TextContentBlock>().First().Text).Message))
                 : IO.pure(Lines(Wire.Read<Reply>(Wire.Read<Output>(result.Content.OfType<TextContentBlock>().Last().Text).Stdout))))
             | @catch(Unanswered, error => IO.pure(Seq(string.Create(CultureInfo.InvariantCulture, $"Process ID {application.Key} listing failed. {error.Message}"))));
 
-    private static IO<CallToolResult> Call(HttpClient http, Uri endpoint, string tool, IReadOnlyDictionary<string, object?> arguments) =>
-        IO.liftAsync(env => McpClient.CreateAsync(new HttpClientTransport(new() { Endpoint = endpoint }, http), cancellationToken: env.Token)).Bracket(
+    private static IO<CallToolResult> Call(Func<IClientTransport> transport, string tool, IReadOnlyDictionary<string, object?> arguments) =>
+        IO.liftAsync(env => McpClient.CreateAsync(transport(), cancellationToken: env.Token)).Bracket(
             Use: client => IO.liftVAsync(env => client.CallToolAsync(tool, arguments, cancellationToken: env.Token)),
             Fin: static client => IO.liftVAsync(() => client.DisposeAsync().ToUnit()));
 

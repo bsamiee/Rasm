@@ -11,6 +11,9 @@ Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, c
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Every type, export, and helper states its own fact, a one-reader helper, forwarder, or alias merges into its owner, entry imports excepted
+- Libraries give callers composable parts over a dependency's own types, callers choosing entry point, runtime, transport, and configuration
+- Parts adding dependencies some consumers never call sit behind an extra
+- Layers adding a fact to a dependency (tracing, proxying) attach where its own adapters do, and a forwarder per member marks a misplaced layer
 - Values that vary are parameters, a value every caller passes alike folds into its owner
 - Error cases exist where a caller branches on them, every other failure joins its owner's error
 - Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule

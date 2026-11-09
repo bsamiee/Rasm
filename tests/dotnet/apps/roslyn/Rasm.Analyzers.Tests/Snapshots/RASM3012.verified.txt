@@ -3,6 +3,7 @@
 #3 `Optional` forwards `OptionalFile?.Name`, read `OptionalFile?.Name` at each use
 #2 `Owned` forwards `File.Name`, read `File.Name` at each use
 #4 `Utc` forwards `Calendar.UtcNow`, read `Calendar.UtcNow` at each use
+RASM3106 `Calendar.UtcNow` reads the ambient clock, read `GetUtcNow()` from a `TimeProvider` argument
 #5 `Maximum` forwards `int.MaxValue`, read `int.MaxValue` at each use
 #6 `this[]` forwards `Values[index]`, read `Values[index]` at each use
 #7 `this[]` forwards `Values[row, column]`, read `Values[row, column]` at each use

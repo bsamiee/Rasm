@@ -27,6 +27,12 @@ const located = Effect.fnUntraced(function* (tree: Tree, root: string, options: 
     return { at, text, host, version };
 });
 
+const written = Effect.fnUntraced(function* (tree: Tree, root: string, options: unknown, version: string) {
+    const { at, text, host } = yield* located(tree, root, options);
+    tree.write(at, yield* Effect.fromNullishOr(host.write).pipe(Effect.flatMap((write) => write(text, version))));
+    return [`New version ${version} written to manifest: ${at}`];
+});
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class HostVersionActions extends VersionActions {
@@ -57,14 +63,7 @@ class HostVersionActions extends VersionActions {
     }
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
-        const resolved = located(tree, this.projectGraphNode.data.root, this.finalConfigForProject.versionActionsOptions);
-        return Effect.runPromise(
-            Effect.gen(function* () {
-                const { at, text, host } = yield* resolved;
-                tree.write(at, yield* Effect.fromNullishOr(host.write).pipe(Effect.flatMap((write) => write(text, newVersion))));
-                return [`New version ${newVersion} written to manifest: ${at}`];
-            }),
-        );
+        return written(tree, this.projectGraphNode.data.root, this.finalConfigForProject.versionActionsOptions, newVersion).pipe(Effect.runPromise);
     }
 
     override updateProjectDependencies() {

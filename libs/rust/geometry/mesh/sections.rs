@@ -15,9 +15,7 @@ use crate::{MeshError, Operation, Solid, Tolerance};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Contour {
-    Section {
-        height: f64,
-    },
+    Section { height: f64 },
     Silhouette,
 }
 

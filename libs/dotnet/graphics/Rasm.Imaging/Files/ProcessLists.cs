@@ -35,15 +35,15 @@ public sealed partial class LutFormat {
     [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
     [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
     private sealed partial class ClfNode {
-        public static readonly ClfNode Matrix = new("Matrix", Some<Func<XElement, Fin<LutTable>>>(ReadMatrix), ctf: false);
+        public static readonly ClfNode Matrix = new("Matrix", Some(ReadMatrix), ctf: false);
         public static readonly ClfNode Lut1D = new("LUT1D", Some<Func<XElement, Fin<LutTable>>>(static node => ReadCurve(node, inverted: false)), ctf: false);
         public static readonly ClfNode InverseLut1D = new("InverseLUT1D", Some<Func<XElement, Fin<LutTable>>>(static node => ReadCurve(node, inverted: true)), ctf: true);
-        public static readonly ClfNode Lut3D = new("LUT3D", Some<Func<XElement, Fin<LutTable>>>(ReadLattice), ctf: false);
-        public static readonly ClfNode Range = new("Range", Some<Func<XElement, Fin<LutTable>>>(ReadRange), ctf: false);
-        public static readonly ClfNode Log = new("Log", Some<Func<XElement, Fin<LutTable>>>(ReadLog), ctf: false);
+        public static readonly ClfNode Lut3D = new("LUT3D", Some(ReadLattice), ctf: false);
+        public static readonly ClfNode Range = new("Range", Some(ReadRange), ctf: false);
+        public static readonly ClfNode Log = new("Log", Some(ReadLog), ctf: false);
         public static readonly ClfNode Exponent = new("Exponent", Some<Func<XElement, Fin<LutTable>>>(static node => ReadExponent(node, ExponentParams, ExponentValue)), ctf: false);
         public static readonly ClfNode Gamma = new("Gamma", Some<Func<XElement, Fin<LutTable>>>(static node => ReadExponent(node, "GammaParams", "gamma")), ctf: true);
-        public static readonly ClfNode Cdl = new("ASC_CDL", Some<Func<XElement, Fin<LutTable>>>(ReadCdl), ctf: false);
+        public static readonly ClfNode Cdl = new("ASC_CDL", Some(ReadCdl), ctf: false);
         public static readonly ClfNode Description = new("Description", None, ctf: false);
         public static readonly ClfNode InputDescriptor = new("InputDescriptor", None, ctf: false);
         public static readonly ClfNode OutputDescriptor = new("OutputDescriptor", None, ctf: false);
@@ -290,7 +290,7 @@ public sealed partial class LutFormat {
         (Depth(node, InBitDepth), Depth(node, OutBitDepth)).Apply(static (input, output) => (In: input, Out: output)).As();
 
     private static Fin<float> Depth(XElement node, string name) =>
-        Attribute(node, name).Match<Fin<OutputDepth>>(
+        Attribute(node, name).Match(
                 Some: token => toSeq(OutputDepth.Items).Find(depth => string.Equals(Token(depth), token, StringComparison.Ordinal)).ToFin(Malformed(node)),
                 None: static () => OutputDepth.Float32)
             .Map(static depth => depth.Scale);

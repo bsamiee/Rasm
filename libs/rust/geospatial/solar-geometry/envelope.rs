@@ -15,9 +15,7 @@ use crate::{Input, SolarError, finite, refused};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Envelope {
-    Rights {
-        cap: Option<Length>,
-    },
+    Rights { cap: Option<Length> },
     Collection,
 }
 

@@ -1,5 +1,0 @@
-# --- [DAEMONS] --------------------------------------------------------------------------
-
-[daemons.docker]
-ready_cmd = { run = ["docker", "version"], timeout = "1m" }
-run       = "exec docker events"

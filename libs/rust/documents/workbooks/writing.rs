@@ -1,4 +1,3 @@
-
 use core::cell::LazyCell;
 
 use calamine::{CellErrorType, Data, Range};

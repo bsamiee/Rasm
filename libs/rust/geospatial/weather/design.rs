@@ -49,19 +49,10 @@ pub struct Design {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Edition {
-    Ashrae2009 {
-        hours: Option<Time>,
-    },
-    Ashrae2017 {
-        minimum_wet_bulb: Option<ThermodynamicTemperature>,
-    },
-    Ashrae2021 {
-        shielding: Option<Frequency>,
-    },
-    Ashrae2025 {
-        shielding: Option<Frequency>,
-        wet_bulb: Annual,
-    },
+    Ashrae2009 { hours: Option<Time> },
+    Ashrae2017 { minimum_wet_bulb: Option<ThermodynamicTemperature> },
+    Ashrae2021 { shielding: Option<Frequency> },
+    Ashrae2025 { shielding: Option<Frequency>, wet_bulb: Annual },
 }
 
 #[serde_as]

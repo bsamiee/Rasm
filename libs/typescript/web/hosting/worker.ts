@@ -1,4 +1,4 @@
-import { Config, ConfigProvider, Context, Effect, Function, Layer, Option, Scheduler, Schema } from 'effect';
+import { Config, ConfigProvider, Context, Effect, Function, Layer, Logger, Option, Scheduler, Schema } from 'effect';
 import { SecureRandom, Signature } from 'effect/crypto';
 import { FetchHttpClient, Headers, HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Jwks, Jwt } from 'effect/jose';
@@ -10,12 +10,13 @@ import { ObjectStorage } from '#/object-storage';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Claims = User.pipe(Schema.encodeKeys({ id: 'sub' }));
+const Returning = Schema.Struct({ target: Schema.String });
 
 class CloudflareAccess extends Schema.Class<CloudflareAccess, { readonly brand: unique symbol }>('CloudflareAccess')({ issuer: Schema.String, audience: Schema.String, jwks: Schema.String, logout: Schema.String }) {
-    static readonly middleware = (identity: Identity) => Config.schema(Schema.fromJsonString(CloudflareAccess), 'ACCESS').pipe(Config.option, Effect.map(Option.match({ onNone: () => Layer.empty, onSome: (access) => access.layer(identity) })), Layer.unwrap);
+    static readonly middleware = (identity: Identity) => Config.schema(Access, 'ACCESS').pipe(Config.option, Effect.map(Option.match({ onNone: () => Layer.empty, onSome: (access) => access.layer(identity) })), Layer.unwrap);
     layer(identity: Identity) {
         const { issuer, audience, jwks, logout } = this;
-        const returning = Schema.Struct({ target: Schema.String }).pipe(Schema.encodeKeys({ target: identity.returnTo }));
+        const returning = Returning.pipe(Schema.encodeKeys({ target: identity.returnTo }));
         const signin = Effect.fn('signin')(function* (request: HttpServerRequest.HttpServerRequest) {
             const [url, returned] = yield* Effect.all([Effect.orDie(Effect.fromOption(HttpServerRequest.toURL(request))), Effect.option(HttpServerRequest.schemaSearchParams(returning))]);
             return HttpServerResponse.redirect(
@@ -50,6 +51,8 @@ class CloudflareAccess extends Schema.Class<CloudflareAccess, { readonly brand: 
     }
 }
 
+const Access = Schema.fromJsonString(CloudflareAccess);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const r2Storage = (bucket: R2Bucket & R2UploadStoreOptions['bucket']) => {
@@ -60,7 +63,12 @@ const r2Storage = (bucket: R2Bucket & R2UploadStoreOptions['bucket']) => {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const serveWorker = <A, E>(env: object, layer: Layer.Layer<A, E, HttpRouter.HttpRouter | Layer.Success<typeof HttpServer.layerServices> | HttpRouter.Request<'Error', unknown> | HttpRouter.Request<'GlobalError', unknown> | HttpRouter.Request<'Requires', A> | HttpRouter.Request<'GlobalRequires', A>>) => {
-    const built = Function.memoize((bindings: object) => HttpRouter.toWebHandler(layer.pipe(Layer.provide([HttpServer.layerServices, ConfigProvider.layer(ConfigProvider.fromUnknown(bindings))]), Layer.provideMerge(Layer.succeed(Scheduler.Scheduler, new Scheduler.MixedScheduler('sync')))), { disableLogger: true }));
+    const built = Function.memoize((bindings: object) =>
+        HttpRouter.toWebHandler(
+            layer.pipe(Layer.provide([HttpServer.layerServices, ConfigProvider.layer(ConfigProvider.fromUnknown(bindings))]), Layer.provideMerge(Layer.mergeAll(Layer.succeed(Scheduler.Scheduler, new Scheduler.MixedScheduler('sync')), Logger.layer([Logger.withLeveledConsole(Logger.formatStructured)])))),
+            { disableLogger: true },
+        ),
+    );
     return { fetch: (request: Request) => built(env).handler(request, Context.empty()) };
 };
 

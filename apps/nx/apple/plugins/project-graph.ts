@@ -2,7 +2,7 @@ import { join, matchesGlob, relative } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, getOutputsForTargetAndConfiguration, hashArray, logger, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Result, Schema } from 'effect';
+import { Array, Effect, FileSystem, flow, Option, Path, Predicate, Record, Result, Schema } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, sources } from '#/plugins/swift-package';
 import { AppleError, core, type Part, present, spawned, target, tokened } from '#/plugins/targets';
 import { Analyzed, evaluated, Host, invocation, Request, released, xcodeParts } from '#/plugins/xcode-project';
@@ -75,14 +75,14 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         return Option.getOrElse(Array.head(owners.length === 1 ? owners : []), () => at);
     };
     const evaluatedResults = yield* Effect.forEach(analyzed.containers, (container) => Effect.result(evaluated(workspaceRoot, options, container, built(container.path))));
-    const xcode = Array.zip(analyzed.containers, evaluatedResults).flatMap(([container, result]) => (Result.isSuccess(result) ? [{ container, ...result.success }] : []));
+    const xcode = Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(result, (success) => ({ container, ...success })));
     const unread = [
         ...(Option.isNone(printed) ? manifests.map((file) => ({ file, reason: 'swift is absent on this host' })) : []),
-        ...Array.zip(readable, describedResults).flatMap(([file, result]) => (Result.isFailure(result) ? [{ file, reason: result.failure.message }] : [])),
+        ...Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(Result.flip(result), ({ message }) => ({ file, reason: message }))),
         ...(Option.isNone(analyzer) ? containers.map((file) => ({ file, reason: `${absent.join(', ')} absent on this host` })) : []),
         ...(Result.isFailure(analysis) ? containers.map((file) => ({ file, reason: analysis.failure.message })) : []),
         ...Record.collect(analyzed.failures, (at, reason) => ({ file: marker(at), reason })),
-        ...Array.zip(analyzed.containers, evaluatedResults).flatMap(([container, result]) => (Result.isFailure(result) ? [{ file: marker(container.path), reason: result.failure.message }] : [])),
+        ...Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(Result.flip(result), ({ message }) => ({ file: marker(container.path), reason: message }))),
         ...unsupported.map((file) => ({ file, reason: 'project.pbxproj has no reader, and no project.xcproj sits beside it' })),
     ];
     yield* Effect.forEach(unread, ({ file, reason }) => Effect.sync(() => logger.warn(`${file} takes its project and targets from the file alone, and its runs report the tool's own failure: ${reason}`)));
@@ -91,14 +91,14 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
             ? { file, reason, root: path.dirname(file), name: path.basename(path.resolve(workspaceRoot, path.dirname(file))), technology: 'swift', tool: 'swift-build', run: ['swift', 'build', '--package-path', path.dirname(file), ...(Predicate.isTruthy(isCI()) ? ['--disable-automatic-resolution'] : [])] as const }
             : { file, reason, root: path.dirname(path.dirname(file)), name: path.basename(path.dirname(file), path.extname(path.dirname(file))), technology: 'xcode', tool: 'xcodebuild', run: ['xcodebuild', 'build', ...invocation(path, options, path.dirname(file)).flags] as const },
     );
-    const packaged = (at: string) => Option.isSome(local(at));
+    const packaged = flow(local, Option.isSome);
     const platforms = (at: string) => Option.match(local(at), { onNone: () => [], onSome: (swiftPackage) => swiftPackage.manifest.platforms.map((platform) => platform.name) });
     const destinations = (folders: readonly string[]) => Array.dedupe(folders.flatMap((folder) => (platforms(folder).length === 0 ? Option.toArray(host) : platforms(folder))));
     const nested = packages
         .flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: `${path.join(owner.root, module.path)}/` })))
         .flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${path.dirname(other)}/`.startsWith(folder)).map((inner) => ({ owner, inner })));
     yield* Effect.forEach(nested, ({ owner, inner }) => Effect.sync(() => logger.warn(`${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`)));
-    const linked = (container: (typeof xcode)[number]['container']) => container.projects.flatMap((at) => Option.toArray(local(at))).flatMap((swiftPackage) => sources(path, swiftPackage, described));
+    const linked = (container: (typeof xcode)[number]['container']) => Array.getSomes(container.projects.map(local)).flatMap((swiftPackage) => sources(path, swiftPackage, described));
     const parts: readonly Part[] = [
         ...packages.flatMap((swiftPackage) => packageParts(path, options, plugin, swiftPackage, described)),
         ...xcode.map(({ container, inputs, archives }) =>
@@ -122,17 +122,22 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     const conflicts = Record.filter(grouped, (group) => new Set(group.map((part) => part.name)).size > 1);
     const merged = Record.collect(
         Record.filter(grouped, (_, root) => !(root in conflicts)),
-        (_, group): Part => ({
-            ...Array.headNonEmpty(group),
-            ...Object.fromEntries(group.flatMap((part) => (part.release === undefined ? [] : [['release', part.release]]))),
-            technologies: Array.dedupe(group.flatMap((part) => part.technologies)),
-            targets: group.map((part) => part.targets).reduce((left, right) => Record.union(left, right, combined)),
-        }),
+        (_, group): Part => {
+            const [release] = Array.getSomes(group.map((part) => Option.fromUndefinedOr(part.release)));
+            return {
+                ...Array.headNonEmpty(group),
+                ...(release === undefined ? {} : { release }),
+                technologies: Array.dedupe(group.flatMap((part) => part.technologies)),
+                targets: group.map((part) => part.targets).reduce((left, right) => Record.union(left, right, combined)),
+            };
+        },
     );
     const roots = new Map(merged.map((part) => [part.name, part.root] as const));
     const edges = packages
-        .flatMap((swiftPackage) => packageEdges(swiftPackage.manifest, described))
-        .flatMap((edge) => Option.toArray(Option.all([Option.fromUndefinedOr(roots.get(edge.source)), Option.fromUndefinedOr(roots.get(edge.target))])).flatMap(([source, sink]) => (source === sink ? [] : [{ ...edge, source, target: sink }])));
+        .flatMap((swiftPackage) => packageEdges(swiftPackage, described))
+        .map((edge) => ({ edge, from: roots.get(edge.source), to: roots.get(edge.target) }))
+        .filter(({ from, to }) => from !== undefined && to !== undefined && from !== to)
+        .map(({ edge, from, to }) => ({ ...edge, source: from ?? edge.source, target: to ?? edge.target }));
     const aggregates = (part: Part) =>
         Record.map(
             Array.groupBy(
@@ -215,22 +220,21 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: Optio
 const createNodes: CreateNodes<typeof Options.Encoded> = [
     FILES,
     (files, options, { workspaceRoot }) =>
-        Effect.runPromise(
-            Effect.flatMap(
-                Effect.mapError(
-                    Effect.flatMap(Schema.decodeEffect(Options)(options ?? {}), (decoded) => graph(workspaceRoot, decoded, files)),
-                    (error) => new AggregateCreateNodesError([[null, error]], []),
-                ),
-                (result) =>
-                    result.failures.length === 0
-                        ? Effect.succeed(result.graph.nodes)
-                        : Effect.fail(
-                              new AggregateCreateNodesError(
-                                  result.failures.map(([file, error]) => [file, new Error(error.message)]),
-                                  [...result.graph.nodes],
-                              ),
+        Schema.decodeEffect(Options)(options ?? {}).pipe(
+            Effect.flatMap((decoded) => graph(workspaceRoot, decoded, files)),
+            Effect.mapError((error) => new AggregateCreateNodesError([[null, error]], [])),
+            Effect.flatMap((result) =>
+                result.failures.length === 0
+                    ? Effect.succeed(result.graph.nodes)
+                    : Effect.fail(
+                          new AggregateCreateNodesError(
+                              result.failures.map(([file, error]): [string, Error] => [file, error]),
+                              [...result.graph.nodes],
                           ),
-            ).pipe(Effect.provide(layer)),
+                      ),
+            ),
+            Effect.provide(layer),
+            Effect.runPromise,
         ),
 ];
 
@@ -243,14 +247,19 @@ const createDependencies: CreateDependencies<typeof Options.Encoded> = (options,
             (name, configured) => [{}, ...Record.keys(configured.configurations ?? {}).map((configuration) => ({ configuration }))].map((selected) => ({ producer, project, name, selected })),
         ).flat(),
     ).flat();
-    const outputs = declared.flatMap(({ producer, project, name, selected }) => getOutputsForTargetAndConfiguration({ project: producer, target: name, ...selected }, {}, { name: producer, type: 'lib', data: project }).flatMap((output) => (output.startsWith('!') ? [] : [{ root: project.root, output }])));
+    const outputs = declared.flatMap(({ producer, project, name, selected }) =>
+        getOutputsForTargetAndConfiguration({ project: producer, target: name, ...selected }, {}, { name: producer, type: 'lib', data: project })
+            .filter((output) => !output.startsWith('!'))
+            .map((output) => ({ root: project.root, output })),
+    );
     const buildFiles = Record.collect(report?.buildFiles ?? {}, (root, files) => files.map((at) => ({ root, at }))).flat();
     const produced = Array.cartesian(buildFiles, outputs)
         .filter(([{ root, at }, { root: producer, output }]) => root !== producer && (matchesGlob(at, output) || matchesGlob(at, join(output, '**')) || !relative(at, output).startsWith('..')))
         .map(([{ root }, { root: producer }]): RawProjectGraphDependency => ({ source: root, target: producer, type: DependencyType.implicit }));
-    return Array.dedupeWith([...(report?.edges ?? []), ...produced], (left, right) => left.source === right.source && left.target === right.target).flatMap((edge) =>
-        Option.toArray(Option.all([Option.fromUndefinedOr(owners.get(edge.source)), Option.fromUndefinedOr(owners.get(edge.target))])).map(([source, sink]) => ({ ...edge, source, target: sink })),
-    );
+    return Array.dedupeWith([...(report?.edges ?? []), ...produced], (left, right) => left.source === right.source && left.target === right.target)
+        .map((edge) => ({ edge, from: owners.get(edge.source), to: owners.get(edge.target) }))
+        .filter(({ from, to }) => from !== undefined && to !== undefined)
+        .map(({ edge, from, to }) => ({ ...edge, source: from ?? edge.source, target: to ?? edge.target }));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

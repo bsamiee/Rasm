@@ -1,0 +1,11 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Package",
+    "description": "Packs the Adobe UXP plugin or CEP extension the project's other builds wrote, else its source folder: a .ccx zip for a manifest.json, a ZXPSignCmd-signed .zxp for a CSXS/manifest.xml",
+    "type": "object",
+    "properties": {
+        "outputPath": { "type": "string", "description": "Folder, relative to the workspace root, receiving the package; unset, the target packs nothing" },
+        "timestampAuthority": { "type": "string", "description": "Timestamp server ZXPSignCmd -tsa signs against, so a CEP package outlives its certificate", "default": "http://timestamp.digicert.com" }
+    }
+}

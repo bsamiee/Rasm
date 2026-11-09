@@ -115,8 +115,7 @@ return {
       unit: 'folder holding the nearest .csproj',
       owners: [
         { name: 'analyzers', paths: ['.editorconfig', '.globalconfig'], decides: 'an analyzer severity or option row', skills: ['manage-repo'] },
-        { name: 'banned-symbols', paths: ['.config/BannedSymbols.txt', '.config/BannedSymbols.Library.txt'], decides: 'a banned API symbol row', skills: ['manage-repo'] },
-        { name: 'Rasm.Analyzers', paths: ['apps/roslyn/Rasm.Analyzers.Diagnostics', 'apps/roslyn/Rasm.Analyzers.CodeFixes', 'apps/roslyn/Rasm.Analyzers.Package'], decides: 'a form that needs symbols Roslyn binds, as an analyzer with its code fix', skills: ['manage-repo', 'dotnet-coding', 'dotnet-roslyn-codelens'] },
+        { name: 'Rasm.Analyzers', paths: ['apps/roslyn/Rasm.Analyzers', 'apps/roslyn/Rasm.Analyzers.CodeFixes', 'apps/roslyn/Rasm.Rhino.Analyzers'], decides: 'a form that needs symbols Roslyn binds, as an analyzer with its code fix', skills: ['manage-repo', 'dotnet-coding', 'dotnet-roslyn-codelens'] },
       ],
     }),
   },

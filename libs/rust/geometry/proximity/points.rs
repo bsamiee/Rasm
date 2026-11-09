@@ -15,16 +15,9 @@ pub type Neighbor = QueryResultItem<Point3<f64>, usize, f64>;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Neighborhood {
-    Nearest {
-        max_qty: NonZero<usize>,
-    },
-    Within {
-        radius: Distance,
-    },
-    NearestWithin {
-        max_qty: NonZero<usize>,
-        radius: Distance,
-    },
+    Nearest { max_qty: NonZero<usize> },
+    Within { radius: Distance },
+    NearestWithin { max_qty: NonZero<usize>, radius: Distance },
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, PartialOrd)]

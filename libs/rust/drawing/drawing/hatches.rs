@@ -1,4 +1,3 @@
-
 use core::{cmp, iter};
 
 use geo::{BooleanOps as _, BoundingRect as _, MapCoords as _};

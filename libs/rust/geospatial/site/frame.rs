@@ -41,10 +41,7 @@ pub enum Toward {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Anchor {
     Grid(Point3<f64>),
-    Site {
-        position: Position,
-        elevation: Elevation,
-    },
+    Site { position: Position, elevation: Elevation },
 }
 
 #[derive(Debug, Clone, PartialEq, derive_more::AsRef)]

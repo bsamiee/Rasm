@@ -11,6 +11,7 @@ Rasm/
 │   ├── cli/
 │   ├── creative-cloud/
 │   ├── macos/
+│   ├── mcp/
 │   ├── nx/
 │   ├── rhino/
 │   ├── roslyn/
@@ -25,7 +26,6 @@ Rasm/
 ├── tools/
 │   ├── ast-grep/             # Tree-sitter grammars and outline catalogs ast-grep lacks
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
-│   ├── mcp-proxy/            # rasm-mcp-proxy binary serving a stdio MCP server over Streamable HTTP
 │   └── refurb/               # Python checks reading mypy types Ruff lacks
 ├── assets/                   # Reusable assets no one app or plugin owns, each app or plugin keeps its own assets in its folder
 ├── infra/                    # Pulumi programs for repository and hosting resources, Compose services
@@ -53,6 +53,7 @@ Rasm/
 ├── .editorconfig             # Editor, formatting, and analyzer settings by file path
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .gitignore                # Generated, secret, and machine-local paths
+├── .github/                  # CI and release workflows, issue forms
 ├── .cargo/                   # Cargo build settings and compiler source link
 ├── .config/                  # Files tools find in .config/ or read through a path setting
 ├── .claude/                  # Claude Code knowledge and settings
@@ -73,13 +74,18 @@ Rasm/
 - Checkers report every finding as an error through their own configuration
 - Libraries are published packages: they take paths, names, and policies from their caller and hold no repository convention
 - Caches sit under `.cache/<tool>` and generated output under `.artifacts/<tool>`; a package's `dist` and a folder a tool shares with its editor stay where the tool puts them
+- Shipped apps know themselves through their host API (`Bundle.main`, `process.execPath`) and keep settings in their own preferences, logging to the platform's per-user log folder unless one documented setting moves it
+- Tool behavior comes from its source and docs at the installed version; a plugin never restates what the tool, the host, a package, or Nx already does
+- A tool that keeps its own incremental state (cargo, MSBuild, SwiftPM, Xcode) keeps it: Nx orders, selects, and caches results around it, never restores into a folder the tool fingerprints
+- Plugins tag a project `os:<platform>` when its toolchain or host limits the platforms it builds on and `host:<technology>` when its build runs a host application, so CI selects what each runner can build
 
 ## [03]-[TASKS]
 
 - `git submodule update --init --checkout assets` fills `assets/` for font builds, Darkroom builds, and publishing
 - `nx <verb> <project>` runs one project, `nx affected -t <verb>` runs changed work, and `--files=<path>` limits it to one change's reach
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
-- `nx release` versions, tags, writes GitHub releases, and publishes each selected project
+- `nx release --skip-publish` versions, tags, and writes GitHub releases; `nx run-many -t build -c release -p tag:release` builds the packages at the new versions; `nx release publish` publishes them, the split `.github/workflows/release.yml` runs, since a `dependsOn` names no configuration
+- `nx upgrade <ecosystem root>` moves an ecosystem's dependencies through its own tool
 - `mise lock --bump` moves tools, `nx migrate` moves Nx
 - `pixi run --locked uv sync` builds Python distributions against Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
@@ -110,12 +116,11 @@ Products reach a person through separate levels:
 |  [13]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports |
 |  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
 |  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
-|  [16]   | Persistent local process       | Mise `[daemons]` row, platform-only rows in `.config/mise.<os>.toml`                                 |
-|  [17]   | Python runtime                 | Mise defaults to 3.15, Blender roots pin 3.13                                                        |
-|  [18]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                          |
-|  [19]   | Container runtime              | Mise clients, a `[daemons]` `docker` row per `.config/mise.<os>.toml`, Colima on macOS               |
-|  [20]   | Agent browser options          | `.config/mise.toml` `[env]` `PLAYWRIGHT_MCP_*` rows                                                  |
-|  [21]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                  |
+|  [16]   | Python runtime                 | Mise defaults to 3.15, Blender roots pin 3.13                                                        |
+|  [17]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                          |
+|  [18]   | Container runtime              | Mise clients, Colima on macOS                                                                        |
+|  [19]   | Agent browser options          | `.config/mise.toml` `[env]` `PLAYWRIGHT_MCP_*` rows                                                  |
+|  [20]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                  |
 
 - Tool rows stay at `latest`, a `version_regex` over release tags excludes a development build `latest` resolves
 

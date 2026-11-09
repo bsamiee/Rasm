@@ -1,6 +1,6 @@
 import type { TargetConfiguration } from '@nx/devkit';
 import { isCI } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Schema, Struct } from 'effect';
+import { Array, Effect, FileSystem, identity, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
 import type { Options } from '#/plugins/project-graph';
 import { AppleError, type Part, type Plugin, published, spawned, target, tokened } from '#/plugins/targets';
 
@@ -11,6 +11,7 @@ type Runs = readonly (readonly [string, ...string[]])[];
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const DEVELOPER_ID = { identity: 'Developer ID Application', method: 'developer-id' } as const;
+const LOCATED = ['INFOPLIST_FILE', 'CODE_SIGN_ENTITLEMENTS'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -71,8 +72,13 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: O
     const settings = [...archived.flatMap(([, listed]) => listed), ...others.flat()];
     const real = yield* fs.realPath(workspaceRoot);
     const [resolved, missing] = yield* Effect.partition(
-        settings.flatMap(({ target: owner, buildSettings }) => Object.entries(Struct.pick(buildSettings, ['INFOPLIST_FILE', 'CODE_SIGN_ENTITLEMENTS'])).map(([setting, value]) => ({ owner, setting, value, at: path.resolve(buildSettings.SRCROOT, value) }))),
-        (setting) => Effect.mapBoth(fs.realPath(setting.at), { onFailure: () => `target ${setting.owner} ${setting.setting}: ${setting.value} does not exist`, onSuccess: (at) => path.relative(real, at) }),
+        Array.getSomes(
+            settings
+                .flatMap(({ target: owner, buildSettings }) => LOCATED.map((setting) => ({ owner, setting, root: buildSettings.SRCROOT, value: Option.fromUndefinedOr(buildSettings[setting]) })))
+                .map(({ value, ...located }) => Option.map(value, (held) => ({ ...located, value: held, at: path.resolve(located.root, held) }))),
+        ),
+
+        (setting) => Effect.mapBoth(fs.realPath(setting.at), { onFailure: () => AppleError.make({ subject: `target ${setting.owner} ${setting.setting}`, detail: `${setting.value} does not exist` }), onSuccess: (at) => path.relative(real, at) }),
     );
     const archives = archived.flatMap(([scheme, listed]) =>
         Array.match(
@@ -90,7 +96,7 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: O
             },
         ),
     );
-    const failures = [...missing, ...archives.filter(({ places }) => places.length > 1).map(({ scheme, places }) => `scheme ${scheme} installs into ${places.join(' and ')}, and one xcodebuild install takes one DSTROOT`)];
+    const failures = [...missing.map(({ message }) => message), ...archives.filter(({ places }) => places.length > 1).map(({ scheme, places }) => `scheme ${scheme} installs into ${places.join(' and ')}, and one xcodebuild install takes one DSTROOT`)];
     return failures.length === 0 ? { inputs: Array.dedupe([...container.inputs, ...resolved]), archives } : yield* AppleError.make({ subject: container.path, detail: Array.dedupe(failures).join('\n  ') });
 });
 
@@ -114,7 +120,7 @@ const xcodeParts = (
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-scheme', scheme, ...extra] as const;
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every(packaged) }));
     const output = (scheme: string) => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => path.join(at, 'xcode', name, scheme));
-    const exported = archives.flatMap(({ scheme, configuration, notarized }) => Option.toArray(output(scheme)).map((folder) => ({ configuration, folder, notarized, entry: { archive: path.join(folder, `${scheme}.xcarchive`), folder, ...(notarized ? { method: DEVELOPER_ID.method } : {}) } })));
+    const exported = Array.getSomes(archives.map(({ scheme, configuration, notarized }) => Option.map(output(scheme), (folder) => ({ configuration, folder, notarized, entry: { archive: path.join(folder, `${scheme}.xcarchive`), folder, ...(notarized ? { method: DEVELOPER_ID.method } : {}) } }))));
     const packaging = [
         { name: 'build--ditto', notarized: false, options: {}, description: 'Zips each archived app with ditto for a GitHub release', help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
         {
@@ -146,20 +152,21 @@ const xcodeParts = (
                 ),
             ),
         );
-    const builds = (configuration: Option.Option<string>): Runs =>
-        schemes.flatMap((scheme) =>
-            archives.some((archive) => archive.scheme === scheme.name && Option.contains(configuration, archive.configuration))
-                ? [invoke('archive', scheme.name, Option.match(output(scheme.name), { onNone: () => [], onSome: (at) => ['-archivePath', path.join(at, `${scheme.name}.xcarchive`)] }))]
-                : (scheme.packages ? destinations(scheme.containers).map((platform) => ['-destination', `generic/platform=${platform}`]) : [[]]).map((destination) => invoke('build', scheme.name, destination)),
+    const builds = (configuration: Option.Option<string>): Runs => {
+        const [building, archiving] = Array.partition(
+            schemes,
+            Result.liftPredicate((scheme: (typeof schemes)[number]) => archives.some((archive) => archive.scheme === scheme.name && Option.contains(configuration, archive.configuration)), identity),
         );
+        return [
+            ...archiving.map((scheme) => invoke('archive', scheme.name, Option.match(output(scheme.name), { onNone: () => [], onSome: (at) => ['-archivePath', path.join(at, `${scheme.name}.xcarchive`)] }))),
+            ...Array.flatMap(building, (scheme) => (scheme.packages ? destinations(scheme.containers).map((platform) => ['-destination', `generic/platform=${platform}`]) : [[]]).map((destination) => invoke('build', scheme.name, destination))),
+        ];
+    };
     const installs = archives.map(({ scheme, places }) => invoke('install', scheme, [`DSTROOT=${Array.headNonEmpty(places)}`, 'INSTALL_PATH=/']));
-    const launches = Array.dedupe(schemes.flatMap(({ launch }) => Option.toArray(Option.fromUndefinedOr(launch))));
+    const launches = Array.dedupe(Array.getSomes(schemes.map(({ launch }) => Option.fromUndefinedOr(launch))));
     const modes = (planned: (configuration: Option.Option<string>) => Runs): Partial<TargetConfiguration> => ({
         configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned(Option.some(configuration)).map((run) => [...run, '-configuration', configuration]) }]),
-        ...Option.match(
-            Option.filter(Array.head(launches), () => launches.length === 1),
-            { onNone: () => ({}), onSome: (launch) => ({ defaultConfiguration: launch.toLowerCase() }) },
-        ),
+        ...(launches.length === 1 ? Record.fromIterableWith(launches, (launch) => ['defaultConfiguration', launch.toLowerCase()] as const) : {}),
     });
     return {
         root: path.dirname(container.path),
@@ -202,6 +209,20 @@ const xcodeParts = (
                           'xcode',
                           exported.map(({ folder }) => folder),
                           exported.filter(({ notarized }) => notarized).map(({ folder }) => folder),
+                      ),
+                  }),
+            ...(options.outputPath === undefined || schemes.length === 0
+                ? {}
+                : {
+                      'upgrade--xcodebuild': target(
+                          plugin,
+                          [
+                              ['rm', '-rf', path.join(options.outputPath, 'xcode', name, 'packages')],
+                              ['rm', '-f', lock],
+                              ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', path.join(options.outputPath, 'xcode', name, 'packages')],
+                          ],
+                          { technologies: ['xcode'], description: "Resolves the project's remote packages afresh to the newest versions their requirements allow and rewrites Package.resolved", help: { command: 'xcodebuild -help', example: { args: ['-scmProvider', 'system'] } } },
+                          { cache: false, inputs: read },
                       ),
                   }),
             ...(runs.length === 0

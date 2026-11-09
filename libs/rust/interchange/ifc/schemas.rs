@@ -1,4 +1,3 @@
-
 use core::{
     cell::{LazyCell, OnceCell},
     cmp::Ordering,
@@ -19,8 +18,8 @@ use serde::{
     Deserialize, Serialize,
     de::{self, DeserializeOwned, DeserializeSeed, Deserializer, IntoDeserializer as _, MapAccess, SeqAccess, Unexpected, Visitor},
 };
-use serde_with::{DeserializeAs, base64::Base64};
 use serde_json::value::Serializer;
+use serde_with::{DeserializeAs, base64::Base64};
 use uom::si::f64 as si;
 
 use crate::{Composed, DataType, Fault, IfcError, Path, Schema, Value, ValueDescription, stored};

@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-process"
 edition.workspace = true
-description       = "Owned child processes with native exit status, live output, and execution evidence"
+description       = "Child processes in groups and job objects that end with their owner, crashes included, and run to completion under a deadline"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -16,33 +16,16 @@ bench   = false
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-tokio                              = { workspace = true }
-tokio-util                         = { workspace = true }
-nonempty-collections               = { workspace = true }
-thiserror                          = { workspace = true }
-derive_more                        = { workspace = true }
-itertools                          = { workspace = true }
-serde                              = { workspace = true }
-serde_json                         = { workspace = true }
-jiff                               = { workspace = true }
-fs-err                             = { workspace = true, features = ["tokio"] }
-tempfile                           = { workspace = true }
-walkdir                            = { workspace = true }
-opentelemetry-semantic-conventions = { workspace = true }
-tracing                            = { workspace = true }
+tokio                = { workspace = true }
+tokio-util           = { workspace = true }
+process-wrap         = { workspace = true, features = ["std"] }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
 
 [target."cfg(unix)".dependencies]
 rustix = { workspace = true }
-
-[target."cfg(windows)".dependencies]
-process-wrap = { workspace = true }
-
-[target."cfg(target_os = \"macos\")".dependencies]
-tokio-stream        = { workspace = true }
-libc                = { workspace = true }
-libproc             = { workspace = true }
-serde_path_to_error = { workspace = true }
-serde_with          = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

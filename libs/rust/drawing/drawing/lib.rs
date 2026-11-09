@@ -118,9 +118,7 @@ pub struct Slant(f32);
 pub enum FontStyle {
     Normal,
     Italic,
-    Oblique {
-        angle: Option<Slant>,
-    },
+    Oblique { angle: Option<Slant> },
 }
 
 impl From<FontStyle> for parlance::FontStyle {
@@ -165,13 +163,9 @@ pub struct Dashes(NEVec<f64>);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Alignment {
-    Start {
-        dash_offset: DashOffset,
-    },
+    Start { dash_offset: DashOffset },
     Center,
-    Corners {
-        angle: Deflection,
-    },
+    Corners { angle: Deflection },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -186,11 +180,7 @@ pub struct Cmyk {
 pub enum Color {
     Srgb(OpaqueColor<Srgb>),
     Cmyk(Cmyk),
-    Spot {
-        name: Arc<str>,
-        tint: u8,
-        alternate: Cmyk,
-    },
+    Spot { name: Arc<str>, tint: u8, alternate: Cmyk },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -355,10 +345,7 @@ pub struct GlyphRun {
 pub enum Content {
     Svg(Arc<[u8]>),
     Raster(Arc<[u8]>),
-    Pdf {
-        bytes: Arc<[u8]>,
-        page: usize,
-    },
+    Pdf { bytes: Arc<[u8]>, page: usize },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -412,20 +399,11 @@ pub enum LineworkError {
     #[error("{0} leaves its range once scaled")]
     Scaled(Dash),
     #[error("hatch family {family} places its rows {spacing} apart on paper, under the tolerance")]
-    Spacing {
-        family: usize,
-        spacing: f64,
-    },
+    Spacing { family: usize, spacing: f64 },
     #[error("element {index}: {}", errors.iter().format("; "))]
-    Element {
-        index: usize,
-        errors: NEVec<StackSafe<Self>>,
-    },
+    Element { index: usize, errors: NEVec<StackSafe<Self>> },
     #[error("layer {name}: {}", errors.iter().format("; "))]
-    Layer {
-        name: Arc<str>,
-        errors: NEVec<StackSafe<Self>>,
-    },
+    Layer { name: Arc<str>, errors: NEVec<StackSafe<Self>> },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -580,14 +558,3 @@ pub mod hatches;
 pub mod pages;
 pub mod regions;
 pub mod strokes;
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-
-pub use color;
-pub use kurbo;
-pub use linebender_resource_handle;
-pub use linesweeper;
-pub use nonempty_collections;
-pub use parlance;
-pub use stacksafe;
-pub use uom;

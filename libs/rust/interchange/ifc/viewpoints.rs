@@ -1,9 +1,6 @@
-
 use itertools::EitherOrBoth;
-use rasm_bcf::{
-    Components, IFC_GUID_DIGITS, Presentation, Reference, ViewSetupHint, ifc_guid, presentation,
-    uuid::{Uuid, fmt::Hyphenated},
-};
+use rasm_bcf::{Components, IfcGuid, Presentation, Reference, ViewSetupHint, presentation};
+use uuid::{Uuid, fmt::Hyphenated};
 
 use crate::{
     Composed, IfcError, Model, Path,
@@ -20,14 +17,14 @@ pub fn node_presentation(components: &Components) -> impl Fn(&Composed) -> Resul
 
 pub fn reference(path: &Path) -> Result<Option<Reference>, IfcError> {
     let head = path.head();
-    matches!(head.len(), IFC_GUID_DIGITS | Hyphenated::LENGTH).then(|| rasm_bcf::guid(head).map(EitherOrBoth::Left).map_err(|source| IfcError::Guid { node: path.clone(), source })).transpose()
+    matches!(head.len(), IfcGuid::LENGTH | Hyphenated::LENGTH).then(|| head.parse().map(EitherOrBoth::Left).map_err(|source| IfcError::Guid { node: path.clone(), source })).transpose()
 }
 
 #[must_use]
 pub fn referent<'model>(model: &'model Model, reference: &Reference) -> Option<&'model Composed> {
     let &identity = reference.as_ref().left()?;
     let mut text = [0; Hyphenated::LENGTH];
-    model.head(Uuid::hyphenated(identity).encode_lower(&mut text)).or_else(|| model.head(&ifc_guid(&identity)))
+    model.head(Uuid::from(identity).hyphenated().encode_lower(&mut text)).or_else(|| model.head(&identity.to_string()))
 }
 
 pub fn hint(node: &Composed) -> Result<Option<ViewSetupHint>, IfcError> {

@@ -11,6 +11,9 @@ Covers functional TypeScript on Effect modules.
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Every type, export, and helper states something nothing else does, a helper with one reader, forwarder, or alias merges into its owner
+- Libraries give callers composable parts over a dependency's own types, callers choosing entry point, runtime, transport, and configuration
+- Parts adding dependencies some consumers never call sit behind a subpath export with an optional peer dependency
+- Layers adding a fact to a dependency (tracing, proxying) attach where its own adapters do, and a forwarder per member marks a misplaced layer
 - Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
 - Error cases exist where a caller branches on them, every other failure joins its owner's error
 - Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule

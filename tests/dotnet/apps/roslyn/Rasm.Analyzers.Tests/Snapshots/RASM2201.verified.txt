@@ -1,3 +1,4 @@
+RASM3105 `make()!` silences a nullable result, lift it through `Optional` into `Option` or `Fin` with the failure it stands for
 #0 `Products.Of` disposes font `SystemFonts.Label` caches for every caller, read the font without a release
 #1 `Products.Of` disposes font `SystemFonts.Bold` caches for every caller, read the font without a release
 #2 `Products.Transfer` disposes font `SystemFonts.Label` caches for every caller, read the font without a release

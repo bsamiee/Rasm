@@ -17,6 +17,9 @@ Code treats each crate as part of the language:
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly, with no layer that restates or wraps them, and a conversion between packages' types is no such layer
 - Every type, export, and helper states something nothing else does
+- Libraries give callers composable parts over a dependency's own types, callers choosing entry point, runtime, transport, and configuration
+- Features gate parts adding dependencies some consumers never call
+- Crates export their own capability and the foreign types their signatures take or return, a whole re-exported dependency adding no capability
 - Deep nesting reshapes into a match over the discriminant, a table, or a relation
 - Error cases exist where a caller branches on them, every other failure joins its owner's error
 - Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
@@ -408,6 +411,7 @@ Static dispatch can duplicate code across instantiations; dynamic dispatch suppo
 - Members restated across traits (an error type, a default `serve`) are one supertrait each extends
 - Crate-private traits with one implementor are that type's inherent `impl`
 - Foreign trait implementations write required methods and each default their type or a forwarded inner type answers differently, other defaults stand
+- Layers adding a fact to a dependency implement the trait its own adapters implement, and a forwarder per member marks a misplaced layer
 - Operations over a foreign type or every type meeting a bound are generic functions, a trait exists only for a capability with many implementations
 - Wrappers exposing an inner type through an accessor (tokio `Command::as_std_mut`) take one function over that type, in place of a trait for both
 - Traits selecting a fallible foreign call state only what differs per implementation (an evaluator type, a tape, an input seed, an output widening)
@@ -452,7 +456,7 @@ Existing `Display` and selective sources can use `derive_more::Error` with `#[er
 ## [06]-[EFFECTS]
 
 Pure functions hold the domain, async functions hold I/O, and the binary's `main` starts the runtime and runs the composed effect once:
-- Libraries return futures and streams, start no runtime, and every task they spawn has an owner that joins it
+- Libraries return futures and streams, and every task they spawn has an owner that joins it
 - Blocking calls use `spawn_blocking`; cancellation awaits started work before restoring host state (a prompt's raw mode)
 - Tasks spawn inside a scope that awaits them: `JoinQueue` in spawn order, `JoinSet` in completion order, `TaskTracker`, or `AbortOnDropHandle`
 - `CancellationToken` stops a scope, `run_until_cancelled` races a future against it, and `timeout` bounds one future

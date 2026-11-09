@@ -1,13 +1,9 @@
 {
     "mcpServers": {
-        "roslyn-codelens": { "type": "http", "url": "http://127.0.0.1:7401/" },
-        "nuget": { "type": "http", "url": "http://127.0.0.1:7402/" },
-        "binlog": { "type": "http", "url": "http://127.0.0.1:7403/" },
-        "ast-grep": { "type": "http", "url": "http://127.0.0.1:7404/" },
-        "rhino-mcp-platform": { "type": "http", "url": "http://127.0.0.1:7406/", "timeout": 600000 },
-        "blender": { "type": "http", "url": "http://127.0.0.1:7407/", "timeout": 600000 },
-        "mcp-for-blender": { "type": "http", "url": "http://127.0.0.1:7408/", "timeout": 600000 },
-        "atelier": { "type": "http", "url": "http://localhost:7490/" },
+        "atelier": {
+            "type": "http",
+            "url": "http://localhost:7490/"
+        },
         "github": {
             "type": "http",
             "url": "https://api.githubcopilot.com/mcp/",
@@ -18,19 +14,93 @@
                 "X-MCP-Features": "file_blame,issue_dependencies"
             }
         },
-        "exa": { "type": "http", "url": "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run", "headers": { "x-api-key": "${EXA_API_KEY}" } },
-        "context7": { "type": "http", "url": "https://mcp.context7.com/mcp", "headers": { "Authorization": "Bearer ${CONTEXT7_API_KEY}" } },
-        "deepwiki": { "type": "http", "url": "https://mcp.deepwiki.com/mcp" },
-        "greptile": { "type": "http", "url": "https://api.greptile.com/mcp", "headers": { "Authorization": "Bearer ${GREPTILE_API_KEY}" } },
-        "openaiDeveloperDocs": { "type": "http", "url": "https://developers.openai.com/mcp" },
-        "claudeCodeDocs": { "type": "http", "url": "https://code.claude.com/docs/mcp" },
+        "exa": {
+            "type": "http",
+            "url": "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run",
+            "headers": {
+                "x-api-key": "${EXA_API_KEY}"
+            }
+        },
+        "context7": {
+            "type": "http",
+            "url": "https://mcp.context7.com/mcp",
+            "headers": {
+                "Authorization": "Bearer ${CONTEXT7_API_KEY}"
+            }
+        },
+        "deepwiki": {
+            "type": "http",
+            "url": "https://mcp.deepwiki.com/mcp"
+        },
+        "greptile": {
+            "type": "http",
+            "url": "https://api.greptile.com/mcp",
+            "headers": {
+                "Authorization": "Bearer ${GREPTILE_API_KEY}"
+            }
+        },
+        "openaiDeveloperDocs": {
+            "type": "http",
+            "url": "https://developers.openai.com/mcp"
+        },
+        "claudeCodeDocs": {
+            "type": "http",
+            "url": "https://code.claude.com/docs/mcp"
+        },
         "illustrator": {
             "type": "http",
             "url": "http://localhost:18412/v1/mcp",
             "headersHelper": "prefs=$(jq -r --arg version \"$(watch-apps find com.adobe.illustratorBeta | jq -r 'first(.[][]).version')\" 'select(has($version)) | input_filename | sub(\"\\\\.runConfig$\"; \"Adobe Illustrator Prefs\")' \"$HOME\"/Library/Preferences/Adobe\\ Illustrator*Settings/*/.runConfig) && rg -o '/AuthToken \\[ [0-9]+[[:space:]]+([0-9a-f[:space:]]+)\\]' -r '$1' \"$prefs\" | tr -d ' \\t\\n' | xxd -r -p | jq -R '{Authorization: \"Bearer \\(.)\"}'"
         },
-        "arena": { "type": "http", "url": "https://mcp.are.na/mcp" },
-        "xcode": { "command": "xcrun", "args": [ "mcpbridge" ] },
-        "lldb": { "command": "xcrun", "args": [ "lldb-mcp" ] }
+        "arena": {
+            "type": "http",
+            "url": "https://mcp.are.na/mcp"
+        },
+        "xcode": {
+            "command": "xcrun",
+            "args": [ "mcpbridge" ]
+        },
+        "lldb": {
+            "command": "xcrun",
+            "args": [ "lldb-mcp" ]
+        },
+        "roslyn-codelens": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": [ "run", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--env", "DOTNET_ROLL_FORWARD=Major", "--", "roslyn-codelens-mcp" ]
+        },
+        "nuget": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": [ "run", "--share", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "nuget-mcp-server" ]
+        },
+        "binlog": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": [ "run", "--share", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "binlog-mcp" ]
+        },
+        "ast-grep": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": [ "run", "--env", "AST_GREP_PATH=ast-grep --custom-languages allow", "--", "ast-grep-server", "--config", "sgconfig.yml" ]
+        },
+        "rhino-mcp-platform": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": [ "run", "--share", "user", "--env", "RHINO_MCP_DEFAULT_VERSION=9", "--", "rhino-mcp-router" ],
+            "timeout": 600000
+        },
+        "blender": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": [ "run", "--share", "user", "--env", "BLENDER_MCP_PORT=9877", "--", "blender-mcp" ],
+            "timeout": 600000
+        },
+        "mcp-for-blender": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": [ "run", "--share", "user", "--env", "BLENDER_MCP_DISABLE_TELEMETRY=true", "--env", "MCP_FOR_BLENDER_PORT", "--env", "BLENDERMCP_SKETCHFAB_API_KEY", "--env", "BLENDERMCP_POLYPIZZA_API_KEY", "--", "mcp-for-blender" ],
+            "timeout": 600000
+        }
     }
 }

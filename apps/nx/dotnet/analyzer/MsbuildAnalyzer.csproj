@@ -2,6 +2,7 @@
     <PropertyGroup>
         <Description>Evaluates every MSBuild project of a workspace in one process and reports the facts the Nx plugin derives targets from</Description>
         <TargetFramework>net10.0</TargetFramework>
+        <Configurations>Release</Configurations>
         <OutputType>Exe</OutputType>
         <RollForward>LatestMajor</RollForward>
         <ServerGarbageCollection>true</ServerGarbageCollection>
@@ -14,7 +15,15 @@
         <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" />
         <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" />
         <PackageReference Include="Microsoft.Build.Locator" />
+    </ItemGroup>
+
+    <ItemGroup Label="Package Management">
+        <PackageReference Include="NuGet.Common" ExcludeAssets="runtime" />
+        <PackageReference Include="NuGet.Configuration" ExcludeAssets="runtime" />
+        <PackageReference Include="NuGet.Packaging" ExcludeAssets="runtime" />
         <PackageReference Include="NuGet.ProjectModel" ExcludeAssets="runtime" />
+        <PackageReference Include="NuGet.Protocol" ExcludeAssets="runtime" />
+        <PackageReference Include="NuGet.Versioning" ExcludeAssets="runtime" />
     </ItemGroup>
 
     <ItemGroup Label="Core">

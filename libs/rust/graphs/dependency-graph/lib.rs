@@ -1,4 +1,3 @@
-
 use core::{fmt, iter};
 use std::collections::BTreeSet;
 
@@ -50,14 +49,9 @@ pub enum DependencyError {
         Either::Left(path) => write!(formatter, "{}", indices(iter::chain(path, path.first()), " -> ")),
         Either::Right((source, target)) => write!(formatter, "no path {} -> {}", source.index(), target.index()),
     })).format("; "))]
-    Cycle {
-        paths: NEVec<Either<Vec<NodeIndex>, (NodeIndex, NodeIndex)>>,
-    },
+    Cycle { paths: NEVec<Either<Vec<NodeIndex>, (NodeIndex, NodeIndex)>> },
     #[error("{reason}: {}", indices(nodes, ", "))]
-    Refused {
-        reason: Refusal,
-        nodes: NEBTreeSet<NodeIndex>,
-    },
+    Refused { reason: Refusal, nodes: NEBTreeSet<NodeIndex> },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -165,11 +159,5 @@ mod order;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use critical::{Activity, Constraint, Event, Float, Precedence, Schedule, schedule};
-pub use enum_map;
 pub use invalidation::{Outcome, Propagation, Ready, propagate, reach};
-pub use itertools;
-pub use nonempty_collections;
-pub use num_traits;
 pub use order::{layers, redundant, topological};
-pub use petgraph;
-pub use rustworkx_core;

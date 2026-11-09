@@ -133,20 +133,11 @@ mod pareto;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 #[cfg(feature = "conic")]
-pub use clarabel;
-#[cfg(feature = "conic")]
 pub use conic::{Block, Refusal, Update, solve};
 #[cfg(feature = "linear")]
-pub use good_lp;
-#[cfg(feature = "linear")]
 pub use linear::{Allocation, Coverage, CoverageError, Duals, Integrality, Resource, allocation};
-pub use nalgebra;
 #[cfg(feature = "nonlinear")]
-pub use nlopt;
-#[cfg(any(feature = "conic", feature = "linear", feature = "nonlinear"))]
-pub use nonempty_collections;
+pub use nlopt::Target;
 #[cfg(feature = "nonlinear")]
 pub use nonlinear::{Constraint, Maxtime, MaxtimeError, Objective, Optimizer, Relation, Settings, Stopval, StopvalError, optimize};
 pub use pareto::{Rank, rank};
-#[cfg(feature = "nonlinear")]
-pub use {bounded_integer, itertools, rasm_stats};

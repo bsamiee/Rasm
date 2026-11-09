@@ -520,26 +520,9 @@ mod sky;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use basin;
-pub use bounded_integer;
 pub use climate::{DegreeDayMethod, DegreeDays, Profile, Rose, Statistic, Terrain, degree_days, integral, rose, running_mean, summary, typical, wind};
 pub use comfort::{Adaptive, Conditions, Exposure, Index, Limit, Limits, Psychrometrics, Standard, adaptive, dew_point, equivalent, outdoor, pmv, psychrometrics, relative_humidity, utci};
-pub use csv;
 pub use design::{Annual, Cooling, Design, Edition, Extremes, Heating, Humidification, computed, profile};
-pub use grib;
-pub use itertools;
-pub use jiff;
-pub use nalgebra;
-pub use ndarray;
-pub use ndarray_interp;
-pub use nonempty_collections;
-#[cfg(feature = "proximity")]
-pub use rasm_proximity;
-pub use rasm_site;
-pub use rasm_solar_geometry;
 #[cfg(feature = "proximity")]
 pub use sky::irradiance;
 pub use sky::{Light, Matrix, Model, Sky, Spectrum, matrix};
-pub use solar_positioning;
-pub use thermalcomfort;
-pub use uom;

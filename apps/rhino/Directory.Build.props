@@ -16,8 +16,4 @@
         <PlugInIconCorner>0.046875</PlugInIconCorner>
         <PlugInIconInset>0.125</PlugInIconInset>
     </PropertyGroup>
-
-    <ItemGroup Label="Rhino Plug-In Shell">
-        <ProjectReference Include="$(MSBuildThisFileDirectory)../roslyn/Rasm.Rhino.Generators/Rasm.Rhino.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" />
-    </ItemGroup>
 </Project>

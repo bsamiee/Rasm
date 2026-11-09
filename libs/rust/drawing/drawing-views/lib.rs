@@ -193,15 +193,5 @@ mod visibility;
 
 pub use edges::{edges, strokes};
 pub use faces::{Face, faces};
-pub use kurbo;
-pub use linesweeper;
-pub use manifold_rust;
-pub use nalgebra;
-pub use nonempty_collections;
-pub use parry3d_f64;
-pub use rasm_drawing;
-pub use rasm_mesh;
-pub use rasm_proximity;
 pub use sections::sections;
 pub use shadows::shadows;
-pub use spade;

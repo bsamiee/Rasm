@@ -27,7 +27,6 @@ Read before one line changes, a change from memory of an API, a summary, or an o
 7. Read `git log -S '<literal>'` for why a guard, flag, or form exists, a form with no cause in history, source, or a repository input goes
 8. Read the language skill, its `.claude/workflows/` companion, and memory entries as rules, `docs/research` as inputs changing on a new fact alone
 9. Count lines and code lines (`loc`), declared types, exports, parameters, flags, files, dependency rows, nesting depth, and branches per member
-10. Copy each file at base into the scratchpad for the old-against-new run of `[06]`
 
 Reading ends in a statement of purpose: what the file is for, who calls it, how it runs, the advanced input it serves, each behavior with the host or package member performing it, and the fact each declaration states, a declaration stating none is the first removal of `[04]`.
 
@@ -36,17 +35,17 @@ Decisions come from facts read: an instruction is followed for the problem it na
 ## [02]-[HOSTS]
 
 Hosts (applications, runtimes, build systems, checkers, generators) perform behavior and state values, code calls the host member for the behavior and reads the host declaration for the value, and a hand copy of either is wrong whatever its quality and diverges at the host's next release:
-- Behavior test: for each behavior a member performs (open, show, select, save, quit, style, layout, launch), name the host member performing it
+- Behavior: for each behavior a member performs (open, show, select, save, quit, style, layout, launch), name the host member performing it
 - Behavior outcome: a member found is called, a behavior the host performs on its own (dialog, save, instance, focus) leaves the library
-- Value test: each literal (name, path, size, version, instance count, dialog kind, key) names the host declaration stating it, code reads it there
-- Category test: a host property (single instance, own dialogs, argv as files, save on quit) derives from the installation or the running process
+- Value: each literal (name, path, size, version, instance count, dialog kind, key) names the host declaration stating it, code reads it there
+- Category: a host property (single instance, own dialogs, argv as files, save on quit) derives from the installation or the running process
 - Category outcome: an enumerated list of apps per property is a hand copy and goes from every file, library code names no host
-- Version test: one code path runs on the newest host release and its betas, a version-keyed branch, path, or file kind goes
+- Version: one code path runs on the newest host release and its betas, a version-keyed branch, path, or file kind goes
 - Version outcome: older installs exist to load built products, no code targets them
-- Interface test: panels, dialogs, prompts, themes, and documents are host kinds built through host members, diagnostic text goes to the logger
-- Proof test: a host behavior claim holds when one run on a real document in the running host showed it, a probe in another environment proves nothing
-- Instance test: documents open in the running instance behind the user's windows by z-order, no pass hides, kills, relaunches, or duplicates a host
-- Dialog test: a host dialog is read and answered through the host, never silenced by hiding, a host event is awaited, never polled or waited out
+- Interface: panels, dialogs, prompts, themes, and documents are host kinds built through host members, diagnostic text goes to the logger
+- Proof: a host behavior claim holds when one run on a real document in the running host showed it, a run in another environment proves nothing
+- Instance: documents open in the running instance behind the user's windows by z-order, no pass hides, kills, relaunches, or duplicates a host
+- Dialog: a host dialog is read and answered through the host, never silenced by hiding, a host event is awaited, never polled or waited out
 
 Finding the member and the case the host lacks it:
 - Source: read the host's installed source (decompiled assembly, scripting dictionary, interpreter reference, typings) through `search-code`
@@ -60,23 +59,23 @@ Finding the member and the case the host lacks it:
 ## [03]-[PACKAGES]
 
 Depth of package use is co-equal with reduction, a pass that deletes alone is half a pass, and a package member replaces hand code even when the member is the less convenient one:
-- Depth test: for each file, name the advanced input it serves and each package member it uses, a file left unchanged without both takes a pass
+- Depth: for each file, name the advanced input it serves and each package member it uses, a file left unchanged without both takes a pass
 - Depth outcome: "left as is" is a failure report, a file naming both is reported with them
-- Member test: before a traversal, parser, matcher, codec, conversion, logger, launcher, or layout is written, search the dependency's installed API
+- Member: before a traversal, parser, matcher, codec, conversion, logger, launcher, or layout is written, search the dependency's installed API
 - Member outcome: a member found replaces the hand code, a private module reachable through a public inference path is reached that way
-- Gap test: an input class, option, or case the advanced input needs and the dependency handles closes through its member, never by code beside it
-- Feature test: a capability behind a feature flag, an extra, or a companion package enters by enabling or adding it in the owning manifest row
-- Source test: a package semantic (concurrency, accumulation, stack depth, limit) comes from installed source and a measured run
+- Gap: an input class, option, or case the advanced input needs and the dependency handles closes through its member, never by code beside it
+- Feature: a capability behind a feature flag, an extra, or a companion package enters by enabling or adding it in the owning manifest row
+- Source: a package semantic (concurrency, accumulation, stack depth, limit) comes from installed source and a measured run
 - Source outcome: a split respecting a measured limit stays, a semantic no source read or run settled writes no code
-- Row test: a package row leaves with the last code importing it, a row removed with a folder while its capability is wanted is over-removal
-- Port test: a library copying another language's library in the tree is a hand copy, each language holds its own ecosystem's package for the job
-- Release test: a form from memory of an older release takes the installed release's form, newest per `CLAUDE.md` `[03]-[DEPENDENCY_POLICY]`
+- Row: a package row leaves with the last code importing it, a row removed with a folder while its capability is wanted is over-removal
+- Port: a library copying another language's library in the tree is a hand copy, each language holds its own ecosystem's package for the job
+- Release: a form from memory of an older release takes the installed release's form, newest per `CLAUDE.md` `[03]-[DEPENDENCY_POLICY]`
 
 ## [04]-[REMOVING]
 
 Surface is every declaration a reader must know, internal (helpers, fields, locals, nesting, parameters) and external (exports, public parameters, flags, files, entry points, dependency rows), and both reduce by deletion and folding, never by nesting or hiding. Deletions come first, each consumer is rebuilt in the same change, a file whose deletions reshape it is rewritten whole, and findings a removed guard reveals are fixed at their sites in the same change. Declarations are junk by default per `CLAUDE.md` `[04]-[CODE_QUALITY]`, one stays when no owner states its fact and keeping it removes more logic than it adds.
 
-Each kind goes on its test and takes its replacement:
+Each kind goes on its criterion and takes its replacement:
 
 | [INDEX] | [KIND]                 | [GOES_WHEN]                                                           | [REPLACED_BY]                         |
 | :-----: | :--------------------- | :-------------------------------------------------------------------- | :------------------------------------ |
@@ -89,21 +88,33 @@ Each kind goes on its test and takes its replacement:
 |  [07]   | Helper                 | Born of this pass, one reader, or dodges a name clash                 | Body at the reader, renamed owner     |
 |  [08]   | Parameter              | Every caller passes it alike, or the target derives it                | Folded into the owner, derivation     |
 |  [09]   | Export                 | Exposes an internal member, or grew naming no capability              | Private declaration                   |
-|  [10]   | Error variant          | No caller branches on it                                              | Owner's error                         |
-|  [11]   | Guard, fallback, retry | Proves own state, no listed entry point reaches it, or hides a cause  | Construction refusing it, cause fixed |
-|  [12]   | File                   | Alone in or named for its folder, or one helper                       | Sibling file, fact at its owner       |
-|  [13]   | Generator              | Output equals input                                                   | Source read directly                  |
-|  [14]   | Dependency row         | No code imports it and no capability of the pass wants it             | Nothing, catalog row stays            |
-|  [15]   | CLI flag, subcommand   | Tool derives the value from its target or state                       | Derivation, one name per operation    |
+|  [10]   | Re-export              | Forwards a whole crate or a member no public signature exposes        | Own capability, direct reference      |
+|  [11]   | Error variant          | No caller branches on it                                              | Owner's error                         |
+|  [12]   | Guard, fallback, retry | Proves own state, no listed entry point reaches it, or hides a cause  | Construction refusing it, cause fixed |
+|  [13]   | File                   | Alone in or named for its folder, or one helper                       | Sibling file, fact at its owner       |
+|  [14]   | Generator              | Output equals input                                                   | Source read directly                  |
+|  [15]   | Dependency row         | No code imports it and no capability of the pass wants it             | Nothing, catalog row stays            |
+|  [16]   | CLI flag, subcommand   | Tool derives the value from its target or state                       | Derivation, one name per operation    |
 
-Tests deciding a row:
-- Reader test: one reader folds a declaration into that reader, consumer count decides no public shape, unused public API stays, weak API is rebuilt
-- Entry test: a guard, flag, arm, or default goes when no entry point of `[01]` step 4 reaches it, a named entry keeps it until it derives the value
-- Capability test: name each input a removal stops handling, one named input reverts the removal, a dropped capability fails the pass
-- Shape test: declarations differing by a value or a case become one parameterized form, quantities held apart become the one relation holding them
-- Cause test: a guard, fallback, retry, clamp, lock, or wait names the cause it covers, fixed at its owner in the same change
+Criteria deciding a row:
+- Reader: one reader folds a declaration into that reader, consumer count decides no public shape, unused public API stays, weak API is rebuilt
+- Re-export: each consumer use of a re-export becomes library capability, a type a signature exposes, or a direct import of the dependency
+- Library: a library choosing a caller's entry point, runtime, transport, or configuration becomes parts callers compose over dependency types
+- Entry: a guard, flag, arm, or default goes when no entry point of `[01]` step 4 reaches it, a named entry keeps it until it derives the value
+- Capability: name each input a removal stops handling, one named input restores the removed code, a dropped capability fails the pass
+- Shape: declarations differing by a value or a case become one parameterized form, quantities held apart become the one relation holding them
+- Cause: a guard, fallback, retry, clamp, lock, or wait names the cause it covers, fixed at its owner in the same change
 - Cause outcome: a supervisor's restart row is host configuration and no retry
-- Divergence test: behavior kept apart from its source names source, behavior, and a repository input triggering it, no input means it goes
+- Divergence: behavior kept apart from its source names source, behavior, and a repository input triggering it, no input means it goes
+- Count: code kept short by an erased error, an untyped read, a discarded message, a dropped case, or a loose decode takes its typed form
+- Suppression: each suppression names its reason, one a catalog or manifest row makes false goes and its finding is fixed
+- String: a string deciding behavior goes, each case derived from the value's owner (type, member, host), never an enum renaming it
+- Fragile: logic reading text shape, order, or spelling (a pattern over a message, an index into a split) reads the typed source in its place
+- Credit: a defect present before the pass and one the pass introduced are both fixed in the pass
+- Triage: mixed work is read against the last clean commit, each change kept for a fact or capability it names or undone in place
+- Logic: a defect a read finds is proven by one discriminating input from repository data on old and new code
+- Output: a changed wire shape compares old and new outputs through one normalizer, never a gate on old output
+- Consumer: a behavior change reaches every consumer site in the same change, each rebuilt site run on repository input
 
 Removal is total across the tree: every mention, consumer path, manifest row, skill line, and README line goes, found by `rg -F` and `ast-grep run`, nothing stands in, and a removed mode, export, flag, or field takes every consumer in the same change, with served products run live after.
 
@@ -127,19 +138,20 @@ Each shape replaces one spam or nesting form:
 |  [10]   | One parameterized member       | Members differing by a value, flag, or case        |
 
 Algebraic forms hold where a relation is real and are never forced:
-- Relation test: quantities a caller computes from each other are one derivation solvable for any of them, a member or file per quantity fails
-- Choice test: a caller's choice among methods is an enum parameter, a `bool` holds a computed fact, a string naming a branch is a typed value
-- Deliberate test: an enum, struct, or nesting stays when a caller branches per variant or it names a real relation, a type naming neither goes
+- Relation: quantities a caller computes from each other are one derivation solvable for any of them, a member or file per quantity fails
+- Choice: a caller's choice among methods is an enum parameter, a `bool` holds a computed fact
+- Deliberate: an enum, struct, or nesting stays when a caller branches per variant or it names a real relation, a type naming neither goes
 
 Every member gets faster through logic, the language skill's hot-path line holds for each, and speed from a lock, a wait, a narrowed class, a serialized stage, or a dropped case is a regression:
-- Pass test: name the pass, allocation, parse, or materialization removed (a collect before a filter, a second walk zipping by index)
-- Level test: name the level touched (grammar, regex class, rule shape, util, file walk, cache key, checker option), another level hides the cause
-- Capability test: every input handled before is handled after, a narrowed grammar, class, or skipped case is a regression with a timing
-- Concurrency test: many agents share the tree, correctness comes from hashing, caching, and per-task output folders
+- Pass: name the pass, allocation, parse, or materialization removed (a collect before a filter, a second walk zipping by index)
+- Level: name the level touched (grammar, regex class, rule shape, util, file walk, cache key, checker option), another level hides the cause
+- Capability: every input handled before is handled after, a narrowed grammar, class, or skipped case is a regression with a timing
+- Cost: linear-scan lookups, repeated walks or parses, unbounded recursion, per-element copies, and resources held past use are rebuilt
+- Concurrency: many agents share the tree, correctness comes from hashing, caching, and per-task output folders
 
 ## [06]-[ADVERSARY]
 
-Fresh agents with no prior context follow each pass over the same scope under the same instruction, edit in place, and lean further toward removal and depth: the first removes what the pass kept, calls hosts and packages where the pass hand-wrote, and builds what the depth test of `[03]` names, the second collapses what remains into one structure per member, deepens again, and restores each regression of the first, then `review-change` judges the result hunk by hunk. File scopes run each as a delegated agent, folders run them through `deepen`.
+Fresh agents with no prior context follow each pass over the same scope under the same instruction, edit in place, and lean further toward removal and depth: the first removes what the pass kept, calls hosts and packages where the pass hand-wrote, and builds what the depth criterion of `[03]` names, the second collapses what remains into one structure per member, deepens again, and restores each regression of the first, then `review-change` judges the result hunk by hunk. File scopes run each as a delegated agent, folders run them through `deepen`.
 
 Brief contents:
 - Owner's instruction verbatim
@@ -147,7 +159,7 @@ Brief contents:
 - Verified facts with sources (installed releases, source paths, host members, measured limits), challengeable with evidence alone
 - Previous pass's mistakes as facts: checker conflicts met, build errors, logic defects a live run caught, host facts a proving run corrected
 - Divergences with their triggering repository input
-- Working tree state and the scratchpad path of the base copy
+- Working tree state, the change read through `git diff HEAD -- <paths>` and the untracked files `git status --short` lists
 - Nothing of the previous pass's report, judgments, or reasons for what it kept, and no checking, probing, or measuring instruction narrowing the pass
 
 Conduct:
@@ -157,21 +169,21 @@ Conduct:
 
 Regressions an adversary restores in place:
 
-| [INDEX] | [KIND]            | [TEST]                                                                                                |
-| :-----: | :---------------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | Growth            | Lines, declarations, exports, or files above base, growth tied to a named consumer included           |
-|  [02]   | Lost capability   | Input, grammar class, outline depth, or output the base served and the new code does not              |
-|  [03]   | Weakened check    | Lint lowered, rule narrowed, suppression, `files` exclusion, or dead branch kept for a lint           |
-|  [04]   | Snapshot gate     | Check comparing output to a pre-change copy, rebuilt output differs on purpose                        |
-|  [05]   | Shuffle           | Move, split, rename, alias, forwarder, barrel, re-export outside a package entry, or extracted helper |
-|  [06]   | Hidden cause      | Lock, wait, retry, guard, hidden launch, kill, or forwarded flag standing where a cause needs a fix   |
-|  [07]   | Hand-written host | Behavior a host performs moved into code, host value as a literal, app list grown, version branch     |
-|  [08]   | Package loss      | Member replaced by hand code, row removed with its capability wanted, feature turned off              |
-|  [09]   | Wrong removal     | Guard or flag removed while an entry point reaches it, consumer left broken                           |
-|  [10]   | Naive fix         | Checker finding fixed by a form a row of `[04]` or `[05]` removes, or by a fix that does not build    |
-|  [11]   | Product break     | Served product, plumbing, or host integration failing after the change                                |
+| [INDEX] | [KIND]            | [SIGN]                                                                                                      |
+| :-----: | :---------------- | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | Growth            | Lines, declarations, exports, or files above base, growth tied to a named consumer included                 |
+|  [02]   | Lost capability   | Input, grammar class, outline depth, or output the base served and the new code does not                    |
+|  [03]   | Weakened check    | Lint lowered, rule narrowed, suppression, `files` exclusion, or dead branch kept for a lint                 |
+|  [04]   | Snapshot gate     | Check comparing output to a pre-change copy, rebuilt output differs on purpose                              |
+|  [05]   | Shuffle           | Move, split, rename, alias, forwarder, barrel, whole-crate or non-entry re-export, extracted helper         |
+|  [06]   | Hidden cause      | Lock, wait, retry, guard, hidden launch, kill, or forwarded flag standing where a cause needs a fix         |
+|  [07]   | Hand-written host | Behavior a host performs moved into code, host value as a literal, app list grown, version branch           |
+|  [08]   | Package loss      | Member replaced by hand code, row removed with its capability wanted, feature turned off                    |
+|  [09]   | Wrong removal     | Guard or flag removed while an entry point reaches it, consumer left broken                                 |
+|  [10]   | Naive fix         | Checker finding fixed by a form `[04]`, `[05]`, or another checker refuses, or by a fix that does not build |
+|  [11]   | Product break     | Served product, plumbing, or host integration failing after the change                                      |
 
-Verdict: declarations and lines fall against the pass before with each kept declaration listed with its fact, a pass changing nothing fails unless every file passes the depth test of `[03]`, and a shuffle, growth naming no absent capability, a re-derived fact, a weakened check, a hand-written host behavior, or a finding deferred fails the pass.
+Verdict: declarations and lines fall against the pass before with each kept declaration listed with its fact, a pass changing nothing fails unless every file passes the depth criterion of `[03]`, and a shuffle, growth naming no absent capability, a re-derived fact, a weakened check, a hand-written host behavior, or a finding deferred fails the pass.
 
 Refactors are finished when, once at the end over edited projects and their consumers, `hk fix <paths>` ran, `nx run <project>:check` of each edited and consumer project (`hk check <paths>` for a file-level checker) passes with zero findings and warnings denied, and each entry point ran on repository input with its normal output. Checks run once at the end, never per step and never repository-wide, no test is created, a test the rebuild breaks is rewritten to the new shape or deleted, and no copy or backup sits in tree.
 

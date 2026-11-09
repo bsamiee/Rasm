@@ -7,8 +7,8 @@ import { nodeBundle } from '@rasm/hosting/node-bundle';
 import { Sites } from '@rasm/hosting/sites';
 import { nodeServer } from '@rasm/hosting/vite';
 import { pdfjs } from '@rasm/media/vite';
-import { react } from '@rasm/ui/vite';
 import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
 import { bindings } from 'cf/config';
 import { Config, Effect } from 'effect';
 import { defineConfig, searchForWorkspaceRoot } from 'vite';
@@ -17,7 +17,7 @@ import { defineConfig, searchForWorkspaceRoot } from 'vite';
 
 const workspace = searchForWorkspaceRoot(import.meta.dirname);
 const { name }: { readonly name: string } = createRequire(import.meta.url)('./package.json');
-const tooling = Effect.runSync(Effect.map(Effect.all([Config.withDefault(Config.Boolean('VITEST'), false), Config.withDefault(Config.Boolean('STORYBOOK'), false)]), ([vitest, storybook]) => vitest || storybook));
+const tooling = Effect.map(Effect.all([Config.withDefault(Config.Boolean('VITEST'), false), Config.withDefault(Config.Boolean('STORYBOOK'), false)]), ([vitest, storybook]) => vitest || storybook);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -25,11 +25,11 @@ export default defineConfig(({ command }) => ({
     build: { target: 'esnext', rolldownOptions: { experimental: { lazyBarrel: true }, output: { strictExecutionOrder: true } } },
     environments: { [nodeBundle.environment]: { build: { outDir: join(workspace, '.artifacts', 'vite', name) } } },
     plugins: [
-        react(),
+        react({ compiler: { panicThreshold: 'all_errors' } }),
         tailwindcss(),
         pdfjs(),
         sites(),
-        ...(tooling
+        ...(Effect.runSync(tooling)
             ? []
             : [
                   siteHead({ master: 'favicon.svg', stylesheet: 'site/theme.css', fill: '--color-accent', background: '--color-background' }),

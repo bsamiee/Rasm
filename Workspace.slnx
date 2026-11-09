@@ -11,9 +11,8 @@
     </Folder>
     <Folder Name="/apps/roslyn/">
         <Project Path="apps/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
-        <Project Path="apps/roslyn/Rasm.Analyzers.Diagnostics/Rasm.Analyzers.Diagnostics.csproj" />
-        <Project Path="apps/roslyn/Rasm.Analyzers.Package/Rasm.Analyzers.Package.csproj" />
-        <Project Path="apps/roslyn/Rasm.Rhino.Generators/Rasm.Rhino.Generators.csproj" />
+        <Project Path="apps/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj" />
+        <Project Path="apps/roslyn/Rasm.Rhino.Analyzers/Rasm.Rhino.Analyzers.csproj" />
     </Folder>
     <Folder Name="/libs/" />
     <Folder Name="/libs/dotnet/" />

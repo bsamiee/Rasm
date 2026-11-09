@@ -16,12 +16,12 @@ namespace Rasm.Analyzers.CodeFixes;
 
 [ExportCodeFixProvider(LanguageNames.CSharp)]
 public sealed class LanguageCodeFix() : DocumentEditorCodeFix((
-    LanguageAnalyzer.Covered,
+    "RASM3002",
     static (site, _) => FormattableString.Invariant($"Delete `{site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>()!}`"),
     static (editor, site, _, _) => editor.RemoveNode(site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>()!, SyntaxRemoveOptions.KeepExteriorTrivia | SyntaxRemoveOptions.KeepUnbalancedDirectives | SyntaxRemoveOptions.AddElasticMarker)));
 
 [ExportCodeFixProvider(LanguageNames.CSharp)]
-public sealed class SingleReaderCodeFix() : RasmCodeFix((LanguageAnalyzer.Reader, static (site, generator) => $"Inline `{generator.GetName(site)}`")) {
+public sealed class SingleReaderCodeFix() : RasmCodeFix(("RASM3001", static (site, generator) => $"Inline `{generator.GetName(site)}`")) {
     protected override async Task<Document> ChangedAsync(Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellation) {
         SyntaxNode root = (await document.GetSyntaxRootAsync(cancellation).ConfigureAwait(false))!;
         SemanticModel model = (await document.GetSemanticModelAsync(cancellation).ConfigureAwait(false))!;

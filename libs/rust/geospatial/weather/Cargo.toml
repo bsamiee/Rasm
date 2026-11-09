@@ -16,31 +16,31 @@ bench   = false
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-rayon                   = { workspace = true }
-nonempty-collections    = { workspace = true }
-thiserror               = { workspace = true }
-validated               = { workspace = true }
-derive_more             = { workspace = true }
-indexmap                = { workspace = true }
-itertools               = { workspace = true }
-csv                     = { workspace = true }
-serde                   = { workspace = true }
-serde_with              = { workspace = true }
-bounded-integer         = { workspace = true }
-jiff                    = { workspace = true }
-gauss-quad              = { workspace = true }
-nalgebra                = { workspace = true }
-ndarray                 = { workspace = true }
-ndarray-interp          = { workspace = true }
-statrs                  = { workspace = true }
-basin                   = { workspace = true }
-uom                     = { workspace = true }
-grib                    = { workspace = true }
-solar-positioning       = { workspace = true }
-thermalcomfort          = { workspace = true }
-rasm-proximity          = { workspace = true, optional = true }
-rasm-site               = { workspace = true }
-rasm-solar-geometry     = { workspace = true }
+rayon                = { workspace = true }
+nonempty-collections = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+indexmap             = { workspace = true }
+itertools            = { workspace = true }
+csv                  = { workspace = true }
+serde                = { workspace = true }
+serde_with           = { workspace = true }
+bounded-integer      = { workspace = true }
+jiff                 = { workspace = true }
+gauss-quad           = { workspace = true }
+nalgebra             = { workspace = true }
+ndarray              = { workspace = true }
+ndarray-interp       = { workspace = true }
+statrs               = { workspace = true }
+basin                = { workspace = true }
+uom                  = { workspace = true }
+grib                 = { workspace = true }
+solar-positioning    = { workspace = true }
+thermalcomfort       = { workspace = true }
+rasm-proximity       = { workspace = true, optional = true }
+rasm-site            = { workspace = true }
+rasm-solar-geometry  = { workspace = true }
 
 # --- [FEATURES] -------------------------------------------------------------------------
 

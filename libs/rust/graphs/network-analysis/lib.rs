@@ -47,11 +47,7 @@ where
     #[error("{}", .0.iter().format(", "))]
     Refused(NEVec<Refusal<N>>),
     #[error("turn from edge {:?} into edge {:?} at node {node:?} has an invalid cost", edges[0], edges[1])]
-    Turn {
-        edges: [E; 2],
-        node: N,
-        source: WeightError,
-    },
+    Turn { edges: [E; 2], node: N, source: WeightError },
     #[error(
         "power iteration did not converge within {} at {}",
         fmt::from_fn(|formatter| match convergence.max_iter {
@@ -63,9 +59,7 @@ where
             None => formatter.write_str("the default tolerance"),
         })
     )]
-    Unconverged {
-        convergence: Convergence,
-    },
+    Unconverged { convergence: Convergence },
     #[error("summed edge weights overflow the integer range of the solver")]
     Overflow,
     #[error(transparent)]
@@ -121,11 +115,6 @@ mod spanning;
 pub use centrality::{Centrality, Convergence, eigenvector, geodesic, katz};
 pub use connectivity::{Biconnected, Connectedness, Cut, biconnected, components, min_cut};
 pub use flows::{Cardinality, Flow, matching, maximum};
-pub use indexmap;
-pub use leiden_rs;
-pub use nalgebra;
-pub use nonempty_collections;
 pub use partition::{Communities, Trace, communities};
 pub use paths::{Catchment, Reached, Route, Tree, catchment, route, segments};
-pub use petgraph;
 pub use spanning::{steiner, tree};

@@ -1,8 +1,8 @@
 import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { isCI } from '@nx/devkit/internal';
-import { Array, Option, type Path, Record } from 'effect';
+import { Array, Equivalence, Option, type Path, Record, Result, String } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
-import { ancestors, MANIFEST, nearest, type Workspace } from '#/plugins/workspace';
+import { ancestors, LOCK, MANIFEST, nearest, type Workspace } from '#/plugins/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -17,21 +17,40 @@ interface Plugin {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CHECKS = ['advisories', 'bans', 'licenses', 'sources'];
+const DENIED = [
+    { target: 'check--cargo-deny', checks: ['bans', 'licenses', 'sources'], cache: true },
+    { target: 'check--cargo-deny-advisories', checks: ['advisories'], cache: false },
+] as const;
+const ENVIRONMENT = {
+    variables: ['RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTDOC', 'RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'RUSTDOCFLAGS', 'CARGO_ENCODED_RUSTDOCFLAGS', 'RUSTUP_TOOLCHAIN'],
+    build: ['rustc', 'rustc-wrapper', 'rustc-workspace-wrapper', 'rustdoc', 'target', 'rustflags', 'rustdocflags'],
+    target: ['rustflags', 'runner', 'linker'],
+    profiles: ['dev', 'release', 'test', 'bench'],
+    profile: ['opt-level', 'debug-assertions', 'overflow-checks', 'panic', 'lto', 'codegen-units'],
+} as const;
+const SEPARATOR = /[.-]/gu;
+const TECHNOLOGIES = ['rust'];
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const own = ({ kind, crate_types }: Target) => Array.makeEquivalence(Equivalence.String)(kind, crate_types);
+
+const library = (candidate: Target) => own(candidate) && !candidate.kind.includes('bin');
+
 const SELECTIONS: Readonly<Record<string, (target: Target) => boolean>> = {
-    '--lib': ({ kind, crate_types }) => kind.join() === crate_types.join() && !kind.includes('bin'),
+    '--lib': library,
     '--bins': ({ kind }) => kind.includes('bin'),
     '--tests': ({ test }) => test,
     '--benches': ({ kind }) => kind.includes('bench'),
 };
-const TECHNOLOGIES = ['rust'];
-const RELEASE = 'release';
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+const enabled = (features: Crate['features'], names: readonly string[]): readonly string[] => names.map((name) => Array.headNonEmpty(String.split(name, '/'))).flatMap((name) => Option.match(Record.get(features, name), { onNone: () => [], onSome: (implied) => [name, ...enabled(features, implied)] }));
 
 const locked = () => (isCI() === false ? [] : ['--locked']);
 
 const tokened = (path: Path.Path, file: string) => path.join('{workspaceRoot}', file);
+
+const configured = (...keys: readonly string[]) => ({ env: `CARGO_${keys.join('_').toUpperCase().replaceAll(SEPARATOR, '_')}` });
 
 const target = (plugin: Plugin, help: string, description: string, options: typeof Cargo.Type & { readonly outputs?: readonly string[] }, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
     executor: `${plugin.name}:cargo`,
@@ -61,6 +80,7 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
     const selected = { cwd: workspace.root, package: crate.name };
     const shared: readonly Input[] = [
         ...named,
+        tokened(path, path.join(workspace.root, LOCK)),
         ...(workspace.root === root ? [] : [tokened(path, path.join(workspace.root, MANIFEST))]),
         ...ancestors(path, workspace.root).flatMap((at) =>
             ['.cargo/config.toml', '.cargo/config', 'rust-toolchain.toml', 'rust-toolchain']
@@ -68,18 +88,42 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
                 .filter((file) => files.has(file))
                 .map((file) => tokened(path, file)),
         ),
+        ...ENVIRONMENT.variables.map((env) => ({ env })),
+        ...ENVIRONMENT.build.map((key) => configured('build', key)),
+        ...Option.toArray(workspace.host).flatMap((host) => ENVIRONMENT.target.map((key) => configured('target', host, key))),
+        ...Array.cartesianWith([...ENVIRONMENT.profiles, ...workspace.profiles], ENVIRONMENT.profile, (profile, key) => configured('profile', profile, key)),
     ];
     const nextest = Option.liftPredicate(path.join(workspace.root, '.config/nextest.toml'), (file) => files.has(file));
     const tested = crate.targets.some(({ test }) => test);
     const documented = crate.targets.some(({ doctest }) => doctest);
-    const filters = Record.keys(Record.filter(SELECTIONS, (selects) => crate.targets.some(selects)));
-    const products = crate.targets.filter(({ kind, crate_types }) => kind.join() === crate_types.join()).flatMap(workspace.files);
+    const filters = [
+        ...Record.keys(Record.filter(SELECTIONS, (selects) => crate.targets.some(selects))),
+        ...Array.match(Array.difference(Record.keys(crate.features), enabled(crate.features, ['default'])), {
+            onEmpty: () => [],
+            onNonEmpty: (features) => ['--features', features.map((feature) => `${crate.name}/${feature}`).join(',')],
+        }),
+    ];
+    const products = crate.targets.filter(own).flatMap(workspace.files);
     const written = (folder: string) => Option.toArray(workspace.output).flatMap((at) => products.map((file) => tokened(path, path.join(at, folder, file))));
     const profiles = ['release', ...workspace.profiles];
-    const configured = nearest(path, files, root, ['.clippy.toml', 'clippy.toml']);
+    const clippy = nearest(path, files, root, ['.clippy.toml', 'clippy.toml']);
     const compiler =
-        Option.isSome(configured) || workspace.linted(crate).has('clippy') ? { tool: 'clippy', check: ['clippy'] as const, fix: ['clippy', '--fix'] as const, inputs: Option.toArray(Option.map(configured, (file) => tokened(path, file))) } : { tool: 'cargo', check: ['check'] as const, fix: ['fix'] as const, inputs: [] };
-    const libraries = (workspace.metadata.metadata?.dylint?.libraries ?? []).flatMap(({ path: at }) => (at === undefined ? [] : [tokened(path, path.join(workspace.root, at, '**/*'))]));
+        Option.isSome(clippy) || workspace.linted(crate).has('clippy')
+            ? { tool: 'clippy', check: ['clippy'] as const, fix: ['clippy', '--fix'] as const, inputs: [...Option.toArray(Option.map(clippy, (file) => tokened(path, file))), { env: 'CLIPPY_CONF_DIR' }] }
+            : { tool: 'cargo', check: ['check'] as const, fix: ['fix'] as const, inputs: [] };
+    const libraries = Array.getSomes((workspace.metadata.metadata?.dylint?.libraries ?? []).map((declared) => Option.map(Option.fromUndefinedOr(declared.path), (relative) => path.join(workspace.root, relative)))).flatMap((folder) => {
+        const [sources, others] = Array.partition(
+            Option.match(
+                Array.findFirst(workspace.members, (member) => member.root === folder),
+                { onNone: () => [], onSome: (member) => member.crate.targets.map((owner) => [owner, path.join(folder, path.relative(path.dirname(member.crate.manifest_path), path.dirname(owner.src_path)))] as const) },
+            ),
+            ([owner, at]) => (library(owner) ? Result.succeed(at) : Result.fail(at)),
+        );
+        const found = Array.dedupe(sources);
+        const included = Array.isReadonlyArrayNonEmpty(found) ? found : [folder];
+        const excluded = Array.difference(Array.dedupe([...others, ...workspace.members.map((member) => member.root).filter((nested) => nested.startsWith(`${folder}/`))]), included);
+        return [...included.map((at) => tokened(path, path.join(at, '**/*'))), ...excluded.map((at) => `!${tokened(path, path.join(at, '**/*'))}`)];
+    });
     const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, '--keep-going', ...locked()], report: 'messages' }];
     const checked = (placed: (selection: readonly string[]) => Pick<Command, 'args' | 'trailing'>): Array.NonEmptyReadonlyArray<Command> =>
         Array.map(
@@ -118,15 +162,15 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
         ...Array.match(runs({ nextest: ['nextest', 'run'], test: ['test'] }), {
             onEmpty: () => ({}),
             onNonEmpty: (commands) => ({
-                test: target(plugin, Option.isSome(nextest) ? 'nextest run' : 'test', `Tests ${crate.name}`, { ...selected, commands }, { cache: true, inputs: [...shared, ...Option.toArray(Option.map(nextest, (file) => tokened(path, file)))], ...Option.getOrElse(covered, () => ({})) }),
+                test: target(plugin, Option.isSome(nextest) ? 'nextest run' : 'test', `Tests ${crate.name}`, { ...selected, commands }, { cache: true, inputs: [...shared, ...Option.toArray(Option.map(nextest, (file) => tokened(path, file))), { env: 'NEXTEST_PROFILE' }], ...Option.getOrElse(covered, () => ({})) }),
             }),
         }),
         [`check--${compiler.tool}`]: target(plugin, compiler.check.join(' '), `Reports ${compiler.tool} findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: [...compiler.check, ...selection] })) }, { cache: true, inputs: [...shared, ...compiler.inputs] }),
-        [`fix--${compiler.tool}`]: target(plugin, compiler.check.join(' '), `Applies ${compiler.tool} suggestions to ${crate.name}`, { ...selected, commands: [{ args: [...compiler.fix, '--allow-dirty', ...filters, '--keep-going'], report: 'messages' }] }, { cache: false }),
+        [`fix--${compiler.tool}`]: target(plugin, compiler.fix.join(' '), `Applies ${compiler.tool} suggestions to ${crate.name}`, { ...selected, commands: [{ args: [...compiler.fix, '--allow-dirty', ...filters, '--keep-going'], report: 'messages' }] }, { cache: false }),
         ...(libraries.length === 0
             ? {}
             : {
-                  'check--dylint': target(plugin, 'dylint', `Reports Dylint findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: ['dylint', '--all', '--fail-on-no-libraries'], trailing: selection })) }, { cache: true, inputs: [...shared, ...libraries] }),
+                  'check--dylint': target(plugin, 'dylint', `Reports Dylint findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: ['dylint', '--all', '--fail-on-no-libraries'], trailing: selection })) }, { cache: true, inputs: [...shared, ...libraries, { env: 'DYLINT_RUSTFLAGS' }] }),
                   'fix--dylint': target(plugin, 'dylint', `Applies Dylint suggestions to ${crate.name}`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...filters, '--keep-going'], report: 'messages' }] }, { cache: false }),
               }),
     };
@@ -134,25 +178,30 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
 
 const workspaceTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace): Targets => {
     const manifests = Array.dedupe([...workspace.manifests, path.join(workspace.root, MANIFEST)]).map((file) => tokened(path, file));
-    const lock = tokened(path, path.join(workspace.root, 'Cargo.lock'));
+    const lock = tokened(path, path.join(workspace.root, LOCK));
     return {
         ...Option.match(workspace.deny, {
             onNone: () => ({}),
-            onSome: ({ files, tables }) => {
-                const checks = CHECKS.filter((check) => tables.includes(check));
-                return {
-                    'check--cargo-deny': target(
-                        plugin,
-                        'deny',
-                        'Reports cargo-deny findings over the workspace graph, failing on any warning',
-                        { cwd: workspace.root, commands: [{ args: ['deny', '--workspace', ...locked(), 'check', '--deny', 'warnings', ...checks], report: 'status' }] },
-                        {
-                            cache: !checks.includes('advisories'),
-                            inputs: [...manifests, lock, ...files.map((file) => tokened(path, file))],
-                        },
+            onSome: ({ files, tables }) =>
+                Record.fromEntries(
+                    DENIED.flatMap(({ target: name, checks, cache }) =>
+                        Array.match(Array.intersection(checks, tables), {
+                            onEmpty: () => [],
+                            onNonEmpty: (selected) => [
+                                [
+                                    name,
+                                    target(
+                                        plugin,
+                                        'deny',
+                                        `Reports cargo-deny ${selected.join(', ')} findings over the workspace graph, failing on any warning`,
+                                        { cwd: workspace.root, commands: [{ args: ['deny', '--workspace', ...locked(), 'check', '--deny', 'warnings', ...selected], report: 'status' }] },
+                                        { cache, inputs: [...manifests, lock, ...files.map((file) => tokened(path, file))] },
+                                    ),
+                                ] as const,
+                            ],
+                        }),
                     ),
-                };
-            },
+                ),
         }),
         'upgrade--cargo': target(
             plugin,
@@ -170,22 +219,29 @@ const workspaceTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace)
     };
 };
 
-const released = (plugin: Plugin, crate: Crate, cwd: string): Pick<ProjectConfiguration, 'release' | 'tags'> & { readonly targets: Targets } =>
-    crate.publish?.length === 0
+const unresolved = (plugin: Plugin, root: string): Targets => ({
+    'check--cargo': target(plugin, 'check', `Reports the cargo error that keeps the manifest in ${root} from resolving`, { cwd: root, commands: [{ args: ['check'], report: 'status' }] }, { cache: false }),
+});
+
+const released = (plugin: Plugin, path: Path.Path, crate: Crate, cwd: string): Pick<ProjectConfiguration, 'release' | 'tags'> & { readonly targets: Targets } => {
+    const [registry, ...others] = crate.publish ?? [];
+    const named = registry === undefined || others.length > 0 || registry === 'crates-io' ? {} : { registry };
+    return crate.publish?.length === 0
         ? { targets: {} }
         : {
-              tags: [RELEASE],
-              release: { version: { versionActions: `${plugin.name}/release/version-actions` } },
+              tags: ['release'],
+              release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { lock: path.join(cwd, LOCK), ...named } } },
               targets: {
                   'nx-release-publish': {
                       executor: `${plugin.name}:release-publish`,
                       dependsOn: ['^nx-release-publish'],
-                      options: { cwd, package: crate.name },
+                      options: { cwd, package: crate.name, ...named },
                       metadata: { technologies: TECHNOLOGIES, description: `Publishes ${crate.name} with cargo publish` },
                   },
               },
           };
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { aggregated, crateTargets, released, TECHNOLOGIES, workspaceTargets };
+export { aggregated, crateTargets, released, TECHNOLOGIES, unresolved, workspaceTargets };

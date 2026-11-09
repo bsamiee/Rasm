@@ -5,16 +5,13 @@ import { clean, compare, explain } from '@renovatebot/pep440';
 import { Array, Effect, FileSystem, Option, Path, Record, Schema, SemVer, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { spawned, UvError } from '#/plugins/project-graph';
+import { LOCK, normalized, spawned, UvError } from '#/plugins/project-graph';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PYPROJECT = 'pyproject.toml';
 const PRERELEASES = { a: 'alpha', b: 'beta', rc: 'rc' } as const;
-const PYPI = 'https://pypi.org/simple';
-const SIMPLE = 'application/vnd.pypi.simple.v1+json';
 const NAME = /^\s*(?<name>[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)/iu;
-const SEPARATORS = /[-_.]+/gu;
 const TRAILING = /\/+$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -29,9 +26,10 @@ const Project = Schema.Struct({
     }),
 });
 const Indexes = Schema.Struct({ index: Schema.Array(Schema.Struct({ name: Schema.String, url: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) });
+const Configured = Schema.Struct({ tool: Schema.Struct({ uv: Indexes }) });
 const SETTINGS = {
     'uv.toml': (parsed: unknown) => Option.map(Schema.decodeUnknownOption(Indexes)(parsed), (settings) => settings.index),
-    [PYPROJECT]: (parsed: unknown) => Option.map(Schema.decodeUnknownOption(Schema.Struct({ tool: Schema.Struct({ uv: Indexes }) }))(parsed), (settings) => settings.tool.uv.index),
+    [PYPROJECT]: (parsed: unknown) => Option.map(Schema.decodeUnknownOption(Configured)(parsed), (settings) => settings.tool.uv.index),
 } as const;
 const Simple = Schema.Struct({ versions: Schema.Array(Schema.String) });
 const Locked = Schema.Struct({
@@ -62,9 +60,11 @@ const semver = (version: string) =>
         Effect.mapBoth({ onFailure: (cause) => UvError.make({ subject: version, detail: 'has an epoch, post, dev, or local part, or more than three release numbers, which SemVer cannot state', cause }), onSuccess: SemVer.format }),
     );
 
-const pep440 = (version: string) => Effect.fromOption(Option.filter(Option.fromNullishOr(clean(version)), (cleaned) => explain(cleaned)?.post === null)).pipe(Effect.mapError(() => UvError.make({ subject: version, detail: 'has no PEP 440 form; use a prerelease id of alpha, beta, or rc' })));
-
-const normalized = (name: string) => name.toLowerCase().replaceAll(SEPARATORS, '-');
+const pep440 = (version: string) =>
+    Effect.fromOption(
+        Option.filter(Option.fromNullishOr(clean(version)), (cleaned) => explain(cleaned)?.post === null),
+        () => UvError.make({ subject: version, detail: 'has no PEP 440 form; use a prerelease id of alpha, beta, or rc' }),
+    );
 
 const named = (requirement: string) =>
     Option.map(
@@ -78,10 +78,13 @@ const document = Effect.fnUntraced(function* (tree: Tree, at: string) {
     return { text, parsed };
 });
 
-const project = (tree: Tree, root: string) =>
-    Effect.flatMap(document(tree, joinPathFragments(root, PYPROJECT)), ({ text, parsed }) => Effect.map(Effect.all([Schema.decodeUnknownEffect(Project)(parsed), Schema.decodeUnknownEffect(Raw)(parsed)]), ([decoded, raw]) => ({ text, parsed, project: decoded.project, table: raw.project })));
+const project = Effect.fnUntraced(function* (tree: Tree, root: string) {
+    const { text, parsed } = yield* document(tree, joinPathFragments(root, PYPROJECT));
+    const [decoded, raw] = yield* Effect.all([Schema.decodeUnknownEffect(Project)(parsed), Schema.decodeUnknownEffect(Raw)(parsed)]);
+    return { text, parsed, project: decoded.project, table: raw.project };
+});
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | HttpClient.HttpClient>) => Effect.runPromise(effect.pipe(Effect.provide([layer, FetchHttpClient.layer])));
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | HttpClient.HttpClient>) => effect.pipe(Effect.provide([layer, FetchHttpClient.layer]), Effect.runPromise);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -93,9 +96,18 @@ class UvVersionActions extends VersionActions {
         return Effect.map(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ lock }) => lock);
     }
 
+    override readDependencies(_tree: Tree, projectGraph: ProjectGraph) {
+        return Promise.resolve((projectGraph.dependencies[this.projectGraphNode.name] ?? []).filter(({ target }) => target in projectGraph.nodes));
+    }
+
     override readCurrentVersionFromSourceManifest(tree: Tree) {
         const { root } = this.projectGraphNode.data;
-        return run(Effect.flatMap(project(tree, root), (manifest) => Effect.map(semver(manifest.project.version), (currentVersion) => ({ currentVersion, manifestPath: joinPathFragments(root, PYPROJECT) }))));
+        return run(
+            project(tree, root).pipe(
+                Effect.flatMap((manifest) => semver(manifest.project.version)),
+                Effect.map((currentVersion) => ({ currentVersion, manifestPath: joinPathFragments(root, PYPROJECT) })),
+            ),
+        );
     }
 
     override readCurrentVersionFromRegistry(tree: Tree, currentVersionResolverMetadata: Record<string, unknown> | undefined) {
@@ -107,11 +119,11 @@ class UvVersionActions extends VersionActions {
                     Record.toEntries(SETTINGS).filter(([file]) => tree.exists(joinPathFragments(lock, '..', file))),
                     ([file, form]) => Effect.map(document(tree, joinPathFragments(lock, '..', file)), ({ parsed }) => Option.getOrElse(form(parsed), Array.empty)),
                 );
-                const url = yield* Option.match(Option.fromUndefinedOr(index), {
-                    onNone: () => Effect.succeed(PYPI),
-                    onSome: (name) => Effect.mapBoth(Effect.fromOption(Array.findFirst(configured.flat(), (entry) => entry.name === name)), { onFailure: () => UvError.make({ subject: name, detail: `names no uv index in the uv.toml or pyproject.toml beside ${lock}` }), onSuccess: (entry) => entry.url }),
+                const url = yield* UndefinedOr.match(index, {
+                    onUndefined: () => Effect.succeed('https://pypi.org/simple'),
+                    onDefined: (name) => Effect.mapBoth(Effect.fromOption(Array.findFirst(configured.flat(), (entry) => entry.name === name)), { onFailure: () => UvError.make({ subject: name, detail: `names no uv index in the uv.toml or pyproject.toml beside ${lock}` }), onSuccess: (entry) => entry.url }),
                 });
-                const response = yield* HttpClient.execute(HttpClientRequest.get(`${url.replace(TRAILING, '')}/${normalized(declared.name)}/`).pipe(HttpClientRequest.setHeader('Accept', SIMPLE)));
+                const response = yield* HttpClient.execute(HttpClientRequest.get(`${url.replace(TRAILING, '')}/${normalized(declared.name)}/`).pipe(HttpClientRequest.setHeader('Accept', 'application/vnd.pypi.simple.v1+json')));
                 const versions = yield* HttpClientResponse.matchStatus(response, {
                     404: () => Effect.succeed<readonly string[]>([]),
                     orElse: (listing) => Effect.map(Effect.flatMap(HttpClientResponse.filterStatusOk(listing), HttpClientResponse.schemaBodyJson(Simple)), (page) => page.versions),
@@ -130,7 +142,7 @@ class UvVersionActions extends VersionActions {
             Effect.gen(function* () {
                 const node = yield* Effect.fromNullishOr(projectGraph.nodes[dependencyProjectName]);
                 const [{ project: dependent }, { project: dependency }] = yield* Effect.all([project(tree, root), project(tree, node.data.root)]);
-                const collections = [['dependencies', dependent.dependencies] as const, ...Record.toEntries(dependent['optional-dependencies']).map(([extra, rows]) => [`optional-dependencies.${extra}`, rows] as const)];
+                const collections = [['dependencies', dependent.dependencies] as const, ...Record.collect(dependent['optional-dependencies'], (extra, rows) => [`optional-dependencies.${extra}`, rows] as const)];
                 return yield* Option.match(
                     Array.findFirst(collections, ([, rows]) => rows.some((row) => Option.contains(named(row), normalized(dependency.name)))),
                     {
@@ -194,15 +206,20 @@ const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun }) =
     run(
         Effect.gen(function* () {
             const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-            const locks = dryRun === true ? [] : Array.dedupe(Record.values(readCachedProjectGraph().nodes).flatMap((node) => Option.toArray(Option.map(Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions), ({ lock }) => lock))));
-            const changed = yield* Effect.forEach(locks, (lock) =>
-                Effect.gen(function* () {
-                    const before = yield* fs.readFileString(path.join(cwd, lock));
-                    yield* spawned('uv', ['lock'], path.join(cwd, path.dirname(lock)));
-                    return (yield* fs.readFileString(path.join(cwd, lock))) === before ? Option.none() : Option.some(lock);
-                }),
-            );
-            return { changedFiles: Array.getSomes(changed), deletedFiles: [] };
+            const locks =
+                dryRun === true
+                    ? []
+                    : Array.dedupe(
+                          Object.values(readCachedProjectGraph().nodes).flatMap((node) =>
+                              Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions).pipe(
+                                  Option.map(({ lock }) => lock),
+                                  Option.filter((lock) => path.basename(lock) === LOCK),
+                                  Option.toArray,
+                              ),
+                          ),
+                      );
+            const changed = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(path.join(cwd, lock)), Effect.andThen(spawned('uv', ['lock'], path.join(cwd, path.dirname(lock))), fs.readFileString(path.join(cwd, lock))), (before, after) => before !== after));
+            return { changedFiles: changed, deletedFiles: [] };
         }),
     );
 

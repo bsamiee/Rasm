@@ -1,4 +1,3 @@
-
 use core::{cell::OnceCell, iter, num::NonZero};
 use std::collections::HashMap;
 
@@ -29,9 +28,7 @@ pub struct Elasticity(f64);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Start {
-    Spectral {
-        node_separation: Option<Distance>,
-    },
+    Spectral { node_separation: Option<Distance> },
     Centers(NEBTreeMap<NodeIndex, Point>),
 }
 

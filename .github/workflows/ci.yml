@@ -1,0 +1,57 @@
+name: CI
+
+on:
+    pull_request: {}
+    push:
+        branches: [main]
+    workflow_dispatch: {}
+
+permissions:
+    contents: read
+    actions: read
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+    linux:
+        runs-on: ubuntu-26.04
+        timeout-minutes: 60
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  filter: tree:0
+                  persist-credentials: false
+            - uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
+            - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+            - run: pnpm install
+            - run: nx install @rasm/infra
+            - run: nx affected --targets=check,test --exclude=tag:os:darwin,tag:os:win32
+            - run: nx affected --targets=build --exclude=tag:os:darwin,tag:os:win32,tag:host:blender,tag:host:unreal
+
+    macos:
+        runs-on: xcode-27
+        timeout-minutes: 60
+        env:
+            DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
+            RHINO_TOKEN: ${{ secrets.RHINO_TOKEN }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  filter: tree:0
+                  persist-credentials: false
+            - uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
+            - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+            - run: pnpm install
+            - run: hk check --all
+            - id: hosts
+              run: printf 'rhino=%s\n' "$(nx show projects --affected --projects=tag:os:win32 | head -1)" >> "$GITHUB_OUTPUT"
+            - if: steps.hosts.outputs.rhino != ''
+              uses: mcneel/setup-rhino3d@b3faf87453962c0742ab2a5e72d3494505f660df # v3.0.0
+              with:
+                  email-address: ${{ secrets.RHINO_EMAIL }}
+                  release-version: wip
+            - run: nx affected --targets=check,test,build --projects=tag:os:darwin

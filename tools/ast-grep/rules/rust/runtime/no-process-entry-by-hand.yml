@@ -22,6 +22,9 @@ utils:
     entry-attribute:
         regex: '^((::)?tokio::)?main$'
         inside: {kind: attribute, field: path}
+    runtime-choice:
+        regex: '(^|::)Builder::new_(multi|current)_thread$'
+        inside: {stopBy: end, kind: closure_expression, precedes: {stopBy: end, kind: closure_expression}, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::)run$'}}}}
 rule:
     all:
         - any:
@@ -32,6 +35,7 @@ rule:
                     - matches: imported-constructor
                     - matches: entry-attribute
                 - not: {inside: {kind: &use-tree 'scoped_identifier, use_declaration, use_list, scoped_use_list, use_as_clause, use_wildcard'}}
+                - not: {matches: runtime-choice}
             - kind: identifier
               all:
                 - any:

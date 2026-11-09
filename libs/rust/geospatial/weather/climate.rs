@@ -64,10 +64,7 @@ pub enum Terrain {
     Suburbs,
     City,
     Ocean,
-    Stated {
-        exponent: f64,
-        thickness: Length,
-    },
+    Stated { exponent: f64, thickness: Length },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

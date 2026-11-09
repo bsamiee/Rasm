@@ -1,11 +1,23 @@
 {
     "executors": {
-        "dotnet": {
-            "implementation": "./dist/executors/dotnet/executor#execute",
-            "batchImplementation": "./dist/executors/dotnet/executor#batch",
-            "schema": "./executors/dotnet/schema.json",
+        "build": {
+            "implementation": "./dist/executors/build/executor#execute",
+            "batchImplementation": "./dist/executors/build/executor#batch",
+            "schema": "./executors/build/schema.json",
             "preferBatch": true,
-            "description": "Runs one dotnet command per project, or once over every batched project through a solution written outside the workspace"
+            "description": "Runs dotnet build or publish once over a traversal project of every batched project, MSBuild ordering them and reporting each project's result"
+        },
+        "format": {
+            "implementation": "./dist/executors/format/executor#execute",
+            "batchImplementation": "./dist/executors/format/executor#batch",
+            "schema": "./executors/format/schema.json",
+            "preferBatch": true,
+            "description": "Runs dotnet format commands on one project, or once over a solution of every batched project written outside the workspace"
+        },
+        "upgrade": {
+            "implementation": "./dist/executors/upgrade/executor#execute",
+            "schema": "./executors/upgrade/schema.json",
+            "description": "Moves a central package file's versions to the newest listed releases, then restores its projects with dotnet restore --force-evaluate"
         },
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",

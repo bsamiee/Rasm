@@ -1,4 +1,3 @@
-
 use core::{
     cmp,
     f64::consts::{FRAC_PI_2, TAU},
@@ -72,9 +71,7 @@ pub struct Style {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Arrangement {
     Chain,
-    Parallel {
-        spacing: Width,
-    },
+    Parallel { spacing: Width },
     Running,
 }
 

@@ -14,15 +14,15 @@ namespace Rasm.Analyzers.CodeFixes;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, Func<SyntaxNode, SyntaxGenerator, string> Title)[] fixes) : CodeFixProvider {
+public abstract class RasmCodeFix(params (string Id, Func<SyntaxNode, SyntaxGenerator, string> Title)[] fixes) : CodeFixProvider {
 
     // --- [RULES]
 
-    private readonly ImmutableDictionary<string, Func<SyntaxNode, SyntaxGenerator, string>> titles = fixes.ToImmutableDictionary(static fix => fix.Rule.Id, static fix => fix.Title, StringComparer.Ordinal);
+    private readonly ImmutableDictionary<string, Func<SyntaxNode, SyntaxGenerator, string>> titles = fixes.ToImmutableDictionary(static fix => fix.Id, static fix => fix.Title, StringComparer.Ordinal);
 
     // --- [REGISTRATION]
 
-    public sealed override ImmutableArray<string> FixableDiagnosticIds { get; } = [.. fixes.Select(static fix => fix.Rule.Id)];
+    public sealed override ImmutableArray<string> FixableDiagnosticIds { get; } = [.. fixes.Select(static fix => fix.Id)];
 
     [SuppressMessage("Roslynator", "RCS1174", Justification = "FixAll requires a nullable task result; the action requires a nonnullable task result.")]
     public sealed override FixAllProvider GetFixAllProvider() =>
@@ -102,12 +102,12 @@ public abstract class RasmCodeFix(params (DiagnosticDescriptor Rule, Func<Syntax
     }
 }
 
-public abstract class DocumentEditorCodeFix(params (DiagnosticDescriptor Rule, Func<SyntaxNode, SyntaxGenerator, string> Title, Action<DocumentEditor, SyntaxNode, Diagnostic, CancellationToken> Edit)[] fixes)
-    : RasmCodeFix([.. fixes.Select(static fix => (fix.Rule, fix.Title))]) {
+public abstract class DocumentEditorCodeFix(params (string Id, Func<SyntaxNode, SyntaxGenerator, string> Title, Action<DocumentEditor, SyntaxNode, Diagnostic, CancellationToken> Edit)[] fixes)
+    : RasmCodeFix([.. fixes.Select(static fix => (fix.Id, fix.Title))]) {
 
     // --- [RULES]
 
-    private readonly ImmutableDictionary<string, Action<DocumentEditor, SyntaxNode, Diagnostic, CancellationToken>> edits = fixes.ToImmutableDictionary(static fix => fix.Rule.Id, static fix => fix.Edit, StringComparer.Ordinal);
+    private readonly ImmutableDictionary<string, Action<DocumentEditor, SyntaxNode, Diagnostic, CancellationToken>> edits = fixes.ToImmutableDictionary(static fix => fix.Id, static fix => fix.Edit, StringComparer.Ordinal);
 
     // --- [EDITS]
 

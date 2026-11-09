@@ -33,6 +33,7 @@ interface Program {
     readonly reports?: true;
     readonly routes?: { readonly selects?: readonly string[]; readonly modes?: Readonly<Record<string, string>>; readonly ignores?: readonly string[] };
     readonly headless?: readonly string[];
+    readonly launching?: readonly string[];
     readonly fixes?: readonly Fix[];
 }
 

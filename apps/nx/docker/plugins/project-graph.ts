@@ -1,7 +1,7 @@
 import { matchesGlob } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, hashArray, logger, type ProjectGraphProjectNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getOutputs, hashObject, quoteShellArg } from '@nx/devkit/internal';
+import { createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getOutputs, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Effect, Formatter, Function, Option, Order, Path, Record, Result, Schema, Stream, String } from 'effect';
 import { ChildProcess } from 'effect/process';
 
@@ -130,7 +130,30 @@ const keyed = (workspaceRoot: string, options: unknown) => hashArray([workspaceR
 
 const graph = Effect.fnUntraced(function* (workspaceRoot: string, files: readonly string[], options: unknown) {
     const path = yield* Path.Path;
-    const projects = yield* Effect.forEach(Record.toEntries(Array.groupBy(files, (file) => path.dirname(file))), ([root, matched]) => analyzed(workspaceRoot, root, matched), { concurrency: 'unbounded' });
+    const digest = (read: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...read]));
+    const key = hashArray([yield* digest(files), hashObject(options ?? {})]);
+    const cache = new PluginCache<{ readonly projects: readonly Omit<Project, 'unread'>[]; readonly digest: string }>(path.join(workspaceDataDirectory, `compose-${hashObject(options ?? {})}.hash`));
+    const held = Option.fromNullishOr(cache.get(key));
+    const current = yield* Effect.transposeOption(Option.map(held, (entry) => digest(entry.projects.flatMap(({ read }) => read))));
+    const projects = yield* Option.match(
+        Option.filter(held, (entry) => Option.contains(current, entry.digest)),
+        {
+            onSome: (entry) => Effect.succeed(entry.projects.map((project): Project => ({ ...project, unread: Option.none() }))),
+            onNone: Effect.fnUntraced(function* () {
+                const fresh = yield* Effect.forEach(Record.toEntries(Array.groupBy(files, (file) => path.dirname(file))), ([root, matched]) => analyzed(workspaceRoot, root, matched), { concurrency: 'unbounded' });
+                const stamp = yield* digest(fresh.flatMap(({ read }) => read));
+                const stored = fresh.map(({ unread: _, ...project }) => project);
+                yield* Effect.when(
+                    Effect.sync(() => {
+                        cache.set(key, { projects: stored, digest: stamp });
+                        cache.writeToDisk();
+                    }),
+                    Effect.succeed(fresh.every(({ unread }) => Option.isNone(unread))),
+                );
+                return fresh;
+            }),
+        },
+    );
     yield* Effect.forEach(Array.getSomes(projects.map(({ files: [file], unread }) => Option.map(unread, ({ message }) => `${file} takes check--compose and install from its folder alone, and their runs report Compose's own failure: ${message}`))), (warning) => Effect.sync(() => logger.warn(warning)));
     reports.set(keyed(workspaceRoot, options), projects);
     return projects;

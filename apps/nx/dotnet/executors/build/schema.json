@@ -1,0 +1,14 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Build",
+    "description": "Runs dotnet build or dotnet publish once over a generated traversal project of every batched project, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result",
+    "type": "object",
+    "properties": {
+        "project": { "type": "string", "description": "Project file to build" },
+        "command": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "dotnet verb and its switches for the configuration, which the plugin infers" },
+        "outputs": { "type": "array", "items": { "type": "string" }, "description": "Folders and files the configuration writes, which the target's outputs name through {options.outputs.<n>}" },
+        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to the dotnet command" }
+    },
+    "required": [ "project", "command" ]
+}

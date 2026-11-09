@@ -16,14 +16,11 @@
         "#/*.tsx": "./*.tsx"
     },
     "exports": {
-        ".": "./index.ts",
-        "./vite": "./vite.ts"
+        ".": "./index.ts"
     },
     "files": [ "dist" ],
     "dependencies": {
-        "@vitejs/plugin-react": "catalog:",
-        "lucide-react": "catalog:",
-        "oxc-transform-react": "catalog:"
+        "lucide-react": "catalog:"
     },
     "devDependencies": {
         "@effect/atom-react": "catalog:",
@@ -40,19 +37,12 @@
         "@effect/atom-react": "catalog:peers",
         "effect": "catalog:peers",
         "react": "catalog:peers",
-        "react-aria-components": "catalog:peers",
-        "vite": "catalog:peers"
-    },
-    "peerDependenciesMeta": {
-        "vite": {
-            "optional": true
-        }
+        "react-aria-components": "catalog:peers"
     },
     "publishConfig": {
         "access": "public",
         "exports": {
-            ".": "./dist/index.js",
-            "./vite": "./dist/vite.js"
+            ".": "./dist/index.js"
         },
         "imports": {
             "#/*": "./dist/*.js",

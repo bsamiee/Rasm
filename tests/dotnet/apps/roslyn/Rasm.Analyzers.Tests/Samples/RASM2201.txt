@@ -10,7 +10,7 @@ namespace Rasm.Rhino {
 
     public static class Products {
         public static IO<T> Of<T>(Func<T?> call) where T : class => IO.lift(() => Optional(call()).ToFin(Error.New("missing")));
-        public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to) where T : class, IDisposable => IO.lift(() => make()!).Bind(to);
+        public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to) where T : class, IDisposable => IO.lift(() => {|RASM3105:make()!|}).Bind(to);
         public static IO<Unit> Released(Action release) => IO.lift(release);
         public static IO<T> Replace<T>(Ref<Option<Owned<T>>> slot, IO<T> body) => body;
     }

@@ -11,6 +11,7 @@ use std::{
     thread,
 };
 
+use camino::Utf8PathBuf;
 use clap::{
     Arg, Args, Command, Id, ValueEnum,
     builder::{EnumValueParser, PossibleValue, PossibleValuesParser, TypedValueParser},
@@ -107,6 +108,7 @@ pub struct Defaults {
     pub level: LevelFilter = LevelFilter::INFO,
     pub targets: Vec<(&'static str, LevelFilter)> = Vec::new(),
     pub attributes: Vec<KeyValue> = Vec::new(),
+    pub log_directory: Option<Utf8PathBuf> = None,
 }
 
 #[derive(Clone, Debug)]
@@ -242,7 +244,7 @@ impl Options {
             })
         };
         let Self { log, service_name, propagators, traces_exporter, metrics_exporter, logs_exporter, sdk_disabled, traceparent, tracestate, baggage } = self;
-        let Defaults { level, targets, attributes } = defaults;
+        let Defaults { level, targets, attributes, log_directory: _ } = defaults;
         let exporters = [&traces_exporter, &metrics_exporter, &logs_exporter].map(|exporter| match exporter {
             Ok(Some(exporter)) if !matches!(sdk_disabled, Ok(Some(true))) => *exporter,
             Ok(Some(_) | None) | Err(Unrecognized { setting: _, value: _, source: _ }) => Exporter::None,

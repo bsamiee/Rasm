@@ -295,6 +295,22 @@ extension NSRunningApplication {
         }
     }
 
+    public func reading(window: CGWindowID? = nil) async -> InstanceState {
+        guard let window else { return await state { _ in true } }
+        let id: Element.ID? = await state()[case: \.running]?.windows.first { row in row.number == window }?.description[case: \.element]?.id
+        return await state { element in element.id == id }
+    }
+
+    public func quitting(force: Bool = false, clock: some Clock<Duration> & Sendable = ContinuousClock()) -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
+        guard force else { return quit(clock: clock) }
+        let states: some AsyncSequence<InstanceState, Never> & Sendable = states(clock: clock)
+        return if forceTerminate() {
+            states.map(Result<InstanceState, ApplicationFailure>.success)
+        } else {
+            [Result<InstanceState, ApplicationFailure>.failure(ApplicationFailure(subject: String(processIdentifier), reason: isTerminated ? .noProcess : .refused(nil)))].async
+        }
+    }
+
     private func requestQuit(saving: Bool, answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
         defer { reply.finish() }
         let request = NSAppleEventDescriptor(

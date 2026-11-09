@@ -29,8 +29,11 @@ internal sealed record Node(
     ImmutableArray<string> Inputs,
     ImmutableArray<string> Bases,
     ImmutableArray<Package> Packages,
-    string Restored,
+    ImmutableArray<string> Locks,
+    ImmutableArray<string> Restored,
     ImmutableArray<string> Results,
+    ImmutableArray<string> Platforms,
+    string? Central,
     Tracking? Releases);
 
 internal sealed record Failure(string File, string Message);
@@ -66,18 +69,27 @@ internal static class Workspace {
         if (Path.GetDirectoryName(path) is not { } folder) return Error.New($"{path} names no folder");
         ProjectInstance outer = Load(path, Defaults, context, collection);
         Seq<string> frameworks = Listed(outer, "TargetFrameworks");
+        Seq<string> configurations = Listed(outer, "Configurations");
         Seq<(string Configuration, Option<string> Runtime, Seq<ProjectInstance> Instances)> modes =
-            from configuration in Listed(outer, "Configurations")
+            from configuration in configurations
             from runtime in Seq(Option<string>.None) + Listed(outer, "RuntimeIdentifiers").Map(static runtime => Some(runtime))
             select (configuration, runtime, (frameworks.IsEmpty ? Seq(Option<string>.None) : frameworks.Map(static framework => Some(framework))).Map(framework => Load(path, Properties(configuration, runtime, framework), context, collection)));
         Seq<ProjectInstance> instances = Seq(outer) + modes.Bind(static mode => mode.Instances);
         string Placed(string output) => Relative(root, Path.GetFullPath(Path.Combine(folder, output)));
-        Seq<string> imports = instances
-            .Bind(static instance => toSeq(instance.ImportPaths))
-            .Filter(import => !Under(import, Path.GetFullPath(Path.Combine(folder, outer.GetPropertyValue("MSBuildProjectExtensionsPath")))));
+        string Extensions(ProjectInstance instance) => Path.GetFullPath(Path.Combine(folder, instance.GetPropertyValue("MSBuildProjectExtensionsPath")));
+        Seq<string> Restore(Seq<ProjectInstance> held) => held.Map(Extensions).Distinct().Filter(Directory.Exists).Bind(static at => toSeq(Directory.EnumerateFiles(at))).Map(file => Relative(root, file));
+        Seq<string> imports =
+            from instance in instances
+            from import in toSeq(instance.ImportPaths)
+            where !Under(import, Extensions(instance))
+            select import;
         Seq<string> walked = Walk(root, folder);
         Seq<string> bases = Seq(outer.GetPropertyValue("BaseOutputPath"), outer.GetPropertyValue("BaseIntermediateOutputPath")).Map(at => Path.GetFullPath(Path.Combine(folder, at)));
         Seq<string> inside = imports.Map(import => Relative(root, import)).Filter(static relative => !relative.StartsWith("..", StringComparison.Ordinal));
+        Seq<string> locks = instances
+            .Map(instance => Path.GetFullPath(Path.Combine(folder, instance.GetPropertyValue("NuGetLockFilePath") is { Length: > 0 } named ? named : PackagesLockFileFormat.LockFileName)))
+            .Distinct()
+            .Filter(File.Exists);
         return (
             new Node(
                 file.Replace('\\', '/'),
@@ -86,18 +98,18 @@ internal static class Workspace {
                 instances.Exists(static instance => Flag(instance, "IsTestProject") || Flag(instance, "IsTestingPlatformApplication")),
                 Flag(outer, "IsPackable"),
                 Flag(outer, "IsPublishable"),
-                outer.GetPropertyValue("Configuration"),
+                configurations.Find(configuration => configuration.Equals(outer.GetPropertyValue("Configuration"), StringComparison.OrdinalIgnoreCase)).IfNone(() => configurations.Head.IfNone(outer.GetPropertyValue("Configuration"))),
                 [.. modes.Map(mode => new Mode(
                     mode.Configuration,
                     mode.Runtime.ValueUnsafe(),
-                    [.. mode.Instances.Bind(static instance => Seq(instance.GetPropertyValue("OutputPath"), instance.GetPropertyValue("IntermediateOutputPath"))).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
-                    [.. mode.Instances.Filter(static instance => Flag(instance, "IsPublishable")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)]))],
+                    [.. mode.Instances.Bind(static instance => Seq(instance.GetPropertyValue("OutputPath"), instance.GetPropertyValue("IntermediateOutputPath"))).Map(Placed).Append(Restore(mode.Instances)).Distinct().Order(StringComparer.Ordinal)],
+                    [.. mode.Instances.Filter(static instance => Flag(instance, "IsPublishable") && Flag(instance, "Optimize")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)]))],
                 [.. instances
                     .Bind(static instance => toSeq(instance.GetItems("ProjectReference")))
                     .Choose(reference => Optional(Path.GetDirectoryName(reference.GetMetadataValue("FullPath"))).Map(referenced => new Reference(Relative(root, referenced), Relative(root, reference.GetMetadataValue("DefiningProjectFullPath")))))
                     .Distinct()],
                 [.. imports
-                    .Append(instances.Bind(static instance => Linked.Bind(type => toSeq(instance.GetItems(type)))).Map(static item => item.GetMetadataValue("FullPath")))
+                    .Append(from instance in instances from type in Linked from item in toSeq(instance.GetItems(type)) select item.GetMetadataValue("FullPath"))
                     .Filter(input => File.Exists(input) && !Under(input, folder) && !bases.Exists(at => Under(input, at)))
                     .Map(input => Relative(root, input))
                     .Filter(static relative => !relative.StartsWith("..", StringComparison.Ordinal))
@@ -105,17 +117,15 @@ internal static class Workspace {
                     .Distinct()
                     .Order(StringComparer.Ordinal)],
                 [.. bases.Map(at => Relative(root, at)).Distinct()],
-                [.. instances
-                    .Map(instance => Path.GetFullPath(Path.Combine(folder, instance.GetPropertyValue("NuGetLockFilePath") is { Length: > 0 } named ? named : PackagesLockFileFormat.LockFileName)))
-                    .Distinct()
-                    .Filter(File.Exists)
+                [.. locks
                     .Bind(static locked => toSeq(PackagesLockFileFormat.Read(locked).Targets))
                     .Bind(static target => toSeq(target.Dependencies))
                     .Filter(static dependency => dependency.Type is not PackageDependencyType.Project)
                     .AsEnumerable()
                     .DistinctBy(static dependency => (dependency.Id, dependency.ResolvedVersion))
                     .Select(static dependency => new Package(dependency.Id, dependency.ResolvedVersion.ToNormalizedString(), dependency.ContentHash, dependency.Type is PackageDependencyType.Direct, [.. dependency.Dependencies.Select(static held => held.Id)]))],
-                Relative(root, Path.GetFullPath(Path.Combine(folder, outer.GetPropertyValue("MSBuildProjectExtensionsPath"), $"{outer.GetPropertyValue("MSBuildProjectFile")}.nuget.g.props"))),
+                [.. locks.Map(locked => Relative(root, locked))],
+                [.. instances.Map(Extensions).Distinct().Map(at => Relative(root, at))],
                 [.. (Flag(outer, "UseArtifactsOutput")
                     ? Seq(Path.Combine(outer.GetPropertyValue("ArtifactsPath"), "test", outer.GetPropertyValue("ArtifactsProjectName")))
                     : instances.Exists(static instance => Flag(instance, "IsTestingPlatformApplication"))
@@ -124,6 +134,8 @@ internal static class Workspace {
                     .Map(results => Relative(root, results))
                     .Distinct()
                     .Order(StringComparer.Ordinal)],
+                [.. toSeq(outer.GetItems("SupportedPlatform")).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
+                Flag(outer, "ManagePackageVersionsCentrally") ? Relative(root, outer.GetPropertyValue("DirectoryPackagesPropsPath")) : null,
                 Tracked(root, instances)),
             Seq(file.Replace('\\', '/')) + inside + walked);
     }

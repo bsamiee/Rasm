@@ -7,13 +7,13 @@
     <ItemGroup Label="Analyzers">
         <GlobalPackageReference Include="ErrorProne.NET.CoreAnalyzers"                    Version="0.9.0-beta.4" />                      <!-- Roslyn analyzers for correctness and performance defects -->
         <GlobalPackageReference Include="Meziantou.Analyzer"                              Version="3.0.321" />                           <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules -->
-        <GlobalPackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers"       Version="5.6.0" />                             <!-- Roslyn analyzer rejecting symbols BannedSymbols files list -->
         <GlobalPackageReference Include="Microsoft.VisualStudio.Threading.Analyzers"      Version="18.12.1" />                           <!-- Roslyn analyzers flagging async deadlocks and threading hazards -->
         <GlobalPackageReference Include="Roslynator.Analyzers"                            Version="5.0.1" />                             <!-- C# code quality analyzers, refactorings, and code fixes -->
     </ItemGroup>
 
     <ItemGroup Label="Analyzer Authoring">
         <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers"                        Version="5.9.0" />                             <!-- Correctness analyzers for code using Roslyn APIs -->
+        <PackageVersion Include="Microsoft.CodeAnalysis.AnalyzerUtilities"                Version="5.6.0" />                             <!-- Cached type lookups and dataflow analyses over the control flow graph -->
         <PackageVersion Include="Microsoft.CodeAnalysis.Common"                           Version="5.9.0" />                             <!-- Roslyn compiler platform shared syntax and semantic APIs -->
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp"                           Version="5.9.0" />                             <!-- Roslyn C# compiler with syntax and semantic analysis APIs -->
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces"                Version="5.9.0" />                             <!-- C# workspace layer for code analysis and refactoring -->
@@ -31,7 +31,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Build Engine">
-        <PackageVersion Include="Microsoft.Build"                                         Version="18.6.3" />                            <!-- MSBuild evaluation and project graph APIs, compiled against alone: the newest release built for net10.0, the LTS runtime a tool loading the running SDK MSBuild targets -->
+        <PackageVersion Include="Microsoft.Build"                                         Version="[18.6.3]" />                            <!-- MSBuild evaluation and project graph APIs, compiled against alone: the newest release built for net10.0, the LTS runtime a tool loading the running SDK MSBuild targets -->
         <PackageVersion Include="Microsoft.Build.Framework"                               Version="18.6.3" />                            <!-- MSBuild task, logger, and event interfaces, paired with Microsoft.Build -->
         <PackageVersion Include="Microsoft.Build.Locator"                                 Version="1.11.2" />                            <!-- Registers the MSBuild of the SDK global.json selects before MSBuild types load -->
     </ItemGroup>

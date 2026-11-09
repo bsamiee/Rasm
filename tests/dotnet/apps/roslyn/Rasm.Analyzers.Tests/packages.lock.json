@@ -20,11 +20,15 @@
         "resolved": "3.0.321",
         "contentHash": "aFP7GiBBIb2x9rBTuUpw/jSs0JVbTofADlt6WxmYVYQ24KPAjFYyxcnNNVVf4F/eqKyzjik170nOpURmmyJDKg=="
       },
-      "Microsoft.CodeAnalysis.BannedApiAnalyzers": {
+      "Microsoft.CodeAnalysis.AnalyzerUtilities": {
         "type": "Direct",
         "requested": "[5.6.0, )",
         "resolved": "5.6.0",
-        "contentHash": "Kcobt3pnOdO0A+6CKiMHZdTEluJpsfxiV20axtZdmfBQnDmiWTKPJADlgAfdTuKNAnVarrkJa0UEGwuOo91muw=="
+        "contentHash": "S2PJate9VUQ2zNZuLcKi5VmCb6y0atRCi6XRnnPd03Ot8NP0IcYd+fBQnFSWEkt37do84OUGXUKQqdZVgJSCgA==",
+        "dependencies": {
+          "Microsoft.Bcl.AsyncInterfaces": "10.0.1",
+          "Microsoft.CodeAnalysis.Common": "4.12.0"
+        }
       },
       "Microsoft.CodeAnalysis.Common": {
         "type": "Direct",
@@ -92,6 +96,12 @@
         "requested": "[18.12.1, )",
         "resolved": "18.12.1",
         "contentHash": "sQt7NpnselT1gP1a7bTfhmfHYV0jbavst/8mOoWTMSjXhXzWPssqgBoIwrxNsgJUa7XQzD2raSRMAFfmlepxNw=="
+      },
+      "QuikGraph": {
+        "type": "Direct",
+        "requested": "[2.5.0, )",
+        "resolved": "2.5.0",
+        "contentHash": "sG+mrPpXwxlXknRK5VqWUGiOmDACa9X+3ftlkQIMgOZUqxVOQSe0+HIU9PTjwqazy0pqSf8MPDXYFGl0GYWcKw=="
       },
       "RhinoCommon": {
         "type": "Direct",
@@ -352,14 +362,13 @@
           "xunit.v3.runner.common": "[4.0.2]"
         }
       },
-      "rasm.analyzers.codefixes": {
-        "type": "Project",
-        "dependencies": {
-          "QuikGraph": "[2.5.0, )",
-          "Rasm.Analyzers.Diagnostics": "[1.0.0, )"
-        }
+      "rasm.analyzers": {
+        "type": "Project"
       },
-      "rasm.analyzers.diagnostics": {
+      "rasm.analyzers.codefixes": {
+        "type": "Project"
+      },
+      "rasm.rhino.analyzers": {
         "type": "Project"
       },
       "Humanizer.Core": {
@@ -482,12 +491,6 @@
         "requested": "[7.9.0, )",
         "resolved": "7.9.0",
         "contentHash": "r4sZuVpVqwSBLe4qYDrnpScqdyctlRXg0HSF5OoCGkeBc8b+o8BBYHuI/u1RoWYX78PbieijU13TBt71/Xf3lw=="
-      },
-      "QuikGraph": {
-        "type": "CentralTransitive",
-        "requested": "[2.5.0, )",
-        "resolved": "2.5.0",
-        "contentHash": "sG+mrPpXwxlXknRK5VqWUGiOmDACa9X+3ftlkQIMgOZUqxVOQSe0+HIU9PTjwqazy0pqSf8MPDXYFGl0GYWcKw=="
       },
       "System.Composition": {
         "type": "CentralTransitive",

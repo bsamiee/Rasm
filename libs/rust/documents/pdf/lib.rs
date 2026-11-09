@@ -217,22 +217,13 @@ pub enum PdfError {
     #[error(transparent)]
     Recognition(#[from] OcrError),
     #[error("{refusal}: {name}")]
-    Named {
-        name: Arc<str>,
-        refusal: Refusal,
-    },
+    Named { name: Arc<str>, refusal: Refusal },
     #[error("page {index} lies past the {count} pages of the document")]
-    Page {
-        index: usize,
-        count: usize,
-    },
+    Page { index: usize, count: usize },
     #[error("area of {} by {} encloses nothing", .0.width(), .0.height())]
     Area(Rect),
     #[error("font data of {family} holds no face {index}")]
-    Font {
-        family: Arc<str>,
-        index: u32,
-    },
+    Font { family: Arc<str>, index: u32 },
     #[error("document holds no optional content group {} {} R", .0.0, .0.1)]
     Group(ObjectId),
     #[error("PDF metadata cannot represent year {0}")]
@@ -242,10 +233,7 @@ pub enum PdfError {
     #[error("{0} needs output the writer cannot produce")]
     Press(PdfXLevel),
     #[error("document claims {family} conformance {claim}, which no validator checks")]
-    Claim {
-        family: Family,
-        claim: Arc<str>,
-    },
+    Claim { family: Family, claim: Arc<str> },
     #[error("page label range at page {0} numbers from zero, where ISO 32000 starts at one")]
     Numbering(usize),
     #[error("timestamp authority answered {}", fmt::from_fn(|formatter| match .0 {
@@ -256,19 +244,13 @@ pub enum PdfError {
     #[error("timestamp token stamps other bytes")]
     Imprint,
     #[error("raster of {width} by {height} pixels exceeds addressable memory")]
-    Raster {
-        width: u64,
-        height: u64,
-    },
+    Raster { width: u64, height: u64 },
     #[error("document is encrypted, and the signer appends its signature dictionary unencrypted")]
     Encrypted,
     #[error("document holds {0} signatures, and filling rewrites the whole file, which invalidates them")]
     Signed(NonZero<usize>),
     #[error("{level} validator refused the claim{}", fmt::from_fn(|formatter| errors.iter().try_for_each(|error| write!(formatter, "\n{error}"))))]
-    Nonconforming {
-        level: PdfXLevel,
-        errors: Vec<XComplianceError>,
-    },
+    Nonconforming { level: PdfXLevel, errors: Vec<XComplianceError> },
     #[error("refused{}", fmt::from_fn(|formatter| .0.iter().try_for_each(|(subject, error)| write!(formatter, "\n{subject}: {}", Report::new(error)))))]
     Refused(NEVec<(Subject, Self)>),
 }
@@ -513,34 +495,10 @@ mod proofs;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use authoring::{Options, Press, Standards, author, scan};
-pub use color;
 pub use conformance::{Verdict, claims, convert, validate};
 pub use editing::{Authority, Finish, Level, Part, Redaction, assemble, fill, form_fields, overlay, redact, sign, split};
 pub use extraction::{Paths, extract, paths, recognize};
-pub use fast_image_resize;
-pub use fontdb;
-pub use hayro;
-pub use hayro_syntax;
-pub use image;
-pub use image_compare;
-pub use jiff;
-pub use krilla;
-pub use kurbo;
 pub use layers::{Group, groups, set};
-pub use lopdf;
 pub use measurement::{Measure, locate, measures};
-pub use moxcms;
 pub use navigation::{Navigation, label, read};
-pub use nonempty_collections;
-pub use pdf_oxide;
 pub use proofs::{Appearance, Raster, compare, render, svg};
-pub use rand;
-pub use rasm_drawing;
-pub use rasn;
-pub use rasn_cms;
-pub use reqwest;
-pub use secrecy;
-pub use tiff;
-pub use uom;
-pub use usvg;
-pub use xot;

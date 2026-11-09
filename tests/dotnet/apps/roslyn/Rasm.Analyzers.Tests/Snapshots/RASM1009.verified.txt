@@ -1,6 +1,6 @@
-#0 `Option` value `value` converted to nullable by hand, write `value.ValueUnsafe()`
-#1 `Option` value `value` converted to nullable by hand, write `value.ValueUnsafe()`
-#2 `Option` value `value` converted to nullable by hand, write `value.ValueUnsafe()`
-#3 `Option` value `value` converted to nullable by hand, write `value.Map<int?>(static held => (int?)held).ValueUnsafe()`
-#4 `Option` value `value` converted to nullable by hand, write `value.ToNullable()`
-#5 `Option` value `source.Value` converted to nullable by hand, write `source.Value.ValueUnsafe()`
+#0 `Option` value `value` reaches a nullable outside its conversion member, write `value.ValueUnsafe()`
+#1 `Option` value `value` reaches a nullable outside its conversion member, write `value.ValueUnsafe()`
+#2 `Option` value `value` reaches a nullable outside its conversion member, write `value.ValueUnsafe()`
+#3 `Option` value `value` reaches a nullable outside its conversion member, write `value.Map<int?>(static held => (int?)held).ValueUnsafe()`
+#4 `Option` value `value` reaches a nullable outside its conversion member, write `value.ToNullable()`
+#5 `Option` value `source.Value` reaches a nullable outside its conversion member, write `source.Value.ValueUnsafe()`

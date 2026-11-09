@@ -46,3 +46,7 @@ csharp_style_allow_blank_line_after_token_in_conditional_expression_experimental
 [tests/**/*.cs]
 dotnet_diagnostic.VSTHRD111.severity = none
 dotnet_diagnostic.CA1515.severity = none
+
+[apps/**/*.cs]
+dotnet_diagnostic.RASM1206.severity = none
+dotnet_diagnostic.RASM3107.severity = none

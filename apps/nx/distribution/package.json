@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-distribution",
     "version": "0.0.0",
-    "description": "Nx plugin building Blender extensions and Unreal plug-ins, and installing and publishing host packages (Blender extensions, Yak packages, Adobe UXP and CEP plug-ins and Unreal plug-ins) through each host's own channel",
+    "description": "Nx plugin building Blender extensions, Adobe UXP and CEP packages, and Unreal plug-ins, and installing and publishing host packages (Blender extensions, Yak packages, Adobe UXP and CEP plug-ins and Unreal plug-ins) through each host's own channel",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -25,6 +25,8 @@
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
+        "@xml-tools/ast": "catalog:",
+        "@xml-tools/parser": "catalog:",
         "effect": "catalog:",
         "jsonc-parser": "catalog:"
     },

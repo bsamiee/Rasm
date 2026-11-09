@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-mcp"
 edition.workspace = true
-description       = "MCP host on the daemon: endpoint sessions, routed app servers, elicitation, and a stdio upstream proxy"
+description       = "MCP server layers at rmcp's service level over any transport: traced requests, one endpoint shared by many sessions, an upstream proxy, and a routed app framework with elicitation"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -13,6 +13,12 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [FEATURES] -------------------------------------------------------------------------
+
+[features]
+proxy = ["dep:arc-swap", "rmcp/client"]
+app   = ["dep:arc-swap", "dep:nonempty-collections", "dep:validated", "dep:derive-where", "dep:bytes", "dep:data-encoding", "dep:serde_path_to_error", "dep:serde_urlencoded", "dep:jsonschema", "dep:uuid", "dep:form_urlencoded", "dep:matchit", "dep:percent-encoding", "dep:url", "rmcp/elicitation"]
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
@@ -20,38 +26,30 @@ futures                            = { workspace = true }
 tokio                              = { workspace = true }
 tokio-stream                       = { workspace = true }
 tokio-util                         = { workspace = true }
-arc-swap                           = { workspace = true }
-process-wrap                       = { workspace = true }
-nonempty-collections               = { workspace = true }
-sysexits                           = { workspace = true }
+arc-swap                           = { workspace = true, optional = true }
+nonempty-collections               = { workspace = true, optional = true }
 thiserror                          = { workspace = true }
-validated                          = { workspace = true }
-derive-where                       = { workspace = true }
+validated                          = { workspace = true, optional = true }
+derive-where                       = { workspace = true, optional = true }
 derive_more                        = { workspace = true }
 itertools                          = { workspace = true }
-bytes                              = { workspace = true }
-data-encoding                      = { workspace = true }
+bytes                              = { workspace = true, optional = true }
+data-encoding                      = { workspace = true, optional = true }
 serde                              = { workspace = true }
 serde_json                         = { workspace = true }
-serde_path_to_error                = { workspace = true }
-serde_urlencoded                   = { workspace = true }
-jsonschema                         = { workspace = true }
-uuid                               = { workspace = true }
-axum                               = { workspace = true }
-form_urlencoded                    = { workspace = true }
-http                               = { workspace = true }
-matchit                            = { workspace = true }
-percent-encoding                   = { workspace = true }
-url                                = { workspace = true }
-rmcp                               = { workspace = true }
+serde_path_to_error                = { workspace = true, optional = true }
+serde_urlencoded                   = { workspace = true, optional = true }
+jsonschema                         = { workspace = true, optional = true }
+uuid                               = { workspace = true, optional = true }
+form_urlencoded                    = { workspace = true, optional = true }
+matchit                            = { workspace = true, optional = true }
+percent-encoding                   = { workspace = true, optional = true }
+url                                = { workspace = true, optional = true }
+rmcp                               = { workspace = true, default-features = false, features = ["server"] }
 opentelemetry                      = { workspace = true }
-opentelemetry-http                 = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 tracing-opentelemetry              = { workspace = true }
-clap                               = { workspace = true }
-rasm-command                       = { workspace = true }
-rasm-daemon                        = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

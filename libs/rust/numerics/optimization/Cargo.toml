@@ -36,10 +36,6 @@ rasm-stats           = { workspace = true, optional = true }
 [features]
 default   = ["conic", "linear", "nonlinear"]
 conic     = ["dep:clarabel"]
-accelerate = ["conic", "clarabel/sdp-accelerate"]
-openblas   = ["conic", "clarabel/sdp-openblas"]
-netlib     = ["conic", "clarabel/sdp-netlib"]
-mkl        = ["conic", "clarabel/sdp-mkl"]
 linear    = ["dep:good_lp"]
 nonlinear = ["dep:nlopt", "dep:rasm-stats"]
 

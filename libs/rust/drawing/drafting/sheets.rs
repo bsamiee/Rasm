@@ -88,10 +88,7 @@ impl Set {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Fit {
     Contain(Rect),
-    Density {
-        origin: Point,
-        density: LinearNumberDensity,
-    },
+    Density { origin: Point, density: LinearNumberDensity },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

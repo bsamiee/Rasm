@@ -15,18 +15,18 @@ Run commands from a terminal or harness with Accessibility access, each prints t
 
 ```bash
 watch-apps find <app-or-pid>...
-watch-apps launch [<app>...] [--new] [--wait] [--document <path>...] [--environment NAME=VALUE...] [--arguments <argument>...]
+watch-apps launch [<app>...] [--new] [--wait] [--document <path>...] [--environment NAME=VALUE...] [--line-length <characters>] [--arguments <argument>...]
 watch-apps quit <app-or-pid>... [--force]
 ```
 
 ```text
-Monitor {"command": "watch-apps watch <app> [<helper>]...",
+Monitor {"command": "watch-apps watch <app> [<helper>]... --line-length 500",
          "description": "<app> dialogs and lifecycle", "timeout_ms": 1800000}
 ```
 
 - Monitors watch Adobe apps with `com.adobe.crashreporter`, restart with their command on an expiry notice, and stop with TaskStop when work ends
 - Codex sessions run `read` on the app after such a call in place of a Monitor
-- `find`, `watch`, and `launch` resolve names as a path when starting with `/`, a running instance's process ID, then by bundle id, Spotlight name or id, and containment, ignoring case and diacritics
+- `find`, `watch`, and `launch` resolve a name as a `/` path, a running process ID, a bundle id, a Spotlight name or id, then containment, ignoring case and diacritics
 - `find` prints `{"<name>": [<installation>...]}` per name, best match first, launching nothing and needing no Accessibility grant
 - Installations hold `url`, `executable`, `identifier`, `name`, `version`, `build`, `scriptable`, `scriptingDefinitionFile`, and `activationPolicy` (`prohibited` for `LSBackgroundOnly`, `accessory` for `LSUIElement`, else `regular`)
 - Unmatched names print a `fail` line, `watch` follows every installation a name matches and exits when no name resolves
@@ -48,11 +48,12 @@ Monitor {"command": "watch-apps watch <app> [<helper>]...",
 - `--document` opens each file in the one named app, or with no app named in the file's default app, an unreachable file printing a `fail` line
 - Without `--document`, AppKit apps open an untitled document or their open panel, Adobe apps their Home screen with no document
 - `--arguments` takes every input after it, and its values and `--environment` values reach only an instance `launch` creates, launchd's environment fills the rest
-- Launches take Rhino `-nosplash` and Blender `--no-window-focus` (absent `-b` or `--background`), other app switches pass after `--arguments`
+- App switches pass after `--arguments`, `launch` adding none of its own
 - `launch` captures neither the app's output nor error stream
 - Hooks rewrite `open`, `xed`, a launching `osascript`, and a bundle's executable into `launch`, a headless switch and a background-only or `LSUIElement` bundle running as written
 - Hooks rewrite `killall` and `pkill` into `kill` of their pids when each descends from the session, and refuse any other kill of every match
-- Hooks run `watch` in a Monitor alone, drop a filter piped after it, and refuse a loop polling `read` or `watch`
+- Hooks add Blender `--no-window-focus` (absent a headless switch) and Rhino `-nosplash` to `launch` and to each rewrite into it
+- Hooks run `watch` in a Monitor alone with `--line-length 500`, drop a filter piped after it, and refuse a loop polling `read` or `watch`
 - Hooks refuse `osascript` posting through System Events, taking focus
 - Claude Code watches each app a session launches, reuses, or drives through Rhino or Blender MCP, sending dialogs, hangs, and crashes to its agent
 - Claude Code quits each instance an agent created (`created: true`) when that agent's turn ends and the session's when it ends, `--force` staying an agent's command
@@ -90,8 +91,8 @@ watch-apps serve
 - Failed actions print a `fail` line keyed by `id` with `reason` `unresolved`, `disabled`, `refused`, or `unanswered`
 - Refused and unanswered actions can have run, `read` the instance before retrying one
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
-- `log` prints one line per run of the session with its `pid`, `at`, `argv`, `exit`, and last line per key, a run pid every record of that run
-- Runs append `{at, pid, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to `$WATCH_APPS_LOG` (`.artifacts/logs/watch-apps.log`), run `exit` holding its exit `status`, and `signal` for a run a signal ended
+- `log` prints one line per run sharing the caller's `WATCH_APPS_SESSION` with its `pid`, `at`, `argv`, `exit`, and last line per key, a run pid every record of that run
+- Runs append `{at, pid, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to `$WATCH_APPS_LOG` (`.artifacts/logs/watch-apps.log` here), else `~/Library/Logs/watch-apps/watch-apps.log`, run `exit` holding its exit `status`, and `signal` for a run a signal ended
 - `serve` answers the `ApplicationServer` wire over standard input and output, holding its parent's grants
 
 ## [03]-[STATES]
@@ -103,7 +104,7 @@ Lines read `{"<bundle id>": {"<pid>": <state>}}`, a field the app leaves unknown
 - Lines print when their key's state changes, `process` between running and sleeping, `usage`, `frame`, and `onScreen` printing nothing
 - `watch` prints one line per changed instance, exited instances showing in the line of their exit and of their crash report, then leaving
 
-`running` outside `read` is an outline fitted to Monitor's 500 characters:
+`running` outside `read` is an outline, `--line-length` cutting asking text, then options, then windows to fit:
 - `status` reads `launching`, `responding`, or `unresponsive`, `process` reads `stopped` on a stopped process
 - `active` is whether the app holds focus, `windows` the numbers of presented rows that ask nothing, `menus` the titles of open menus
 - `asking` holds each row requiring an answer with `kind`, `number`, `options` (button labels), `text`, and `title`

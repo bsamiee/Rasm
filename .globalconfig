@@ -5,10 +5,6 @@ dotnet_diagnostic.CS1591.severity = none
 dotnet_diagnostic.CS8524.severity = none
 dotnet_diagnostic.CS9236.severity = error
 
-# --- [BANNED_API_ANALYZERS] -------------------------------------------------------------
-
-dotnet_banned_api_analyzer.exclude_generated_code = true
-
 # --- [DOTNET_ANALYZERS] -----------------------------------------------------------------
 
 dotnet_code_quality.CA1003.api_surface = all
@@ -94,6 +90,10 @@ MA0053.class_with_virtual_member_should_be_sealed = true
 MA0053.exceptions_should_be_sealed = true
 MA0053.public_class_should_be_sealed = true
 MA0185.treat_opaque_runtime_types_as_culture_sensitive = true
+
+# --- [RASM_ANALYZERS] ------------------------------------------------------------------
+
+RASM3110.types = T:MathNet.Numerics.RootFinding.Bisection|T:MathNet.Numerics.RootFinding.Brent|T:MathNet.Numerics.RootFinding.Broyden|T:MathNet.Numerics.RootFinding.NewtonRaphson|T:MathNet.Numerics.RootFinding.RobustNewtonRaphson|T:MathNet.Numerics.RootFinding.Secant|T:Rhino.PersistentSettings|T:Rhino.Collections.ArchivableDictionary
 
 # --- [ROSLYNATOR_ANALYZERS] -------------------------------------------------------------
 

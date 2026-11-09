@@ -17,7 +17,7 @@ Applies to project English, including Markdown, comments, messages, identifiers,
 
 ## [01]-[TERMINOLOGY]
 
-Terms come from current documentation of their language, tool, or field at the newest standard the project supports, and pass each test:
+Terms come from current documentation of their language, tool, or field at the newest standard the project supports, and meet each condition:
 - Documentation uses the term with that meaning
 - Term names what the thing is
 - Verbs name the operation

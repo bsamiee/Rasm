@@ -1,13 +1,12 @@
 import { logger, type TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Formatter, Option, Path, Predicate, Record, Result, Schema } from 'effect';
+import { Array, Effect, FileSystem, Formatter, identity, Option, Path, Record, Result, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
 import type { Member } from '#/plugins/project-graph';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Checker = keyof typeof CHECKERS;
-type Targets = Readonly<Record<string, TargetConfiguration>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -17,7 +16,8 @@ const CHECKERS = {
         variables: ['TY_UV'],
         files: [['ty.toml'], ['pyproject.toml', 'tool', 'ty']],
         matches: ['*.py', '*.pyi'],
-        folder: (workspace: string) => workspace,
+        sources: ['*.py', '*.pyi'],
+        folder: identity,
         run: [],
         command: (at: string) => ['ty', 'check', at],
         version: '--python-version',
@@ -27,9 +27,11 @@ const CHECKERS = {
     },
     mypy: {
         verb: 'check',
+        variables: [],
         files: [['mypy.ini'], ['.mypy.ini'], ['pyproject.toml', 'tool', 'mypy'], ['setup.cfg', 'mypy']],
         matches: ['*.py', '*.pyi'],
-        folder: (workspace: string) => workspace,
+        sources: ['*.py', '*.pyi'],
+        folder: identity,
         run: [],
         command: (at: string) => ['mypy', at],
         version: '--python-version',
@@ -39,8 +41,10 @@ const CHECKERS = {
     },
     refurb: {
         verb: 'check',
+        variables: [],
         files: [['pyproject.toml', 'tool', 'refurb']],
         matches: ['*.py', '*.pyi'],
+        sources: ['*.py', '*.pyi'],
         folder: (_: string, root: string) => root,
         run: [],
         command: (_: string, config: string) => ['refurb', '--config-file', config, '.'],
@@ -51,32 +55,43 @@ const CHECKERS = {
     },
     pytest: {
         verb: 'test',
+        variables: [],
         files: [['pytest.toml', 'pytest'], ['.pytest.toml', 'pytest'], ['pytest.ini'], ['.pytest.ini'], ['pyproject.toml', 'tool', 'pytest'], ['tox.ini', 'pytest'], ['setup.cfg', 'tool:pytest']],
         matches: ['test_*.py', '*_test.py'],
         sources: ['*'],
         run: ['--isolated'],
-        folder: (workspace: string) => workspace,
+        folder: identity,
+        version: undefined,
         command: (at: string) => ['pytest', at],
         description: 'Runs the member tests with pytest',
         help: ['pytest', '--help'],
         example: ['-k', '<expression>'],
     },
 } as const;
-const CONFIGS = Array.dedupe(Record.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)));
+const CONFIGS = Array.dedupe(Object.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)));
 const SEPARATOR = /\s+/u;
 const BUILD = 'build--uv';
 const TECHNOLOGIES = ['python'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Patterns = Schema.Struct({ python_files: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.String])) });
-const Settings = Schema.Struct({ ...Patterns.fields, ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns) });
+const Table = Schema.Record(Schema.String, Schema.Unknown);
+const Patterns = Schema.Struct({
+    python_files: Schema.optionalKey(
+        Schema.Union([Schema.Array(Schema.String), Schema.String.pipe(Schema.decodeTo(Schema.Array(Schema.String), SchemaTransformation.transform({ decode: (text): readonly string[] => text.split(SEPARATOR).filter(String.isNonEmpty), encode: (files: readonly string[]) => files.join(' ') })))]),
+    ),
+});
+const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
-const ancestors = (path: Path.Path, root: string) => Array.unfold(Option.some(root), (at) => Option.map(at, (folder) => [folder, folder === '.' ? Option.none<string>() : Option.some(path.dirname(folder))] as const));
+const ancestors = (path: Path.Path, root: string) =>
+    Array.unfold(
+        Option.some(root),
+        Option.map((folder: string) => [folder, Option.liftPredicate(path.dirname(folder), () => folder !== '.')] as const),
+    );
 
 const documents = Effect.fnUntraced(function* (workspaceRoot: string, roots: readonly string[]) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
@@ -99,65 +114,74 @@ const declared = (path: Path.Path, documented: ReadonlyMap<string, unknown>, roo
     return Option.map(
         Array.findFirstWithIndex(candidates, ([at, keys]) =>
             Option.flatMap(
-                keys.reduce<Option.Option<unknown>>((table, key) => Option.flatMap(table, (value) => (Predicate.hasProperty(value, key) ? Option.fromUndefinedOr(value[key]) : Option.none())), Option.fromUndefinedOr(documented.get(at))),
+                keys.reduce<Option.Option<unknown>>((table, key) => table.pipe(Option.flatMap(Schema.decodeUnknownOption(Table)), Option.flatMap(Record.get(key))), Option.fromUndefinedOr(documented.get(at))),
                 (table) => Option.map(Schema.decodeUnknownOption(Settings)(table), (settings) => [at, settings] as const),
             ),
         ),
         ([[config, settings], index]) => ({
             config,
-            inputs: Array.dedupe(candidates.slice(0, index + 1).flatMap(([at]) => (documented.has(at) ? [path.join('{workspaceRoot}', at)] : []))),
-            patterns: Option.match(Option.fromUndefinedOr(settings.python_files ?? settings.ini_options?.python_files ?? settings.pytest?.python_files), {
-                onNone: () => CHECKERS[checker].matches,
-                onSome: (files) => (typeof files === 'string' ? files.split(SEPARATOR).filter((file) => file.length > 0) : files),
-            }).map((pattern) => path.join(root, '**', pattern)),
+            inputs: Array.dedupe(
+                candidates
+                    .slice(0, index + 1)
+                    .filter(([at]) => documented.has(at))
+                    .map(([at]) => path.join('{workspaceRoot}', at)),
+            ),
+            patterns: (settings.python_files ?? settings.ini_options?.python_files ?? settings.pytest?.python_files ?? CHECKERS[checker].matches).map((pattern) => path.join(root, '**', pattern)),
         }),
     );
 };
 
-const targets = (path: Path.Path, member: Member, plugin: string, dependencies: string, present: ReadonlySet<Member['checks'][string]>, outputPath: string | undefined): Targets => {
+const targets = (path: Path.Path, member: Member, plugin: string, dependencies: string, present: ReadonlySet<Member['checks'][string]>, outputPath: string | undefined): Readonly<Record<string, TargetConfiguration>> => {
     const at = path.relative(member.workspace, member.root) || '.';
     const root = member.root === member.workspace;
     const named = Option.fromUndefinedOr(member.name);
     const distributions = Option.map(named, (name) => (outputPath === undefined ? path.join(member.workspace, 'dist', name) : path.join(outputPath, 'uv', name)));
     const built = Option.toArray(distributions).map((folder) => `!${path.join('{workspaceRoot}', folder, '**', '*')}`);
-    const inferred: Targets = {
-        ...Record.fromEntries(
-            (member.nested ? [] : Record.collect(CHECKERS, (key, row) => [key, row] as const)).flatMap(([key, row]) =>
-                Option.toArray(Option.filter(Option.fromUndefinedOr(member.checks[key]), (checked) => present.has(checked))).map(
-                    (checked) =>
-                        [
-                            row.verb === 'check' ? `${row.verb}--${key}` : row.verb,
-                            {
-                                executor: 'nx:run-commands',
-                                options: {
-                                    command: line([
-                                        'uv',
-                                        'run',
-                                        ...row.run,
-                                        '--locked',
-                                        ...Option.match(named, { onNone: () => [], onSome: (name) => ['--package', name] }),
-                                        ...(checked.group === undefined ? [] : ['--group', checked.group]),
-                                        ...row.command(at, path.relative(member.root, checked.config)),
-                                        ...('version' in row && member.floor !== undefined ? [row.version, member.floor] : []),
-                                    ]),
-                                    cwd: row.folder(member.workspace, member.root),
-                                },
-                                cache: true,
-                                inputs: [
-                                    ...('sources' in row ? row.sources : row.matches).map((glob) => path.join('{projectRoot}', '**', glob)),
-                                    ...built,
-                                    ...checked.inputs,
-                                    ...('variables' in row ? row.variables.map((env) => ({ env })) : []),
-                                    path.join('{workspaceRoot}', member.workspace, '.python-version'),
-                                    dependencies,
-                                    ...(checked.projects.length === 0 ? [] : [{ input: 'default', projects: [...checked.projects] }]),
-                                    { externalDependencies: [...checked.externals] },
-                                ],
-                                metadata: { technologies: TECHNOLOGIES, description: row.description, help: { command: line(['uv', 'run', ...row.help]), example: { args: [...row.example] } } },
-                            } satisfies TargetConfiguration,
-                        ] as const,
-                ),
-            ),
+    const inferred: Readonly<Record<string, TargetConfiguration>> = {
+        ...Record.fromIterableWith(
+            member.nested
+                ? []
+                : Array.getSomes(
+                      Record.collect(CHECKERS, (key, row) =>
+                          Option.map(
+                              Option.filter(Option.fromUndefinedOr(member.checks[key]), (checked) => present.has(checked)),
+                              (checked) => [key, row, checked] as const,
+                          ),
+                      ),
+                  ),
+            ([key, row, checked]) =>
+                [
+                    row.verb === 'check' ? `${row.verb}--${key}` : row.verb,
+                    {
+                        executor: 'nx:run-commands',
+                        options: {
+                            command: line([
+                                'uv',
+                                'run',
+                                ...row.run,
+                                '--locked',
+                                ...Option.match(named, { onNone: () => [], onSome: (name) => ['--package', name] }),
+                                ...(checked.group === undefined ? [] : ['--group', checked.group]),
+                                ...row.command(at, path.relative(member.root, checked.config)),
+                                ...(row.version === undefined || member.floor === undefined ? [] : [row.version, member.floor]),
+                            ]),
+                            cwd: row.folder(member.workspace, member.root),
+                        },
+                        cache: true,
+                        inputs: [
+                            ...row.sources.map((glob) => path.join('{projectRoot}', '**', glob)),
+                            ...built,
+                            ...checked.inputs,
+                            ...row.variables.map((env) => ({ env })),
+                            path.join('{workspaceRoot}', member.workspace, '.python-version'),
+                            dependencies,
+                            path.join('{workspaceRoot}', member.lock),
+                            ...(checked.projects.length === 0 ? [] : [{ input: 'default', projects: [...checked.projects] }]),
+                            { externalDependencies: [] },
+                        ],
+                        metadata: { technologies: TECHNOLOGIES, description: row.description, help: { command: line(['uv', 'run', ...row.help]), example: { args: [...row.example] } } },
+                    } satisfies TargetConfiguration,
+                ] as const,
         ),
         ...(root
             ? {

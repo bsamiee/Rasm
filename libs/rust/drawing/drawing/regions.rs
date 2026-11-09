@@ -1,4 +1,3 @@
-
 use kurbo::{BezPath, Join, Shape as _, Stroke, StrokeOpts, stroke};
 use linesweeper::{BinaryOp, FillRule, binary_op_with_eps};
 

@@ -13,6 +13,9 @@ Code uses each module's types wherever they state a value:
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide
 - Every type, export, and helper states something nothing else does, and a helper with one reader or a forwarder merges into its caller
+- Libraries give callers composable parts over a dependency's own types, callers choosing entry point, runtime, transport, and configuration
+- Parts adding dependencies some consumers never call sit behind a package trait
+- Layers adding a fact to a dependency (tracing, proxying) attach where its own adapters do, and a forwarder per member marks a misplaced layer
 - Values that vary are parameters, a value every caller passes alike folds into its owner, and a field no reader acts on goes
 - Error cases exist where a caller branches on them, every other failure joins its owner's error
 - Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule

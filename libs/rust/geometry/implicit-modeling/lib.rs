@@ -145,25 +145,15 @@ pub enum ImplicitError {
     #[error(transparent)]
     Evaluation(#[from] ShapeBulkEvalError),
     #[error("field not finite at point {index}")]
-    NotFinite {
-        index: usize,
-    },
+    NotFinite { index: usize },
     #[error("field singular in cell from {} through {}", .cell.start, .cell.last)]
-    Singular {
-        cell: RangeInclusive<Point3<f64>>,
-    },
+    Singular { cell: RangeInclusive<Point3<f64>> },
     #[error("cell size {size} resolves no octree over half extent {extent}")]
-    Resolution {
-        size: f64,
-        extent: f32,
-    },
+    Resolution { size: f64, extent: f32 },
     #[error("evaluation cancelled")]
     Cancelled,
     #[error("{vertices} vertices exceed u32 triangle mesh indices")]
-    Capacity {
-        vertices: usize,
-        source: TryFromIntError,
-    },
+    Capacity { vertices: usize, source: TryFromIntError },
     #[error(transparent)]
     Mesh(#[from] TriMeshBuilderError),
 }
@@ -338,7 +328,4 @@ mod meshing;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use expressions::{Form, Lattice, Truss, UnitCell, distance, lattice, shell, solid, truss};
-pub use fidget;
 pub use meshing::{Boundary, Surface, mesh};
-pub use nalgebra;
-pub use parry3d_f64;

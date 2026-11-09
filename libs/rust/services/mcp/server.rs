@@ -1,5 +1,6 @@
-use core::{future::ready, iter, mem, num::NonZero, pin::pin, time::Duration};
+use core::{error::Error, future::ready, iter, mem, num::NonZero, pin::pin, time::Duration};
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
     sync::{Arc, nonpoison::Mutex},
 };
@@ -11,17 +12,15 @@ use futures::{
     future::{self, BoxFuture},
 };
 use itertools::{Either, Itertools as _};
-use rasm_command::telemetry::Handle;
-use rasm_daemon::Lifetime;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler,
     handler::server::{prompt::PromptContext, router::prompt::PromptRouter, tool::ToolRouter},
     model::{
         ArgumentInfo, CallToolRequestParams, CallToolResponse, CancelTaskParams, CompleteRequestMethod, CompleteRequestParams, CompleteResult, CompletionContext, CompletionInfo, Cursor,
-        GetPromptRequestMethod, GetPromptRequestParams, GetPromptResponse, GetTaskParams, GetTaskResult, ListPromptsResult, ListResourceTemplatesResult, ListResourcesResult, ListToolsResult,
-        PaginatedRequestParams, PromptListChangedNotification, PromptReference, ReadResourceRequestMethod, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Reference,
-        ResourceListChangedNotification, ResourceTemplateReference, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ServerCapabilities, ServerConfig, ServerNotification, Tool,
-        ToolListChangedNotification, UpdateTaskParams,
+        GetPromptRequestMethod, GetPromptRequestParams, GetPromptResponse, GetTaskParams, GetTaskResult, Implementation, ListPromptsResult, ListResourceTemplatesResult, ListResourcesResult,
+        ListToolsResult, PaginatedRequestParams, PromptListChangedNotification, PromptReference, ProtocolVersion, ReadResourceRequestMethod, ReadResourceRequestParams, ReadResourceResponse,
+        ReadResourceResult, Reference, ResourceListChangedNotification, ResourceTemplateReference, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ServerCapabilities, ServerConfig,
+        ServerNotification, Tool, ToolListChangedNotification, UpdateTaskParams,
     },
     service::RequestContext,
     task_manager::TaskManager,
@@ -34,17 +33,17 @@ use self::{
     resources::Resources,
     tools::{Ledger, Parked},
 };
-use crate::{Endpoint, Failure, McpError, host::Host, internal};
+use crate::{Endpoint, McpError, internal, versions};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub trait App: Clone + Send + Sync + 'static {
-    type Error: Failure + From<McpError> = McpError;
+    type Error: Error + Send + Sync + From<McpError> + 'static = McpError;
 
     fn serve(self, _: Registry<Self>, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send { stopping.cancelled_owned().map(Ok) }
 }
 
-trait Completer<A> = Fn(A, ArgumentInfo, Option<CompletionContext>) -> BoxFuture<'static, Result<Vec<String>, ErrorData>> + Send + Sync;
+type Completer<A> = Box<dyn Fn(A, ArgumentInfo, Option<CompletionContext>) -> BoxFuture<'static, Result<Vec<String>, ErrorData>> + Send + Sync>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -60,7 +59,7 @@ pub struct Settings {
 #[derive_where(Debug, Default)]
 pub struct CompletionRouter<A> {
     #[derive_where(skip(Debug))]
-    prompts: BTreeMap<String, Box<dyn Completer<A>>>,
+    prompts: BTreeMap<String, Completer<A>>,
 }
 
 impl<A> CompletionRouter<A>
@@ -171,28 +170,50 @@ pub struct Server<A> {
 impl<A> Server<A>
 where A: App
 {
-    pub fn new<P>(settings: Settings, build: impl AsyncFnOnce(P, Registry<A>, Handle) -> Result<A, A::Error>) -> impl AsyncFnOnce(P, Host) -> Result<Self, A::Error> {
+    pub async fn new(
+        identity: Implementation,
+        settings: Settings,
+        notifier: broadcast::Sender<ServerNotification>,
+        build: impl AsyncFnOnce(Registry<A>) -> Result<A, A::Error>,
+    ) -> Result<Self, A::Error> {
         let Settings { instructions, page, retention } = settings;
-        async move |args: P, Host { identity, filter, notifier }: Host| {
-            let registry = Registry { notifier, ledger: watch::Sender::default(), tools: Arc::default(), prompts: Arc::default(), resources: Arc::default(), completions: Arc::default() };
-            let app = build(args, registry.clone(), filter).await?;
-            let (tools, resources) = (registry.tools.load().is_some(), registry.resources.load().is_some());
-            let mut capabilities = ServerCapabilities::builder()
-                .enable_completions()
-                .enable_prompts()
-                .enable_prompts_list_changed()
-                .enable_resources()
-                .enable_resources_list_changed()
-                .enable_resources_subscribe()
-                .enable_tools()
-                .enable_tool_list_changed();
-            capabilities.completions = capabilities.completions.filter(|_| registry.completions.load().is_some() || resources);
-            capabilities.tools = capabilities.tools.filter(|_| tools);
-            capabilities.prompts = capabilities.prompts.filter(|_| registry.prompts.load().is_some());
-            capabilities.resources = capabilities.resources.filter(|_| resources);
-            let capabilities = if tools { capabilities.enable_tasks() } else { capabilities }.build();
-            let info = instructions.into_iter().fold(ServerConfig::new(capabilities).with_server_info(identity), ServerConfig::with_instructions);
-            Ok(Self { app, info, registry, page, retention, parked: Arc::default(), tracker: TaskTracker::new(), halted: CancellationToken::new(), tasks: TaskManager::default() })
+        let registry = Registry { notifier, ledger: watch::Sender::default(), tools: Arc::default(), prompts: Arc::default(), resources: Arc::default(), completions: Arc::default() };
+        let app = build(registry.clone()).await?;
+        let (tools, resources) = (registry.tools.load().is_some(), registry.resources.load().is_some());
+        let mut capabilities = ServerCapabilities::builder()
+            .enable_completions()
+            .enable_prompts()
+            .enable_prompts_list_changed()
+            .enable_resources()
+            .enable_resources_list_changed()
+            .enable_resources_subscribe()
+            .enable_tools()
+            .enable_tool_list_changed();
+        capabilities.completions = capabilities.completions.filter(|_| registry.completions.load().is_some() || resources);
+        capabilities.tools = capabilities.tools.filter(|_| tools);
+        capabilities.prompts = capabilities.prompts.filter(|_| registry.prompts.load().is_some());
+        capabilities.resources = capabilities.resources.filter(|_| resources);
+        let capabilities = if tools { capabilities.enable_tasks() } else { capabilities }.build();
+        let info = instructions.into_iter().fold(ServerConfig::new(capabilities).with_server_info(identity), ServerConfig::with_instructions);
+        Ok(Self { app, info, registry, page, retention, parked: Arc::default(), tracker: TaskTracker::new(), halted: CancellationToken::new(), tasks: TaskManager::default() })
+    }
+
+    pub fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), A::Error>> + Send {
+        let (tracker, halted, parked) = (self.tracker.clone(), self.halted.clone(), Arc::clone(&self.parked));
+        let served = self.app.clone().serve(self.registry.clone(), stopping.clone());
+        let drained = async move {
+            stopping.cancelled().await;
+            halted.cancel();
+            drop(parked.with_mut(mem::take));
+            tracker.close();
+            tracker.wait().await;
+        };
+        async move {
+            match future::select(pin!(served), pin!(drained)).await {
+                future::Either::Left((Err(error), _)) => Err(error),
+                future::Either::Left((Ok(()), drained)) => drained.map(Ok).await,
+                future::Either::Right(((), served)) => served.await,
+            }
         }
     }
 }
@@ -201,6 +222,8 @@ impl<A> ServerHandler for Server<A>
 where A: App
 {
     fn get_info(&self) -> ServerConfig { self.info.clone() }
+
+    fn supported_protocol_versions(&self) -> Cow<'static, [ProtocolVersion]> { Cow::Borrowed(versions()) }
 
     async fn complete(&self, request: CompleteRequestParams, _: RequestContext<RoleServer>) -> Result<CompleteResult, ErrorData> {
         self.info.capabilities.completions.is_some().ok_or_else(ErrorData::method_not_found::<CompleteRequestMethod>)?;
@@ -301,34 +324,9 @@ where A: App
     }
 }
 
-impl<A> Lifetime for Server<A>
-where A: App
-{
-    type Error = A::Error;
-
-    fn lifetime(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), A::Error>> + Send {
-        let (tracker, halted, parked) = (self.tracker.clone(), self.halted.clone(), Arc::clone(&self.parked));
-        let served = self.app.clone().serve(self.registry.clone(), stopping.clone());
-        let drained = async move {
-            stopping.cancelled().await;
-            halted.cancel();
-            drop(parked.with_mut(mem::take));
-            tracker.close();
-            tracker.wait().await;
-        };
-        async move {
-            match future::select(pin!(served), pin!(drained)).await {
-                future::Either::Left((Err(error), _)) => Err(error),
-                future::Either::Left((Ok(()), drained)) => drained.map(Ok).await,
-                future::Either::Right(((), served)) => served.await,
-            }
-        }
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn completer<A, Q>(complete: impl Fn(A, ArgumentInfo, Option<CompletionContext>) -> Q + Send + Sync + 'static) -> Box<dyn Completer<A>>
+fn completer<A, Q>(complete: impl Fn(A, ArgumentInfo, Option<CompletionContext>) -> Q + Send + Sync + 'static) -> Completer<A>
 where Q: TryFuture<Ok = Vec<String>, Error: Into<ErrorData>> + Send + 'static {
     Box::new(move |app, argument, context| complete(app, argument, context).map_err(Into::into).boxed())
 }
@@ -350,4 +348,4 @@ mod tools;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use resources::{IntoResourceContents, ResourceRouter};
-pub use tools::{Elicitation, ToolError};
+pub use tools::Elicitation;

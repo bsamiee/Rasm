@@ -11,6 +11,7 @@ using Microsoft.CodeAnalysis.Emit;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Text;
 using Rasm.Analyzers.CodeFixes;
+using Rasm.Rhino.Analyzers;
 using Thinktecture.CodeAnalysis.SmartEnums;
 
 namespace Rasm.Analyzers.Tests;
@@ -18,22 +19,27 @@ namespace Rasm.Analyzers.Tests;
 // --- [SERVICES] ------------------------------------------------------------------------
 
 internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, EmptyCodeFixProvider, DefaultVerifier> {
-    private static readonly ImmutableArray<DiagnosticAnalyzer> Analyzers = Exported<DiagnosticAnalyzer, DiagnosticAnalyzerAttribute>(typeof(RasmAnalyzer).Assembly);
+    private static readonly ImmutableArray<DiagnosticAnalyzer> Analyzers = [
+        .. Exported<DiagnosticAnalyzer, DiagnosticAnalyzerAttribute>(typeof(ResultLiftAnalyzer).Assembly),
+        .. Exported<DiagnosticAnalyzer, DiagnosticAnalyzerAttribute>(typeof(PlugInShells).Assembly),
+    ];
 
     private static readonly ImmutableArray<CodeFixProvider> Fixes = Exported<CodeFixProvider, ExportCodeFixProviderAttribute>(typeof(RasmCodeFix).Assembly);
 
-    private static readonly ImmutableArray<Type> Generators = [.. typeof(SmartEnumSourceGenerator).Assembly.GetExportedTypes().Where(static type => type.IsDefined(typeof(GeneratorAttribute), inherit: false))];
+    private static readonly ImmutableArray<Type> Generators = [.. new[] { typeof(SmartEnumSourceGenerator), typeof(PlugInShells) }
+        .SelectMany(static held => held.Assembly.GetExportedTypes()).Where(static type => type.IsDefined(typeof(GeneratorAttribute), inherit: false))];
 
     internal static readonly FrozenDictionary<string, (DiagnosticDescriptor Descriptor, bool Fixable)> Rules = Analyzers.SelectMany(static analyzer => analyzer.SupportedDiagnostics)
         .ToFrozenDictionary(static descriptor => descriptor.Id, static descriptor => (descriptor, Fixes.Any(fix => fix.FixableDiagnosticIds.Contains(descriptor.Id, StringComparer.Ordinal))), StringComparer.Ordinal);
-
-    private static readonly string EditorConfig = File.ReadAllText(Path.Combine(AttributeReader.GetSolutionDirectory(typeof(Analysis).Assembly), ".editorconfig"));
 
     private static readonly FrozenDictionary<string, string> References = toSeq(typeof(Analysis).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
         .Choose(static held => Optional(held.Value).Map(value => (held.Key, Value: value)))
         .ToFrozenDictionary(static held => held.Key, static held => held.Value, StringComparer.Ordinal);
 
-    private static readonly ReferenceAssemblies Framework = new(References["TargetingPackFramework"], new PackageIdentity(References["TargetingPackId"], References["TargetingPackVersion"]), Path.Combine("ref", References["TargetingPackFramework"]));
+    private static readonly ReferenceAssemblies Framework = References["TargetingPack"].Split('|') switch {
+        [var id, var version, var framework] => new(framework, new PackageIdentity(id, version), Path.Combine("ref", framework)),
+        _ => throw new InvalidOperationException(nameof(Framework)),
+    };
 
     private static readonly ImmutableArray<PortableExecutableReference> AdditionalReferences = [.. References
         .Where(static reference => reference.Key.StartsWith("AdditionalReference.", StringComparison.Ordinal))
@@ -43,7 +49,6 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
         ReferenceAssemblies = Framework;
         DisabledDiagnostics.AddRange(["CS1701", "CS1702"]);
         TestState.AdditionalReferences.AddRange(AdditionalReferences);
-        TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         TestState.DocumentationMode = DocumentationMode.Parse;
         CompilerDiagnostics = CompilerDiagnostics.Warnings;
         CodeActionValidationMode = CodeActionValidationMode.Full;
@@ -69,7 +74,8 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 public sealed class Samples {
     private static readonly string Root = Path.Combine(AttributeReader.GetProjectDirectory(typeof(Samples).Assembly), nameof(Samples));
 
-    public static TheoryData<string> Rules => [.. Directory.EnumerateFileSystemEntries(Root).Select(static path => Path.GetFileNameWithoutExtension(path)).Order(StringComparer.Ordinal)];
+    public static TheoryData<string> Rules => [.. Directory.EnumerateFileSystemEntries(Root).Where(static path => !path.EndsWith(".globalconfig", StringComparison.Ordinal))
+        .Select(static path => Path.GetFileNameWithoutExtension(path)).Order(StringComparer.Ordinal)];
 
     [Theory]
     [MemberData(nameof(Rules))]
@@ -104,6 +110,8 @@ public sealed class Samples {
             },
         };
         analysis.TestState.Sources.AddRange(samples.Select(static sample => (sample.Path, sample.Source)));
+        string options = Path.Combine(Root, $"{rule}.globalconfig");
+        if (File.Exists(options)) analysis.TestState.AnalyzerConfigFiles.Add(("/.globalconfig", await File.ReadAllTextAsync(options, token)));
         if (fixable) analysis.FixedState.Sources.AddRange(
             await Task.WhenAll(samples.Select(async sample => (
                 sample.Path,
@@ -126,18 +134,18 @@ public sealed class Samples {
             }
 
             """;
-        return new Analysis(LanguageExtAnalyzer.Lift) {
+        return new Analysis(Analysis.Rules["RASM1001"].Descriptor) {
             TestCode = source,
             FixedCode = source.Replace("value.{|RASM1007:As()|}", "value", StringComparison.Ordinal),
             FixedState = { ExpectedDiagnostics = {
-                new DiagnosticResult(LanguageExtAnalyzer.Lift).WithLocation(0).WithArguments("Fin.Succ(value)", "value", "Fin<int>"),
+                new DiagnosticResult(Analysis.Rules["RASM1001"].Descriptor).WithLocation(0).WithArguments("Fin.Succ(value)", "value", "Fin<int>"),
             }, },
-            CodeActionEquivalenceKey = LanguageExtAnalyzer.Narrowed.Id,
+            CodeActionEquivalenceKey = "RASM1007",
         }.RunAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
-    public Task TopLevelConversion() => new Analysis(LanguageExtAnalyzer.RoundTrip) {
+    public Task TopLevelConversion() => new Analysis(Analysis.Rules["RASM1004"].Descriptor) {
         TestState = { OutputKind = OutputKind.ConsoleApplication },
         TestCode = """
             LanguageExt.ValidationExtensions.{|RASM1004:ToFin(LanguageExt.Fin.Succ(1).ToValidation())|};
@@ -182,7 +190,7 @@ public sealed class Samples {
     [Fact]
     public Task DependentMembers() {
         string[] names = ["ReadRead", "Read", "ReadReadRead"];
-        return new Analysis(LanguageAnalyzer.Reader) {
+        return new Analysis(Analysis.Rules["RASM3001"].Descriptor) {
             TestCode = $$"""
                 internal static class Sample {
                     private const int ReadValue = 1;
@@ -235,7 +243,7 @@ public sealed class Samples {
 
     [Fact]
     public Task FixAllProjects() {
-        Analysis analysis = new(LanguageAnalyzer.Reader);
+        Analysis analysis = new(Analysis.Rules["RASM3001"].Descriptor);
         ProjectState[] states = [analysis.TestState, analysis.TestState.AdditionalProjects["Other"]];
         foreach (ProjectState state in states) {
             ProjectState fixedState = state == analysis.TestState ? analysis.FixedState : analysis.FixedState.AdditionalProjects[state.Name];

@@ -253,6 +253,17 @@ overrides:
     tree-sitter: '-'     # Node bindings the grammar packages name as peers, the build compiles their C sources alone
     tree-sitter-cli: '-' # The CLI comes from mise, pinned in `.config/mise.lock`
 
+# --- [PATCHES] --------------------------------------------------------------------------
+
+patchedDependencies:
+    icu@2.4.0: patches/icu@2.4.0.patch # Relative declaration imports given their .js extension, which nodenext resolution requires
+
+# --- [UPDATE] ---------------------------------------------------------------------------
+
+update:
+    ignoreDeps:
+        - '@typescript/native' # Held at the native TypeScript release `@effect/tsgo` supports
+
 # --- [BUILDS] ---------------------------------------------------------------------------
 
 allowBuilds:

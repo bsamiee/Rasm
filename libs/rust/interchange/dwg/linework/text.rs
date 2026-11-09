@@ -244,11 +244,7 @@ pub(super) fn written(text: &rasm_drawing::Text, frame: Affine) -> (EntityType, 
                 .filter(|cut| (begin..=end).contains(cut) && content.is_char_boundary(*cut))
                 .collect::<BTreeSet<_>>();
             MTextParagraph {
-                spans: cuts
-                    .iter()
-                    .tuple_windows::<(_, _)>()
-                    .filter_map(|(&low, &high)| Some(MTextSpan::new(content.get(low..high)?, properties(Range { start: low, end: high }))))
-                    .collect(),
+                spans: cuts.iter().tuple_windows::<(_, _)>().filter_map(|(&low, &high)| Some(MTextSpan::new(content.get(low..high)?, properties(Range { start: low, end: high })))).collect(),
                 ..MTextParagraph::new()
             }
         })

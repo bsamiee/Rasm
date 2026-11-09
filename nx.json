@@ -12,7 +12,9 @@
         "@rasm/nx-dotnet",
         "@rasm/nx-docker",
         "@rasm/nx-pulumi",
-        { "plugin": "@rasm/nx-typescript", "options": { "outputPath": ".artifacts" } },
+        "@rasm/nx-typescript",
+        { "plugin": "@rasm/nx-vite", "options": { "outputPath": ".artifacts" } },
+        "@rasm/nx-playwright",
         { "plugin": "@rasm/nx-distribution", "options": { "outputPath": ".artifacts" } }
     ],
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" } },

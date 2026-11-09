@@ -1,11 +1,10 @@
 use indexmap::{IndexMap, IndexSet};
 use itertools::{Either, EitherOrBoth};
-use uuid::Uuid;
 use validated::Validated;
 use xot::Node;
 
 use crate::{
-    BcfError, CommentUuid, DateTime, DocumentReferenceUuid, DocumentUuid, FILE, GUID, IS_EXTERNAL, Image, REFERENCE, TOPIC, Text, TopicUuid, ViewpointUuid,
+    BcfError, CommentUuid, DateTime, DocumentReferenceUuid, DocumentUuid, FILE, GUID, IS_EXTERNAL, IfcGuid, Image, REFERENCE, TOPIC, Text, TopicUuid, ViewpointUuid,
     visualization::Visualization,
     xml::{Codec, Keyed, Reader, Writer, codec, document, holds_text, required, resolve, sides, stored},
 };
@@ -54,8 +53,8 @@ pub struct Topic {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct File {
-    pub ifc_project: Option<Uuid>,
-    pub ifc_spatial_structure_element: Option<Uuid>,
+    pub ifc_project: Option<IfcGuid>,
+    pub ifc_spatial_structure_element: Option<IfcGuid>,
     pub filename: Option<Text>,
     pub date: Option<DateTime>,
     pub reference: Option<Resource>,

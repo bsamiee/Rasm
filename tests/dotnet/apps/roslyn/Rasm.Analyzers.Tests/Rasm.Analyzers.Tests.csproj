@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Snapshot tests of analyzer rules and their code fixes</Description>
+        <Description>Snapshot tests of analyzer rules, their code fixes, and the plug-in shell generator</Description>
         <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
         <Verify_SponsorshipExemptionUntil>2027-10</Verify_SponsorshipExemptionUntil>
         <SolutionDir>$([MSBuild]::EnsureTrailingSlash($([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'global.json'))))</SolutionDir>
@@ -13,13 +13,16 @@
         <PackageReference Include="RhinoCommon" IncludeAssets="compile" AdditionalReference="true" />
         <PackageReference Include="System.Drawing.Common" IncludeAssets="compile" AdditionalReference="true" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" AdditionalReference="true" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.SourceGenerator" PrivateAssets="all" SourceGenerator="true" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.SourceGenerator" PrivateAssets="all" ExcludeAssets="analyzers" GeneratePathProperty="true" />
+        <Reference Include="$(PkgThinktecture_Runtime_Extensions_SourceGenerator)/analyzers/dotnet/cs/Thinktecture.Runtime.Extensions.SourceGenerator.dll" />
     </ItemGroup>
 
     <ItemGroup Label="Analyzer Authoring">
+        <PackageReference Include="Microsoft.CodeAnalysis.AnalyzerUtilities" />
         <PackageReference Include="Microsoft.CodeAnalysis.Common" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
         <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" />
+        <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
     <ItemGroup Label="Testing">
@@ -28,21 +31,17 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
-        <ProjectReference Include="../../../../../apps/roslyn/Rasm.Analyzers.Diagnostics/Rasm.Analyzers.Diagnostics.csproj" />
+        <ProjectReference Include="../../../../../apps/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj" />
         <ProjectReference Include="../../../../../apps/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
+        <ProjectReference Include="../../../../../apps/roslyn/Rasm.Rhino.Analyzers/Rasm.Rhino.Analyzers.csproj" />
     </ItemGroup>
 
-    <Target Name="ResolveAdditionalReferences" BeforeTargets="ResolveAssemblyReferences;GetAssemblyAttributes" DependsOnTargets="ResolvePackageAssets">
+    <Target Name="StateCompilerFixtures" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="ResolvePackageAssets;ResolveTargetingPackAssets">
         <JoinItems Left="@(ResolvedCompileFileDefinitions)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('AdditionalReference', 'true'))" ItemSpecToUse="Left">
             <Output TaskParameter="JoinResult" ItemName="_AdditionalReference" />
         </JoinItems>
-        <JoinItems Left="@(ResolvedAnalyzers)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('SourceGenerator', 'true'))" ItemSpecToUse="Left">
-            <Output TaskParameter="JoinResult" ItemName="Reference" />
-        </JoinItems>
         <ItemGroup>
-            <AssemblyMetadata Include="TargetingPackId" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(NuGetPackageId)')" />
-            <AssemblyMetadata Include="TargetingPackVersion" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(NuGetPackageVersion)')" />
-            <AssemblyMetadata Include="TargetingPackFramework" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(TargetFramework)')" />
+            <AssemblyMetadata Include="TargetingPack" Value="@(TargetingPack->WithMetadataValue('Identity', 'Microsoft.NETCore.App')->'%(NuGetPackageId)|%(NuGetPackageVersion)|%(TargetFramework)')" />
             <AssemblyMetadata Include="AdditionalReference.%(_AdditionalReference.Filename)" Value="%(_AdditionalReference.FullPath)" />
         </ItemGroup>
     </Target>

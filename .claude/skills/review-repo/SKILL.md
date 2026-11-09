@@ -74,8 +74,8 @@ Experiments run in a fixture under the scratchpad:
 - Hash `git status --porcelain` before and after a run against the tree to prove it wrote nothing
 - Delete the fixture and every scratch file outside it before reporting
 
-Forbidden targets keep their steps open to test:
-- Run a target's single tool step, read through `nx show target`, on a fixture copy (`cc -c`, `tsc --noEmit`, `hk check --plan --json`)
+Forbidden targets keep their steps open to verification:
+- Run a target's single tool step, read through `nx show target`, in the fixture (`cc -c`, `tsc --noEmit`, `hk check --plan --json`)
 - Minimal reproductions decide one behavior (empty template export, default `types`, argument order of `fd --exec-batch`)
 - Claims nothing can verify carry `Unverified:` with a command that settles them, and stay out of the ranked list
 
@@ -85,7 +85,7 @@ Measure only claims about cost. One measurement showing a cost is no problem goe
 
 Real findings break a repository standard or an owner rule with consequence:
 
-| [INDEX] | [KIND]          | [TEST]                                                                  |
+| [INDEX] | [KIND]          | [SIGN]                                                                  |
 | :-----: | :-------------- | :---------------------------------------------------------------------- |
 |  [01]   | Duplicate fact  | Same value or list stated by more than one owner, a copy can drift      |
 |  [02]   | Hand-rolled     | Dependency member at its installed version does the same work           |

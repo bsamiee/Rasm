@@ -23,7 +23,6 @@ use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-
 pub trait Model: Sync {
     fn evaluate<D>(&self, site: DVectorView<'_, D>, parameters: DVectorView<'_, D>) -> D
     where D: DualNum<Primitive = f64>;
@@ -601,7 +600,7 @@ where
         projected(shape.as_view()).and_then(|(coefficients, _)| {
             let profile = Profile { separable: model, coefficients: &coefficients };
             let (fitted, slopes) = (finite_residuals(&profile, observations, &scales, shape)?, slopes(&profile, observations, &scales, shape)?);
-            Ok(DMatrix::from_fn(points.strict_add(coefficients.len()), slopes.ncols(), |row, column| fitted.get(row).map_or(0.0, |&value| rooted(value).1 * slopes[(row, column)])))
+            Ok(DMatrix::from_fn(points.strict_add(coefficients.len()), slopes.ncols(), |row, column| fitted.get(row).map_or_default(|&value| rooted(value).1 * slopes[(row, column)])))
         })
     };
     let (distinct, failures) = minima(space, starts, Options { loss: Loss::Squared, ..options }, &residual, &jacobian)?;
@@ -762,13 +761,3 @@ pub fn band(prediction: &Prediction<f64>, level: Confidence, band: Band) -> Resu
         })
         .collect())
 }
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-
-pub use basin;
-pub use nalgebra;
-pub use nonempty_collections;
-pub use num_dual;
-pub use rasm_numerical_analysis;
-pub use rasm_stats;
-pub use statrs;

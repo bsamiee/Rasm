@@ -46,30 +46,15 @@ pub enum WorkbooksError {
     #[error(transparent)]
     Read(#[from] calamine::Error),
     #[error("cannot convert date-time or duration cell at row {}, column {}", cell.0, cell.1)]
-    Moment {
-        cell: (u32, u32),
-        source: jiff::Error,
-    },
+    Moment { cell: (u32, u32), source: jiff::Error },
     #[error("cannot decode record {index}")]
-    Record {
-        index: usize,
-        source: calamine::DeError,
-    },
+    Record { index: usize, source: calamine::DeError },
     #[error("cannot write worksheet cell at row {}, column {}", cell.0, cell.1)]
-    Write {
-        cell: (rust_xlsxwriter::RowNum, rust_xlsxwriter::ColNum),
-        source: rust_xlsxwriter::XlsxError,
-    },
+    Write { cell: (rust_xlsxwriter::RowNum, rust_xlsxwriter::ColNum), source: rust_xlsxwriter::XlsxError },
     #[error("worksheet cell at row {}, column {} exceeds supported coordinates", cell.0, cell.1)]
-    Coordinate {
-        cell: (u64, u64),
-        source: TryFromIntError,
-    },
+    Coordinate { cell: (u64, u64), source: TryFromIntError },
     #[error("template name {name} {refusal}")]
-    Template {
-        name: String,
-        refusal: Refusal,
-    },
+    Template { name: String, refusal: Refusal },
     #[error(transparent)]
     Workbook(#[from] umya_spreadsheet::XlsxError),
     #[error(transparent)]
@@ -81,14 +66,9 @@ pub enum WorkbooksError {
     #[error("cannot build ironcalc model: {0}")]
     Model(String),
     #[error("duration cell at row {}, column {} exceeds the ODS duration range", cell.0, cell.1)]
-    Interval {
-        cell: (u32, u32),
-    },
+    Interval { cell: (u32, u32) },
     #[error("cannot convert ODS cell at row {}, column {}", cell.0, cell.1)]
-    Ods {
-        cell: (u32, u32),
-        source: spreadsheet_ods::OdsError,
-    },
+    Ods { cell: (u32, u32), source: spreadsheet_ods::OdsError },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -143,17 +123,6 @@ pub mod writing;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use calamine;
 pub use evaluation::recalculate;
-pub use ironcalc;
-pub use jiff;
-pub use office_crypto;
 pub use reading::{open, records};
-pub use roxmltree;
-pub use rust_xlsxwriter;
-pub use secrecy;
-pub use serde;
-pub use spreadsheet_ods;
 pub use templates::fill;
-pub use umya_spreadsheet;
-pub use zip;

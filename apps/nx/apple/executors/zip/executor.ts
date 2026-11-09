@@ -1,7 +1,7 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Effect, Option, Path, Result, Schema } from 'effect';
-import { execute as run } from '#/executors/run/executor';
+import { commands } from '#/executors/run/executor';
 import { AppleError, spawned } from '#/plugins/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -47,7 +47,7 @@ const executed = Effect.fnUntraced(function* (options: unknown, context: Executo
               ];
     });
     const built = Array.zipWith(Array.zip(products, binaries), versions, ([{ product, folder }, bin], version): readonly [string, ...string[]] => ['ditto', '-c', '-k', path.join(bin.trim(), product), path.join(folder, `${product}-${version.trim()}.zip`), ...args]);
-    return yield* Effect.promise(() => run({ runs: [...archived, ...built] }, context));
+    return yield* commands({ runs: [...archived, ...built] }, context.root);
 }, Effect.provide(layer));
 
 const execute = (options: unknown, context: ExecutorContext) => executed(options, context).pipe(Effect.runPromise);

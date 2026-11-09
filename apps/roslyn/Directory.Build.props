@@ -9,6 +9,13 @@
     </PropertyGroup>
 
     <ItemDefinitionGroup Label="Roslyn Components">
-        <PackageReference ExcludeAssets="runtime" PrivateAssets="all" />
+        <PackageReference ExcludeAssets="runtime" PrivateAssets="all" GeneratePathProperty="true" />
     </ItemDefinitionGroup>
+
+    <ItemGroup Label="Analyzer Authoring">
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+        <PackageReference Include="System.Collections.Immutable" />
+    </ItemGroup>
 </Project>

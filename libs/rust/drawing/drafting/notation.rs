@@ -1,4 +1,3 @@
-
 use core::{any::TypeId, iter, num::NonZero, ops::Div};
 
 use itertools::{Itertools as _, Position};
@@ -135,24 +134,15 @@ pub enum Linear {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Angular {
-    Decimal {
-        unit: Unit<Angle>,
-        decimal: Decimal,
-    },
-    Sexagesimal {
-        subdivision: Subdivision,
-        decimal: Decimal,
-    },
+    Decimal { unit: Unit<Angle>, decimal: Decimal },
+    Sexagesimal { subdivision: Subdivision, decimal: Decimal },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Slope {
     Ratio(Decimal),
     Percent(Decimal),
-    Pitch {
-        run: NonZero<u16>,
-        decimal: Decimal,
-    },
+    Pitch { run: NonZero<u16>, decimal: Decimal },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { isCI } from '@nx/devkit/internal';
-import { Effect, Option, type Path, Predicate, pipe, Record, Schema } from 'effect';
+import { Array, Effect, Option, type Path, Predicate, pipe, Record, Schema } from 'effect';
 import type { Options } from '#/plugins/project-graph';
 import { type Part, type Plugin, published, target } from '#/plugins/targets';
 
@@ -35,7 +35,7 @@ const Described = Schema.fromJsonString(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const locals = (manifest: typeof Described.Type, described: ReadonlyMap<string, Package>) => manifest.dependencies.flatMap((dependency) => Option.toArray(Option.flatMap(Option.fromUndefinedOr(dependency.path), (at) => Option.fromUndefinedOr(described.get(at)))));
+const locals = (manifest: typeof Described.Type, described: ReadonlyMap<string, Package>) => Array.getSomes(manifest.dependencies.map((dependency) => Option.flatMap(Option.fromUndefinedOr(dependency.path), (at) => Option.fromUndefinedOr(described.get(at)))));
 
 const sources = (path: Path.Path, { root, manifest }: Package, described: ReadonlyMap<string, Package>): readonly string[] => [
     ...manifest.targets.map((module) => path.join('{workspaceRoot}', root, module.path, '**/*')),
@@ -102,12 +102,19 @@ const packageParts = (path: Path.Path, options: Options, plugin: Plugin, local: 
             ...Option.getOrElse(zipped, () => ({})),
         };
     };
+    const forwardedInputs = ['default', '^default', ...[MANIFEST, 'Package.resolved'].map((at) => path.join('{workspaceRoot}', root, at)), ...plugin.inputs];
     const forwarded = (module: string) =>
         Record.map(
             Record.filter(work, (_, verb) => verb !== 'test' || tested.has(module)),
-            (_, verb): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [{ projects: [manifest.name], target: verb }], inputs, metadata: { technologies: ['swift'], description: `Runs ${manifest.name}:${verb}` } }),
+            (_, verb): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [{ projects: [manifest.name], target: verb }], inputs: forwardedInputs, metadata: { technologies: ['swift'], description: `Runs ${manifest.name}:${verb}` } }),
         );
-    return [{ name: manifest.name, at: root, own: work }, ...modules.map((module) => ({ name: module.name, at: path.join(root, module.path), own: forwarded(module.name) }))].map(({ name, at, own }): Part => {
+    const upgrade = target(
+        plugin,
+        [['swift', 'package', '--package-path', root, 'update']],
+        { technologies: ['swift'], description: `Moves ${manifest.name}'s remote dependencies to the newest versions its requirements allow and rewrites Package.resolved`, help: { command: 'swift package update --help', example: { args: ['--dry-run'] } } },
+        { cache: false, inputs },
+    );
+    return [{ name: manifest.name, at: root, own: { ...work, 'upgrade--swift-package': upgrade } }, ...modules.map((module) => ({ name: module.name, at: path.join(root, module.path), own: forwarded(module.name) }))].map(({ name, at, own }): Part => {
         const product = products.get(name);
         return product === undefined
             ? { root: at, name, file, technologies: ['swift'], targets: own }
@@ -115,14 +122,15 @@ const packageParts = (path: Path.Path, options: Options, plugin: Plugin, local: 
     });
 };
 
-const packageEdges = (manifest: typeof Described.Type, described: ReadonlyMap<string, Package>): readonly RawProjectGraphDependency[] => {
+const packageEdges = ({ file, manifest }: Package, described: ReadonlyMap<string, Package>): readonly RawProjectGraphDependency[] => {
     const modules = new Set(manifest.targets.filter((module) => module.product_memberships.length > 0).map((module) => module.name));
     const project = (module: string) => (modules.has(module) ? module : manifest.name);
     const linked = locals(manifest, described).map((local) => local.manifest);
     const products = (product: string) => linked.flatMap((local) => local.products.filter((owned) => owned.name === product).flatMap((owned) => owned.targets));
-    return [...linked.map((local) => ({ source: manifest.name, target: local.name })), ...manifest.targets.flatMap((module) => [...module.target_dependencies.map(project), ...module.product_dependencies.flatMap(products)].map((dependency) => ({ source: project(module.name), target: dependency })))].map(
-        (edge): RawProjectGraphDependency => ({ ...edge, type: DependencyType.implicit }),
-    );
+    return [
+        ...linked.map((local): RawProjectGraphDependency => ({ source: manifest.name, target: local.name, type: DependencyType.static, sourceFile: file })),
+        ...manifest.targets.flatMap((module) => [...module.target_dependencies.map(project), ...module.product_dependencies.flatMap(products)].map((dependency): RawProjectGraphDependency => ({ source: project(module.name), target: dependency, type: DependencyType.implicit }))),
+    ];
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

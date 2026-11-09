@@ -280,7 +280,7 @@ actor ClaudeClient: ProviderClient {
         let read = Task {
             _ = await previous?.value
             return await Result { () async throws(ClaudeFailure) -> ClaudeUsageReport? in
-                let output: String = try await run(
+                let output: Data = try await run(
                     ["-p", "/usage", "--output-format", "stream-json", "--verbose", "--no-session-persistence", "--strict-mcp-config", "--settings", #"{"disableClaudeAiConnectors":true}"#],
                     store: store,
                     within: .seconds(60),

@@ -4,7 +4,7 @@
 
 [workspace]
 resolver = "3"
-members  = ["libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tools/mcp-proxy", "tests/rust/libs/*/*", "tests/rust/tools/mcp-proxy"]
+members  = ["apps/mcp/*", "libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tests/rust/libs/*/*"]
 
 # --- [IDENTITY]
 
@@ -43,6 +43,7 @@ moka  = { version = "0.12.16", features = ["future", "sync"] }  # Bounded caches
 
 # --- [SYSTEM]
 
+dirs            = "7.0.0"                                             # Per-user cache, configuration, state, and runtime folders each platform names
 libc            = "0.2.191"                                           # Native constants missing from higher-level process APIs
 libproc         = "0.15.0"                                            # Darwin process group membership and process information
 nix             = { version = "0.31.3", features = ["user"] }         # Account identity and home directories from the operating system
@@ -50,6 +51,7 @@ process-wrap    = { version = "10.0.1", features = ["tokio1"] }       # Child pr
 rustix          = { version = "1.1.6", features = ["fs", "process"] } # Typed POSIX calls returning errno values where std stops
 sd-notify       = "0.5.0"                                             # Readiness and watchdog signals to systemd
 socket2         = "0.6.5"                                             # Socket options tokio sockets lack, IPv6-only binding
+which           = "8.0.6"                                             # Executables resolved against a given PATH and working directory
 stacksafe       = "1.0.3"                                             # Stack growth for recursive operations over nested values
 velopack        = "1.2.161"                                           # Product installation and in-place updates
 wasmtime        = "50.0.1"                                            # In-process WebAssembly sandbox around untrusted guest code
@@ -285,12 +287,12 @@ url                = { version = "2.5.8", features = ["serde"] }                
 
 # --- [REMOTE_PROCEDURE_CALLS]
 
-async-lsp           = { version = "0.2.4", features = ["tokio"] }                                                                                # Language Server Protocol clients and servers as tower services
-buffa               = { version = "0.9.2", features = ["json"] }                                                                                 # Protobuf messages with editions, views, and canonical JSON
-buffa-types         = { version = "0.9.2", features = ["json", "jiff"] }                                                                         # Protobuf well-known types with JSON mapping and jiff conversion
-connectrpc          = { version = "0.9.1", features = ["server", "client-tls", "axum"] }                                                         # Connect, gRPC, and gRPC-Web services and clients
-protovalidate-buffa = { version = "0.7.3", features = ["json"] }                                                                                 # Protovalidate rules compiled into message validation
-rmcp                = { version = "3.9.0", features = ["client", "elicitation", "transport-child-process", "transport-streamable-http-server"] } # MCP servers over Streamable HTTP and clients of child-process servers
+async-lsp           = { version = "0.2.4", features = ["tokio"] }                        # Language Server Protocol clients and servers as tower services
+buffa               = { version = "0.9.2", features = ["json"] }                         # Protobuf messages with editions, views, and canonical JSON
+buffa-types         = { version = "0.9.2", features = ["json", "jiff"] }                 # Protobuf well-known types with JSON mapping and jiff conversion
+connectrpc          = { version = "0.9.1", features = ["server", "client-tls", "axum"] } # Connect, gRPC, and gRPC-Web services and clients
+protovalidate-buffa = { version = "0.7.3", features = ["json"] }                         # Protovalidate rules compiled into message validation
+rmcp                = "3.9.0"                                                            # MCP servers and clients over stdio, Unix sockets, child processes, and Streamable HTTP, each consumer naming its roles and transports
 
 # --- [TRANSFER]
 
@@ -474,7 +476,7 @@ rustfft      = "6.4.1"                                     # FFT of any length
 # --- [SOLVERS]
 
 basin    = "3.2.0"                                                                      # Scalar roots and minimization, bounded robust least squares over nalgebra
-clarabel = { version = "0.11.1", features = ["sdp", "blas-src", "lapack-src"] }         # Conic interior-point solves over typed cone blocks, `SolverError` names serde_json under default `serde` alone, `sdp` names `blas_src` and `lapack_src`, which compile empty until the final binary picks a backend through `rasm-optimization`'s `accelerate`, `openblas`, `netlib`, or `mkl` feature (Clarabel's own `sdp-*` features), adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
+clarabel = { version = "0.11.1", features = ["sdp", "blas-src", "lapack-src"] }         # Conic interior-point solves over typed cone blocks, `SolverError` names serde_json under default `serde` alone, `sdp` names `blas_src` and `lapack_src`, which compile empty until the final binary picks one implementation through its own `blas-src` and `lapack-src` rows (Clarabel's `sdp-*` features restate them and exclude each other), adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
 diffsol  = "0.19.0"                                                                     # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
 fmi      = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes, and fmi adds zip 8 with its default `time` beside zip 9
 good_lp  = { version = "1.15.3", default-features = false, features = ["highs"] }       # LP and MIP models over HiGHS (CMake, bindgen on libclang), reached through `rasm-optimization`'s default `linear` feature, which a consumer turns off to skip the native build; `allocation` takes any good_lp `Solver` a caller enables
@@ -698,7 +700,7 @@ wiremock               = "0.6.5"                                                
 rasm-command            = { path = "libs/rust/cli/command" }
 rasm-console            = { path = "libs/rust/cli/console" }
 rasm-tui                = { path = "libs/rust/cli/tui" }
-rasm-daemon             = { path = "libs/rust/services/daemon" }
+rasm-server             = { path = "libs/rust/services/server" }
 rasm-mcp                = { path = "libs/rust/services/mcp" }
 rasm-process            = { path = "libs/rust/services/process" }
 rasm-mesh               = { path = "libs/rust/geometry/mesh" }
@@ -729,7 +731,7 @@ rasm-weather            = { path = "libs/rust/geospatial/weather" }
 rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation" }
 rasm-form-finding       = { path = "libs/rust/geometry/form-finding" }
 rasm-lints-auxiliary    = { path = "tools/dylint/auxiliary" }
-rasm-mcp-proxy          = { path = "tools/mcp-proxy", artifact = "bin" }
+mcp-muxer               = { path = "apps/mcp/muxer" }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

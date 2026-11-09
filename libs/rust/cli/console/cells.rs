@@ -49,8 +49,7 @@ fn rendered(value: Value<'static>) -> Result<Option<Field>, serde_json::Error> {
         Value::String(text) => Ok(Some(Field { text: text.into_owned(), numeric: false })),
         Value::Bytes(bytes) => Ok(Some(Field { text: String::from_utf8_lossy_owned(bytes.into_owned()), numeric: false })),
         Value::Enum(Enum { variant, data: Data::Unit, .. }) => Ok(Some(Field { text: variant.into_owned(), numeric: false })),
-        compound @ (Value::Seq(_) | Value::Map(_) | Value::Struct(_) | Value::Enum(_) | Value::Tuple(_)) =>
-            serde_json::to_string(&compound).map(|text| Some(Field { text, numeric: false })),
+        compound @ (Value::Seq(_) | Value::Map(_) | Value::Struct(_) | Value::Enum(_) | Value::Tuple(_)) => serde_json::to_string(&compound).map(|text| Some(Field { text, numeric: false })),
     }
 }
 

@@ -2,10 +2,10 @@
 #![cfg_attr(unix, feature(iterator_try_collect))]
 #![cfg_attr(panic = "abort", feature(lock_value_accessors, nonpoison_mutex, panic_update_hook, sync_nonpoison))]
 
-#[cfg(windows)]
-use core::task::{Context, Poll};
 #[cfg(panic = "abort")]
 use core::mem::DropGuard;
+#[cfg(windows)]
+use core::task::{Context, Poll};
 use core::{fmt, num::NonZero};
 use std::{
     env,
@@ -28,7 +28,7 @@ use clap::{
 use clap_complete::CompleteEnv;
 use futures::stream;
 use nonempty_collections::NEVec;
-use tokio::runtime::Runtime;
+use tokio::runtime::Builder;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal};
 #[cfg(windows)]
@@ -152,25 +152,16 @@ pub struct Process<A> {
 #[derive(Debug, thiserror::Error)]
 pub enum CommandError {
     #[error("cannot {operation}")]
-    Io {
-        operation: Operation,
-        source: io::Error,
-    },
+    Io { operation: Operation, source: io::Error },
     #[error(transparent)]
     File(#[from] io::Error),
     #[error("cannot open log directory {directory}")]
-    Appender {
-        directory: Utf8PathBuf,
-        source: InitError,
-    },
+    Appender { directory: Utf8PathBuf, source: InitError },
     #[error("{}", fmt::from_fn(|formatter| match phase {
         settings::Phase::Parse(origin) | settings::Phase::Decode { path: _, origin: Some(origin) } => formatter.write_str(&origin.excerpt(&phase.to_string())),
         settings::Phase::Decode { path: _, origin: None } => write!(formatter, "{phase}"),
     }))]
-    Settings {
-        phase: Phase,
-        source: Box<de::Error>,
-    },
+    Settings { phase: Phase, source: Box<de::Error> },
 }
 
 impl From<CommandError> for sysexits::ExitCode {
@@ -192,7 +183,7 @@ fn augmented(program: Command, augment: impl FnOnce(Command) -> Command) -> Comm
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<A, W, L, T, E>(defaults: Defaults, stderr: W, layer: L, work: impl AsyncFnOnce(Process<A>) -> Result<T, NEVec<E>>) -> ExitCode
+pub fn run<A, W, L, T, E>(defaults: Defaults, stderr: W, layer: L, runtime: impl FnOnce(&A) -> Builder, work: impl AsyncFnOnce(Process<A>) -> Result<T, NEVec<E>>) -> ExitCode
 where
     A: CommandFactory + FromArgMatches,
     W: MakeWriter,
@@ -238,6 +229,7 @@ where
         Rotation::Never => rolling::Rotation::NEVER,
     };
     let opened = log_directory
+        .or_else(|| defaults.log_directory.clone())
         .map(|directory| {
             max_log_files
                 .map(NonZero::get)
@@ -265,8 +257,7 @@ where
         _ => worker,
     };
     telemetry.run(&command, defaults, (move || OptionalWriter::from(appender.clone())).or_else(stderr), layer, |filter, level| {
-        let runtime = Runtime::new().map_err(failed(Operation::Runtime))?;
-        runtime.block_on(async {
+        runtime(&args).enable_all().build().map_err(failed(Operation::Runtime))?.block_on(async {
             let signals = (try bikeshed io::Result<Signals> {
                 cfg_select! {
                     unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)).into_iter().try_collect::<Signals>()?,
@@ -296,15 +287,3 @@ pub mod telemetry;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use settings::{Layers, Origin, Phase, Provenance, decoded};
-pub use camino;
-pub use clap;
-pub use futures;
-pub use nonempty_collections;
-pub use opentelemetry;
-pub use serde;
-pub use serde_path_to_error;
-pub use sysexits;
-pub use tokio_stream;
-pub use toml;
-pub use tracing_appender;
-pub use tracing_subscriber;

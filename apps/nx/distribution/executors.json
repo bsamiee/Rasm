@@ -5,6 +5,11 @@
             "schema": "./executors/extension-build/schema.json",
             "description": "Builds a Blender extension's archives with blender --command extension build"
         },
+        "package": {
+            "implementation": "./dist/executors/package/executor#execute",
+            "schema": "./executors/package/schema.json",
+            "description": "Packs a built Adobe UXP plugin into a .ccx and signs a built CEP extension into a .zxp"
+        },
         "install": {
             "implementation": "./dist/executors/install/executor#execute",
             "schema": "./executors/install/schema.json",

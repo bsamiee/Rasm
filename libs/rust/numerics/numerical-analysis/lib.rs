@@ -230,15 +230,6 @@ mod splines;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use basin;
-pub use bilby;
-pub use nalgebra;
-pub use ndarray;
-pub use nonempty_collections;
-pub use num_complex;
-pub use num_dual;
 pub use quadrature::{Domain, Exponent, ExponentError, Integral, Settings, Weight, integrate, weighted};
-pub use rasm_stats;
 pub use scattered::{Constrained, Delaunay, Flatness, FlatnessError, Interpolant, Kernel, Kriging, Observation, Sites, barycentric, constrain, gradients, interpolate, krige, predict, triangulate};
-pub use spade;
 pub use splines::{Extrapolation, GridAxis, Method, Reading, Smooth, SmoothError, Spline, SplineAxis, crossings, curve, evaluate, grid};

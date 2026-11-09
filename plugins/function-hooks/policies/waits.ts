@@ -8,6 +8,7 @@ import type { Site } from '#/shell/site';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LETTER = /^\w/u;
+const MONITOR_LINE = 500;
 const DIGITS = /^\d+$/u;
 const TASK_OUTPUTS = /\/tasks\/(?<id>[^/\s'"]+)\.output(?![^\s'"])/gu;
 const BLANK_LINE = /^\s*(?:#.*)?$/u;
@@ -52,12 +53,13 @@ const watching: Fix = (site, call) => {
     if (call.request.kind !== 'monitor') {
         return refusal(`${WATCHER} watch never exits, ${watchAction(call, names)}`);
     }
+    const fitted = site.has('--line-length') ? [] : inserted(site, Array.lastNonEmpty(site.words).end, ` --line-length ${MONITOR_LINE}`);
     return command.pipes
         ? Option.match(closing, {
               onNone: () => refusal(`Filter drops ${WATCHER} lines, run it unfiltered`),
-              onSome: ({ end }) => erased(site, { start: command.end, end }, 'Filter'),
+              onSome: ({ end }) => [...fitted, ...erased(site, { start: command.end, end }, 'Filter')],
           })
-        : [];
+        : fitted;
 };
 
 // --- [TIMERS]

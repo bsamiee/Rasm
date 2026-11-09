@@ -1,0 +1,13 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Upgrade",
+    "description": "Moves every plain version a central package file pins to the newest listed release across its NuGet sources, then restores its projects with dotnet restore --force-evaluate",
+    "type": "object",
+    "properties": {
+        "central": { "type": "string", "description": "Central package file (Directory.Packages.props) whose PackageVersion and GlobalPackageReference versions move" },
+        "projects": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Project files reading the central file, restored in one NuGet graph after the move" },
+        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to the restore" }
+    },
+    "required": [ "central", "projects" ]
+}

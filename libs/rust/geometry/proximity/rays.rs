@@ -1,4 +1,3 @@
-
 use core::ops::{Bound, RangeBounds};
 
 use itertools::Itertools as _;

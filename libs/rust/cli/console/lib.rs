@@ -18,7 +18,7 @@ use rasm_command::{
 };
 use serde::Serialize;
 use sysexits::ExitCode;
-use tokio::task;
+use tokio::{runtime::Builder, task};
 use tracing_indicatif::{
     IndicatifLayer,
     filter::{IndicatifFilter, hide_indicatif_span_fields},
@@ -40,19 +40,11 @@ pub enum EncodingError {
 #[derive(Debug, thiserror::Error)]
 pub enum OutputError {
     #[error("cannot write rows")]
-    Write {
-        source: io::Error,
-    },
+    Write { source: io::Error },
     #[error("cannot encode row {row}")]
-    Encode {
-        row: usize,
-        source: EncodingError,
-    },
+    Encode { row: usize, source: EncodingError },
     #[error("cannot write row {row}, column `{name}` is outside the CSV header")]
-    Column {
-        row: usize,
-        name: String,
-    },
+    Column { row: usize, name: String },
     #[error(transparent)]
     Pager(#[from] MinusError),
     #[error(transparent)]
@@ -87,7 +79,7 @@ where T: Send + 'static {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<A, L, R, E, S>(defaults: Defaults, layer: L, work: impl AsyncFnOnce(A, Handle) -> Result<S, NEVec<E>> + Send + 'static) -> process::ExitCode
+pub fn run<A, L, R, E, S>(defaults: Defaults, layer: L, runtime: impl FnOnce(&A) -> Builder, work: impl AsyncFnOnce(A, Handle) -> Result<S, NEVec<E>> + Send + 'static) -> process::ExitCode
 where
     A: CommandFactory + FromArgMatches + Send + 'static,
     L: Layer,
@@ -101,6 +93,7 @@ where
         defaults,
         stderr,
         progress.with_filter(IndicatifFilter::new(false)).and_then(layer),
+        |Augmented { options: _, args }| runtime(args),
         async move |Process { args: Augmented { options, args }, styles, mut signals, filter, level: _ }| {
             inquire::set_global_render_config(theme::prompts(&styles));
             let header = *styles.get_header();
@@ -124,16 +117,3 @@ where
 mod cells;
 mod formats;
 mod theme;
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-
-pub use clap;
-pub use futures;
-pub use inquire;
-pub use minus;
-pub use nonempty_collections;
-pub use rasm_command;
-pub use serde;
-pub use serde_content;
-pub use serde_json;
-pub use sysexits;

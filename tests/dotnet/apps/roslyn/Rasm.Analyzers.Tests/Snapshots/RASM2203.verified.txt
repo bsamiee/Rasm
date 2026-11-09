@@ -1,3 +1,4 @@
+RASM3105 `make()!` silences a nullable result, lift it through `Optional` into `Option` or `Fin` with the failure it stands for
 #0 `Products.Transfer` disposes `panel` on failure after `retain` handed `panel` to an owner, pass `panel` to its consumer without `Transfer`
 #1 `Products.Transfer` disposes `panel` on failure after `Products.Replace` handed `panel` to an owner, pass `panel` to its consumer without `Transfer`
 #2 `Products.Transfer` disposes `panel` on failure after `Products.Replace` handed `panel` to an owner, pass `panel` to its consumer without `Transfer`

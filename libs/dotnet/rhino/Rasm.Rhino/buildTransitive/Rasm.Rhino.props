@@ -1,0 +1,5 @@
+<Project>
+    <ItemGroup Label="Analyzer Options">
+        <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)Rasm.Rhino.globalconfig" />
+    </ItemGroup>
+</Project>

@@ -1,4 +1,3 @@
-
 use core::{iter, num::NonZero};
 
 use indexmap::IndexMap;
@@ -89,9 +88,7 @@ impl Attribute for Material {
 pub enum Relation<'model> {
     Aggregates,
     Contains,
-    Bounds {
-        boundary: &'model Path,
-    },
+    Bounds { boundary: &'model Path },
     Link(Link),
 }
 

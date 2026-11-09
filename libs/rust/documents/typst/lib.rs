@@ -80,62 +80,27 @@ pub struct Diagnostic {
 #[derive(Debug, thiserror::Error)]
 pub enum TypesetError {
     #[error("cannot encode value{}", fmt::from_fn(|formatter| .element.map_or(Ok(()), |index| write!(formatter, " at queried element {index}"))))]
-    Serialize {
-        element: Option<usize>,
-        source: serde_path_to_error::Error<encode::Error>,
-    },
+    Serialize { element: Option<usize>, source: serde_path_to_error::Error<encode::Error> },
     #[error("cannot decode value{}", fmt::from_fn(|formatter| .element.map_or(Ok(()), |index| write!(formatter, " at queried element {index}"))))]
-    Deserialize {
-        element: Option<usize>,
-        source: serde_path_to_error::Error<decode::Error>,
-    },
+    Deserialize { element: Option<usize>, source: serde_path_to_error::Error<decode::Error> },
     #[error("font buffer {index} face {face} is unreadable")]
-    Font {
-        index: usize,
-        face: u32,
-        source: Option<ReadError>,
-    },
+    Font { index: usize, face: u32, source: Option<ReadError> },
     #[error("cannot read {spec} template")]
-    Template {
-        spec: PackageSpec,
-        source: FileError,
-    },
+    Template { spec: PackageSpec, source: FileError },
     #[error("{report}")]
-    Typst {
-        diagnostics: Vec<Diagnostic>,
-        report: String,
-    },
+    Typst { diagnostics: Vec<Diagnostic>, report: String },
     #[error("{} page {page} rasterizes to {width} by {height} pixels past the pixmap size limit", path.get_without_slash())]
-    Raster {
-        path: VirtualPath,
-        page: NonZero<usize>,
-        width: u32,
-        height: u32,
-    },
+    Raster { path: VirtualPath, page: NonZero<usize>, width: u32, height: u32 },
     #[error("{} rasterizes to {pixels} pixels past the {budget} pixel budget", path.get_without_slash())]
-    Budget {
-        path: VirtualPath,
-        pixels: u128,
-        budget: NonZero<u64>,
-    },
+    Budget { path: VirtualPath, pixels: u128, budget: NonZero<u64> },
     #[error("cannot encode {} page {page} as PNG", path.get_without_slash())]
-    Encode {
-        path: VirtualPath,
-        page: NonZero<usize>,
-        source: png::EncodingError,
-    },
+    Encode { path: VirtualPath, page: NonZero<usize>, source: png::EncodingError },
     #[error("cannot write {}", path.get_without_slash())]
-    Write {
-        path: VirtualPath,
-        source: io::Error,
-    },
+    Write { path: VirtualPath, source: io::Error },
     #[error(transparent)]
     NativeFont(NativeFontError),
     #[error("cannot render diagram {}", path.get_without_slash())]
-    Diagram {
-        path: VirtualPath,
-        source: RenderError,
-    },
+    Diagram { path: VirtualPath, source: RenderError },
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -236,13 +201,13 @@ impl Files {
     }
 
     pub fn resolve(&self, id: FileId) -> FileResult<Option<PathBuf>> {
-        if self.memory(id).is_some() {
-            return Ok(None);
+        match self.memory(id) {
+            Some(_) => Ok(None),
+            None => self.rooted(id, |root| {
+                let path = root.path.resolve(id.vpath())?;
+                root.directory.canonicalize(id.vpath().get_without_slash()).map(|real| Some(root.path.path().join(real))).map_err(|error| FileError::from_io(error, &path))
+            }),
         }
-        self.rooted(id, |root| {
-            let path = root.path.resolve(id.vpath())?;
-            root.directory.canonicalize(id.vpath().get_without_slash()).map(|real| Some(root.path.path().join(real))).map_err(|error| FileError::from_io(error, &path))
-        })
     }
 }
 
@@ -574,23 +539,4 @@ mod export;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use cap_std;
 pub use export::{Export, File, Raster, bundle, html, paged, timestamp, write};
-pub use indexmap;
-pub use jiff;
-pub use merman;
-pub use papaya;
-pub use png;
-pub use rayon;
-pub use reqwest;
-pub use rmp_serde;
-pub use serde;
-pub use serde_path_to_error;
-pub use skrifa;
-pub use typst;
-pub use typst_bundle;
-pub use typst_html;
-pub use typst_kit;
-pub use typst_layout;
-pub use typst_pdf;
-pub use validated;

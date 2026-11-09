@@ -2,23 +2,20 @@ amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.
 
 import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtins.pkl"
 
-// --- [STEPS] ----------------------------------------------------------------------------
+// --- [SETTINGS] -------------------------------------------------------------------------
 
 fail_fast = false
+
+// --- [STEPS] ----------------------------------------------------------------------------
 
 steps {
   ["grammars"] {
     check = new CommandSpec {
-      command = new Command {
-        argv =
-          List(
-            "sh",
-            "-c",
-            "cmake -S tools/ast-grep/grammars --preset default && cmake --build --presets-file tools/ast-grep/grammars/CMakePresets.json --preset default",
-          )
-      }
+      command =
+        "cmake -S tools/ast-grep/grammars --preset default && cmake --build --presets-file tools/ast-grep/grammars/CMakePresets.json --preset default"
       effect = "write"
     }
+    stomp = true
   }
   ["ast-grep"] {
     glob = "**/*"
@@ -117,19 +114,17 @@ steps {
     }
     fix { command { argv = List("google-java-format", "--aosp", "--replace", "{{files}}") } }
   }
+  ["jactionlint"] = (Builtins.jactionlint) {
+    check {
+      command { argv = List("jactionlint", "--strict-exit", "--format", "gcc", "{{files}}") }
+    }
+    diagnostic_format = "gcc"
+  }
   ["javac"] {
     glob = "**/*.java"
     check = new CommandSpec {
-      command = new Command {
-        argv =
-          List(
-            "sh",
-            "-c",
-            "javac -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -XDcompilePolicy=simple --should-stop=ifError=FLOW -processorpath \"${JAVAC_PLUGINS:?error prone is not installed}\" \"-Xplugin:ErrorProne -XepAllSuggestionsAsWarnings -Xep:DefaultPackage:OFF -Xep:RequireExplicitNullMarking:OFF -XepOpt:NullAway:AnnotatedPackages=rasm\" -Xlint:all,-path -Werror -d .cache/javac -cp \"${GHIDRA_CLASSPATH:?ghidra is not installed}\" -sourcepath .claude/skills/use-ghidra/scripts \"$@\"",
-            "javac",
-            "{{files}}",
-          )
-      }
+      command =
+        "javac -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -XDcompilePolicy=simple --should-stop=ifError=FLOW -processorpath \"${JAVAC_PLUGINS:?error prone is not installed}\" \"-Xplugin:ErrorProne -XepAllSuggestionsAsWarnings -Xep:DefaultPackage:OFF -Xep:RequireExplicitNullMarking:OFF -XepOpt:NullAway:AnnotatedPackages=rasm\" -Xlint:all,-path -Werror -d .cache/javac -cp \"${GHIDRA_CLASSPATH:?ghidra is not installed}\" -sourcepath .claude/skills/use-ghidra/scripts {{files}}"
       effect = "write"
     }
     diagnostic_format = "gcc"
@@ -138,16 +133,8 @@ steps {
     glob = "**/*.java"
     depends = "javac"
     check = new CommandSpec {
-      command = new Command {
-        argv =
-          List(
-            "sh",
-            "-c",
-            "pmd check --rulesets .config/pmd.xml --no-cache --no-progress --aux-classpath \".cache/javac:${JAVA_HOME:?}/lib/jrt-fs.jar:${GHIDRA_CLASSPATH:?ghidra is not installed}\" \"$@\"",
-            "pmd",
-            "{{files}}",
-          )
-      }
+      command =
+        "pmd check --rulesets .config/pmd.xml --no-cache --no-progress --aux-classpath \".cache/javac:${JAVA_HOME:?}/lib/jrt-fs.jar:${GHIDRA_CLASSPATH:?ghidra is not installed}\" {{files}}"
       effect = "read"
     }
     diagnostic_format = "gcc"
@@ -189,8 +176,6 @@ steps {
     }
     fix { command { argv = List("rustfmt", "--config", "skip_children=true", "{{files}}") } }
   }
-  ["shellcheck"] = Builtins.shellcheck
-  ["shfmt"] = Builtins.shfmt
   ["squawk"] {
     glob = "**/*.pgsql"
     check = new CommandSpec {
@@ -255,7 +240,8 @@ hooks {
             #"""
             scope=$(sed -n '/^#/d;s/^[a-z]\{1,\}(\([^)]*\))!\{0,1\}: .*/\1/p;q' "{{commit_msg_file}}")
             [ -z "$scope" ] && exit 0
-            nx show project "$scope" >/dev/null && exit 0
+            projects=$(nx show projects --no-json) || exit
+            printf '%s\n' "$projects" | grep -Fqx -- "$scope" && exit 0
             echo "Commit scope '$scope' is no Nx project, use one nx show projects lists or drop it" >&2
             exit 1
             """#

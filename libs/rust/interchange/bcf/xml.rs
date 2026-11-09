@@ -363,9 +363,7 @@ impl<'xml> Writer<'xml> {
         self.keyed(node, ancestors, element, None, &keys.iter().map(|&key| (key, ())).collect::<IndexMap<_, _>>())
     }
 
-    pub(super) fn file(&self, name: &str, content: &[u8], method: CompressionMethod) -> Result<(), BcfError> {
-        (self.store)(&resolve(self.entry, name), content, Sha256::digest(content), method)
-    }
+    pub(super) fn file(&self, name: &str, content: &[u8], method: CompressionMethod) -> Result<(), BcfError> { (self.store)(&resolve(self.entry, name), content, Sha256::digest(content), method) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -392,6 +390,9 @@ pub(super) fn document<T>(
     (entry, root): (&str, &'static str),
     read: impl FnOnce(&Reader<'_>, Node) -> Validated<T, BcfError>,
 ) -> Validated<Option<T>, BcfError> {
+    const EXTERNAL: &str = "isExternal";
+    const REFERENCE: &str = "DocumentReference";
+    const REFERENCED: &str = "ReferencedDocument";
     let bytes = match open(entry) {
         Ok(bytes) => bytes,
         Err(ZipError::FileNotFound) => return Validated::Good(None),
@@ -407,7 +408,7 @@ pub(super) fn document<T>(
         Builder::from_custom_bytes(array::from_fn(|index| digest[index])).into_uuid()
     };
     let documents = |xot: &mut Xot, document_element: Node, held: &Upgrade| -> Result<(), BcfError> {
-        let (external, guid, reference, referenced) = (xot.add_name("isExternal"), xot.add_name(GUID), xot.add_name("DocumentReference"), xot.add_name("ReferencedDocument"));
+        let (external, guid, reference, referenced) = (xot.add_name(EXTERNAL), xot.add_name(GUID), xot.add_name(REFERENCE), xot.add_name(REFERENCED));
         xot.descendants(document_element).collect::<Vec<_>>().into_iter().enumerate().try_for_each(|(position, node)| match xot.node_name(node) {
             Some(name) if name == reference && xot.get_attribute(node, guid).is_none() => {
                 xot.set_attribute(node, guid, derived(&[entry.as_bytes(), &position.to_le_bytes()]).to_string());
@@ -422,7 +423,7 @@ pub(super) fn document<T>(
                     let filename = Text::try_new(Utf8UnixPath::new(&location).file_name().unwrap_or(&location))?;
                     let identity = DocumentUuid::from_untyped_uuid(derived(&[filename.as_bytes(), &content]));
                     rename(xot, node, "DocumentGuid");
-                    xot.text_content_mut(node).ok_or_else(|| BcfError::Element { entry: entry.into(), element: "ReferencedDocument".into(), text: None })?.set(identity.to_string());
+                    xot.text_content_mut(node).ok_or_else(|| BcfError::Element { entry: entry.into(), element: REFERENCED.into(), text: None })?.set(identity.to_string());
                     held.borrow_mut().insert(identity, Document { filename, description: None, content });
                 }
                 Ok(())
@@ -435,7 +436,7 @@ pub(super) fn document<T>(
             (&["Header"], FILE, FILE, &["Header", "Files"]),
             (&[TOPIC], "ReferenceLink", "ReferenceLink", &[TOPIC, "ReferenceLinks"]),
             (&[TOPIC], "Labels", "Label", &[TOPIC, "Labels"]),
-            (&[TOPIC], "DocumentReference", "DocumentReference", &[TOPIC, "DocumentReferences"]),
+            (&[TOPIC], REFERENCE, REFERENCE, &[TOPIC, "DocumentReferences"]),
             (&[TOPIC], "RelatedTopic", "RelatedTopic", &[TOPIC, "RelatedTopics"]),
             (&[], "Comment", "Comment", &[TOPIC, "Comments"]),
             (&[], "Viewpoints", "ViewPoint", &[TOPIC, "Viewpoints"]),
@@ -459,7 +460,7 @@ pub(super) fn document<T>(
                 xot.append(target, node)
             })
         })?;
-        let (external, is_external, aspect) = (xot.add_name("isExternal"), xot.add_name(IS_EXTERNAL), xot.add_name(ASPECT_RATIO));
+        let (external, is_external, aspect) = (xot.add_name(EXTERNAL), xot.add_name(IS_EXTERNAL), xot.add_name(ASPECT_RATIO));
         let cameras = [ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA].map(|camera| xot.add_name(camera));
         xot.descendants(document_element).collect::<Vec<_>>().into_iter().try_for_each(|node| -> Result<(), xot::Error> {
             if let Some(value) = xot.get_attribute(node, external).map(str::to_owned) {
@@ -475,13 +476,10 @@ pub(super) fn document<T>(
     };
     let mut xot = Xot::new();
     let parsed = xot.parse_bytes(&bytes).map_err(|source| xml(source.into())).and_then(|document| {
-        upgrade
-            .map_or(Ok(()), |held| upgraded(&mut xot, document).and_then(|()| xot.document_element(document)).map_err(xml).and_then(|element| documents(&mut xot, element, held)))
-            .map(|()| document)
+        upgrade.map_or(Ok(()), |held| upgraded(&mut xot, document).and_then(|()| xot.document_element(document)).map_err(xml).and_then(|element| documents(&mut xot, element, held))).map(|()| document)
     });
     let reader = Reader { xot: &xot, entry, open, upgrade };
-    parsed
-        .map_or_else(Validated::fail, |document| named(reader.xot, document, root).next().map_or_else(|| Validated::fail(reader.refused(root, None)), |element| read(&reader, element).map(Some)))
+    parsed.map_or_else(Validated::fail, |document| named(reader.xot, document, root).next().map_or_else(|| Validated::fail(reader.refused(root, None)), |element| read(&reader, element).map(Some)))
 }
 
 pub(super) fn stored(store: &Store<'_>, (entry, root): (&str, &'static str), write: impl FnOnce(&mut Writer<'_>, Node) -> Result<(), BcfError>) -> Result<(), BcfError> {
@@ -528,9 +526,7 @@ pub(super) fn named<'xml>(xot: &'xml Xot, node: Node, name: &str) -> impl Iterat
     xot.children(node).filter(move |&child| xot.element(child).is_some_and(|element| Some(element.name()) == name))
 }
 
-fn elements(xot: &Xot, node: Node, ancestors: &[&str]) -> Vec<Node> {
-    ancestors.iter().fold(Vec::from([node]), |nodes, name| nodes.into_iter().flat_map(|parent| named(xot, parent, name)).collect())
-}
+fn elements(xot: &Xot, node: Node, ancestors: &[&str]) -> Vec<Node> { ancestors.iter().fold(Vec::from([node]), |nodes, name| nodes.into_iter().flat_map(|parent| named(xot, parent, name)).collect()) }
 
 fn appended(xot: &mut Xot, parent: Node, name: &str) -> Result<Node, xot::Error> {
     let id = xot.add_name(name);

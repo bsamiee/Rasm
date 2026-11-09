@@ -25,13 +25,8 @@ use crate::{Document, OutputIntent, PdfError, Resolution, Subject, page};
 
 #[derive(Debug, Clone)]
 pub enum Appearance {
-    Screen {
-        background: AlphaColor<Srgb>,
-    },
-    Press {
-        intent: OutputIntent,
-        rendering: RenderingIntent,
-    },
+    Screen { background: AlphaColor<Srgb> },
+    Press { intent: OutputIntent, rendering: RenderingIntent },
 }
 
 #[derive(Clone)]

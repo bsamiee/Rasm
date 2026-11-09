@@ -14,16 +14,24 @@ namespace Rasm.Analyzers.CodeFixes;
 
 [ExportCodeFixProvider(LanguageNames.CSharp)]
 public sealed class LanguageExtCodeFix() : DocumentEditorCodeFix(
-    (LanguageExtAnalyzer.Lift, static (site, _) => FormattableString.Invariant($"Replace `{site}` with `{LanguageExtAnalyzer.Unlifted(site)!}`"), Unlift),
-    (LanguageExtAnalyzer.RoundTrip, static (site, _) => FormattableString.Invariant($"Delete `{Called(site)}()` round trip"), Unwrap),
-    (LanguageExtAnalyzer.Spread, static (site, _) => {
+    ("RASM1001", static (site, _) => FormattableString.Invariant($"Replace `{site}` with `{Unlifted(site)!}`"), Unlift),
+    ("RASM1004", static (site, _) => FormattableString.Invariant($"Delete `{Called(site)}()` round trip"), Unwrap),
+    ("RASM1005", static (site, _) => {
         SeparatedSyntaxList<CollectionElementSyntax> elements = ((CollectionExpressionSyntax)site).Elements;
         return FormattableString.Invariant($"Replace `{site}` with `{((SpreadElementSyntax)elements[0]).Expression}.Add({elements[1]})`");
     }, Append),
-    (LanguageExtAnalyzer.Narrowed, static (site, _) => FormattableString.Invariant($"Delete `{Called(site)}()`"), Unnarrow),
-    (LanguageExtAnalyzer.Continued, static (site, _) => FormattableString.Invariant($"Write `{site.FirstAncestorOrSelf<InvocationExpressionSyntax>()}` without its lift"), Continue)) {
+    ("RASM1007", static (site, _) => FormattableString.Invariant($"Delete `{Called(site)}()`"), Unnarrow),
+    ("RASM1011", static (site, _) => FormattableString.Invariant($"Write `{site.FirstAncestorOrSelf<InvocationExpressionSyntax>()}` without its lift"), Continue)) {
 
     // --- [CALLS]
+
+    private static ExpressionSyntax? Unlifted(SyntaxNode lift) =>
+        lift switch {
+            InvocationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } => arguments[0].Expression,
+            BaseObjectCreationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments, Initializer: null } => arguments[0].Expression,
+            CastExpressionSyntax cast => cast.Expression,
+            _ => null,
+        };
 
     private static SimpleNameSyntax Called(SyntaxNode site) {
         ExpressionSyntax expression = site.FirstAncestorOrSelf<InvocationExpressionSyntax>()!.Expression;
@@ -47,7 +55,7 @@ public sealed class LanguageExtCodeFix() : DocumentEditorCodeFix(
 
     private static void Unlift(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) =>
         Replaced(editor, site, static (current, _) =>
-            current.CopyAnnotationsTo(Parenthesized(Extracted(current, LanguageExtAnalyzer.Unlifted(current)!)))
+            current.CopyAnnotationsTo(Parenthesized(Extracted(current, Unlifted(current)!)))
                 .WithAdditionalAnnotations(Formatter.Annotation));
 
     // --- [CONTINUATIONS]

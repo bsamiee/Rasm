@@ -88,14 +88,9 @@ impl Sun {
 #[derive(Debug, thiserror::Error)]
 pub enum SolarError {
     #[error("solar-positioning refused the {operation}")]
-    Positioning {
-        operation: Operation,
-        source: solar_positioning::Error,
-    },
+    Positioning { operation: Operation, source: solar_positioning::Error },
     #[error("refused {}", inputs.iter().format(", "))]
-    Refused {
-        inputs: NEVec<Input>,
-    },
+    Refused { inputs: NEVec<Input> },
     #[error(transparent)]
     Time(#[from] jiff::Error),
     #[cfg(feature = "proximity")]
@@ -176,13 +171,3 @@ pub use envelope::{Envelope, envelope};
 pub use events::{events, path, sampled, windows};
 #[cfg(feature = "proximity")]
 pub use exposure::{Sensor, SkyMeasure, Transmittance, TransmittanceError, incidence, sky_view, sun_hours};
-pub use gauss_quad;
-pub use jiff;
-pub use nalgebra;
-pub use ndarray;
-pub use nonempty_collections;
-#[cfg(feature = "proximity")]
-pub use rasm_proximity;
-pub use rasm_site;
-pub use solar_positioning;
-pub use uom;

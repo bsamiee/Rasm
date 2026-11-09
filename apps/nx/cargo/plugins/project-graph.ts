@@ -1,10 +1,10 @@
 import { findPackageJSON } from 'node:module';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, hashArray, type RawProjectGraphDependency } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, hashArray, logger, type RawProjectGraphDependency, validateDependency } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Effect, FileSystem, Option, Path, Record, Result, Schema } from 'effect';
-import { aggregated, crateTargets, released, TECHNOLOGIES, workspaceTargets } from '#/plugins/targets';
-import { DENY, MANIFEST, workspaces } from '#/plugins/workspace';
+import { Array, Effect, FileSystem, Option, Path, Record, Result, Schema } from 'effect';
+import { aggregated, crateTargets, released, TECHNOLOGIES, unresolved, workspaceTargets } from '#/plugins/targets';
+import { DENY, MANIFEST, Manifest, toml, workspaces } from '#/plugins/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -15,11 +15,11 @@ interface Graph {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FILES = `**/{${[MANIFEST, 'Cargo.lock', 'rust-toolchain.toml', 'rust-toolchain', '.cargo/config.toml', '.cargo/config', 'clippy.toml', '.clippy.toml', '.config/nextest.toml', ...Object.values(DENY).flat()].join(',')}}`;
+const FILES = `**/{${[MANIFEST, 'rust-toolchain.toml', 'rust-toolchain', '.cargo/config.toml', '.cargo/config', 'clippy.toml', '.clippy.toml', '.config/nextest.toml', ...Object.values(DENY).flat()].join(',')}}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String }));
+const Package = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -28,11 +28,11 @@ const analyze = Effect.fnUntraced(function* (context: CreateNodesContext, plugin
     const files = new Set(matched);
     const manifests = matched.filter((file) => path.basename(file) === MANIFEST).toSorted((left, right) => left.split('/').length - right.split('/').length || left.localeCompare(right));
     const results = yield* workspaces(context.workspaceRoot, manifests, files);
-    const resolved = results.flatMap(([, result]) => (Result.isSuccess(result) ? [result.success] : []));
+    const [resolved, failures] = Array.partition(results, ([file, result]) => Result.mapError(result, (error) => [file, error] as const));
     const parts = resolved.map((workspace) => {
         const crates = Record.fromIterableWith(workspace.members, ({ crate, root }) => {
             const named = getNamedInputs(root, context);
-            const { targets, ...configured } = released(plugin, crate, workspace.root);
+            const { targets, ...configured } = released(plugin, path, crate, workspace.root);
             return [
                 root,
                 {
@@ -48,14 +48,22 @@ const analyze = Effect.fnUntraced(function* (context: CreateNodesContext, plugin
             ...project,
             targets: aggregated(project.targets),
         }));
-        return {
-            node: [path.join(workspace.root, MANIFEST), { projects, ...Option.match(workspace.externalNodes, { onNone: () => ({}), onSome: (externalNodes) => ({ externalNodes }) }) }] as const,
-            edges: workspace.edges,
-        };
+        return { node: [path.join(workspace.root, MANIFEST), { projects }] as const, edges: workspace.edges };
+    });
+    const fallbacks = yield* Effect.forEach(failures, ([file]) =>
+        toml(Manifest, path.join(context.workspaceRoot, file)).pipe(
+            Effect.map(({ package: declared }) => (declared === undefined ? {} : { name: declared.name })),
+            Effect.orElseSucceed(() => ({})),
+            Effect.map((named) => [file, { projects: { [path.dirname(file)]: { ...named, metadata: { technologies: TECHNOLOGIES }, targets: aggregated(unresolved(plugin, path.dirname(file))) } } }] as const),
+        ),
+    );
+    yield* Option.match(Array.head(failures), {
+        onNone: () => Effect.void,
+        onSome: ([, error]) => Effect.sync(() => logger.warn(`${error.message}; ${failures.length} Cargo manifests keep check--cargo alone until cargo resolves them, and it reports cargo's error`)),
     });
     return {
-        graph: { nodes: parts.map(({ node }) => node), edges: parts.flatMap(({ edges }) => edges) } satisfies Graph,
-        failures: results.flatMap(([file, result]) => (Result.isFailure(result) ? [[file, result.failure] as const] : [])),
+        graph: { nodes: [...parts.map(({ node }) => node), ...fallbacks], edges: parts.flatMap(({ edges }) => edges) } satisfies Graph,
+        resolved: failures.length === 0,
     };
 });
 
@@ -66,7 +74,7 @@ const keyed = (workspaceRoot: string, options: unknown) => hashArray([workspaceR
 const graph = Effect.fnUntraced(function* (context: CreateNodesContext, matched: readonly string[], options: unknown) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
-    const manifest = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
+    const manifest = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Package));
     const tracked = yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [path.relative(context.workspaceRoot, located)]));
     const plugin = { name: manifest.name, inputs: tracked.length === 0 ? [{ externalDependencies: [manifest.name] }] : [{ input: 'default', projects: [manifest.name] }, { externalDependencies: [] }] };
     const hash = hashArray([
@@ -77,19 +85,22 @@ const graph = Effect.fnUntraced(function* (context: CreateNodesContext, matched:
     ]);
     const cache = new PluginCache<Graph>(path.join(workspaceDataDirectory, `${path.basename(manifest.name)}-${hashObject(options ?? {})}.hash`));
     const built = yield* Option.match(Option.fromNullishOr(cache.get(hash)), {
-        onSome: (cached) => Effect.succeed({ graph: cached, failures: [] }),
+        onSome: Effect.succeed,
         onNone: () =>
-            Effect.tap(analyze(context, plugin, matched.toSorted()), ({ graph: report, failures }) =>
-                failures.length === 0
-                    ? Effect.sync(() => {
-                          cache.set(hash, report);
-                          cache.writeToDisk();
-                      })
-                    : Effect.void,
+            Effect.map(
+                Effect.tap(analyze(context, plugin, matched.toSorted()), ({ graph: report, resolved }) =>
+                    resolved
+                        ? Effect.sync(() => {
+                              cache.set(hash, report);
+                              cache.writeToDisk();
+                          })
+                        : Effect.void,
+                ),
+                ({ graph: report }) => report,
             ),
     });
-    reports.set(keyed(context.workspaceRoot, options), built.graph);
-    return built;
+    reports.set(keyed(context.workspaceRoot, options), built);
+    return built.nodes;
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -97,29 +108,22 @@ const graph = Effect.fnUntraced(function* (context: CreateNodesContext, matched:
 const createNodes: CreateNodes = [
     FILES,
     (files, options, context) =>
-        Effect.runPromise(
-            Effect.flatMap(
-                Effect.mapError(graph(context, files, options), (error) => new AggregateCreateNodesError([[null, error]], [])),
-                ({ graph: built, failures }) =>
-                    failures.length === 0
-                        ? Effect.succeed(built.nodes)
-                        : Effect.fail(
-                              new AggregateCreateNodesError(
-                                  failures.map(([file, error]) => [file, error]),
-                                  [...built.nodes],
-                              ),
-                          ),
-            ).pipe(Effect.provide(layer)),
+        graph(context, files, options).pipe(
+            Effect.mapError((error) => new AggregateCreateNodesError([[null, error]], [])),
+            Effect.provide(layer),
+            Effect.runPromise,
         ),
 ];
 
-const createDependencies: CreateDependencies = (options, { workspaceRoot, projects, externalNodes }) => {
-    const names = createProjectRootMappingsFromProjectConfigurations(projects);
-    const resolved = (at: string) => Option.orElse(Option.fromUndefinedOr(names.get(at)), () => Option.liftPredicate(at, (node) => node in (externalNodes ?? {})));
-    return Record.values(
-        Record.fromIterableWith(
-            (reports.get(keyed(workspaceRoot, options))?.edges ?? []).flatMap((edge) => Option.toArray(Option.all([resolved(edge.source), resolved(edge.target)])).flatMap(([source, target]) => (source === target ? [] : [{ ...edge, source, target }]))),
-            (edge) => [`${edge.source} ${edge.target}`, edge] as const,
+const createDependencies: CreateDependencies = (options, context) => {
+    const names = createProjectRootMappingsFromProjectConfigurations(context.projects);
+    return Array.getSomes(
+        (reports.get(keyed(context.workspaceRoot, options))?.edges ?? []).map((edge) =>
+            Option.map(Option.all([Option.fromUndefinedOr(names.get(edge.source)), Option.fromUndefinedOr(names.get(edge.target))]), ([source, target]) => {
+                const dependency = { ...edge, source, target };
+                validateDependency(dependency, context);
+                return dependency;
+            }),
         ),
     );
 };

@@ -1,6 +1,6 @@
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { joinPathFragments, type Tree, workspaceRoot } from '@nx/devkit';
-import { Array, Effect, Option, Result, Schema, SemVer, String } from 'effect';
+import { Array, Effect, identity, Option, Result, Schema, SemVer, String } from 'effect';
 import { VersionActions } from 'nx/release';
 import { isValid, sortReversed } from 'verkit';
 import { analyzer, DotnetError, spawned } from '#/plugins/project-graph';
@@ -16,7 +16,7 @@ const Searched = Schema.fromJsonString(Schema.Struct({ searchResult: Schema.Arra
 
 const evaluated = (project: string) => Effect.flatMap(spawned(['msbuild', project, '-getProperty:PackageId', '-getProperty:Version'], workspaceRoot), Schema.decodeEffect(Evaluated));
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices>) => Effect.runPromise(effect.pipe(Effect.provide(layer)));
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices>) => effect.pipe(Effect.provide(layer), Effect.runPromise);
 
 const searched = Effect.fnUntraced(function* (project: string, metadata: Readonly<Record<string, unknown>> | undefined) {
     const [{ Properties }, decoded] = yield* Effect.all([evaluated(project), Schema.decodeEffect(Metadata)(metadata)]);
@@ -33,7 +33,10 @@ const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(
 
 const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files: (typeof Options.Type)['releases'][number]) {
     const [recorded, pending, release] = yield* Effect.all([read(tree, files.shipped), read(tree, files.unshipped), Effect.mapError(Effect.fromResult(SemVer.parse(version)), (cause) => DotnetError.make({ subject: version, detail: 'is no semantic version', cause }))]);
-    const [rows, comments] = Array.partition(pending.split('\n'), (line) => (line.trimStart().startsWith(';') ? Result.fail(line) : Result.succeed(line)));
+    const [rows, comments] = Array.partition(
+        pending.split('\n'),
+        Result.liftPredicate((line: string) => !line.trimStart().startsWith(';'), identity),
+    );
     const moved = Option.filter(Option.liftPredicate(rows.join('\n').trim(), String.isNonEmpty), () => !SemVer.isPrerelease(release));
     return yield* Option.match(moved, {
         onNone: () => Effect.succeed([]),

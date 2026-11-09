@@ -13,7 +13,7 @@ namespace Rasm.Analyzers.CodeFixes;
 
 [ExportCodeFixProvider(LanguageNames.CSharp)]
 public sealed class FailureCodeFix() : DocumentEditorCodeFix(
-    (FailureAnalyzer.Predicate, static (_, _) => "Apply failure predicate through @catch", static (editor, site, _, token) => {
+    ("RASM1013", static (_, _) => "Apply failure predicate through @catch", static (editor, site, _, token) => {
         IInvocationOperation operation = (IInvocationOperation)editor.SemanticModel.GetOperation(site, token)!;
         InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)site;
         ImmutableArray<ITypeSymbol> types = ((INamedTypeSymbol)((INamedTypeSymbol)operation.TargetMethod.Parameters[1].Type).DelegateInvokeMethod!.ReturnType).TypeArguments;

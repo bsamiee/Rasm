@@ -1,99 +1,44 @@
-#![feature(associated_type_defaults, byte_str, default_field_values, error_reporter, integer_casts, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
+#![feature(default_field_values, error_reporter, lock_value_accessors, nonpoison_mutex, sync_nonpoison)]
+#![cfg_attr(feature = "app", feature(associated_type_defaults, integer_casts))]
 
 use core::{
     error::Error,
-    fmt,
     future::{Ready, ready},
     ops::{Deref, DerefMut},
     pin::pin,
-    str::Utf8Error,
 };
-use std::{borrow::Cow, error::Report, ffi::OsString, io};
+#[cfg(feature = "app")]
+use core::{fmt, str::Utf8Error};
+#[cfg(feature = "app")]
+use std::borrow::Cow;
+use std::error::Report;
 
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
+#[cfg(feature = "app")]
 use jsonschema::{ValidationError, paths::Location};
-use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
+#[cfg(feature = "app")]
+use nonempty_collections::NEVec;
 use opentelemetry::propagation::{Extractor, Injector};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_daemon::Lifetime;
 use rmcp::{
-    ErrorData, RoleServer, ServerHandler, ServiceError,
+    ErrorData, RoleServer, Service,
     model::{
-        CallToolResponse, CallToolResult, CompleteResult, CustomResult, DiscoverResult, ErrorCode, GetPromptResponse, GetTaskResult, InitializeResult, ListPromptsResult, ListResourceTemplatesResult,
-        ListResourcesResult, ListToolsResult, MetaObject, ProgressNotificationParam, ProgressToken, PromptListChangedNotification, ProtocolVersion, ReadResourceResponse,
-        ResourceListChangedNotification, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ServerCapabilities, ServerNotification, ServerResult, SubscriptionFilter,
-        ToolListChangedNotification,
+        ErrorCode, MetaObject, ProgressNotificationParam, ProgressToken, PromptListChangedNotification, ResourceListChangedNotification, ResourceUpdatedNotification, ResourceUpdatedNotificationParam,
+        ServerCapabilities, ServerNotification, SubscriptionFilter, ToolListChangedNotification,
     },
-    service::{ClientInitializeError, RequestContext},
+    service::RequestContext,
 };
-use serde::{Serialize, de::value};
+use serde::Serialize;
+#[cfg(feature = "app")]
+use serde::de::value;
 use serde_json::Value;
 use tokio::sync::watch;
 use tokio_stream::wrappers::WatchStream;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-pub trait Failure = rasm_command::telemetry::Failure + Send + Sync + 'static;
-
-pub trait Endpoint: ServerHandler + Lifetime<Error: Failure> {
-    fn ready(&self) -> Result<(), McpError> { Ok(()) }
-
+pub trait Endpoint: Service<RoleServer> {
     fn watch(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, McpError> { Err::<Ready<()>, _>(McpError::ResourceNotFound { uri: uri.to_owned() }) }
-}
-
-trait Response: Sized {
-    fn answered(result: ServerResult) -> Option<Self>;
-
-    fn failed(&self) -> bool { false }
-}
-
-macro_rules! answered {
-    ($($response:ty => $($variant:ident)|+;)+) => {$(
-        impl Response for $response {
-            fn answered(result: ServerResult) -> Option<Self> {
-                match result {
-                    $(ServerResult::$variant(result) => Some(result.into()),)+
-                    _ => None,
-                }
-            }
-        }
-    )+};
-}
-
-answered! {
-    InitializeResult => InitializeResult;
-    DiscoverResult => DiscoverResult;
-    CompleteResult => CompleteResult;
-    GetPromptResponse => GetPromptResult | InputRequiredResult;
-    ListPromptsResult => ListPromptsResult;
-    ListResourcesResult => ListResourcesResult;
-    ListResourceTemplatesResult => ListResourceTemplatesResult;
-    ReadResourceResponse => ReadResourceResult | InputRequiredResult;
-    ListToolsResult => ListToolsResult;
-    GetTaskResult => GetTaskResult;
-    CustomResult => CustomResult;
-}
-
-impl Response for CallToolResponse {
-    fn answered(result: ServerResult) -> Option<Self> {
-        match result {
-            ServerResult::CallToolResult(result) => Some(Self::Complete(result)),
-            ServerResult::InputRequiredResult(result) => Some(Self::InputRequired(result)),
-            ServerResult::CreateTaskResult(result) => Some(Self::Task(result)),
-            _ => None,
-        }
-    }
-
-    fn failed(&self) -> bool { matches!(self, Self::Complete(CallToolResult { is_error: Some(true), .. })) }
-}
-
-impl Response for () {
-    fn answered(result: ServerResult) -> Option<Self> {
-        match result {
-            ServerResult::TaskAckResult(_) | ServerResult::EmptyResult(_) => Some(()),
-            _ => None,
-        }
-    }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -121,8 +66,18 @@ pub struct Update {
     pub message: Option<String> = None,
 }
 
+#[derive(Debug, derive_more::From)]
+pub struct ToolError<E>(pub E);
+
+impl<E> From<ToolError<E>> for ErrorData
+where E: Serialize + Error
+{
+    fn from(value: ToolError<E>) -> Self { serde_json::to_value(&value.0).map_or_else(internal, |data| Self::internal_error(Report::new(&value.0).to_string(), Some(data))) }
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
+#[cfg(feature = "app")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, derive_more::Display)]
 #[serde(rename_all = "lowercase")]
 pub enum Unanswered {
@@ -141,144 +96,128 @@ pub enum Unanswered {
 #[derive(Debug, Serialize, thiserror::Error)]
 #[serde(tag = "_tag")]
 pub enum McpError {
+    #[cfg(feature = "app")]
     #[error("cannot route resource {pattern}")]
     Route {
         pattern: String,
         #[serde(skip)]
         source: matchit::InsertError,
     },
+    #[cfg(feature = "app")]
     #[error("resource template {template} expression {{{expression}}} cannot route, use {{x}}, {{/x}}, {{.x}}, a final {{+x}}, {{?x}} or {{&x}}")]
-    Template {
-        template: String,
-        expression: String,
-    },
+    Template { template: String, expression: String },
+    #[cfg(feature = "app")]
     #[error("cannot compile tool {tool} input schema")]
     Schema {
         tool: Cow<'static, str>,
         #[serde(skip)]
         source: ValidationError<'static>,
     },
+    #[cfg(feature = "app")]
     #[error("tool name {tool} breaks MCP tool name format")]
-    ToolName {
-        tool: Cow<'static, str>,
-    },
+    ToolName { tool: Cow<'static, str> },
+    #[cfg(feature = "app")]
     #[error("completion names undeclared prompt {prompt}, register prompt before its completion")]
-    Completion {
-        prompt: String,
-    },
-    #[error("cannot register {count} declarations{listed}", count = .errors.len(), listed = fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", Report::new(error)))))]
+    Completion { prompt: String },
+    #[cfg(feature = "app")]
+    #[error("cannot register {} declarations{}", .errors.len(), fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", Report::new(error)))))]
     Declarations {
         #[serde(skip)]
         errors: NEVec<Self>,
     },
+    #[cfg(feature = "app")]
     #[error("arguments break tool {tool} input schema, correct each violation at its path and call again")]
-    Arguments {
-        tool: Cow<'static, str>,
-        violations: NEVec<(Location, String)>,
-    },
+    Arguments { tool: Cow<'static, str>, violations: NEVec<(Location, String)> },
     #[error("{uri} names no resource, list resources and resource templates")]
-    ResourceNotFound {
-        uri: String,
-    },
+    ResourceNotFound { uri: String },
+    #[cfg(feature = "app")]
     #[error("{uri} variable percent-decodes to invalid UTF-8")]
     Encoding {
         uri: String,
         #[serde(skip)]
         source: Utf8Error,
     },
+    #[cfg(feature = "app")]
     #[error("{uri} variables break template, read resources/templates/list")]
     Variables {
         uri: String,
         #[serde(skip)]
         source: serde_path_to_error::Error<value::Error>,
     },
+    #[cfg(feature = "app")]
     #[error("requestState matches no paused call, call again without requestState")]
     RequestState,
     #[error("server is shutting down, call again after restart")]
     Stopping,
-    #[error("{reason}")]
-    Elicitation {
-        reason: Unanswered,
+    #[error("call asks for input, which needs negotiated protocol version 2026-07-28 or newer")]
+    InputRequired,
+    #[cfg(feature = "proxy")]
+    #[error("upstream server exited before answering, call again")]
+    Ended,
+    #[cfg(feature = "proxy")]
+    #[error("cannot start upstream server")]
+    Connect {
+        #[serde(skip)]
+        source: std::io::Error,
     },
+    #[cfg(feature = "proxy")]
+    #[error("upstream server refused the handshake")]
+    Handshake {
+        #[serde(skip)]
+        source: Box<rmcp::service::ClientInitializeError>,
+    },
+    #[error("task {task} belongs to another session")]
+    Task { task: String },
+    #[cfg(feature = "app")]
+    #[error("{reason}")]
+    Elicitation { reason: Unanswered },
+    #[cfg(feature = "app")]
     #[error("requested form has no object schema, tool cannot ask question")]
     Form {
         #[serde(skip)]
         source: serde_json::Error,
     },
+    #[cfg(feature = "app")]
     #[error("answer breaks requested form, call again to ask again")]
     Answer {
         data: Value,
         #[serde(skip)]
         source: serde_path_to_error::Error<serde_json::Error>,
     },
+    #[cfg(feature = "app")]
     #[error("question did not reach user, call again")]
     Service {
         #[serde(skip)]
-        source: ServiceError,
+        source: rmcp::ServiceError,
     },
-    #[error("cannot spawn upstream server {}", .command.display())]
-    Spawn {
-        #[serde(skip)]
-        command: OsString,
-        #[serde(skip)]
-        source: io::Error,
-    },
-    #[error("cannot complete the upstream handshake")]
-    Handshake {
-        #[serde(skip)]
-        source: Box<ClientInitializeError>,
-    },
-    #[error("upstream server ended before shutdown")]
-    Ended,
 }
 
 impl From<McpError> for ErrorData {
     fn from(value: McpError) -> Self {
         let code = match &value {
             McpError::ResourceNotFound { uri: _ } => ErrorCode::RESOURCE_NOT_FOUND,
+            McpError::Task { task: _ } => ErrorCode::INVALID_PARAMS,
+            #[cfg(feature = "app")]
             McpError::Arguments { tool: _, violations: _ } | McpError::Encoding { uri: _, source: _ } | McpError::Variables { uri: _, source: _ } | McpError::RequestState => ErrorCode::INVALID_PARAMS,
+            McpError::Stopping => ErrorCode::INTERNAL_ERROR,
+            McpError::InputRequired => ErrorCode::INVALID_REQUEST,
+            #[cfg(feature = "proxy")]
+            McpError::Ended => ErrorCode::INTERNAL_ERROR,
+            #[cfg(feature = "proxy")]
+            McpError::Connect { source: _ } | McpError::Handshake { source: _ } => ErrorCode::INTERNAL_ERROR,
+            #[cfg(feature = "app")]
             McpError::Route { pattern: _, source: _ }
             | McpError::Template { template: _, expression: _ }
             | McpError::Schema { tool: _, source: _ }
             | McpError::ToolName { tool: _ }
             | McpError::Completion { prompt: _ }
             | McpError::Declarations { errors: _ }
-            | McpError::Stopping
             | McpError::Elicitation { reason: _ }
             | McpError::Form { source: _ }
             | McpError::Answer { data: _, source: _ }
-            | McpError::Service { source: _ }
-            | McpError::Spawn { command: _, source: _ }
-            | McpError::Handshake { source: _ }
-            | McpError::Ended => ErrorCode::INTERNAL_ERROR,
+            | McpError::Service { source: _ } => ErrorCode::INTERNAL_ERROR,
         };
         Self { code, ..ToolError(value).into() }
-    }
-}
-
-impl From<McpError> for sysexits::ExitCode {
-    fn from(value: McpError) -> Self {
-        match value {
-            McpError::Spawn { command: _, source } => source.into(),
-            McpError::Handshake { source: _ } => Self::Protocol,
-            McpError::Ended => Self::Unavailable,
-            McpError::Stopping => Self::TempFail,
-            McpError::Declarations { errors } => Self::from(errors.into_nonempty_iter().next().0),
-            McpError::Route { pattern: _, source: _ }
-            | McpError::Template { template: _, expression: _ }
-            | McpError::Schema { tool: _, source: _ }
-            | McpError::ToolName { tool: _ }
-            | McpError::Completion { prompt: _ }
-            | McpError::Arguments { tool: _, violations: _ }
-            | McpError::ResourceNotFound { uri: _ }
-            | McpError::Encoding { uri: _, source: _ }
-            | McpError::Variables { uri: _, source: _ }
-            | McpError::RequestState
-            | McpError::Elicitation { reason: _ }
-            | McpError::Form { source: _ }
-            | McpError::Answer { data: _, source: _ }
-            | McpError::Service { source: _ } => Self::Software,
-        }
     }
 }
 
@@ -331,7 +270,9 @@ impl Progress {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn versions() -> &'static [ProtocolVersion] {
+#[cfg(any(feature = "app", feature = "proxy"))]
+fn versions() -> &'static [rmcp::model::ProtocolVersion] {
+    use rmcp::model::ProtocolVersion;
     const FLOOR: ProtocolVersion = ProtocolVersion::V_2025_06_18;
     ProtocolVersion::KNOWN_VERSIONS.rsplit_once(|version| *version < FLOOR).map_or(ProtocolVersion::KNOWN_VERSIONS, |(_, served)| served)
 }
@@ -356,25 +297,18 @@ fn internal(error: impl Error) -> ErrorData { ErrorData::internal_error(Report::
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub mod host;
+mod host;
+#[cfg(feature = "proxy")]
 mod proxy;
+#[cfg(feature = "app")]
 mod server;
+mod telemetry;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+pub use host::{Host, Session};
+#[cfg(feature = "proxy")]
 pub use proxy::Proxy;
-pub use server::{App, CompletionRouter, Elicitation, IntoResourceContents, Registry, ResourceRouter, Server, Settings, ToolError};
-pub use bytes;
-pub use clap;
-pub use jsonschema;
-pub use matchit;
-pub use nonempty_collections;
-pub use rasm_command;
-pub use rasm_daemon;
-pub use rmcp;
-pub use serde;
-pub use serde_json;
-pub use serde_path_to_error;
-pub use sysexits;
-pub use tokio;
-pub use url;
+#[cfg(feature = "app")]
+pub use server::{App, CompletionRouter, Elicitation, IntoResourceContents, Registry, ResourceRouter, Server, Settings};
+pub use telemetry::Traced;

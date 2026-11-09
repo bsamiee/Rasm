@@ -4,7 +4,7 @@ import { platform, stderr, stdout } from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Exit, FileSystem, Option, Path, Record, Result, Schema, Stream, String, UndefinedOr } from 'effect';
+import { Array, Cause, Effect, Equivalence, Exit, FileSystem, Option, Path, Record, Schema, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Zip } from 'effect/encoding';
 import { DistributionError, spawned, UNREAL } from '#/plugins/host-packages';
 
@@ -47,8 +47,8 @@ const engine = Effect.fnUntraced(function* (descriptor: string, engines: Readonl
             ),
             Option.flatMap(named, (key) => Option.liftPredicate(path.resolve(path.dirname(descriptor), key), () => SEPARATOR.test(key))),
             Option.match(named, { onNone: () => Array.head(native), onSome: () => Option.none() }),
-            Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Result.getSuccess(Schema.decodeUnknownResult(Registered)(Ini.parse(text))))]), ([key, { Installations }]) => Record.get(Installations, key)),
-            Option.flatMap(Option.all([named, Option.flatMap(launched, (text) => Result.getSuccess(Schema.decodeResult(Launcher)(text)))]), ([key, { InstallationList }]) =>
+            Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Schema.decodeUnknownOption(Registered)(Ini.parse(text)))]), ([key, { Installations }]) => Record.get(Installations, key)),
+            Option.flatMap(Option.all([named, Option.flatMap(launched, (text) => Schema.decodeOption(Launcher)(text))]), ([key, { InstallationList }]) =>
                 Option.map(
                     Array.findFirst(InstallationList, ({ AppName }) => AppName === `UE_${key}`),
                     ({ InstallLocation }) => InstallLocation,
@@ -87,7 +87,7 @@ const run = Effect.fnUntraced(function* (workspaceRoot: string, options: typeof 
         : Effect.gen(function* () {
               const name = path.basename(options.descriptor, path.extname(options.descriptor));
               const declared = yield* Effect.flatMap(fs.readFileString(absolute(options.descriptor)), Schema.decodeEffect(Descriptor));
-              const engines = Array.dedupeWith(yield* Effect.forEach(options.hosts.length === 0 ? [options.descriptor] : options.hosts, located), (left, right) => left.root === right.root);
+              const engines = Array.dedupeWith(yield* Effect.forEach(options.hosts.length === 0 ? [options.descriptor] : options.hosts, located), Equivalence.mapInput(Equivalence.String, Struct.get('root')));
               const flags = [`-Plugin=${absolute(options.descriptor)}`, ...options.dependencies.map((at) => `-Dependencies=${absolute(at)}`), ...args];
               const folder = absolute(options.outputPath);
               yield* fs.makeDirectory(folder, { recursive: true });
@@ -128,14 +128,13 @@ const decided = (context: ExecutorContext, inputs: Readonly<Record<string, unkno
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: unknown, context: ExecutorContext) =>
-    Effect.runPromise(
-        Effect.gen(function* () {
-            const [project, target] = yield* Effect.all([Effect.fromNullishOr(context.projectName), Effect.fromNullishOr(context.targetName)]);
-            const results = yield* decided(context, { [`${project}:${target}`]: options }, { dependencies: {} });
-            return { success: Record.values(results).every(({ success }) => success) };
-        }),
-    );
+const executed = Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
+    const [project, target] = yield* Effect.all([Effect.fromNullishOr(context.projectName), Effect.fromNullishOr(context.targetName)]);
+    const results = yield* decided(context, { [`${project}:${target}`]: options }, { dependencies: {} });
+    return { success: Object.values(results).every(({ success }) => success) };
+});
+
+const execute = (options: unknown, context: ExecutorContext) => executed(options, context).pipe(Effect.runPromise);
 
 const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) => Effect.runPromise(decided(context, inputs, taskGraph));
 

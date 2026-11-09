@@ -23,30 +23,6 @@
           "Emgu.CV": "5.0.0.6584"
         }
       },
-      "Emgu.CV.runtime.mini.windows": {
-        "type": "Direct",
-        "requested": "[5.0.0.6584, )",
-        "resolved": "5.0.0.6584",
-        "contentHash": "jK2n6PWiNstWAFpASUC+/8l6Dc1nO5FjWYMnJETljN3XlcB5OFlz3aq1D7F+MpSp6Fi3gwS8cPZy3S06UZ1MBw==",
-        "dependencies": {
-          "Emgu.CV": "5.0.0.6584",
-          "Emgu.runtime.windows.msvc.rt.arm64": "19.51.36257",
-          "Emgu.runtime.windows.msvc.rt.x64": "19.51.36257",
-          "Emgu.runtime.windows.msvc.rt.x86": "19.51.36257"
-        }
-      },
-      "Emgu.runtime.windows.msvc.rt.arm64": {
-        "type": "Direct",
-        "requested": "[19.51.36257, )",
-        "resolved": "19.51.36257",
-        "contentHash": "VWjz+GKS/to3npExX1ICZkFsvzatTAwKksQxDf5T4TL7dSymd//rbPV7KMxGdUdFap066ncLb4e4kPumNKjHfg=="
-      },
-      "Emgu.runtime.windows.msvc.rt.x64": {
-        "type": "Direct",
-        "requested": "[19.51.36257, )",
-        "resolved": "19.51.36257",
-        "contentHash": "erukNuc6Zwwy1xyxdM5tuI/NGXVO5h/sH2LRadwElmD1iEhTJUIvpg0z9sgqSaFgecew+kpfesjNehh2jHZWkw=="
-      },
       "ErrorProne.NET.CoreAnalyzers": {
         "type": "Direct",
         "requested": "[0.9.0-beta.4, )",
@@ -70,12 +46,6 @@
         "requested": "[3.0.321, )",
         "resolved": "3.0.321",
         "contentHash": "aFP7GiBBIb2x9rBTuUpw/jSs0JVbTofADlt6WxmYVYQ24KPAjFYyxcnNNVVf4F/eqKyzjik170nOpURmmyJDKg=="
-      },
-      "Microsoft.CodeAnalysis.BannedApiAnalyzers": {
-        "type": "Direct",
-        "requested": "[5.6.0, )",
-        "resolved": "5.6.0",
-        "contentHash": "Kcobt3pnOdO0A+6CKiMHZdTEluJpsfxiV20axtZdmfBQnDmiWTKPJADlgAfdTuKNAnVarrkJa0UEGwuOo91muw=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Direct",
@@ -201,11 +171,6 @@
         "requested": "[8.0.0, )",
         "resolved": "8.0.0",
         "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
-      },
-      "Emgu.runtime.windows.msvc.rt.x86": {
-        "type": "Transitive",
-        "resolved": "19.51.36257",
-        "contentHash": "jsNd3m9vsXDSUCLyRxnoO0vipKaJdjXPODslJmefVCWW7nwLMBDRwSzNHUX6624rF2xDE7ALXkXVCxNpO3Dt8w=="
       },
       "Microsoft.Extensions.Logging.Configuration": {
         "type": "Transitive",
@@ -515,35 +480,6 @@
           "Emgu.CV": "5.0.0.6584"
         }
       },
-      "Emgu.CV.runtime.mini.windows": {
-        "type": "Direct",
-        "requested": "[5.0.0.6584, )",
-        "resolved": "5.0.0.6584",
-        "contentHash": "jK2n6PWiNstWAFpASUC+/8l6Dc1nO5FjWYMnJETljN3XlcB5OFlz3aq1D7F+MpSp6Fi3gwS8cPZy3S06UZ1MBw==",
-        "dependencies": {
-          "Emgu.CV": "5.0.0.6584",
-          "Emgu.runtime.windows.msvc.rt.arm64": "19.51.36257",
-          "Emgu.runtime.windows.msvc.rt.x64": "19.51.36257",
-          "Emgu.runtime.windows.msvc.rt.x86": "19.51.36257"
-        }
-      },
-      "Emgu.runtime.windows.msvc.rt.arm64": {
-        "type": "Direct",
-        "requested": "[19.51.36257, )",
-        "resolved": "19.51.36257",
-        "contentHash": "VWjz+GKS/to3npExX1ICZkFsvzatTAwKksQxDf5T4TL7dSymd//rbPV7KMxGdUdFap066ncLb4e4kPumNKjHfg=="
-      },
-      "Emgu.runtime.windows.msvc.rt.x64": {
-        "type": "Direct",
-        "requested": "[19.51.36257, )",
-        "resolved": "19.51.36257",
-        "contentHash": "erukNuc6Zwwy1xyxdM5tuI/NGXVO5h/sH2LRadwElmD1iEhTJUIvpg0z9sgqSaFgecew+kpfesjNehh2jHZWkw=="
-      },
-      "Emgu.runtime.windows.msvc.rt.x86": {
-        "type": "Transitive",
-        "resolved": "19.51.36257",
-        "contentHash": "jsNd3m9vsXDSUCLyRxnoO0vipKaJdjXPODslJmefVCWW7nwLMBDRwSzNHUX6624rF2xDE7ALXkXVCxNpO3Dt8w=="
-      },
       "Microsoft.Win32.SystemEvents": {
         "type": "CentralTransitive",
         "requested": "[10.0.0, )",
@@ -566,35 +502,6 @@
         "dependencies": {
           "Emgu.CV": "5.0.0.6584"
         }
-      },
-      "Emgu.CV.runtime.mini.windows": {
-        "type": "Direct",
-        "requested": "[5.0.0.6584, )",
-        "resolved": "5.0.0.6584",
-        "contentHash": "jK2n6PWiNstWAFpASUC+/8l6Dc1nO5FjWYMnJETljN3XlcB5OFlz3aq1D7F+MpSp6Fi3gwS8cPZy3S06UZ1MBw==",
-        "dependencies": {
-          "Emgu.CV": "5.0.0.6584",
-          "Emgu.runtime.windows.msvc.rt.arm64": "19.51.36257",
-          "Emgu.runtime.windows.msvc.rt.x64": "19.51.36257",
-          "Emgu.runtime.windows.msvc.rt.x86": "19.51.36257"
-        }
-      },
-      "Emgu.runtime.windows.msvc.rt.arm64": {
-        "type": "Direct",
-        "requested": "[19.51.36257, )",
-        "resolved": "19.51.36257",
-        "contentHash": "VWjz+GKS/to3npExX1ICZkFsvzatTAwKksQxDf5T4TL7dSymd//rbPV7KMxGdUdFap066ncLb4e4kPumNKjHfg=="
-      },
-      "Emgu.runtime.windows.msvc.rt.x64": {
-        "type": "Direct",
-        "requested": "[19.51.36257, )",
-        "resolved": "19.51.36257",
-        "contentHash": "erukNuc6Zwwy1xyxdM5tuI/NGXVO5h/sH2LRadwElmD1iEhTJUIvpg0z9sgqSaFgecew+kpfesjNehh2jHZWkw=="
-      },
-      "Emgu.runtime.windows.msvc.rt.x86": {
-        "type": "Transitive",
-        "resolved": "19.51.36257",
-        "contentHash": "jsNd3m9vsXDSUCLyRxnoO0vipKaJdjXPODslJmefVCWW7nwLMBDRwSzNHUX6624rF2xDE7ALXkXVCxNpO3Dt8w=="
       },
       "Microsoft.Win32.SystemEvents": {
         "type": "CentralTransitive",

@@ -27,10 +27,7 @@ pub struct Authority {
 pub enum Level {
     Basic,
     Timestamp(Authority),
-    LongTerm {
-        authority: Authority,
-        material: RevocationMaterial,
-    },
+    LongTerm { authority: Authority, material: RevocationMaterial },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

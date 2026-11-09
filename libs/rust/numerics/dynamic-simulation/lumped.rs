@@ -179,24 +179,13 @@ impl Scratch {
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 pub enum Setting {
     #[error("initial temperature of node {} is not finite", node.index())]
-    InitialTemperature {
-        node: NodeIndex,
-    },
+    InitialTemperature { node: NodeIndex },
     #[error("{}relative tolerance {value} is negative or not finite", if *sensitivity { "sensitivity " } else { "" })]
-    RelativeTolerance {
-        sensitivity: bool,
-        value: f64,
-    },
+    RelativeTolerance { sensitivity: bool, value: f64 },
     #[error("{}absolute tolerance {} is not a positive normal number", if *sensitivity { "sensitivity " } else { "" }, value.into_format_args(temperature_interval::kelvin, Abbreviation))]
-    AbsoluteTolerance {
-        sensitivity: bool,
-        value: TemperatureInterval,
-    },
+    AbsoluteTolerance { sensitivity: bool, value: TemperatureInterval },
     #[error("sensor node {} lies outside a network of {nodes} nodes", sensor.index())]
-    Sensor {
-        sensor: NodeIndex,
-        nodes: usize,
-    },
+    Sensor { sensor: NodeIndex, nodes: usize },
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

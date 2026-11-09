@@ -53,18 +53,15 @@ const core = Effect.gen(function* () {
     return { name, version, folder: path.dirname(located), analyzer, plugin };
 });
 
-const spawned = (command: string, args: readonly string[], options: { readonly cwd: string; readonly input?: string }) =>
-    Effect.scoped(
-        Effect.gen(function* () {
-            const handle = yield* ChildProcess.make(command, args, {
-                cwd: options.cwd,
-                extendEnv: true,
-                ...(options.input === undefined ? {} : { stdin: Stream.encodeText(Stream.succeed(options.input)) }),
-            });
-            const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-            return code === 0 ? stdout : yield* AppleError.make({ subject: [command, ...args].join(' '), detail: `exited ${code}: ${stderr.trim()}` });
-        }),
-    );
+const spawned = Effect.fnUntraced(function* (command: string, args: readonly string[], options: { readonly cwd: string; readonly input?: string }) {
+    const handle = yield* ChildProcess.make(command, args, {
+        cwd: options.cwd,
+        extendEnv: true,
+        ...(options.input === undefined ? {} : { stdin: Stream.encodeText(Stream.succeed(options.input)) }),
+    });
+    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? stdout : yield* AppleError.make({ subject: [command, ...args].join(' '), detail: `exited ${code}: ${stderr.trim()}` });
+}, Effect.scoped);
 
 const present = (command: string, args: readonly string[], cwd: string) =>
     spawned(command, args, { cwd }).pipe(

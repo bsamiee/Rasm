@@ -1,6 +1,6 @@
 # [NX_UV]
 
-`@rasm/nx-uv` is an Nx 24 plugin for uv workspaces. Projects, edges, external nodes, and targets come from `uv workspace metadata` per workspace root, and from the checker tables each project's configuration files declare.
+`@rasm/nx-uv` is an Nx 24 plugin for uv workspaces. Projects, edges, and targets come from `uv workspace metadata` per workspace root, and from the checker tables each project's configuration files declare.
 
 ## [01]-[USE]
 
@@ -15,13 +15,12 @@
 
 ## [02]-[INFERENCE]
 
-| [INDEX] | [SOURCE]                                        | [GIVES]                                                               |
-| :-----: | :---------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `uv.lock`                                       | One workspace root, read through one `uv workspace metadata`          |
-|  [02]   | Metadata `members` and `workspace`              | One project per member as uv names it, and one for a virtual root     |
-|  [03]   | Metadata `resolution`                           | `pypi:<root>/<name>@<version>` external nodes, keyed per locking root |
-|  [04]   | Member dependencies, groups, extras             | Implicit edges to members, other roots' members, and external nodes   |
-|  [05]   | Checker tables reachable from the member folder | `check--<tool>` and `test` targets                                    |
+| [INDEX] | [SOURCE]                                        | [GIVES]                                                                     |
+| :-----: | :---------------------------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `uv.lock`                                       | One workspace root, read through one `uv workspace metadata`                |
+|  [02]   | Metadata `members` and `workspace`              | One project per member as uv names it, and one for a virtual root           |
+|  [03]   | Member dependencies in `resolution`             | Edges to members of any root, `static` where the member's sources name them |
+|  [04]   | Checker tables reachable from the member folder | `check--<tool>` and `test` targets                                          |
 
 - Stale locks read as uv resolves them, and each task's `--locked` and `check--uv` report them with uv's own message
 - Roots uv cannot read (a manifest that does not parse) log uv's message and keep their project with `check--uv`, which fails with that message
@@ -56,7 +55,8 @@
 - `ty` receives the member path, since from a member folder it checks the whole workspace
 - `TY_UV` reaches ty from the caller's environment (`uv check` sets `1`, adding undeclared-dependency findings), and the plugin hashes it as an `env` input
 - Checker inputs: member sources, configuration files present on the discovery path up to the one the tool reads, the root `.python-version`
-- Dependency members' files and the selected group's external nodes join them; `test` reads every member file outside the build folder
+- Dependency members' files join them; `test` reads every member file outside the build folder
+- Root `uv.lock` joins them as a file, since Nx's `affected` reads changes from npm lock files alone
 - Aggregates take the form every plugin declares (`dependsOn: ["<verb>--*"]`), their inputs `'...'` then the union of their members' inputs
 - Arguments after `--` go to a tool-named target, since Nx forwards them to every dependency of an aggregate
 - `nx affected -t <verb>` selects an aggregate on any input of its dependencies, and `'...'` keeps other plugins' inputs for the project
@@ -72,7 +72,8 @@ Members with a build backend whose classifiers are static and carry no `Private 
 - Reads the registry version as the newest of the `versions` the index's PEP 691 JSON page lists (PEP 700), from PyPI or the `[[tool.uv.index]]` entry `currentVersionResolverMetadata.index` names in the root's `uv.toml` or `pyproject.toml`
 - Writes each released sibling as a floor (`rasm-records>=1.2.0`) into the dependent's dependencies, so a published dependent never accepts an older sibling
 - Keeps the extras and marker `uv.lock` records for each rewritten requirement
-- `versionActionsOptions.lock` names the member's `uv.lock`, and `afterAllProjectsVersioned` runs one `uv lock` per lock the graph's versioned projects name, so no other tool's lock (mise's tool sidecars) is touched
+- `versionActionsOptions.lock` names the member's `uv.lock`, and `afterAllProjectsVersioned` runs one `uv lock` per `uv.lock` versioned projects name
+- Locks `uv lock` changed are reported, and no other tool's lock (mise's tool sidecars, Cargo's) is touched
 
 ## [05]-[STATE]
 

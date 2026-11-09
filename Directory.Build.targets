@@ -18,16 +18,12 @@
         <Using Include="Grasshopper2.Types.Numeric" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'Grasshopper2'))" />
     </ItemGroup>
 
-    <ItemGroup Label="Analyzer Configuration">
-        <AdditionalFiles Include="$(MSBuildThisFileDirectory).config/BannedSymbols.txt" />
-        <AdditionalFiles Include="$(MSBuildThisFileDirectory).config/BannedSymbols.Library.txt" Condition="'$(IsPackable)' == 'true'" />
+    <ItemGroup Label="Analyzers" Condition="'$(IsRoslynComponent)' != 'true' and '$(RunAnalyzers)' != 'false'">
+        <ProjectReference Include="$(MSBuildThisFileDirectory)apps/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj;$(MSBuildThisFileDirectory)apps/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" />
+        <ProjectReference Include="$(MSBuildThisFileDirectory)apps/roslyn/Rasm.Rhino.Analyzers/Rasm.Rhino.Analyzers.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" PackagePath="analyzers/dotnet/cs" Condition="'$(RhinoHost)' != ''" />
     </ItemGroup>
 
-    <ItemGroup Label="Analyzer References" Condition="'$(IsRoslynComponent)' != 'true' and '$(RunAnalyzers)' != 'false'">
-        <ProjectReference Include="$(MSBuildThisFileDirectory)apps/roslyn/Rasm.Analyzers.Package/Rasm.Analyzers.Package.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" />
-    </ItemGroup>
-
-    <Import Project="apps/roslyn/Rasm.Analyzers.Package/build/Rasm.Analyzers.props" Condition="'$(IsRoslynComponent)' != 'true' and '$(RunAnalyzers)' != 'false'" />
+    <Import Project="apps/roslyn/Rasm.Analyzers/build/Rasm.Analyzers.props" Condition="'$(IsRoslynComponent)' != 'true' and '$(RunAnalyzers)' != 'false'" />
 
     <PropertyGroup Label="Central Package Management">
         <CentralPackageTransitivePinningEnabled Condition="'$(IsRoslynComponent)' != 'true' and '$(IsPackable)' != 'true'">true</CentralPackageTransitivePinningEnabled>
@@ -62,6 +58,7 @@
         <_RhinoMajorVersion Condition="'$(PkgRhinoCommon)' != ''">$([System.IO.Path]::GetFileName('$(PkgRhinoCommon)').Split('.')[0])</_RhinoMajorVersion>
         <RhinoInstallPath Condition="'$(RhinoInstallPath)' == '' and '$(_RhinoMajorVersion)' != '' and $([MSBuild]::IsOSPlatform('OSX'))">/Applications/Rhino $(_RhinoMajorVersion).app</RhinoInstallPath>
         <RhinoInstallPath Condition="'$(RhinoInstallPath)' == '' and '$(_RhinoMajorVersion)' != '' and $([MSBuild]::IsOSPlatform('Windows'))">$([MSBuild]::GetRegistryValue('HKEY_LOCAL_MACHINE\SOFTWARE\McNeel\Rhinoceros\$(_RhinoMajorVersion).0\Install', 'InstallPath'))</RhinoInstallPath>
+        <RhinoVersion Condition="'$(RhinoVersion)' == '' and '$(RhinoInstallPath)' != '' and $([MSBuild]::IsOSPlatform('OSX')) and Exists('$(RhinoInstallPath)/Contents/Info.plist')">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(RhinoInstallPath)/Contents/Info.plist')), '&lt;key&gt;CFBundleVersion&lt;/key&gt;\s*&lt;string&gt;([^&lt;]+)&lt;/string&gt;').Groups[1].Value)</RhinoVersion>
         <RhinoResourcesDir Condition="'$(RhinoInstallPath)' != '' and $([MSBuild]::IsOSPlatform('OSX'))">$([MSBuild]::NormalizeDirectory('$(RhinoInstallPath)', 'Contents', 'Frameworks', 'RhCore.framework', 'Versions', 'Current', 'Resources'))</RhinoResourcesDir>
         <RhinoResourcesDir Condition="'$(RhinoInstallPath)' != '' and $([MSBuild]::IsOSPlatform('Windows'))">$([MSBuild]::NormalizeDirectory('$(RhinoInstallPath)', 'System', 'netcore'))</RhinoResourcesDir>
         <YakExecutable Condition="'$(RhinoInstallPath)' != '' and $([MSBuild]::IsOSPlatform('OSX'))">$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'Contents', 'Resources', 'bin', 'yak'))</YakExecutable>
@@ -72,6 +69,8 @@
         <PackageReference Update="RhinoCommon" ExcludeAssets="runtime" GeneratePathProperty="true" />
         <PackageReference Include="System.Drawing.Common" ExcludeAssets="compile" Condition="'$(TargetPlatformIdentifier)' != 'Windows'" />
         <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" Condition="'$(TargetPlatformIdentifier)' == 'Windows'" />
+        <SupportedPlatform Remove="@(SupportedPlatform)" />
+        <SupportedPlatform Include="macOS;Windows" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
     </ItemGroup>
@@ -120,15 +119,12 @@
 
     <Target Name="ResolveRhinoInstallation" AfterTargets="ResolvePackageAssets" Condition="'$(RhinoHost)' != ''">
         <Error Condition="!Exists('$(RhinoResourcesDir)')" Text="Rhino $(_RhinoMajorVersion) install not found at '$(RhinoInstallPath)', install Rhino $(_RhinoMajorVersion) or set RhinoInstallPath" />
-        <XmlPeek XmlInputPath="$(RhinoInstallPath)/Contents/Info.plist" Query="/plist/dict/key[.='CFBundleVersion']/following-sibling::*[1]/text()" ProhibitDtd="false" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-            <Output TaskParameter="Result" PropertyName="_RhinoVersion" />
-        </XmlPeek>
-        <Error Condition="$([MSBuild]::IsOSPlatform('OSX')) and !$([System.String]::Copy('$(_RhinoVersion)').StartsWith('$(_RhinoMajorVersion).'))" Text="$(RhinoInstallPath) contains Rhino $(_RhinoVersion); Rhino $(_RhinoMajorVersion) is required." />
+        <Error Condition="$([MSBuild]::IsOSPlatform('OSX')) and !$([System.String]::Copy('$(RhinoVersion)').StartsWith('$(_RhinoMajorVersion).'))" Text="$(RhinoInstallPath) contains Rhino $(RhinoVersion); Rhino $(_RhinoMajorVersion) is required." />
         <XmlPeek XmlInputPath="$(RhinoInstallPath)/Contents/Info.plist" Query="/plist/dict/key[.='LSMinimumSystemVersion']/following-sibling::*[1]/text()" ProhibitDtd="false" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
             <Output TaskParameter="Result" PropertyName="_RhinoMacMinimumVersion" />
         </XmlPeek>
         <ItemGroup>
-            <RuntimeHostConfigurationOption Include="RhinoVersion" Value="$(_RhinoVersion)" Condition="'$(IsTestingPlatformApplication)' == 'true' and '$(_RhinoVersion)' != ''" />
+            <RuntimeHostConfigurationOption Include="RhinoVersion" Value="$(RhinoVersion)" Condition="'$(IsTestingPlatformApplication)' == 'true' and '$(RhinoVersion)' != ''" />
             <_RhinoReference Include="@(ResolvedCompileFileDefinitions)" />
             <_RhinoReference Remove="@(RuntimeCopyLocalItems)" MatchOnMetadata="NuGetPackageId" />
         </ItemGroup>

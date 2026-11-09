@@ -11,6 +11,9 @@ Covers C# design from signature shape to host boundary, with LanguageExt and Thi
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
 - Every type, export, and helper states a fact nothing else does, a helper with one reader, forwarder, or alias merges into its owner
+- Libraries give callers composable parts over a dependency's own types, callers choosing entry point, runtime, transport, and configuration
+- Parts adding dependencies some consumers never call are their own package referencing the core one
+- Layers adding a fact to a dependency (tracing, proxying) attach where its own adapters do, and a forwarder per member marks a misplaced layer
 - Values that vary are parameters, a value every caller passes alike folds into its owner
 - Error cases exist where a caller branches on them, every other failure joins its owner's error
 - Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
@@ -63,7 +66,7 @@ Functions honor their signature when each declared input produces a declared out
 - `Unit` does not make an effectful function pure
 - Statements stay statements in a block body in place of `Unit` arithmetic or a discard ternary spelling them as a value
 - Nullable reference types stay enabled, `?` appears only where an external representation requires it, `Optional` converts it to `Option<A>` there
-- Absence stays absence: an empty string, zero, or other sentinel never stands for a missing value, and a host that reads `""` as absence receives it from the one member converting `Option<string>` for that host
+- Absence stays absence: no empty string, zero, or other sentinel stands for a missing value, a host reading `""` gets it from one `Option<string>` conversion
 - `!`, a cast of an `object?` result, and `ValueUnsafe` on a value element are unchecked escapes, `Optional` lifts the nullable result into the outcome that names its failure
 
 ### [01.2]-[PURITY]
@@ -123,7 +126,7 @@ internal static class Projections {
 
 Prefer a query over a mutable accumulator, a named reduction (`Min(seed)`, `Max(seed)`) over a `Fold` that restates it, `Fold` with a seed for any other reduction, and indexed `Map` over a declared counter. One-arm `x switch { var y => … }` bindings stay for a value an expression reads more than once or inside a lambda, and a binding read once or never is inlined.
 
-A declaration states its type once, where it adds a fact: a local names its type and the value takes it from the target (`new()`, `[]`, `default`), and `var` stays in patterns. Text that differs by case is one expression choosing between complete values (`flag ? "Saved" : "Unsaved"`, or a switch expression), never a fragment spliced in or a statement per branch.
+Declarations state their type once, where it adds a fact: a local names its type and the value takes it from the target (`new()`, `[]`, `default`), and `var` stays in patterns. Text that differs by case is one expression choosing between complete values (`flag ? "Saved" : "Unsaved"`, or a switch expression), never a fragment spliced in or a statement per branch.
 
 ### [02.1]-[PATTERN_MATCHING]
 

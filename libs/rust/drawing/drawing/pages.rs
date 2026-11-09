@@ -1,4 +1,3 @@
-
 use core::num::NonZero;
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -36,10 +35,7 @@ pub struct Viewport {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Destination {
     Uri(Arc<str>),
-    Page {
-        index: usize,
-        area: Option<Rect>,
-    },
+    Page { index: usize, area: Option<Rect> },
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, Task, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, HashSet, Match, Option, Path, Record, Schema, Stream } from 'effect';
+import { Array, Effect, Equal, FileSystem, flow, HashSet, Match, Option, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -30,30 +30,33 @@ type Command = typeof Command.Type;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const ran = (cwd: string, args: readonly string[], env: Readonly<Record<string, string>> = {}) =>
-    Effect.scoped(
-        Effect.gen(function* () {
-            const handle = yield* ChildProcess.make('cargo', args, { cwd, extendEnv: true, stdin: 'inherit', env });
-            const [lines, diagnosed, code] = yield* Effect.all(
-                [
-                    Stream.splitLines(Stream.decodeText(handle.stdout)).pipe(
-                        Stream.mapAccum(HashSet.empty<string>, (seen, line) => {
-                            const message = Schema.decodeOption(Message)(line);
-                            const printable = Option.match(message, { onNone: () => Option.some(`${line}\n`), onSome: (parsed) => (Schema.is(Diagnostic)(parsed) ? parsed.message.rendered : Option.none()) });
-                            const text = Option.filter(printable, (rendered) => !HashSet.has(seen, rendered));
-                            return [Option.match(text, { onNone: () => seen, onSome: (rendered) => HashSet.add(seen, rendered) }), [{ text, message }]];
-                        }),
-                        Stream.tap(({ text }) => Option.match(text, { onNone: () => Effect.void, onSome: (rendered) => Effect.sync(() => stdout.write(rendered)) })),
-                        Stream.runCollect,
-                    ),
-                    Stream.mkString(Stream.tap(Stream.decodeText(handle.stderr), (chunk) => Effect.sync(() => stderr.write(chunk)))),
-                    handle.exitCode,
-                ],
-                { concurrency: 'unbounded' },
-            );
-            return { code, log: [...lines.flatMap(({ text }) => Option.toArray(text)), diagnosed].join(''), messages: lines.flatMap(({ message }) => Option.toArray(message)) };
-        }),
-    );
+const ran = Effect.fnUntraced(
+    function* (cwd: string, args: readonly string[], env: Readonly<Record<string, string>> = {}) {
+        const handle = yield* ChildProcess.make('cargo', args, { cwd, extendEnv: true, stdin: 'inherit', env });
+        const [lines, diagnosed, code] = yield* Effect.all(
+            [
+                Stream.splitLines(Stream.decodeText(handle.stdout)).pipe(
+                    Stream.mapAccum(HashSet.empty<string>, (seen, line) => {
+                        const message = Schema.decodeOption(Message)(line);
+                        const fresh = Option.filter(
+                            Option.flatMap(message, (parsed) => (Schema.is(Diagnostic)(parsed) ? parsed.message.rendered : Option.none())),
+                            (rendered) => !HashSet.has(seen, rendered),
+                        );
+                        return [Option.match(fresh, { onNone: () => seen, onSome: (rendered) => HashSet.add(seen, rendered) }), [{ text: Option.isSome(message) ? fresh : Option.some(`${line}\n`), message }]];
+                    }),
+                    Stream.tap(({ text }) => Option.match(text, { onNone: () => Effect.void, onSome: (rendered) => Effect.sync(() => stdout.write(rendered)) })),
+                    Stream.runCollect,
+                ),
+                Stream.mkString(Stream.tap(Stream.decodeText(handle.stderr), (chunk) => Effect.sync(() => stderr.write(chunk)))),
+                handle.exitCode,
+            ],
+            { concurrency: 'unbounded' },
+        );
+        return { code: Option.some(code), log: [...Array.getSomes(lines.map(({ text }) => text)), diagnosed].join(''), messages: Array.getSomes(lines.map(({ message }) => message)) };
+    },
+    Effect.scoped,
+    Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ code: Option.none<number>(), log: 'cargo is not on PATH, so no Cargo task can run\n', messages: Array.empty<typeof Message.Type>() })),
+);
 
 const decided = Effect.fnUntraced(function* (context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, command: Command, tasks: Array.NonEmptyReadonlyArray<Pick<Task, 'id' | 'target'>>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -69,28 +72,34 @@ const decided = Effect.fnUntraced(function* (context: ExecutorContext, inputs: R
             { discard: true },
         ),
     );
-    const run = yield* Effect.orDie(
-        ran(
-            path.resolve(context.root, options?.cwd ?? '.'),
-            [
-                ...command.args,
-                ...tasks.flatMap(({ id, target: { project } }) => Option.toArray(Option.fromUndefinedOr(inputs[id]?.package)).flatMap((name) => selected(root(project), name))),
-                ...(command.packages ?? []).flatMap(({ root: at, name }) => selected(at, name)),
-                ...(command.trailing === undefined ? flags : ['--', ...command.trailing, ...flags]),
-                ...(options?.args ?? []),
-            ],
-            env,
-        ),
+    const run = yield* ran(
+        path.resolve(context.root, options?.cwd ?? '.'),
+        [
+            ...command.args,
+            ...tasks.flatMap(({ id, target: { project } }) => Option.toArray(Option.fromUndefinedOr(inputs[id]?.package)).flatMap((name) => selected(root(project), name))),
+            ...(command.packages ?? []).flatMap(({ root: at, name }) => selected(at, name)),
+            ...(command.trailing === undefined ? flags : ['--', ...command.trailing, ...flags]),
+            ...(options?.args ?? []),
+        ],
+        env,
     );
     const diagnostics = run.messages.filter(Schema.is(Diagnostic)).map((diagnostic) => ({ ...diagnostic, root: path.dirname(diagnostic.manifest_path) }));
     const errored = new Set(diagnostics.filter(({ message: { level } }) => level.startsWith('error')).map(({ root: at }) => at));
-    const built = new Set(run.messages.filter(Schema.is(Artifact)).flatMap(({ manifest_path, target: { kind } }) => (kind.includes('custom-build') ? [] : [path.dirname(manifest_path)])));
+    const built = new Set(
+        run.messages
+            .filter(Schema.is(Artifact))
+            .filter(({ target: { kind } }) => !kind.includes('custom-build'))
+            .map(({ manifest_path }) => path.dirname(manifest_path)),
+    );
     const suites = Array.groupBy(run.messages.filter(Schema.is(Suite)), ({ nextest }) => nextest.crate);
     const completed = run.messages.some((message) => Schema.is(Finished)(message) && message.success) && !run.messages.some(Schema.is(Failed));
     const output = (at: string, name: Option.Option<string>) =>
         [
-            ...diagnostics.filter(({ root: crate }) => crate === at).flatMap(({ message: { rendered } }) => Option.toArray(rendered)),
-            ...run.messages.filter(Schema.is(Failed)).flatMap((failed) => (Option.exists(name, (crate) => failed.name.startsWith(`${crate}::`)) ? [failed.stdout === undefined ? failed.name : `${failed.name}\n${failed.stdout}`] : [])),
+            ...Array.getSomes(diagnostics.filter(({ root: crate }) => crate === at).map(({ message: { rendered } }) => rendered)),
+            ...run.messages
+                .filter(Schema.is(Failed))
+                .filter((failed) => Option.exists(name, (crate) => failed.name.startsWith(`${crate}::`)))
+                .map((failed) => (failed.stdout === undefined ? failed.name : `${failed.name}\n${failed.stdout}`)),
         ].join('');
     const broken = new Set(Record.keys(Record.filter(nodes, (_, project) => errored.has(root(project)))));
     const reaches = (project: string, seen: ReadonlySet<string>): boolean => (dependencies[project] ?? []).some(({ target }) => !seen.has(target) && (broken.has(target) || reaches(target, new Set([...seen, target]))));
@@ -100,7 +109,7 @@ const decided = Effect.fnUntraced(function* (context: ExecutorContext, inputs: R
             Option.flatMap(name, (crate) => Record.get(suites, crate)),
             () => [],
         );
-        const [proven, empty] = ({ messages: [built.has(at), false], tests: [reported.length > 0, completed && reported.length === 0], status: [run.code === 0, false] } as const)[command.report];
+        const [proven, empty] = ({ messages: [built.has(at), false], tests: [reported.length > 0, completed && reported.length === 0], status: [Option.contains(run.code, 0), false] } as const)[command.report];
         return { id, own: errored.has(at) || empty || reported.some(({ event }) => event === 'failed'), blocked: reaches(project, new Set([project])), proven, terminalOutput: empty ? Option.match(name, { onNone: () => 'no tests to run\n', onSome: (crate) => `${crate}: no tests to run\n` }) : output(at, name) };
     });
     const attributed = results.some(({ own }) => own);
@@ -121,38 +130,40 @@ const decoded = (inputs: Readonly<Record<string, unknown>>) =>
         Record.fromEntries,
     );
 
-const scheduled = (context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, tasks: readonly Pick<Task, 'id' | 'target'>[]) =>
-    Effect.reduce(
-        Record.values(Array.groupBy(tasks, ({ id }) => JSON.stringify([inputs[id]?.cwd, inputs[id]?.commands, inputs[id]?.args]))),
+const scheduled = (context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, tasks: readonly Pick<Task, 'id' | 'target'>[]) => {
+    const keyed = ({ id }: Pick<Task, 'id'>) => [inputs[id]?.cwd, inputs[id]?.commands ?? [], inputs[id]?.args] as const;
+    const steps = Array.dedupe(tasks.map(keyed)).flatMap((key) => key[1].map((command) => [tasks.filter((task) => Equal.equals(keyed(task), key)), command] as const));
+    return Effect.reduce(
+        steps,
         () => Record.empty<string, TaskResult>(),
-        (done, group) =>
-            Effect.reduce(
-                inputs[group[0].id]?.commands ?? [],
-                () => done,
-                (finished, command) =>
-                    Array.match(
-                        group.filter(({ id }) => finished[id]?.success !== false),
-                        {
-                            onEmpty: () => Effect.succeed(finished),
-                            onNonEmpty: (ready) => Effect.map(decided(context, inputs, command, ready), (results) => ({ ...finished, ...results })),
-                        },
-                    ),
+        (finished, [group, command]) =>
+            Array.match(
+                group.filter(({ id }) => finished[id]?.success !== false),
+                {
+                    onEmpty: () => Effect.succeed(finished),
+                    onNonEmpty: (ready) => Effect.map(decided(context, inputs, command, ready), (results) => ({ ...finished, ...results })),
+                },
             ),
     ).pipe(Effect.provide(layer));
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: unknown, context: ExecutorContext) =>
-    Effect.runPromise(
-        Effect.gen(function* () {
-            const [project, target] = yield* Effect.all([Effect.fromNullishOr(context.projectName), Effect.fromNullishOr(context.targetName)]);
-            const id = `${project}:${target}`;
-            const results = yield* Effect.flatMap(decoded({ [id]: options }), (inputs) => scheduled(context, inputs, [{ id, target: { project, target } }]));
-            return { success: Record.values(results).every(({ success }) => success) };
-        }),
-    );
+const execute = flow(
+    Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
+        const [project, target] = yield* Effect.all([Effect.fromNullishOr(context.projectName), Effect.fromNullishOr(context.targetName)]);
+        const id = `${project}:${target}`;
+        const results = yield* scheduled(context, yield* decoded({ [id]: options }), [{ id, target: { project, target } }]);
+        return { success: Object.values(results).every(({ success }) => success) };
+    }),
+    Effect.runPromise,
+);
 
-const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) => Effect.runPromise(Effect.flatMap(decoded(inputs), (decodedInputs) => scheduled(context, decodedInputs, Record.values(taskGraph.tasks))));
+const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) =>
+    decoded(inputs).pipe(
+        Effect.flatMap((decodedInputs) => scheduled(context, decodedInputs, Object.values(taskGraph.tasks))),
+        Effect.runPromise,
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

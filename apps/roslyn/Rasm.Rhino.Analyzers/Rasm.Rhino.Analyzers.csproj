@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Rhino plug-in shells loading each plug-in definition into its own assembly load context, and analyzers holding code to RhinoCommon, Eto, and Rasm.Rhino facts</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Global Usings">
+        <Using Include="Rasm.Analyzers.Semantics" Static="true" />
+    </ItemGroup>
+
+    <ItemGroup Label="Analyzer Authoring">
+        <PackageReference Include="Microsoft.CodeAnalysis.AnalyzerUtilities" />
+        <TargetPathWithTargetPlatformMoniker Include="$(PkgMicrosoft_CodeAnalysis_AnalyzerUtilities)/lib/netstandard2.0/Microsoft.CodeAnalysis.AnalyzerUtilities.dll" IncludeRuntimeDependency="false" />
+        <Compile Include="../Rasm.Analyzers/Semantics.cs;../Rasm.Analyzers/ControlFlow.cs" Link="%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <ItemGroup Label="Release Tracking">
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md;AnalyzerReleases.Unshipped.md" />
+    </ItemGroup>
+
+    <ItemGroup Label="Help Links">
+        <AssemblyMetadata Include="Help" Value="$(PackageProjectUrl)/blob/main/libs/dotnet/rhino/Rasm.Rhino/README.md" />
+    </ItemGroup>
+</Project>

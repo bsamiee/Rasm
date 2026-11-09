@@ -1,4 +1,3 @@
-
 use core::iter;
 use std::{collections::HashMap, sync::Arc};
 
@@ -345,13 +344,16 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
     .collect::<Vec<_>>();
     let own = |node: &Composed| {
         let local = attribute::<Transform>(node).and_then(|record| {
-            record.map_or_else(|| Ok(Affine3::identity()), |Transform { transform }| {
-                nalgebra::try_convert::<Matrix4<f64>, Affine3<f64>>(Matrix4::from(transform)).ok_or_else(|| IfcError::Attribute {
-                    node: node.path.clone(),
-                    attribute: Transform::ID.into(),
-                    reason: Fault::Singular,
-                })
-            })
+            record.map_or_else(
+                || Ok(Affine3::identity()),
+                |Transform { transform }| {
+                    nalgebra::try_convert::<Matrix4<f64>, Affine3<f64>>(Matrix4::from(transform)).ok_or_else(|| IfcError::Attribute {
+                        node: node.path.clone(),
+                        attribute: Transform::ID.into(),
+                        reason: Fault::Singular,
+                    })
+                },
+            )
         });
         let color = attribute::<DiffuseColor>(node).and_then(|diffuse| {
             attribute::<Opacity>(node).map(|opacity| {

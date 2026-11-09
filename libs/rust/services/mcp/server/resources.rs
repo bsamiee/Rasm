@@ -56,17 +56,17 @@ where
     fn into_resource_contents(self, uri: String, mime: Option<String>) -> Result<Vec<ResourceContents>, ErrorData> { self?.into_resource_contents(uri, mime) }
 }
 
-pub(super) trait Routed<A, T> = Fn(A, String, String) -> Result<T, McpError> + Send + Sync;
+pub(super) type Routed<A, T> = Box<dyn Fn(A, String, String) -> Result<T, McpError> + Send + Sync>;
 
-pub(super) trait List<A> = Fn(A, Option<String>, NonZero<usize>) -> BoxFuture<'static, Result<Vec<Resource>, ErrorData>> + Send + Sync;
+pub(super) type List<A> = Box<dyn Fn(A, Option<String>, NonZero<usize>) -> BoxFuture<'static, Result<Vec<Resource>, ErrorData>> + Send + Sync>;
 
-pub(super) type Template<A> = (ResourceTemplate, Box<dyn Completer<A>>);
+pub(super) type Template<A> = (ResourceTemplate, Completer<A>);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 pub(super) struct Route<A> {
-    pub(super) read: Box<dyn Routed<A, BoxFuture<'static, Result<Vec<ResourceContents>, ErrorData>>>>,
-    pub(super) watch: Box<dyn Routed<A, BoxStream<'static, ()>>>,
+    pub(super) read: Routed<A, BoxFuture<'static, Result<Vec<ResourceContents>, ErrorData>>>,
+    pub(super) watch: Routed<A, BoxStream<'static, ()>>,
 }
 
 #[derive(Default)]
@@ -84,7 +84,7 @@ pub struct ResourceRouter<A> {
     #[derive_where(skip(Debug))]
     templates: Vec<(Template<A>, Route<A>)>,
     #[derive_where(skip(Debug))]
-    lists: Vec<Box<dyn List<A>>>,
+    lists: Vec<List<A>>,
 }
 
 impl<A> ResourceRouter<A>
@@ -143,7 +143,7 @@ where A: 'static
 
 pub(super) struct Resources<A> {
     patterns: matchit::Router<(Route<A>, Query)>,
-    pub(super) lists: Vec<Box<dyn List<A>>>,
+    pub(super) lists: Vec<List<A>>,
     pub(super) declared: Box<[(Resource, Route<A>)]>,
     pub(super) templates: Box<[Template<A>]>,
 }

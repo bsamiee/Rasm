@@ -235,11 +235,3 @@ where W: Write + Seek {
 pub mod layouts;
 #[cfg(feature = "drawing")]
 pub mod linework;
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-
-pub use acadrust;
-pub use nonempty_collections;
-#[cfg(feature = "drawing")]
-pub use rasm_drawing;
-pub use uom;

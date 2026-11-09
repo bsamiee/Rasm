@@ -34,7 +34,7 @@ use uuid::Uuid;
 use validated::Validated;
 
 use super::{App, Server};
-use crate::{McpError, Progress, Unanswered, internal};
+use crate::{McpError, Progress, ToolError, Unanswered, internal};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -43,9 +43,6 @@ pub(super) type Parked = BTreeMap<String, (Running, AbortOnDropHandle<()>)>;
 pub(super) type Ledger = watch::Sender<BTreeMap<usize, Execution>>;
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-#[derive(Debug, derive_more::From)]
-pub struct ToolError<E>(pub E);
 
 impl<E> IntoCallToolResult for ToolError<E>
 where E: Serialize + Error
@@ -59,12 +56,6 @@ where E: Serialize + Error
         }
         serde_json::to_value(Rendered { error: &self.0, message: Report::new(&self.0).to_string() }).map(|value| CallToolResult::structured_error(value).into()).map_err(internal)
     }
-}
-
-impl<E> From<ToolError<E>> for ErrorData
-where E: Serialize + Error
-{
-    fn from(value: ToolError<E>) -> Self { serde_json::to_value(&value.0).map_or_else(internal, |data| Self::internal_error(Report::new(&value.0).to_string(), Some(data))) }
 }
 
 #[derive(Debug, Clone, Serialize)]

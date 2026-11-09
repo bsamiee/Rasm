@@ -5,6 +5,22 @@ import UniformTypeIdentifiers
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+private func transparent(_ image: CGImage) -> Bool {
+    guard
+        let context: CGContext = unsafe CGContext(
+            data: nil,
+            width: image.width,
+            height: image.height,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: nil as CGColorSpace?,
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.alphaOnly.rawValue),
+        )
+    else { return false }
+    context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+    return context.makeImage()?.dataProvider?.data.map { alpha in (alpha as Data).allSatisfy { byte in byte == 0 } } ?? false
+}
+
 extension SCScreenshotConfiguration {
     public static var background: SCScreenshotConfiguration {
         let configuration = SCScreenshotConfiguration()
@@ -45,6 +61,30 @@ extension NSRunningApplication {
             }
         }
         return shots
+    }
+
+    public func capturing(into directory: URL, window: CGWindowID? = nil, longestSide: Int? = nil) async throws(ApplicationFailure) -> [CGWindowID: Result<URL, ApplicationFailure>] {
+        let windows: [CGWindowID]
+        if let window {
+            windows = [window]
+        } else {
+            switch await state() {
+                case .running(let running): windows = running.windows.filter(\.presented).map(\.number)
+                case .failed(let failure): throw failure
+                case .exited: throw ApplicationFailure(subject: String(processIdentifier), reason: .noProcess)
+            }
+        }
+        return try await screenshots(of: windows, longestSide: longestSide).reduce(into: [:]) { files, shot in
+            let (number, output): (CGWindowID, Result<SCScreenshotOutput, ApplicationFailure>) = shot
+            if window == nil, case .success(let image) = output, image.sdrImage.map(transparent) == true { return }
+            files[number] = output.flatMap { image in
+                Result { () throws(ApplicationFailure) in
+                    let path: URL = directory.appending(component: String(number)).appendingPathExtension(for: .png)
+                    try image.write(to: path)
+                    return path
+                }
+            }
+        }
     }
 }
 

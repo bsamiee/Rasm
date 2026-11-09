@@ -2,8 +2,11 @@
 
 use core::{
     cell::RefCell,
-    convert, iter,
+    convert,
+    fmt::{self, Write as _},
+    iter,
     num::{ParseFloatError, ParseIntError, TryFromIntError},
+    str::FromStr,
 };
 use std::{
     collections::HashMap,
@@ -20,7 +23,6 @@ use newtype_uuid_macros::impl_typed_uuid_kinds;
 use nonempty_collections::{NEVec, nev};
 use sha2::{Digest as _, Sha256, digest::Output};
 use url::Url;
-use uuid::Uuid;
 use validated::Validated;
 use xot::{Node, Xot};
 use zip::{CompressionMethod, ZIP64_BYTES_THR, ZipArchive, ZipWriter, result::ZipError, write::SimpleFileOptions};
@@ -66,18 +68,11 @@ pub enum Extension {
     Stage,
 }
 
-impl Simple for Uuid {
-    fn decode(text: &str) -> Result<Self, BcfError> { guid(text) }
-
-    fn encode(&self) -> String { ifc_guid(self) }
-}
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const IFC_GUID: Encoding = data_encoding_macro::new_encoding! {
     symbols: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$",
 };
-pub const IFC_GUID_DIGITS: usize = 22;
 const GUID: &str = "Guid";
 const TOPIC: &str = "Topic";
 const FILE: &str = "File";
@@ -115,6 +110,45 @@ impl Simple for Text {
     fn encode(&self) -> String { String::clone(self) }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From, derive_more::Into)]
+pub struct IfcGuid(Uuid);
+
+impl IfcGuid {
+    pub const LENGTH: usize = 22;
+}
+
+impl FromStr for IfcGuid {
+    type Err = BcfError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != Self::LENGTH {
+            return s.parse().map(Self).map_err(|source| BcfError::Uuid { text: s.into(), source });
+        }
+        let mut input = [b'0'; 24];
+        input[2..].copy_from_slice(s.as_bytes());
+        let mut bytes = [0; 18];
+        IFC_GUID.decode_mut(&input, &mut bytes).map_err(|source| BcfError::Encoded { text: s.into(), alphabet: Alphabet::IfcGuid, source: source.error })?;
+        match bytes {
+            [0, 0, uuid @ ..] => Ok(Self(Uuid::from_bytes(uuid))),
+            _ => Err(BcfError::Constrained(Constraint::IfcGuid(s.into()))),
+        }
+    }
+}
+
+impl fmt::Display for IfcGuid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut bytes = [0; 18];
+        bytes[2..].copy_from_slice(self.0.as_bytes());
+        IFC_GUID.encode_mut_str(&bytes, &mut [0; 24]).chars().skip(2).try_for_each(|symbol| f.write_char(symbol))
+    }
+}
+
+impl Simple for IfcGuid {
+    fn decode(text: &str) -> Result<Self, BcfError> { text.parse() }
+
+    fn encode(&self) -> String { self.to_string() }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::IntoStaticStr)]
 #[strum(serialize_all = "lowercase")]
 pub enum ImageFormat {
@@ -145,7 +179,11 @@ impl TryFrom<Box<[u8]>> for Image {
 impl Codec for Image {
     fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, BcfError> {
         let text = reader.xot.string_value(node);
-        Validated::from(reader.file(text.trim()).and_then(|content| Self::try_from(content).map_err(|_: Box<[u8]>| reader.local_name(node).map_or_else(convert::identity, |element| reader.refused(element, Some(text.trim()))))))
+        Validated::from(
+            reader
+                .file(text.trim())
+                .and_then(|content| Self::try_from(content).map_err(|_: Box<[u8]>| reader.local_name(node).map_or_else(convert::identity, |element| reader.refused(element, Some(text.trim()))))),
+        )
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> {
@@ -230,10 +268,12 @@ impl Codec for EnumMap<Extension, IndexSet<Text>> {
         .collect()
     }
 
-    fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> { self.iter().try_for_each(|(kind, values)| {
+    fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> {
+        self.iter().try_for_each(|(kind, values)| {
             let [plural, _] = names(kind);
             writer.element(node, &[plural], kind.into(), values)
-        }) }
+        })
+    }
 }
 
 impl Keyed<DocumentUuid> for Document {
@@ -288,77 +328,33 @@ pub enum BcfError {
     #[error("{0}")]
     Constrained(Constraint),
     #[error("{text} is no number")]
-    Number {
-        text: Box<str>,
-        source: ParseFloatError,
-    },
+    Number { text: Box<str>, source: ParseFloatError },
     #[error("{text} is no integer")]
-    Integer {
-        text: Box<str>,
-        source: ParseIntError,
-    },
+    Integer { text: Box<str>, source: ParseIntError },
     #[error("{text} is no timestamp")]
-    Timestamp {
-        text: Box<str>,
-        source: jiff::Error,
-    },
+    Timestamp { text: Box<str>, source: jiff::Error },
     #[error("{text} is no UUID")]
-    Uuid {
-        text: Box<str>,
-        source: uuid::Error,
-    },
+    Uuid { text: Box<str>, source: uuid::Error },
     #[error("{text} is no URI")]
-    Uri {
-        text: Box<str>,
-        source: url::ParseError,
-    },
+    Uri { text: Box<str>, source: url::ParseError },
     #[error("{text} is no {alphabet} text")]
-    Encoded {
-        text: Box<str>,
-        alphabet: Alphabet,
-        source: DecodeError,
-    },
+    Encoded { text: Box<str>, alphabet: Alphabet, source: DecodeError },
     #[error("BCF entry {entry} exceeds the ZIP64 size range")]
-    Size {
-        entry: Box<str>,
-        source: TryFromIntError,
-    },
+    Size { entry: Box<str>, source: TryFromIntError },
     #[error("BCF {found} is no BCF release this crate reads")]
-    Version {
-        found: Box<str>,
-    },
+    Version { found: Box<str> },
     #[error("BCF entry {entry} is unreadable")]
-    Archive {
-        entry: Box<str>,
-        source: ZipError,
-    },
+    Archive { entry: Box<str>, source: ZipError },
     #[error("BCF entry {entry} holds malformed XML")]
-    Xml {
-        entry: Box<str>,
-        source: xot::Error,
-    },
+    Xml { entry: Box<str>, source: xot::Error },
     #[error("BCF entry {entry} holds {element} as {}", .text.as_deref().unwrap_or("nothing"))]
-    Element {
-        entry: Box<str>,
-        element: Box<str>,
-        text: Option<Box<str>>,
-    },
+    Element { entry: Box<str>, element: Box<str>, text: Option<Box<str>> },
     #[error("BCF entry {entry} holds a malformed {element}")]
-    Content {
-        entry: Box<str>,
-        element: Box<str>,
-        source: Box<Self>,
-    },
+    Content { entry: Box<str>, element: Box<str>, source: Box<Self> },
     #[error("BCF entry {entry} repeats {guid}")]
-    Duplicate {
-        entry: Box<str>,
-        guid: Guid,
-    },
+    Duplicate { entry: Box<str>, guid: Guid },
     #[error("BCF topic {topic} names absent {guid}")]
-    Dangling {
-        topic: TopicUuid,
-        guid: Guid,
-    },
+    Dangling { topic: TopicUuid, guid: Guid },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -544,31 +540,6 @@ const fn names(kind: Extension) -> [&'static str; 2] {
     }
 }
 
-// --- [GUIDS]
-
-pub fn guid(text: &str) -> Result<Uuid, BcfError> {
-    if text.len() != IFC_GUID_DIGITS {
-        return text.parse().map_err(|source| BcfError::Uuid { text: text.into(), source });
-    }
-    let mut input = [b'0'; 24];
-    input[2..].copy_from_slice(text.as_bytes());
-    let mut bytes = [0; 18];
-    IFC_GUID.decode_mut(&input, &mut bytes).map_err(|source| BcfError::Encoded { text: text.into(), alphabet: Alphabet::IfcGuid, source: source.error })?;
-    match bytes {
-        [0, 0, uuid @ ..] => Ok(Uuid::from_bytes(uuid)),
-        _ => Err(BcfError::Constrained(Constraint::IfcGuid(text.into()))),
-    }
-}
-
-#[must_use]
-pub fn ifc_guid(uuid: &Uuid) -> String {
-    let mut bytes = [0; 18];
-    bytes[2..].copy_from_slice(uuid.as_bytes());
-    let mut text = IFC_GUID.encode(&bytes);
-    text.drain(..2);
-    text
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 mod xml;
@@ -579,8 +550,8 @@ mod visualization;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use markup::{BimSnippet, Comment, DocumentReference, File, Remark, Resource, Target, Topic, Viewpoint, newest};
+pub use uuid::Uuid;
 pub use visualization::{
-    AspectRatio, Bitmap, Camera, ClippingPlane, Coloring, Component, Components, FieldOfView, Line, PositiveLength, Presentation, Projection, Reference, ViewSetupHint, Visibility,
-    Visualization, presentation, visibility,
+    AspectRatio, Bitmap, Camera, ClippingPlane, Coloring, Component, Components, FieldOfView, Line, PositiveLength, Presentation, Projection, Reference, ViewSetupHint, Visibility, Visualization,
+    presentation, visibility,
 };
-pub use {color, data_encoding, enum_map, indexmap, itertools, jiff, nalgebra, newtype_uuid, nonempty_collections, uom, url, uuid, xot, zip};

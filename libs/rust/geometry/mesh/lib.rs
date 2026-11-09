@@ -156,20 +156,11 @@ impl Solid {
 #[derive(Debug, thiserror::Error)]
 pub enum MeshError {
     #[error("cannot complete {operation}: {status}")]
-    Kernel {
-        operation: Operation,
-        status: Error,
-    },
+    Kernel { operation: Operation, status: Error },
     #[error("{operation} produced a surface that is {defect}")]
-    Invalid {
-        operation: Operation,
-        defect: Defect,
-    },
+    Invalid { operation: Operation, defect: Defect },
     #[error("{operation} built no triangle mesh")]
-    Mesh {
-        operation: Operation,
-        source: TriMeshBuilderError,
-    },
+    Mesh { operation: Operation, source: TriMeshBuilderError },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -235,13 +226,8 @@ mod sections;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use booleans::{Csg, Minkowski, boolean, minkowski};
-pub use bounded_integer;
 pub use decomposition::decompose;
-pub use manifold_rust;
 pub use measures::{Curvature, Measures, curvature, measure};
-pub use meshopt;
-pub use nalgebra;
-pub use parry3d_f64;
 pub use reduction::{Cloud, Reduction, Simplifier, reduce, reduce_points, simplify};
 pub use refinement::{Refinement, Smoothing, refine};
 pub use sections::{Contour, Trim, contours, segments, split, trim};

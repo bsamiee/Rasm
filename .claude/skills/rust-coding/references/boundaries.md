@@ -220,7 +220,7 @@ pub fn origin(layers: &[Arc<Layer>], path: &Path) -> Option<Origin> {
 
 ```rust
 fn main() -> ExitCode {
-    command::run(Defaults { .. }, io::stderr, Identity::new(), async |Process { args: Args { settings, token, retention }, signals, filter: _ }| {
+    command::run(Defaults { .. }, io::stderr, Identity::new(), |_: &Args| Builder::new_current_thread(), async |Process { args: Args { settings, token, retention }, styles: _, signals, filter: _, level: _ }| {
         serve(layered::<Settings>(&read(settings).await?)?, token, retention, signals).await
     })
 }
@@ -235,7 +235,7 @@ fn main() -> ExitCode {
 - Failures before the subscriber starts are crate error variants (`Appender { directory, source }`), printed through `clap::Error::raw(<kind>, ..).with_cmd(&command)`
 - `.print().map_or_else(sysexits::ExitCode::from, |()| error.into()).into()` exits with the variant's status or the print failure's
 - Startup failures report through `subscriber::with_default(<subscriber>, ..)`, a scoped `WARN` subscriber ahead of the global one with no `Dispatch` built
-- `DropGuard::new(Runtime::new()?, Runtime::shutdown_background)` holds the runtime `block_on` reads, every path returning without waiting for blocked tasks
+- Callers pick the runtime from the parsed command as a tokio `Builder` (`new_current_thread`, `new_multi_thread`), `enable_all` starting each driver
 - `panic::set_hook` force-flushes each provider, then calls the previous hook, `panic::take_hook()` held as an `Arc<dyn Fn(&PanicHookInfo) + Send + Sync>` the guard restores
 - Hooks record `info.payload_as_str()` as `EXCEPTION_MESSAGE` and `info.location()` as `CODE_FILE_PATH` and `CODE_LINE_NUMBER` fields
 - Provider guards shut down on unwind without replacing hooks; normal exit restores the previous hook before provider shutdown

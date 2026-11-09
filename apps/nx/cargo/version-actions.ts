@@ -1,13 +1,12 @@
 import { parse, patch } from '@decimalturn/toml-patch';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import type { ProjectGraph, Tree } from '@nx/devkit';
-import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Effect, Option, Path, Record, Schema, String } from 'effect';
+import { type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
+import { Array, Effect, FileSystem, Option, Path, Record, Schema, String } from 'effect';
 import { FetchHttpClient, type HttpClient } from 'effect/http';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
 import { sortReversed } from 'verkit';
 import { releases } from '#/executors/release-publish/executor';
-import { CargoError, MANIFEST, spawned } from '#/plugins/workspace';
+import { CargoError, LOCK, MANIFEST, spawned } from '#/plugins/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -24,11 +23,12 @@ const Manifest = Schema.Struct({
     workspace: Schema.optionalKey(Schema.Struct({ package: Schema.optionalKey(Schema.Struct({ version: Schema.optionalKey(Schema.String) })) })),
 });
 const Located = Schema.fromJsonString(Schema.Struct({ root: Schema.String }));
-const Options = Schema.Struct({ skipLockFileUpdate: Schema.optionalKey(Schema.Boolean) });
+const Root = Schema.Struct({ skipLockFileUpdate: Schema.optionalKey(Schema.Boolean) });
+const Options = Schema.Struct({ lock: Schema.String, registry: Schema.optionalKey(Schema.String) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | HttpClient.HttpClient>) => Effect.runPromise(effect.pipe(Effect.provide([layer, FetchHttpClient.layer])));
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | HttpClient.HttpClient>) => effect.pipe(Effect.provide([layer, FetchHttpClient.layer]), Effect.runPromise);
 
 const table = (value: unknown): Readonly<Record<string, unknown>> => Option.getOrElse(Schema.decodeUnknownOption(Table)(value), () => ({}));
 
@@ -94,11 +94,18 @@ class CargoVersionActions extends VersionActions {
     }
 
     readCurrentVersionFromRegistry(tree: Tree) {
-        const { name, data } = this.projectGraphNode;
+        const [{ name, data }, options] = [this.projectGraphNode, this.finalConfigForProject.versionActionsOptions];
         return run(
-            Effect.flatMap(read(tree, `${data.root}/${MANIFEST}`), ({ manifest }) => releases(manifest.package?.name ?? name)).pipe(
-                Effect.map(({ url, published }) => ({ currentVersion: Option.getOrNull(Array.head(sortReversed(published.filter(({ yanked }) => yanked !== true).map(({ vers }) => vers)))), logText: `crates.io index ${url}` })),
-            ),
+            Effect.gen(function* () {
+                const [{ registry }, { manifest }] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), read(tree, `${data.root}/${MANIFEST}`)]);
+                const published = yield* Effect.transposeOption(
+                    Option.map(
+                        Option.liftPredicate(manifest.package?.name ?? name, () => registry === undefined),
+                        releases,
+                    ),
+                );
+                return Option.getOrNull(Option.map(published, ({ url, published: versions }) => ({ currentVersion: Option.getOrNull(Array.head(sortReversed(versions.filter(({ yanked }) => yanked !== true).map(({ vers }) => vers)))), logText: `crates.io index ${url}` })));
+            }),
         );
     }
 
@@ -172,10 +179,21 @@ class CargoVersionActions extends VersionActions {
 const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun, rootVersionActionsOptions }) =>
     run(
         Effect.gen(function* () {
-            const [path, options] = yield* Effect.all([Path.Path, Schema.decodeEffect(Options)(rootVersionActionsOptions ?? {})]);
-            const locks = dryRun === true || options.skipLockFileUpdate === true ? [] : yield* Effect.promise(() => globWithWorkspaceContext(cwd, ['**/Cargo.lock']));
-            yield* Effect.forEach(locks, (lock) => spawned('cargo', ['update', '--workspace'], path.join(cwd, path.dirname(lock))));
-            return { changedFiles: locks, deletedFiles: [] };
+            const [path, fs, options] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Schema.decodeEffect(Root)(rootVersionActionsOptions ?? {})]);
+            const locks =
+                dryRun === true || options.skipLockFileUpdate === true
+                    ? []
+                    : Array.dedupe(
+                          Object.values(readCachedProjectGraph().nodes).flatMap((node) =>
+                              Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions).pipe(
+                                  Option.map(({ lock }) => lock),
+                                  Option.filter((lock) => path.basename(lock) === LOCK),
+                                  Option.toArray,
+                              ),
+                          ),
+                      );
+            const changed = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(path.join(cwd, lock)), Effect.andThen(spawned('cargo', ['update', '--workspace'], path.join(cwd, path.dirname(lock))), fs.readFileString(path.join(cwd, lock))), (before, after) => before !== after));
+            return { changedFiles: changed, deletedFiles: [] };
         }),
     );
 

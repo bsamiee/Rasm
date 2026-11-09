@@ -2,7 +2,7 @@ import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { isCI } from '@nx/devkit/internal';
-import { Array, Config, Effect, Layer, Match, Option, Path, Schema, String } from 'effect';
+import { Array, Config, Effect, Equivalence, flow, Layer, Match, Option, Path, Schema, String } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { ran } from '#/executors/cargo/executor';
 import { Metadata, spawned } from '#/plugins/workspace';
@@ -26,7 +26,7 @@ const Released = Schema.fromJsonString(Schema.Struct({ vers: Schema.String, yank
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const releases = (name: string) => {
+const releases = Effect.fnUntraced(function* (name: string) {
     const lower = name.toLowerCase();
     const folder = Match.value(lower.length).pipe(
         Match.when(
@@ -37,23 +37,23 @@ const releases = (name: string) => {
         Match.orElse(() => `${String.takeLeft(lower, LEVEL)}/${lower.slice(LEVEL, 2 * LEVEL)}`),
     );
     const url = `https://index.crates.io/${folder}/${lower}`;
-    return HttpClient.get(url).pipe(
-        Effect.flatMap((response) => (response.status === MISSING ? Effect.succeedNone : Effect.asSome(Effect.flatMap(HttpClientResponse.filterStatusOk(response), (ok) => ok.text)))),
-        Effect.flatMap((text) =>
-            Effect.forEach(
-                Option.toArray(text).flatMap((index) => index.split('\n').filter(String.isNonEmpty)),
-                (line) => Schema.decodeEffect(Released)(line),
+    const lines = yield* HttpClientResponse.matchStatus(yield* HttpClient.get(url), {
+        [MISSING]: () => Effect.succeed<readonly string[]>([]),
+        orElse: (response) =>
+            HttpClientResponse.filterStatusOk(response).pipe(
+                Effect.flatMap((ok) => ok.text),
+                Effect.map((text) => text.split('\n').filter(String.isNonEmpty)),
             ),
-        ),
-        Effect.map((published) => ({ url, published })),
-    );
-};
+    });
+    const published = yield* Effect.forEach(lines, (line) => Schema.decodeEffect(Released)(line));
+    return { url, published };
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: unknown, context: ExecutorContext) =>
-    Effect.runPromise(
-        Effect.gen(function* () {
+const execute = flow(
+    Effect.fnUntraced(
+        function* (options: unknown, context: ExecutorContext) {
             const [path, publish, dry, project] = yield* Effect.all([Path.Path, Schema.decodeUnknownEffect(Publish)(options), Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false)), Effect.fromNullishOr(context.projectName)]);
             const dryRun = publish.dryRun === true || dry;
             const cwd = path.resolve(context.root, publish.cwd);
@@ -62,12 +62,7 @@ const execute = (options: unknown, context: ExecutorContext) =>
             const unpublished = (member: typeof crate) => (publish.registry === undefined && publish.firstRelease !== true ? Effect.map(releases(member.name), ({ published }) => !published.some(({ vers }) => vers === member.version)) : Effect.succeed(true));
             const local = (member: typeof crate): readonly (typeof crate)[] => member.dependencies.flatMap(({ path: at }) => packages.filter(({ manifest_path }) => at !== undefined && path.dirname(manifest_path) === at)).flatMap((dependency) => [dependency, ...local(dependency)]);
             const skipped = publish.nxReleaseVersionData?.[project]?.newVersion === null || !(yield* unpublished(crate));
-            const overlay = dryRun
-                ? yield* Effect.filter(
-                      Array.dedupeWith(local(crate), (left, right) => left.name === right.name),
-                      (member) => unpublished(member),
-                  )
-                : [];
+            const overlay = dryRun ? yield* Effect.filter(Array.dedupeWith(local(crate), Equivalence.Struct({ name: Equivalence.String })), (member) => unpublished(member)) : [];
             return skipped
                 ? yield* Effect.as(Effect.logInfo(`Skipped ${crate.name}@${crate.version}, the registry already holds it or nx release left it unchanged`), { success: true })
                 : yield* Effect.map(
@@ -78,10 +73,13 @@ const execute = (options: unknown, context: ExecutorContext) =>
                           ...(dryRun ? ['--dry-run'] : []),
                           ...(isCI() === false ? [] : ['--locked']),
                       ]),
-                      ({ code }) => ({ success: code === 0 }),
+                      ({ code }) => ({ success: Option.contains(code, 0) }),
                   );
-        }).pipe(Effect.provide(Layer.mergeAll(layer, FetchHttpClient.layer))),
-    );
+        },
+        Effect.provide(Layer.mergeAll(layer, FetchHttpClient.layer)),
+    ),
+    Effect.runPromise,
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

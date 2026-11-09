@@ -212,11 +212,5 @@ pub mod relaxation;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use faer;
 #[cfg(feature = "inverse")]
 pub use goals::{Goal, Measure, Optimum, optima};
-pub use nalgebra;
-pub use nonempty_collections;
-#[cfg(feature = "inverse")]
-pub use rasm_optimization;
-pub use rasm_stats;

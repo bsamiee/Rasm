@@ -20,16 +20,8 @@ type Leaf<'assembly> = (usize, &'assembly Pose, &'assembly SharedShape, Aabb);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Interference {
-    Contact {
-        points: [Point3<f64>; 2],
-        normal: Vector3<f64>,
-        dist: f64,
-        subshapes: [SubShapeId; 2],
-    },
-    Nested {
-        point: Point3<f64>,
-        inner: usize,
-    },
+    Contact { points: [Point3<f64>; 2], normal: Vector3<f64>, dist: f64, subshapes: [SubShapeId; 2] },
+    Nested { point: Point3<f64>, inner: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

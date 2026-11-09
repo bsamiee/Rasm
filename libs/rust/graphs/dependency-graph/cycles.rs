@@ -1,4 +1,3 @@
-
 use core::{cmp::Reverse, iter};
 
 use itertools::{Either, Itertools as _};

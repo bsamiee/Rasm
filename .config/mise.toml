@@ -20,31 +20,36 @@ use_versions_host_track             = false
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-_.path                       = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
-CARGO_LLVM_COV_DENY_WARNINGS = "1"
-CF_QUIET                     = "1"
-CLOUDFLARE_DEV_REGISTRY_PATH = "{{config_root}}/.cache/cloudflare/registry"
-DOTNET_NOLOGO                = "1"
-DOTNET_ROLL_FORWARD          = "Major"
-GHIDRA_CLASSPATH             = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
-GHIDRA_INSTALL_DIR           = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
-GHIDRA_JAVA_OPTIONS          = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
-GHIDRA_PROJECT_DIR           = "{{ xdg_cache_home }}/rasm/ghidra/projects"
-HK_CACHE_DIR                 = "{{config_root}}/.cache/hk"
-HK_PKL_CACHE_DIR             = "{{config_root}}/.cache/pklr"
-HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
-JAVAC_PLUGINS                = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
-NODE_COMPILE_CACHE           = "{{config_root}}/.cache/node"
-NODE_VERSION                 = { tools = true, value = "{{ tools.node.version }}" }
-NX_WORKSPACE_DATA_DIRECTORY  = "{{config_root}}/.cache/nx/workspace-data"
-PITCHFORK_LOG_TIME_RETENTION = "7d"
-PLAYWRIGHT_MCP_OUTPUT_DIR    = "{{config_root}}/.artifacts/playwright"
-PULUMI_HOME                  = "{{config_root}}/.cache/pulumi"
-RUSTUP_AUTO_INSTALL          = "0"
-RUSTUP_TOOLCHAIN             = false
-TOMBI_CACHE_HOME             = "{{config_root}}/.cache/tombi"
-TY_UV                        = "1"
-WATCH_APPS_LOG               = "{{config_root}}/.artifacts/logs/watch-apps.log"
+_.path                                        = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
+CARGO_LLVM_COV_DENY_WARNINGS                  = "1"
+CF_QUIET                                      = "1"
+CLOUDFLARE_DEV_REGISTRY_PATH                  = "{{config_root}}/.cache/cloudflare/registry"
+DOTNET_NOLOGO                                 = "1"
+DOTNET_ROLL_FORWARD                           = "Major"
+GHIDRA_CLASSPATH                              = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
+GHIDRA_INSTALL_DIR                            = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
+GHIDRA_JAVA_OPTIONS                           = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
+GHIDRA_PROJECT_DIR                            = "{{ xdg_cache_home }}/rasm/ghidra/projects"
+HK_CACHE_DIR                                  = "{{config_root}}/.cache/hk"
+HK_MISE                                       = "1"
+HK_PKL_CACHE_DIR                              = "{{config_root}}/.cache/pklr"
+HYPOTHESIS_STORAGE_DIRECTORY                  = "{{config_root}}/.cache/hypothesis"
+JAVAC_PLUGINS                                 = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
+NODE_COMPILE_CACHE                            = "{{config_root}}/.cache/node"
+NODE_VERSION                                  = { tools = true, value = "{{ tools.node.version }}" }
+NX_ISOLATE_PLUGINS                            = "false"
+NX_WORKSPACE_DATA_DIRECTORY                   = "{{config_root}}/.cache/nx/workspace-data"
+PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS = "true"
+PLAYWRIGHT_MCP_BROWSER                        = "chromium"
+PLAYWRIGHT_MCP_FILE_PATHS                     = "absolute"
+PLAYWRIGHT_MCP_OUTPUT_DIR                     = "{{config_root}}/.artifacts/playwright"
+PULUMI_HOME                                   = "{{config_root}}/.cache/pulumi"
+RUSTUP_AUTO_INSTALL                           = "0"
+RUSTUP_TOOLCHAIN                              = false
+TOMBI_CACHE_HOME                              = "{{config_root}}/.cache/tombi"
+TY_UV                                         = "1"
+WATCH_APPS_LOG                                = "{{config_root}}/.artifacts/logs/watch-apps.log"
+WATCH_APPS_SESSION                            = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default='') }}"
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 
@@ -85,7 +90,6 @@ java                                                                         = "
 jq                                                                           = "latest"
 lima                                                                         = { os = ["macos"], version = "latest" }
 node                                                                         = "latest"
-pitchfork                                                                    = "latest"
 pixi                                                                         = "latest"
 pkl                                                                          = "latest"
 pnpm                                                                         = "latest"
@@ -98,7 +102,6 @@ resvg                                                                        = "
 ripgrep                                                                      = "latest"
 sd                                                                           = "latest"
 shellcheck                                                                   = "latest"
-shfmt                                                                        = "latest"
 swiftlint                                                                    = { os = ["macos"], version = "latest" }
 tombi                                                                        = "latest"
 tree-sitter                                                                  = "latest"
@@ -201,70 +204,3 @@ version          = "{{ read_toml(path=config_root ~ '/rust-toolchain.toml')['too
 os      = ["macos"]
 url     = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/fcee8de5537d2dd2ed3d91d5a495b7041155b280/ZXPSignCMD/{{ version }}/macOS/ZXPSignCmd"
 version = "4.1.3"
-
-# --- [BOOTSTRAP] ------------------------------------------------------------------------
-
-[bootstrap.macos.launchd.agents.pitchfork]
-args              = ["exec", "--", "pitchfork", "supervisor", "run", "--boot"]
-keep_alive        = true
-program           = "{{ mise_bin }}"
-working_directory = "{{config_root}}"
-
-# --- [DAEMONS] --------------------------------------------------------------------------
-
-[daemons_settings]
-namespace = "rasm"
-
-[daemons.ast-grep]
-boot_start = true
-port       = 7404
-proxy      = false
-ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7404/" }
-retry      = true
-run        = "exec env AST_GREP_PATH='ast-grep --custom-languages allow' rasm-mcp-proxy -- ast-grep-server --config sgconfig.yml"
-
-[daemons.binlog]
-boot_start = true
-env        = { DOTNET_GCConserveMemory = "5" }
-port       = 7403
-proxy      = false
-ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7403/" }
-retry      = true
-run        = 'exec env XDG_CACHE_HOME="$PWD/.cache" rasm-mcp-proxy -- binlog-mcp'
-
-[daemons.blender-lab]
-boot_start = true
-env        = { BLENDER_MCP_PORT = "9877" }
-port       = 7407
-proxy      = false
-ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7407/" }
-retry      = true
-run        = "exec rasm-mcp-proxy -- blender-mcp"
-
-[daemons.mcp-for-blender]
-boot_start = true
-env        = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }
-port       = 7408
-proxy      = false
-ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7408/" }
-retry      = true
-run        = "exec rasm-mcp-proxy -- mcp-for-blender"
-
-[daemons.nuget]
-boot_start = true
-env        = { DOTNET_GCConserveMemory = "5" }
-port       = 7402
-proxy      = false
-ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7402/" }
-retry      = true
-run        = "exec rasm-mcp-proxy -- nuget-mcp-server"
-
-[daemons.roslyn-codelens]
-boot_start  = true
-env         = { DOTNET_GCConserveMemory = "5" }
-port        = 7401
-proxy       = false
-ready_port  = 7401
-retry       = true
-run         = 'exec env -C / roslyn-codelens-mcp --http --port "$PORT"'
-stop_signal = { signal = "SIGTERM", timeout = "30s" }

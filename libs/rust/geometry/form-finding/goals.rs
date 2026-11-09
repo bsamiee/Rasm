@@ -8,7 +8,7 @@ use faer::{
 };
 use nalgebra::{DMatrixView, DVector, Isometry3, Point3, Unit, Vector3};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use rasm_optimization::{Settings, Solution, nlopt::Target, optimize};
+use rasm_optimization::{Settings, Solution, Target, optimize};
 use rasm_stats::Space;
 use rayon::iter::{Either, ParallelIterator as _};
 use validated::Validated;

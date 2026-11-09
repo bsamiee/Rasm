@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Installation } from '@rasm/applications';
 import { Array, Effect, Option, Predicate, Record, String } from 'effect';
 import { installed, WATCHER } from '#/instances';
-import { type Call, type Fix, has, type Policy, quote, refusal, refuse, stages, when, whole, within } from '#/policies/fix';
+import { type Call, type Fix, has, inserted, type Policy, quote, refusal, refuse, stages, when, whole, within } from '#/policies/fix';
 import type { Program } from '#/shell/programs';
 import type { Word } from '#/shell/script';
 import { Shell } from '#/shell/site';
@@ -30,18 +30,27 @@ const FINDERS = new Set(['ps', 'pgrep', 'pidof']);
 
 const foreground = ({ activationPolicy }: Installation) => activationPolicy === 'regular';
 
-const launchLine = (subjects: readonly string[], documents: readonly string[], environment: readonly Word[] = [], args: readonly Word[] = []): string =>
-    [WATCHER, 'launch', ...subjects, ...(documents.length > 0 ? ['--document', ...documents] : []), ...(environment.length > 0 ? ['--environment', ...environment.map(({ raw }) => raw)] : []), ...(args.length > 0 ? ['--arguments', ...args.map(({ raw }) => raw)] : [])].join(' ');
+const switchesOf = (installations: readonly Installation[], given: readonly string[], programs: ReadonlyMap<string, Program>): readonly string[] => {
+    const passed = new Set(given);
+    return Array.dedupe(
+        Array.getSomes(installations.map(({ executable }) => Option.flatMapNullishOr(executable, ({ href }) => programs.get(basename(fileURLToPath(href))))))
+            .filter(({ headless = [] }) => passed.isDisjointFrom(new Set(headless)))
+            .flatMap(({ launching = [] }) => launching)
+            .filter((flag) => !passed.has(flag)),
+    );
+};
 
-const installationsOf = ({ text }: Word, cwd: Option.Option<string>, { host }: Call) => Effect.map(installed(text.includes('/') ? Option.toArray(host.place(text, cwd)) : [text]), (installations) => Record.values(installations).flat());
+const launchLine = (subjects: readonly string[], documents: readonly string[], environment: readonly Word[] = [], args: readonly Word[] = [], switches: readonly string[] = []): string =>
+    [WATCHER, 'launch', ...subjects, ...(documents.length > 0 ? ['--document', ...documents] : []), ...(environment.length > 0 ? ['--environment', ...environment.map(({ raw }) => raw)] : []), ...(args.length + switches.length > 0 ? ['--arguments', ...args.map(({ raw }) => raw), ...switches] : [])].join(' ');
+
+const installationsOf = ({ text }: Word, cwd: Option.Option<string>, { host }: Call) => Effect.map(installed(text.includes('/') ? Option.toArray(host.place(text, cwd)) : [text]), (installations) => Object.values(installations).flat());
 
 const headlessPath = ([installation, ...others]: readonly Installation[], rest: readonly Word[], programs: ReadonlyMap<string, Program>): Option.Option<string> =>
-    Option.map(
-        Option.filter(
-            Option.flatMap(Option.fromUndefinedOr(installation), ({ executable }) => Option.map(executable, ({ href }) => fileURLToPath(href))),
-            (path) => others.length === 0 && !new Set(rest.map(({ text }) => text)).isDisjointFrom(new Set(programs.get(basename(path))?.headless)),
-        ),
-        quote,
+    Option.fromUndefinedOr(installation).pipe(
+        Option.flatMap(({ executable }) => executable),
+        Option.map(({ href }) => fileURLToPath(href)),
+        Option.filter((path) => others.length === 0 && !new Set(rest.map(({ text }) => text)).isDisjointFrom(new Set(programs.get(basename(path))?.headless))),
+        Option.map(quote),
     );
 
 // --- [LAUNCHES]
@@ -71,18 +80,24 @@ const launched = (named: readonly string[], waits: readonly string[], allowed: r
         }
         const found = app === undefined ? [] : yield* installationsOf(app, site.command.cwd, call);
         const environment = site.supplied('--env');
+        const { programs } = yield* Shell;
         if (found.length > 0 && !found.some(foreground)) {
             return [];
         }
         return whole(
             site,
-            Option.match(headlessPath(found, rest, (yield* Shell).programs), {
+            Option.match(headlessPath(found, rest, programs), {
                 onNone: () =>
                     launchLine(
                         [...subjects, ...(site.has('--new') ? ['--new'] : [])],
                         documents.map(({ raw }) => raw),
                         environment,
                         rest,
+                        switchesOf(
+                            found,
+                            rest.map(({ text }) => text),
+                            programs,
+                        ),
                     ),
                 onSome: (path) => [...environment.map(({ raw }) => raw), path, ...rest.map(({ raw }) => raw)].join(' '),
             }),
@@ -130,7 +145,8 @@ const statements = (lines: readonly string[]) =>
 const scripted: Fix = (site) => {
     const lines = [...site.values('-e'), ...Option.toArray(site.command.input)];
     const said = site.values('-l').includes('JavaScript') ? [] : statements(lines);
-    const apps = [...new Set(said.map(({ app }) => app).filter(Predicate.isNotUndefined))].map(quote);
+    const named = [...new Set(said.map(({ app }) => app).filter(Predicate.isNotUndefined))];
+    const apps = named.map(quote);
     const documents = said.map(({ path }) => path).filter(Predicate.isNotUndefined);
     const script = site.has('-e') ? undefined : site.operands.find(({ text }) => text !== '-');
     if (script !== undefined || lines.length === 0) {
@@ -143,7 +159,10 @@ const scripted: Fix = (site) => {
         return refusal('osascript runs a shell command, run it directly');
     }
     if (said.length > 0 && said.every(({ app, launches }) => app !== undefined && launches) && (documents.length === 0 || apps.length === 1)) {
-        return whole(site, launchLine(apps, documents.map(quote)), 'osascript');
+        return Effect.gen(function* () {
+            const switches = switchesOf(Object.values(yield* installed(named)).flat(), [], (yield* Shell).programs);
+            return whole(site, launchLine(apps, documents.map(quote), [], [], switches), 'osascript');
+        });
     }
     return lines.some((line) => FOCUS.test(line)) ? refusal(`osascript takes focus, use ${WATCHER} capture or perform`) : [];
 };
@@ -174,14 +193,27 @@ const binary: Fix = (site, call) => {
         {
             onNone: () => [],
             onSome: Effect.fnUntraced(function* ({ head, bundle }) {
-                const installations = Record.values(yield* installed([bundle])).flat();
+                const installations = Object.values(yield* installed([bundle])).flat();
                 const args = yield* Effect.forEach(site.words.slice(1), absoluteArgument(call, site.command.cwd));
                 const runs = installations.some((installation) => foreground(installation) && Option.exists(installation.executable, ({ href }) => fileURLToPath(href) === head));
-                return runs ? whole(site, launchLine([quote(bundle)], [], site.assigned, args), site.program, site.assigned[0]) : [];
+                const switches = switchesOf(
+                    installations,
+                    args.map(({ text }) => text),
+                    (yield* Shell).programs,
+                );
+                return runs ? whole(site, launchLine([quote(bundle)], [], site.assigned, args, switches), site.program, site.assigned[0]) : [];
             }),
         },
     );
 };
+
+// --- [SWITCHES]
+
+const switched: Fix = Effect.fnUntraced(function* (site) {
+    const given = [...site.values('--arguments'), ...site.rest.map(({ text }) => text)];
+    const switches = site.path[0] === 'launch' ? switchesOf(Object.values(yield* installed(site.operands.map(({ text }) => text))).flat(), given, (yield* Shell).programs) : [];
+    return switches.length === 0 ? [] : inserted(site, Array.lastNonEmpty(site.words).end, ` ${[...(site.has('--arguments') ? [] : ['--arguments']), ...switches].join(' ')}`);
+});
 
 // --- [KILLS]
 
@@ -217,7 +249,9 @@ const APPS: Policy = {
         killall: { flags: ['-s', '-c=', '-t='], informational: ['-s', '-l'], fixes: [ENDS_MATCHES] },
         pkill: { fixes: [ENDS_MATCHES] },
         kill: { flags: ['-n='], fixes: [fedKill] },
-        Blender: { informational: ['-v', '--log-list-categories'], headless: ['-b', '--background', '-c', '--command'] },
+        Blender: { informational: ['-v', '--log-list-categories'], headless: ['-b', '--background', '-c', '--command'], launching: ['--no-window-focus'] },
+        Rhinoceros: { launching: ['-nosplash'] },
+        [WATCHER]: { ends: ['--arguments'], fixes: [switched] },
     },
     every: [binary],
 };

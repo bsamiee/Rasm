@@ -1,3 +1,4 @@
+RASM3105 `make()!` silences a nullable result, lift it through `Optional` into `Option` or `Fin` with the failure it stands for
 #0 `Prelude.use` disposes `StackLayout` with children attached, acquire `StackLayout` through `use` with a release detaching children before `Dispose`
 #1 `Prelude.use` disposes `Splitter` with children attached, acquire `Splitter` through `use` with a release detaching children before `Dispose`
 #2 `Prelude.use` disposes `TabPage` with children attached, acquire `TabPage` through `use` with a release detaching children before `Dispose`

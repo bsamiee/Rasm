@@ -93,15 +93,8 @@ pub struct Limit {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Limits {
-    Ashrae {
-        acceptability_80: Limit,
-        acceptability_90: Limit,
-    },
-    En {
-        category_i: Limit,
-        category_ii: Limit,
-        category_iii: Limit,
-    },
+    Ashrae { acceptability_80: Limit, acceptability_90: Limit },
+    En { category_i: Limit, category_ii: Limit, category_iii: Limit },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -113,16 +106,8 @@ pub struct Adaptive {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Index {
-    Set {
-        met: MetabolicRate,
-        clo: ClothingInsulation,
-        options: SetOptions,
-    },
-    Pet {
-        met: MetabolicRate,
-        clo: ClothingInsulation,
-        options: PetOptions,
-    },
+    Set { met: MetabolicRate, clo: ClothingInsulation, options: SetOptions },
+    Pet { met: MetabolicRate, clo: ClothingInsulation, options: PetOptions },
     Heat(HeatIndexRothfuszOptions),
     Humidex(HumidexOptions),
     Apparent(AtOptions),

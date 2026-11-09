@@ -1,4 +1,3 @@
-
 use core::{
     f64::consts::{PI, TAU},
     num::NonZero,
@@ -123,11 +122,11 @@ impl Alignment {
         }
         fn placed<T, U>(node: &Path, distance: f64, length: f64, geometry: Result<U, Fault>) -> Result<Segment<U>, IfcError>
         where T: Attribute {
-            (length >= 0.0)
-                .ok_or(Fault::Range { value: length })
-                .and(geometry)
-                .map(|geometry| Segment { distance, length, geometry })
-                .map_err(|reason| IfcError::Attribute { node: node.clone(), attribute: T::ID.into(), reason })
+            (length >= 0.0).ok_or(Fault::Range { value: length }).and(geometry).map(|geometry| Segment { distance, length, geometry }).map_err(|reason| IfcError::Attribute {
+                node: node.clone(),
+                attribute: T::ID.into(),
+                reason,
+            })
         }
         fn ordered<U>(segments: Vec<Segment<U>>) -> Option<NEVec<Segment<U>>> {
             segments.into_iter().sorted_by(|left, right| left.distance.total_cmp(&right.distance)).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>)
@@ -206,31 +205,33 @@ impl Alignment {
                 Some((node, distance, record))
             })
             .map(
-                |(node, distance, HorizontalSegment { start_point, start_direction, start_radius_of_curvature, end_radius_of_curvature, segment_length, gravity_center_line_height, geometry_type })| {
+                |(
+                    node,
+                    distance,
+                    HorizontalSegment { start_point, start_direction, start_radius_of_curvature, end_radius_of_curvature, segment_length, gravity_center_line_height, geometry_type },
+                )| {
                     let (entry, exit) = (curvature(start_radius_of_curvature), curvature(end_radius_of_curvature));
                     let tilt = |along: f64| {
                         let distance = evaluation.rail_head_distance?.into_inner().get::<meter>();
                         let [_, _, cant] = superelevation(cant.as_ref()?, along, tolerance)?;
                         Some((cant / distance).clamp(-1.0, 1.0).asin())
                     };
-                    let shape = match geometry_type {
-                        Horizontal::Line => Ok((Plan::Spiral(Transition::Constant), 0.0, 0.0, 0.0)),
-                        Horizontal::CircularArc => Ok((Plan::Spiral(Transition::Constant), entry, 0.0, 0.0)),
-                        Horizontal::Clothoid => Ok((Plan::Spiral(Transition::Linear), entry, exit - entry, 0.0)),
-                        Horizontal::Cubic => Ok((Plan::Cubic, entry, exit - entry, 0.0)),
-                        Horizontal::HelmertCurve => Ok((Plan::Spiral(Transition::Helmert), entry, exit - entry, 0.0)),
-                        Horizontal::BlossCurve => Ok((Plan::Spiral(Transition::Bloss), entry, exit - entry, 0.0)),
-                        Horizontal::CosineCurve => Ok((Plan::Spiral(Transition::Cosine), entry, exit - entry, 0.0)),
-                        Horizontal::SineCurve => Ok((Plan::Spiral(Transition::Sine), entry, exit - entry, 0.0)),
-                        Horizontal::VienneseBend => match gravity_center_line_height {
-                            None => Err(Fault::Underdetermined),
-                            Some(0.0) => Ok((Plan::Spiral(Transition::Viennese), entry, exit - entry, 0.0)),
-                            Some(height) => tilt(distance + segment_length)
-                                .zip(tilt(distance))
-                                .map(|(last, first)| (Plan::Spiral(Transition::Viennese), entry, exit - entry, rate(rate(-420.0 * height * (last - first), segment_length), segment_length)))
-                                .ok_or(Fault::Underdetermined),
-                        },
-                        Horizontal::Unknown => Err(Fault::Unknown),
+                    let shape = match (geometry_type, gravity_center_line_height) {
+                        (Horizontal::Line, _) => Ok((Plan::Spiral(Transition::Constant), 0.0, 0.0, 0.0)),
+                        (Horizontal::CircularArc, _) => Ok((Plan::Spiral(Transition::Constant), entry, 0.0, 0.0)),
+                        (Horizontal::Clothoid, _) => Ok((Plan::Spiral(Transition::Linear), entry, exit - entry, 0.0)),
+                        (Horizontal::Cubic, _) => Ok((Plan::Cubic, entry, exit - entry, 0.0)),
+                        (Horizontal::HelmertCurve, _) => Ok((Plan::Spiral(Transition::Helmert), entry, exit - entry, 0.0)),
+                        (Horizontal::BlossCurve, _) => Ok((Plan::Spiral(Transition::Bloss), entry, exit - entry, 0.0)),
+                        (Horizontal::CosineCurve, _) => Ok((Plan::Spiral(Transition::Cosine), entry, exit - entry, 0.0)),
+                        (Horizontal::SineCurve, _) => Ok((Plan::Spiral(Transition::Sine), entry, exit - entry, 0.0)),
+                        (Horizontal::VienneseBend, None) => Err(Fault::Underdetermined),
+                        (Horizontal::VienneseBend, Some(0.0)) => Ok((Plan::Spiral(Transition::Viennese), entry, exit - entry, 0.0)),
+                        (Horizontal::VienneseBend, Some(height)) => tilt(distance + segment_length)
+                            .zip(tilt(distance))
+                            .map(|(last, first)| (Plan::Spiral(Transition::Viennese), entry, exit - entry, rate(rate(-420.0 * height * (last - first), segment_length), segment_length)))
+                            .ok_or(Fault::Underdetermined),
+                        (Horizontal::Unknown, _) => Err(Fault::Unknown),
                     };
                     let geometry = shape.and_then(|(plan, entry, change, lean)| match &start_point {
                         &[x, y] | &[x, y, _] => Ok(Curve { start: Point2::new(x, y), direction: start_direction, entry, change, lean, plan }),

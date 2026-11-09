@@ -11,7 +11,7 @@ export const meta = {
     { title: 'Challenge', detail: 'per file group or unit two adversaries in sequence, editing in place', model: 'opus' },
     { title: 'Verdict', detail: 'per file group or unit, diff against base judged hunk by hunk in place' },
     { title: 'Cross-group', detail: 'one pass over the deduplicated spanning changes: per set over the same files an editor, moving the consumers its changes reach, then two adversaries and a verdict where it changed a file, disjoint sets at once and overlapping ones in order' },
-    { title: 'Lead', detail: 'diff against base, unneeded growth reverted, report' },
+    { title: 'Lead', detail: 'diff against base, unneeded growth removed, report' },
   ],
 }
 
@@ -38,7 +38,7 @@ const MODES = {
     ],
     finding: 'what it removes or adds, and one doing neither is dropped',
     lean: ', leaning to deepen: capability the plan rows, inputs and packages hold that the files still lack, narrow or hand-write lands as general logic at full depth, extending its categories where the domain justifies, in the existing file or a new one held to the same bar',
-    verdict: 'Growth against base names a capability absent at base, in its smallest form, and growth naming none is reverted.',
+    verdict: 'Growth against base names a capability absent at base, in its smallest form, and growth naming none is removed.',
     report: 'strongest changes',
   },
   reduce: {
@@ -54,7 +54,7 @@ const MODES = {
     ],
     finding: 'what it removes, and one removing nothing is dropped',
     lean: ', leaning to reduce: facts an owner, package member or parameterized form states that the files still restate, and layers no caller branches on, fold away at full depth across the files and their consumers',
-    verdict: 'Growth against base names the hidden failure or invalid state that gained its case, and growth naming none is reverted.',
+    verdict: 'Growth against base names the hidden failure or invalid state that gained its case, and growth naming none is removed.',
     report: 'strongest reductions',
   },
 }
@@ -166,10 +166,10 @@ Editor for ${state.files.join(', ')}. ${origin}Apply deletions first, rewrite a 
 ${listed(changes)}
 ${bound} ${RETURN}`, { label, phase, schema: EDITED }).then((result) => advance(state, result))
 const adversary = (phase, lean, tier) => (state, item) => once(`${brief(state.files)}
-Adversary over ${state.files.join(', ')}. ${diff(state.files)} Finish or revert each shuffle, restore each regression, and rebuild them in place${lean}.
+Adversary over ${state.files.join(', ')}. ${diff(state.files)} Finish or undo each shuffle by edit, restore each regression, and rebuild them in place${lean}.
 ${carried(state)}${own(state.files)} ${RETURN}`, { label: `challenge:${item.tag}:${tier}`, phase, model: 'opus', schema: EDITED }).then((result) => advance(state, result))
 const verdict = (phase) => (state, item) => once(`${brief(state.files)}
-Verdict over ${state.files.join(', ')}. ${diff(state.files)} Judge each hunk: finish or revert each shuffle and restore each regression, in place.
+Verdict over ${state.files.join(', ')}. ${diff(state.files)} Judge each hunk: finish or undo each shuffle by edit and restore each regression, in place.
 ${carried(state)}${own(state.files)} ${RETURN}`, { label: `verdict:${item.tag}`, phase, schema: EDITED }).then((result) => advance(state, result))
 const finish = (challenge, judge) => [adversary(challenge, mode.lean, 1), adversary(challenge, ', leaning to collapse existing declarations into stronger logic', 2), verdict(judge)]
 const owned = (group) => (finding) => finding.files.every((path) => group.files.includes(path))
@@ -323,7 +323,7 @@ const edited = union(writes, ...states.map((state) => state.edited))
 const lead = await once(`${brief(roots)}
 Lead. Read \`git diff --stat ${args.base} -- ${union(roots, edited).join(' ')}\` and \`git ls-files -z --others --exclude-standard -- ${union(roots, edited).join(' ')} | xargs -0 wc -l\`.
 ${mode.verdict} Read the diff of each file that grew, one file at a time.
-Return (structured) files you edited and at most 15 lines: ${mode.report} by file and line, reverts.`, { label: 'lead', phase: 'Lead', schema: REPORTED })
+Return (structured) files you edited and at most 15 lines: ${mode.report} by file and line, removals.`, { label: 'lead', phase: 'Lead', schema: REPORTED })
 log(`${spent.agents} agents against about ${estimate} before cross-group sets, ${budget.spent()} output tokens this turn`)
 return {
   lead: lead?.report ?? 'lead returned nothing',

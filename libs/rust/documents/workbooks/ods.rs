@@ -1,4 +1,3 @@
-
 use calamine::{Data, Range};
 use chrono::TimeDelta;
 use spreadsheet_ods::{OdsError, Sheet, Value};
