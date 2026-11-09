@@ -17,8 +17,8 @@ It failed because it imagined each ecosystem instead of reading it. Swift module
 - Commit `c64a8b424` holds the full tree before the rebuild, the reference for any revert; `e8fbdeb92` and `e8084616d` unplugged it
 - `.tmp/` (ignored) holds every moved file for reference, never binding: root files and `README.md`, the old `.config/`, `.cargo/`, `.github/`, `.playwright/`, `eng/`, `tools/nx/`, `plugins/playwright/`, the old `nx.json`
 - Project manifests under `apps/`, `libs/`, `tests/`, `tools/`, `plugins/`, `infra/` are unplugged in place as `z.<file>`
-- Live `.config/` holds `mise.toml` and `mise.lock` alone (node, pnpm, git-lfs, and the agent CLI tools, from `mise use`)
-- Root holds `package.json` (`pnpm init`), `pnpm-workspace.yaml` (catalog, `catalogMode: strict`), `nx.json` (`nx init`), `tsconfig.base.json`, and empty central package slots: `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `global.json`, `Cargo.toml`, `rust-toolchain.toml`, `pyproject.toml`
+- Live `.config/` holds `mise.toml` and `mise.lock` (node, pnpm, git-lfs, and the agent CLI tools, from `mise use`), plus the original `tsconfig.base.json` and `tsconfig.web.json` every TypeScript project extends
+- Root holds `package.json` (`pnpm init`), `pnpm-workspace.yaml` (catalog, `catalogMode: strict`), `nx.json` (`nx init`), the original `tsconfig.json`, and empty central package slots: `Directory.Build.props`, `Directory.Build.targets`, `Directory.Packages.props`, `global.json`, `Cargo.toml`, `rust-toolchain.toml`, `pyproject.toml`
 - Swift is back: `Package.swift`, `.swift-format`, `Xcode.xcconfig`, both `project.xcproj` and their `Package.resolved`, and the `apps/nx/apple` plugin
 - The harness plugin marketplace, the Codex Bash hook, and hk's git hook are removed; the `manage-repo` skill sits in `.claude/skills/archive/`
 - `plugins/function-hooks/package.json` is a session-only file outside git, deleted after a Claude Code restart
@@ -67,6 +67,11 @@ Every plugin starts from the ecosystem, never from this repository:
 - Performance lives in the code (one tool call per workspace, cached by a hash of inputs, options, and the plugin source) and in the graph (correct inputs and outputs, incremental builds uncached, no duplicated work), settled by measurement
 - Each plugin works unchanged in an unrelated repository
 - `nx.json` ends as one row per plugin with a few principle options; projects expose one `build`, `test`, `lint`, `format`, `check` each
+- One verb set for every language and host, so an agent learns one way: `build`, `test`, `lint`, `format`, `check` on every project; `install` on every app and host project (macOS apps, Rhino and Grasshopper 2, Adobe, Blender, Unreal); `upgrade` on every ecosystem root; `nx release` for shipping
+  - A distributable is `build` in its release configuration (Nx `configurations`, the mode mechanism); shipping is `nx release` running each project's inferred `nx-release-publish`; no `archive`, `pack`, or `publish` verb per host
+  - `install` puts the current local build into its host through the channel the host itself installs from, with no version, tag, or release: the same path a user's install takes, fed from the local build. Never a script imitating the host (the old macOS `install` quit the app, booted out its agents with `launchctl`, and copied it into `/Applications` with `ditto`)
+  - `upgrade` moves an ecosystem's dependencies to their newest releases through its own tool (`pnpm`, `cargo`, `uv`, `dotnet`, `swift package`, Xcode resolution), writing its catalog and lock
+  - `eng/` existed for exactly these two, local install and upgrades across languages, as one-off programs mixed with release; each returns as a verb its plugin infers, never as a program
 
 ## [06]-[RETURN]
 
@@ -111,8 +116,16 @@ Briefs state the goal, files, sources, and constraints, never the expected answe
 - [ ] Python: `apps/nx/uv` over one uv workspace, Blender interpreter kept apart
 - [ ] TypeScript: official `@nx/js`, `@nx/vite`, `@nx/vitest`
 - [ ] Playwright rethought as a tool
-- [ ] Release and publish per host, CI, `infra/`
+- [ ] Release and publish per host (methodology below), CI, `infra/`
 - [ ] Harness plugins and marketplace
+
+Release methodology, one system for every language:
+- `nx release` alone versions, writes changelogs, creates GitHub releases, and publishes; no separate release program (the old `eng/typescript/release.ts` wrapped `releaseVersion`/`releaseChangelog` and restated checks `nx release` already makes)
+- `nx.json` holds the shared policy alone: projects released independently, conventional commits, GitHub release creation, tag pattern, groups chosen by project, never by tag strings (`tag:output:nupkg`)
+- Each language plugin supplies its ecosystem's two pieces, the pattern the official plugins use (`docs/research/nx/plugin-authoring.md` [04]):
+  1. A `VersionActions` module writing the version where the ecosystem keeps it: Apple `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.xcproj` through `XcodeProjectFormat`, Rust `Cargo.toml`, .NET `<Version>`, Python `pyproject.toml`; a Swift package has no version field, so tags carry it. The old `@rasm/nx/release` reported `0.0.0` and wrote nothing, with versions in MinVer shell strings
+  2. An inferred `nx-release-publish` target per project for its ecosystem's registry: NuGet, crates.io, PyPI, npm. Apple apps build their distributable through Xcode's own steps, `xcodebuild archive` then `-exportArchive` when the project holds export options; the old defect was copying the `.app` out of the archive with `ditto` and zipping it, never the archive itself
+- Distribution past a registry (files on a GitHub release, Sparkle appcast, Rhino Yak, the Blender extension index, Adobe plugin packages) is one distribution plugin reading the artifacts each language plugin declares as outputs, so every host distributes the same way; it owns both directions of each channel, publishing a release to it and `install` pulling a local build through it, researched per host (each host's own repository, feed, or installer and whether it takes a local source) before code; no host's channel lives in shell strings or in `nx.json` (the old `publish` rows chained `doppler`, `gh release upload`, `generate_appcast`, `dotnet nuget push`, and Blender commands per tag filter)
 
 ## [10]-[CATALOG]
 
@@ -137,17 +150,22 @@ What the moved files did, each capability rebuilt by the language that owns it, 
 `apps/nx/apple/` (`@rasm/nx-apple`): a TypeScript layer over `@nx/devkit` and Effect 4, and a Swift core reading `project.xcproj` through `XcodeProjectFormat`.
 
 Built and measured:
-- [x] Inference over `Package.swift` (`swift package describe`) and `project.xcproj` (core, 5 ms for both apps against 5–6 s per `xcodebuild -list`), cached graph 0.19 s, cold 0.5 s
-- [x] `build` and `test` once per package with module aliases (per-module SwiftPM runs measured 30–35 s waiting on the scratch lock, one package build 4.4 s), `lint`, `format`, `check` per module, `archive` for apps, builds uncached
-- [x] `outputPath` option placing each tool's output in its own folder, tool defaults when unset
+- [x] Inference over `Package.swift` (`swift package describe`), `project.xcproj`, and `contents.xcworkspacedata` (core, 20 ms for both apps); cold graph 0.80 s with the daemon start, plugin-cache hit 0.63 s, cached graph 0.17 s
+- [x] `build` and `test` once per package with module aliases (per-module SwiftPM runs measured 30–35 s waiting on the scratch lock, one package build 4.4 s), `lint`, `format`, `check` per module, builds uncached
+- [x] Shared `.xcscheme` files read by the core, entries checked by `BlueprintIdentifier`, `test` per test plan with `-testPlan`, plans as inputs; workspaces as projects, a project one workspace lists building through it against the workspace lock
+- [x] Each target's `INFOPLIST_FILE`, `CODE_SIGN_ENTITLEMENTS`, xcconfig per configuration with its `#include` chain read through the core as inputs; a missing file, stale scheme entry, or unlocatable configuration file fails that project alone (`AggregateCreateNodesError`); `$(…)` values evaluate through `-showBuildSettings -json -alltargets`
+- [x] Edges keyed by package path: module to module, package to modules and local packages, Xcode to package modules through each package's `products`, cross-project through remote targets, imported products, workspace members; mapped to final project names by root in `createDependencies`, which reads the report `createNodes` built
+- [x] Options `outputPath` (relative, absolute, `~`; `<outputPath>/<root>/{swiftpm,xcode,results,describe}`), `trustPackages`; resolution locked to `Package.resolved` under CI through Nx's `isCI()`, no option; `describe` on its own scratch path; graph hash over the files inference reads, the options, the plugin, and the core
+- [x] `run` executor removing every `NX_*` and `LERNA_PACKAGE_NAME` from the child environment (walked through Effect's env `ConfigProvider`), clearing result files and creating their folders, forwarding `--` arguments: no-op root package build 3.76–6.27 s before, 2.45–2.58 s after (manifests load from SwiftPM's db cache), 1.95–2.12 s direct
+- [x] Package-only schemes built with `-destination generic/platform=<name>` from `describe` platforms or the host triple (both measured to build); a generic destination cannot run tests, which `swift test` covers
+- [x] Relay and Atelier: per-app `Info.plist` and `<App>.entitlements` beside each project (the files Xcode's Info and Signing & Capabilities editors write per target), `SPARKLE_PUBLIC_KEY` once in `Xcode.xcconfig`, Info.plist excluded from each synchronized folder through `xcrun xcodeproj`; both build and sign end to end (team BBXB9R367P, hardened-process entitlements and expanded Sparkle keys in each bundle); `bootstrap-icons` back as a catalog row for Relay's asset symlinks
+- [x] Full Swift set (`build lint check`, 15 projects) from clean state: cold 36.5 s, warm 9.5 s with 15 of 45 tasks cached (lints; builds incremental by design)
+- [x] Decided against one `.xcworkspace` over both apps and the root package: shared derived data saved 7 s on the second app cold (13 s against 20 s) and 0.6 GB, but with the root package as a member Xcode wrote the workspace resolution into the root `Package.resolved`, adding Sparkle and swift-http-types and dropping the package's own pins, which conflicts with SwiftPM resolving the root package
 
-Now: a coding agent rebuilds the plugin and the Swift projects from `docs/research/nx/apple/`; next, an adversarial review per [08], then a cold and warm run of every Swift project through Nx confirming caching, output paths, and every option, and `apple-toolchain.md` folded into `apple/tools.md`.
-
-Open, from `docs/research/nx/apple/`:
-- [ ] Shared `.xcscheme` files mapped to targets by `BlueprintIdentifier`, test plans as inputs, workspaces (`.xcworkspace`) and their locks modelled
-- [ ] Each target's `INFOPLIST_FILE`, `CODE_SIGN_ENTITLEMENTS`, and xcconfig read through the core as inputs, a missing file failing with target, setting, and path
-- [ ] Edges keyed by package path, package-to-package edges from `describe`, cross-project target edges
-- [ ] Package macro and plugin trust as one option, `--no-color-diagnostics`, resolution flags, `describe` off the build's scratch lock, a narrower graph hash
-- [ ] Relay and Atelier corrected to newest standards: the Info.plist and entitlements files they reference are back under the apps' ownership, both build end to end
-- [ ] Release version actions writing `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` through `XcodeProjectFormat`
+Open:
+- [ ] Adversarial review per [08], and `apple-toolchain.md` folded into `apple/tools.md` with the facts measured here (generic destinations, `--xunit-output` needing its folder, workspace resolution writing a member package's lock)
+- [ ] Swift test targets: the root `Package.swift` holds their rows ahead of them, `swift-custom-dump` (`expectNoDifference` value diffs), `swift-issue-reporting` (the manifest loop adds `IssueReportingTestSupport` to every test target, so a `reportIssue` inside a library fails the running test), `swift-property-based`; until the first test target, SwiftPM prints `dependency 'swift-issue-reporting' is not used by any target` on every root build, a warning with no switch (`ModulesGraph+Loading.swift` 6.4.2 skips only packages declaring traits, executables, or command plugins), owner-accepted
+- [ ] A workspace over the two apps alone (no root package member) is unmeasured
+- [ ] Release version actions writing `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` through `XcodeProjectFormat`, and `archive`/export, removed from this pass, returning with release
+- [ ] `$(…)` setting values evaluate at the default configuration alone; SwiftLint stays out until a repository holds `.swiftlint.yml`
 - [ ] Generators, fixture tests, prebuilt core in the published package, npm publish

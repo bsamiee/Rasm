@@ -1,6 +1,15 @@
 {
-    "$schema": "./node_modules/nx/schemas/nx-schema.json",
-    "plugins": [
-        { "plugin": "@rasm/nx-apple", "options": { "outputPath": ".artifacts/apple", "trustPackages": true } }
-    ]
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "cacheDirectory": ".nx/cache",
+  "useDaemonProcess": false,
+  "plugins": [
+    {
+      "plugin": "@rasm/nx-apple",
+      "options": {
+        "outputPath": ".artifacts/apple",
+        "trustPackages": true
+      }
+    }
+  ],
+  "analytics": true
 }

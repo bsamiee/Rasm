@@ -1,11 +1,11 @@
 {
+    "$schema": "../node_modules/typescript/schemas/tsconfig.schema.json",
     "compilerOptions": {
         "allowImportingTsExtensions": true,
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
-        "lib": [
-            "esnext"
-        ],
+        "jsx": "react-jsx",
+        "lib": [ "esnext" ],
         "module": "nodenext",
         "noEmit": true,
         "noImplicitOverride": true,
@@ -15,33 +15,10 @@
             {
                 "name": "@effect/language-service",
                 "ignoreEffectSuggestionsInTscExitCode": false,
-                "allowedUnstableApis": [
-                    "effect",
-                    "@effect"
-                ],
-                "barrelImportPackages": [
-                    "effect"
-                ],
-                "effectFn": [
-                    "span",
-                    "untraced"
-                ],
-                "keyPatterns": [
-                    {
-                        "target": "service"
-                    },
-                    {
-                        "target": "custom"
-                    },
-                    {
-                        "target": "error",
-                        "pattern": "identifier"
-                    },
-                    {
-                        "target": "taggedClass",
-                        "pattern": "identifier"
-                    }
-                ],
+                "allowedUnstableApis": [ "effect", "@effect" ],
+                "barrelImportPackages": [ "effect" ],
+                "effectFn": [ "span", "untraced" ],
+                "keyPatterns": [ { "target": "service" }, { "target": "custom" }, { "target": "error", "pattern": "identifier" }, { "target": "taggedClass", "pattern": "identifier" } ],
                 "diagnosticSeverity": {
                     "anyUnknownInErrorContext": "error",
                     "mapMapErrorToMapBoth": "error",
@@ -77,13 +54,12 @@
                     "serviceNotAsClass": "suggestion",
                     "strictBooleanExpressions": "suggestion",
                     "unnecessaryArrowBlock": "suggestion"
-                }
+                },
+                "overrides": [ { "include": [ "../**/*.test.tsx", "../**/.storybook/*.stories.tsx", "../plugins/function-hooks/hooks/*.ts" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
             }
         ],
         "skipLibCheck": true,
-        "strict": true,
-        "target": "esnext",
-        "types": [],
         "verbatimModuleSyntax": true
-    }
+    },
+    "exclude": [ "${configDir}/*.config.ts" ]
 }

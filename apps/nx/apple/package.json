@@ -5,7 +5,7 @@
     "license": "MIT",
     "type": "module",
     "exports": {
-        ".": "./plugin.ts",
+        ".": "./index.ts",
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },

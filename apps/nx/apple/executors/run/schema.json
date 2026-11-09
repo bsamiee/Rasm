@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Run",
+    "description": "Runs swift and xcodebuild invocations in order, stopping at the first failure",
+    "type": "object",
+    "properties": {
+        "runs": { "type": "array", "items": { "type": "object" }, "description": "Invocations the plugin infers, each a command with its environment and result paths" },
+        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to every invocation" }
+    },
+    "required": ["runs"]
+}
