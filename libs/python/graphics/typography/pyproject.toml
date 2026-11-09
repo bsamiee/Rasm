@@ -1,0 +1,55 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-typography"
+version         = "0.0.0"
+description     = "Font capability over fontTools, ufo2ft, HarfBuzz and skia-pathops, with the pipeline that reconciles a declared font set from its originals"
+requires-python = ">=3.15"
+
+dependencies = [
+    # --- [CORE]
+
+    "anyio",              # Worker processes running each face of a set in parallel
+    "expression",         # Results, options, and collections of every module
+    "msgspec",            # Records, tagged unions, field bounds, and TOML and JSON codecs
+    "rasm-records",       # Fault results, record files, and atomic writes every typography module answers in
+
+    # --- [COMMANDS]
+
+    "cyclopts",           # Command parser of the `foundry` script from typed signatures
+    "sysexits",           # Portable process exit codes
+
+    # --- [FONTS]
+
+    "fonttools[woff]",    # Font tables, feature AST, subsetting, WOFF2, pens, and the test font builder
+    "ufo2ft",             # UFO to TrueType compile with its mark, cursive, kern and GDEF writers and filters
+    "ufoLib2",            # UFO source object model the compile reads
+    "youseedee",          # Unicode Character Database rows for joining type and joining group
+
+    # --- [GEOMETRY]
+
+    "scipy",              # Scalar optimization over glyph outlines
+    "shapely",            # Planar topology and outline geometry
+    "skia-pathops",       # Path booleans, simplify and stroke over glyph outlines
+
+    # --- [SHAPING]
+
+    "uharfbuzz",          # HarfBuzz shaping with the `ot` and `coretext` shapers and glyph drawing
+
+    # --- [VERIFICATION]
+
+    "opentype-sanitizer", # OTS acceptance of a built binary
+    "ttfautohint-py",     # TrueType hinting where a face's plan asks for it
+]
+
+[project.scripts]
+foundry = "rasm_typography._cli:app"
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""

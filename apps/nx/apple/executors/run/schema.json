@@ -5,7 +5,7 @@
     "description": "Runs swift and xcodebuild invocations in order, stopping at the first failure",
     "type": "object",
     "properties": {
-        "runs": { "type": "array", "items": { "type": "object" }, "description": "Invocations the plugin infers, each a command with its environment and result paths" },
+        "runs": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 1 }, "description": "Invocations the plugin infers, each a program and its arguments" },
         "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to every invocation" }
     },
     "required": ["runs"]

@@ -3,21 +3,11 @@ import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-struct Entry: Encodable {
-    let id: String
-    let container: String
-}
-
 struct Scheme: Encodable {
     let name: String
-    let entries: [Entry]
+    let containers: [String]
     let plans: [String]
     let tests: Bool
-}
-
-struct Member: Encodable, Hashable {
-    let product: String
-    let packages: [String]
 }
 
 struct Setting: Encodable {
@@ -30,19 +20,14 @@ struct Container: Encodable {
     let path: String
     let schemes: [Scheme]
     let inputs: [String]
-    let members: [Member]
+    let members: [String: [String]]
     let projects: [String]
     let unresolved: [Setting]
 }
 
-struct Failure: Encodable {
-    let path: String
-    let reason: String
-}
-
 struct Report: Encodable {
     let containers: [Container]
-    let failures: [Failure]
+    let failures: [String: String]
 }
 
 struct Reference {
@@ -51,11 +36,6 @@ struct Reference {
     let path: FilePath?
 
     var missing: String? { path.map { file in exists(file) ? nil : "\(owner) \(setting): \(file.string)" } ?? "\(owner) \(setting) resolves to nothing" }
-}
-
-struct Analysis {
-    let container: Container
-    let references: [Reference]
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -93,4 +73,10 @@ func read(_ path: FilePath) throws(AnalyzerError) -> Data {
 
 func joined(_ base: FilePath, _ relative: String) -> FilePath {
     relative.hasPrefix("/") || relative.hasPrefix("~") ? FilePath(NSString(string: relative).expandingTildeInPath) : base.appending(relative).lexicallyNormalized()
+}
+
+func checked(_ container: Container, _ references: [Reference]) throws(AnalyzerError) -> Container {
+    let missing = Set(references.compactMap(\.missing)).sorted()
+    guard missing.isEmpty else { throw AnalyzerError(subject: container.path, reason: .missing(missing)) }
+    return container
 }

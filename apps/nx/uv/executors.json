@@ -1,0 +1,9 @@
+{
+    "executors": {
+        "release-publish": {
+            "implementation": "./dist/executors/release-publish/executor",
+            "schema": "./executors/release-publish/schema.json",
+            "description": "Publishes a uv workspace member's built distributions with uv publish"
+        }
+    }
+}

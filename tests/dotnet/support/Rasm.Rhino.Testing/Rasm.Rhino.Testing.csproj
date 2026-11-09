@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Runs a test application's host inside a Rhino launched for it</Description>
+        <NoWarn>$(NoWarn);TPEXP</NoWarn>
+        <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+        <DefaultItemExcludes>$(DefaultItemExcludes);Boot.cs</DefaultItemExcludes>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Testing">
+        <PackageReference Include="Microsoft.Testing.Platform" />
+    </ItemGroup>
+
+    <ItemGroup Label="Rhino Boot">
+        <None Include="Boot.cs" CopyToOutputDirectory="PreserveNewest" />
+        <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+</Project>

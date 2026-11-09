@@ -1,2 +1,59 @@
 <Project>
+    <ItemGroup Label="Implicit Usings" Condition="'$(IsRoslynComponent)' != 'true'">
+        <Using Remove="System.Collections.Generic" />
+        <Using Include="System.Collections.Frozen;System.Collections.Immutable" />
+    </ItemGroup>
+
+    <ItemGroup Label="Package Usings">
+        <Using Include="Thinktecture" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))" />
+        <Using Include="LanguageExt;LanguageExt.Common;LanguageExt.Traits;LanguageExt.UnsafeValueAccess" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'LanguageExt.Core'))" />
+        <Using Include="LanguageExt.Prelude" Static="true" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'LanguageExt.Core'))" />
+        <Using Include="LanguageExt.Pipes" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'LanguageExt.Streaming'))" />
+        <Using Include="LanguageExt.Sys;LanguageExt.Sys.IO;LanguageExt.Sys.Traits;LanguageExt.Sys.Diag" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'LanguageExt.Sys'))" />
+        <Using Include="LanguageExt.Parsec" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'LanguageExt.Parsec'))" />
+        <Using Include="NodaTime;NodaTime.Extensions" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'NodaTime'))" />
+        <Using Include="NodaTime.Duration" Alias="Duration" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'NodaTime'))" />
+        <Using Include="UnitsNet.Length" Alias="Length" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'UnitsNet'))" />
+        <Using Include="Microsoft.Extensions.Logging" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Logging')) or @(PackageReference->AnyHaveMetadataValue('Identity', 'Microsoft.Extensions.Logging.Abstractions'))" />
+        <Using Include="Grasshopper2.Types.Numeric" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'Grasshopper2'))" />
+    </ItemGroup>
+
+    <PropertyGroup Label="Analyzer Configuration">
+        <ProjectReferenceAssemblies>@(ReferencePath->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference')->'%(Filename)', ',')</ProjectReferenceAssemblies>
+    </PropertyGroup>
+
+    <ItemGroup Label="Analyzer Configuration">
+        <CompilerVisibleProperty Include="ProjectReferenceAssemblies" />
+        <AdditionalFiles Include="$(MSBuildThisFileDirectory)tools/roslyn/BannedSymbols.txt" />
+        <AdditionalFiles Include="$(MSBuildThisFileDirectory)tools/roslyn/BannedSymbols.Library.txt" Condition="'$(IsPackable)' == 'true'" />
+    </ItemGroup>
+
+    <ItemGroup Label="Analyzer References" Condition="'$(IsRoslynComponent)' != 'true' and '$(RunAnalyzers)' != 'false'">
+        <_RoslynComponent Include="$(MSBuildThisFileDirectory)tools/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj;$(MSBuildThisFileDirectory)tools/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
+        <ProjectReference Include="@(_RoslynComponent)" Exclude="@(ProjectReference->'%(FullPath)')" ReferenceOutputAssembly="false" PrivateAssets="all" />
+        <ProjectReference Update="@(_RoslynComponent)" OutputItemType="Analyzer" />
+    </ItemGroup>
+
+    <PropertyGroup Label="Central Package Management">
+        <CentralPackageTransitivePinningEnabled Condition="'$(IsRoslynComponent)' != 'true' and '$(IsPackable)' != 'true'">true</CentralPackageTransitivePinningEnabled>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Fetched Files">
+        <_FetchedStore>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.cache', 'fetched'))</_FetchedStore>
+    </PropertyGroup>
+
+    <ItemGroup Label="Fetched Files">
+        <FetchedResource Update="@(FetchedResource)" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <EmbeddedResource Include="@(FetchedResource->'$(_FetchedStore)%(Sha256)')" />
+    </ItemGroup>
+
+    <Target Name="FetchResources" BeforeTargets="CoreCompile" Condition="'@(FetchedResource)' != '' and '$(DesignTimeBuild)' != 'true'">
+        <DownloadFile SourceUrl="%(FetchedResource.Identity)" DestinationFolder="$(IntermediateOutputPath)" DestinationFileName="%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+        <VerifyFileHash File="$(IntermediateOutputPath)%(FetchedResource.Sha256)" Hash="%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+        <Move SourceFiles="$(IntermediateOutputPath)%(FetchedResource.Sha256)" DestinationFiles="$(_FetchedStore)%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+    </Target>
+
+    <PropertyGroup Label="Lock Files" Condition="'$(RuntimeIdentifier)' != ''">
+        <NuGetLockFilePath>packages.$(RuntimeIdentifier).lock.json</NuGetLockFilePath>
+    </PropertyGroup>
 </Project>

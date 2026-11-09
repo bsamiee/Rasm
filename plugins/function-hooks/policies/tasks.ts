@@ -1,7 +1,6 @@
-import process from 'node:process';
 import type { ProjectGraph, ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
-import { Array, Cache, Effect, Equal, Option, type Predicate, Record, String } from 'effect';
-import { all, become, type Call, cut, edited, ensure, type Fix, feedsJq, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, unassign, when, whole } from '#/policies/fix.ts';
+import { Array, Effect, Equal, Option, type Predicate, Record, String } from 'effect';
+import { all, become, type Call, cut, edited, type Fix, feedsJq, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, unassign, when, whole } from '#/policies/fix.ts';
 import type { Word } from '#/shell/script.ts';
 import { analyzed, Shell, type Site } from '#/shell/site.ts';
 
@@ -244,29 +243,6 @@ const customLanguages: Fix = (site) => {
     return site.has('--custom-languages') ? [] : inserted(site, (subcommand.text.startsWith('-') ? site.head : subcommand).end, ' --custom-languages allow');
 };
 
-const configFlag = (flag: `--${string}`, file: string, forwarded = false): Fix =>
-    Effect.fnUntraced(function* (site, { host }) {
-        const place = host.path.join(host.root, '.config', file);
-        const folder = Option.getOrUndefined(site.command.cwd);
-        const grammar = yield* Shell.use(({ grammars }) => Cache.get(grammars, site.program));
-        const reads = forwarded || site.path.length === 0 || site.path.reduce((deeper, name) => deeper.commands.get(name) ?? deeper, grammar).options.has(flag);
-        const held = forwarded ? site.tail.some(({ text }) => text === flag || text.startsWith(`${flag}=`)) : site.has(flag);
-        if (!reads || held || folder === undefined || !host.inside(folder, host.root) || !(yield* host.exists(place))) {
-            return [];
-        }
-        const words = `${flag} ${quote(host.path.relative(folder, place))}`;
-        return forwarded
-            ? inserted(
-                  site,
-                  Option.getOrElse(
-                      Option.map(site.separator, ({ end }) => end),
-                      () => Array.lastNonEmpty(site.words).end,
-                  ),
-                  `${Option.isSome(site.separator) ? '' : ' --'} ${words}`,
-              )
-            : ensure(words)(site);
-    });
-
 // --- [NX]
 
 const addressOf = ({ operands }: Site) => {
@@ -397,10 +373,9 @@ const TASKS: Policy = {
         cargo: {
             flags: ['-p, --package=', '--profile='],
             routes: { modes: ['--fix', '--check'], selects: ['--package'], config: 'Cargo.toml' },
-            fixes: [when(({ path, operands }) => [...path, ...operands.map(({ text }) => text)].find((word) => !word.startsWith('+')) === 'fmt', configFlag('--config-path', 'rustfmt.toml', true))],
         },
-        rustfmt: { flags: ['--config-path=', '--config=', '--edition=', '--emit=', '--print-config='], fixes: [configFlag('--config-path', 'rustfmt.toml')] },
-        swiftlint: { dump: true, fixes: [configFlag('--config', 'swiftlint.yml')] },
+        rustfmt: { flags: ['--config-path=', '--config=', '--edition=', '--emit=', '--print-config='] },
+        swiftlint: { dump: true },
         ruff: {
             flags: ['--isolated', '--cache-dir='],
             fixes: [projectOptions(respell({ '--isolated': '', '--cache-dir': '' }, { notify: true }), unassign(/^RUFF_CACHE_DIR=/u))],
@@ -434,28 +409,20 @@ const TASKS: Policy = {
         },
         ty: { flags: ['--python-version=', '--exclude='], routes: { rooted: true } },
         python: { fixes: [outsideScript] },
-        pulumi: { fixes: [when(({ path, operands }) => ['up', 'destroy', 'refresh', 'preview'].includes(path[0] ?? operands[0]?.text ?? ''), refuse('skips the stack program', 'run <project>:infra'))] },
-        mise: { fixes: [perSubcommand({ upgrade: [refuse('moves tools alone', 'run mise run update')], up: [refuse('moves tools alone', 'run mise run update')] })] },
+        pulumi: {
+            fixes: [
+                perSubcommand({
+                    up: [refuse('skips stack programs', 'run <project>:deploy')],
+                    refresh: [refuse('skips stack programs', 'run <project>:deploy')],
+                    destroy: [refuse('skips stack programs', 'run <project>:deploy --destroy')],
+                    preview: [refuse('skips stack programs', 'run nx release --dry-run')],
+                }),
+            ],
+        },
         vitest: {
             flags: ['--exclude=', '--mode='],
             routes: { modes: ['--mode'], ignores: ['--run'] },
             fixes: [looped('vitest', 'use --repeats')],
-        },
-        pitchfork: {
-            flags: ['-f, --force'],
-            fixes: [
-                perSubcommand({
-                    supervisor: [
-                        when(
-                            ({ informational, operands, has: supplied }) => {
-                                const verb = operands[1]?.text;
-                                return process.platform === 'darwin' && !informational && (verb === 'start' || verb === 'run') && supplied('--force');
-                            },
-                            () => refusal('Forced supervisor restart drops boot mode, use launchd'),
-                        ),
-                    ],
-                }),
-            ],
         },
         depcruise: { flags: ['--config=', '--output-type=', '-T='], routes: { rooted: true, flat: true, entries: true, ignores: ['--config', '--output-type'] } },
     },

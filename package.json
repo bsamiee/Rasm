@@ -10,6 +10,9 @@
     "devDependencies": {
         "@effect/tsgo": "catalog:",
         "@rasm/nx-apple": "workspace:*",
+        "@rasm/nx-cargo": "workspace:*",
+        "@rasm/nx-dotnet": "workspace:*",
+        "@rasm/nx-uv": "workspace:*",
         "@types/node": "catalog:",
         "bootstrap-icons": "catalog:",
         "nx": "catalog:",

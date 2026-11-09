@@ -1,10 +1,8 @@
 {
     "$schema": "../node_modules/typescript/schemas/tsconfig.schema.json",
     "compilerOptions": {
-        "allowImportingTsExtensions": true,
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
-        "jsx": "react-jsx",
         "lib": [ "esnext" ],
         "module": "nodenext",
         "noEmit": true,
@@ -58,8 +56,9 @@
                 "overrides": [ { "include": [ "../**/*.test.tsx", "../**/.storybook/*.stories.tsx", "../plugins/function-hooks/hooks/*.ts" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
             }
         ],
+        "rewriteRelativeImportExtensions": true,
         "skipLibCheck": true,
+        "types": [ "node" ],
         "verbatimModuleSyntax": true
-    },
-    "exclude": [ "${configDir}/*.config.ts" ]
+    }
 }

@@ -19,6 +19,10 @@ catalog:
     effect: 4.1.2
     '@effect/platform-node': 4.1.2
 
+    # --- [PARSING]
+
+    '@decimalturn/toml-patch': 3.3.2 # TOML edits keeping layout and comments
+
     # --- [ICONS]
 
     bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
@@ -33,6 +37,10 @@ catalog:
 
     nx: 24.0.5
     '@nx/devkit': 24.0.5
+
+    # --- [VERSIONING]
+
+    '@renovatebot/pep440': 6.0.0 # PEP 440 version comparison
 
 # --- [BUILDS] ---------------------------------------------------------------------------
 

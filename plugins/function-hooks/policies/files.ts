@@ -103,7 +103,7 @@ const unignored =
 const deletedPlace = Effect.fnUntraced(function* (site: Site, walker: Site | undefined, word: Word, start: Option.Option<string>, place: string, globbed: string, { host }: Call) {
     const patterns = walker === undefined ? [] : [...walker.leading.map(({ text }) => text), ...walker.values(...(walker.row.walks?.names ?? []))];
     if (![globbed, ...patterns].some((pattern) => NAME_CHARACTER.test(pattern)) && host.inside(host.root, place)) {
-        return refusal(walker === undefined ? `${subject(site)} ${word.text} covers root, run mise run clean` : `${subject(site)} deletes everything under ${word.text}, add a name pattern`);
+        return refusal(walker === undefined ? `${subject(site)} ${word.text} covers root, name each folder` : `${subject(site)} deletes everything under ${word.text}, add a name pattern`);
     }
     const target = Option.getOrElse(host.place(word.text, start), () => place);
     return yield* lockDeletes(site, host, patterns.length === 0 ? [target] : patterns.map((pattern) => host.path.join(target, pattern)));
@@ -374,7 +374,6 @@ const FILES: Policy = {
             flags: ['-P, --parameter-scan=3', '-L, --parameter-list=2'],
             fixes: [ensure('-i'), shellBodies, silenced, when(({ supplied }) => supplied('--input').some(({ raw }) => raw.startsWith('<(')), refuse('FIFO feeds one run', 'pass a file', '--input'))],
         },
-        stubtest: { fixes: [(site, { host }) => ensure(`--mypy-config-file ${host.path.join(host.root, '.config/stubtest.ini')}`)(site)] },
         nproc: { fixes: [absent((site) => whole(site, 'sysctl -n hw.ncpu'))] },
         shuf: { flags: ['-n='], fixes: [absent(shuffled)] },
         base64: { flags: ['-i=', '-o=', '-b='], reads: 'default', readsUnless: ['-i'], fixes: [inputFlagged] },

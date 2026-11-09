@@ -90,7 +90,7 @@ func configurations(_ files: [FilePath?]) throws(AnalyzerError) -> Configuration
     try files.compactMap(\.self).filter(exists).map { (file: FilePath) throws(AnalyzerError) in try configuration(file, optional: false) }.reduce(.empty) { held, next in held.merging(next) }
 }
 
-func project(_ container: FilePath, _ decoded: XCSchema.Project, identifiers: [String: Set<String>]) throws(AnalyzerError) -> Analysis {
+func project(_ container: FilePath, _ decoded: XCSchema.Project, identifiers: [String: Set<String>]) throws(AnalyzerError) -> Container {
     let root = container.removingLastComponent()
     let tree = nodes(decoded.topLevelReferences, group: root, names: [], root: root)
     let locals = decoded.packages.compactMap { package in
@@ -108,10 +108,7 @@ func project(_ container: FilePath, _ decoded: XCSchema.Project, identifiers: [S
         let products =
             target.packageProductTargetMembers.map(\.packageProduct) + target.dependencies.compactMap { dependency in if case .package(let product, _) = dependency { product } else { nil } }
         return (
-            members: products.compactMap { product in
-                let packages = locals.filter { local in local.written == product.package?.packageName }.map(\.path).sorted()
-                return packages.isEmpty ? nil : Member(product: product.productName, packages: packages)
-            },
+            members: products.flatMap { product in locals.filter { local in local.written == product.package?.packageName }.map { local in (product.productName, [local.path]) } },
             remotes: target.dependencies.compactMap { dependency in if case .remoteTarget(let remote, _) = dependency { located(remote.project, in: tree) } else { nil } },
             unresolved: settings.filter(\.macro).map { setting in Setting(target: target.name, setting: setting.key, value: setting.value) },
             files: targetFiles.files + settings.filter { setting in !setting.macro }.map { setting in joined(root, setting.value) },
@@ -120,22 +117,18 @@ func project(_ container: FilePath, _ decoded: XCSchema.Project, identifiers: [S
                 + targetFiles.missing.map { file in Reference(owner: "target \(target.name)", setting: "#include", path: file) },
         )
     }
-    let declared = try schemes(in: container)
-    let stale = declared.flatMap { scheme, _ in
-        scheme.entries.filter { entry in identifiers[entry.container].map { ids in !ids.contains(entry.id) } ?? false }
-            .map { entry in Reference(owner: "scheme \(scheme.name)", setting: "BlueprintIdentifier \(entry.id) in \(entry.container)", path: nil) }
-    }
-    return Analysis(
-        container: Container(
+    let declared = try schemes(in: container, identifiers: identifiers)
+    return try checked(
+        Container(
             path: container.string,
             schemes: declared.map(\.scheme),
             inputs: Set((projectFiles.files + targets.flatMap(\.files) + declared.flatMap(\.references).compactMap(\.path)).map(\.string)).sorted(),
-            members: Set(targets.flatMap(\.members)).sorted { left, right in (left.product, left.packages.joined()) < (right.product, right.packages.joined()) },
+            members: Dictionary(targets.flatMap(\.members), uniquingKeysWith: +).mapValues { packages in Set(packages).sorted() },
             projects: Set((targets.flatMap(\.remotes) + decoded.importedProducts.compactMap { product in located(product.project, in: tree) }).map(\.string) + locals.map(\.path)).sorted(),
             unresolved: targets.flatMap(\.unresolved),
         ),
-        references: projectLevel.map { file in Reference(owner: "project", setting: "baseConfigurationReference", path: file) }
-            + projectFiles.missing.map { file in Reference(owner: "project", setting: "#include", path: file) } + targets.flatMap(\.references) + declared.flatMap(\.references) + stale,
+        projectLevel.map { file in Reference(owner: "project", setting: "baseConfigurationReference", path: file) }
+            + projectFiles.missing.map { file in Reference(owner: "project", setting: "#include", path: file) } + targets.flatMap(\.references) + declared.flatMap(\.references),
     )
 }
 

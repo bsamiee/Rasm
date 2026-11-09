@@ -1,2 +1,54 @@
 <Project>
+    <PropertyGroup Label="Artifacts Output">
+        <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
+        <ArtifactsPath Condition="'$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != '$(NETCoreSdkPortableRuntimeIdentifier)'">$(ArtifactsPath)/$(RuntimeIdentifier)</ArtifactsPath>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Package Metadata">
+        <Authors>Bardia Samiee</Authors>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/bsamiee/Rasm</PackageProjectUrl>
+        <RepositoryUrl>$(PackageProjectUrl)</RepositoryUrl>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Rhino Plug-In Library Copies" Condition="'$(RhinoPlugIn)' != ''">
+        <AssemblyName>$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
+        <RunAnalyzers>false</RunAnalyzers>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Build Defaults">
+        <RepoTargetFramework>net10.0</RepoTargetFramework>
+        <TargetFramework>$(RepoTargetFramework)</TargetFramework>
+        <LangVersion>preview</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+        <CreateHardLinksForCopyLocalIfPossible>true</CreateHardLinksForCopyLocalIfPossible>
+        <AnalysisLevel>latest-all</AnalysisLevel>
+        <MeziantouAnalysisMode>all-warnings</MeziantouAnalysisMode>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
+        <TargetFramework Condition="$([MSBuild]::ValueOrDefault('$(RuntimeIdentifier)', '$(NETCoreSdkPortableRuntimeIdentifier)').StartsWith('win'))">$(RepoTargetFramework)-windows</TargetFramework>
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+        <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
+        <PlatformTarget>AnyCPU</PlatformTarget>
+        <RhinoEnableWindowsFormsTargeting>false</RhinoEnableWindowsFormsTargeting>
+        <PublishDocumentationFiles>false</PublishDocumentationFiles>
+        <PublishReferencesSymbols>false</PublishReferencesSymbols>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">
+        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+        <RestoreLockedMode>true</RestoreLockedMode>
+    </PropertyGroup>
+
+    <ItemGroup Label="Analyzer Configuration">
+        <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory).config/analyzers.globalconfig" />
+    </ItemGroup>
 </Project>

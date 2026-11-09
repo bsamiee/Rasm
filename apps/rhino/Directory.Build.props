@@ -1,0 +1,19 @@
+<Project>
+    <PropertyGroup Label="Rhino Host">
+        <RhinoHost>true</RhinoHost>
+        <RhinoProduct>true</RhinoProduct>
+    </PropertyGroup>
+
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+    <PropertyGroup Label="Rhino Product">
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+        <GenerateDependencyFile>false</GenerateDependencyFile>
+        <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+        <PlugInIcon>EmbeddedResources/icon.svg</PlugInIcon>
+        <PlugInIconPlate>#323232</PlugInIconPlate>
+        <PlugInIconCorner>0.046875</PlugInIconCorner>
+        <PlugInIconInset>0.125</PlugInIconInset>
+    </PropertyGroup>
+</Project>

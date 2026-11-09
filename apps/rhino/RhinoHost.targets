@@ -1,0 +1,129 @@
+<Project>
+    <PropertyGroup Label="Rhino Host">
+        <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' == 'Windows'">$(DefaultItemExcludes);**/Mac/**</DefaultItemExcludes>
+        <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' != 'Windows'">$(DefaultItemExcludes);**/Windows/**</DefaultItemExcludes>
+        <IconLightStylesheet>$(MSBuildThisFileDirectory)icon-light.css</IconLightStylesheet>
+        <IconDarkStylesheet>$(MSBuildThisFileDirectory)icon-dark.css</IconDarkStylesheet>
+        <_IconDir>$(IntermediateOutputPath)Icons/</_IconDir>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino Host">
+        <PackageReference Update="RhinoCommon" ExcludeAssets="runtime" />
+        <PackageReference Include="System.Drawing.Common" ExcludeAssets="compile" Condition="'$(TargetPlatformIdentifier)' != 'Windows'" />
+        <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" Condition="'$(TargetPlatformIdentifier)' == 'Windows'" />
+        <Using Include="Rhino.Geometry" />
+        <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
+        <EmbeddedResource Include="**/EmbeddedResources/**" Exclude="**/*.svg" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <_IconMaster Include="**/EmbeddedResources/**/*.svg" Exclude="$(PlugInIcon)" IconStem="%(Filename)" />
+        <_IconMaster Include="$(PlugInIcon)" IconStem="icon" Condition="Exists('$(PlugInIcon)')" />
+        <_IconMaster Update="@(_IconMaster)" Master="%(FullPath)" />
+        <_ThemedIcon Include="@(_IconMaster->'$(_IconDir)%(IconStem)%(Extension)')" Stylesheet="$(IconLightStylesheet)" />
+        <_ThemedIcon Include="@(_IconMaster->'$(_IconDir)%(IconStem)_darkmode%(Extension)')" Stylesheet="$(IconDarkStylesheet)" />
+        <EmbeddedResource Include="@(_ThemedIcon)" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <FileWrites Include="@(_ThemedIcon)" />
+    </ItemGroup>
+
+    <Target Name="PaintIcons" BeforeTargets="CoreCompile" Condition="'@(_ThemedIcon)' != '' and '$(DesignTimeBuild)' != 'true'" Inputs="%(_ThemedIcon.Master);%(_ThemedIcon.Stylesheet);$(MSBuildAllProjects)" Outputs="%(_ThemedIcon.FullPath)">
+        <MakeDir Directories="$(_IconDir)" />
+        <Exec Command="usvg --stylesheet &quot;%(_ThemedIcon.Stylesheet)&quot; &quot;%(_ThemedIcon.Master)&quot; &quot;%(_ThemedIcon.FullPath)&quot;" LogStandardErrorAsError="true" />
+    </Target>
+
+    <UsingTask TaskName="ReadRhinoHost" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+        <ParameterGroup>
+            <Resources ParameterType="System.String" Required="true" />
+            <Packages ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
+            <References ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
+            <TargetFramework ParameterType="System.String" Output="true" />
+            <Supplied ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+        </ParameterGroup>
+        <Task>
+            <Using Namespace="System.Reflection" />
+            <Using Namespace="System.Runtime.Serialization.Json" />
+            <Using Namespace="System.Xml" />
+            <Using Namespace="System.Xml.Linq" />
+            <Code Type="Fragment" Language="cs">
+                <![CDATA[
+                    XElement Json(string path) => XElement.Load(JsonReaderWriterFactory.CreateJsonReader(File.ReadAllBytes(path), XmlDictionaryReaderQuotas.Max));
+                    string runtime = Directory.GetFiles(Resources, "dotnetstart.*.runtimeconfig.json").Single();
+                    TargetFramework = Json(runtime).Element("runtimeOptions").Element("tfm").Value;
+                    ILookup<string, string> declared = Json(runtime.Replace(".runtimeconfig.json", ".deps.json")).Descendants("assemblyVersion").ToLookup(version => Path.GetFileName(version.Parent.Attribute("item")?.Value ?? version.Parent.Name.LocalName), version => version.Value);
+                    string[] api = Directory.GetDirectories(Path.Combine(Resources, "ManagedPlugIns"), "*.rhp").Prepend(Resources).ToArray();
+                    Supplied = (Packages ?? Array.Empty<ITaskItem>())
+                        .Select(package => (Package: package, Folders: new[] { Resources }))
+                        .Concat((References ?? Array.Empty<ITaskItem>()).Select(reference => (Package: reference, Folders: api)))
+                        .SelectMany(held => held.Folders
+                            .Select(folder => Path.Combine(folder, Path.GetFileName(held.Package.ItemSpec)))
+                            .Where(File.Exists)
+                            .Take(1)
+                            .Select(host => {
+                                TaskItem supplied = new TaskItem(held.Package);
+                                supplied.SetMetadata("HostFile", host);
+                                supplied.SetMetadata("Version", AssemblyName.GetAssemblyName(held.Package.ItemSpec).Version.ToString());
+                                supplied.SetMetadata("HostVersion", declared[Path.GetFileName(host)].DefaultIfEmpty(AssemblyName.GetAssemblyName(host).Version.ToString()).First());
+                                return (ITaskItem)supplied;
+                            }))
+                        .ToArray();
+                ]]>
+            </Code>
+        </Task>
+    </UsingTask>
+
+    <Target Name="ResolveRhinoInstallation" AfterTargets="ResolvePackageAssets">
+        <PropertyGroup>
+            <_RhinoCommonVersion>@(PackageVersion->WithMetadataValue('Identity', 'RhinoCommon')->'%(Version)')</_RhinoCommonVersion>
+            <_RhinoMajorVersion>$([System.Version]::Parse('$(_RhinoCommonVersion)').Major)</_RhinoMajorVersion>
+        </PropertyGroup>
+        <Exec Command="osascript -l JavaScript -e &quot;ObjC.import('AppKit'); \$.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier('com.mcneel.rhinoceros.$(_RhinoMajorVersion)').path?.js ?? ''&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low" Condition="'$(RhinoInstallPath)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">
+            <Output TaskParameter="ConsoleOutput" PropertyName="RhinoInstallPath" />
+        </Exec>
+        <PropertyGroup>
+            <RhinoInstallPath Condition="'$(RhinoInstallPath)' == ''">$([MSBuild]::GetRegistryValue('HKEY_LOCAL_MACHINE\SOFTWARE\McNeel\Rhinoceros\$(_RhinoMajorVersion).0\Install', 'InstallPath'))</RhinoInstallPath>
+        </PropertyGroup>
+        <Error Condition="'$(RhinoInstallPath)' == ''" Text="Rhino $(_RhinoMajorVersion) install not found, install Rhino $(_RhinoMajorVersion) or set RhinoInstallPath" />
+        <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+            <RhinoResourcesDir>$([MSBuild]::NormalizeDirectory('$(RhinoInstallPath)', 'Contents', 'Frameworks', 'RhCore.framework', 'Versions', 'Current', 'Resources'))</RhinoResourcesDir>
+            <_YakExecutable>$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'Contents', 'Resources', 'bin', 'yak'))</_YakExecutable>
+        </PropertyGroup>
+        <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+            <RhinoResourcesDir>$([MSBuild]::NormalizeDirectory('$(RhinoInstallPath)', 'System', 'netcore'))</RhinoResourcesDir>
+            <_YakExecutable>$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'System', 'yak.exe'))</_YakExecutable>
+        </PropertyGroup>
+        <XmlPeek XmlInputPath="$(RhinoInstallPath)/Contents/Info.plist" Query="/plist/dict/key[.='CFBundleShortVersionString']/following-sibling::*[1]/text()" ProhibitDtd="false" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+            <Output TaskParameter="Result" PropertyName="_RhinoVersion" />
+        </XmlPeek>
+        <Error Condition="$([MSBuild]::IsOSPlatform('OSX')) and !$([System.String]::Copy('$(_RhinoVersion)').StartsWith('$(_RhinoMajorVersion).'))" Text="$(RhinoInstallPath) contains Rhino $(_RhinoVersion); Rhino $(_RhinoMajorVersion) is required." />
+        <XmlPeek XmlInputPath="$(RhinoInstallPath)/Contents/Info.plist" Query="/plist/dict/key[.='LSMinimumSystemVersion']/following-sibling::*[1]/text()" ProhibitDtd="false" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+            <Output TaskParameter="Result" PropertyName="_RhinoMacMinimumVersion" />
+        </XmlPeek>
+        <ItemGroup>
+            <_RhinoReference Include="@(ResolvedCompileFileDefinitions)" />
+            <_RhinoReference Remove="@(RuntimeCopyLocalItems)" MatchOnMetadata="NuGetPackageId" />
+        </ItemGroup>
+        <ReadRhinoHost Resources="$(RhinoResourcesDir)" Packages="@(RuntimeCopyLocalItems)" References="@(_RhinoReference)">
+            <Output TaskParameter="TargetFramework" PropertyName="RhinoTargetFramework" />
+            <Output TaskParameter="Supplied" ItemName="_RhinoSupplied" />
+        </ReadRhinoHost>
+        <ItemGroup Condition="'$(IsTestingPlatformApplication)' == 'true'">
+            <RuntimeHostConfigurationOption Include="RhinoInstallPath" Value="$(RhinoInstallPath)" />
+        </ItemGroup>
+        <Error Condition="$([MSBuild]::VersionGreaterThan($([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')), $([MSBuild]::GetTargetFrameworkVersion('$(RhinoTargetFramework)'))))" Text="$(MSBuildProjectName) targets $(TargetFramework), newer than the $(RhinoTargetFramework) runtime Rhino $(_RhinoMajorVersion) loads from $(RhinoResourcesDir)" />
+    </Target>
+
+    <Target Name="ResolveRhinoMacHost" BeforeTargets="ResolveAssemblyReferences;GetAssemblyAttributes" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetPlatformIdentifier)' != 'Windows'">
+        <ItemGroup>
+            <_RhinoMacAssembly Include="System.Drawing.Common;Eto.macOS;Microsoft.macOS" />
+            <Reference Include="@(_RhinoMacAssembly->'$(RhinoResourcesDir)%(Identity).dll')" Private="false" />
+            <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+                <_Parameter1>macos$(_RhinoMacMinimumVersion)</_Parameter1>
+            </AssemblyAttribute>
+        </ItemGroup>
+    </Target>
+
+    <Target Name="ExcludeRhinoHostAssemblies" AfterTargets="ResolvePackageAssets" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(RhinoProduct)' == 'true' or '$(EnableDynamicLoading)' == 'true' or '$(IsTestingPlatformApplication)' == 'true'">
+        <Error Condition="$([MSBuild]::VersionGreaterThan('%(_RhinoSupplied.Version)', '%(_RhinoSupplied.HostVersion)'))" Text="%(_RhinoSupplied.NuGetPackageId) %(_RhinoSupplied.NuGetPackageVersion) ships %(_RhinoSupplied.Filename) %(_RhinoSupplied.Version), above the %(_RhinoSupplied.HostVersion) Rhino $(_RhinoMajorVersion) loads from $(RhinoResourcesDir)" />
+        <ItemGroup>
+            <RuntimeCopyLocalItems Remove="@(_RhinoSupplied)" MatchOnMetadata="NuGetPackageId" />
+            <NativeCopyLocalItems Remove="@(_RhinoSupplied)" MatchOnMetadata="NuGetPackageId" />
+        </ItemGroup>
+    </Target>
+</Project>

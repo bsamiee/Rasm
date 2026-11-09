@@ -2,14 +2,13 @@
 ALWAYS_SEARCH_USER_PATHS = NO
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 COPY_PHASE_STRIP = NO
-COPYRIGHT_HOLDER = Bardia Samiee
 CURRENT_PROJECT_VERSION = 0
 DEAD_CODE_STRIPPING = YES
 DEBUG_INFORMATION_FORMAT[config=Release] = dwarf-with-dsym
 ENABLE_DEBUG_DYLIB = NO
 GENERATE_INFOPLIST_FILE = YES
 INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.utilities
-INFOPLIST_KEY_NSHumanReadableCopyright = ©$(COPYRIGHT_YEAR) $(COPYRIGHT_HOLDER)
+INFOPLIST_KEY_NSHumanReadableCopyright = © Bardia Samiee
 LD_RUNPATH_SEARCH_PATHS = @executable_path/../Frameworks
 LM_SKIP_METADATA_EXTRACTION = YES
 MACOSX_DEPLOYMENT_TARGET = 27.0
@@ -29,7 +28,15 @@ SPARKLE_FEED_URL = https:/$()/github.com/bsamiee/Rasm/releases/download/$(PRODUC
 SPARKLE_PUBLIC_KEY = G+D8EhYh31mwjGKL88W2ft9PRIPMSgt6t8zV6lIBa3Y=
 
 // --- [SWIFT] ---------------------------------------------------------------------------
-OTHER_SWIFT_FLAGS = -enable-upcoming-feature ExistentialAny -enable-upcoming-feature ImmutableWeakCaptures -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature InternalImportsByDefault -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature NonisolatedNonsendingByDefault -strict-memory-safety -warn-soft-deprecated -Xfrontend -warn-long-expression-type-checking-scopes -Xfrontend 200 -warnings-as-errors -Werror ExplicitSendable -Werror StrictLanguageFeatures
+OTHER_SWIFT_FLAGS = -enable-upcoming-feature ImmutableWeakCaptures -warn-soft-deprecated -Xfrontend -warn-long-expression-type-checking-scopes -Xfrontend 200
 SWIFT_COMPILATION_MODE[config=Release] = wholemodule
 SWIFT_OPTIMIZATION_LEVEL[config=Debug] = -Onone
+SWIFT_STRICT_MEMORY_SAFETY = YES
+SWIFT_TREAT_WARNINGS_AS_ERRORS = YES
+SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES
+SWIFT_UPCOMING_FEATURE_INFER_ISOLATED_CONFORMANCES = YES
+SWIFT_UPCOMING_FEATURE_INTERNAL_IMPORTS_BY_DEFAULT = YES
+SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES
+SWIFT_UPCOMING_FEATURE_NONISOLATED_NONSENDING_BY_DEFAULT = YES
 SWIFT_VERSION = 6.0
+SWIFT_WARNINGS_AS_ERRORS_GROUPS = ExplicitSendable StrictLanguageFeatures

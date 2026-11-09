@@ -1,0 +1,32 @@
+# --- [LINKER] ---------------------------------------------------------------------------
+
+# Kept on purpose, do not remove: wild (https://github.com/wild-linker/wild) replaces Apple ld once
+# its Mach-O backend links this workspace. Through 0.11.0 it lacks thread-local storage (#2071),
+# which Rust std uses on macOS, dylib output (#2161), which the Dylint cdylib needs, and debug info
+# (#2068), which `profile.dev` line tables need. Target rustflags replace `build.rustflags`, so the
+# row repeats them.
+# [target.aarch64-apple-darwin]
+# rustflags = ["-Zunstable-options", "--jobs-frontend=8", "-Clink-arg=--ld-path=wild"]
+
+# --- [BUILD] ----------------------------------------------------------------------------
+
+[build]
+target-dir = ".artifacts/rust"
+build-dir  = ".cache/rust"
+rustflags  = ["-Zunstable-options", "--jobs-frontend=8"]
+
+# --- [ENV] ------------------------------------------------------------------------------
+
+[env]
+DYLINT_RUSTFLAGS = "-Zflatten-format-args=no"
+
+# --- [RESOLVER] -------------------------------------------------------------------------
+
+[resolver]
+feature-unification = "workspace"
+
+# --- [UNSTABLE] -------------------------------------------------------------------------
+
+[unstable]
+feature-unification = true
+git                 = "shallow-deps"

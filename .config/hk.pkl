@@ -1,0 +1,40 @@
+amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtins.pkl"
+
+// --- [STEPS] ----------------------------------------------------------------------------
+
+steps {
+    ["ruff"] = Builtins.ruff
+    ["ruff-format"] = (Builtins.ruff_format) { depends = "ruff" }
+    ["rustfmt"] = (Builtins.rustfmt) {
+        batch = true
+        check { command { argv = List("rustfmt", "--check", "--config", "skip_children=true", "{{files}}") } }
+        check_list_files { command { argv = List("rustfmt", "--check", "--files-with-diff", "--config", "skip_children=true", "{{files}}") } }
+        fix { command { argv = List("rustfmt", "--config", "skip_children=true", "{{files}}") } }
+    }
+    ["shellcheck"] = Builtins.shellcheck
+    ["shfmt"] = Builtins.shfmt
+    ["swiftlint"] = (Builtins.swiftlint) {
+        check { command { argv = List("swiftlint", "lint", "--quiet", "{{files}}") } }
+        fix { command { argv = List("swiftlint", "lint", "--fix", "--quiet", "{{files}}") } }
+    }
+    ["swift-format"] {
+        glob = "**/*.swift"
+        depends = "swiftlint"
+        check =new CommandSpec { command = new Command { argv = List("swift", "format", "lint", "--strict", "--parallel", "{{files}}") }; effect = "read" }
+        fix = new CommandSpec { command = new Command { argv = List("swift", "format", "format", "--in-place", "--parallel", "{{files}}") }; effect = "write" }
+        diagnostic_format = "gcc"
+    }
+    ["tombi"] = (Builtins.tombi) { check { command { argv = List("tombi", "lint", "--quiet", "--error-on-warnings", "{{files}}") } } }
+    ["tombi-format"] = Builtins.tombi_format
+    ["xcprojformatter"] {
+        glob = "**/project.xcproj"
+        check_diff = new CommandSpec { command = new Command { argv = List("hk", "util", "format-diff", "{{files}}", "--", "xcrun", "xcprojformatter") }; effect = "read" }
+    }
+}
+
+// --- [HOOKS] ----------------------------------------------------------------------------
+
+hooks {
+    ["commit-msg"] { steps { ["conventional-commit"] = Builtins.check_conventional_commit } }
+}

@@ -1,0 +1,16 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Release publish",
+    "description": "Publishes a crate with cargo publish",
+    "type": "object",
+    "properties": {
+        "cwd": { "type": "string", "description": "Cargo workspace root, relative to the Nx workspace root" },
+        "package": { "type": "string", "description": "Crate to publish" },
+        "registry": { "type": "string", "description": "Registry name from Cargo configuration, crates.io when unset" },
+        "dryRun": { "type": "boolean", "description": "Packages and verifies without uploading" },
+        "firstRelease": { "type": "boolean", "description": "Skips the registry version check" },
+        "nxReleaseVersionData": { "type": "object", "description": "Version data nx release passes per project" }
+    },
+    "required": ["cwd", "package"]
+}

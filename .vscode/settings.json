@@ -21,8 +21,7 @@
         ".swift-format": "json",
         "Package.resolved": "json",
         "pixi.lock": "yaml",
-        "project.xcproj": "jsonc",
-        "shellcheckrc": "properties"
+        "project.xcproj": "jsonc"
     },
 
     // --- [ICONS]
@@ -47,18 +46,17 @@
     "explorer.fileNesting.patterns": {
         "*.csproj": "packages.lock.json, packages.*.lock.json, xunit.runner.json",
         ".gitignore": ".gitattributes, .gitmodules",
-        "Cargo.toml": "Cargo.lock, rust-toolchain.toml",
+        "Cargo.toml": "Cargo.lock, clippy.toml, rustfmt.toml, rust-toolchain.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
-        "clippy.toml": "nextest.toml, rustfmt.toml",
-        "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
-        "hk.pkl": "analyzers.globalconfig, pmd.xml, shellcheckrc, squawk.toml, stubtest.ini, swiftlint.yml, yamllint.yaml",
+        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config",
+        "hk.pkl": "analyzers.globalconfig",
+        "Info.plist": "*.entitlements",
         "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
         "nx.json": ".editorconfig, .nxignore, sgconfig.yml",
-        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.json, vitest.config.ts",
+        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, vitest.config.ts",
         "Package.swift": ".swift-format, Package.resolved, Xcode.xcconfig",
-        "pyproject.toml": "pixi.lock, uv.lock",
+        "pyproject.toml": ".python-version, pixi.lock, uv.lock",
         "README.md": "LICENSE, TODO.md",
-        "Sparkle-Info.plist": "Enhanced.entitlements",
         "tsconfig.base.json": "tsconfig.web.json"
     },
 
@@ -108,7 +106,7 @@
         "**/node_modules": true,
         "**/xcuserdata": true
     },
-    "search.exclude": { ".codex/skills": true, "docs/research": true },
+    "search.exclude": { ".codex/skills": true },
 
     // --- [CMAKE] -----------------------------------------------------------------------
 
@@ -120,7 +118,6 @@
 
     "csharp.suppressBuildAssetsNotification": true,
     "dotnet.codeLens.enableReferencesCodeLens": false,
-    "dotnet.defaultSolution": "Workspace.slnx",
     "dotnet.diagnostics.reportInformationAsHint": false,
     "dotnet.projects.enableAutomaticRestore": false,
     "dotnet.server.useServerGC": false,
@@ -137,7 +134,7 @@
 
     // --- [JSON] ------------------------------------------------------------------------
 
-    "json.schemas": [ { "fileMatch": [ "/biome.json" ], "url": "./node_modules/@biomejs/biome/configuration_schema.json" }, { "fileMatch": [ "/nx.json" ], "url": "./node_modules/nx/schemas/nx-schema.json" }, { "fileMatch": [ "**/*.xcodeproj/project.xcproj" ], "schema": { "allowTrailingCommas": true } } ],
+    "json.schemas": [ { "fileMatch": [ "/biome.json" ], "url": "./node_modules/@biomejs/biome/configuration_schema.json" }, { "fileMatch": [ "**/*.xcodeproj/project.xcproj" ], "schema": { "allowTrailingCommas": true } } ],
 
     // --- [MISE] ------------------------------------------------------------------------
 
@@ -155,11 +152,8 @@
 
     // --- [RUST] ------------------------------------------------------------------------
 
-    "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/vscode" },
-    "rust-analyzer.cargo.targetDir": ".artifacts/rust/vscode",
     "rust-analyzer.checkOnSave": false,
     "rust-analyzer.rustc.source": "discover",
-    "rust-analyzer.rustfmt.extraArgs": [ "--config-path", "${workspaceFolder}/.config/rustfmt.toml" ],
 
     // --- [SHELL] -----------------------------------------------------------------------
 
@@ -170,11 +164,10 @@
     "css.lint.unknownAtRules": "ignore",
     "js/ts.experimental.useTsgo": true,
     "js/ts.trace.server": "off",
-    "js/ts.tsdk.path": "./node_modules/@typescript/native",
+    "js/ts.tsdk.path": "./node_modules/typescript",
     "js/ts.tsserver.automaticTypeAcquisition.enabled": false,
 
     // --- [YAML] ------------------------------------------------------------------------
 
-    "yaml.format.enable": false,
-    "yaml.schemas": { "https://www.schemastore.org/yamllint.json": "/.config/yamllint.yaml" }
+    "yaml.format.enable": false
 }

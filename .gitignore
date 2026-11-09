@@ -1,19 +1,20 @@
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 node_modules/
-.venv/
-.pixi/*
 
 # --- [TOOL_WRITES] ----------------------------------------------------------------------
 
 .git/
 .cache/
+.artifacts/
+.nx/workspace-data
+.nx/migrate-runs
 .build/
-.swiftpm/
+.swiftpm/configuration/registries.json
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 /.cargo/rustc-source
 dist/
 .cloudflare/
-.artifacts/
 .vs/
 *.received.*
 *.pending-snap
@@ -25,7 +26,6 @@ dist/
 *.3dmbak
 *.blend[0-9]*
 *.blend@
-/Grasshopper.*
 xcuserdata/
 __pycache__/
 
@@ -54,6 +54,7 @@ credentials.json
 
 .miserc.local.toml
 mise.local.toml
+mise.local.lock
 *.user
 *.orig
 .DS_Store
@@ -68,11 +69,3 @@ Thumbs.db
 .claude/agent-memory-local/
 .claude/settings.local.json
 docs/research
-
-# --- [PLAN] -----------------------------------------------------------------------------
-
-plan/
-
-.nx/cache
-.nx/workspace-data
-.nx/migrate-runs

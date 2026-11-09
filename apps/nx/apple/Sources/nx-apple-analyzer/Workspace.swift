@@ -3,17 +3,24 @@ import System
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-func attributes(_ path: FilePath, _ queries: [String: String]) throws(AnalyzerError) -> [String: [String]] {
+func document(_ path: FilePath) throws(AnalyzerError) -> XMLDocument {
     let data = try read(path)
     do {
-        let document = try XMLDocument(data: data)
-        return try queries.mapValues { name in try document.nodes(forXPath: name).compactMap { node in node.stringValue } }
+        return try XMLDocument(data: data)
     } catch {
         throw AnalyzerError(subject: path.string, reason: .undecodable(error))
     }
 }
 
-func schemes(in container: FilePath) throws(AnalyzerError) -> [(scheme: Scheme, references: [Reference])] {
+func values(_ xpath: String, in document: XMLDocument, at path: FilePath) throws(AnalyzerError) -> [String] {
+    do {
+        return try document.nodes(forXPath: xpath).compactMap(\.stringValue)
+    } catch {
+        throw AnalyzerError(subject: path.string, reason: .undecodable(error))
+    }
+}
+
+func schemes(in container: FilePath, identifiers: [String: Set<String>]) throws(AnalyzerError) -> [(scheme: Scheme, references: [Reference])] {
     let shared = container.appending("xcshareddata/xcschemes")
     let entries: [String]
     do {
@@ -23,24 +30,18 @@ func schemes(in container: FilePath) throws(AnalyzerError) -> [(scheme: Scheme, 
     }
     return try entries.filter { entry in FilePath(entry).extension == "xcscheme" }.sorted().map { (entry: String) throws(AnalyzerError) in
         let file = shared.appending(entry)
-        let found = try attributes(
-            file,
-            [
-                "ids": "//BuildAction//BuildableReference/@BlueprintIdentifier", "containers": "//BuildAction//BuildableReference/@ReferencedContainer",
-                "plans": "//TestAction/TestPlans/TestPlanReference/@reference", "testables": "//TestAction/Testables/TestableReference",
-            ],
-        )
+        let parsed = try document(file)
         let place = { (reference: String) in joined(container.removingLastComponent(), String(reference.trimmingPrefix("container:"))) }
-        let plans = (found["plans"] ?? []).map(place)
+        let ids = try values("//BuildAction//BuildableReference/@BlueprintIdentifier", in: parsed, at: file)
+        let owners = try values("//BuildAction//BuildableReference/@ReferencedContainer", in: parsed, at: file).map { owner in place(owner).string }
+        let plans = try values("//TestAction/TestPlans/TestPlanReference/@reference", in: parsed, at: file).map(place)
+        let testables = try values("//TestAction/Testables/TestableReference", in: parsed, at: file)
         let name = file.stem ?? entry
         return (
-            Scheme(
-                name: name,
-                entries: zip(found["ids"] ?? [], found["containers"] ?? []).map { id, owner in Entry(id: id, container: place(owner).string) },
-                plans: plans.compactMap(\.stem),
-                tests: !plans.isEmpty || !(found["testables"] ?? []).isEmpty,
-            ),
-            plans.map { plan in Reference(owner: "scheme \(name)", setting: "TestPlanReference", path: plan) },
+            Scheme(name: name, containers: owners, plans: plans.compactMap(\.stem), tests: !plans.isEmpty || !testables.isEmpty),
+            plans.map { plan in Reference(owner: "scheme \(name)", setting: "TestPlanReference", path: plan) }
+                + zip(ids, owners).filter { id, owner in identifiers[owner].map { known in !known.contains(id) } ?? false }
+                .map { id, owner in Reference(owner: "scheme \(name)", setting: "BlueprintIdentifier \(id) in \(owner)", path: nil) },
         )
     }
 }
@@ -64,18 +65,12 @@ func members(of element: XMLElement, group: FilePath, root: FilePath) -> [FilePa
     }
 }
 
-func workspace(_ container: FilePath) throws(AnalyzerError) -> Analysis {
+func workspace(_ container: FilePath, identifiers: [String: Set<String>]) throws(AnalyzerError) -> Container {
     let root = container.removingLastComponent()
-    let file = container.appending("contents.xcworkspacedata")
-    let listed: [FilePath]
-    do {
-        listed = try XMLDocument(data: try read(file)).rootElement().map { element in members(of: element, group: root, root: root) } ?? []
-    } catch {
-        throw AnalyzerError(subject: file.string, reason: .undecodable(error))
-    }
-    let declared = try schemes(in: container)
-    return Analysis(
-        container: Container(path: container.string, schemes: declared.map(\.scheme), inputs: [], members: [], projects: Set(listed.map(\.string)).sorted(), unresolved: []),
-        references: declared.flatMap(\.references) + listed.map { member in Reference(owner: "workspace", setting: "FileRef", path: member) },
+    let listed = try document(container.appending("contents.xcworkspacedata")).rootElement().map { element in members(of: element, group: root, root: root) } ?? []
+    let declared = try schemes(in: container, identifiers: identifiers)
+    return try checked(
+        Container(path: container.string, schemes: declared.map(\.scheme), inputs: [], members: [:], projects: Set(listed.map(\.string)).sorted(), unresolved: []),
+        declared.flatMap(\.references) + listed.map { member in Reference(owner: "workspace", setting: "FileRef", path: member) },
     )
 }

@@ -1,0 +1,24 @@
+# --- [EXTENSION] ------------------------------------------------------------------------
+
+schema_version      = "1.0.0"
+id                  = "darkroom"
+version             = "0.0.0"
+name                = "Darkroom"
+tagline             = "Post-production from raw render to finished image"
+maintainer          = "Bardia Samiee"
+type                = "add-on"
+tags                = ["Compositing", "Render", "Sequencer"]
+blender_version_min = "5.4.0"
+license             = ["SPDX:MIT"]
+
+# --- [PERMISSIONS] ----------------------------------------------------------------------
+
+[permissions]
+files     = "Writes renders, exports, presets, extension data, OCIO config"
+network   = "Submits jobs to Flamenco Manager and posts queue notices to ntfy"
+clipboard = "Copies and pastes setting values between scenes and files"
+
+# --- [BUILD] ----------------------------------------------------------------------------
+
+[build]
+paths_exclude_pattern = ["__pycache__/", ".*", "/*.zip", "*.blend[1-9]", "/pyproject.toml", "/uv.lock"] # Blender defaults, then the uv project files beside the extension

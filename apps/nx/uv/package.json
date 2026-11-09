@@ -1,0 +1,39 @@
+{
+    "name": "@rasm/nx-uv",
+    "version": "0.0.0",
+    "description": "Nx plugin inferring uv workspace members, their checkers, tests, builds, and releases from uv's own workspace metadata",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm",
+        "directory": "apps/nx/uv"
+    },
+    "type": "module",
+    "exports": {
+        ".": "./plugins/workspace.ts",
+        "./release/version-actions": "./version-actions.ts",
+        "./package.json": "./package.json",
+        "./executors.json": "./executors.json"
+    },
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/plugins/workspace.js",
+            "./release/version-actions": "./dist/version-actions.js",
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json"
+        }
+    },
+    "files": [
+        "dist",
+        "executors.json",
+        "executors/*/schema.json"
+    ],
+    "executors": "./executors.json",
+    "dependencies": {
+        "@decimalturn/toml-patch": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@renovatebot/pep440": "catalog:",
+        "effect": "catalog:"
+    }
+}
