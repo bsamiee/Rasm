@@ -51,7 +51,7 @@ const launch = ({ application }: Effect.Success<ReturnType<typeof routes>>, { re
             annotations: Context.omit(Server.Visible)(application.annotations),
         })(
             Tool.make('launch', {
-                description: 'Opens application without activating it, below the frontmost window, reusing the running instance unless new. Arguments and environment reach only an instance launch creates. Returns once launching ends or a dialog requires an answer',
+                description: 'Opens the application without activating it, below the frontmost window, and reuses a running instance unless new is set. Arguments and environment reach only an instance this call starts. Returns when launching ends or a dialog needs an answer',
                 parameters: Parameterless,
                 success: Launched,
             }).annotateMerge(Context.make(Tool.Idempotent, true).pipe(Context.add(Tool.Destructive, false))),

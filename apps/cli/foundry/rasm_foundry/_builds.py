@@ -63,13 +63,13 @@ class Report(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
 
     face: str
     duration: timedelta
-    hash: str = ""
+    hash: str | None = None
     current: bool = False
 
     @classmethod
     def of(cls, face: str, started: int, done: Built | None = None, /, *, current: bool = False) -> Report:
         """Returns a face's report from a monotonic start in nanoseconds and its build, `None` for a source action."""
-        return cls(face=face, duration=_elapsed(started), hash=done.hash if done else "", current=current)
+        return cls(face=face, duration=_elapsed(started), hash=None if done is None else done.hash, current=current)
 
     def extended(self, started: int, /) -> Report:
         """Returns the report with the time since a monotonic start added."""
@@ -248,7 +248,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         held = await _across(partial(self.staged, action), faces)
         kept = tuple(*outcome.to_option().map(lambda pair: pair[0]).to_list() for outcome in held)
         files = {folder: tuple(sorted(folder.glob("*.ttf"))) for folder in {done.path.parent for done in kept}}
-        digests = {folder: _digest(tuple((path.name, read(path).map(_hashed).default_value("")) for path in paths)) for folder, paths in files.items()}
+        digests = {folder: _digest(tuple((path.name, read(path).map(_hashed).to_option().to_optional()) for path in paths)) for folder, paths in files.items()}
         version = (await to_thread.run_sync(_ran, "fontspector", "--version")).default_value(b"")
         identities = {
             done.path: _hashed(b"".join((done.inputs.encode(), digests[done.path.parent], read(self.declaration.approved(done.face)).default_value(b""), self.checking, version))) for done in kept
@@ -384,13 +384,13 @@ async def _across[R](step: Callable[[_Faces], R], faces: tuple[_Faces, ...], /) 
     return await amap(lambda face: to_process.run_sync(step, face), faces)
 
 
-async def performed(action: Action, declaration: Path, /, name: str = "", destination: Path | None = None, *, output: Path) -> Outcome[tuple[Report, ...]]:
+async def performed(action: Action, declaration: Path, /, name: str | None = None, destination: Path | None = None, *, output: Path) -> Outcome[tuple[Report, ...]]:
     """Runs an action across worker processes over each face a name selects in a set declaration, keeping every face's faults.
 
     Args:
         action: Stage to run.
         declaration: Set declaration TOML.
-        name: Set, family, ornament set, typographic family, or PostScript name, empty for the whole set.
+        name: Set, family, ornament set, typographic family, or PostScript name, `None` for the whole set.
         destination: Folder a publication copies into.
         output: Folder the set's sources, binaries, and check reports write to.
 
@@ -403,7 +403,7 @@ async def performed(action: Action, declaration: Path, /, name: str = "", destin
     selected = _declared(declaration, output).bind(
         lambda found: paired(
             paired(RecordFile(path=found.corpus, form=Corpus).read(), _closure()).map(lambda inputs: _Builds.opened(found, *inputs)),
-            Ok(tuple(face for face in found.set.faces if name in {"", found.set.name, face.family, face.typographic, face.postscript})).filter_with(
+            Ok(tuple(face for face in found.set.faces if name is None or name in {found.set.name, face.family, face.typographic, face.postscript})).filter_with(
                 bool, lambda _: Fault.of(Reason.ABSENT, found.set.name, member=f"family or face {name}")
             ),
         )

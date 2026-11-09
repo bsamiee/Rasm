@@ -3,7 +3,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, getOutputsForTargetAndConfiguration, hashArray, logger, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Result, Schema } from 'effect';
-import { Described, MANIFEST, NPM, Npm, type Package, packageEdges, packageParts, sources } from '#/plugins/swift-package';
+import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, sources } from '#/plugins/swift-package';
 import { AppleError, core, type Part, present, spawned, target, tokened } from '#/plugins/targets';
 import { Analyzed, evaluated, Host, invocation, Request, released, xcodeParts } from '#/plugins/xcode-project';
 
@@ -18,7 +18,7 @@ interface Graph {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const READ = [MANIFEST, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcworkspace/contents.xcworkspacedata', '*.xcscheme', '*.xcconfig'];
+const READ = [MANIFEST, INFO, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcworkspace/contents.xcworkspacedata', '*.xcscheme', '*.xcconfig'];
 const FILES = `**/{${[...READ, '*.xcodeproj/project.pbxproj', '*.xctestplan', '*.entitlements', '*.plist'].join(',')}}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -49,14 +49,14 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.flatMap(spawned('swift', ['package', '--package-path', path.dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json'], { cwd: workspaceRoot }), Schema.decodeEffect(Described))), {
         concurrency: 'unbounded',
     });
-    const published = yield* Effect.forEach(readable, (file) =>
-        Effect.map(
-            Effect.option(Effect.flatMap(fs.readFileString(path.join(workspaceRoot, path.dirname(file), NPM)), Schema.decodeEffect(Npm))),
-            Option.exists((npm) => npm.private !== true),
-        ),
+    const packages = yield* Effect.forEach(
+        Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(result, (manifest) => ({ file, root: path.dirname(file), manifest }))),
+        Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists'>) {
+            const listed = yield* Effect.filter(swiftPackage.manifest.targets, (module) => fs.exists(path.join(workspaceRoot, swiftPackage.root, module.path, INFO)));
+            return { ...swiftPackage, plists: new Set(listed.map(({ name }) => name)) } satisfies Package;
+        }),
     );
-    const packages = Array.filterMap(Array.zip(Array.zip(readable, published), describedResults), ([[file, npm], held]) => Result.map(held, (success): Package => ({ file, root: path.dirname(file), npm, held: success })));
-    const described = new Map(packages.map((found) => [path.resolve(workspaceRoot, found.root), found] as const));
+    const described = new Map(packages.map((swiftPackage) => [path.resolve(workspaceRoot, swiftPackage.root), swiftPackage] as const));
     const local = (at: string) => Option.fromUndefinedOr(described.get(path.resolve(workspaceRoot, at)));
     const analysis = yield* Option.match(analyzer, {
         onNone: () => Effect.succeed(Result.succeed<typeof Analyzed.Type>({ containers: [], failures: {} })),
@@ -75,14 +75,14 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         return Option.getOrElse(Array.head(owners.length === 1 ? owners : []), () => at);
     };
     const evaluatedResults = yield* Effect.forEach(analyzed.containers, (container) => Effect.result(evaluated(workspaceRoot, options, container, built(container.path))));
-    const xcode = Array.zip(analyzed.containers, evaluatedResults).flatMap(([container, held]) => (Result.isSuccess(held) ? [{ container, ...held.success }] : []));
+    const xcode = Array.zip(analyzed.containers, evaluatedResults).flatMap(([container, result]) => (Result.isSuccess(result) ? [{ container, ...result.success }] : []));
     const unread = [
         ...(Option.isNone(printed) ? manifests.map((file) => ({ file, reason: 'swift is absent on this host' })) : []),
-        ...Array.zip(readable, describedResults).flatMap(([file, held]) => (Result.isFailure(held) ? [{ file, reason: held.failure.message }] : [])),
+        ...Array.zip(readable, describedResults).flatMap(([file, result]) => (Result.isFailure(result) ? [{ file, reason: result.failure.message }] : [])),
         ...(Option.isNone(analyzer) ? containers.map((file) => ({ file, reason: `${absent.join(', ')} absent on this host` })) : []),
         ...(Result.isFailure(analysis) ? containers.map((file) => ({ file, reason: analysis.failure.message })) : []),
         ...Record.collect(analyzed.failures, (at, reason) => ({ file: marker(at), reason })),
-        ...Array.zip(analyzed.containers, evaluatedResults).flatMap(([container, held]) => (Result.isFailure(held) ? [{ file: marker(container.path), reason: held.failure.message }] : [])),
+        ...Array.zip(analyzed.containers, evaluatedResults).flatMap(([container, result]) => (Result.isFailure(result) ? [{ file: marker(container.path), reason: result.failure.message }] : [])),
         ...unsupported.map((file) => ({ file, reason: 'project.pbxproj has no reader, and no project.xcproj sits beside it' })),
     ];
     yield* Effect.forEach(unread, ({ file, reason }) => Effect.sync(() => logger.warn(`${file} takes its project and targets from the file alone, and its runs report the tool's own failure: ${reason}`)));
@@ -92,13 +92,15 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
             : { file, reason, root: path.dirname(path.dirname(file)), name: path.basename(path.dirname(file), path.extname(path.dirname(file))), technology: 'xcode', tool: 'xcodebuild', run: ['xcodebuild', 'build', ...invocation(path, options, path.dirname(file)).flags] as const },
     );
     const packaged = (at: string) => Option.isSome(local(at));
-    const platforms = (at: string) => Option.match(local(at), { onNone: () => [], onSome: (found) => found.held.platforms.map((platform) => platform.name) });
+    const platforms = (at: string) => Option.match(local(at), { onNone: () => [], onSome: (swiftPackage) => swiftPackage.manifest.platforms.map((platform) => platform.name) });
     const destinations = (folders: readonly string[]) => Array.dedupe(folders.flatMap((folder) => (platforms(folder).length === 0 ? Option.toArray(host) : platforms(folder))));
-    const nested = packages.flatMap((owner) => owner.held.targets.map((module) => ({ owner: owner.file, folder: `${path.join(owner.root, module.path)}/` }))).flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${path.dirname(other)}/`.startsWith(folder)).map((inner) => ({ owner, inner })));
+    const nested = packages
+        .flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: `${path.join(owner.root, module.path)}/` })))
+        .flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${path.dirname(other)}/`.startsWith(folder)).map((inner) => ({ owner, inner })));
     yield* Effect.forEach(nested, ({ owner, inner }) => Effect.sync(() => logger.warn(`${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`)));
-    const linked = (container: (typeof xcode)[number]['container']) => container.projects.flatMap((at) => Option.toArray(local(at))).flatMap((found) => sources(path, found, described));
+    const linked = (container: (typeof xcode)[number]['container']) => container.projects.flatMap((at) => Option.toArray(local(at))).flatMap((swiftPackage) => sources(path, swiftPackage, described));
     const parts: readonly Part[] = [
-        ...packages.flatMap((found) => packageParts(path, options, plugin, found, described)),
+        ...packages.flatMap((swiftPackage) => packageParts(path, options, plugin, swiftPackage, described)),
         ...xcode.map(({ container, inputs, archives }) =>
             xcodeParts(path, options, plugin, marker(container.path), container, Array.dedupe([...inputs.flatMap((at) => tokened(path, at)), ...linked(container).filter((input) => !input.endsWith('Package.resolved'))]), archives, built(container.path), destinations, packaged),
         ),
@@ -128,7 +130,9 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         }),
     );
     const roots = new Map(merged.map((part) => [part.name, part.root] as const));
-    const edges = packages.flatMap((found) => packageEdges(found.held, described)).flatMap((edge) => Option.toArray(Option.all([Option.fromUndefinedOr(roots.get(edge.source)), Option.fromUndefinedOr(roots.get(edge.target))])).flatMap(([source, sink]) => (source === sink ? [] : [{ ...edge, source, target: sink }])));
+    const edges = packages
+        .flatMap((swiftPackage) => packageEdges(swiftPackage.manifest, described))
+        .flatMap((edge) => Option.toArray(Option.all([Option.fromUndefinedOr(roots.get(edge.source)), Option.fromUndefinedOr(roots.get(edge.target))])).flatMap(([source, sink]) => (source === sink ? [] : [{ ...edge, source, target: sink }])));
     const aggregates = (part: Part) =>
         Record.map(
             Array.groupBy(
@@ -138,7 +142,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
             (group, verb): TargetConfiguration => ({
                 executor: 'nx:noop',
                 dependsOn: [`${verb}--*`],
-                inputs: ['...', ...Array.dedupe(group.flatMap(([, held]) => held.inputs ?? []))],
+                inputs: ['...', ...Array.dedupe(group.flatMap(([, member]) => member.inputs ?? []))],
                 metadata: { technologies: [...part.technologies], description: `Runs every ${verb}--* target` },
             }),
         );
@@ -177,7 +181,7 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: Optio
     const plugin = yield* core;
     const compiled = yield* Effect.option(Effect.flatMap(plugin.analyzer, fs.stat));
     const hash = hashArray([
-        yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [`**/{${READ.join(',')}}`, path.join(path.relative(workspaceRoot, plugin.folder), '**/*.{ts,json,swift}'), ...files.filter((file) => path.basename(file) === MANIFEST).map((file) => path.join(path.dirname(file), NPM))])),
+        yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [`**/{${READ.join(',')}}`, path.join(path.relative(workspaceRoot, plugin.folder), '**/*.{ts,json,swift}')])),
         plugin.version,
         String(
             Option.getOrElse(
@@ -191,7 +195,7 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: Optio
     ]);
     const cache = new PluginCache<Graph>(path.join(workspaceDataDirectory, `${path.basename(plugin.name)}-${hashObject(options)}.hash`));
     const result = yield* Option.match(Option.fromNullishOr(cache.get(hash)), {
-        onSome: (held) => Effect.succeed({ graph: held, failures: [] }),
+        onSome: (cached) => Effect.succeed({ graph: cached, failures: [] }),
         onNone: () =>
             Effect.tap(analyze(workspaceRoot, options, plugin, files), (fresh) =>
                 fresh.complete && fresh.failures.length === 0
@@ -215,7 +219,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
             Effect.flatMap(
                 Effect.mapError(
                     Effect.flatMap(Schema.decodeEffect(Options)(options ?? {}), (decoded) => graph(workspaceRoot, decoded, files)),
-                    (error) => new AggregateCreateNodesError([[null, new Error(error.message)]], []),
+                    (error) => new AggregateCreateNodesError([[null, error]], []),
                 ),
                 (result) =>
                     result.failures.length === 0
@@ -235,12 +239,12 @@ const createDependencies: CreateDependencies<typeof Options.Encoded> = (options,
     const report = reports.get(hashArray([workspaceRoot, hashObject(options ?? {})]));
     const declared = Record.collect(projects, (producer, project) =>
         Record.collect(
-            Record.filter(project.targets ?? {}, (held) => held.outputs !== undefined),
-            (name, held) => [{}, ...Record.keys(held.configurations ?? {}).map((configuration) => ({ configuration }))].map((selected) => ({ producer, project, name, selected })),
+            Record.filter(project.targets ?? {}, (configured) => configured.outputs !== undefined),
+            (name, configured) => [{}, ...Record.keys(configured.configurations ?? {}).map((configuration) => ({ configuration }))].map((selected) => ({ producer, project, name, selected })),
         ).flat(),
     ).flat();
     const outputs = declared.flatMap(({ producer, project, name, selected }) => getOutputsForTargetAndConfiguration({ project: producer, target: name, ...selected }, {}, { name: producer, type: 'lib', data: project }).flatMap((output) => (output.startsWith('!') ? [] : [{ root: project.root, output }])));
-    const buildFiles = Record.collect(report?.buildFiles ?? {}, (root, held) => held.map((at) => ({ root, at }))).flat();
+    const buildFiles = Record.collect(report?.buildFiles ?? {}, (root, files) => files.map((at) => ({ root, at }))).flat();
     const produced = Array.cartesian(buildFiles, outputs)
         .filter(([{ root, at }, { root: producer, output }]) => root !== producer && (matchesGlob(at, output) || matchesGlob(at, join(output, '**')) || !relative(at, output).startsWith('..')))
         .map(([{ root }, { root: producer }]): RawProjectGraphDependency => ({ source: root, target: producer, type: DependencyType.implicit }));

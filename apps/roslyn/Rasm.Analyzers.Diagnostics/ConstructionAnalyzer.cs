@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.FlowAnalysis;
@@ -28,12 +29,19 @@ public sealed class ConstructionAnalyzer : RasmAnalyzer {
     private static readonly DiagnosticDescriptor Sentinel = Rule(
         "RASM3102",
         Category,
-        "Sentinel for an absent member, state absence in the type",
-        "`{0}` receives sentinel `{1}` for an absent member, take `Option` or a case holding only the facts its path supplies",
-        "Record members state absence through `Option` or a case holding only the facts its path supplies, never a sentinel value.",
+        "Sentinel stands for absence, state absence in the type",
+        "`{1}` stands for absence in `{0}`, state absence through `Option`, a nullable, or a case holding only the facts its path supplies",
+        "Absence is `Option`, a nullable, or a case holding only the facts its path supplies. Record members receive no sentinel, and no coalesce, `IfNone`, `None` arm, fallback argument, or string parameter default yields an empty string for absence, outside a method whose whole body converts its one `Option` parameter for a host.",
         WellKnownDiagnosticTags.CompilationEnd);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [TypeName, Sentinel];
+    private static readonly DiagnosticDescriptor Forgiven = Rule(
+        "RASM3105",
+        Category,
+        "Null-forgiving operator on a nullable result, lift the absence",
+        "`{0}` silences a nullable result, lift it through `Optional` into `Option` or `Fin` with the failure it stands for",
+        "A member annotated to return null states that its result can be absent. `!` on that result hides the absence and fails later with a null dereference; `Optional(...)` names the outcome. A result an override or interface implementation passes to a host signature that cannot carry null is exempt.");
+
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [TypeName, Sentinel, Forgiven];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         Compilation compilation = context.Compilation;
@@ -62,6 +70,8 @@ public sealed class ConstructionAnalyzer : RasmAnalyzer {
         ISymbol? empty = Declared(compilation, "F:System.String.Empty").FirstOrDefault();
         ImmutableArray<IMethodSymbol> transforms = Members(text, nameof(string.ToUpperInvariant), nameof(string.ToLowerInvariant), nameof(string.Trim), nameof(string.TrimEnd), nameof(string.TrimStart));
         ImmutableArray<IMethodSymbol> emptyTests = Members(text, nameof(string.IsNullOrEmpty), nameof(string.IsNullOrWhiteSpace));
+        ImmutableArray<ISymbol> callers = Declared(compilation,
+            "T:System.Runtime.CompilerServices.CallerArgumentExpressionAttribute", "T:System.Runtime.CompilerServices.CallerMemberNameAttribute", "T:System.Runtime.CompilerServices.CallerFilePathAttribute");
         ImmutableArray<IParameterSymbol> fallbacks = [
             .. Members(option, "IfNone").SelectMany(static method => method.Parameters),
             .. Members(option, "Match").SelectMany(static method => method.Parameters.Where(static parameter => parameter.Type is not INamedTypeSymbol { DelegateInvokeMethod.Parameters.Length: > 0 })),
@@ -107,6 +117,12 @@ public sealed class ConstructionAnalyzer : RasmAnalyzer {
                 IBinaryOperation { OperatorKind: BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals, LeftOperand: IPropertyReferenceOperation { Property: { Name: nameof(string.Length), ContainingType.SpecialType: SpecialType.System_String }, Instance: { } instance }, RightOperand.ConstantValue: { HasValue: true, Value: 0 } } => Compared(instance),
                 IBinaryOperation { OperatorKind: BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals, RightOperand: IPropertyReferenceOperation { Property: { Name: nameof(string.Length), ContainingType.SpecialType: SpecialType.System_String }, Instance: { } instance }, LeftOperand.ConstantValue: { HasValue: true, Value: 0 } } => Compared(instance),
                 IInvocationOperation call when Among(call.TargetMethod, emptyTests) => Compared(call.Arguments[0].Value),
+                IIsPatternOperation {
+                    Value: IPropertyReferenceOperation { Property: { Name: nameof(string.Length), ContainingType.SpecialType: SpecialType.System_String }, Instance: { } instance },
+                    Pattern: IConstantPatternOperation { Value.ConstantValue: { HasValue: true, Value: 0 } }
+                        or INegatedPatternOperation { Pattern: IConstantPatternOperation { Value.ConstantValue: { HasValue: true, Value: 0 } } }
+                        or IRelationalPatternOperation { Value.ConstantValue: { HasValue: true, Value: 0 } },
+                } => Compared(instance),
                 IIsPatternOperation { Pattern: IConstantPatternOperation constant, Value: var tested } when Empty(constant.Value) => Compared(tested),
                 IPropertySubpatternOperation { Pattern: IConstantPatternOperation constant, Member: IMemberReferenceOperation reference } when Empty(constant.Value) => reference.Member,
                 _ => null,
@@ -117,6 +133,56 @@ public sealed class ConstructionAnalyzer : RasmAnalyzer {
         context.RegisterOperationAction(analysis => {
             if (analysis.Operation.Type is INamedTypeSymbol made && Data(made)) records.Add(analysis.Operation);
         }, OperationKind.ObjectCreation, OperationKind.With);
+
+        bool Yielded(IOperation value) => Empty(value) || (Lambda(value) is { } function && Sole(function.Body) is { } returned && Empty(returned));
+
+        static bool Spliced(IOperation value) {
+            IOperation? parent = value.Parent;
+            while (parent is IConversionOperation or IConditionalOperation or IParenthesizedOperation) parent = parent.Parent;
+            return parent is IInterpolationOperation or IBinaryOperation { OperatorKind: BinaryOperatorKind.Add, Type.SpecialType: SpecialType.System_String };
+        }
+
+        static bool Converted(IOperation value, IOperation? receiver) =>
+            value.Parent is IReturnOperation { Parent: IBlockOperation { Operations.Length: 1, Parent: IMethodBodyOperation } }
+            && receiver is not null && Stripped(receiver) is IParameterReferenceOperation { Parameter.ContainingSymbol: IMethodSymbol { Parameters.Length: 1 } };
+
+        Report<IOperation>(context, [OperationKind.Coalesce, OperationKind.Invocation, OperationKind.Argument], (value, _) => value switch {
+            ICoalesceOperation coalesce when Empty(coalesce.WhenNull) && !Spliced(coalesce) && !Converted(coalesce, coalesce.Value) =>
+                [Diagnostic.Create(Sentinel, coalesce.Syntax.GetLocation(), coalesce.Syntax, coalesce.WhenNull.Syntax)],
+            IInvocationOperation call when !Spliced(call) && !Converted(call, Receiver(call))
+                && call.Arguments.FirstOrDefault(argument => Among(argument.Parameter, fallbacks) && Yielded(argument.Value)) is { } absent =>
+                [Diagnostic.Create(Sentinel, call.Syntax.GetLocation(), call.Syntax, absent.Value.Syntax)],
+            IArgumentOperation { Parameter.Name: "fallback" or "defaultValue" } argument when Empty(argument.Value) =>
+                [Diagnostic.Create(Sentinel, argument.Syntax.GetLocation(), argument.Parameter.ContainingSymbol.Name, argument.Value.Syntax)],
+            _ => [],
+        });
+
+        static bool Hosted(ISymbol? member) => member is IMethodSymbol { IsOverride: true } or IMethodSymbol { ExplicitInterfaceImplementations.IsEmpty: false }
+            || (member is IMethodSymbol method && method.ContainingType.AllInterfaces.SelectMany(static contract => contract.GetMembers())
+                .Any(contract => SymbolEqualityComparer.Default.Equals(method.ContainingType.FindImplementationForInterfaceMember(contract), method)));
+
+        context.RegisterSyntaxNodeAction(static analysis => {
+            if (analysis.IsGeneratedCode || analysis.Node is not PostfixUnaryExpressionSyntax { Operand: var operand } forgiven) return;
+            ISymbol? target = forgiven.Parent switch {
+                AssignmentExpressionSyntax { Left: var left } assignment when assignment.Right == forgiven =>
+                    analysis.SemanticModel.GetSymbolInfo(left, analysis.CancellationToken).Symbol is IParameterSymbol { RefKind: RefKind.Out } parameter ? parameter.ContainingSymbol : null,
+                ReturnStatementSyntax or ArrowExpressionClauseSyntax => analysis.SemanticModel.GetEnclosingSymbol(forgiven.SpanStart, analysis.CancellationToken),
+                _ => null,
+            };
+            bool nullable = analysis.SemanticModel.GetSymbolInfo(operand, analysis.CancellationToken).Symbol switch {
+                IMethodSymbol method => method.ReturnNullableAnnotation is NullableAnnotation.Annotated,
+                IPropertySymbol property => property.NullableAnnotation is NullableAnnotation.Annotated,
+                _ => false,
+            };
+            if (nullable && !Hosted(target)) analysis.ReportDiagnostic(Diagnostic.Create(Forgiven, forgiven.GetLocation(), forgiven));
+        }, SyntaxKind.SuppressNullableWarningExpression);
+
+        context.RegisterSymbolAction(analysis => {
+            if (analysis.IsGeneratedCode || analysis.Symbol is not IMethodSymbol { IsOverride: false, ExplicitInterfaceImplementations.IsEmpty: true } method) return;
+            foreach (IParameterSymbol parameter in method.Parameters.Where(parameter => parameter is { HasExplicitDefaultValue: true, ExplicitDefaultValue: "", Type.SpecialType: SpecialType.System_String }
+                         && !parameter.GetAttributes().Any(attribute => Among(attribute.AttributeClass, callers))))
+                analysis.ReportDiagnostic(Diagnostic.Create(Sentinel, parameter.Locations.FirstOrDefault(), method.Name, "\"\""));
+        }, SymbolKind.Method);
 
         semantics.Complete((end, models) => {
             ConcurrentDictionary<ISymbol, ImmutableArray<IOperation>> declarations = new(SymbolEqualityComparer.Default);

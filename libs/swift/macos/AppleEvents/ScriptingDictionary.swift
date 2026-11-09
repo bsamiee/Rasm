@@ -29,8 +29,14 @@ public final class ScriptingDictionary: Encodable, Sendable {
             Self(name: "direct", code: AEKeyword(keyDirectObject), types: types, members: [])
         }
 
+        private enum Key: CodingKey {
+            case name, code
+        }
+
         public func encode(to encoder: any Encoder) throws {
-            try ["name": name, "code": code.sdef].encode(to: encoder)
+            var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+            try fields.encode(name, forKey: .name)
+            try fields.encode(code.sdef, forKey: .code)
         }
     }
 
@@ -96,14 +102,13 @@ public final class ScriptingDictionary: Encodable, Sendable {
             element.attribute(forName: "name")?.stringValue
         }
         let extensions: [String?: [XMLElement]] = try Dictionary(grouping: elements("//class-extension")) { element in element.attribute(forName: "extends")?.stringValue }
+        func lineage(_ level: OrderedSet<XMLElement>, _ seen: OrderedSet<XMLElement>) -> OrderedSet<XMLElement> {
+            let parents: [XMLElement] = level.flatMap { (child: XMLElement) -> [XMLElement] in child.attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? [] }
+            let unseen: OrderedSet<XMLElement> = OrderedSet(parents).subtracting(seen)
+            return unseen.isEmpty ? seen : lineage(unseen, seen.union(unseen))
+        }
         func inherited(_ element: XMLElement) -> [XMLElement] {
-            var lineage: OrderedSet<XMLElement> = [element]
-            var cursor: Int = 0
-            while cursor < lineage.count {
-                lineage.append(contentsOf: lineage[cursor].attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? [])
-                cursor += 1
-            }
-            return lineage.flatMap { (ancestor: XMLElement) -> [XMLElement] in
+            lineage([element], [element]).flatMap { (ancestor: XMLElement) -> [XMLElement] in
                 let extended: [XMLElement] = ancestor.attribute(forName: "name")?.stringValue.flatMap { name in extensions[name] } ?? []
                 return ancestor.elements(forName: "property") + extended.flatMap { element in element.elements(forName: "property") }
             }
@@ -142,7 +147,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
                 }
             }
         ).elements
-        let declared: [Kind: [Term]] = try Dictionary(
+        let declared = try Dictionary(
             uniqueKeysWithValues: Kind.allCases.filter { kind in kind != .command }.map { kind throws(AppleEventFailure) in (kind, terms(try elements("//\(kind.rawValue)"))) }
         )
         let typed: [Term] = typedKinds.flatMap { kind in declared[kind, default: []] }
@@ -161,7 +166,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
     }
 
     public func text(of kind: Kind, named name: String) throws(AppleEventFailure) -> String {
-        let query: String = """
+        let query = """
             let $suites := for $suite in /dictionary/suite
                 let $picked := if ($kind = "suite") then (for $child in $suite[@name = $name]/* return element { name($child) } { $child/@* }) else $suite/*[name() = $kind][@name = $name]
                 where exists($picked) or ($kind = "suite" and $suite/@name = $name)
@@ -198,7 +203,7 @@ extension ScriptingDictionary {
     // --- [COMMANDS]
 
     public func command(_ query: String, taking arguments: Set<String>) throws(Unmatched) -> Command {
-        let code: UInt64? = UInt64(sdef: query)
+        let code = UInt64(sdef: query)
         let matching: (Command) -> Bool = { command in command.name == query || command.code == code }
         let takes: (Command) -> Bool = { command in
             arguments.allSatisfy { argument in command.parameters.contains { term in term.name == argument || term.code == FourCharCode(sdef: argument) } }

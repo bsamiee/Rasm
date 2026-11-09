@@ -55,7 +55,17 @@ utils:
             - any:
                 - has: {kind: type_annotation, has: {field: name, matches: type}}
                 - not: {has: {kind: type_annotation}}
-                  has: {field: value, kind: call_expression, has: {nthChild: 1, matches: type}}
+                  has: {field: value, matches: inferred}
+    inferred:
+        any:
+            - kind: call_expression
+              has: {nthChild: 1, any: [{matches: type}, {kind: navigation_expression, has: {field: target, matches: type}}]}
+            - kind: navigation_expression
+              has: {field: target, matches: type}
+            - kind: as_expression
+              has: {field: name, matches: type}
+            - kind: 'try_expression, await_expression'
+              has: {field: expr, matches: inferred}
     typed-owner:
         kind: 'class_body, enum_class_body'
         has: {kind: property_declaration, matches: typed-property}

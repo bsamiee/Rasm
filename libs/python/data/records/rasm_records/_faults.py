@@ -2,6 +2,7 @@
 
 from collections.abc import Iterable
 from enum import StrEnum
+from string import Formatter
 import traceback
 from typing import Never, overload
 
@@ -19,15 +20,15 @@ Nothing = Option[Never].Nothing()
 
 
 class Reason(StrEnum):
-    """Refusal kinds, each value the report template of its fault."""
+    """Refusal kinds, each value the report template of its fault, a cause the template names no field for following it as a sentence."""
 
     OUTSIDE = "{subject} accepts {member}, not {cause}"
-    INVALID = "{subject} is invalid. {cause}"
+    INVALID = "{subject} is invalid"
     ABSENT = "{subject} holds no {member}"
-    UNMET = "{subject} misses {member}. {cause}"
-    FAILED = "{subject} failed. {cause}"
-    UNREADABLE = "{subject} is unreadable. {cause}"
-    UNWRITABLE = "{subject} is unwritable. {cause}"
+    UNMET = "{subject} misses {member}"
+    FAILED = "{subject} failed"
+    UNREADABLE = "{subject} is unreadable"
+    UNWRITABLE = "{subject} is unwritable"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -38,8 +39,8 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
 
     reason: StrEnum
     subject: str
-    member: str = ""
-    cause: object = ""
+    member: str | None = None
+    cause: object | None = None
 
     @property
     def message(self) -> str:
@@ -47,12 +48,13 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
         return self.filled(self.reason)
 
     def filled(self, template: str, /) -> str:
-        """Returns a message template with the fault fields filled, the form a translated template takes."""
+        """Returns a message template with the fault fields filled, the form a translated template takes, and a cause it names no field for as a following sentence."""
         cause = "".join(traceback.format_exception_only(self.cause, show_group=True)).rstrip() if isinstance(self.cause, BaseExceptionGroup) else self.cause
-        return template.format(subject=self.subject, member=self.member, cause=cause)
+        text = template.format(subject=self.subject, member=self.member, cause=cause)
+        return text if cause is None or any(field == "cause" for _, field, _, _ in Formatter().parse(template)) else f"{text}. {cause}"
 
     @classmethod
-    def of(cls, reason: StrEnum, subject: str, cause: object = "", /, *, member: str = "") -> Faults:
+    def of(cls, reason: StrEnum, subject: str, cause: object | None = None, /, *, member: str | None = None) -> Faults:
         """Returns a one-fault tuple over subject, the refused value or caught error as cause."""
         return (cls(reason=reason, subject=subject, member=member, cause=cause),)
 

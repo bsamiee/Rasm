@@ -19,7 +19,7 @@ const worker =
     <const E extends Record.ReadonlyRecord<string, Binding>, const C extends Omit<WorkerConfig, 'name'>>(app: App<E>, config: C) =>
     ({ mode }: ConfigContext) => {
         const named = Option.getOrElse(
-            Option.filter(Option.fromUndefinedOr(mode), (held): held is keyof typeof App.modes => Object.hasOwn(App.modes, held)),
+            Option.filter(Option.fromUndefinedOr(mode), (name): name is keyof typeof App.modes => Object.hasOwn(App.modes, name)),
             () => 'production' as const,
         );
         const projected = Record.map(app.env, (binding, variable) =>

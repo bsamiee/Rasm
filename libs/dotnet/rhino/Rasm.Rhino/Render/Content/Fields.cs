@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.CompilerServices;
 using Rhino.Render;
@@ -43,17 +44,17 @@ public static class ContentFields {
 
     private static Fin<TDelegate> Adding<TDelegate>(string member) where TDelegate : Delegate {
         RhinoFault Rejected(Option<Error> inner) => new((typeof(TDelegate), member), RhinoReason.Unsupported, Inner: inner);
-        return Try.lift(() => typeof(FieldDictionary)
-                .GetMethod(member, [.. typeof(TDelegate).GetMethod(nameof(Action.Invoke))!.GetParameters().Skip(1).Select(static parameter => parameter.ParameterType)])
-                ?.CreateDelegate<TDelegate>()).Run()
+        return Try.lift(() => Optional(typeof(TDelegate).GetMethod(nameof(Action.Invoke)))
+                .Bind(invoke => Optional(typeof(FieldDictionary).GetMethod(member, [.. invoke.GetParameters().Skip(1).Select(static parameter => parameter.ParameterType)])))
+                .Map(static method => method.CreateDelegate<TDelegate>())).Run()
             .MapFail(error => Rejected(error))
-            .Bind(binding => Optional(binding).Match<Fin<TDelegate>>(Some: static held => held, None: () => Rejected(None)));
+            .Bind(binding => binding.ToFin(Rejected(None)));
     }
 
     // --- [VARIANTS]
 
     private const string VariantName = "Rhino.Render.Variant, RhinoCommon";
-    private static readonly Type VariantType = Type.GetType(VariantName, throwOnError: true)!;
+    private static readonly Type VariantType = Type.GetType(VariantName, throwOnError: true) ?? throw new UnreachableException($"{VariantName} resolves or throws");
 
     internal static IO<Option<T>> Unwrapped<T>(Func<object?> read, string name) where T : notnull =>
         Products.Maybe(read, name).Bind(held => IO.lift(held.Bind(static value => VariantType.IsInstanceOfType(value) ? Optional(AsObject(value)) : Some(value))

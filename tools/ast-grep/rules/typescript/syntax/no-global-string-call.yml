@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsxlang
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    has: {field: function, kind: member_expression, all: [{has: {field: object, regex: '^globalThis$'}}, {has: {field: property, regex: '^String$'}}]}
+message: '`$CALL` calls the global `String` an imported `String` module shadows'
+note: 'Substitute the value in its template, call its own `toString`, or render an unknown value through `Formatter.format`'

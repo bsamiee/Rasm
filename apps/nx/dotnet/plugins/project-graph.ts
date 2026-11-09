@@ -3,7 +3,7 @@ import { posix } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Option, Path, Record, Schema, Stream } from 'effect';
+import { Array, Effect, FileSystem, Formatter, Option, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { aggregated, configured, type Options, targets } from '#/plugins/targets';
 
@@ -42,9 +42,9 @@ const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class DotnetError extends Schema.TaggedError<DotnetError, { readonly brand: unique symbol }>()('DotnetError', { subject: Schema.String, detail: Schema.String }) {
+class DotnetError extends Schema.TaggedError<DotnetError, { readonly brand: unique symbol }>()('DotnetError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
     override get message() {
-        return `${this.subject}: ${this.detail}`;
+        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
     }
 }
 
@@ -63,7 +63,7 @@ const analyzer = Effect.flatMap(Path.Path, (path) => path.fromFileUrl(new URL(im
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, files: readonly string[]) {
     const core = yield* analyzer;
-    return yield* Effect.flatMap(spawned([core, workspaceRoot], workspaceRoot, files.join('\n')), (stdout) => Schema.decodeEffect(Schema.fromJsonString(Report))(stdout).pipe(Effect.mapError((error) => DotnetError.make({ subject: core, detail: error.message }))));
+    return yield* Effect.flatMap(spawned([core, workspaceRoot], workspaceRoot, files.join('\n')), Schema.decodeEffect(Schema.fromJsonString(Report)));
 });
 
 const external = ({ id, version }: Node['packages'][number]) => `nuget:${id}@${version}`;
@@ -71,8 +71,8 @@ const external = ({ id, version }: Node['packages'][number]) => `nuget:${id}@${v
 const stamped = (fs: FileSystem.FileSystem, files: readonly string[]) =>
     Effect.map(
         Effect.forEach(files, (file) =>
-            Effect.map(Effect.option(fs.stat(file)), (held) =>
-                Option.match(held, {
+            Effect.map(Effect.option(fs.stat(file)), (info) =>
+                Option.match(info, {
                     onNone: () => `${file}:`,
                     onSome: ({ mtime, size }) =>
                         `${file}:${Option.getOrElse(
@@ -108,12 +108,12 @@ const evaluate = Effect.fnUntraced(function* (workspaceRoot: string, options: Op
         );
     const evaluatedHash = ({ evaluated }: Report) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...evaluated]));
     const cache = new PluginCache<{ readonly report: Report; readonly evaluated: string; readonly restored: string }>(path.join(workspaceDataDirectory, `${path.basename(name)}-${hashObject(options)}.hash`));
-    const held = yield* Option.match(Option.fromNullishOr(cache.get(hash)), {
+    const cached = yield* Option.match(Option.fromNullishOr(cache.get(hash)), {
         onNone: () => Effect.succeedNone,
         onSome: (entry) => Effect.map(Effect.all([evaluatedHash(entry.report), restoredStamp(entry.report)]), ([inputs, stamps]) => (inputs === entry.evaluated && stamps === entry.restored ? Option.some(entry.report) : Option.none())),
     });
-    const report = Option.isSome(held) ? held.value : yield* analyzed(workspaceRoot, files);
-    yield* Option.isSome(held) || report.failures.length > 0
+    const report = Option.isSome(cached) ? cached.value : yield* analyzed(workspaceRoot, files);
+    yield* Option.isSome(cached) || report.failures.length > 0
         ? Effect.void
         : Effect.flatMap(Effect.all([evaluatedHash(report), restoredStamp(report)]), ([inputs, stamps]) =>
               Effect.sync(() => {
@@ -144,14 +144,14 @@ const createNodes: CreateNodes<Options> = [
             Effect.gen(function* () {
                 const path = yield* Path.Path;
                 const options = given ?? {};
-                const { report, plugin } = yield* Effect.mapError(graph(context.workspaceRoot, options, files), (error) => new AggregateCreateNodesError([[null, new Error(error.message)]], []));
+                const { report, plugin } = yield* Effect.mapError(graph(context.workspaceRoot, options, files), (error) => new AggregateCreateNodesError([[null, error]], []));
                 const releasable = (node: Node) => node.packable || node.publishable;
                 const folders = Record.fromIterableWith(report.nodes, (node) => [path.dirname(node.file), node] as const);
                 const carried = (node: Node): readonly Tracking[] => [
                     ...Option.toArray(Option.fromNullOr(node.releases)),
                     ...node.references
                         .flatMap(({ root }) => Option.toArray(Record.get(folders, root)))
-                        .filter((held) => !releasable(held))
+                        .filter((reference) => !releasable(reference))
                         .flatMap(carried),
                 ];
                 const nodes: CreateNodesResultArray = report.nodes.map((node) => {
@@ -169,7 +169,7 @@ const createNodes: CreateNodes<Options> = [
                                         : {}),
                                 },
                             },
-                            externalNodes: Record.fromIterableWith(node.packages, (held): readonly [string, ProjectGraphExternalNode] => [external(held), { type: 'nuget', name: external(held), data: { version: held.version, packageName: held.id, hash: held.hash } }]),
+                            externalNodes: Record.fromIterableWith(node.packages, (reference): readonly [string, ProjectGraphExternalNode] => [external(reference), { type: 'nuget', name: external(reference), data: { version: reference.version, packageName: reference.id, hash: reference.hash } }]),
                         },
                     ] as const;
                 });
@@ -192,11 +192,11 @@ const createDependencies: CreateDependencies<Options> = (options, { workspaceRoo
         node.references.flatMap((reference): readonly RawProjectGraphDependency[] =>
             Option.toArray(Option.all([owned(posix.dirname(node.file)), owned(reference.root)])).map(([source, target]) => (reference.declared === node.file ? { source, target, type: DependencyType.static, sourceFile: node.file } : { source, target, type: DependencyType.implicit })),
         );
-    const declared = (node: Node, source: string) => node.packages.filter(({ direct }) => direct).map((held): RawProjectGraphDependency => ({ source, target: external(held), type: DependencyType.implicit }));
+    const declared = (node: Node, source: string) => node.packages.filter(({ direct }) => direct).map((reference): RawProjectGraphDependency => ({ source, target: external(reference), type: DependencyType.implicit }));
     const locked = (node: Node) => {
-        const pinned = Record.fromIterableWith(node.packages, (held) => [held.id, held] as const);
-        const resolved = (held: Node['packages'][number]) => held.dependencies.flatMap((dependency) => Option.toArray(Record.get(pinned, dependency)));
-        return node.packages.flatMap((held) => resolved(held).map((target): RawProjectGraphDependency => ({ source: external(held), target: external(target), type: DependencyType.static })));
+        const pinned = Record.fromIterableWith(node.packages, (reference) => [reference.id, reference] as const);
+        const resolved = (reference: Node['packages'][number]) => reference.dependencies.flatMap((dependency) => Option.toArray(Record.get(pinned, dependency)));
+        return node.packages.flatMap((reference) => resolved(reference).map((target) => ({ source: external(reference), target: external(target), type: DependencyType.static }) satisfies RawProjectGraphDependency));
     };
     return (reports.get(hashArray([workspaceRoot, hashObject(options ?? {})]))?.nodes ?? []).flatMap((node) => [...referenced(node), ...Option.toArray(owned(posix.dirname(node.file))).flatMap((source) => declared(node, source)), ...locked(node)]);
 };

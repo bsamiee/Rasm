@@ -49,7 +49,8 @@ const storeDraft = SqlSchema.findOne({
     Result: Draft,
     execute: ({ body, publish, revision }) =>
         SqlClient.SqlClient.use((sql) => {
-            const unplaced = sql`SELECT r.fullkey, r.asset_id FROM (${references(sql, sql`(SELECT 'draft' AS state, ${body} AS body)`)}) r
+            const draft = sql`(SELECT 'draft' AS state, ${body} AS body)`;
+            const unplaced = sql`SELECT r.fullkey, r.asset_id FROM (${references(sql, draft)}) r
             LEFT JOIN assets a ON a.id = r.asset_id AND a.available AND a.body ->> '$.kind' = coalesce(r.placement ->> '$.kind', ${'image' satisfies ImageAsset['kind']})
                 AND (r.placement ->> '$.page' IS NULL OR r.placement ->> '$.page' <= json_array_length(a.body, '$.pages'))
             WHERE a.id IS NULL`;

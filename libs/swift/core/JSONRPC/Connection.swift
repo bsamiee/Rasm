@@ -34,23 +34,22 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
         failure: @escaping @Sendable (JSONRPCFailure) -> Failure,
         _ body: (JSONRPCConnection) async -> Value,
     ) async -> Value {
-        let connection: JSONRPCConnection = JSONRPCConnection(write: write, timeout: timeout, failure: failure)
-        async let _: Void = connection.read(lines, serving: serving)
+        let connection = JSONRPCConnection(write: write, timeout: timeout, failure: failure)
+        async let _ = connection.read(lines, serving: serving)
         return await body(connection)
     }
 
     public var isFinished: Bool { state.withLock { state in state.terminal != nil } }
 
     public func finished() async -> Failure {
-        let (ends, end): (AsyncStream<Failure>, AsyncStream<Failure>.Continuation) = AsyncStream.makeStream()
-        let id: UUID = UUID()
+        let (ends, end) = AsyncStream<Failure>.makeStream()
+        let id = UUID()
         end.onTermination = { [weak self] _ in self?.state.withLock { state in state.endings[id] = nil } }
         let terminal: Failure? = state.withLock { state in
             if state.terminal == nil { state.endings[id] = end }
             return state.terminal
         }
-        if let terminal { return terminal }
-        return await ends.first { _ in true } ?? failure(JSONRPCFailure(subject: "connection", reason: .cancelled(CancellationError())))
+        return if let terminal { terminal } else { await ends.first { _ in true } ?? failure(JSONRPCFailure(subject: "connection", reason: .cancelled(CancellationError()))) }
     }
 
     // --- [REQUESTS]
@@ -63,8 +62,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
     ) async throws(Failure) -> Value {
         let (subject, failure): (String, @Sendable (JSONRPCFailure) -> Failure) = (method.rawValue, failure)
         let id: JSONValue = .string(UUID().uuidString)
-        let (replies, reply): (AsyncStream<Result<Envelope<JSONValue, JSONRPCError>, Failure>>, AsyncStream<Result<Envelope<JSONValue, JSONRPCError>, Failure>>.Continuation) =
-            AsyncStream.makeStream()
+        let (replies, reply) = AsyncStream<Result<Envelope<JSONValue, JSONRPCError>, Failure>>.makeStream()
         try state.withLock { state throws(Failure) in
             if let terminal: Failure = state.terminal { throw terminal }
             state.calls[id] = reply
@@ -90,7 +88,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
         to _: Value.Type,
         bufferingPolicy: AsyncStream<Result<Value, Failure>>.Continuation.BufferingPolicy = .unbounded,
     ) -> AsyncStream<Result<Value, Failure>> {
-        let (values, value): (AsyncStream<Result<Value, Failure>>, AsyncStream<Result<Value, Failure>>.Continuation) = AsyncStream.makeStream(bufferingPolicy: bufferingPolicy)
+        let (values, value) = AsyncStream<Result<Value, Failure>>.makeStream(bufferingPolicy: bufferingPolicy)
         let (id, failure): (UUID, @Sendable (JSONRPCFailure) -> Failure) = (UUID(), failure)
         let listener: @Sendable (Result<JSONValue, Failure>) -> Void = { received in
             switch received {
@@ -113,11 +111,11 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
     // --- [TRANSPORT]
 
     private func read(_ lines: sending some AsyncSequence<Data, any Error>, serving: @escaping @Sendable (_ method: String, _ params: JSONValue?) async throws(JSONRPCError) -> JSONValue) async {
-        let decoder: JSONDecoder = JSONDecoder()
+        let decoder = JSONDecoder()
         let ending: JSONRPCFailure = await withDiscardingTaskGroup { group in
             defer { group.cancelAll() }
             do {
-                for try await request in lines.map({ line in try decoder.decode(Envelope<JSONValue, JSONRPCError>.self, from: line) }).compactMap(receive) {
+                for try await request: (id: JSONValue, method: String, params: JSONValue?) in lines.map({ line in try decoder.decode(Envelope<JSONValue, JSONRPCError>.self, from: line) }).compactMap(receive) {
                     group.addTask { await self.answer(request, serving: serving) }
                 }
                 return JSONRPCFailure(subject: "connection", reason: .closed)

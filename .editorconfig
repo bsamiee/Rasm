@@ -11,6 +11,9 @@ indent_size = 4
 [*.{plist,entitlements}]
 indent_style = tab
 
+[*.pkl]
+indent_size = 2
+
 [*.cs]
 # --- [NAMESPACE_AND_IMPORTS] ------------------------------------------------------------
 csharp_style_namespace_declarations = file_scoped

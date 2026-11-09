@@ -1,7 +1,7 @@
 import { Adjust, Typeset } from '@rasm/atelier-protocol/indesign';
 import { InDesignSettings, Model } from '@rasm/indesign/uxp';
 import { Settings } from '@rasm/typography';
-import { Array, Cause, Effect, Function, flow, MutableRef, Number, Option, Record, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, Function, flow, Match, MutableRef, Number, Option, Record, Schema, Struct } from 'effect';
 import { handlers, type link } from '#/handlers';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -112,7 +112,13 @@ const typesetting = (scripted: Effect.Success<typeof link>['scripted']) =>
         const drawn = <E>(change: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, Model>) => scripted(Effect.flatMap(change, typesetSelection)).pipe(Effect.flatMap(displayed));
         const changed = () => fork(drawn(Effect.succeedNone).pipe(Effect.onError(Function.constant(Effect.sync(() => withheld(inputs)))), Effect.catchTag('Unmatched', Function.constant(Effect.void))));
         const acted = flow(drawn, Effect.onError(Function.constant(Effect.sync(changed))), fork);
-        const elongated = ({ kashida }: Settings) => Option.map(Option.all([elongation.read(), width.read()]), ([_tag, lower]) => ({ kashida: _tag === 'None' ? { _tag } : { _tag, lower, upper: lower, fractional: elongating(kashida) && kashida.fractional } }));
+        const elongated = ({ kashida }: Settings) =>
+            Option.map(Option.all([elongation.read(), width.read()]), ([tag, lower]) => ({
+                kashida: Match.value(tag).pipe(
+                    Match.when('None', (none) => ({ _tag: none })),
+                    Match.orElse((stretch) => ({ _tag: stretch, lower, upper: lower, fractional: elongating(kashida) && kashida.fractional })),
+                ),
+            }));
         const reshaped = () => acted(Effect.map(typesetSelection(Option.none()), elongated));
         const toggled = ([tag, box]: (typeof sets)[number]) => box.addEventListener('change', () => acted(Effect.succeedSome({ features: { [tag]: box.checked ? 1 : null } })));
         const nudging = ([{ axis, sign }, button]: (typeof buttons)[number]) => button.addEventListener('click', ({ metaKey, ctrlKey }) => acted(nudged(Option.map(mode.read(), Struct.get(axis)), sign * (metaKey || ctrlKey ? SHORTCUT_MULTIPLE : 1))));

@@ -212,7 +212,7 @@ const hostingStack = Effect.fn('hostingStack')(function* (directory: string, val
             const { createBuilder } = yield* Effect.tryPromise(() => import('vite'));
             const builder = yield* Effect.tryPromise(() => createBuilder({ root: directory, mode: 'production', configLoader: 'native' }));
             yield* Effect.tryPromise(() => builder.buildApp());
-            const [client, server] = yield* Effect.all([Effect.fromNullishOr(builder.environments.client), Effect.fromNullishOr(builder.environments[nodeBundle.environment])]);
+            const [client, server] = yield* Effect.all([Effect.fromOption(Record.get(builder.environments, 'client')), Effect.fromOption(Record.get(builder.environments, nodeBundle.environment))]);
             return { client: join(builder.config.root, client.config.build.outDir), server: join(builder.config.root, server.config.build.outDir) };
         }).pipe(Effect.mapError((cause) => new Cause.UnknownError(cause, `Cannot build ${directory}`))),
     );

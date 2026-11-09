@@ -49,6 +49,7 @@ const ALIGNMENTS = {
 } as const satisfies Record<Members<typeof Justification>, { readonly _tag: Settings['alignment']['_tag']; readonly edge: keyof Sides }>;
 const SINGLE_WORDS = { LEFT_ALIGN: 'left', CENTER_ALIGN: 'center', RIGHT_ALIGN: 'right', FULLY_JUSTIFIED: 'justified' } as const satisfies Record<Members<typeof SingleWordJustification>, keyof Sides>;
 const SPINES = { LEFT_HAND: 'right', RIGHT_HAND: 'left', SINGLE_SIDED: 'left' } as const satisfies Record<Members<typeof PageSideOptions>, 'left' | 'right'>;
+const PARAGRAPH_STARTS = { LTR: 'left', RTL: 'right' } as const;
 const JUSTIFICATIONS = {
     NASKH_TATWEEL_JUSTIFICATION: { _tag: 'Tatweel', fractional: false },
     NASKH_TATWEEL_JUSTIFICATION_FRAC: { _tag: 'Tatweel', fractional: true },
@@ -92,19 +93,24 @@ const alignmentMembers = Schema.Struct({ justification: Schema.Literals(Struct.k
 const alignment = (sided: Sides) =>
     alignmentMembers.pipe(
         Schema.decodeTo(Schema.toType(Settings.fields.alignment), {
-            decode: SchemaGetter.transform(({ justification, singleWordJustification = 'FULLY_JUSTIFIED' }) => {
-                const row = ALIGNMENTS[justification];
-                return row._tag === 'Aligned' ? { _tag: row._tag, side: sided[row.edge] } : { _tag: row._tag, last: sided[row.edge], single: sided[SINGLE_WORDS[singleWordJustification]] };
-            }),
+            decode: SchemaGetter.transform(({ justification, singleWordJustification = 'FULLY_JUSTIFIED' }) =>
+                Match.valueTags(ALIGNMENTS[justification], {
+                    Aligned: ({ _tag, edge }) => ({ _tag, side: sided[edge] }),
+                    Justified: ({ _tag, edge }) => ({ _tag, last: sided[edge], single: sided[SINGLE_WORDS[singleWordJustification]] }),
+                }),
+            ),
             encode: SchemaGetter.transformEffect(
                 Effect.fnUntraced(function* (aligned: Settings['alignment']) {
-                    const side = aligned._tag === 'Aligned' ? aligned.side : aligned.last;
-                    const justification = yield* inverse(ALIGNMENTS, ({ _tag, edge }) => _tag === aligned._tag && sided[edge] === side, aligned, `No justification member for ${aligned._tag} ${side}`);
-                    if (aligned._tag === 'Aligned') {
-                        return { justification };
-                    }
-                    const { single } = aligned;
-                    return { justification, singleWordJustification: yield* inverse(SINGLE_WORDS, (edge) => sided[edge] === single, aligned, `No singleWordJustification member for ${single}`) };
+                    const side = Match.valueTags(aligned, { Aligned: Struct.get('side'), Justified: Struct.get('last') });
+                    const justification = yield* inverse(ALIGNMENTS, (row) => Predicate.isTagged(row, aligned._tag) && sided[row.edge] === side, aligned, `No justification member for ${aligned._tag} ${side}`);
+                    return yield* Match.valueTags(aligned, {
+                        Aligned: () => Effect.succeed({ justification }),
+                        Justified: ({ single }) =>
+                            Effect.map(
+                                inverse(SINGLE_WORDS, (edge) => sided[edge] === single, aligned, `No singleWordJustification member for ${single}`),
+                                (singleWordJustification) => ({ justification, singleWordJustification }),
+                            ),
+                    });
                 }),
             ),
         }),
@@ -139,6 +145,12 @@ const numberingSystem = Schema.Struct({ digitsType: Schema.Literals(Struct.keys(
     }),
 );
 const kashidaWidth = Schema.Literals(Object.values(KASHIDA_WIDTHS)).annotate({ description: 'Fixed elongation read as the point interval [width, width]' });
+const elongated = Effect.fnUntraced(function* (elongation: Exclude<Settings['kashida'], { readonly _tag: 'None' }>) {
+    const width = Option.filter(Option.liftPredicate(elongation.lower, Schema.is(kashidaWidth)), (lower) => lower === elongation.upper);
+    const paragraphKashidaWidth = yield* Effect.fromOption(width, () => new SchemaIssue.InvalidValue({ message: `No paragraphKashidaWidth for [${elongation.lower}, ${elongation.upper}]` }, elongation));
+    const paragraphJustification = yield* inverse(JUSTIFICATIONS, (row) => Predicate.isTagged(row, elongation._tag) && row.fractional === elongation.fractional, elongation, elongation.fractional ? `No paragraphJustification for ${elongation._tag} fractional` : `No paragraphJustification for ${elongation._tag}`);
+    return { kashidas: 'DEFAULT_KASHIDAS' as const, paragraphJustification, paragraphKashidaWidth };
+});
 const kashida = Schema.Struct({
     kashidas: Schema.Literals(['DEFAULT_KASHIDAS', 'KASHIDAS_OFF'] satisfies Members<typeof KashidasOptions>[]),
     paragraphJustification: Schema.optionalKey(Schema.Literals(Struct.keys(JUSTIFICATIONS))),
@@ -149,14 +161,10 @@ const kashida = Schema.Struct({
             kashidas === 'KASHIDAS_OFF' || paragraphKashidaWidth === KASHIDA_WIDTHS.None ? { _tag: 'None' as const } : { ...JUSTIFICATIONS[paragraphJustification], lower: paragraphKashidaWidth, upper: paragraphKashidaWidth },
         ),
         encode: SchemaGetter.transformEffect(
-            Effect.fnUntraced(function* (elongation: Settings['kashida']) {
-                if (elongation._tag === 'None') {
-                    return { kashidas: 'KASHIDAS_OFF' as const, paragraphKashidaWidth: KASHIDA_WIDTHS.None };
-                }
-                const width = Option.filter(Option.liftPredicate(elongation.lower, Schema.is(kashidaWidth)), (lower) => lower === elongation.upper);
-                const paragraphKashidaWidth = yield* Effect.fromOption(width, () => new SchemaIssue.InvalidValue({ message: `No paragraphKashidaWidth for [${elongation.lower}, ${elongation.upper}]` }, elongation));
-                const paragraphJustification = yield* inverse(JUSTIFICATIONS, ({ _tag, fractional }) => _tag === elongation._tag && fractional === elongation.fractional, elongation, `No paragraphJustification for ${elongation._tag}${elongation.fractional ? ' fractional' : ''}`);
-                return { kashidas: 'DEFAULT_KASHIDAS' as const, paragraphJustification, paragraphKashidaWidth };
+            Match.valueTags({
+                None: () => Effect.succeed({ kashidas: 'KASHIDAS_OFF' as const, paragraphKashidaWidth: KASHIDA_WIDTHS.None }),
+                Tatweel: elongated,
+                Stretched: elongated,
             }),
         ),
     }),
@@ -226,7 +234,7 @@ const inverse = <K extends string, V>(table: { readonly [key in K]: V }, wanted:
         () => new SchemaIssue.InvalidValue({ message }, actual),
     );
 const sides = (paragraph: (typeof Placement.Type)['paragraphDirection'], spine: (typeof SPINES)[keyof typeof SPINES]) => {
-    const toward = (edge: 'left' | 'right'): Exclude<ReturnType<Settings['lineAlignment']>, 'center' | 'justified'> => ((edge === 'left') === (paragraph === 'LTR') ? 'start' : 'end');
+    const toward = (edge: 'left' | 'right'): Exclude<ReturnType<Settings['lineAlignment']>, 'center' | 'justified'> => (edge === PARAGRAPH_STARTS[paragraph] ? 'start' : 'end');
     return { left: toward('left'), center: 'center', right: toward('right'), justified: 'justified', spine: toward(spine), fore: toward(spine === 'left' ? 'right' : 'left') } as const;
 };
 const sections = ({ pointSize, paragraphDirection, side = 'SINGLE_SIDED' }: typeof Placement.Type) => {

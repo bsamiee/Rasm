@@ -43,14 +43,14 @@ func values<Key: Hashable & Sendable, Value: Sendable>(
     read: @escaping @Sendable (Key) async -> Value,
 ) async -> [Key: Value] {
     await withTaskGroup(of: (Key, Value).self) { group in
-        for key: Key in keys.prefix(width) {
+        for key in keys.prefix(width) {
             group.addTask { (key, await read(key)) }
         }
-        var pending: ArraySlice<Key>.Iterator = keys.dropFirst(width).makeIterator()
+        var pending = keys.dropFirst(width).makeIterator()
         var found: [Key: Value] = [:]
         for await (key, value): (Key, Value) in group {
             found[key] = value
-            if let next: Key = pending.next() {
+            if let next = pending.next() {
                 group.addTask { (next, await read(next)) }
             }
         }
@@ -105,9 +105,9 @@ actor Cache<Key: Hashable & Sendable, Value: Sendable, Failure: Error> {
     }
 
     func value(for key: Key) async throws(Failure) -> Value {
-        let task: Task<Result<Value, Failure>, Never> = entries[key] ?? Task { [fetch] in await Result { () async throws(Failure) in try await fetch(key) } }
+        let task = entries[key] ?? Task { [fetch] in await Result { () async throws(Failure) in try await fetch(key) } }
         entries[key] = task
-        let result: Result<Value, Failure> = await task.value
+        let result = await task.value
         if case .failure = result, entries[key] == task {
             entries[key] = nil
         }

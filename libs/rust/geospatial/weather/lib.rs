@@ -209,7 +209,7 @@ pub enum Malformed {
     Undated,
     #[error("field lies on no grid template this reader samples, or on fewer than two points along an axis")]
     Grid,
-    #[error("grid projection refused: {0}")]
+    #[error("cannot project the grid: {0}")]
     Projection(&'static str),
     #[error("site lies outside the lattice")]
     Outside,

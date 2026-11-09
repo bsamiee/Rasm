@@ -44,6 +44,7 @@ use crate::{
 #[derive(Clone, Copy)]
 enum Sink {
     Compared,
+    Passed,
     Returned,
     Stored,
     Source,
@@ -66,6 +67,7 @@ pub(crate) struct Pass<'tcx> {
     test_target: bool,
     comparisons: FxHashSet<DefId>,
     transfers: FxHashMap<DefId, usize>,
+    applied: FxHashSet<DefId>,
     push: FxHashSet<DefId>,
     io_error: Option<DefId>,
     uses: FxHashMap<LocalDefId, Uses<'tcx>>,
@@ -95,7 +97,8 @@ impl<'tcx> Pass<'tcx> {
                     "std::collections::HashMap::contains_key",
                 ],
             ),
-            transfers: resolve(tcx, PathNS::Value, &[("slice::join", 1), ("core::option::Option::unwrap_or_default", 0), ("str::split_once", 0)]),
+            transfers: resolve(tcx, PathNS::Value, &[("slice::join", 1), ("core::option::Option::unwrap_or_default", 0), ("core::option::Option::as_deref", 0), ("str::split_once", 0)]),
+            applied: paths(tcx, PathNS::Value, &["core::option::Option::map", "core::result::Result::map", "core::result::Result::map_err"]),
             push: paths(tcx, PathNS::Value, &["alloc::vec::Vec::push"]),
             io_error: path(tcx, PathNS::Type, "std::io::Error"),
             uses: FxHashMap::default(),
@@ -258,6 +261,12 @@ fn sink<'tcx>(cx: &LateContext<'tcx>, pass: &mut Pass<'tcx>, text: &'tcx Expr<'t
                 Rendering::Deferred(_) => Rendering::Produced(cx.tcx.hir_enclosing_body_owner(call.hir_id)),
             };
             Some(ControlFlow::Continue((call, collected)))
+        } else if position == 1 && pass.applied.contains(&callee) {
+            let applied = match rendering {
+                Rendering::Deferred(_) => Rendering::Produced(cx.tcx.hir_enclosing_body_owner(call.hir_id)),
+                Rendering::Produced(_) => rendering,
+            };
+            Some(ControlFlow::Continue((call, applied)))
         } else if pass.transfers.get(&callee).is_some_and(|&last| position <= last)
             || position == 0 && text_source(cx, typeck, call).is_some()
             || position == 1 && callee.is_diag_item(cx, sym::IteratorMap)
@@ -303,7 +312,9 @@ fn sink<'tcx>(cx: &LateContext<'tcx>, pass: &mut Pass<'tcx>, text: &'tcx Expr<'t
             let local = callee.as_local()?;
             let body = cx.tcx.hir_maybe_body_owned_by(local)?;
             let constructor_typeck = cx.tcx.typeck(local);
-            let (variant, mut fields) = constructed(constructor_typeck, peel_blocks(body.value))?;
+            let Some((variant, mut fields)) = constructed(constructor_typeck, peel_blocks(body.value)) else {
+                return signature(cx.tcx, callee).inputs().get(position).filter(|&&input| is_text(cx, input)).map(|_| ControlFlow::Break(Sink::Passed));
+            };
             if variant.def_id.is_lang_item(cx, LangItem::ResultErr) && result_parts(cx, produced).is_some_and(|(_, error)| untyped_kind(cx, error).is_some()) || handed_off(cx, produced) {
                 return None;
             }
@@ -365,6 +376,7 @@ fn sink<'tcx>(cx: &LateContext<'tcx>, pass: &mut Pass<'tcx>, text: &'tcx Expr<'t
                     None => Some(ControlFlow::Break(Sink::Stored)),
                 },
             (Node::Expr(parent), _) if compares(cx, parent, site.child_id) => Some(ControlFlow::Break(Sink::Compared)),
+            (Node::Expr(parent), _) if matches!(parent.kind, ExprKind::Array(_) | ExprKind::Tup(_)) => Some(ControlFlow::Break(Sink::Stored)),
             (Node::Expr(parent), ExprUseNode::Callee) => {
                 let called = match (rendering, cx.typeck_results().expr_ty(rendered).peel_refs().kind()) {
                     (Rendering::Deferred(body), ty::Closure(callee, _) | ty::FnDef(callee, _)) if body == *callee => Rendering::Produced(cx.tcx.hir_enclosing_body_owner(parent.hir_id)),
@@ -437,10 +449,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 Sink::Compared if error => Cow::Borrowed("match the error's variant, `kind()`, or `downcast_ref` in place of its text"),
                 Sink::Compared => Cow::Owned(format!("compare or match `{shown}` in place of its text")),
                 Sink::Returned | Sink::Stored => Cow::Owned(format!("hold `{shown}` as `#[source]` of a `thiserror` variant")),
+                Sink::Passed => Cow::Owned(format!("pass `{shown}` itself and render it where a person reads it")),
                 Sink::Source => Cow::Owned(format!("preserve `{shown}` as the constructor's typed source")),
             };
             let effect = match sink {
                 Sink::Compared => "compared",
+                Sink::Passed => "passed as text",
                 Sink::Returned => "returned",
                 Sink::Stored | Sink::Source => "stored",
             };

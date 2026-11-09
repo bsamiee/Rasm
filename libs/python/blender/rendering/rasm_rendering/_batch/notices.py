@@ -30,7 +30,7 @@ class _Posted(msgspec.Struct, frozen=True, kw_only=True):
 
     priority: ClassVar[int] = 3
     tags: ClassVar[tuple[str, ...]] = ()
-    template: ClassVar[str] = ""
+    template: ClassVar[str]
 
     @property
     def message(self) -> str:

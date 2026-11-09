@@ -41,7 +41,7 @@ struct HexTests {
 struct JSONValueTests {
     @Test
     func decodesEveryKind() throws {
-        let text: Data = Data(#"{"a":null,"b":[true,1.5,"x",[2],{"c":[]}],"d":{"e":"f"}}"#.utf8)
+        let text = Data(#"{"a":null,"b":[true,1.5,"x",[2],{"c":[]}],"d":{"e":"f"}}"#.utf8)
         expectNoDifference(
             try JSONDecoder().decode(JSONValue.self, from: text),
             .object(["a": .null, "b": .array([.bool(true), .number(1.5), .string("x"), .array([.number(2)]), .object(["c": .array([])])]), "d": .object(["e": .string("f")])]),

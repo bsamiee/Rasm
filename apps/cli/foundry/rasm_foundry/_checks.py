@@ -50,8 +50,8 @@ _ORNAMENT_EXCLUDED = frozenset({"opentype/monospace"})
 
 class _Result(msgspec.Struct, frozen=True, kw_only=True):
     severity: _Severity
-    code: str = ""
-    message: str = ""
+    code: str | None = None
+    message: str | None = None
 
 
 class _Check(msgspec.Struct, frozen=True, kw_only=True):
@@ -102,7 +102,7 @@ def _breached(checks: Outcome[tuple[_Check, ...]], selected: Callable[[_Check], 
     """One breach per failed selected check, or one breach per fault where the run could not measure."""
     return checks.map(
         lambda found: tuple(
-            (f"{check.check_id} {result.code}".strip(), result.severity, "WARN")
+            (check.check_id if result.code is None else f"{check.check_id} {result.code}", result.severity, "WARN")
             for check in found
             if selected(check)
             for result in check.subresults

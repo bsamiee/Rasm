@@ -42,7 +42,7 @@ internal static partial class SafeNativeMethods {
 
     [SupportedOSPlatform("macos")]
     internal static string[] Arguments() =>
-        [.. Enumerable.Range(0, Marshal.ReadInt32(_NSGetArgc())).Select(static index => Marshal.PtrToStringUTF8(Marshal.ReadIntPtr(Marshal.ReadIntPtr(_NSGetArgv()), index * nint.Size))!)];
+        [.. toSeq(Enumerable.Range(0, Marshal.ReadInt32(_NSGetArgc()))).Choose(static index => Optional(Marshal.PtrToStringUTF8(Marshal.ReadIntPtr(Marshal.ReadIntPtr(_NSGetArgv()), index * nint.Size))))];
 
     // --- [MEMORY]
 

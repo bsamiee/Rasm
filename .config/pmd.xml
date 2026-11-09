@@ -47,6 +47,7 @@
         <exclude name="AvoidAccessibilityAlteration" />
         <exclude name="AvoidCatchingGenericException" />
         <exclude name="EmptyCatchBlock" />
+        <exclude name="NonSerializableClass" />
     </rule>
     <rule ref="category/java/errorprone.xml/AvoidAccessibilityAlteration">
         <properties>
@@ -64,6 +65,41 @@
         </properties>
     </rule>
 
+    <rule ref="category/java/errorprone.xml/NonSerializableClass">
+        <properties>
+            <property name="violationSuppressXPath" value="./ancestor::*[pmd-java:nodeIs('TypeDeclaration')][1][self::EnumDeclaration]" />
+        </properties>
+    </rule>
+    <rule name="EmptyStringForAbsence" language="java" message="Empty string stands for an absent value" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Keep absence in `Optional` or an empty collection, and choose the whole text per case with `map` and `orElse`</description>
+        <priority>1</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodCall[
+    pmd-java:matchesSig('java.util.Optional#orElse(_)')
+    or pmd-java:matchesSig('java.util.Objects#requireNonNullElse(_,_)')
+    or pmd-java:matchesSig('java.util.Objects#toString(_,_)')
+][ArgumentList/*[last()][self::StringLiteral][@Empty = true()]]
+]]>
+                </value>
+            </property>
+        </properties>
+    </rule>
+    <rule name="UncheckedOptionalAccess" language="java" message="Optional read with no decision on absence" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Read an `Optional` through `map`, `ifPresent`, `orElseGet`, or `orElseThrow`</description>
+        <priority>1</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//MethodCall[pmd-java:matchesSig('java.util.Optional#get()')]
+]]>
+                </value>
+            </property>
+        </properties>
+    </rule>
     <rule name="UncheckedDecompilerOpen" language="java" message="Decompiler program open result unchecked" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
         <description>`DecompilerCallback` discards false from `DecompInterface.openProgram`, open program in configurer and fail with `getLastMessage`</description>
         <priority>1</priority>

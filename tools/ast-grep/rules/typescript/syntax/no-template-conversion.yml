@@ -12,4 +12,4 @@ rule:
             - inside: {kind: member_expression, field: object}
             - inside: {kind: template_substitution}
 message: '`$TEMPLATE` converts `$VALUE` to a string through a template'
-note: 'Call `String(<value>)`, an untagged template substitutes `<value>` itself'
+note: 'Substitute `<value>` itself in the template that reads it, or call the value''s own `toString`'

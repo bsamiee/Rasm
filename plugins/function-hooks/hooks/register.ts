@@ -52,12 +52,13 @@ const started = ($: EngineInterface, sockets: Sockets): Promise<string> => {
 const asked = <R extends keyof Routes>($: EngineInterface, socketPath: string, route: R, body: Routes[R][0]) => $.http.fetch(`http://function-hooks/${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), socketPath });
 
 const posted = async <R extends keyof Routes>($: EngineInterface, sockets: Sockets, route: R, body: Routes[R][0]): Promise<Routes[R][1]> => {
-    const [held] = sockets;
-    const running = held ?? started($, sockets);
+    const [socket] = sockets;
+    const running = socket ?? started($, sockets);
     const answered = await asked($, await running, route, body).catch(() => undefined);
     const [current] = sockets;
     const { ok, status, text } = answered ?? (await asked($, await (current === undefined || current === running ? started($, sockets) : current), route, body));
-    return ok ? JSON.parse(text) : Promise.reject(new Error(`${route} answered ${status}, ${text}`));
+    const answer: Routes[R][1] = ok ? JSON.parse(text) : await Promise.reject(new Error(`${route} answered ${status}, ${text}`));
+    return answer;
 };
 
 // --- [INSTANCES]
@@ -96,10 +97,10 @@ const watching = async ($: EngineInterface, sockets: Sockets, watches: Set<strin
     }
     watches.add(key);
     const seen = new Map<number, Routes['watched'][1][number]>();
-    const held = { partial: '' };
+    const buffer = { partial: '' };
     try {
         for await (const { stream, text } of $.process.spawn({ argv: ['watch-apps', 'watch', ...names] })) {
-            const lines = `${held.partial}${stream === 'stdout' ? text : ''}`;
+            const lines = stream === 'stdout' ? `${buffer.partial}${text}` : buffer.partial;
             const cut = lines.lastIndexOf('\n') + 1;
             const states =
                 cut === 0
@@ -107,7 +108,7 @@ const watching = async ($: EngineInterface, sockets: Sockets, watches: Set<strin
                     : await posted($, sockets, 'watched', lines.slice(0, cut)).catch((cause: unknown) => {
                           watchFailed($, cause);
                       });
-            held.partial = states === undefined ? lines : lines.slice(cut);
+            buffer.partial = states === undefined ? lines : lines.slice(cut);
             if ((await $.session.id()) !== session) {
                 break;
             }
@@ -143,7 +144,10 @@ const driven = ($: EngineInterface, sockets: Sockets, watches: Set<string>, tool
     );
 
 const observed = async ($: EngineInterface, sockets: Sockets, watches: Set<string>, agent: string | undefined, text: string | undefined): Promise<void> => {
-    const change = await posted($, sockets, 'observe', text ?? '');
+    if (text === undefined) {
+        return;
+    }
+    const change = await posted($, sockets, 'observe', text);
     await recorded($, agent, change);
     [...change.created, ...change.reused].forEach(({ bundle }) => {
         watching($, sockets, watches, [bundle], agent).catch((cause: unknown) => watchFailed($, cause));
@@ -195,14 +199,24 @@ const register: Register = (on) => {
             return next(e);
         }
         const decision = await posted($, sockets, 'decide', { command: e.command, cwd: await $.session.cwd(), kind: e.tool === 'Bash' && e.run_in_background === true ? 'background' : KINDS[e.tool], ...(e.tool === 'Bash' && e.timeout !== undefined && { timeout: e.timeout }) });
-        if (decision._tag === 'Deny') {
-            return { deny: decision.reason };
+        const observing = async <A extends { readonly text?: string | undefined }>(answer: A, observes: boolean) => {
+            if (observes && e.tool === 'Bash') {
+                await observed($, sockets, watches, e.agentId, answer.text);
+            }
+            return answer;
+        };
+        switch (decision._tag) {
+            case 'Deny':
+                return { deny: decision.reason };
+            case 'Allow':
+                return observing(await next(e), decision.observes);
+            case 'Rewrite': {
+                const answer = await observing(await next({ ...e, command: decision.command, ...(decision.timeout !== undefined && { timeout: decision.timeout }), ...(decision.background && { run_in_background: true }) }), decision.observes);
+                return decision.notice !== undefined && answer.deny === undefined ? { ...answer, context: [...(answer.context ?? []), decision.notice] } : answer;
+            }
+            default:
+                return decision satisfies never;
         }
-        const answer = await next(decision._tag === 'Allow' ? e : { ...e, command: decision.command, ...(decision.timeout !== undefined && { timeout: decision.timeout }), ...(decision.background && { run_in_background: true }) });
-        if (decision.observes && e.tool === 'Bash') {
-            await observed($, sockets, watches, e.agentId, answer.text);
-        }
-        return decision._tag === 'Rewrite' && decision.notice !== undefined && answer.deny === undefined ? { ...answer, context: [...(answer.context ?? []), decision.notice] } : answer;
     }).catch(failClosed);
     on('turn.complete', async ($, e, next) => {
         const answer = await next(e);

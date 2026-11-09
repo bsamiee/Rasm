@@ -71,6 +71,9 @@ Current instant, user locale, and random source (`inout some RandomNumberGenerat
 `if` and `switch` are expressions when each branch is one expression, and a binding, `return`, or property takes it whole. Branches needing statements make the `if` or `switch` a statement. Closures nest one level, and a decision over a discriminant becomes a tuple `switch` or a table:
 - `let <name>: <Type> = switch <subject> { ... }` binds a value each arm selects, a `throw` arm stays in place
 - `count(where:)` counts, `indices(where:)` returns a `RangeSet` that `removeSubranges` and the `subranges` subscript take whole
+- Values that vary by case are one complete value per case chosen in one expression, never fragments joined around an empty one
+- Signatures, stored properties, and statics state their type, a property naming it once as `let <name>: <Type> = .init(...)` or `= .<member>`
+- Locals and `if`, `guard`, and `for` bindings state a type only where inference picks another (empty literal, implicit member, generic result)
 
 ### [02.1]-[PATTERN_MATCHING]
 
@@ -141,7 +144,8 @@ enum Plan: CaseIterable, Comparable, Sendable {
 ```
 
 - Feature gates read `plan >= required`, and a new case takes its seats from its position
-- Optional properties stand where absence is a state consumers read, and a default stands where a standard, the host, or a package states its value
+- Absence is `nil` of an `Optional`, never an empty string, a sentinel, a force cast, or a force unwrap
+- Defaults stand where a standard, the host, or a package states the value, `""` included where an API reads it as unset
 
 Choose collections by their most frequent operation:
 

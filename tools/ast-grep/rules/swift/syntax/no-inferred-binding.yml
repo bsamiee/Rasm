@@ -1,19 +1,43 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: swiftlang
 severity: error
+utils:
+    type-path:
+        regex: '^[A-Z][0-9A-Z_a-z]*(<.*>)?(\.[A-Z][0-9A-Z_a-z]*(<.*>)?)*$'
+    named:
+        any:
+            - kind: 'constructor_expression, as_expression, line_string_literal, multi_line_string_literal, raw_string_literal, integer_literal, real_literal, boolean_literal, hex_literal, oct_literal, bin_literal'
+            - kind: call_expression
+              has:
+                  nthChild: 1
+                  any:
+                      - kind: 'array_literal, dictionary_literal'
+                      - {kind: call_expression, matches: named}
+                      - {kind: simple_identifier, matches: type-path}
+                      - {kind: navigation_expression, has: {field: target, matches: type-path}}
+            - kind: navigation_expression
+              has: {field: target, matches: type-path}
+            - kind: 'try_expression, await_expression'
+              has: {field: expr, matches: named}
+            - kind: nil_coalescing_expression
+              has: {field: if_nil, matches: named}
 rule:
     any:
+        - kind: property_declaration
+          not: {any: [{has: {kind: type_annotation}}, {has: {field: value, matches: named}}, {inside: {kind: 'class_body, enum_class_body, protocol_body'}}]}
+          all:
+              - has: {field: value, pattern: $_}
+              - has: {field: name, has: {stopBy: end, kind: simple_identifier, pattern: $NAME}}
+        - kind: simple_identifier
+          pattern: $NAME
+          inside: {kind: 'if_statement, guard_statement, while_statement', field: bound_identifier}
+          follows: {kind: value_binding_pattern}
+          precedes: {regex: '^=$', precedes: {not: {matches: named}}}
         - kind: pattern
           inside: {kind: for_statement, field: item}
           all:
-            - has: {stopBy: end, kind: simple_identifier, pattern: $NAME}
-            - not: {has: {regex: '^case$'}}
-            - not: {precedes: {kind: type_annotation}}
-        - kind: value_binding_pattern
-          inside: {kind: 'if_statement, guard_statement, while_statement'}
-          precedes:
-            kind: simple_identifier
-            pattern: $NAME
-            precedes: {regex: '^=$'}
-message: '`$NAME` binds a value with no declared type'
-note: 'Name the type as `let <name>: <Type> = <value>` or `for <name>: <Type> in <sequence>`'
+              - has: {stopBy: end, kind: simple_identifier, pattern: $NAME}
+              - not: {has: {regex: '^case$'}}
+              - not: {precedes: {kind: type_annotation}}
+message: '`$NAME` binds a value whose type its right side does not name'
+note: 'State the type once, on the binding as `let <name>: <Type> = <value>` and `for <name>: <Type> in <sequence>`, or on the right as `<Type>(…)`, `<Type>.<member>`, or `as? <Type>`'

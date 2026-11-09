@@ -63,6 +63,8 @@ Functions honor their signature when each declared input produces a declared out
 - `Unit` does not make an effectful function pure
 - Statements stay statements in a block body in place of `Unit` arithmetic or a discard ternary spelling them as a value
 - Nullable reference types stay enabled, `?` appears only where an external representation requires it, `Optional` converts it to `Option<A>` there
+- Absence stays absence: an empty string, zero, or other sentinel never stands for a missing value, and a host that reads `""` as absence receives it from the one member converting `Option<string>` for that host
+- `!`, a cast of an `object?` result, and `ValueUnsafe` on a value element are unchecked escapes, `Optional` lifts the nullable result into the outcome that names its failure
 
 ### [01.2]-[PURITY]
 
@@ -120,6 +122,8 @@ internal static class Projections {
 ```
 
 Prefer a query over a mutable accumulator, a named reduction (`Min(seed)`, `Max(seed)`) over a `Fold` that restates it, `Fold` with a seed for any other reduction, and indexed `Map` over a declared counter. One-arm `x switch { var y => … }` bindings stay for a value an expression reads more than once or inside a lambda, and a binding read once or never is inlined.
+
+A declaration states its type once, where it adds a fact: a local names its type and the value takes it from the target (`new()`, `[]`, `default`), and `var` stays in patterns. Text that differs by case is one expression choosing between complete values (`flag ? "Saved" : "Unsaved"`, or a switch expression), never a fragment spliced in or a statement per branch.
 
 ### [02.1]-[PATTERN_MATCHING]
 

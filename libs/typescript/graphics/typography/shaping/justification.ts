@@ -1,4 +1,4 @@
-import { Array, Function, flow, Match, Number, Option, Order, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Function, flow, Match, Number, Option, Order, Predicate, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { Feature, type Font } from 'harfbuzzjs';
 import { type JoiningGroup, Script } from 'icu';
 import { Settings } from '#/settings';
@@ -233,12 +233,12 @@ const tatweeled = (measured: Measured, elongation: Elongation, clusters: readonl
         () => measured,
     );
 const inserted = (measured: Measured, chosen: readonly number[], tatweels: number, scale: number): Measured => {
-    const shifted = (offset: number, bound: 'start' | 'end') => offset + tatweels * chosen.filter((cluster) => cluster < offset || (bound === 'start' && cluster === offset)).length;
+    const shifted = (offset: number, precedes: (cluster: number, offset: number) => boolean) => offset + tatweels * chosen.filter((cluster) => precedes(cluster, offset)).length;
     const { run } = measured;
     const text = chosen.reduceRight((inserting, cluster) => `${inserting.slice(0, cluster)}${String.fromCodePoint(Face.TATWEEL).repeat(tatweels)}${inserting.slice(cluster)}`, measured.shaped.text);
-    const scales = [...Array.fromIterable(measured.scales).map(([cluster, ratio]) => [shifted(cluster, 'start'), ratio] as const), ...chosen.flatMap((cluster) => Array.makeBy(tatweels, (index) => [shifted(cluster, 'end') + index, scale] as const))];
-    const features = run.features.map(({ tag, value, start, end }) => new Feature(tag, value, shifted(start, 'start'), Math.min(shifted(end, 'end'), Feature.GLOBAL_END)));
-    const elongated = remeasured(measured, { ...run, text, item: Option.map(run.item, ({ start, end }) => Word.Span.make({ start: shifted(start, 'start'), end: shifted(end, 'end') })), features }, new Map(scales));
+    const scales = [...Array.fromIterable(measured.scales).map(([cluster, ratio]) => [shifted(cluster, Number.isLessThanOrEqualTo), ratio] as const), ...chosen.flatMap((cluster) => Array.makeBy(tatweels, (index) => [shifted(cluster, Number.isLessThan) + index, scale] as const))];
+    const features = run.features.map(({ tag, value, start, end }) => new Feature(tag, value, shifted(start, Number.isLessThanOrEqualTo), Math.min(shifted(end, Number.isLessThan), Feature.GLOBAL_END)));
+    const elongated = remeasured(measured, { ...run, text, item: Option.map(run.item, ({ start, end }) => Word.Span.make({ start: shifted(start, Number.isLessThanOrEqualTo), end: shifted(end, Number.isLessThan) })), features }, new Map(scales));
     return { ...elongated, kashida: measured.kashida + elongated.shaped.advance - measured.shaped.advance };
 };
 const featured = (measured: Measured, feature: Feature, limit: number) => {
@@ -259,7 +259,7 @@ const reached = (measured: Measured, stretched: boolean, rank: number) =>
         .filter((place) => place.rank === rank)
         .map(Struct.get('cluster'));
 const elongated = (current: Measured, elongation: Elongation, rank: number, amount: number) => {
-    const jalted = elongation._tag === 'Stretched' ? alternated(current, reached(current, true, rank), amount) : current;
+    const jalted = Predicate.isTagged(elongation, 'Stretched') ? alternated(current, reached(current, true, rank), amount) : current;
     return tatweeled(jalted, elongation, reached(jalted, false, rank), Option.some(amount - (jalted.kashida - current.kashida)));
 };
 const kashidas = (measured: Measured, index: number, rank: number): readonly Mechanism[] =>
@@ -267,7 +267,7 @@ const kashidas = (measured: Measured, index: number, rank: number): readonly Mec
         onNone: () => [],
         onSome: ([elongation, nuqta]) => [
             {
-                capacity: Option.match(solved(elongation, reached(measured, elongation._tag === 'Stretched', rank).length, measured.settings.justification.kashidas, Option.some(globalThis.Number.POSITIVE_INFINITY)), {
+                capacity: Option.match(solved(elongation, reached(measured, Predicate.isTagged(elongation, 'Stretched'), rank).length, measured.settings.justification.kashidas, Option.some(globalThis.Number.POSITIVE_INFINITY)), {
                     onNone: () => 0,
                     onSome: ({ count, length }) => count * length * nuqta,
                 }),

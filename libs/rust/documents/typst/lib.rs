@@ -79,12 +79,12 @@ pub struct Diagnostic {
 
 #[derive(Debug, thiserror::Error)]
 pub enum TypesetError {
-    #[error("value encoding failed{}", fmt::from_fn(|formatter| .element.map_or(Ok(()), |index| write!(formatter, " at queried element {index}"))))]
+    #[error("cannot encode value{}", fmt::from_fn(|formatter| .element.map_or(Ok(()), |index| write!(formatter, " at queried element {index}"))))]
     Serialize {
         element: Option<usize>,
         source: serde_path_to_error::Error<encode::Error>,
     },
-    #[error("value decoding failed{}", fmt::from_fn(|formatter| .element.map_or(Ok(()), |index| write!(formatter, " at queried element {index}"))))]
+    #[error("cannot decode value{}", fmt::from_fn(|formatter| .element.map_or(Ok(()), |index| write!(formatter, " at queried element {index}"))))]
     Deserialize {
         element: Option<usize>,
         source: serde_path_to_error::Error<decode::Error>,
@@ -95,7 +95,7 @@ pub enum TypesetError {
         face: u32,
         source: Option<ReadError>,
     },
-    #[error("{spec} template refused")]
+    #[error("cannot read {spec} template")]
     Template {
         spec: PackageSpec,
         source: FileError,
@@ -118,20 +118,20 @@ pub enum TypesetError {
         pixels: u128,
         budget: NonZero<u64>,
     },
-    #[error("{} page {page} PNG encoding failed", path.get_without_slash())]
+    #[error("cannot encode {} page {page} as PNG", path.get_without_slash())]
     Encode {
         path: VirtualPath,
         page: NonZero<usize>,
         source: png::EncodingError,
     },
-    #[error("{} write refused", path.get_without_slash())]
+    #[error("cannot write {}", path.get_without_slash())]
     Write {
         path: VirtualPath,
         source: io::Error,
     },
     #[error(transparent)]
     NativeFont(NativeFontError),
-    #[error("diagram {} refused", path.get_without_slash())]
+    #[error("cannot render diagram {}", path.get_without_slash())]
     Diagram {
         path: VirtualPath,
         source: RenderError,

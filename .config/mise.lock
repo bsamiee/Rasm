@@ -2399,6 +2399,78 @@ url = "https://github.com/jdx/hk/releases/download/v2.11.1/hk-x86_64-pc-windows-
 signer = "sigstore-oidc:https://github.com/jdx/hk/.github/workflows/release.yml"
 repository_ids = { repository = "922514152" }
 
+[[tools."http:dataflow-errorprone"]]
+version = "3.49.5-eisop1"
+backend = "http:dataflow-errorprone"
+specifiers = ["latest"]
+
+[tools."http:dataflow-errorprone".options]
+format = "raw"
+
+[tools."http:dataflow-errorprone"."platforms.linux-arm64"]
+checksum = "sha256:a3f53467156715459ec50d95927cfb16464afa13cd07181183e0d491918f38c4"
+url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.49.5-eisop1/dataflow-errorprone-3.49.5-eisop1.jar"
+
+[tools."http:dataflow-errorprone"."platforms.linux-arm64-musl"]
+checksum = "sha256:a3f53467156715459ec50d95927cfb16464afa13cd07181183e0d491918f38c4"
+url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.49.5-eisop1/dataflow-errorprone-3.49.5-eisop1.jar"
+
+[tools."http:dataflow-errorprone"."platforms.linux-x64"]
+checksum = "sha256:a3f53467156715459ec50d95927cfb16464afa13cd07181183e0d491918f38c4"
+url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.49.5-eisop1/dataflow-errorprone-3.49.5-eisop1.jar"
+
+[tools."http:dataflow-errorprone"."platforms.linux-x64-musl"]
+checksum = "sha256:a3f53467156715459ec50d95927cfb16464afa13cd07181183e0d491918f38c4"
+url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.49.5-eisop1/dataflow-errorprone-3.49.5-eisop1.jar"
+
+[tools."http:dataflow-errorprone"."platforms.macos-arm64"]
+checksum = "blake3:d7e6dc92624030639511b2bb2e56de8556ffe808a2fdc50896608061d156f0b6"
+url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.49.5-eisop1/dataflow-errorprone-3.49.5-eisop1.jar"
+
+[tools."http:dataflow-errorprone"."platforms.macos-x64"]
+checksum = "sha256:a3f53467156715459ec50d95927cfb16464afa13cd07181183e0d491918f38c4"
+url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.49.5-eisop1/dataflow-errorprone-3.49.5-eisop1.jar"
+
+[tools."http:dataflow-errorprone"."platforms.windows-x64"]
+checksum = "sha256:a3f53467156715459ec50d95927cfb16464afa13cd07181183e0d491918f38c4"
+url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.49.5-eisop1/dataflow-errorprone-3.49.5-eisop1.jar"
+
+[[tools."http:dataflow-nullaway"]]
+version = "4.4.0"
+backend = "http:dataflow-nullaway"
+specifiers = ["latest"]
+
+[tools."http:dataflow-nullaway".options]
+format = "raw"
+
+[tools."http:dataflow-nullaway"."platforms.linux-arm64"]
+checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
+url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
+
+[tools."http:dataflow-nullaway"."platforms.linux-arm64-musl"]
+checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
+url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
+
+[tools."http:dataflow-nullaway"."platforms.linux-x64"]
+checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
+url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
+
+[tools."http:dataflow-nullaway"."platforms.linux-x64-musl"]
+checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
+url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
+
+[tools."http:dataflow-nullaway"."platforms.macos-arm64"]
+checksum = "blake3:da24bb2f4bf29277f9abf2eb56f16d39ab5a908dc9b8d1e4cf3b5b63d2600b11"
+url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
+
+[tools."http:dataflow-nullaway"."platforms.macos-x64"]
+checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
+url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
+
+[tools."http:dataflow-nullaway"."platforms.windows-x64"]
+checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
+url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
+
 [[tools."http:docker-cli"]]
 version = "29.10.0-rc.1"
 backend = "http:docker-cli"
@@ -2427,6 +2499,114 @@ url = "https://download.docker.com/mac/static/test/aarch64/docker-cli_29.10.0-rc
 [tools."http:docker-cli"."platforms.macos-x64"]
 checksum = "sha256:9e9f6da4524f7023070922e7c6bb8dad94925efa0aa9ac70af8dc4af9c6a1476"
 url = "https://download.docker.com/mac/static/test/x86_64/docker-cli_29.10.0-rc.1.tgz"
+
+[[tools."http:error-prone"]]
+version = "2.52.0"
+backend = "http:error-prone"
+specifiers = ["latest"]
+
+[tools."http:error-prone".options]
+format = "raw"
+
+[tools."http:error-prone"."platforms.linux-arm64"]
+checksum = "sha256:3efb5a1d65ebcb68dd8dfb228f0c05943a551b5d740455bf166df6e0e302b6bb"
+url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.52.0/error_prone_core-2.52.0-with-dependencies.jar"
+
+[tools."http:error-prone"."platforms.linux-arm64-musl"]
+checksum = "sha256:3efb5a1d65ebcb68dd8dfb228f0c05943a551b5d740455bf166df6e0e302b6bb"
+url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.52.0/error_prone_core-2.52.0-with-dependencies.jar"
+
+[tools."http:error-prone"."platforms.linux-x64"]
+checksum = "sha256:3efb5a1d65ebcb68dd8dfb228f0c05943a551b5d740455bf166df6e0e302b6bb"
+url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.52.0/error_prone_core-2.52.0-with-dependencies.jar"
+
+[tools."http:error-prone"."platforms.linux-x64-musl"]
+checksum = "sha256:3efb5a1d65ebcb68dd8dfb228f0c05943a551b5d740455bf166df6e0e302b6bb"
+url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.52.0/error_prone_core-2.52.0-with-dependencies.jar"
+
+[tools."http:error-prone"."platforms.macos-arm64"]
+checksum = "blake3:36f51a8d996667e46bca9f4d17545a1272d1329c9a7c49ac7d0e3d6db24878e1"
+url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.52.0/error_prone_core-2.52.0-with-dependencies.jar"
+
+[tools."http:error-prone"."platforms.macos-x64"]
+checksum = "sha256:3efb5a1d65ebcb68dd8dfb228f0c05943a551b5d740455bf166df6e0e302b6bb"
+url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.52.0/error_prone_core-2.52.0-with-dependencies.jar"
+
+[tools."http:error-prone"."platforms.windows-x64"]
+checksum = "sha256:3efb5a1d65ebcb68dd8dfb228f0c05943a551b5d740455bf166df6e0e302b6bb"
+url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.52.0/error_prone_core-2.52.0-with-dependencies.jar"
+
+[[tools."http:jspecify"]]
+version = "1.0.1"
+backend = "http:jspecify"
+specifiers = ["latest"]
+
+[tools."http:jspecify".options]
+format = "raw"
+
+[tools."http:jspecify"."platforms.linux-arm64"]
+checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
+url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
+
+[tools."http:jspecify"."platforms.linux-arm64-musl"]
+checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
+url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
+
+[tools."http:jspecify"."platforms.linux-x64"]
+checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
+url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
+
+[tools."http:jspecify"."platforms.linux-x64-musl"]
+checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
+url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
+
+[tools."http:jspecify"."platforms.macos-arm64"]
+checksum = "blake3:5732f094dd0d2d57cb365e5636cea91b36855c57dafe2a5b1b14b4ffcd27ae7f"
+url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
+
+[tools."http:jspecify"."platforms.macos-x64"]
+checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
+url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
+
+[tools."http:jspecify"."platforms.windows-x64"]
+checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
+url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
+
+[[tools."http:nullaway"]]
+version = "0.14.3"
+backend = "http:nullaway"
+specifiers = ["latest"]
+
+[tools."http:nullaway".options]
+format = "raw"
+
+[tools."http:nullaway"."platforms.linux-arm64"]
+checksum = "sha256:440d3217f6a74d3b8dab766b0c63dbfbb87bea36d798879865218249dc3f1604"
+url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.3/nullaway-0.14.3.jar"
+
+[tools."http:nullaway"."platforms.linux-arm64-musl"]
+checksum = "sha256:440d3217f6a74d3b8dab766b0c63dbfbb87bea36d798879865218249dc3f1604"
+url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.3/nullaway-0.14.3.jar"
+
+[tools."http:nullaway"."platforms.linux-x64"]
+checksum = "sha256:440d3217f6a74d3b8dab766b0c63dbfbb87bea36d798879865218249dc3f1604"
+url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.3/nullaway-0.14.3.jar"
+
+[tools."http:nullaway"."platforms.linux-x64-musl"]
+checksum = "sha256:440d3217f6a74d3b8dab766b0c63dbfbb87bea36d798879865218249dc3f1604"
+url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.3/nullaway-0.14.3.jar"
+
+[tools."http:nullaway"."platforms.macos-arm64"]
+checksum = "blake3:86425cbc6494285e6609eae9d8c77d9b47bd87dcc74073dcecd8a7b800419c8c"
+url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.3/nullaway-0.14.3.jar"
+
+[tools."http:nullaway"."platforms.macos-x64"]
+checksum = "sha256:440d3217f6a74d3b8dab766b0c63dbfbb87bea36d798879865218249dc3f1604"
+url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.3/nullaway-0.14.3.jar"
+
+[tools."http:nullaway"."platforms.windows-x64"]
+checksum = "sha256:440d3217f6a74d3b8dab766b0c63dbfbb87bea36d798879865218249dc3f1604"
+url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.3/nullaway-0.14.3.jar"
 
 [[tools."http:rustc-source"]]
 version = "2026-10-30"

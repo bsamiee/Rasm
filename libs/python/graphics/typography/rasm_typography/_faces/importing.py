@@ -9,6 +9,7 @@ lazy from io import BytesIO
 lazy from itertools import chain
 lazy import unicodedata
 
+lazy from expression import Option, Some
 lazy from expression.extra.result import catch
 lazy from fontTools.misc.timeTools import epoch_diff
 lazy from fontTools.otlLib.builder import LOOKUP_FLAG_USE_MARK_FILTERING_SET
@@ -49,14 +50,17 @@ def _lookups(font: TTFont, tag: Literal["GSUB", "GPOS"], /) -> tuple[tuple[int, 
         for lookup in record.Feature.LookupListIndex if index in associations else ():
             systems = features[lookup].setdefault(record.FeatureTag, {})
             systems.update({system: systems.get(system, False) or required for system, required in associations[index].items()})
-    return tuple(  # ty: ignore[unsound-return-statement]
-        (index, frozendict({tag: frozendict(systems) for tag, systems in held.items()}), table.LookupList.Lookup[index]) for index, held in sorted(features.items())
+    return tuple(
+        (index, frozendict({tag: frozendict(systems) for tag, systems in held.items()}), lookup)
+        for index, held in sorted(features.items())
+        for lookup in (table.LookupList.Lookup[index],)
+        if isinstance(lookup, BaseTable)
     )
 
 
 def _subtables(lookup: BaseTable, /) -> tuple[BaseTable, ...]:
     """Unwraps native extension subtables without changing their priority."""
-    return tuple(subtable.ExtSubTable if isinstance(subtable, ExtensionPos | ExtensionSubst) else subtable for subtable in lookup.SubTable)  # ty: ignore[unsound-return-statement]
+    return tuple(held for subtable in lookup.SubTable for held in (subtable.ExtSubTable if isinstance(subtable, ExtensionPos | ExtensionSubst) else subtable,) if isinstance(held, BaseTable))
 
 
 # --- [NAMES]
@@ -95,15 +99,15 @@ def _named(
         glyph, name = claims.popleft()
         if glyph in named:
             continue
-        name = _GlyphName(stem=name.stem, form=name.form, variant=".".join(filter(None, (name.variant, f"gid{glyph_id(glyph)}")))) if name.text in taken else name
+        name = _GlyphName(stem=name.stem, form=name.form, suffixes=(*name.suffixes, f"gid{glyph_id(glyph)}")) if name.text in taken else name
         if len(name.text) > _GlyphName.LIMIT:
             continue
         named[glyph] = name
         taken.add(name.text)
         claims.extend(
-            (target, _GlyphName(stem=name.stem, form=_Form(feature), variant=name.variant))
+            (target, _GlyphName(stem=name.stem, form=_Form(feature), suffixes=name.suffixes))
             if feature in _Form and feature != _Form.ISOL and len(name.codes) == 1
-            else (target, _GlyphName(stem=name.stem, form=name.form, variant=".".join(filter(None, (name.variant, f"alt{index}")))))
+            else (target, _GlyphName(stem=name.stem, form=name.form, suffixes=(*name.suffixes, f"alt{index}")))
             for feature, index, target in outgoing[glyph]
         )
         claims.extend(
@@ -239,9 +243,9 @@ def _source(font: TTFont, face: Faces, /) -> Source:
         info=_Info(
             created=datetime.fromtimestamp(head.created + epoch_diff, UTC),  # ty: ignore[unresolved-attribute]
             version=divmod(round(head.fontRevision * 1000), 1000),  # ty: ignore[unresolved-attribute]
-            copyright=(font["name"].getDebugName(0) or "").strip(),
-            designer=(font["name"].getDebugName(9) or "").strip(),
-            vendor=os2.achVendID.strip(),  # ty: ignore[unresolved-attribute]
+            copyright=Option.of_optional(font["name"].getDebugName(0)).map(str.strip).filter(bool).to_optional(),
+            designer=Option.of_optional(font["name"].getDebugName(9)).map(str.strip).filter(bool).to_optional(),
+            vendor=Some(os2.achVendID.strip()).filter(bool).to_optional(),  # ty: ignore[unresolved-attribute]
         ),
         metrics=_Metrics(
             ascender=hhea.ascent,

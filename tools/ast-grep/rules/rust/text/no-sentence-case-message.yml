@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: rustlang
+severity: error
+rule:
+    kind: string_literal
+    all:
+        - any:
+            - regex: '[.!?;:,]"$'
+            - regex: '^"[A-Z][a-z]*(?-u:\b)'
+              not: {regex: '^"[A-Z][a-z]*[A-Z0-9]'}
+        - any:
+            - nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
+              inside:
+                kind: token_tree
+                inside: {kind: attribute, field: arguments, has: {field: path, pattern: error}, inside: {kind: attribute_item}}
+            - matches: tracing-event-message
+              inside: {kind: token_tree, inside: {matches: tracing-event-macro}}
+        - pattern: $MESSAGE
+message: '$MESSAGE opens with a capital or closes with punctuation'
+note: 'Open with a lowercase word ahead of any proper noun or backticked code name, and delete trailing punctuation'

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsxlang
+severity: error
+rule:
+    pattern: $TEXT
+    any:
+        - kind: regex_pattern
+          regex: '\\d[+*]\\\.\\d[+*]\\\.\\d[+*]'
+        - kind: template_string
+          regex: '\$\{[^{}]+\}\.\$\{[^{}]+\}\.\$\{[^{}]+\}'
+          not: {has: {kind: template_substitution, has: {stopBy: end, kind: template_string}}}
+message: '`$TEXT` parses or writes a semantic version by hand'
+note: 'Decode through `Schema.SemVerFromString` and write through `SemVer.format`, or read a host version through the host''s own parser'

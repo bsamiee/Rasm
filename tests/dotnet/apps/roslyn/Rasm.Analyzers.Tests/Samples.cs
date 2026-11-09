@@ -29,8 +29,9 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
 
     private static readonly string EditorConfig = File.ReadAllText(Path.Combine(AttributeReader.GetSolutionDirectory(typeof(Analysis).Assembly), ".editorconfig"));
 
-    private static readonly FrozenDictionary<string, string> References = typeof(Analysis).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-        .ToFrozenDictionary(static held => held.Key, static held => held.Value!, StringComparer.Ordinal);
+    private static readonly FrozenDictionary<string, string> References = toSeq(typeof(Analysis).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>())
+        .Choose(static held => Optional(held.Value).Map(value => (held.Key, Value: value)))
+        .ToFrozenDictionary(static held => held.Key, static held => held.Value, StringComparer.Ordinal);
 
     private static readonly ReferenceAssemblies Framework = new(References["TargetingPackFramework"], new PackageIdentity(References["TargetingPackId"], References["TargetingPackVersion"]), Path.Combine("ref", References["TargetingPackFramework"]));
 
@@ -60,7 +61,7 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
     protected override IEnumerable<Type> GetSourceGenerators() => Generators;
 
     private static ImmutableArray<T> Exported<T, TAttribute>(Assembly assembly) where TAttribute : Attribute =>
-        [.. assembly.GetExportedTypes().Where(static type => type.IsDefined(typeof(TAttribute), inherit: false)).Select(static type => (T)Activator.CreateInstance(type)!)];
+        [.. assembly.GetExportedTypes().Where(static type => type.IsDefined(typeof(TAttribute), inherit: false)).Select(static type => Activator.CreateInstance(type)).OfType<T>()];
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -98,7 +99,7 @@ public sealed class Samples {
         Analysis analysis = new(descriptor) {
             DiagnosticVerifier = (diagnostic, _, _) => {
                 if (!Analysis.Rules.ContainsKey(diagnostic.Id)) return;
-                (string Path, TextSpan Span, string Id) site = (diagnostic.Location.SourceTree!.FilePath, diagnostic.Location.SourceSpan, diagnostic.Id);
+                (string Path, TextSpan Span, string Id) site = (diagnostic.Location.GetLineSpan().Path, diagnostic.Location.SourceSpan, diagnostic.Id);
                 reported[site] = $"{markers[site].Name} {diagnostic.GetMessage(CultureInfo.InvariantCulture)}\n";
             },
         };

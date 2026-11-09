@@ -30,7 +30,7 @@ extension NSWorkspace {
             do throws(Errno) { return try processes(executing: executable) } catch { throw ApplicationFailure(subject: executable, reason: .system(error)) }
         }
         let before: Set<pid_t> = try executable.map(listing) ?? []
-        let configuration: OpenConfiguration = OpenConfiguration()
+        let configuration = OpenConfiguration()
         configuration.activates = false
         configuration.addsToRecentItems = false
         configuration.promptsUserIfNeeded = false

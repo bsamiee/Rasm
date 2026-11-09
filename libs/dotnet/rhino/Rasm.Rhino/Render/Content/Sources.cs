@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
@@ -51,7 +52,7 @@ public static class Contents {
 
     // --- [LIFECYCLE]
 
-    public static RenderContent? FromXml(string xml, RhinoDoc? doc) =>
+    public static RenderContent? FromXml([StringSyntax(StringSyntaxAttribute.Xml)] string xml, RhinoDoc? doc) =>
         RenderContent.FromXml(xml, doc) switch {
             null => null,
             var floating => Floating(floating),

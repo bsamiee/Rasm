@@ -1,4 +1,4 @@
-use core::iter;
+use core::{convert, iter};
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use color::{AlphaColor, Rgba8, Srgb};
@@ -18,7 +18,7 @@ use xot::Node;
 
 use crate::{
     ASPECT_RATIO, Alphabet, BcfError, Constraint, Image, ImageFormat, ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA, REFERENCE, Text,
-    xml::{Codec, Reader, Simple, Writer, codec, local_name, named, sides},
+    xml::{Codec, Reader, Simple, Writer, codec, named, sides},
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -311,7 +311,7 @@ impl Codec for Unit<Vector3<f64>> {
     fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, BcfError> {
         Vector3::read(reader, node)
             .ok()
-            .map_or_else(Validated::Fail, |vector| Self::try_new(vector, 0.0).map_or_else(|| Validated::fail(reader.refused(local_name(reader.xot, node), None)), Validated::Good))
+            .map_or_else(Validated::Fail, |vector| Self::try_new(vector, 0.0).map_or_else(|| Validated::fail(reader.local_name(node).map_or_else(convert::identity, |element| reader.refused(element, None))), Validated::Good))
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> { self.as_ref().write(writer, node) }

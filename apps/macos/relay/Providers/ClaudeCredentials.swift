@@ -8,6 +8,13 @@ import Security
 import Subprocess
 import System
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+nonisolated extension Environment.Key {
+    static let claudeConfigDirectory: Self = "CLAUDE_CONFIG_DIR"
+    static let claudeSecureStorageDirectory: Self = "CLAUDE_SECURESTORAGE_CONFIG_DIR"
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 nonisolated struct ClaudeOAuthToken: Sendable {
@@ -81,15 +88,15 @@ nonisolated struct ClaudeCredentialStore: Sendable {
 
     init(home: URL, environment: [Environment.Key: String], username: String) {
         let defaultDirectory: URL = home.appending(path: ".claude", directoryHint: .isDirectory)
-        let configured: URL? = environment["CLAUDE_CONFIG_DIR"].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) }
-        configDirectoryPath = (environment["CLAUDE_SECURESTORAGE_CONFIG_DIR"] ?? environment["CLAUDE_CONFIG_DIR"]).flatMap { value in
+        let configured: URL? = environment[.claudeConfigDirectory].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) }
+        configDirectoryPath = (environment[.claudeSecureStorageDirectory] ?? environment[.claudeConfigDirectory]).flatMap { value in
             value.isEmpty ? nil : value.precomposedStringWithCanonicalMapping
         }
         directory = configDirectoryPath.map { value in URL(filePath: value, directoryHint: .isDirectory) } ?? defaultDirectory
         configFile = (configured ?? home).appending(path: ".claude.json")
         directoryConfigFile = (configured ?? defaultDirectory).appending(path: ".config.json")
         self.username = username
-        variables = environment.filter { key, _ in ["CLAUDE_CONFIG_DIR", "CLAUDE_SECURESTORAGE_CONFIG_DIR"].contains(key) }
+        variables = environment.filter { key, _ in [.claudeConfigDirectory, .claudeSecureStorageDirectory].contains(key) }
     }
 
     var service: String {
@@ -128,14 +135,14 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     func writeAccount(_ account: JSONDocument<ClaudeOAuthAccount>) async throws(ClaudeFailure) {
         let file: URL = existingConfigFile
         try Result { try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true) }.mapError(ClaudeFailure.filesystem).get()
-        let retry: Backoff = Backoff(count: 6, base: .milliseconds(200), cap: .seconds(4), jitter: 1)
+        let retry = Backoff(count: 6, base: .milliseconds(200), cap: .seconds(4), jitter: 1)
         try await Lockfile.withLocks([Lockfile(file.appendingPathExtension("lock"), retry: retry)]) { () throws(ClaudeFailure) in
             let fields: [String: JSONValue] = try Self.read(at: file)?.fields ?? [:]
             let mode: FilePermissions? = try Result { () throws(Errno) in try ifPresent { () throws(Errno) in try FilePath(file.path(percentEncoded: false)).stat().permissions } }
                 .mapError(ClaudeFailure.filesystem)
                 .get()
             try Result {
-                let document: FileWrapper = FileWrapper(
+                let document = FileWrapper(
                     regularFileWithContents: try JSONEncoder().encode(JSONDocument(fields: fields, known: ClaudeAccountFile(oauthAccount: account, hasCompletedOnboarding: true)))
                 )
                 document.fileAttributes[FileAttributeKey.posixPermissions.rawValue] = Int((mode ?? .ownerReadWrite).rawValue)
@@ -230,8 +237,8 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         directories: [URL],
         _ body: @escaping @Sendable () async throws(ClaudeFailure) -> Value,
     ) async throws(ClaudeFailure) -> Value {
-        let refresh: Backoff = Backoff(count: 5, base: .seconds(1), growth: 1, jitter: 1)
-        let storageWrite: Backoff = Backoff(count: 10, base: .milliseconds(100), cap: .seconds(1))
+        let refresh = Backoff(count: 5, base: .seconds(1), growth: 1, jitter: 1)
+        let storageWrite = Backoff(count: 10, base: .milliseconds(100), cap: .seconds(1))
         let lockfiles: [[Lockfile]] = try Set(directories).sorted { first, second in first.path(percentEncoded: false) < second.path(percentEncoded: false) }
             .map { directory throws(ClaudeFailure) in
                 try Result { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }.mapError(ClaudeFailure.filesystem).get()

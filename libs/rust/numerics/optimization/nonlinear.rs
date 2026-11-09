@@ -100,7 +100,7 @@ where F: Objective<E> {
         Target::Maximize => f64::NEG_INFINITY,
     };
     let algorithm = settings.optimizer.algorithm;
-    let solved: Result<Solution, Either<E, OptimizeError>> = try bikeshed Result<Solution, Either<E, OptimizeError>> {
+    let solved = try bikeshed Result<Solution, Either<E, OptimizeError>> {
         let mut nlopt = Nlopt::new(
             algorithm,
             dimensions,

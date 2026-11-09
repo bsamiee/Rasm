@@ -142,7 +142,7 @@ Every function returns an explicit outcome type, and one type serves one concern
 |  [05]   | `Exit<A, E>`      | Completed outcome a host reads                       |
 |  [06]   | `Cause<E>`        | Every failure, defect, and interruption of one fiber |
 
-Input boundaries select the outcome type, functions preserve it, and one conversion point uses the function named for its target (`Effect.fromOption`, `Effect.fromResult`, `Option.fromNullishOr`, `Result.fromOption`). `null` and `undefined` appear at a host API alone, a host field whose absence means a default reads `field ?? default` at the read, an optional value passes directly to a host prop accepting `undefined` and through a conditional spread to one refusing it, and `Option` stands where a consumer acts on absence. Empty arrays are values, `Option<readonly A[]>` stands where a consumer treats no collection and an empty one differently.
+Input boundaries select the outcome type, functions preserve it, and one conversion point uses the function named for its target (`Effect.fromOption`, `Effect.fromResult`, `Option.fromNullishOr`, `Result.fromOption`). `null` and `undefined` appear at a host API alone, a host field whose absence means a default reads `field ?? default` at the read, an optional value passes directly to a host prop accepting `undefined` and through a conditional spread to one refusing it, and `Option` stands where a consumer acts on absence. Absent text stays `undefined` or `Option`, never `''`, and text with an optional part is one expression choosing between complete values (``Option.match(tag, { onNone: () => name, onSome: (suffix) => `${name}-${suffix}` })``); `''` stands only where a host input spells unset as `''` (a JSX `value`, a `<select>` placeholder), decoded back to absence at that input. Casts and `!` never stand in for a presence proof, a decode or `Effect.fromNullishOr` supplying it. Empty arrays are values, `Option<readonly A[]>` stands where a consumer treats no collection and an empty one differently.
 
 Each package declares one error class for the expected failures its producers report, holding a `reason` case for each response a caller gives with the data that response reads, the `subject` that failed, and a foreign `cause` where one exists, with a message derived from them:
 
@@ -169,7 +169,7 @@ class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique
 - Values no package error owns (an entry script's refusal) fail with `new Cause.UnknownError(value, message)`, refused value as `cause` and message naming the refusal
 - Messages render a schema-typed field through `Schema.encodeResult(Schema.fromJsonString(Schema.toCodecJson(S)))`, `String` printing `[object Object]`
 - Pure checks return finding lists that concatenate into one error over `Schema.NonEmptyArray(Finding)`, its `raise` static failing on a non-empty list
-- Foreign failures become a `cause` where the package adds a subject a caller acts on
+- Foreign failures become a `cause` where the package adds a subject a caller acts on, a `String(cause)` or `error.message` detail flattening its chain
 
 ### [05.1]-[COMPOSITION]
 
@@ -256,6 +256,7 @@ Libraries return their outcome type with their own error, and the application co
 ## [07]-[VALUES]
 
 Quantities with a unit are values of their module, a plain number holds a count or a dimensionless ratio:
+- `SemVer` holds versions, decoded through `Schema.SemVerFromString` and written through `SemVer.format`, a `\d+\.\d+\.\d+` pattern or `${major}.${minor}.${patch}` template restating them
 - `Duration` holds elapsed times, a millisecond number at an API taking one, and text typed `` `${number} ${Duration.Unit}` `` is an undecoded input
 - `DateTime` holds instants and zoned times, `Date` appears at an API taking one
 - `BigDecimal` holds money and exact decimal arithmetic and `ByteSize` sizes, `Duration.format` and `ByteSize.format` rendering fixed English for logs

@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+rule:
+    kind: ColConstraintElem, alter_column_default
+    pattern: $DEFAULT
+    regex: "(?i-u)^(?:set\\s+)?default\\s*\\(*\\s*''\\s*\\)*$"
+message: '`$DEFAULT` stores an empty string where the column holds no value'
+note: 'Leave a column nullable without a default, or require a value with NOT NULL'

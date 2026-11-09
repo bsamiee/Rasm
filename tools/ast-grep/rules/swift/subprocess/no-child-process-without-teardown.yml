@@ -103,7 +103,7 @@ rule:
                                 kind: value_argument
                                 nthChild: 1
                                 not: {has: {field: name, kind: value_argument_label}}
-                                has: {field: value, kind: simple_identifier, matches: {swift-typed-use: {type: {kind: user_type, regex: '^(Subprocess(\.|::))?Executable$'}}}}
+                                has: {field: value, kind: simple_identifier, matches: {swift-typed-use: {type: {regex: '^(Subprocess(\.|::))?Executable$'}}}}
                         - not: {has: {matches: platform-options-argument}}
         - kind: call_expression
           any:

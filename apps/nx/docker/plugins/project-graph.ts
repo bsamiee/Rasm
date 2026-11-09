@@ -2,7 +2,7 @@ import { matchesGlob } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, hashArray, logger, type ProjectGraphProjectNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getOutputs, hashObject, quoteShellArg } from '@nx/devkit/internal';
-import { Array, Effect, Function, Option, Order, Path, Record, Result, Schema, Stream } from 'effect';
+import { Array, Effect, Formatter, Function, Option, Order, Path, Record, Result, Schema, Stream, String } from 'effect';
 import { ChildProcess } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -30,9 +30,9 @@ const Variables = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unkn
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class ComposeError extends Schema.TaggedError<ComposeError, { readonly brand: unique symbol }>()('ComposeError', { subject: Schema.String, detail: Schema.String }) {
+class ComposeError extends Schema.TaggedError<ComposeError, { readonly brand: unique symbol }>()('ComposeError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
     override get message() {
-        return `${this.subject}: ${this.detail}`;
+        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
     }
 }
 
@@ -44,10 +44,10 @@ const spawned = Effect.fnUntraced(function* (args: readonly string[], cwd: strin
     return code === 0 ? stdout : yield* ComposeError.make({ subject: ['docker', 'compose', ...args].join(' '), detail: `exited ${code} in ${cwd}: ${stderr.trim()}` });
 }, Effect.scoped);
 
-const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: string, held: Array.NonEmptyReadonlyArray<string>) {
+const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: string, matched: Array.NonEmptyReadonlyArray<string>) {
     const path = yield* Path.Path;
     const cwd = path.join(workspaceRoot, root);
-    const files = Array.sort(held, Order.String);
+    const files = Array.sort(matched, Order.String);
     const read = yield* Effect.result(Effect.all([Effect.flatMap(spawned(['config', '--format', 'json', '--no-interpolate'], cwd), Schema.decodeEffect(Report)), Effect.flatMap(spawned(['config', '--variables', '--format', 'json'], cwd), Schema.decodeEffect(Variables))], { concurrency: 'unbounded' }));
     const local = (at: string) => Option.liftPredicate(path.relative(workspaceRoot, at), (relative) => path.isAbsolute(at) && !(relative.startsWith('..') || path.isAbsolute(relative)));
     const own = [...files, path.join(root, '.env')];
@@ -90,12 +90,12 @@ const targets = (project: Project): Record<string, TargetConfiguration> => {
         { externalDependencies: [] },
     ];
     const configurations = Record.fromIterableWith(project.profiles, (profile) => [profile, { env: { COMPOSE_PROFILES: profile } }] as const);
-    const origin = Option.match(project.unread, { onNone: () => '', onSome: ({ message }) => `, inferred from ${project.files[0]} alone since Compose did not read it: ${message.split('\n')[0] ?? message}` });
+    const origin = Option.map(project.unread, ({ message }) => `inferred from ${project.files[0]} alone since Compose did not read it: ${Array.headNonEmpty(String.split(message, '\n'))}`);
     const compose = (args: Array.NonEmptyReadonlyArray<string>, description: string, { options, ...extra }: Partial<TargetConfiguration>): TargetConfiguration => ({
         ...extra,
         command: ['docker', 'compose', ...args].join(' '),
         options: { cwd: project.root, ...options },
-        metadata: { technologies: TECHNOLOGIES, description: `${description}${origin}`, help: { command: `docker compose ${args[0]} --help`, example: {} } },
+        metadata: { technologies: TECHNOLOGIES, description: Option.match(origin, { onNone: () => description, onSome: (note) => `${description}, ${note}` }), help: { command: `docker compose ${args[0]} --help`, example: {} } },
     });
     const inferred: Record<string, TargetConfiguration> = {
         'check--compose': compose(['config', '--quiet'], `Validates every Compose service of ${project.name}, interpolation and env files included`, { cache: true, inputs, options: { env: EVERY_PROFILE } }),
@@ -117,7 +117,7 @@ const targets = (project: Project): Record<string, TargetConfiguration> => {
             (members, verb): TargetConfiguration => ({
                 executor: 'nx:noop',
                 dependsOn: [`${verb}--*`],
-                inputs: ['...', ...Array.dedupe(members.flatMap(([, held]) => held.inputs ?? []))],
+                inputs: ['...', ...Array.dedupe(members.flatMap(([, member]) => member.inputs ?? []))],
                 metadata: { technologies: TECHNOLOGIES, description: `Runs every ${verb}--* target` },
             }),
         ),
@@ -130,7 +130,7 @@ const keyed = (workspaceRoot: string, options: unknown) => hashArray([workspaceR
 
 const graph = Effect.fnUntraced(function* (workspaceRoot: string, files: readonly string[], options: unknown) {
     const path = yield* Path.Path;
-    const projects = yield* Effect.forEach(Record.toEntries(Array.groupBy(files, (file) => path.dirname(file))), ([root, held]) => analyzed(workspaceRoot, root, held), { concurrency: 'unbounded' });
+    const projects = yield* Effect.forEach(Record.toEntries(Array.groupBy(files, (file) => path.dirname(file))), ([root, matched]) => analyzed(workspaceRoot, root, matched), { concurrency: 'unbounded' });
     yield* Effect.forEach(Array.getSomes(projects.map(({ files: [file], unread }) => Option.map(unread, ({ message }) => `${file} takes check--compose and install from its folder alone, and their runs report Compose's own failure: ${message}`))), (warning) => Effect.sync(() => logger.warn(warning)));
     reports.set(keyed(workspaceRoot, options), projects);
     return projects;

@@ -35,7 +35,7 @@ extension ElementAction {
         let (instance, target): (NSRunningApplication, (owner: pid_t, node: AXUIElement?)) = try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
             let target: (owner: pid_t, node: AXUIElement?) = try resolved(in: process)
             let subject: pid_t = process ?? target.owner
-            guard let instance: NSRunningApplication = NSRunningApplication(processIdentifier: subject), !instance.isTerminated else {
+            guard let instance = NSRunningApplication(processIdentifier: subject), !instance.isTerminated else {
                 throw ApplicationFailure(subject: String(subject), reason: .noProcess)
             }
             return (instance, target)
@@ -71,7 +71,7 @@ extension ElementAction {
                 if let process, owner != process { throw ApplicationFailure(subject: String(owner), reason: .foreign(process)) }
                 return (owner, nil)
             case .perform(let id, _), .set(let id, _):
-                guard let node: AXUIElement = try AXUIElement.element(id.token), let owner: pid_t = node.process else {
+                guard let node = try AXUIElement.element(id.token), let owner = node.process else {
                     throw ApplicationFailure(subject: id.description, reason: .unresolved)
                 }
                 if let process, owner != process, !isDialogHelper(owner) { throw ApplicationFailure(subject: id.description, reason: .foreign(process)) }
@@ -82,9 +82,9 @@ extension ElementAction {
     private func run(on target: (owner: pid_t, node: AXUIElement?)) throws(ApplicationFailure) -> CGWindowID? {
         guard let node: AXUIElement = target.node else {
             guard case .key(let process, let code) = self else { return nil }
-            let source: CGEventSource? = CGEventSource(stateID: .privateState)
+            let source = CGEventSource(stateID: .privateState)
             for down: Bool in [true, false] {
-                guard let event: CGEvent = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: down) else { throw ApplicationFailure(subject: description, reason: .refused(nil)) }
+                guard let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: down) else { throw ApplicationFailure(subject: description, reason: .refused(nil)) }
                 event.postToPid(process)
             }
             return nil

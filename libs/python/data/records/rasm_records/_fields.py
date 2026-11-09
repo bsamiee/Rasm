@@ -1,8 +1,9 @@
-"""Record field domains, record bases, dated histories, and record lenses."""
+"""Record field domains, record bases, dated histories, record lenses, and the words of a name."""
 
 from collections.abc import Callable
 import datetime
 import math
+import re
 import sys
 from types import MemberDescriptorType
 from typing import Annotated, Self
@@ -104,6 +105,16 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [NAMES]
+
+
+def words(name: str, /) -> tuple[str, ...]:
+    """Returns the words a name spells, each case change, digit run, and separator a boundary, an acronym run kept whole (`HDRTone` as `HDR`, `Tone`)."""
+    return tuple(match.group() for match in re.finditer(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+", name))
+
+
+# --- [LENSES]
+
 
 def _stepped(value: object, step: object) -> Option[tuple[object, _Parent]]:
     match step, value:
@@ -178,4 +189,5 @@ __all__ = [
     "Unit",
     "amended",
     "focused",
+    "words",
 ]

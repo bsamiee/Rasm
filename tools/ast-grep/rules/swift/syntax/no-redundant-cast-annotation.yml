@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: swiftlang
+severity: error
+utils:
+    cast-to-type:
+        any:
+            - kind: as_expression
+              has: {field: name, pattern: $T}
+            - kind: nil_coalescing_expression
+              has: {field: value, kind: as_expression, has: {field: name, pattern: $T}}
+rule:
+    kind: type_annotation
+    has: {field: name, pattern: $T}
+    any:
+        - inside:
+            kind: property_declaration
+            has: {field: value, matches: cast-to-type}
+            not: {inside: {kind: 'class_body, enum_class_body, protocol_body, source_file'}}
+        - inside: {kind: 'if_statement, guard_statement, while_statement'}
+          precedes: {regex: '^=$', precedes: {matches: cast-to-type}}
+message: '`: $T` restates the type its cast names'
+note: 'Bind with the cast alone, `let <name> = <value> as? <Type>` or `if let <name> = <value> as? <Type>`'

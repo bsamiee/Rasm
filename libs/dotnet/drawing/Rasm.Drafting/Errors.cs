@@ -24,22 +24,21 @@ public sealed partial class DraftingReason {
     public string Message { get; }
 }
 
-public sealed record DraftingFault(object? Subject, DraftingReason Reason, Option<int> Index = default, Option<Error> Inner = default, string Expression = "")
+public sealed record DraftingFault(object? Subject, DraftingReason Reason, Option<int> Index = default, Option<Error> Inner = default, Option<string> Expression = default)
     : Expected(Reason.Message, 0, Inner),
     IValidationError<DraftingFault> {
     public object? Subject { get; } = Subject;
     public DraftingReason Reason { get; } = Reason;
-    public string Expression { get; } = Expression;
+    public Option<string> Expression { get; } = Expression;
 
-    public override string Message {
-        get {
-            string subject = Expression.Length is 0 ? string.Create(CultureInfo.InvariantCulture, $"{Subject}") : string.Create(CultureInfo.InvariantCulture, $"{Expression} = {Subject}");
-            return Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {subject} at index {at}"), () => $"{Reason.Message}: {subject}");
-        }
-    }
+    public override string Message =>
+        string.Concat([
+            Reason.Message, ": ", .. Expression.Map(static named => $"{named} = ").ToSeq(), string.Create(CultureInfo.InvariantCulture, $"{Subject}"),
+            .. Index.Map(static at => string.Create(CultureInfo.InvariantCulture, $" at index {at}")).ToSeq(),
+        ]);
 
     public static DraftingFault Create(string message) => new(message, DraftingReason.Stated);
 
-    public static Fin<Unit> Unless<T>(bool flag, DraftingReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new DraftingFault(rejected, reason, index, Expression: names);
+    public static Fin<Unit> Unless<T>(bool flag, DraftingReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string? names = null) =>
+        flag ? unit : new DraftingFault(rejected, reason, index, Expression: Optional(names));
 }

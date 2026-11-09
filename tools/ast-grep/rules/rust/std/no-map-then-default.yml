@@ -64,7 +64,7 @@ rule:
         - any:
             - pattern: $O.map_or($D, $_)
             - pattern: $O.map_or_else($D, $_)
-        - has: {field: arguments, has: {pattern: $D, matches: rust-default-value}}
+        - has: {field: arguments, has: {pattern: $D, matches: rust-default-value, not: {regex: '^(String|OsString|PathBuf)(::<.*>)?::new(\(\))?$'}}}
         - not: {matches: default-compared-binding}
 constraints:
     O: {not: {matches: dropped-error}}

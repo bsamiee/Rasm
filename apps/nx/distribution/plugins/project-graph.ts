@@ -3,12 +3,12 @@ import { matchesGlob } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesResultArray, type TargetConfiguration } from '@nx/devkit';
 import { getNamedInputs, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Option, Path, Schema } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, Schema, UndefinedOr } from 'effect';
 import { type Fields, HOSTS, type Host, RELEASE } from '#/plugins/host-packages';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Found {
+interface Discovered {
     readonly file: string;
     readonly host: Host;
     readonly root: string;
@@ -41,7 +41,10 @@ const published = (plugin: string, host: Host, inputs: NonNullable<TargetConfigu
     configurations: { [RELEASE]: {} },
     metadata: {
         technologies: [host.technology],
-        description: `Attaches the ${host.technology} packages build wrote in its ${RELEASE} configuration to the project's GitHub release${Option.match(Option.fromUndefinedOr(host.publish), { onNone: () => '', onSome: ({ command }) => ` and publishes them through ${command}` })}`,
+        description: UndefinedOr.match(host.publish, {
+            onUndefined: () => `Attaches the ${host.technology} packages build wrote in its ${RELEASE} configuration to the project's GitHub release`,
+            onDefined: ({ command }) => `Attaches the ${host.technology} packages build wrote in its ${RELEASE} configuration to the project's GitHub release and publishes them through ${command}`,
+        }),
     },
 });
 
@@ -69,16 +72,16 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                     ({ file, host, root }) =>
                         fs.readFileString(path.join(context.workspaceRoot, file)).pipe(
                             Effect.flatMap((text) => host.read(text, file)),
-                            Effect.mapBoth({ onFailure: (error): [string, Error] => [file, new Error(error.message)], onSuccess: Option.map((fields): Found => ({ file, host, root, fields })) }),
+                            Effect.mapBoth({ onFailure: (error): [string, Error] => [file, error], onSuccess: Option.map((fields): Discovered => ({ file, host, root, fields })) }),
                         ),
                     { concurrency: 'unbounded' },
                 );
-                const found = Array.getSomes(read).filter(({ fields }) => fields.installed !== true);
-                const holds = (other: Found, item: Found) => (other.fields.folders ?? []).some((folder) => !path.relative(path.join(other.root, folder), item.root).startsWith('..'));
-                const hosts = (item: Found) => (item.fields.folders === undefined ? found.filter((other) => holds(other, item) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled)) : [item]);
-                const uses = (item: Found) => found.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name));
-                const described = (item: Found) => (item.host.standalone === true ? { descriptor: item.file, hosts: hosts(item).map((other) => other.file), dependencies: uses(item).map((other) => other.file), ...(engines === undefined ? {} : { engines }) } : {});
-                const builds = (item: Found) =>
+                const discovered = Array.getSomes(read).filter(({ fields }) => fields.installed !== true);
+                const holds = (other: Discovered, item: Discovered) => (other.fields.folders ?? []).some((folder) => !path.relative(path.join(other.root, folder), item.root).startsWith('..'));
+                const hosts = (item: Discovered) => (item.fields.folders === undefined ? discovered.filter((other) => holds(other, item) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled)) : [item]);
+                const uses = (item: Discovered) => discovered.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name));
+                const described = (item: Discovered) => (item.host.standalone === true ? { descriptor: item.file, hosts: hosts(item).map((other) => other.file), dependencies: uses(item).map((other) => other.file), ...(engines === undefined ? {} : { engines }) } : {});
+                const builds = (item: Discovered) =>
                     Option.map(
                         Option.fromUndefinedOr(item.host.build),
                         ({ executor, command }): TargetConfiguration => ({
@@ -97,11 +100,11 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                                 { externalDependencies: [] },
                                 ...own,
                             ],
-                            ...(item.host.archive === undefined ? {} : { outputs: [path.join('{options.outputPath}', `${item.fields.name}-${item.fields.version ?? ''}*${item.host.archive}`)] }),
+                            ...(item.host.archive === undefined ? {} : { outputs: [path.join('{options.outputPath}', UndefinedOr.match(item.fields.version, { onUndefined: () => `${item.fields.name}-*${item.host.archive}`, onDefined: (version) => `${item.fields.name}-${version}*${item.host.archive}` }))] }),
                             metadata: { technologies: [item.host.technology], description: `Builds the ${item.host.technology} project its ${item.host.manifest} declares`, help: { command: `${command} --help`, example: { options: { outputPath: 'dist' } } } },
                         }),
                     );
-                const installs = (item: Found): Option.Option<TargetConfiguration> =>
+                const installs = (item: Discovered): Option.Option<TargetConfiguration> =>
                     Option.orElse(
                         Option.map(Option.fromUndefinedOr(item.host.install), ({ command }) => ({ executor: `${name}:install`, dependsOn: ['build'], inputs: own, metadata: { technologies: [item.host.technology], description: `Installs the ${item.host.technology} packages build wrote, through ${command}` } })),
                         () =>
@@ -119,8 +122,8 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                                 () => hosts(item).length > 0,
                             ),
                     );
-                const owned = (item: Found, build: TargetConfiguration) => {
-                    const linked = Array.dedupe([...found.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)]);
+                const owned = (item: Discovered, build: TargetConfiguration) => {
+                    const linked = Array.dedupe([...discovered.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)]);
                     return {
                         project: { name: item.fields.name, ...(linked.length === 0 ? {} : { implicitDependencies: linked.map((other) => other.fields.name) }) },
                         targets: {
@@ -129,7 +132,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                         },
                     };
                 };
-                const nodes = found.map((item): CreateNodesResultArray[number] => {
+                const nodes = discovered.map((item): CreateNodesResultArray[number] => {
                     const build = builds(item);
                     const standalone = Option.map(
                         Option.filter(build, () => item.host.standalone === true),
@@ -155,7 +158,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 });
                 return { failures, nodes };
             }).pipe(
-                Effect.mapError((error) => new AggregateCreateNodesError([[null, new Error(error.message)]], [])),
+                Effect.mapError((error) => new AggregateCreateNodesError([[null, error]], [])),
                 Effect.flatMap(({ failures, nodes }) => (failures.length === 0 ? Effect.succeed(nodes) : Effect.fail(new AggregateCreateNodesError(failures, nodes)))),
                 Effect.provide(layer),
             ),

@@ -13,13 +13,13 @@ import type { routes } from '#/routes';
 
 const Specimen = Schema.Struct({
     face: Face,
-    shaped: Schema.Union([ShapedText, Justification]).annotate({ description: 'Em positions, not application composition or document coordinates, justified with width' }),
+    shaped: Schema.OptionFromOptionalKey(Schema.Union([ShapedText, Justification]).annotate({ description: 'Em positions, not application composition or document coordinates, justified with width, absent with no text' })),
     choices: Schema.Array(Face.fields.layout.Choice).annotate({ description: 'aalt, salt and cvNN alternates of each shaped glyph' }),
 });
 const FontRequest = Face.Instance.pipe(
     Schema.fieldsAssign({
         ...ShapedText.Run.fields,
-        text: ShapedText.Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
+        text: Schema.OptionFromOptionalKey(ShapedText.Run.fields.text.annotate({ description: 'One-script one-direction run to shape and check glyphs, no geometry when absent' })),
         name: AvailableFace.Name.annotate({ description: `${SchemaAST.resolveDescription(AvailableFace.Name.ast)}, or application font name or specifier` }),
         width: Schema.OptionFromOptionalKey(Schema.Finite.annotate({ description: 'Line width in em to justify text to, natural width when absent' })),
         settings: Settings.Partial.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
@@ -30,17 +30,20 @@ const Faces = Schema.Array(AvailableFace);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const applicationFont = Effect.fnUntraced(function* (client: Effect.Success<ReturnType<Effect.Success<typeof listening>['call']>>, name: string, text: string) {
+const applicationFont = Effect.fnUntraced(function* (client: Effect.Success<ReturnType<Effect.Success<typeof listening>['call']>>, name: string, characters: readonly string[]) {
     const files = yield* FileSystem.FileSystem;
-    const { font, source } = yield* client('font', { name, text, file: yield* files.makeTempFileScoped({ suffix: '.otf' }) });
+    const { font, source } = yield* client('font', { name, text: characters.join(''), file: yield* files.makeTempFileScoped({ suffix: '.otf' }) });
     const read = Option.map(source, ({ file, postscriptName }) => Effect.all({ data: files.readFile(file), postscriptName: Effect.succeed(postscriptName) }));
     return { font, source: yield* Effect.transposeOption(read) };
 }, Effect.scoped);
-const composed = Effect.fnUntraced(function* (source: typeof Source.Type, instance: typeof Face.Instance.Type, run: typeof ShapedText.Run.Type, width: Option.Option<number>, given: typeof Settings.Partial.Type) {
+const composed = Effect.fnUntraced(function* (source: typeof Source.Type, instance: typeof Face.Instance.Type, run: Option.Option<typeof ShapedText.Run.Type>, width: Option.Option<number>, given: typeof Settings.Partial.Type) {
     const face = yield* Face.open(source, instance);
     const settings = yield* Settings.merge(Settings.make({}), Struct.evolve(given, { features: (features = {}) => face.layout.exclusive(features) }));
-    const natural = ShapedText.of(face, run, settings);
-    return { face, shaped: Option.match(width, { onNone: () => natural, onSome: (line) => Justification.of([{ face, run, settings }], line) }), choices: face.layout.choices(natural) };
+    const specimen = Option.map(run, (text) => {
+        const natural = ShapedText.of(face, text, settings);
+        return { shaped: Option.match(width, { onNone: () => natural, onSome: (line) => Justification.of([{ face, run: text, settings }], line) }), choices: face.layout.choices(natural) };
+    });
+    return { face, shaped: Option.map(specimen, Struct.get('shaped')), choices: Option.match(specimen, { onNone: () => [], onSome: Struct.get('choices') }) };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -53,15 +56,22 @@ const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType
         parameters: FontRequest,
         success: FontResult,
     }).annotate(Tool.Readonly, true);
-    const typeset = ({ name, variations, size, width, settings, ...run }: Tool.Parameters<typeof tool>, chosen: Option.Option<Effect.Success<ReturnType<typeof route.resolve>>>) => {
-        const shaped = (source: typeof Source.Type) => composed(source, { variations, size }, run, width, settings);
+    const typeset = ({ name, variations, size, width, settings, text, ...run }: Tool.Parameters<typeof tool>, chosen: Option.Option<Effect.Success<ReturnType<typeof route.resolve>>>) => {
+        const shaped = (source: typeof Source.Type) =>
+            composed(
+                source,
+                { variations, size },
+                Option.map(text, (given) => ({ ...run, text: given })),
+                width,
+                settings,
+            );
         const native = Effect.fnUntraced(function* ({ client }: Effect.Success<ReturnType<typeof route.resolve>>) {
-            const applied = yield* applicationFont(client, name, run.text);
+            const applied = yield* applicationFont(client, name, Option.toArray(text));
             return { ...applied.font, specimen: yield* Effect.transposeOption(Option.map(applied.source, shaped)) };
         });
         const shaping = Effect.gen(function* () {
-            const found = yield* adobe.face({ name });
-            return { ...found, specimen: yield* Effect.flatMap(found.source, shaped) };
+            const available = yield* adobe.face({ name });
+            return { ...available, specimen: yield* Effect.flatMap(available.source, shaped) };
         });
         return Option.match(chosen, { onNone: () => shaping, onSome: native });
     };

@@ -74,28 +74,31 @@ public sealed partial class Limits {
 
 [SmartEnum]
 public sealed partial class UIReason {
-    public static readonly UIReason Range = new("value out of range");
-    public static readonly UIReason Order = new("values out of order");
-    public static readonly UIReason Missing = new("missing entry");
+    public static readonly UIReason Range = new("out of range");
+    public static readonly UIReason Order = new("out of order");
+    public static readonly UIReason Missing = new("not found");
     public static readonly UIReason Derived = new("states a derived fact");
-    public static readonly UIReason Repeated = new("repeated entry");
-    public static readonly UIReason Unreadable = new("unreadable");
+    public static readonly UIReason Repeated = new("appears more than once");
+    public static readonly UIReason Unreadable = new("cannot be read");
     public static readonly UIReason Refused = new("refused by the renderer");
 
     public string Message { get; }
 }
 
-public sealed record UIFault(object? Subject, UIReason Reason, Option<int> Index = default, Option<Error> Inner = default)
+public sealed record UIFault(object? Subject, UIReason Reason, Option<int> Index = default, Option<Error> Inner = default, Option<string> Expression = default)
     : Expected(Reason.Message, 0, Inner) {
     public object? Subject { get; } = Subject;
     public UIReason Reason { get; } = Reason;
+    public Option<string> Expression { get; } = Expression;
 
-    public override string Message => Index.Match(
-        at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"),
-        () => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject}"));
+    public override string Message =>
+        string.Concat([
+            Reason.Message, ": ", .. Expression.Map(static named => $"{named} = ").ToSeq(), string.Create(CultureInfo.InvariantCulture, $"{Subject}"),
+            .. Index.Map(static at => string.Create(CultureInfo.InvariantCulture, $" at index {at}")).ToSeq(),
+        ]);
 
-    public static Fin<Unit> Unless<T>(bool flag, UIReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new UIFault((names, rejected), reason, index);
+    public static Fin<Unit> Unless<T>(bool flag, UIReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string? names = null) =>
+        flag ? unit : new UIFault(rejected, reason, index, Expression: Optional(names));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

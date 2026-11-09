@@ -1,6 +1,6 @@
 import { D1Client } from '@effect/sql-d1';
 import { assert, type TestContext, type Vitest } from '@effect/vitest';
-import { Catalog, Column, Engine, Relation } from '@rasm/database';
+import { Catalog, Column, Engine, Relation, Tokenizer } from '@rasm/database';
 import { Array, BigDecimal, DateTime, Effect, Equal, Exit, Fiber, type Layer, Option, Order, Predicate, Schema, type Scope, String, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { SqlClient, SqlError } from 'effect/sql';
@@ -55,9 +55,9 @@ const accounts = Relation.make(
         ],
     },
 );
-const words = { columns: ['title', 'body'], tokenizer: { configuration: 'simple', filters: ['unaccent'], tokenize: 'unicode61 remove_diacritics 2' } } as const;
+const words = { columns: ['title', 'body'], tokenizer: Tokenizer.Words({ configuration: 'simple', filters: ['unaccent'], tokenize: 'unicode61 remove_diacritics 2' }) } as const;
 const notes = Relation.make('notes', { id: Schema.Int, title: Schema.String, body: Schema.String }, { search: words });
-const fragments = Relation.make('fragments', notes.schema.fields, { search: { ...words, tokenizer: 'trigram' } });
+const fragments = Relation.make('fragments', notes.schema.fields, { search: { ...words, tokenizer: Tokenizer.Trigram() } });
 const textNotes = Relation.make('notes', { ...notes.schema.fields, id: Column.Uuid }, { search: words });
 const ledgers = Relation.make('ledgers', { id: Column.Uuid, tenant: Schema.String, amount: Schema.Int }, { tenant: { column: 'tenant', setting: 'app.tenant' } });
 const legacy = Relation.make('legacy', { id: Schema.String, count: Schema.Int, body: Schema.fromJsonString(Schema.Struct({ camelKey: Schema.Finite })) }, { retype: ['count', 'body'] });
@@ -87,7 +87,7 @@ const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, 
     const findings = (catalog: Catalog) =>
         Catalog.reconcile(catalog).pipe(
             Effect.as([]),
-            Effect.catchTag('ReconcileError', ({ findings: found }) => Effect.succeed(found)),
+            Effect.catchTag('ReconcileError', ({ findings: refusals }) => Effect.succeed(refusals)),
         );
     const refused = <A, E, Q>(effect: Effect.Effect<A, E, Q>, reason: SqlError.SqlErrorReason['_tag']) =>
         Effect.all([Effect.flip(effect), Effect.serviceOption(D1Client.D1Client)]).pipe(Effect.map(([error, d1]) => assert.strictEqual(SqlError.isSqlError(error) ? error.reason._tag : error, Option.match(d1, { onNone: () => reason, onSome: () => 'UnknownError' }))));
@@ -393,7 +393,7 @@ const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, 
                     assert.deepStrictEqual(yield* scoped(first, sql`SELECT amount FROM ledgers`), [{ amount: 1 }]);
                     yield* refused(scoped(first, Relation.insert(ledgers, [{ id: yield* uuid, tenant: second, amount: 1 }])), 'AuthorizationError');
                 }),
-                orElse: () => Effect.map(findings(declared([ledgers])), (found) => assert.deepStrictEqual(found, [{ table: 'ledgers', columns: ['tenant'], reason: { _tag: 'Unsupported', refusal: 'tenant' } }])),
+                orElse: () => Effect.map(findings(declared([ledgers])), (reported) => assert.deepStrictEqual(reported, [{ table: 'ledgers', columns: ['tenant'], reason: { _tag: 'Unsupported', refusal: 'tenant' } }])),
             });
         }),
     );

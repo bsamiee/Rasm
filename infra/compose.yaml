@@ -23,6 +23,7 @@ x-litestream: &litestream {<<: *app, configs: [{source: litestream, target: /etc
 # --- [SERVICES] -------------------------------------------------------------------------
 
 services:
+
     # --- [STORES]
 
     postgres:
@@ -35,7 +36,7 @@ services:
             PGBACKREST_REPO1_S3_URI_STYLE: path, PGBACKREST_REPO1_TYPE: s3, PGBACKREST_STANZA: postgres, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}", POSTGRES_USER: postgres,
             POSTGRES_INITDB_ARGS: --auth-local=scram-sha-256 --locale-provider=builtin --builtin-locale=PG_UNICODE_FAST}
         healthcheck: {<<: *probe, test: [CMD, pg_isready, --host, /var/run/postgresql]}
-        labels: {docker-volume-backup.archive-pre: "gosu postgres sh -c 'export PGPASSWORD=\"$$POSTGRES_PASSWORD\" && pgbackrest stanza-create && pgbackrest backup --type=$$([ $$(date +%u) = 1 ] && echo full || echo incr)'"}
+        labels: {docker-volume-backup.archive-pre: "gosu postgres sh -c 'export PGPASSWORD=\"$$POSTGRES_PASSWORD\" && pgbackrest stanza-create && pgbackrest backup --type=$$([ \"$$(date +%u)\" = 1 ] && echo full || echo incr)'"}
         ports: [{app_protocol: postgresql, host_ip: 127.0.0.1, target: 5432}]
         stop_grace_period: 2m
         volumes: [postgres:/var/lib/postgresql, postgres-socket:/var/run/postgresql]
@@ -174,7 +175,14 @@ configs:
                     <reader><password from_env="CLICKHOUSE_READER_PASSWORD"/><profile>reader</profile><grants><query>GRANT SELECT ON *.*</query></grants></reader>
                 </users>
             </clickhouse>
-    clickhouse-backup: {content: "full=\"full-$$(date +%G-W%V)\" query=\"BACKUP ALL EXCEPT DATABASE system TO S3(backup\"\nclickhouse client --query \"$$query, '$$full')\" || clickhouse client --query \"$$query, '$$(date +%F)') SETTINGS base_backup = S3(backup, '$$full')\"\n"}
+    clickhouse-backup:
+        content: |
+            week="full-$$(date +%G-W%V)"
+            if [ "$$(date +%u)" = 1 ]; then
+                clickhouse client --query "BACKUP ALL EXCEPT DATABASE system TO S3(backup, '$$week')"
+            else
+                clickhouse client --query "BACKUP ALL EXCEPT DATABASE system TO S3(backup, '$$(date +%F)') SETTINGS base_backup = S3(backup, '$$week')"
+            fi
     authelia:
         content: |
             access_control: {default_policy: one_factor}

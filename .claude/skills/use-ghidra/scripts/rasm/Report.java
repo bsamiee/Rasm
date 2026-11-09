@@ -109,14 +109,15 @@ public final class Report {
         return "// --- [" + name + "]";
     }
 
-    public static String write(Path out, Program program, List<Section> sections, String arguments)
+    public static String write(
+            Path out, Program program, List<Section> sections, List<String> arguments)
             throws IOException {
         String counts =
                 Stream.concat(
                                 sections.stream().map(Section::counter),
                                 Stream.of(arguments)
-                                        .filter(Predicate.not(String::isEmpty))
-                                        .map("args="::concat))
+                                        .filter(Predicate.not(List::isEmpty))
+                                        .map(each -> "args=" + String.join(" ", each)))
                         .collect(Collectors.joining(" "));
         Stream<String> index =
                 Stream.of(

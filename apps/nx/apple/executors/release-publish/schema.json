@@ -2,12 +2,13 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "version": 2,
     "title": "Release publish",
-    "description": "Attaches each zip to the GitHub release of the project's tag, skipping assets the release holds and a project nx release left unversioned",
+    "description": "Attaches each folder's zip at the version nx release set to the project's GitHub release, then publishes each notarized app naming SUFeedURL to its Sparkle feed",
     "type": "object",
     "properties": {
-        "files": { "type": "array", "items": { "type": "string" }, "description": "Zips build--ditto writes in its release configuration, relative to the workspace root" },
-        "dryRun": { "type": "boolean", "description": "Prints each upload without sending it" },
-        "nxReleaseVersionData": { "type": "object", "description": "Versions nx release resolved per project; absent, the project's newest reachable tag names the release" }
+        "folders": { "type": "array", "items": { "type": "string" }, "description": "Folders the release build zips into, relative to the workspace root" },
+        "notarized": { "type": "array", "items": { "type": "string" }, "description": "Folders holding a notarized, stapled app, whose SUFeedURL names its Sparkle feed" },
+        "dryRun": { "type": "boolean", "description": "Prints each step without running it" },
+        "nxReleaseVersionData": { "type": "object", "description": "Versions nx release resolved per project" }
     },
-    "required": [ "files" ]
+    "required": [ "folders" ]
 }

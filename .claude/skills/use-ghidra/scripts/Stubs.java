@@ -103,6 +103,6 @@ public class Stubs extends GhidraScript {
                                                 .map(Rename::row)
                                                 .toList()))
                         .toList();
-        println(Report.write(out, currentProgram, sections, ""));
+        println(Report.write(out, currentProgram, sections, List.of()));
     }
 }

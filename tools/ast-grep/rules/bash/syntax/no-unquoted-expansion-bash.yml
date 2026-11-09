@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: bashlang
+severity: error
+rule:
+    matches: bash-string-expansion
+    pattern: $EXPANSION
+    inside: {kind: 'command, array, for_statement', stopBy: {not: {kind: concatenation}}}
+message: 'Unquoted `$EXPANSION` splits words and expands globs'
+note: Quote the expansion

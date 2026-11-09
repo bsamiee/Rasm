@@ -42,7 +42,7 @@ public sealed record Row<TItem>(TItem Item, Key Key, int Depth, Option<bool> Ope
 public sealed record Search(Seq<string> Terms) {
     private const CompareOptions Folded = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace;
 
-    public static Search Everything { get; } = new("");
+    public static Search Everything { get; } = new(Seq<string>());
 
     public Search(string pattern) : this(toSeq(pattern.Split('*', StringSplitOptions.RemoveEmptyEntries))) { }
 
@@ -66,7 +66,7 @@ public sealed record Search(Seq<string> Terms) {
     private static Seq<Span> Plain(string text) => text.Length > 0 ? [text] : [];
 }
 
-public sealed record TextField(string Text, Func<Edit<string>, IO<Unit>> Edited) {
+public sealed record TextField(Option<string> Text, Func<Edit<string>, IO<Unit>> Edited) {
     private static readonly Key Entry = new Key.Named("entry");
 
     public Option<string> Placeholder { get; init; }
@@ -74,12 +74,12 @@ public sealed record TextField(string Text, Func<Edit<string>, IO<Unit>> Edited)
     public bool Clears { get; init; }
     public Option<int> MaxLines { get; init; } = Some(1);
 
-    public Search Search => new(Text);
+    public Search Search => Text.Map(static text => new Search(text)).IfNone(Search.Everything);
 
     public View Drawn =>
         new View.Flex(PhysicalAxis.Horizontal,
             Glyph.Map(static role => (View)new View.Box { Role = role, Align = UnitPoint.Center }).ToSeq()
-            + Seq<View>(new View.Text([Text]) {
+            + Seq<View>(new View.Text(Text.ToSeq().Map(static text => (Span)text)) {
                 Key = Entry,
                 MaxLines = MaxLines,
                 Placeholder = Placeholder,
@@ -87,7 +87,7 @@ public sealed record TextField(string Text, Func<Edit<string>, IO<Unit>> Edited)
                 Edited = Some(Edited),
                 Accessible = new Accessible { Role = AccessRole.TextBox, Label = Placeholder },
             })
-            + (Clears && Text.Length > 0 ? Seq(Part.Press.Dismiss(Edited(Edit.Of(EditPhase.Commit, "")))) : [])) {
+            + (Clears && Text.Exists(static text => text.Length > 0) ? Seq(Part.Press.Dismiss(Edited(Edit.Of(EditPhase.Commit, "")))) : [])) {
             Role = Roles.Field,
             Width = Sizing.Grow.Unit,
         };

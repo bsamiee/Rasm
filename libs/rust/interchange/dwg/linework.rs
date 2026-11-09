@@ -561,13 +561,15 @@ fn entities(
             .map_or(LineWeight::Default, |(weight, _)| weight)
     };
     let placed = |region: &Region| Placement::try_new(frame).and_then(|placement| region.transform(placement)).map_err(misshapen);
-    let styled = |mut entity: EntityType, (color, transparency): (Color, Transparency), line_weight: LineWeight, linetype: String| {
+    let styled = |mut entity: EntityType, (color, transparency): (Color, Transparency), line_weight: LineWeight, linetype: Option<String>| {
         let common = entity.common_mut();
         layer.clone_into(&mut common.layer);
         common.color = color;
         common.transparency = transparency;
         common.line_weight = line_weight;
-        common.linetype = linetype;
+        if let Some(linetype) = linetype {
+            common.linetype = linetype;
+        }
         entity
     };
     let mut lettered = |text: &rasm_drawing::Text, color: &rasm_drawing::Color, opacity: Opacity| -> Result<Vec<EntityType>, NEVec<CadError>> {
@@ -578,7 +580,7 @@ fn entities(
             let handle = document.allocate_handle();
             document.text_styles.add(TextStyle { handle, ..style }).map_err(|source| NEVec::new(CadError::Drawing { operation: Operation::Table(name), source }))?;
         }
-        Ok(vec![styled(entity, colored, LineWeight::ByLayer, String::new())])
+        Ok(vec![styled(entity, colored, LineWeight::ByLayer, None)])
     };
     match element {
         Element::Stroke { path, pen, linetype } => {
@@ -609,11 +611,11 @@ fn entities(
             let weight = weighted(pen.width);
             let mut path = path.into_inner();
             path.apply_affine(frame);
-            Ok(curves::curves(&path).into_iter().map(|entity| styled(entity, colored, weight, named.clone().unwrap_or_default())).collect())
+            Ok(curves::curves(&path).into_iter().map(|entity| styled(entity, colored, weight, named.clone())).collect())
         }
         Element::Fill { region, color, opacity } => {
             let colored = dxf_color(&color, opacity)?;
-            placed(&region).map(|region| vec![styled(EntityType::Hatch(Box::new(Hatch { paths: curves::loops(&region), ..Hatch::solid() })), colored, LineWeight::ByLayer, String::new())])
+            placed(&region).map(|region| vec![styled(EntityType::Hatch(Box::new(Hatch { paths: curves::loops(&region), ..Hatch::solid() })), colored, LineWeight::ByLayer, None)])
         }
         Element::Hatch { region, pattern, placement, pen } => {
             let colored = dxf_color(&pen.color, pen.opacity)?;
@@ -646,7 +648,7 @@ fn entities(
                 placed(&region).map(|region| {
                     let hatch =
                         Hatch { paths: curves::loops(&region), pattern: HatchPattern { lines, ..HatchPattern::new(rows) }, pattern_type: HatchPatternType::Custom, is_solid: false, ..Hatch::new() };
-                    vec![styled(EntityType::Hatch(Box::new(hatch)), colored, weighted(pen.width), String::new())]
+                    vec![styled(EntityType::Hatch(Box::new(hatch)), colored, weighted(pen.width), None)]
                 })
             } else {
                 Err(refusing(Refusal::Skew))

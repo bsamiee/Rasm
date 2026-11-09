@@ -31,7 +31,7 @@ impl Block {
         let dimension =
             |expected: Option<usize>| expected.is_some_and(|expected| expected == matrix.m && expected == b.len()).ok_or(Refusal::Dimension { rows: matrix.m, constants: b.len(), expected });
         let unbounded = matches!(cone, SupportedConeT::NonnegativeConeT(_) | SupportedConeT::SecondOrderConeT(1) | SupportedConeT::PSDTriangleConeT(1));
-        let refusal: Result<(), Refusal> = try {
+        let refusal = try bikeshed Result<(), Refusal> {
             match &cone {
                 SupportedConeT::ZeroConeT(order) | SupportedConeT::NonnegativeConeT(order) | SupportedConeT::SecondOrderConeT(order) => dimension(Some(*order)),
                 SupportedConeT::ExponentialConeT() => dimension(Some(3)),

@@ -1,4 +1,4 @@
-"""Glyph names derived from code points, joining form, and variant suffix."""
+"""Glyph names derived from code points, joining form, and variant suffixes."""
 
 from enum import auto, StrEnum
 from functools import cached_property
@@ -38,12 +38,12 @@ class _Form(StrEnum):
 
 
 class _GlyphName(msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Glyph stem as nonempty code points or an unencoded name, with its joining form and variant, `LIMIT` the length the `post` table and AGL allow."""
+    """Glyph stem as nonempty code points or an unencoded name, with its joining form and variant suffixes, `LIMIT` the length the `post` table and AGL allow."""
 
     LIMIT: ClassVar[int] = 63
     stem: str | Annotated[tuple[int, ...], msgspec.Meta(min_length=1)]
     form: _Form = _Form.ISOL
-    variant: str = ""
+    suffixes: tuple[str, ...] = ()
 
     @override
     def __str__(self) -> str:
@@ -63,18 +63,17 @@ class _GlyphName(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             if isinstance(self.stem, str)
             else "_".join(agl.UV2AGL[code] if code < 0x0600 and code in agl.UV2AGL else f"uni{code:04X}" if code <= 0xFFFF else f"u{code:05X}" for code in self.stem)
         )
-        return ".".join((stem, *(suffix for suffix in (self.form.value if self.form is not _Form.ISOL else "", self.variant) if suffix)))
+        return ".".join((stem, *((self.form.value,) if self.form is not _Form.ISOL else ()), *self.suffixes))
 
     @classmethod
     def parse(cls, text: str, /) -> Self:
         """Returns the name a rendered text states, its stem a base name where any component decodes to no code point."""
         stem, *suffixes = (text,) if text.startswith(".") else text.split(".")
         decoded = tuple(agl.toUnicode(part) for part in stem.split("_"))  # type: ignore[no-untyped-call]
-        codes = "".join(decoded) if all(decoded) else ""
         return cls(
-            stem=(ord(codes[0]), *map(ord, codes[1:])) if codes else stem,
+            stem=tuple(map(ord, "".join(decoded))) if all(decoded) else stem,
             form=next((_Form(suffix) for suffix in suffixes if suffix in _Form), _Form.ISOL),
-            variant=".".join(suffix for suffix in suffixes if suffix not in _Form),
+            suffixes=tuple(suffix for suffix in suffixes if suffix not in _Form),
         )
 
 

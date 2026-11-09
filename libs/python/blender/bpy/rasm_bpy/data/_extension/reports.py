@@ -39,8 +39,8 @@ class Refusal(StrEnum):
 
     TAKEN = "{subject} is taken at {member}"
     REQUIRED = "Requires {subject}"
-    REFUSED = "{subject} refused edit. {cause}"
-    UNREGISTERED = "Registration of {subject} refused. {cause}"
+    REFUSED = "{subject} refused edit"
+    UNREGISTERED = "Registration of {subject} refused"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -147,7 +147,7 @@ class Reports(AbstractContextManager["Reports"]):
             fresh = {fault.message: fault for fault in faults if fault.message not in self._logged}
             self._logged.update(fresh)
         for text, fault in fresh.items():
-            self.logger.error("callback_failed", report=_level(fault), message=text)
+            self.logger.error("Callback failed", report=_level(fault), message=text)
 
     def settled[T](self, result: Outcome[T], /) -> Option[T]:
         """Returns Some(value) on success, or Nothing after logging the faults."""

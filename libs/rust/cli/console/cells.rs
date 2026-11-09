@@ -36,20 +36,21 @@ pub(crate) struct Columns {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn rendered(value: Value<'static>) -> Result<Field, serde_json::Error> {
+fn rendered(value: Value<'static>) -> Result<Option<Field>, serde_json::Error> {
     match value {
         Value::Option(Some(inner)) => rendered(*inner),
         Value::Struct(Struct { data: Data::NewType { value }, .. }) => rendered(value),
-        Value::Unit | Value::Option(None) | Value::Struct(Struct { data: Data::Unit, .. }) => Ok(Field { text: String::new(), numeric: false }),
-        Value::Number(Number::F32(number)) if !number.is_finite() => Ok(Field { text: String::new(), numeric: false }),
-        Value::Number(Number::F64(number)) if !number.is_finite() => Ok(Field { text: String::new(), numeric: false }),
-        Value::Number(number) => serde_json::to_string(&number).map(|text| Field { text, numeric: true }),
-        Value::Bool(flag) => Ok(Field { text: flag.to_string(), numeric: false }),
-        Value::Char(character) => Ok(Field { text: String::from(character), numeric: false }),
-        Value::String(text) => Ok(Field { text: text.into_owned(), numeric: false }),
-        Value::Bytes(bytes) => Ok(Field { text: String::from_utf8_lossy_owned(bytes.into_owned()), numeric: false }),
-        Value::Enum(Enum { variant, data: Data::Unit, .. }) => Ok(Field { text: variant.into_owned(), numeric: false }),
-        compound @ (Value::Seq(_) | Value::Map(_) | Value::Struct(_) | Value::Enum(_) | Value::Tuple(_)) => serde_json::to_string(&compound).map(|text| Field { text, numeric: false }),
+        Value::Unit | Value::Option(None) | Value::Struct(Struct { data: Data::Unit, .. }) => Ok(None),
+        Value::Number(Number::F32(number)) if !number.is_finite() => Ok(None),
+        Value::Number(Number::F64(number)) if !number.is_finite() => Ok(None),
+        Value::Number(number) => serde_json::to_string(&number).map(|text| Some(Field { text, numeric: true })),
+        Value::Bool(flag) => Ok(Some(Field { text: flag.to_string(), numeric: false })),
+        Value::Char(character) => Ok(Some(Field { text: String::from(character), numeric: false })),
+        Value::String(text) => Ok(Some(Field { text: text.into_owned(), numeric: false })),
+        Value::Bytes(bytes) => Ok(Some(Field { text: String::from_utf8_lossy_owned(bytes.into_owned()), numeric: false })),
+        Value::Enum(Enum { variant, data: Data::Unit, .. }) => Ok(Some(Field { text: variant.into_owned(), numeric: false })),
+        compound @ (Value::Seq(_) | Value::Map(_) | Value::Struct(_) | Value::Enum(_) | Value::Tuple(_)) =>
+            serde_json::to_string(&compound).map(|text| Some(Field { text, numeric: false })),
     }
 }
 
@@ -64,12 +65,12 @@ fn walked(value: Value<'static>, columns: &mut Columns, row: &mut Row) -> Result
     fn keyed(key: Value<'static>) -> Result<Segment, serde_json::Error> {
         let Value::String(name) = key else {
             let (kind, json) = (mem::discriminant(&key), serde_json::to_string(&key)?);
-            return rendered(key).map(|Field { text: label, numeric: _ }| Segment::Key { kind, json, label });
+            return rendered(key).map(|field| Segment::Key { kind, label: field.map_or_else(|| json.clone(), |Field { text, numeric: _ }| text), json });
         };
         Ok(Segment::Name(name))
     }
     fn cell(value: Value<'static>, Columns { names, path }: &mut Columns, Row { named, fields }: &mut Row) -> Result<(), serde_json::Error> {
-        let field = Some(rendered(value)?);
+        let field = rendered(value)?;
         *named |= path.iter().any(|segment| !matches!(segment, Segment::Index(_)));
         let entry = names.raw_entry_mut_v1().from_key(path.as_slice());
         let index = entry.index();

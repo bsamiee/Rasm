@@ -20,8 +20,10 @@ struct AccountRemovalAlert: ViewModifier {
                 .keyboardShortcut(.defaultAction)
             Button(Self.title, role: .destructive) { store.remove(model.account.id) }
         } message: { model in
-            let message: String = "Removal deletes \(model.account.identity.email) credential" + (model.isSelected ? " and signs \(model.account.provider.tool) out" : "")
-            Text(message)
+            Text(
+                model.isSelected
+                    ? "Removal deletes \(model.account.identity.email) credential and signs \(model.account.provider.tool) out" : "Removal deletes \(model.account.identity.email) credential"
+            )
         }
     }
 }
@@ -144,7 +146,7 @@ private struct AccountCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
                 if let expiry: Date = model.usage.usage?.signInExpiresAt, expiry > now {
-                    let tooltip: String = "Sign-in expires \(expiry.formatted(.detail))"
+                    let tooltip = "Sign-in expires \(expiry.formatted(.detail))"
                     Text(expiry, format: .monthDay)
                         .font(.caption)
                         .monospacedDigit()

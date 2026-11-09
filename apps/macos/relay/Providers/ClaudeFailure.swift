@@ -8,7 +8,7 @@ import Subprocess
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-nonisolated private let onHoldLead: String = "Your account is on hold"
+private nonisolated let onHoldNotice: String = "Your account is on hold"
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -25,7 +25,7 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
     case invalidQuota(AggregateError<QuotaFailure>)
     case usageUnavailable
     case accountChanged
-    case protocolFailure((any Error)?)
+    case protocolFailure(any Error?)
     case cancelled(CancellationError)
     case lock(FileFailure)
     indirect case cleanup(operation: Self, release: Self)
@@ -34,7 +34,7 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
         self =
             switch failure.reason {
                 case .subprocess(let error) where error.code == .executableNotFound: .executableMissing
-                case .exit(_, let standardError) where standardError.contains(onHoldLead):
+                case .exit(_, let standardError) where standardError.contains(onHoldNotice):
                     standardError.firstMatch(of: URL.ParseStrategy()).map { link in .accountOnHold(appeal: link.output) } ?? Self(process: failure)
                 default: Self(process: failure)
             }
@@ -66,7 +66,7 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
             case .signInRequired: "Sign in required"
             case .accountOnHold(let appeal): "Account on hold, view details or appeal at \(appeal.absoluteString)"
             case .process(let failure): failure.localizedDescription
-            case .filesystem(let error): "Claude file access failed. \(error.localizedDescription)"
+            case .filesystem(let error): "Claude file access failed: \(error.localizedDescription)"
             case .interactionNotAllowed: SecCopyErrorMessageString(errSecInteractionNotAllowed, nil) as String?
             case .invalidCredentials: "Unreadable Claude credential"
             case .invalidIdentity: "Incomplete Claude account identity"

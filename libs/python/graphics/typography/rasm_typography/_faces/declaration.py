@@ -1,7 +1,7 @@
 """Face design records: scripts, genres, treatments, value overrides, and the text and ornament faces they describe."""
 
 from enum import auto, StrEnum
-from typing import Annotated, Literal
+from typing import Annotated
 lazy from itertools import batched
 lazy import math
 lazy import unicodedata
@@ -36,6 +36,39 @@ class Recipe(StrEnum):
     DOTS = auto()
 
 
+class Foot(StrEnum):
+    """Height a turned glyph's foot sits at: its own lowest point, the baseline, or the reference glyph's middle."""
+
+    OWN = auto()
+    BASE = auto()
+    MIDDLE = auto()
+
+
+class Advance(StrEnum):
+    """Digit advance kind, each kind's OpenType feature setting the digits at it."""
+
+    TABULAR = auto()
+    PROPORTIONAL = auto()
+
+    @property
+    def feature(self) -> str:
+        """OpenType feature tag setting digits at this advance."""
+        match self:
+            case Advance.TABULAR:
+                return "tnum"
+            case Advance.PROPORTIONAL:
+                return "pnum"
+
+    @property
+    def other(self) -> Advance:
+        """The advance kind the face's alternate digits take."""
+        match self:
+            case Advance.TABULAR:
+                return Advance.PROPORTIONAL
+            case Advance.PROPORTIONAL:
+                return Advance.TABULAR
+
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 # --- [SCRIPTS]
@@ -45,10 +78,10 @@ class Derived(msgspec.Struct, frozen=True, kw_only=True):
     """Glyph drawn from a model glyph: turned with its foot at a height, scaled to a share of a reference glyph's height, or its lowest small piece repeated in a row or around a circle."""
 
     code: Code
-    variant: str = ""
+    variant: str | None = None
     model: Code | _Name
     turned: bool = False
-    foot: Literal["own", "base", "middle"] = "own"
+    foot: Foot = Foot.OWN
     reference: Code | None = None
     height: Ratio | None = None
     repeats: int = 0
@@ -122,8 +155,8 @@ _PERSO_ARABIC = Script(
         Derived(code=0x06F7, model=0x06F8, turned=True, kept=False),
         Derived(code=0x066B, model=0x0631, reference=0x06F1, height=0.6),
         Derived(code=0x066B, variant="far", model=0x002F),
-        Derived(code=0x066C, model=0x060C, turned=True, foot="middle", reference=0x06F1),
-        Derived(code=0x066C, variant="far", model=0x060C, turned=True, foot="base"),
+        Derived(code=0x066C, model=0x060C, turned=True, foot=Foot.MIDDLE, reference=0x06F1),
+        Derived(code=0x066C, variant="far", model=0x060C, turned=True, foot=Foot.BASE),
         Derived(code=0x0609, model=0x066A, repeats=1),
         Derived(code=0x060A, model=0x066A, repeats=2),
         Derived(code=0x2010, model=0x002D),
@@ -252,7 +285,7 @@ class Values(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
     counter: Em | None = None
     zero: Ratio | None = None
     digit_pen: str | None = None
-    digit_advance: Literal["tabular", "proportional"] | None = None
+    digit_advance: Advance | None = None
     digit_bearing: Em | None = None
     marks_drawn: bool = False
     inside_bearings: bool | None = None
@@ -271,12 +304,12 @@ class _Named(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=st
 
     family: _Name
     style: Style
-    suffix: str = ""
+    suffix: str | None = None
 
     @property
     def typographic(self) -> str:
         """Typographic family name, the suffix naming a face that forms its own family (`Bannai Outline`)."""
-        return f"{self.family} {self.suffix}".strip()
+        return self.family if self.suffix is None else f"{self.family} {self.suffix}"
 
     @property
     def postscript(self) -> str:
@@ -305,6 +338,7 @@ type Faces = Face | OrnamentFace
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "Advance",
     "Band",
     "BlackNaskh",
     "Code",
@@ -315,6 +349,7 @@ __all__ = [
     "Em",
     "Face",
     "Faces",
+    "Foot",
     "Genre",
     "Genres",
     "Kufi",

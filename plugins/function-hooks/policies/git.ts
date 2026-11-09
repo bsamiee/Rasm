@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Predicate } from 'effect';
+import { Array, Effect, Option, Predicate, Struct } from 'effect';
 import type { Host } from '#/host';
 import { removed } from '#/policies/files';
 import { all, type Call, type Fix, folderOf, has, holds, inserted, type Policy, perSubcommand, redirected, refusal, refuse, respell, subject, unresolved, when } from '#/policies/fix';
@@ -26,7 +26,7 @@ const LISTING = ['--list', '--all', '--remotes', '--verbose', '--show-current', 
 const subcommand =
     (...names: readonly string[]): Predicate.Predicate<Site> =>
     ({ path, operands }) =>
-        names.includes(path[1] ?? operands[0]?.text ?? '');
+        Option.exists(Option.firstSomeOf([Array.get(path, 1), Option.map(Array.head(operands), Struct.get('text'))]), (name) => names.includes(name));
 
 const present = (host: typeof Host.Service, site: Site, word: string) =>
     Option.match(host.place(word, folderOf(host, site, '-C')), {
@@ -77,7 +77,7 @@ const resetTarget: Fix = Effect.fnUntraced(function* (site, { host }) {
 });
 
 const overwrites = ({ text, known }: Word, { command: { cwd } }: Site, { host }: Call) => {
-    const place = Option.getOrUndefined(Option.filter(host.place(text, cwd), (held) => host.inside(held, host.root)));
+    const place = Option.getOrUndefined(Option.filter(host.place(text, cwd), (candidate) => host.inside(candidate, host.root)));
     if (place === undefined) {
         return Effect.succeed(false);
     }
@@ -92,7 +92,7 @@ const overwrittenByShow: Fix = (site, call) =>
 
 // --- [TABLES] --------------------------------------------------------------------------
 
-const UNFORCED = respell({ '--force': '', '--force-with-lease': '', '--force-if-includes': '', '--discard-changes': '' }, { notify: true });
+const UNFORCED = respell({ drops: ['--force', '--force-with-lease', '--force-if-includes', '--discard-changes'] }, { notify: true });
 
 const GIT: Policy = {
     programs: {

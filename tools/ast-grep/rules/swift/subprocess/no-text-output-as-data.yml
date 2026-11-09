@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: swiftlang
+severity: error
+rule:
+    pattern: Data($TEXT.utf8)
+    inside:
+        stopBy: end
+        kind: function_declaration
+        has: {stopBy: end, kind: value_argument, regex: '^output:\s*\.string\(limit:'}
+message: '`Data($TEXT.utf8)` turns child output collected as text back into bytes'
+note: 'Collect the output with `.data(limit:)` or `.bytes(limit:)` and decode the bytes'

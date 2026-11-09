@@ -4,7 +4,7 @@ import { Quran } from '@rasm/quran';
 import { Unmatched } from '@rasm/search';
 import { Settings } from '@rasm/typography';
 import { Face, Kerning, Symbols, Word } from '@rasm/typography/shaping';
-import { Array, Cause, Effect, Equal, FileSystem, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Effect, Equal, FileSystem, Number, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import { AbsolutePath } from '#/absolute-path';
 import { Adobe } from '#/adobe';
@@ -16,6 +16,14 @@ import type { routes } from '#/routes';
 
 type Client = Parameters<typeof applicationFont>[0];
 type Span = (typeof Runs.Result.Type)['runs'][number] & { readonly start: number; readonly end: number };
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const MODES = {
+    kern: { restores: false, shapes: true },
+    replace: { restores: true, shapes: true },
+    restore: { restores: true, shapes: false },
+} as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -37,8 +45,8 @@ const KerningTool = Tool.make('kerning', {
         target: Kerns.fields.target,
         rules: Kerning.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Kerning.make({})))),
         mode: Schema.OptionFromOptionalKey(
-            Schema.Literals(['kern', 'replace', 'restore']).annotate({
-                description: 'kern keeps manual kerning, replace restores metrics kerning across the words before kerning, restore writes metrics kerning alone, kern for a whole story and replace for text inside one when absent',
+            Schema.Literals(Record.keys(MODES)).annotate({
+                description: 'kern keeps manual kerning. replace restores metrics kerning across the words, then kerns. restore writes metrics kerning alone. Absent, a whole story kerns and text inside one replaces',
             }),
         ),
     }),
@@ -86,13 +94,13 @@ const spans = ({ runs }: typeof Runs.Result.Type, [first, last]: readonly [numbe
             return { ...span, start: from, end: to, text: span.text.slice(from - span.start, to - span.start) };
         });
 };
-const faced = (client: Client, located: readonly Span[], extra: string) =>
+const faced = (client: Client, located: readonly Span[], extra: readonly string[]) =>
     Effect.forEach(
         Array.dedupeWith(located, sameFace),
         Effect.fnUntraced(function* (first: Span) {
             const { font, axes } = first;
             const group = located.filter((span) => sameFace(first, span));
-            const { source } = yield* applicationFont(client, font, [...group.map(Struct.get('text')), extra].join(''));
+            const { source } = yield* applicationFont(client, font, [...group.map(Struct.get('text')), ...extra]);
             const subset = yield* Effect.fromOption(source, () => Unmatched.make({ subject: 'font file', query: Option.some(font) }));
             const named = yield* Face.open(subset);
             const face = Array.isReadonlyArrayEmpty(axes) ? named : yield* Face.open(subset, Face.Instance.make({ variations: Record.fromEntries(Array.zip(named.axes.map(Struct.get('tag')), axes)) }));
@@ -100,12 +108,12 @@ const faced = (client: Client, located: readonly Span[], extra: string) =>
         }),
     );
 const kerned = Effect.fnUntraced(function* (client: Client, { target, rules, mode }: Tool.Parameters<typeof KerningTool>) {
-    const found = yield* client('runs', { target });
-    const text = found.runs.map(Struct.get('text')).join('');
-    const [first, last] = Word.expand(text, found.start, found.start + found.length);
-    const chosen = Option.getOrElse(mode, () => (found.length === text.length ? 'kern' : 'replace'));
-    const restore = Option.liftPredicate({ index: first, length: last - first }, ({ length }) => chosen !== 'kern' && length > 0);
-    const faces = chosen === 'restore' || first === last ? [] : yield* faced(client, spans(found, [first, last]), '');
+    const selection = yield* client('runs', { target });
+    const text = selection.runs.map(Struct.get('text')).join('');
+    const [first, last] = Word.expand(text, selection.start, selection.start + selection.length);
+    const { restores, shapes } = MODES[Option.getOrElse(mode, () => (selection.length === text.length ? 'kern' : 'replace'))];
+    const restore = Option.liftPredicate({ index: first, length: last - first }, ({ length }) => restores && length > 0);
+    const faces = !shapes || first === last ? [] : yield* faced(client, spans(selection, [first, last]), []);
     const ordered = Array.sort(
         faces.flatMap(Struct.get('placed')),
         Order.mapInput(Number.Order, ({ span }: { readonly span: Span }) => span.start),
@@ -115,15 +123,15 @@ const kerned = Effect.fnUntraced(function* (client: Client, { target, rules, mod
         Server.progress(({ font }, at) => ({ progress: at + 1, total: ordered.length, message: font })),
         Stream.runCollect,
     );
-    return yield* client('kerns', { target: found.specifier, restore, kerns: kerns.flatMap(Struct.get('kerns')) });
+    return yield* client('kerns', { target: selection.specifier, restore, kerns: kerns.flatMap(Struct.get('kerns')) });
 });
 const typeset = Effect.fnUntraced(function* (client: Client, { target, settings }: Tool.Parameters<typeof TypesetTool>) {
-    const elongating = Option.exists(Option.flatMapNullishOr(settings, Struct.get('kashida')), (kashida) => kashida._tag !== 'None');
+    const elongating = Option.exists(Option.flatMapNullishOr(settings, Struct.get('kashida')), (kashida) => !Predicate.isTagged(kashida, 'None'));
     const tatweel = String.fromCodePoint(Face.TATWEEL);
-    const faces = elongating || Option.isSome(Option.flatMapNullishOr(settings, Struct.get('features'))) ? yield* Effect.flatMap(client('runs', { target }), (found) => faced(client, spans(found, [found.start, found.start + found.length]), elongating ? tatweel : '')) : [];
+    const faces = elongating || Option.isSome(Option.flatMapNullishOr(settings, Struct.get('features'))) ? yield* Effect.flatMap(client('runs', { target }), (selection) => faced(client, spans(selection, [selection.start, selection.start + selection.length]), elongating ? [tatweel] : [])) : [];
     const broken = elongating ? faces.filter(({ face }) => Option.isNone(face.tatweel) && !face.layout.substitutions.has('jalt')) : [];
     yield* Array.isReadonlyArrayEmpty(broken) ? Effect.void : new Cause.IllegalArgumentError(`${broken.map(Struct.get('font')).join(', ')} draw no ${tatweel} with positive advance and hold no jalt, so kashida breaks their joins`);
-    return yield* client('typeset', { target, settings: Option.map(settings, Struct.evolve({ features: (features = {}) => faces.reduce((held, { face }) => face.layout.exclusive(held), features) })) });
+    return yield* client('typeset', { target, settings: Option.map(settings, Struct.evolve({ features: (features = {}) => faces.reduce((exclusive, { face }) => face.layout.exclusive(exclusive), features) })) });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

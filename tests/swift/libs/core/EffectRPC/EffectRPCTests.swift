@@ -18,7 +18,7 @@ private enum Request: Decodable, Sendable {
 
 private func served(_ requests: [JSONValue]) async throws -> [JSONValue] {
     let lines: [Data] = try requests.map { request in try JSONEncoder().encodeLine(request) }
-    let (written, writer): (AsyncStream<JSONValue>, AsyncStream<JSONValue>.Continuation) = AsyncStream.makeStream()
+    let (written, writer) = AsyncStream<JSONValue>.makeStream()
     try await serve(
         reading: AsyncThrowingStream<Data, any Error> { input in
             for line: Data in lines { input.yield(line) }

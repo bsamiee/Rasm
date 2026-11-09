@@ -105,7 +105,7 @@ class Member(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  # ruff
             self.scope
             .map(lambda scope: scope.owners(context).bind(partial(_marked, setting)))
             .default_value(Ok(Nothing))
-            .map(lambda mixed: {"text": mixed.default_value(""), "translate": False} if mixed.is_some() else dict[str, str | bool]())
+            .map(lambda mixed: mixed.map(lambda text: dict[str, str | bool](text=text, translate=False)).default_value(dict[str, str | bool]()))
         )
 
 

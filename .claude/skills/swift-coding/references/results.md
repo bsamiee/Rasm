@@ -14,7 +14,7 @@ struct AggregateError<Element: Sendable>: Error {
 
 extension AggregateError {
     init?(_ elements: some Collection<Element>) {
-        guard let first: Element = elements.first else { return nil }
+        guard let first = elements.first else { return nil }
         self.init(first: first, remaining: Array(elements.dropFirst()))
     }
 }
@@ -38,7 +38,7 @@ func combine<each Value, Element>(_ results: repeat Result<each Value, Aggregate
 }
 
 func traverse<Input, Value, Element>(_ inputs: some Sequence<Input>, _ transform: (Input) -> Result<Value, AggregateError<Element>>) -> Result<[Value], AggregateError<Element>> {
-    let results: [Result<Value, AggregateError<Element>>] = inputs.map(transform)
+    let results = inputs.map(transform)
     return AggregateError(results.compactMap { result in result[case: \.failure] }.flatMap(\.errors)).map(Result.failure)
         ?? .success(results.compactMap { result in result[case: \.success] })
 }
@@ -77,9 +77,9 @@ Workflows behind validation lift the dependent steps' error into a one-element a
 
 ```swift
 func freeCollateral(lots: Int, legs: [String], in book: Book, posted: Decimal) throws(AggregateError<OrderError>) -> Decimal {
-    let spread: Spread = try Spread(lots: lots, legs: legs)
+    let spread = try Spread(lots: lots, legs: legs)
     do throws(OrderError) {
-        let required: Decimal = try book.margin(of: spread.legs) * Decimal(spread.lots.rawValue)
+        let required = try book.margin(of: spread.legs) * Decimal(spread.lots.rawValue)
         guard required <= posted else { throw OrderError(subject: "\(required) against \(posted)", reason: .insufficientFunds(shortBy: required - posted)) }
         return posted - required
     } catch {
@@ -97,7 +97,7 @@ Tasks, task groups, and `async let` fail with `any Error` alone:
 ```swift
 func quotes(of contracts: Set<Contract>, fetch: @escaping @Sendable (Contract) async throws(OrderError) -> Decimal) async throws(AggregateError<OrderError>) -> [Contract: Decimal] {
     let results: [Result<(Contract, Decimal), OrderError>] = await withTaskGroup { group in
-        for contract: Contract in contracts {
+        for contract in contracts {
             group.addTask { await Result { () async throws(OrderError) in try await (contract, fetch(contract)) } }
         }
         return await Array(group)

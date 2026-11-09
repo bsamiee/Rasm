@@ -1,5 +1,5 @@
 import { Array, type Cause, Context, Effect, Option, type Schema } from 'effect';
-import { SqlClient, type SqlConnection, type SqlError, type Statement } from 'effect/sql';
+import { SqlClient, type SqlConnection, type SqlError, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import type { Column, Kind, Projection } from '#/column';
 import type { ReconcileError } from '#/error';
@@ -50,7 +50,7 @@ interface Dialect {
             readonly parts: readonly string[];
             readonly extensions: readonly string[];
             readonly configuration: Option.Option<typeof Pg.Configuration.Type>;
-            readonly text: (prefix: string, on: Statement.Fragment) => Statement.Statement<object>;
+            readonly text: (modifiers: readonly string[], on: Statement.Fragment) => Statement.Statement<object>;
         }[];
         readonly virtual: Option.Option<{ readonly name: string; readonly create: Statement.Statement<object>; readonly triggers: readonly { readonly name: string; readonly create: Statement.Statement<object> }[]; readonly rebuild: Statement.Statement<object> }>;
     };
@@ -90,7 +90,8 @@ class Engine extends Context.Service<Engine, Dialect>()('@rasm/database/engine')
             element,
             keys,
             reads: (scope: Statement.Fragment, ...extra: readonly (string | Statement.Fragment)[]) => sql.csv([...all.map((entry) => engine.read(sql, entry, scope)), ...extra]),
-            inserting: (body: string, conflict: Statement.Fragment, returning: Statement.Fragment) => sql`INSERT INTO ${owner} (${sql.csv(written.map((entry) => sql`${sql(entry.name)}`))}) SELECT ${sql.csv(written.map(element))} FROM ${engine.insertion(sql, body, order)} ${conflict} RETURNING ${returning}`,
+            inserting: (body: string, conflict: Statement.Fragment, returning: Statement.Fragment) =>
+                sql`INSERT INTO ${owner} (${sql.csv(written.map((entry) => Statement.fragment([sql(entry.name)])))}) SELECT ${sql.csv(written.map(element))} FROM ${engine.insertion(sql, body, order)} ${conflict} RETURNING ${returning}`,
             where: (rules: { readonly [field: string]: string | { readonly not: string } | undefined }) =>
                 sql.and(
                     all.flatMap((entry) =>

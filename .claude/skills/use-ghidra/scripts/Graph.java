@@ -69,6 +69,6 @@ public class Graph extends GhidraScript {
                                                                                         .orElse(
                                                                                                 "-"))))
                                         .toList()));
-        println(Report.write(out, currentProgram, sections, ""));
+        println(Report.write(out, currentProgram, sections, List.of()));
     }
 }

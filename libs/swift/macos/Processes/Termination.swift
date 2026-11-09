@@ -5,9 +5,9 @@ public import System
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct ExitDetail: OptionSet, Sendable {
-    public static let decryptFail: Self = Self(rawValue: NOTE_EXIT_DECRYPTFAIL)
-    public static let memory: Self = Self(rawValue: NOTE_EXIT_MEMORY)
-    public static let csError: Self = Self(rawValue: NOTE_EXIT_CSERROR)
+    public static let decryptFail: Self = .init(rawValue: NOTE_EXIT_DECRYPTFAIL)
+    public static let memory: Self = .init(rawValue: NOTE_EXIT_MEMORY)
+    public static let csError: Self = .init(rawValue: NOTE_EXIT_CSERROR)
 
     public let rawValue: Int32
 
@@ -40,11 +40,11 @@ extension TerminationStatus {
 
 public func termination(of process: pid_t) -> AsyncStream<Result<ProcessExit, Errno>> {
     AsyncStream { continuation in
-        let registered: Result<FileHandle, Errno> = Result { () throws(Errno) in
+        let registered = Result { () throws(Errno) in
             guard process > 0 else { throw .noSuchProcess }
             let descriptor: Int32 = kqueue()
             guard descriptor >= 0 else { throw Errno(rawValue: errno) }
-            let queue: FileHandle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+            let queue = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
             var exit: kevent = unsafe kevent(
                 ident: UInt(process),
                 filter: Int16(EVFILT_PROC),
@@ -61,7 +61,7 @@ public func termination(of process: pid_t) -> AsyncStream<Result<ProcessExit, Er
             var now: timespec = timespec()
             let read: Int32 = unsafe kevent(descriptor, nil, 0, &exited, 1, &now)
             guard read != 0 else { return nil }
-            let data: Int32 = Int32(truncatingIfNeeded: unsafe exited.data)
+            let data = Int32(truncatingIfNeeded: unsafe exited.data)
             return read < 0 ? .failure(Errno(rawValue: errno)) : .success(ProcessExit(status: TerminationStatus(waitStatus: data), detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
         }
         switch registered {

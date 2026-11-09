@@ -35,10 +35,20 @@ public struct Outcome<Success: Encodable & Sendable>: Encodable, Sendable {
 
     public init(_ result: Result<Success, some Error>) { self.result = result.mapError { error -> any Error in error } }
 
+    private enum Key: String, CodingKey {
+        case tag = "_tag"
+        case success, failure
+    }
+
     public func encode(to encoder: any Encoder) throws {
+        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
         switch result {
-            case .success(let value): try Tagged(tag: "Success", value: ["success": value]).encode(to: encoder)
-            case .failure(let error): try Tagged(tag: "Failure", value: ["failure": EncodedError(error: error)]).encode(to: encoder)
+            case .success(let value):
+                try fields.encode("Success", forKey: .tag)
+                try fields.encode(value, forKey: .success)
+            case .failure(let error):
+                try fields.encode("Failure", forKey: .tag)
+                try fields.encode(EncodedError(error: error), forKey: .failure)
         }
     }
 }
@@ -54,7 +64,7 @@ struct EncodedError: Encodable, Sendable {
 
     func encode(to encoder: any Encoder) throws {
         func encode(_ tagged: some TaggedError) throws { try Tagged(tag: type(of: tagged).tag, value: tagged).encode(to: encoder) }
-        let bridged: NSError = error as NSError
+        let bridged = error as NSError
         switch error as? any TaggedError ?? bridged.underlyingErrors.first as? any TaggedError {
             case .some(let tagged): try encode(tagged)
             case .none: try Instance(name: bridged.domain, message: bridged.localizedDescription, cause: bridged.underlyingErrors.first.map(Self.init)).encode(to: encoder)

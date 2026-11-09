@@ -35,18 +35,19 @@ internal sealed record Translations(HashMap<EqInt, int, HashMap<EqStringOrdinal,
     public static Translations Read(Assembly plugIn) =>
         new([.. toSeq(plugIn.GetManifestResourceNames())
             .Filter(static name => name.Contains(".Localization.", StringComparison.Ordinal) && name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
-            .Choose(name => Culture(Path.GetExtension(Path.GetFileNameWithoutExtension(name)).TrimStart('.')).Map(lcid => (lcid, Table(plugIn, name))))]);
+            .Choose(name => from lcid in Culture(Path.GetExtension(Path.GetFileNameWithoutExtension(name)).TrimStart('.')) from table in Table(plugIn, name) select (lcid, table))]);
 
     private static Option<int> Culture(string segment) =>
         parseInt(segment) || Try.lift(() => CultureInfo.GetCultureInfo(segment).LCID).Run().ToOption();
 
-    private static HashMap<EqStringOrdinal, string, string> Table(Assembly plugIn, string resource) {
-        using Stream stream = plugIn.GetManifestResourceStream(resource)!;
-        return [.. toSeq(XDocument.Load(stream).Descendants("RMASTRING"))
-            .Choose(static row => from english in Optional(row.Attribute("English")?.Value)
-                                  from local in Optional(row.Attribute("Localized")?.Value)
-                                  select (Key: english.Split("[[", 2)[0], Local: local))];
-    }
+    private static Option<HashMap<EqStringOrdinal, string, string>> Table(Assembly plugIn, string resource) =>
+        Optional(plugIn.GetManifestResourceStream(resource)).Map(static stream => {
+            using Stream owned = stream;
+            return toHashMap<EqStringOrdinal, string, string>(toSeq(XDocument.Load(owned).Descendants("RMASTRING"))
+                .Choose(static row => from english in Optional(row.Attribute("English")?.Value)
+                                      from local in Optional(row.Attribute("Localized")?.Value)
+                                      select (Key: english.Split("[[", 2)[0], Local: local)));
+        });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

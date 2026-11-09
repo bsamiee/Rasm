@@ -1,5 +1,6 @@
 import { ReorderableList } from '@rasm/ui';
 import type { StoryContext } from '@storybook/react-vite';
+import { Array } from 'effect';
 import { type ComponentProps, useState } from 'react';
 import { Button } from 'react-aria-components';
 import { expect, fn, mocked, screen, waitFor, within } from 'storybook/test';
@@ -23,7 +24,7 @@ const sheets = ({ canvas, userEvent, args }: StoryContext<ComponentProps<typeof 
             await opened(title);
             await userEvent.click(await screen.findByRole('menuitem', { name: target }));
         },
-        rows: () => canvas.getAllByRole('row').map((row) => row.dataset.key),
+        rows: () => canvas.getAllByRole('row').map((row) => row.getAttribute('data-key')),
         order: () => mocked(args.onChange).mock.lastCall?.[0].map(({ id }) => id),
         disabled: () => args.items.map(({ title }) => canvas.getByRole('button', { name: `Move ${title}` }).hasAttribute('disabled')),
         targets: () =>
@@ -31,7 +32,7 @@ const sheets = ({ canvas, userEvent, args }: StoryContext<ComponentProps<typeof 
                 .getAllByRole('menuitem')
                 .filter((item) => item.getAttribute('aria-disabled') !== 'true')
                 .map(({ textContent }) => textContent),
-        status: () => canvas.queryByRole('status'),
+        status: (): HTMLElement | null => canvas.queryByRole('status'),
     };
 };
 
@@ -75,7 +76,7 @@ const Default = meta.story({
         expect(sheets(context).rows()).toEqual(args.items.map(({ id }) => id));
         const controls = args.items.flatMap(({ title }) => {
             const row = within(grid.getByRole('row', { name: title }));
-            return [row.getByRole('checkbox', { name: `Select ${title}` }), row.getByRole('button', { name: `Drag ${title}` }), row.getByRole('button', { name: `Move ${title}` })];
+            return Array.make(row.getByRole('checkbox', { name: `Select ${title}` }), row.getByRole('button', { name: `Drag ${title}` }), row.getByRole('button', { name: `Move ${title}` }));
         });
         expect(controls.every((control) => control.checkVisibility())).toBe(true);
     },

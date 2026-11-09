@@ -64,8 +64,10 @@ public abstract partial record NameLayout {
 
     public sealed record Positional(char Pad) : NameLayout {
         internal override string Compose(Seq<NameField> fields, HashMap<NameField, string> entries) =>
-            fields.Init.FoldBack(fields.Last.Bind(entries.Find).IfNone(""),
-                (text, field) => entries.Find(field) switch { { IsNone: true } when text.Length is 0 => text, var value => value.IfNone("").PadRight(field.MaxWidth.IfNone(0), Pad) + text });
+            string.Concat(fields
+                .Map((field, index) => (Entry: entries.Find(field), Width: index == fields.Count - 1 ? 0 : field.MaxWidth.IfNone(0)))
+                .AsEnumerable().Reverse().SkipWhile(static slot => slot.Entry.IsNone).Reverse()
+                .Select(slot => slot.Entry.Match(Some: entry => entry.PadRight(slot.Width, Pad), None: () => new string(Pad, slot.Width))));
         internal override Option<HashMap<NameField, string>> Split(Seq<NameField> fields, string text) =>
             from sliced in fields.Init.Fold(
                     Some((Remaining: text, Slices: Seq<(NameField Field, string Value)>())),

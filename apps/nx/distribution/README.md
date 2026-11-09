@@ -22,7 +22,6 @@
 |  [04]   | `CSXS/manifest.xml`     | Adobe CEP extension       | `.zxp`    | `install`, `nx-release-publish`                                      |
 |  [05]   | `*.uproject`            | Unreal Engine project     | None      | `build--unreal`, `build`, `check--unreal`, `check`, `install`        |
 |  [06]   | `*.uplugin`             | Unreal Engine plug-in     | `.zip`    | `build--unreal`, `build`, `check--unreal`, `check`, `install`, `nx-release-publish`, versions |
-|  [07]   | `*.xcodeproj/project.xcproj` | macOS app             | `.zip`    | `nx-release-publish` (the zips `@rasm/nx-apple` builds)              |
 
 - Manifests name a project at their folder (`CSXS/manifest.xml` at the folder above `CSXS`), merging with the language plugin's project there
 - Unreal descriptors are read as JSON and name their project by file name, Epic's identity, since no language plugin reads them; their build is their compile, so `check--unreal` is a no-op over `build--unreal`, and each module's `*.Build.cs` states its warning policy
@@ -44,7 +43,6 @@
 |  [07]   | `.uproject` `build--unreal` | `RunUBT.sh -TargetType=Editor <host> Development -Project=<uproject> -WaitMutex` | Exit status |
 |  [08]   | `.uplugin` `build--unreal`  | `RunUAT.sh BuildPlugin` once per host engine, each package zipped | Exit status |
 |  [09]   | Unreal `install`   | The editor build of the project, or of each host of a plug-in | Exit status |
-|  [10]   | macOS app publish  | Sparkle `generate_appcast` over the feed release's assets, then `gh release upload --clobber`, only for a zip whose app holds a stapled notarization ticket (`Contents/CodeResources`) and names `SUFeedURL` | Exit status |
 
 - UnrealBuildTool resolves the editor target from `-TargetType=Editor` through the project's own rules and `DefaultEditorTarget`, and builds every enabled plug-in of the project in place, where the editor loads them at its next start; `build--unreal` on a project stays uncached, since it writes the incremental state the editor shares
 - `build--unreal` on a plug-in runs BuildPlugin in a temporary package folder for each engine its hosts' `EngineAssociation` names (its own `EngineVersion` when nothing hosts it), with each workspace plug-in its `Plugins` names as `-Dependencies`, and zips the package as `<outputPath>/unreal/<plug-in>/<plug-in>-<VersionName>-<engine major.minor>-<host>.zip` with the descriptor at the archive's root; cached on the plug-in, its dependencies, and each host `.uproject`

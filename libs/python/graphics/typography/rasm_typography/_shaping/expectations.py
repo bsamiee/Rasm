@@ -18,7 +18,7 @@ class _Test(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
 
     input: str
     expectation: str
-    language: str = ""
+    language: str | None = None
 
 
 class _Configuration(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
@@ -39,7 +39,7 @@ class Expected(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
 
         Args:
             binary: Font whose shaping the expectations approve.
-            corpus: Lines and languages to shape, an empty language shaping under the font's default system.
+            corpus: Lines and languages to shape, a `None` language shaping under the font's default system.
 
         Returns:
             Expectations forbidding the font's glyph 0, one test per line and language.

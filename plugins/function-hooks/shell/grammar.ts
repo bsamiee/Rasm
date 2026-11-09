@@ -157,7 +157,7 @@ const optionOf = (text: string, grammar: Grammar, row: Program): Option.Option<R
 const flagged = (word: Word, { specs, attached }: Reading, cursor: Cursor, words: readonly Word[], row: Program): Step => {
     const spec = specs.at(-1);
     const from = cursor.at + 1;
-    const taken = row.execs?.includes(spec?.name ?? '') === true ? words.slice(from, words.findIndex(({ text }, index) => index >= from && (text === ';' || text === '+')) + 1 || words.length) : words.slice(from, from + (spec?.arity ?? 0));
+    const taken = spec !== undefined && row.execs?.includes(spec.name) === true ? words.slice(from, words.findIndex(({ text }, index) => index >= from && (text === ';' || text === '+')) + 1 || words.length) : words.slice(from, from + (spec?.arity ?? 0));
     const supplied = Option.isSome(attached) ? [] : taken;
     const names = specs.map(({ name }) => name);
     return [{ items: [{ names, words: [word, ...supplied], values: [...Option.toArray(attached), ...supplied.map(({ text }) => text)] }] }, { ...cursor, at: cursor.at + 1 + supplied.length, ended: names.some((name) => name === row.module || row.ends?.includes(name) === true) }];

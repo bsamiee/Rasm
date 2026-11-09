@@ -6,6 +6,6 @@
     "type": "object",
     "properties": {
         "outputPath": { "type": "string", "description": "Folder, relative to the workspace root, receiving the package; unset, the target packs nothing" },
-        "timestampAuthority": { "type": "string", "description": "Time stamping server ZXPSignCmd -tsa signs against, so a CEP package outlives its certificate", "default": "http://timestamp.digicert.com" }
+        "timestampAuthority": { "type": "string", "description": "Timestamp server ZXPSignCmd -tsa signs against, so a CEP package outlives its certificate", "default": "http://timestamp.digicert.com" }
     }
 }

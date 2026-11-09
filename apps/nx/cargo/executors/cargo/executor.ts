@@ -19,7 +19,7 @@ const REPORTS = {
 
 const Command = Schema.Struct({ args: Schema.NonEmptyArray(Schema.String), trailing: Schema.optionalKey(Schema.Array(Schema.String)), report: Schema.Literals(['messages', 'tests', 'status']), packages: Schema.optionalKey(Schema.Array(Schema.Struct({ root: Schema.String, name: Schema.String }))) });
 const Cargo = Schema.Struct({ cwd: Schema.String, commands: Schema.NonEmptyArray(Command), package: Schema.optionalKey(Schema.String), args: Schema.optionalKey(Schema.Array(Schema.String)), outputs: Schema.optionalKey(Schema.Array(Schema.String)) });
-const Diagnostic = Schema.Struct({ reason: Schema.Literal('compiler-message'), manifest_path: Schema.String, message: Schema.Struct({ level: Schema.String, rendered: Schema.NullOr(Schema.String) }) });
+const Diagnostic = Schema.Struct({ reason: Schema.Literal('compiler-message'), manifest_path: Schema.String, message: Schema.Struct({ level: Schema.String, rendered: Schema.OptionFromNullOr(Schema.String) }) });
 const Artifact = Schema.Struct({ reason: Schema.Literal('compiler-artifact'), manifest_path: Schema.String, target: Schema.Struct({ kind: Schema.Array(Schema.String) }) });
 const Finished = Schema.Struct({ reason: Schema.Literal('build-finished'), success: Schema.Boolean });
 const Suite = Schema.Struct({ type: Schema.Literal('suite'), event: Schema.Literals(['ok', 'failed']), nextest: Schema.Struct({ crate: Schema.String }) });
@@ -39,10 +39,11 @@ const ran = (cwd: string, args: readonly string[], env: Readonly<Record<string, 
                     Stream.splitLines(Stream.decodeText(handle.stdout)).pipe(
                         Stream.mapAccum(HashSet.empty<string>, (seen, line) => {
                             const message = Schema.decodeOption(Message)(line);
-                            const shown = Option.match(message, { onNone: () => `${line}\n`, onSome: (held) => (Schema.is(Diagnostic)(held) ? (held.message.rendered ?? '') : '') });
-                            return [HashSet.add(seen, shown), [{ text: HashSet.has(seen, shown) ? '' : shown, message }]];
+                            const printable = Option.match(message, { onNone: () => Option.some(`${line}\n`), onSome: (parsed) => (Schema.is(Diagnostic)(parsed) ? parsed.message.rendered : Option.none()) });
+                            const text = Option.filter(printable, (rendered) => !HashSet.has(seen, rendered));
+                            return [Option.match(text, { onNone: () => seen, onSome: (rendered) => HashSet.add(seen, rendered) }), [{ text, message }]];
                         }),
-                        Stream.tap(({ text }) => Effect.sync(() => stdout.write(text))),
+                        Stream.tap(({ text }) => Option.match(text, { onNone: () => Effect.void, onSome: (rendered) => Effect.sync(() => stdout.write(rendered)) })),
                         Stream.runCollect,
                     ),
                     Stream.mkString(Stream.tap(Stream.decodeText(handle.stderr), (chunk) => Effect.sync(() => stderr.write(chunk)))),
@@ -50,7 +51,7 @@ const ran = (cwd: string, args: readonly string[], env: Readonly<Record<string, 
                 ],
                 { concurrency: 'unbounded' },
             );
-            return { code, log: [...lines.map(({ text }) => text), diagnosed].join(''), messages: lines.flatMap(({ message }) => Option.toArray(message)) };
+            return { code, log: [...lines.flatMap(({ text }) => Option.toArray(text)), diagnosed].join(''), messages: lines.flatMap(({ message }) => Option.toArray(message)) };
         }),
     );
 
@@ -81,27 +82,34 @@ const decided = Effect.fnUntraced(function* (context: ExecutorContext, inputs: R
             env,
         ),
     );
-    const diagnostics = run.messages.filter(Schema.is(Diagnostic)).map((held) => ({ ...held, root: path.dirname(held.manifest_path) }));
+    const diagnostics = run.messages.filter(Schema.is(Diagnostic)).map((diagnostic) => ({ ...diagnostic, root: path.dirname(diagnostic.manifest_path) }));
     const errored = new Set(diagnostics.filter(({ message: { level } }) => level.startsWith('error')).map(({ root: at }) => at));
     const built = new Set(run.messages.filter(Schema.is(Artifact)).flatMap(({ manifest_path, target: { kind } }) => (kind.includes('custom-build') ? [] : [path.dirname(manifest_path)])));
     const suites = Array.groupBy(run.messages.filter(Schema.is(Suite)), ({ nextest }) => nextest.crate);
-    const completed = run.messages.some((held) => Schema.is(Finished)(held) && held.success) && !run.messages.some(Schema.is(Failed));
-    const output = (at: string, name: string) => [...diagnostics.filter(({ root: held }) => held === at).map(({ message: { rendered } }) => rendered ?? ''), ...run.messages.filter(Schema.is(Failed)).flatMap((held) => (held.name.startsWith(`${name}::`) ? [`${held.name}\n${held.stdout ?? ''}`] : []))].join('');
+    const completed = run.messages.some((message) => Schema.is(Finished)(message) && message.success) && !run.messages.some(Schema.is(Failed));
+    const output = (at: string, name: Option.Option<string>) =>
+        [
+            ...diagnostics.filter(({ root: crate }) => crate === at).flatMap(({ message: { rendered } }) => Option.toArray(rendered)),
+            ...run.messages.filter(Schema.is(Failed)).flatMap((failed) => (Option.exists(name, (crate) => failed.name.startsWith(`${crate}::`)) ? [failed.stdout === undefined ? failed.name : `${failed.name}\n${failed.stdout}`] : [])),
+        ].join('');
     const broken = new Set(Record.keys(Record.filter(nodes, (_, project) => errored.has(root(project)))));
     const reaches = (project: string, seen: ReadonlySet<string>): boolean => (dependencies[project] ?? []).some(({ target }) => !seen.has(target) && (broken.has(target) || reaches(target, new Set([...seen, target]))));
     const results = tasks.map(({ id, target: { project } }) => {
-        const [at, name] = [root(project), inputs[id]?.package ?? ''];
-        const reported = suites[name] ?? [];
+        const [at, name] = [root(project), Option.fromUndefinedOr(inputs[id]?.package)];
+        const reported = Option.getOrElse(
+            Option.flatMap(name, (crate) => Record.get(suites, crate)),
+            () => [],
+        );
         const [proven, empty] = ({ messages: [built.has(at), false], tests: [reported.length > 0, completed && reported.length === 0], status: [run.code === 0, false] } as const)[command.report];
-        return { id, own: errored.has(at) || empty || reported.some(({ event }) => event === 'failed'), blocked: reaches(project, new Set([project])), proven, terminalOutput: empty ? `${name}: no tests to run\n` : output(at, name) };
+        return { id, own: errored.has(at) || empty || reported.some(({ event }) => event === 'failed'), blocked: reaches(project, new Set([project])), proven, terminalOutput: empty ? Option.match(name, { onNone: () => 'no tests to run\n', onSome: (crate) => `${crate}: no tests to run\n` }) : output(at, name) };
     });
     const attributed = results.some(({ own }) => own);
     return Record.fromIterableWith(results, ({ id, own, blocked, proven, terminalOutput }): readonly [string, TaskResult] => [
         id,
-        Match.value({ passed: proven && !(own || blocked), own, held: blocked || attributed }).pipe(
+        Match.value({ passed: proven && !(own || blocked), own, skipped: blocked || attributed }).pipe(
             Match.when({ passed: true }, (): TaskResult => ({ success: true, terminalOutput })),
             Match.when({ own: true }, (): TaskResult => ({ success: false, terminalOutput })),
-            Match.when({ held: true }, (): TaskResult => ({ success: false, status: 'skipped', terminalOutput: '' })),
+            Match.when({ skipped: true }, (): TaskResult => ({ success: false, status: 'skipped', terminalOutput: '' })),
             Match.orElse((): TaskResult => ({ success: false, terminalOutput: run.log })),
         ),
     ]);
@@ -109,7 +117,7 @@ const decided = Effect.fnUntraced(function* (context: ExecutorContext, inputs: R
 
 const decoded = (inputs: Readonly<Record<string, unknown>>) =>
     Effect.map(
-        Effect.forEach(Record.toEntries(inputs), ([id, options]) => Effect.map(Effect.orDie(Schema.decodeUnknownEffect(Cargo)(options)), (held) => [id, held] as const)),
+        Effect.forEach(Record.toEntries(inputs), ([id, options]) => Effect.map(Effect.orDie(Schema.decodeUnknownEffect(Cargo)(options)), (cargo) => [id, cargo] as const)),
         Record.fromEntries,
     );
 
@@ -121,12 +129,12 @@ const scheduled = (context: ExecutorContext, inputs: Readonly<Record<string, typ
             Effect.reduce(
                 inputs[group[0].id]?.commands ?? [],
                 () => done,
-                (held, command) =>
+                (finished, command) =>
                     Array.match(
-                        group.filter(({ id }) => held[id]?.success !== false),
+                        group.filter(({ id }) => finished[id]?.success !== false),
                         {
-                            onEmpty: () => Effect.succeed(held),
-                            onNonEmpty: (ready) => Effect.map(decided(context, inputs, command, ready), (results) => ({ ...held, ...results })),
+                            onEmpty: () => Effect.succeed(finished),
+                            onNonEmpty: (ready) => Effect.map(decided(context, inputs, command, ready), (results) => ({ ...finished, ...results })),
                         },
                     ),
             ),
@@ -134,12 +142,17 @@ const scheduled = (context: ExecutorContext, inputs: Readonly<Record<string, typ
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: unknown, context: ExecutorContext) => {
-    const id = `${context.projectName}:${context.targetName}`;
-    return Effect.runPromise(Effect.flatMap(decoded({ [id]: options }), (inputs) => scheduled(context, inputs, [{ id, target: { project: context.projectName ?? '', target: context.targetName ?? '' } }])).pipe(Effect.map((results) => ({ success: Record.values(results).every(({ success }) => success) }))));
-};
+const execute = (options: unknown, context: ExecutorContext) =>
+    Effect.runPromise(
+        Effect.gen(function* () {
+            const [project, target] = yield* Effect.all([Effect.fromNullishOr(context.projectName), Effect.fromNullishOr(context.targetName)]);
+            const id = `${project}:${target}`;
+            const results = yield* Effect.flatMap(decoded({ [id]: options }), (inputs) => scheduled(context, inputs, [{ id, target: { project, target } }]));
+            return { success: Record.values(results).every(({ success }) => success) };
+        }),
+    );
 
-const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) => Effect.runPromise(Effect.flatMap(decoded(inputs), (held) => scheduled(context, held, Record.values(taskGraph.tasks))));
+const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) => Effect.runPromise(Effect.flatMap(decoded(inputs), (decodedInputs) => scheduled(context, decodedInputs, Record.values(taskGraph.tasks))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

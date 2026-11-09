@@ -25,9 +25,10 @@
                 "properties": {
                     "package": { "type": "string", "description": "Package folder, passed as --package-path to swift build --show-bin-path" },
                     "product": { "type": "string", "description": "Executable product swift package describe names" },
-                    "folder": { "type": "string", "description": "Folder holding <product>.zip" }
+                    "folder": { "type": "string", "description": "Folder holding <product>-<version>.zip" },
+                    "manifest": { "type": "string", "description": "Info.plist the product embeds, whose CFBundleShortVersionString names the zip" }
                 },
-                "required": [ "package", "product", "folder" ]
+                "required": [ "package", "product", "folder", "manifest" ]
             },
             "description": "Executable products the plugin infers for the release configuration, none in any other configuration"
         },

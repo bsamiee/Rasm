@@ -10,6 +10,12 @@ import Subprocess
 import System
 import os
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+nonisolated extension Environment.Key {
+    static let codexHome: Self = "CODEX_HOME"
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 private nonisolated struct CodexPackage: Decodable {
@@ -32,14 +38,14 @@ actor CodexClient: ProviderClient {
     nonisolated let liveHome: URL
     private let paths: FileLocations
     private let environment: [Environment.Key: String]
-    private let logger: Logger = Logger(for: CodexClient.self)
+    private let logger: Logger = .init(for: CodexClient.self)
     private var servers: [URL: CodexServer] = [:]
 
     init(paths: FileLocations, environment: [Environment.Key: String]) {
         self.paths = paths
         self.environment = environment
         liveHome =
-            environment["CODEX_HOME"].flatMap { value in
+            environment[.codexHome].flatMap { value in
                 value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory)
             } ?? paths.home.appending(path: ".codex", directoryHint: .isDirectory)
     }
@@ -86,7 +92,7 @@ actor CodexClient: ProviderClient {
     ) async -> Result<AccountIdentity, ProviderError> {
         func installFile(_ data: Data, to destination: URL) throws(CodexFailure) {
             try Result {
-                let file: FileWrapper = FileWrapper(regularFileWithContents: data)
+                let file = FileWrapper(regularFileWithContents: data)
                 file.fileAttributes[FileAttributeKey.posixPermissions.rawValue] = 0o600
                 try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try file.write(to: destination, options: .atomic, originalContentsURL: nil)
@@ -101,10 +107,10 @@ actor CodexClient: ProviderClient {
             await stopServer(liveHome)
             await stopServer(incoming)
             if let outgoing { await stopServer(paths.codexHome(outgoing.id)) }
-            guard let saved: (data: Data, identity: AccountIdentity?) = try CodexAuthFile.read(in: incoming), let identity: AccountIdentity = saved.identity,
+            guard let saved = try CodexAuthFile.read(in: incoming), let identity = saved.identity,
                 identity.isSameAccount(as: account.identity)
             else { throw .signInRequired }
-            let live: (data: Data, identity: AccountIdentity?)? = try CodexAuthFile.read(in: liveHome)
+            let live = try CodexAuthFile.read(in: liveHome)
             if live?.identity?.isSameAccount(as: account.identity) != true {
                 guard live?.identity.map({ identity in outgoing?.identity.isSameAccount(as: identity) == true }) ?? (outgoing == nil) else { throw .identityChanged }
                 if let outgoing, let live { try installFile(live.data, to: CodexAuthFile.file(in: paths.codexHome(outgoing.id))) }
@@ -221,18 +227,14 @@ actor CodexClient: ProviderClient {
                 executable = FilePath(package.appending(path: manifest.entrypoint).path(percentEncoded: false))
         }
         try Result { try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true) }.mapError(CodexFailure.storage).get()
-        let invocation: Configuration = Configuration(
+        let invocation = Configuration(
             executable: .path(executable),
             arguments: ["app-server"],
             environment: .custom(environment.filter { key, _ in !key.rawValue.hasPrefix("CODEX_") && !excludedEnvironmentVariables.contains(key) })
-                .updating(["CODEX_HOME": FilePath(home.path(percentEncoded: false)).string]),
+                .updating([.codexHome: FilePath(home.path(percentEncoded: false)).string]),
             platformOptions: .session(),
         )
-        let ready:
-            (
-                stream: AsyncStream<Result<JSONRPCConnection<CodexProtocol.Method, CodexFailure>, CodexFailure>>,
-                continuation: AsyncStream<Result<JSONRPCConnection<CodexProtocol.Method, CodexFailure>, CodexFailure>>.Continuation
-            ) = AsyncStream.makeStream()
+        let ready = AsyncStream<Result<JSONRPCConnection<CodexProtocol.Method, CodexFailure>, CodexFailure>>.makeStream()
         let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") { [logger] in
             do {
                 let status: TerminationStatus = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in

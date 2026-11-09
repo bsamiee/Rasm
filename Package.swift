@@ -17,6 +17,9 @@ let swiftSettings: [SwiftSetting] = [
     .treatWarning("StrictLanguageFeatures", as: .error),
 ]
 let linkerSettings: [LinkerSetting] = [.unsafeFlags(["-Xlinker", "-fatal_warnings"])]
+let embeddedInfo: (String) -> [LinkerSetting] = { folder in
+    [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", "\(Context.packageDirectory)/\(folder)/Info.plist"])]
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -83,6 +86,7 @@ let executables: [Target] = [
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "apps/macos/watch-apps",
+        exclude: ["Info.plist"],
     )
 ]
 let tests: [Target] = [
@@ -120,7 +124,7 @@ let tests: [Target] = [
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-let package: Package = Package(
+let package = Package(
     name: "Rasm",
     platforms: [.macOS(.v27)],
     products: modules.map { module in .library(name: module.name, targets: [module.name]) },
@@ -148,6 +152,6 @@ let package: Package = Package(
 
 for target: Target in package.targets {
     target.swiftSettings = swiftSettings
-    target.linkerSettings = linkerSettings
+    target.linkerSettings = linkerSettings + (target.type == .executable ? target.path.map(embeddedInfo) ?? [] : [])
     target.dependencies += target.type == .test ? [.product(name: "IssueReportingTestSupport", package: "swift-issue-reporting")] : []
 }

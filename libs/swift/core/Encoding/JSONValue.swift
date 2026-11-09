@@ -16,7 +16,7 @@ public enum JSONValue: Codable, Hashable, Sendable {
         let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
         if container.decodeNil() {
             self = .null
-        } else if var elements: any UnkeyedDecodingContainer = try Self.unlessMismatched(decoder.unkeyedContainer) {
+        } else if var elements = try Self.unlessMismatched(decoder.unkeyedContainer) {
             self = .array(try Self.decode(&elements))
         } else if let scalar: Self = try scalar(in: container) {
             self = scalar

@@ -39,7 +39,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
         return Effect.orDie(Schema.encodeEffect(Specifier.Path)(this));
     }
     get leaf(): string {
-        return this.root ? Root.from.literal : Array.map([this, ...Option.toArray(this.end)], ({ kind, selector }) => `${kind}${Option.getOrElse(Option.flatMap(selector, Schema.encodeOption(Reference.Selector)), () => '')}`).join(' to ');
+        return this.root ? Root.from.literal : Array.map([this, ...Option.toArray(this.end)], ({ kind, selector }) => Option.match(Option.flatMap(selector, Schema.encodeOption(Reference.Selector)), { onNone: () => kind, onSome: (written) => `${kind}${written}` })).join(' to ');
     }
     get name(): Option.Option<string> {
         return Option.map(Option.filter(this.selector, Reference.Selector.guards.Named), Struct.get('name'));

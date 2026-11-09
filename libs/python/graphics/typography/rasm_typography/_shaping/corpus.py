@@ -32,9 +32,9 @@ class Corpus(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
     stacks: tuple[str, ...]
 
     @property
-    def languages(self) -> tuple[str, ...]:
-        """Language of each prose kind and the empty language of the font's default system, the languages every run shapes under."""
-        return tuple(dict.fromkeys((*self.prose, "")))
+    def languages(self) -> tuple[str | None, ...]:
+        """Language of each prose kind and `None` for the font's default system, the languages every run shapes under."""
+        return (*self.prose, None)
 
     @property
     def plain(self) -> tuple[str, ...]:
@@ -63,29 +63,29 @@ class Corpus(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
         )
 
     @staticmethod
-    def forms(code: int, marks: str = "", /) -> tuple[str, ...]:
+    def forms(code: int, /, *marks: str) -> tuple[str, ...]:
         """Isolated, initial, medial, and final forms of a letter with marks after it, each joining side held open by U+200D.
 
         Args:
             code: Code point of the letter.
-            marks: Mark sequence typed after the letter, empty for unmarked forms.
+            marks: Marks typed after the letter in order, none for unmarked forms.
 
         Returns:
             The four forms in isolated, initial, medial, final order.
         """
-        return _runs((code,), 1, (marks,), _JOINS)
+        return _runs((code,), 1, ("".join(marks),), _JOINS)
 
-    def pairs(self, around: str = "", marks: tuple[str, ...] = ("",), /) -> tuple[str, ...]:
+    def pairs(self, around: str | None = None, marks: tuple[str, ...] = ("",), /) -> tuple[str, ...]:
         """Every ordered pair of corpus letters with each mark sequence on each letter, between two copies of `around`.
 
         Args:
-            around: Letter the pair sits between, empty for an unwrapped pair.
+            around: Letter the pair sits between, `None` for an unwrapped pair.
             marks: Mark sequences typed after each letter of the pair, `("",)` for unmarked pairs.
 
         Returns:
             One run per letter and mark pair, the first letter and its marks outermost.
         """
-        return _runs(self.letters, 2, marks, ((around, around),))
+        return _runs(self.letters, 2, marks, (("", ""),) if around is None else ((around, around),))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

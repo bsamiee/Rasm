@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: bashlang
+severity: error
+rule:
+    kind: expansion
+    pattern: $EXPANSION
+    has: {field: operator, regex: '^:?-$', precedes: {regex: '^\}$'}}
+message: '`$EXPANSION` turns an unset variable into an empty string'
+note: 'Fail on absence with `${name:?reason}`, or test presence with `[[ -v name ]]`'

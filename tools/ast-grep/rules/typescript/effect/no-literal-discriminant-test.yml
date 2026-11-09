@@ -1,20 +1,32 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
+utils:
+    tag-read:
+        any:
+            - {kind: member_expression, has: {field: property, regex: '^_tag$'}}
+            - {kind: identifier, regex: '^_tag$'}
 rule:
     kind: binary_expression
-    all:
-        - has: {field: operator, regex: '^[!=]==?$'}
-        - has: {field: right, kind: string, pattern: $LITERAL}
-        - has: {field: left, kind: member_expression, pattern: $READ, has: {field: property, pattern: $KEY}}
-        - inside:
-            kind: program
-            stopBy: end
-            has:
+    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
+    any:
+        - all:
+            - has: {field: operator, regex: '^[!=]==?$'}
+            - has: {field: right, kind: string, pattern: $LITERAL}
+            - has: {field: left, kind: member_expression, pattern: $READ, has: {field: property, pattern: $KEY}}
+            - inside:
+                kind: program
                 stopBy: end
-                kind: pair
-                all:
-                    - has: {field: key, pattern: $KEY}
-                    - has: {field: value, kind: call_expression, all: [{has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $LITERAL}}}, {has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^Literal$'}}}}}]}
+                has:
+                    stopBy: end
+                    kind: pair
+                    all:
+                        - has: {field: key, pattern: $KEY}
+                        - has: {field: value, kind: call_expression, all: [{has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $LITERAL}}}, {has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^Literal$'}}}}}]}
+        - all:
+            - has: {field: operator, regex: '^[!=]==?$'}
+            - any:
+                - all: [{has: {field: left, matches: tag-read, pattern: $READ}}, {has: {field: right, kind: 'string, member_expression'}}]
+                - all: [{has: {field: right, matches: tag-read, pattern: $READ}}, {has: {field: left, kind: 'string, member_expression'}}]
 message: '`$READ` tests a literal discriminant by hand'
-note: 'Join the cases with `Schema.toTaggedUnion(''<key>'')` and test through `isAnyOf` or fold through `match`'
+note: 'Fold the union through its `match`, `$match`, or `Match.tag`, and test one case through `$is(<tag>)` or `Predicate.isTagged(<tag>)`'

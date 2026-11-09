@@ -244,25 +244,31 @@ internal sealed record ImageFormation(ToneMapping View, Display Device) : IPixel
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 internal static class FormationTables {
-    public static Func<(string Resource, LutFormat Format), LutTable> Table { get; } = memoUnsafe(static ((string Resource, LutFormat Format) source) => {
-        using Stream stream = typeof(FormationTables).Assembly.GetManifestResourceStream(source.Resource)!;
-        using MemoryStream bytes = new();
-        stream.CopyTo(bytes);
-        return source.Format.Decode(bytes.ToArray()).ThrowIfFail();
-    });
+    public static Func<(string Resource, LutFormat Format), LutTable> Table { get; } = memoUnsafe(static ((string Resource, LutFormat Format) source) =>
+        Embedded(source.Resource).Bind(stream => {
+            using Stream owned = stream;
+            using MemoryStream bytes = new();
+            owned.CopyTo(bytes);
+            return source.Format.Decode(bytes.ToArray());
+        }).ThrowIfFail());
 
-    public static Func<string, Lut3D> Lattice { get; } = memoUnsafe(static (string resource) => {
-        using StreamReader reader = new(typeof(FormationTables).Assembly.GetManifestResourceStream(resource)!);
-        return Lut3D.ParseCube(reader.ReadToEnd());
-    });
+    public static Func<string, Lut3D> Lattice { get; } = memoUnsafe(static (string resource) =>
+        Embedded(resource).Map(static stream => {
+            using StreamReader reader = new(stream);
+            return Lut3D.ParseCube(reader.ReadToEnd());
+        }).ThrowIfFail());
 
     public static LutSpace AgXLog { get; } = LutSpace.AgX(Lattice("luminance_compensation_bt2020.cube"));
     public static Lut3D FilmicDesaturation => Lattice("filmic_desat_33.cube");
     public static Lut1D FalseColorKey => Curve("AgX_False_Color.spi1d");
     public static LutTable TonyMcMapface => Table(("tony_mc_mapface.dds", LutFormat.DirectDrawSurface));
 
-    public static Func<string, Lut1D> Curve { get; } = memoUnsafe(static (string resource) => {
-        using StreamReader reader = new(typeof(FormationTables).Assembly.GetManifestResourceStream(resource)!);
-        return LutFormat.ParseSpi1d(reader.ReadToEnd()).ThrowIfFail();
-    });
+    public static Func<string, Lut1D> Curve { get; } = memoUnsafe(static (string resource) =>
+        Embedded(resource).Bind(static stream => {
+            using StreamReader reader = new(stream);
+            return LutFormat.ParseSpi1d(reader.ReadToEnd());
+        }).ThrowIfFail());
+
+    private static Fin<Stream> Embedded(string resource) =>
+        Optional(typeof(FormationTables).Assembly.GetManifestResourceStream(resource)).ToFin(new DarkroomFault(resource, DarkroomReason.Missing));
 }

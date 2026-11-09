@@ -106,7 +106,7 @@ class _Checkout(msgspec.Struct, frozen=True, kw_only=True, rename="camel", omit_
     """Shaman checkout: the files it needs or the server lacks, and the folder they link into once created."""
 
     files: tuple[_ShamanFileSpec, ...] = ()
-    checkout_path: str = ""
+    checkout_path: str | None = None
 
 
 class _JobStorageInfo(msgspec.Struct, frozen=True, kw_only=True):
@@ -206,7 +206,8 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda wanted: frozenset(spec.path for spec in wanted.files))
                 .bind(lambda lacking: accumulated(uploaded(spec, placed) for spec, placed in zip(specs, entries.values(), strict=True) if spec.path in lacking))
                 .bind(lambda _: _exchange(client, HTTPMethod.POST, "/api/v3/shaman/checkout/create", _Checkout, Some(_Checkout(files=specs, checkout_path=folder))))
-                .map(lambda created: (stored(created.checkout_path), Some(_JobStorageInfo(shaman_checkout_id=created.checkout_path))))
+                .bind(lambda created: Option.of_optional(created.checkout_path).to_result_with(lambda: Fault.of(Reason.ABSENT, "Shaman checkout", member="checkoutPath")))
+                .map(lambda path: (stored(path), Some(_JobStorageInfo(shaman_checkout_id=path))))
             )
 
         return (

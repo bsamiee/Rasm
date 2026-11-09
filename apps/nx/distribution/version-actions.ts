@@ -14,13 +14,13 @@ const located = Effect.fnUntraced(function* (tree: Tree, root: string, options: 
     const { manifest } = yield* Schema.decodeUnknownEffect(Options)(options);
     const at = joinPathFragments(root, manifest);
     const host = yield* Effect.fromOption(
-        Array.findFirst(HOSTS, (held) => held.write !== undefined && matchesGlob(manifest, held.manifest)),
+        Array.findFirst(HOSTS, (candidate) => candidate.write !== undefined && matchesGlob(manifest, candidate.manifest)),
         () => DistributionError.make({ subject: at, detail: 'is no manifest whose version this plugin writes' }),
     );
     const text = yield* Effect.fromNullishOr(tree.read(at, 'utf-8')).pipe(Effect.mapError(() => DistributionError.make({ subject: at, detail: 'is missing' })));
     const version = yield* Effect.flatMap(host.read(text, at), (fields) =>
         Effect.fromOption(
-            Option.flatMap(fields, ({ version: held }) => Option.fromUndefinedOr(held)),
+            Option.flatMap(fields, ({ version: declared }) => Option.fromUndefinedOr(declared)),
             () => DistributionError.make({ subject: at, detail: 'states no version' }),
         ),
     );
@@ -57,10 +57,10 @@ class HostVersionActions extends VersionActions {
     }
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
-        const found = located(tree, this.projectGraphNode.data.root, this.finalConfigForProject.versionActionsOptions);
+        const resolved = located(tree, this.projectGraphNode.data.root, this.finalConfigForProject.versionActionsOptions);
         return Effect.runPromise(
             Effect.gen(function* () {
-                const { at, text, host } = yield* found;
+                const { at, text, host } = yield* resolved;
                 tree.write(at, yield* Effect.fromNullishOr(host.write).pipe(Effect.flatMap((write) => write(text, newVersion))));
                 return [`New version ${newVersion} written to manifest: ${at}`];
             }),

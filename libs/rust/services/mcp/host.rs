@@ -1,4 +1,4 @@
-use core::{net::SocketAddr, num::NonZero};
+use core::{iter, net::SocketAddr, num::NonZero};
 use std::{
     borrow::Cow,
     collections::BTreeMap,
@@ -8,7 +8,7 @@ use std::{
 };
 
 use axum::extract::ConnectInfo;
-use clap::{Args, CommandFactory, FromArgMatches};
+use clap::{Args, CommandFactory, FromArgMatches, error::ErrorKind};
 use futures::{FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, stream};
 use http::{request::Parts, uri::Authority};
 use itertools::Either;
@@ -55,6 +55,7 @@ use tokio_util::{
 use tracing::{
     Instrument as _,
     field::{self, Empty},
+    level_filters::LevelFilter,
 };
 use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
 
@@ -463,10 +464,14 @@ where
     E: Endpoint,
 {
     const CAPACITY: usize = 64;
-    let program = P::command();
-    let identity = program.get_about().into_iter().map(ToString::to_string).fold(Implementation::new(program.get_name(), program.get_version().unwrap_or_default()), Implementation::with_description);
+    let mut program = P::command();
+    let Some(version) = program.get_version() else {
+        let refused = program.error(ErrorKind::Io, "MCP server identity needs a version, declare `#[command(version)]`");
+        return refused.print().map_or_else(|source| sysexits::ExitCode::from(source).into(), |()| sysexits::ExitCode::Software.into());
+    };
+    let identity = program.get_about().into_iter().map(ToString::to_string).fold(Implementation::new(program.get_name(), version), Implementation::with_description);
     rasm_daemon::run(
-        Defaults { directives: format!("rmcp=warn,rmcp::service=error,{}", defaults.directives).into(), ..defaults },
+        Defaults { targets: iter::chain([("rmcp", LevelFilter::WARN), ("rmcp::service", LevelFilter::ERROR)], defaults.targets).collect(), ..defaults },
         layer,
         async |Augmented { options: Options { allowed_host, allowed_origin, max_request_body }, args }, addresses, filter, stopping| {
             let notifier = broadcast::Sender::new(CAPACITY);

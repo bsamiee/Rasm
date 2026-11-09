@@ -1,4 +1,4 @@
-import { Array, Effect, Match, Record, Result, Schema, type SchemaAST, SchemaGetter, SchemaIssue, SchemaTransformation } from 'effect';
+import { Array, Effect, identity, Match, Option, Record, Result, Schema, type SchemaAST, SchemaGetter, SchemaIssue, SchemaTransformation, String } from 'effect';
 import { Asset, AssetId, Assets, Sheet } from '#/model/asset';
 import { defaulted } from '#/model/defaulted';
 
@@ -16,14 +16,15 @@ const reference = <K extends (typeof Asset.Type)['kind']>(kind: K) => {
             decode: SchemaGetter.transformEffect(
                 Effect.fnUntraced(function* (assetId: typeof AssetId.Type, options: SchemaAST.ParseOptions) {
                     const asset = yield* Effect.fromOption(Record.get(yield* Assets, assetId), () => new SchemaIssue.InvalidValue({ message: `File ${assetId} missing from library` }, assetId, options));
-                    return yield* Effect.fromResult(Result.liftPredicate(asset, Asset.isAnyOf([kind]), (found) => new SchemaIssue.InvalidValue({ message: `${found.name} is ${found.kind}, placement needs ${kind}` }, assetId, options)));
+                    return yield* Effect.fromResult(Result.liftPredicate(asset, Asset.isAnyOf([kind]), (other) => new SchemaIssue.InvalidValue({ message: `${other.name} is ${other.kind}, placement needs ${kind}` }, assetId, options)));
                 }),
             ),
             encode: SchemaGetter.transform(({ id }) => id),
         }),
     );
 };
-const text = { caption: Schema.String, alt: Schema.optionalKey(Schema.String), description: Schema.optionalKey(Schema.String) };
+const Prose = Schema.optionalKey(Schema.String).pipe(Schema.decodeTo(Schema.optionalKey(Schema.Trimmed.check(Schema.isNonEmpty())), SchemaTransformation.transformOptional({ decode: (given) => Option.filter(Option.map(given, String.trim), String.isNonEmpty), encode: identity })));
+const text = { caption: Prose, alt: Prose, description: Prose };
 const placed = <K extends (typeof Asset.Type)['kind'], F extends Schema.Struct.Fields>(kind: K, fields: F) => Schema.Struct({ ...text, kind: Schema.Literal(kind), asset: reference(kind), ...fields }).pipe(Schema.encodeKeys({ asset: 'assetId' }));
 const percentage = Schema.Finite.check(Schema.isBetween(focus));
 const placements = Schema.Union([
@@ -48,9 +49,9 @@ const Placement = Object.assign(placements, {
     focus,
     fromAsset: (asset: typeof Asset.Type): Array.NonEmptyReadonlyArray<typeof placements.Type> =>
         Asset.match(asset, {
-            pdf: (document) => Array.map(document.sheets, (page) => ({ kind: 'pdf', asset: document, page, caption: '' }) as const),
-            video: (video) => [{ kind: 'video', asset: video, caption: '' }] as const,
-            image: (image) => [{ kind: 'image', asset: image, caption: '', role: 'drawing' }] as const,
+            pdf: (document) => Array.map(document.sheets, (page) => ({ kind: 'pdf', asset: document, page }) as const),
+            video: (video) => [{ kind: 'video', asset: video }] as const,
+            image: (image) => [{ kind: 'image', asset: image, role: 'drawing' }] as const,
         }),
     ratio: (placement: typeof placements.Type) => {
         const { width, height } = Match.value(placement).pipe(

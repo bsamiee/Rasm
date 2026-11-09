@@ -122,6 +122,6 @@ public static class Edits {
 
     private static RhinoFault Indexed(Error error, string member, int index) =>
         error.Count is 1 && error.Filter<RhinoFault>().Head is RhinoFault fault
-            ? new RhinoFault(fault.Subject, fault.Reason, index, fault.Inner)
+            ? fault with { Index = index }
             : new RhinoFault(member, RhinoReason.Declined, index, error);
 }

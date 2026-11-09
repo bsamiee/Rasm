@@ -2,7 +2,8 @@ import process from 'node:process';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Cause, Effect, FileSystem, Match, Option, Path, Record, Schema, String, Struct } from 'effect';
-import { Document, type Node, Pair, parse, parseAllDocuments, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
+import { Yaml } from 'effect/encoding';
+import { Document, type Node, Pair, parseAllDocuments, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,7 +32,11 @@ const Sgconfig = Schema.Struct({ customLanguages: Schema.Record(Schema.String, S
 
 // --- [READS]
 
-const named = (node: unknown) => (node instanceof Scalar ? globalThis.String(node.value) : '');
+const named = (node: unknown) =>
+    Option.map(
+        Option.liftPredicate(node, (candidate): candidate is Scalar => candidate instanceof Scalar),
+        (scalar) => scalar.toString(),
+    );
 const descend = (node: unknown): readonly unknown[] =>
     Match.value(node).pipe(
         Match.when(Match.instanceOf(YAMLMap), (map) => [...map.pairs()].flatMap(descend)),
@@ -45,23 +50,23 @@ const strings = (nodes: readonly unknown[]) =>
         .filter((node): node is Scalar<string> => node instanceof Scalar && typeof node.value === 'string')
         .map(({ value }) => value);
 const matched = (nodes: readonly unknown[], pattern: RegExp, group: string) => Array.getSomes(strings(nodes).flatMap((text) => [...text.matchAll(pattern)].map(({ groups }) => Option.fromNullishOr(groups?.[group]))));
-const keyed = (nodes: readonly unknown[], key: string) => reached(nodes).filter((node): node is Pair => node instanceof Pair && named(node.key) === key);
+const keyed = (nodes: readonly unknown[], key: string) => reached(nodes).filter((node): node is Pair => node instanceof Pair && Option.contains(named(node.key), key));
 const listed = (nodes: readonly unknown[]) => [
     ...keyed(nodes, 'rewriters')
         .map(({ value }) => value)
         .filter((value) => value instanceof YAMLSeq)
-        .flatMap((seq) => [...seq].map(named)),
+        .flatMap((seq) => Array.getSomes([...seq].map(named))),
     ...matched(nodes, LISTED, 'names').flatMap(String.split(',')).map(String.trim),
 ];
 const entries = (node: unknown): ReadonlyMap<string, Pair> =>
     new Map(
         Match.value(node)
             .pipe(
-                Match.when(Match.instanceOf(YAMLSeq), (seq) => [...seq].filter((item) => item instanceof YAMLMap).map((item) => new Pair(new Scalar(named(item.get('id'))), item))),
+                Match.when(Match.instanceOf(YAMLSeq), (seq) => Array.getSomes([...seq].filter((item) => item instanceof YAMLMap).map((item) => Option.map(named(item.get('id')), (id) => new Pair(new Scalar(id), item))))),
                 Match.when(Match.instanceOf(YAMLMap), (map) => [...map.pairs()]),
                 Match.orElse(() => []),
             )
-            .map((pair) => [named(pair.key), pair] as const),
+            .flatMap((pair) => Option.toArray(Option.map(named(pair.key), (key) => [key, pair] as const))),
     );
 const table = (node: unknown): Table => Record.map(KINDS, (_, kind) => entries(node instanceof YAMLMap ? node.get(kind) : undefined));
 const merged = (base: Table, over: Table): Table => Record.map(KINDS, (_, kind) => new Map([...base[kind], ...over[kind]]));
@@ -74,22 +79,19 @@ const unanchored = (doc: Document) => {
 };
 const shared = (header: unknown): Shared => {
     const variants = header instanceof YAMLMap ? header.get(SELECTOR) : undefined;
-    return { table: table(header), variants: Record.fromIterableWith(variants instanceof YAMLMap ? variants.pairs() : [], (pair) => [named(pair.key), table(pair.value)] as const) };
+    return { table: table(header), variants: Record.fromEntries(Array.getSomes((variants instanceof YAMLMap ? [...variants.pairs()] : []).map((pair) => Option.map(named(pair.key), (key) => [key, table(pair.value)] as const)))) };
 };
 
 // --- [RESOLUTION]
 
 const closure = (definitions: Table, local: Table, pairs: readonly Pair[], captures: ReadonlySet<string>, current: Readonly<Record<Kind, ReadonlySet<string>>> = Record.map(KINDS, () => new Set<string>())): Readonly<Record<Kind, ReadonlySet<string>>> => {
     const inlined = (kinds: readonly Kind[]) => kinds.flatMap((kind) => Array.getSomes([...current[kind]].map((name) => Option.fromNullishOr(definitions[kind].get(name)))));
-    const within = (keys: readonly string[], kinds: readonly Kind[]) => [...pairs.filter((pair) => keys.includes(named(pair.key))), ...inlined(kinds)];
+    const within = (keys: readonly string[], kinds: readonly Kind[]) => [...pairs.filter((pair) => Option.exists(named(pair.key), (name) => keys.includes(name))), ...inlined(kinds)];
     const everything = [...pairs, ...inlined(Record.keys(KINDS))];
     const captured = new Set([...captures, ...matched(within(CAPTURES, ['utils']), VARIABLE, 'name')]);
     const grown = (kind: Kind, names: readonly string[]) => new Set([...current[kind], ...names.filter((name) => definitions[kind].has(name) && !local[kind].has(name))]);
     const next = {
-        utils: grown(
-            'utils',
-            keyed(everything, 'matches').map(({ value }) => named(value)),
-        ),
+        utils: grown('utils', Array.getSomes(keyed(everything, 'matches').map(({ value }) => named(value)))),
         rewriters: grown('rewriters', listed(everything)),
         transform: grown(
             'transform',
@@ -111,15 +113,15 @@ const closure = (definitions: Table, local: Table, pairs: readonly Pair[], captu
 };
 const placed = (pairs: readonly Pair[], key: string, value: Option.Option<Scalar | YAMLMap | YAMLSeq>, before: readonly string[]) =>
     Option.match(value, {
-        onNone: () => pairs.filter((pair) => named(pair.key) !== key),
+        onNone: () => pairs.filter((pair) => !Option.contains(named(pair.key), key)),
         onSome: (node) =>
             Option.match(
-                Array.findFirstIndex(pairs, (pair) => named(pair.key) === key),
+                Array.findFirstIndex(pairs, (pair) => Option.contains(named(pair.key), key)),
                 {
                     onSome: (at) => pairs.map((pair, index) => (index === at ? new Pair(pair.key, node) : pair)),
                     onNone: () => {
                         const at = Option.getOrElse(
-                            Array.findFirstIndex(pairs, (pair) => before.includes(named(pair.key))),
+                            Array.findFirstIndex(pairs, (pair) => Option.exists(named(pair.key), (name) => before.includes(name))),
                             () => pairs.length,
                         );
                         return [...pairs.slice(0, at), new Pair(new Scalar(key), node), ...pairs.slice(at)];
@@ -130,14 +132,14 @@ const placed = (pairs: readonly Pair[], key: string, value: Option.Option<Scalar
 const gathered = (kind: Kind, schema: YAMLMap['schema'], items: readonly Pair[]) =>
     Array.match(items, {
         onEmpty: () => Option.none(),
-        onNonEmpty: (held) =>
+        onNonEmpty: (gatheredPairs) =>
             Option.some(
                 kind === 'rewriters'
                     ? new YAMLSeq(
                           schema,
-                          held.map(({ value }) => value),
+                          gatheredPairs.map(({ value }) => value),
                       )
-                    : new YAMLMap(schema, [...held]),
+                    : new YAMLMap(schema, [...gatheredPairs]),
             ),
     });
 const written = Effect.fnUntraced(function* (catalog: Shared, language: string, source: string, doc: Document, index: number) {
@@ -146,13 +148,13 @@ const written = Effect.fnUntraced(function* (catalog: Shared, language: string, 
         () => new Cause.IllegalArgumentError(`${source} document ${index + 1} holds no mapping`),
     );
     const selector = map.get(SELECTOR);
-    const variants = yield* Effect.forEach(selector instanceof YAMLSeq ? [...selector].map(named) : [], (name) => Effect.fromOption(Record.get(catalog.variants, name), () => new Cause.IllegalArgumentError(`${source} ${SELECTOR} holds no ${name}`)));
+    const variants = yield* Effect.forEach(selector instanceof YAMLSeq ? Array.getSomes([...selector].map(named)) : [], (name) => Effect.fromOption(Record.get(catalog.variants, name), () => new Cause.IllegalArgumentError(`${source} ${SELECTOR} holds no ${name}`)));
     const definitions = variants.reduce(merged, catalog.table);
     const local = table(map);
-    const pairs = [...map.pairs()].filter((pair) => named(pair.key) !== SELECTOR);
+    const pairs = [...map.pairs()].filter((pair) => !Option.contains(named(pair.key), SELECTOR));
     const kept = closure(definitions, local, pairs, new Set());
     const kinds = Record.collect(KINDS, (kind, before) => ({ kind, before, items: [...definitions[kind].entries()].filter(([name]) => kept[kind].has(name)) }));
-    const assembled = kinds.reduce((held, { kind, before, items }) => placed(held, kind, gathered(kind, map.schema, [...items.map(([, pair]) => pair), ...local[kind].values()]), before), placed(pairs, 'language', Option.some(new Scalar(language)), ['role']));
+    const assembled = kinds.reduce((assembling, { kind, before, items }) => placed(assembling, kind, gathered(kind, map.schema, [...items.map(([, pair]) => pair), ...local[kind].values()]), before), placed(pairs, 'language', Option.some(new Scalar(language)), ['role']));
     return new Document(new YAMLMap(map.schema, assembled)).toString({ lineWidth: 0 });
 });
 
@@ -161,7 +163,10 @@ const written = Effect.fnUntraced(function* (catalog: Shared, language: string, 
 const build = Effect.gen(function* () {
     const [sgconfig, source, output] = yield* Schema.decodeUnknownEffect(Arguments)(process.argv.slice(2));
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const { customLanguages } = yield* Effect.flatMap(fs.readFileString(sgconfig), (text) => Schema.decodeUnknownEffect(Sgconfig)(parse(text)));
+    const { customLanguages } = yield* fs.readFileString(sgconfig).pipe(
+        Effect.flatMap((text) => Effect.try({ try: () => Yaml.parse(text), catch: (cause) => new Cause.UnknownError(cause, `${sgconfig} does not parse as YAML`) })),
+        Effect.flatMap(Schema.decodeUnknownEffect(Sgconfig)),
+    );
     const language = yield* Effect.fromOption(
         Array.findFirst(Record.toEntries(customLanguages), ([, row]) => row.outlineRules !== undefined && path.resolve(path.dirname(sgconfig), row.outlineRules) === path.resolve(output)),
         () => new Cause.IllegalArgumentError(`${sgconfig} names no custom language whose outlineRules is ${output}`),
@@ -169,7 +174,7 @@ const build = Effect.gen(function* () {
     const parsed = parseAllDocuments(yield* fs.readFileString(source));
     const docs = Array.isArray(parsed) ? parsed : [];
     const failures = docs.flatMap(Struct.get('errors')).map(({ message }) => `${source}: ${message}`);
-    yield* Array.match(failures, { onEmpty: () => Effect.void, onNonEmpty: (held) => Effect.fail(new Cause.IllegalArgumentError(held.join('\n'))) });
+    yield* Array.match(failures, { onEmpty: () => Effect.void, onNonEmpty: (messages) => Effect.fail(new Cause.IllegalArgumentError(messages.join('\n'))) });
     const header = Option.filter(Array.head(docs), ({ value }) => !(value instanceof YAMLMap && value.has('id')));
     const common = shared(Option.getOrUndefined(Option.map(header, unanchored)));
     const texts = yield* Effect.forEach(Option.isSome(header) ? docs.slice(1) : docs, (doc, index) => written(common, language, source, doc, index + Number(Option.isSome(header))));

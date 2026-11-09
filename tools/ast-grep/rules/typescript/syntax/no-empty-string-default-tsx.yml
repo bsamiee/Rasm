@@ -8,21 +8,6 @@ utils:
               not: {has: {kind: string_fragment}}
             - kind: template_string
               not: {has: {kind: 'string_fragment, template_substitution'}}
-    indexed-element:
-        pattern: $ELEMENT
-        any:
-            - kind: subscript_expression
-            - kind: call_expression
-              has: {field: function, kind: member_expression, has: {field: property, regex: '^(at|find|findLast|pop|shift|get)$'}}
-    option-lookup:
-        kind: call_expression
-        pattern: $ELEMENT
-        has:
-            field: function
-            kind: member_expression
-            all:
-                - has: {field: property, regex: '^(head|last|get|findFirst|findLast)$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|(Mutable)?HashMap|Iterable|Record)$'}}}}
     empty-fallback:
         kind: arrow_function
         has: {field: body, matches: empty-string}
@@ -34,46 +19,39 @@ utils:
             all:
                 - has: {field: property, regex: '^getOrElse$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Option$'}}}}
-    piped-default:
-        matches: get-or-else
-        has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: empty-fallback}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
-    concatenation:
-        any:
-            - kind: binary_expression
-              has: {field: operator, regex: '^\+$'}
-            - kind: template_substitution
-    concatenated:
-        inside: {matches: concatenation, stopBy: {not: {kind: parenthesized_expression}}}
+    host-text:
+        inside: {kind: jsx_attribute, has: {kind: property_identifier, regex: '^(value|defaultValue)$'}, stopBy: end}
 rule:
+    not: {matches: host-text}
     any:
         - kind: binary_expression
           all:
-            - has: {field: left, matches: indexed-element}
+            - has: {field: left, pattern: $ELEMENT}
             - has: {field: operator, regex: '^(\?\?|\|\|)$'}
             - has: {field: right, matches: empty-string}
-            - not: {matches: concatenated}
+        - kind: ternary_expression
+          has: {field: condition, pattern: $ELEMENT}
+          any:
+            - has: {field: consequence, matches: empty-string}
+            - has: {field: alternative, matches: empty-string}
+        - kind: pair
+          all:
+            - has: {field: key, regex: '^onNone$', pattern: $ELEMENT}
+            - has: {field: value, matches: empty-fallback}
+        - kind: call_expression
+          pattern: $ELEMENT
+          any:
+            - all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^succeed$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}]}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: empty-string}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
+            - all:
+                - matches: get-or-else
+                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: empty-fallback}}
         - kind: 'assignment_pattern, object_assignment_pattern'
           all:
             - inside: {kind: 'array_pattern, object_pattern, pair_pattern'}
             - has: {field: left, pattern: $ELEMENT}
             - has: {field: right, matches: empty-string}
             - not: {inside: {kind: 'required_parameter, optional_parameter', stopBy: {not: {kind: 'array_pattern, object_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, rest_pattern'}}}}
-        - kind: call_expression
-          all:
-            - matches: get-or-else
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: option-lookup}}, {has: {nthChild: {position: 2, ofRule: *code}, matches: empty-fallback}}], not: {has: {nthChild: {position: 3, ofRule: *code}}}}
-            - not: {matches: concatenated}
-        - kind: call_expression
-          all:
-            - has: {field: function, regex: '^pipe$'}
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: option-lookup}}, {has: {nthChild: {position: 2, ofRule: *code}, matches: piped-default}}], not: {has: {nthChild: {position: 3, ofRule: *code}}}}
-            - not: {matches: concatenated}
-        - kind: call_expression
-          all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: option-lookup}}]}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: piped-default}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
-            - not: {matches: concatenated}
-transform:
-    HEAD: {replace: {source: $ELEMENT, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
-message: '`$HEAD` defaults an absent element to an empty string'
-note: 'Keep an absent element as `undefined` in its type or as the `Option` its lookup returns (`Array.head`, `Record.get`)'
+message: '`$ELEMENT` resolves absence to an empty string'
+note: 'Keep absence as `undefined` or the `Option` its read returns, choose between complete values in one expression (a ternary, `Option.match`, `Match`), and fail where the operation needs the value'

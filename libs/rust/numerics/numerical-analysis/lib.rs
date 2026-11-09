@@ -1,6 +1,6 @@
 #![feature(const_convert, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values, deref_patterns, float_minimum_maximum, integer_casts)]
 
-use core::{borrow::Borrow, iter, range::RangeInclusive};
+use core::{borrow::Borrow, fmt, iter, range::RangeInclusive};
 
 use bilby::QuadratureError;
 use csaps::CsapsError;
@@ -141,7 +141,7 @@ pub enum AnalysisError {
     Site { dimension: usize, point: usize, placement: Placement },
     #[error("value [{}] is not finite", .index.iter().format(", "))]
     Value { index: Vec<usize> },
-    #[error("weight {point}{} is {weight}, not a positive finite number", .dimension.map_or_else(String::new, |dimension| format!(" along dimension {dimension}")))]
+    #[error("weight {point}{} is {weight}, not a positive finite number", fmt::from_fn(|formatter| .dimension.map_or(Ok(()), |dimension| write!(formatter, " along dimension {dimension}"))))]
     Weight { dimension: Option<usize>, point: usize, weight: f64 },
     #[error("{found} points where {needed} are needed")]
     Underdetermined { found: usize, needed: usize },
@@ -159,7 +159,7 @@ pub enum AnalysisError {
     Coefficient { index: usize, coefficient: f64, leading: f64 },
     #[error("function is not finite over {}", .interval.iter().format_with(", ", |range, write| write(&format_args!("[{}, {}]", range.start, range.last))))]
     Function { interval: Vec<RangeInclusive<f64>> },
-    #[error("root search over [{}, {}] failed", .bracket.start, .bracket.last)]
+    #[error("cannot find a root over [{}, {}]", .bracket.start, .bracket.last)]
     Root { bracket: RangeInclusive<f64>, source: RootSource },
     #[error("search stopped on [{}, {}]: {report:?}", .bracket.start, .bracket.last)]
     SearchStopped { bracket: RangeInclusive<f64>, report: basin::TerminationReport<f64> },

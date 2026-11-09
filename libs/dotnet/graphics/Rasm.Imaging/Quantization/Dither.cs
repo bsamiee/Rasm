@@ -105,16 +105,19 @@ public sealed partial class Dither {
 
         public static Vector4 Draw(int x, int y) => Draws.Value.Span switch { var draws => draws[y & (draws.Height - 1), x & (draws.Width - 1)] };
 
-        private static ReadOnlyMemory2D<Vector4> Read() {
-            const float codes = ushort.MaxValue + 1f;
-            using Stream stream = typeof(Dither).Assembly.GetManifestResourceStream("HDR_RGBA_4.png")!;
-            using Image<RgbaVector> image = Image.Load<RgbaVector>(stream);
-            float[] draws = GC.AllocateUninitializedArray<float>(4 * image.Width * image.Height);
-            image.CopyPixelDataTo(MemoryMarshal.Cast<float, RgbaVector>(draws.AsSpan()));
-            TensorPrimitives.Multiply(draws, ushort.MaxValue / codes, draws);
-            TensorPrimitives.Add(draws, 0.5f / codes, draws);
-            return new Memory<float>(draws).Cast<float, Vector4>().AsMemory2D(image.Height, image.Width);
-        }
+        private const string Texture = "HDR_RGBA_4.png";
+
+        private static ReadOnlyMemory2D<Vector4> Read() =>
+            Optional(typeof(Dither).Assembly.GetManifestResourceStream(Texture)).ToFin(ImagingFault.Of(ImagingReason.Missing, Texture)).Map(static stream => {
+                const float codes = ushort.MaxValue + 1f;
+                using Stream owned = stream;
+                using Image<RgbaVector> image = Image.Load<RgbaVector>(owned);
+                float[] draws = GC.AllocateUninitializedArray<float>(4 * image.Width * image.Height);
+                image.CopyPixelDataTo(MemoryMarshal.Cast<float, RgbaVector>(draws.AsSpan()));
+                TensorPrimitives.Multiply(draws, ushort.MaxValue / codes, draws);
+                TensorPrimitives.Add(draws, 0.5f / codes, draws);
+                return new Memory<float>(draws).Cast<float, Vector4>().AsMemory2D(image.Height, image.Width);
+            }).ThrowIfFail();
     }
 }
 

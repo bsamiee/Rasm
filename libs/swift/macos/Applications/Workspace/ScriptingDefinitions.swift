@@ -11,7 +11,7 @@ public actor ScriptingDefinitions {
     public init() {}
 
     public func dictionary(of installation: Installation) async throws(AppleEventFailure) -> ScriptingDictionary {
-        let processes: Set<pid_t> = Set(NSWorkspace.shared.instances(of: installation.runs).map(\.processIdentifier))
+        let processes = Set(NSWorkspace.shared.instances(of: installation.runs).map(\.processIdentifier))
         let reading: Task<Result<ScriptingDictionary, AppleEventFailure>, Never> =
             switch held[installation.url] {
                 case .some(let hit) where hit.processes == processes: hit.reading

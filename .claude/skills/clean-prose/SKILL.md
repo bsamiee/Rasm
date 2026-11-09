@@ -168,7 +168,7 @@ Sections follow work or dependency order under `## [NN]-[NOUN]` headings without
 
 Snippets show one package rule or operation, with its owning type alone:
 - Constructs are complete with their rule visible, every member serves the rule
-- Every local declares its type, prose beside the snippet names each undeclared placeholder member
+- Locals state a type only where inference loses a fact, prose beside the snippet names each undeclared placeholder member
 - Snippets show one shape each and retain every supported form
 - Names keep one shape within a file
 - Code snippets follow their language's native formatter and project settings, output copied from a tool keeps its spacing in a `text` fence

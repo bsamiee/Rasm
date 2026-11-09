@@ -88,7 +88,7 @@ public abstract partial record ModeValue {
             packaged: static (text, _) => new Packaged(text));
 }
 
-public sealed record ModeKey(string Section, string Key, ModeValue Value) {
+public sealed record ModeKey(Option<string> Section, string Key, ModeValue Value) {
 
     // --- [TECHNICAL]
 
@@ -118,39 +118,41 @@ internal static partial class Ini {
         CommentRegex = EmptyTextures,
     };
 
-    [GeneratedRegex(@"^\[.*\]$")]
+    [GeneratedRegex(@"^\[.*\]$", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
     private static partial Regex Sections { get; }
 
-    [GeneratedRegex("^=$")]
+    [GeneratedRegex("^=$", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
     private static partial Regex EmptyTextures { get; }
 
-    internal static HashMap<(string Section, string Key), string> Read(OutputPath file) =>
+    internal static HashMap<(Option<string> Section, string Key), string> Read(OutputPath file) =>
         Table(new FileIniDataParser(new IniDataParser(Configuration)).ReadFile(file, Encoding.UTF8));
 
-    internal static Unit Write(OutputPath file, Guid id, HashMap<(string Section, string Key), string> table) {
+    internal static Unit Write(OutputPath file, Guid id, HashMap<(Option<string> Section, string Key), string> table) {
         new FileIniDataParser(new IniDataParser(Configuration)).WriteFile(file, Data(id, table), Encoding.UTF8);
         return unit;
     }
 
-    internal static HashMap<(string Section, string Key), string> Table(string text) => Table(new IniDataParser(Configuration).Parse(text));
+    internal static HashMap<(Option<string> Section, string Key), string> Table(string text) => Table(new IniDataParser(Configuration).Parse(text));
 
-    internal static string Rendered(Guid id, HashMap<(string Section, string Key), string> table) => Data(id, table).ToString();
+    internal static string Rendered(Guid id, HashMap<(Option<string> Section, string Key), string> table) => Data(id, table).ToString();
 
     internal static Seq<ModeKey> Merged(Seq<ModeKey> keys) =>
-        toSeq(HashMap<(string Section, string Key), ModeKey>().AddOrUpdateRange(keys.Map(static key => ((key.Section, key.Key), key))).Values).Strict();
+        toSeq(HashMap<(Option<string> Section, string Key), ModeKey>().AddOrUpdateRange(keys.Map(static key => ((key.Section, key.Key), key))).Values).Strict();
 
-    private static HashMap<(string Section, string Key), string> Table(IniData data) =>
-        HashMap<(string Section, string Key), string>().AddOrUpdateRange(
-            data.Global.Select(static key => (("", key.KeyName), key.Value))
+    private static HashMap<(Option<string> Section, string Key), string> Table(IniData data) =>
+        HashMap<(Option<string> Section, string Key), string>().AddOrUpdateRange(
+            data.Global.Select(static key => ((Option<string>.None, key.KeyName), key.Value))
                 .Concat(from section in data.Sections
-                        let relative = section.SectionName.Split('\\', 3) is [_, _, var name] ? name : ""
+                        let relative = section.SectionName.Split('\\', 3) is [_, _, var name] ? Some(name) : Option<string>.None
                         from key in section.Keys
                         select ((relative, key.KeyName), key.Value)));
 
-    private static IniData Data(Guid id, HashMap<(string Section, string Key), string> table) {
+    private static IniData Data(Guid id, HashMap<(Option<string> Section, string Key), string> table) {
         IniData data = new() { Configuration = Configuration };
-        _ = toSeq(Enumerable.OrderBy(table.AsIterable(), static row => row.Key.Section, StringComparer.Ordinal)).Iter(row =>
-            data[row.Key.Section.Length is 0 ? $@"DisplayMode\{id:D}" : $@"DisplayMode\{id:D}\{row.Key.Section}"][row.Key.Key] = row.Value);
+        _ = toSeq(Enumerable.OrderBy(
+                table.AsIterable().Select(row => (Name: row.Key.Section.Match(Some: section => $@"DisplayMode\{id:D}\{section}", None: () => $@"DisplayMode\{id:D}"), row.Key.Key, row.Value)),
+                static row => row.Name, StringComparer.Ordinal))
+            .Iter(row => data[row.Name][row.Key] = row.Value);
         return data;
     }
 

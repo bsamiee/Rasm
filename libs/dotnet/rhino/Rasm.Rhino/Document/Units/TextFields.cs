@@ -75,7 +75,7 @@ public static class FieldFormulas {
 
     private static string Quoted(string text) =>
         $"""
-        u"{(Enum.GetNames<UnitSystem>().Contains(text, StringComparer.OrdinalIgnoreCase) ? text : string.Concat(text.Select(static codeUnit => char.IsAsciiHexDigit(codeUnit) || codeUnit is '-' ? codeUnit.ToString() : $"\\u{(int)codeUnit:x4}")))}"
+        u"{(Enum.TryParse(text, ignoreCase: true, out UnitSystem system) && string.Equals(Enum.GetName(system), text, StringComparison.OrdinalIgnoreCase) ? text : string.Concat(text.Select(static codeUnit => char.IsAsciiHexDigit(codeUnit) || codeUnit is '-' ? codeUnit.ToString() : $"\\u{(int)codeUnit:x4}")))}"
         """;
 
     // --- [EVALUATION]

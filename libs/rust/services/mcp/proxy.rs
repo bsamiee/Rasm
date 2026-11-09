@@ -1,4 +1,4 @@
-use core::{error::Error, future::ready};
+use core::{byte_str::ByteStr, error::Error, future::ready};
 use std::{borrow::Cow, collections::HashMap, error::Report, process::Stdio, sync::Arc};
 
 use arc_swap::ArcSwap;
@@ -91,7 +91,7 @@ impl Proxy {
         let (transport, stderr) = TokioChildProcess::builder(wrapped).stderr(Stdio::piped()).spawn().map_err(|source| McpError::Spawn { command: program, source })?;
         let stderr = stderr.map(|stderr| {
             let logged =
-                SplitStream::new(BufReader::new(stderr).split(b'\n')).map_ok(|line| tracing::info!(target: "upstream", message = %String::from_utf8_lossy(line.trim_ascii_end()))).try_collect::<()>();
+                SplitStream::new(BufReader::new(stderr).split(b'\n')).map_ok(|line| tracing::info!(target: "upstream", message = %ByteStr::new(line.trim_ascii_end()))).try_collect::<()>();
             AbortOnDropHandle::new(tokio::spawn(logged.unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "cannot read upstream stderr"))))
         });
         Self::linked(transport, identity, notifier, stderr).await
@@ -138,7 +138,7 @@ impl Proxy {
         let mut info = ServerConfig::new(capabilities).with_server_info(server_info.unwrap_or(identity));
         (info.instructions, info.meta) = (instructions, meta);
         let peer = service.peer().clone();
-        let ended = service.waiting().map(|reason| tracing::info!(reason = ?reason, "upstream server ended")).boxed().shared();
+        let ended = service.waiting().map(|reason| tracing::info!(?reason, "upstream server ended")).boxed().shared();
         Ok(Self { peer, info, version, notifier, progress, tools: Arc::default(), stop, ended, _stderr: stderr })
     }
 
@@ -283,7 +283,7 @@ async fn follow(peer: Peer<RoleClient>, notifier: broadcast::Sender<ServerNotifi
                     let acknowledged = subscription.acknowledged();
                     resynced(acknowledged, acknowledged.resource_subscriptions.iter().flatten().cloned()).for_each(|notification| upstreamed(&notifier, notification));
                 }
-                (None, end) => break tracing::debug!(end = ?end, "upstream subscription ended"),
+                (None, end) => break tracing::debug!(?end, "upstream subscription ended"),
             }
         }
         Ok::<(), ServiceError>(())

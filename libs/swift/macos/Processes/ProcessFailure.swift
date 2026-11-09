@@ -23,8 +23,8 @@ public struct ProcessFailure: CustomNSError, LocalizedError {
         switch reason {
             case .subprocess(let error): "\(subject) \(error.description)"
             case .io(let error): "\(subject) I/O failed: \(error.localizedDescription)"
-            case .exit(.exited(let code), let standardError): "\(subject) exited with status \(code)\(Self.excerpt(standardError))"
-            case .exit(.signaled(let signal), let standardError): "\(subject) terminated by signal \(signal)\(Self.excerpt(standardError))"
+            case .exit(.exited(let code), let standardError): Self.ending("\(subject) exited with status \(code)", with: standardError)
+            case .exit(.signaled(let signal), let standardError): Self.ending("\(subject) terminated by signal \(signal)", with: standardError)
             case .timedOut(let timeout): "\(subject) timed out after \(timeout.formatted(.units(width: .wide)))"
             case .cancelled: "\(subject) canceled"
             case .unlisted: "getpwuid found no user database entry for \(subject)"
@@ -32,8 +32,8 @@ public struct ProcessFailure: CustomNSError, LocalizedError {
         }
     }
 
-    private static func excerpt(_ standardError: String) -> String {
-        standardError.split(whereSeparator: \.isNewline).last.map { line in ", \(line.trimmingCharacters(in: .whitespaces))" } ?? ""
+    private static func ending(_ head: String, with standardError: String) -> String {
+        standardError.split(whereSeparator: \.isNewline).last.map { line in "\(head), \(line.trimmingCharacters(in: .whitespaces))" } ?? head
     }
 
     public var errorUserInfo: [String: Any] {

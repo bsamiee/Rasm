@@ -51,12 +51,12 @@ class _EnginePass(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class _Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Result rectangle at bottom-left offset in one view, the empty view the host's default, pass planes top row first."""
+    """Result rectangle at bottom-left offset in one view, the host's view name (empty for a single-view render), pass planes top row first."""
 
     x: int
     y: int
     planes: tuple[tuple[_EnginePass, npt.NDArray[np.float32]], *tuple[tuple[_EnginePass, npt.NDArray[np.float32]], ...]]
-    view: str = ""
+    view: str
     stamps: tuple[tuple[str, str], ...] = ()
 
     @classmethod

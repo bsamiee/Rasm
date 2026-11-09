@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 
 extension SCScreenshotConfiguration {
     public static var background: SCScreenshotConfiguration {
-        let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
+        let configuration = SCScreenshotConfiguration()
         configuration.showsCursor = false
         configuration.includeChildWindows = false
         return configuration
@@ -33,8 +33,8 @@ extension NSRunningApplication {
         for number: CGWindowID in windows {
             shots[number] = await Result { () async throws(ApplicationFailure) in
                 guard let window: SCWindow = listed[number], !window.frame.isEmpty else { throw ApplicationFailure(subject: String(number), reason: .noWindow) }
-                let filter: SCContentFilter = SCContentFilter(desktopIndependentWindow: window)
-                let scale: CGFloat = CGFloat(filter.pointPixelScale)
+                let filter = SCContentFilter(desktopIndependentWindow: window)
+                let scale = CGFloat(filter.pointPixelScale)
                 let fitted: CGFloat = longestSide.map { limit in min(1, CGFloat(limit) / (max(filter.contentRect.width, filter.contentRect.height) * scale)) } ?? 1
                 let capture: SCScreenshotConfiguration = configuration()
                 capture.width = Int((filter.contentRect.width * scale * fitted).rounded())
@@ -52,10 +52,10 @@ extension SCScreenshotOutput {
     public func write(to file: URL) throws(ApplicationFailure) {
         let path: String = file.path(percentEncoded: false)
         guard let image: CGImage = sdrImage else { throw ApplicationFailure(subject: path, reason: .noImage) }
-        guard let type: UTType = UTType(filenameExtension: file.pathExtension) else { throw ApplicationFailure(subject: path, reason: .noExtension) }
+        guard let type = UTType(filenameExtension: file.pathExtension) else { throw ApplicationFailure(subject: path, reason: .noExtension) }
         let data: CFMutableData = CFDataCreateMutable(nil, 0)
-        let unencodable: ApplicationFailure = ApplicationFailure(subject: type.identifier, reason: .noEncoder)
-        guard let destination: CGImageDestination = CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil) else { throw unencodable }
+        let unencodable = ApplicationFailure(subject: type.identifier, reason: .noEncoder)
+        guard let destination = CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil) else { throw unencodable }
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw unencodable }
         do { try (data as Data).write(to: file) } catch { throw ApplicationFailure(subject: path, reason: .host(error as NSError)) }

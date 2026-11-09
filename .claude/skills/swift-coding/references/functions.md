@@ -6,7 +6,7 @@ Closure parameters take the fewest annotations their use requires, and callers p
 
 ```swift
 func measured<Value, Failure: Error, C: Clock<Duration>>(on clock: C, _ work: () async throws(Failure) -> Value) async throws(Failure) -> (value: Value, elapsed: Duration) {
-    let start: C.Instant = clock.now
+    let start = clock.now
     return (try await work(), start.duration(to: clock.now))
 }
 ```

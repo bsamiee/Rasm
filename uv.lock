@@ -7964,6 +7964,7 @@ dependencies = [
     { name = "expression" },
     { name = "msgspec" },
     { name = "mypy" },
+    { name = "rasm-records" },
     { name = "refurb" },
     { name = "structlog" },
 ]
@@ -7973,6 +7974,7 @@ requires-dist = [
     { name = "expression" },
     { name = "msgspec" },
     { name = "mypy" },
+    { name = "rasm-records", editable = "libs/python/data/records" },
     { name = "refurb" },
     { name = "structlog" },
 ]

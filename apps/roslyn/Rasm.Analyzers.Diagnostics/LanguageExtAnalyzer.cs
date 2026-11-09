@@ -63,9 +63,9 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     public static readonly DiagnosticDescriptor Nullable = Rule(
         "RASM1009",
         Category,
-        "`Option` converted to nullable by hand, call `ValueUnsafe` or `ToNullable`",
-        "`Option` value `{0}` converted to nullable by hand, write `{1}`",
-        "`Option` to nullable conversions call `ValueUnsafe` or `ToNullable` over `Match`, `Case` casts, or `IsSome` and `IsNone` conditionals.");
+        "`Option` to nullable outside its conversion member, call `ValueUnsafe` or `ToNullable` by element kind",
+        "`Option` value `{0}` reaches a nullable outside its conversion member, write `{1}`",
+        "`Option` converts to a nullable through `ValueUnsafe` for a reference element and `ToNullable` for a value element. `Match`, `Case` casts, and `IsSome` or `IsNone` conditionals restate the conversion, and `ValueUnsafe` on a value element returns `default` for `None`.");
 
     public static readonly DiagnosticDescriptor Focused = Rule(
         "RASM1010",
@@ -412,6 +412,9 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         Report<IOperation>(context, [OperationKind.Invocation, OperationKind.Conversion, OperationKind.Conditional], (operation, analysis) =>
             operation switch {
                 IInvocationOperation call when Handled(call) is { } handled => [Diagnostic.Create(handled.Rule, call.Syntax.GetLocation(), handled.Arguments)],
+                IInvocationOperation { TargetMethod.TypeArguments: { Length: 1 } elements } call when Same(call.TargetMethod, symbols.Unsafe) && elements[0].IsValueType
+                    && elements[0].OriginalDefinition.SpecialType is not SpecialType.System_Nullable_T && Receiver(call) is { } holder =>
+                    [Diagnostic.Create(Nullable, call.Syntax.GetLocation(), Read(holder, elements[0]))],
                 IConversionOperation { IsImplicit: false, Type: { } target } cast when Stripped(cast.Operand) is IPropertyReferenceOperation { Instance: { } holder, Property.ContainingType: var owner } read
                     && Same(read.Property, matched) && Nulled(owner.TypeArguments[0], target) =>
                     [Diagnostic.Create(Nullable, cast.Syntax.GetLocation(), Read(holder, owner.TypeArguments[0]))],

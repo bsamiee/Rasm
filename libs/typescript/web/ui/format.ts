@@ -36,8 +36,8 @@ class Format extends Data.Class<{ readonly locales?: Intl.LocalesArgument; reado
         return this.#numeral.format(value).padStart(this.#numeral.format(total).length, this.#numeral.format(0));
     }
     bytes(size: ByteSize.ByteSize) {
-        const shown = ByteSize.bytes(Number(ByteSize.toNumberUnsafe(size).toPrecision(this.byteDigits)));
-        const { symbol, format } = Array.findLast(this.#bytes, (unit) => ByteSize.toUnit(shown, unit.symbol) >= 1).pipe(Option.getOrElse(() => Array.headNonEmpty(this.#bytes)));
+        const rounded = ByteSize.bytes(Number(ByteSize.toNumberUnsafe(size).toPrecision(this.byteDigits)));
+        const { symbol, format } = Array.findLast(this.#bytes, (unit) => ByteSize.toUnit(rounded, unit.symbol) >= 1).pipe(Option.getOrElse(() => Array.headNonEmpty(this.#bytes)));
         return format.format(ByteSize.toUnit(size, symbol));
     }
     list(values: Iterable<string>, type: Intl.ListFormatType = 'conjunction') {

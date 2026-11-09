@@ -2,7 +2,7 @@ import { parse, patch } from '@decimalturn/toml-patch';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ProjectGraph, Tree } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Effect, Option, Path, Record, Schema } from 'effect';
+import { Array, Effect, Option, Path, Record, Schema, String } from 'effect';
 import { FetchHttpClient, type HttpClient } from 'effect/http';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
 import { sortReversed } from 'verkit';
@@ -33,8 +33,8 @@ const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | HttpClient.HttpCli
 const table = (value: unknown): Readonly<Record<string, unknown>> => Option.getOrElse(Schema.decodeUnknownOption(Table)(value), () => ({}));
 
 const read = Effect.fnUntraced(function* (tree: Tree, file: string) {
-    const text = tree.read(file, 'utf-8') ?? '';
-    const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => CargoError.make({ subject: file, detail: String(cause) }) }));
+    const text = yield* Effect.fromOption(Option.fromNullishOr(tree.read(file, 'utf-8')), () => CargoError.make({ subject: file, detail: 'is missing' }));
+    const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: CargoError.of(file, 'does not parse as TOML') }));
     return { text, raw, manifest: yield* Schema.decodeEffect(Manifest)(raw) };
 });
 
@@ -45,16 +45,16 @@ const versioned = Effect.fnUntraced(function* (tree: Tree, manifest: string) {
     const version = own.manifest.package?.version;
     const inherited = typeof version === 'object';
     const file = inherited ? yield* located(tree, manifest) : manifest;
-    const held = file === manifest ? own : yield* read(tree, file);
-    return { ...held, file, inherited, field: inherited ? ['workspace', 'package', 'version'] : ['package', 'version'], current: (inherited ? held.manifest.workspace?.package?.version : version) ?? '0.0.0' };
+    const owner = file === manifest ? own : yield* read(tree, file);
+    return { ...owner, file, inherited, field: inherited ? ['workspace', 'package', 'version'] : ['package', 'version'], current: (inherited ? owner.manifest.workspace?.package?.version : version) ?? '0.0.0' };
 });
 
 const assigned = (value: Record<string, unknown>, [key, ...rest]: readonly string[], next: unknown): Record<string, unknown> => (key === undefined ? value : { ...value, [key]: rest.length === 0 ? next : assigned(table(value[key]), rest, next) });
 
-const bumped = (requirement: string, version: string) => (OPERATOR.test(version) ? version : `${OPERATOR.exec(requirement)?.[0] ?? ''}${version}`);
+const bumped = (requirement: string, version: string) => (OPERATOR.test(version) ? version : Option.match(String.match(OPERATOR)(requirement), { onNone: () => version, onSome: ([operator]) => `${operator}${version}` }));
 
 const requirements = (raw: Readonly<Record<string, unknown>>, crates: ReadonlySet<string>) =>
-    [...TABLES.map((held) => [held]), ...Record.keys(table(raw.target)).flatMap((platform) => TABLES.map((held) => ['target', platform, held])), ['workspace', 'dependencies']].flatMap((at) =>
+    [...TABLES.map((kind) => [kind]), ...Record.keys(table(Option.getOrUndefined(Record.get(raw, 'target')))).flatMap((platform) => TABLES.map((kind) => ['target', platform, kind])), ['workspace', 'dependencies']].flatMap((at) =>
         Record.collect(
             Option.getOrElse(Schema.decodeUnknownOption(Dependencies)(at.reduce<unknown>((value, key) => table(value)[key], raw)), () => ({})),
             (key, requirement) => (typeof requirement === 'string' ? { crate: key, at, field: [...at, key], current: requirement, inherited: false } : { crate: requirement.package ?? key, at, field: [...at, key, 'version'], current: requirement.version, inherited: requirement.workspace === true }),
@@ -97,7 +97,7 @@ class CargoVersionActions extends VersionActions {
         const { name, data } = this.projectGraphNode;
         return run(
             Effect.flatMap(read(tree, `${data.root}/${MANIFEST}`), ({ manifest }) => releases(manifest.package?.name ?? name)).pipe(
-                Effect.map(({ url, found }) => ({ currentVersion: Option.getOrNull(Array.head(sortReversed(found.filter(({ yanked }) => yanked !== true).map(({ vers }) => vers)))), logText: `crates.io index ${url}` })),
+                Effect.map(({ url, published }) => ({ currentVersion: Option.getOrNull(Array.head(sortReversed(published.filter(({ yanked }) => yanked !== true).map(({ vers }) => vers)))), logText: `crates.io index ${url}` })),
             ),
         );
     }
@@ -108,11 +108,11 @@ class CargoVersionActions extends VersionActions {
         return run(
             Effect.gen(function* () {
                 const crates = new Set([dependency]);
-                const found = Array.head(requirements((yield* read(tree, manifest)).raw, crates));
-                const source = Option.exists(found, ({ inherited }) => inherited) ? Array.head(requirements((yield* read(tree, yield* located(tree, manifest))).raw, crates)) : found;
+                const declared = Array.head(requirements((yield* read(tree, manifest)).raw, crates));
+                const source = Option.exists(declared, ({ inherited }) => inherited) ? Array.head(requirements((yield* read(tree, yield* located(tree, manifest))).raw, crates)) : declared;
                 return {
                     currentVersion: Option.getOrNull(Option.flatMap(source, ({ current }) => Option.fromUndefinedOr(current))),
-                    dependencyCollection: Option.getOrNull(Option.map(found, ({ at }) => at.join('.'))),
+                    dependencyCollection: Option.getOrNull(Option.map(declared, ({ at }) => at.join('.'))),
                 };
             }),
         );
@@ -135,7 +135,7 @@ class CargoVersionActions extends VersionActions {
         return run(
             Effect.gen(function* () {
                 const crates = new Set(versions.keys());
-                const own = yield* Effect.forEach(manifests, ({ manifestPath }) => Effect.map(read(tree, manifestPath), (found) => ({ file: manifestPath, ...found })));
+                const own = yield* Effect.forEach(manifests, ({ manifestPath }) => Effect.map(read(tree, manifestPath), (manifest) => ({ file: manifestPath, ...manifest })));
                 const roots = yield* Effect.forEach(
                     own.filter(({ raw }) => requirements(raw, crates).some(({ inherited }) => inherited)),
                     ({ file }) => located(tree, file),
@@ -145,9 +145,9 @@ class CargoVersionActions extends VersionActions {
                         Array.dedupe(roots),
                         own.map(({ file }) => file),
                     ),
-                    (file) => Effect.map(read(tree, file), (found) => ({ file, ...found })),
+                    (file) => Effect.map(read(tree, file), (manifest) => ({ file, ...manifest })),
                 );
-                const rows = [...own, ...shared].flatMap((held) => requirements(held.raw, crates).map((requirement) => ({ ...held, ...requirement })));
+                const rows = [...own, ...shared].flatMap((manifest) => requirements(manifest.raw, crates).map((requirement) => ({ ...manifest, ...requirement })));
                 const edits = Array.getSomes(rows.map(({ crate, current, ...row }) => Option.map(Option.zipWith(Option.fromUndefinedOr(current), Option.fromUndefinedOr(versions.get(crate)), bumped), (value) => ({ ...row, value }))));
                 return Record.collect(
                     Array.groupBy(edits, ({ file }) => file),

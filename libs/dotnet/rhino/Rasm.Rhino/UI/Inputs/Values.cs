@@ -147,7 +147,7 @@ public static class Values {
         };
 
     public static ValueRow<EnumDropDown<T?>, T> Enumerated<T>(Option<T> value, Func<Edit<T>, IO<Unit>> edited) where T : struct, Enum =>
-        new(static () => new EnumDropDown<T?> { GetText = static held => LocalText.Of(held.ToString() ?? "").Local },
+        new(static () => new EnumDropDown<T?> { GetText = static held => Conversions.Unset(Optional(held).Map(static value => LocalText.Of(value.ToString()).Local)) },
             static (drop, _) => IO.pure(drop.SelectedValueBinding.Convert(static held => Optional(held), static held => held.ToNullable())), IO.pure(value), edited);
 
     private static ValueRow<DropDown, T> Listed<T>(Option<T> value, Func<RowScope, IO<Seq<ChoiceItem<T>>>> items, Func<Edit<T>, IO<Unit>> edited) where T : notnull =>
@@ -296,7 +296,7 @@ public static class Values {
     public static ValueRow<TextBox, string> Line(Option<string> value, Func<Edit<string>, IO<Unit>> edited) =>
         new(static () => new TextBox(), static (box, _) => IO.pure(new BindableBinding<TextBox, Option<string>>(box,
                 static held => Optional(held.Text),
-                static (held, text) => held.Text = text.IfNone(""),
+                static (held, text) => held.Text = Conversions.Unset(text),
                 static (held, handler) => held.TextChanged += handler,
                 static (held, handler) => held.TextChanged -= handler)),
             IO.pure(value), edited) {

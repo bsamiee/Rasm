@@ -32,7 +32,7 @@ const Run = Schema.Struct({
     outputFile: Schema.optionalKey(Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.String)])),
     reporters: Schema.Array(Schema.Unknown),
 }).annotate({ description: 'The resolved root Vitest config fields one run shares across its projects: coverage reports, attachments, and each reporter file' });
-const Report = Schema.fromJsonString(Schema.Struct({ found: Schema.Boolean, written: Schema.Array(Schema.String), loaded: Schema.Array(Schema.String) })).annotate({
+const Report = Schema.fromJsonString(Schema.Struct({ present: Schema.Boolean, written: Schema.Array(Schema.String), loaded: Schema.Array(Schema.String) })).annotate({
     description: 'The report the plugin reads: whether the runner finds a test, every path the resolved config writes, and every module the read resolved',
 });
 const Files = Schema.fromJsonString(Schema.Array(Schema.Struct({ file: Schema.String }))).annotate({ description: 'vitest list --filesOnly --json: every test file each Vitest project finds' });
@@ -46,7 +46,7 @@ const READS = {
     vite: Effect.fnUntraced(function* (load: <A>(specifier: string) => Effect.Effect<A, Cause.UnknownError>, file: string, root: string) {
         const { resolveConfig } = yield* load<{ readonly resolveConfig: (config: object, command: string, mode: string, environment: string) => Promise<unknown> }>('vite');
         const { build, environments } = yield* Effect.tryPromise(() => resolveConfig({ configFile: file, root, logLevel: 'silent' }, 'build', 'production', 'production')).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Vite)));
-        return { found: true, root, written: [build.outDir, ...Object.values(environments).map((environment) => environment.build.outDir)] };
+        return { present: true, root, written: [build.outDir, ...Object.values(environments).map((environment) => environment.build.outDir)] };
     }),
     vitest: Effect.fnUntraced(function* (load: <A>(specifier: string) => Effect.Effect<A, Cause.UnknownError>, file: string, root: string) {
         const [fs, path, { createCLI, createVitest }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, load<{ readonly createCLI: () => Cli; readonly createVitest: (mode: string, options: object, overrides: object) => Promise<Vitest> }>('vitest/node')]);
@@ -62,7 +62,7 @@ const READS = {
         const { outputFile: stated = {} } = run;
         const shared = (name: unknown) => (Predicate.isString(stated) ? Option.some(stated) : Option.flatMap(Option.liftPredicate(name, Predicate.isString), (key) => Record.get(stated, key)));
         return {
-            found: files.length > 0,
+            present: files.length > 0,
             root: run.root,
             written: [
                 run.coverage.reportsDirectory,
@@ -93,8 +93,8 @@ if (import.meta.main) {
             });
             const root = process.cwd();
             const load = <A>(specifier: string) => Effect.tryPromise((): Promise<A> => import(pathToFileURL(createRequire(path.join(root, 'package.json')).resolve(specifier)).href));
-            const { found, root: base, written } = yield* READS[kind](load, file, root);
-            yield* fs.writeFileString(report, yield* Schema.encodeEffect(Report)({ found, written: written.map((at) => path.resolve(base, at)), loaded: [...loaded] }));
+            const { present, root: base, written } = yield* READS[kind](load, file, root);
+            yield* fs.writeFileString(report, yield* Schema.encodeEffect(Report)({ present, written: written.map((at) => path.resolve(base, at)), loaded: [...loaded] }));
         }).pipe(Effect.provide(layer)),
     );
 }

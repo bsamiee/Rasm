@@ -23,8 +23,8 @@ const push = (args: readonly string[], cwd: string) => Effect.scoped(Effect.flat
 const execute = (options: unknown, context: ExecutorContext) =>
     Effect.runPromise(
         Effect.gen(function* () {
-            const [path, publish, dry] = yield* Effect.all([Path.Path, Schema.decodeUnknownEffect(Publish)(options), Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false))]);
-            const unversioned = Option.contains(Option.fromUndefinedOr(publish.nxReleaseVersionData?.[context.projectName ?? '']?.newVersion), null);
+            const [path, publish, dry, project] = yield* Effect.all([Path.Path, Schema.decodeUnknownEffect(Publish)(options), Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false)), Effect.fromNullishOr(context.projectName)]);
+            const unversioned = Option.contains(Option.fromUndefinedOr(publish.nxReleaseVersionData?.[project]?.newVersion), null);
             const packed = unversioned ? Option.none() : Option.some((yield* Effect.flatMap(spawned(['pack', publish.project, '--configuration', 'Release', '-getProperty:PackageOutputPath', '-getProperty:PackageId', '-getProperty:PackageVersion'], context.root), Schema.decodeEffect(Packed))).Properties);
             const pushed = Option.filter(packed, () => publish.dryRun !== true && !dry);
             return {

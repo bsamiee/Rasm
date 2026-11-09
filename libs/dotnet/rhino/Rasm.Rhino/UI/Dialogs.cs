@@ -91,7 +91,7 @@ public static class HostDialogs {
 
     public static IO<T> ShowContextMenu<T>(Seq<Seq<MenuChoice<T>>> groups, System.Drawing.Point screen) where T : notnull =>
         groups.Map(static group => group.Map(static choice => Some(choice))).Intersperse(Seq(Option<MenuChoice<T>>.None)).Flatten() switch {
-            var listed => Ask(() => listed.At(Dialogs.ShowContextMenu(listed.Map(static held => held.Map(static choice => choice.Item.ToString()).IfNone("")), screen, listed.Map(static held => held.Map(static choice => choice.Mode).IfNone(0))))
+            var listed => Ask(() => listed.At(Dialogs.ShowContextMenu(listed.Map(static held => Conversions.Unset(held.Map(static choice => choice.Item.ToString()))), screen, listed.Map(static held => held.Map(static choice => choice.Mode).IfNone(0))))
                 .Flatten()
                 .Map(static choice => choice.Item.Value)),
         };

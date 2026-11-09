@@ -71,9 +71,9 @@ internal sealed partial class DarkroomReason {
     public static readonly DarkroomReason Overscan = new("overscan needs the active viewport");
     public static readonly DarkroomReason Unrenderable = new("cannot render");
     public static readonly DarkroomReason Space = new("exceeds the free space");
-    public static readonly DarkroomReason Unreadable = new("unreadable");
-    public static readonly DarkroomReason Missing = new("missing");
-    public static readonly DarkroomReason Off = new("off");
+    public static readonly DarkroomReason Unreadable = new("cannot be read");
+    public static readonly DarkroomReason Missing = new("not found");
+    public static readonly DarkroomReason Off = new("turned off");
     public static readonly DarkroomReason Running = new("already running");
     public static readonly DarkroomReason Edited = new("unsaved edits");
     public static readonly DarkroomReason Unattended = new("stops unattended renders");
@@ -82,27 +82,30 @@ internal sealed partial class DarkroomReason {
     public static readonly DarkroomReason Units = new("mixed unit systems");
     public static readonly DarkroomReason Cpu = new("runs on CPU");
     public static readonly DarkroomReason Uncopied = new("outside the document copy");
-    public static readonly DarkroomReason Invalid = new("invalid");
+    public static readonly DarkroomReason Invalid = new("fails validation");
     public static readonly DarkroomReason Beyond = new("past the entry's frames");
     public static readonly DarkroomReason Refused = new("render job refused");
-    public static readonly DarkroomReason Failed = new("failed");
+    public static readonly DarkroomReason Failed = new("did not succeed");
     public static readonly DarkroomReason Unsaved = new("ended without a saved rendering");
 
     public string Message { get; }
 }
 
-internal sealed record DarkroomFault(object? Subject, DarkroomReason Reason, Option<int> Index = default, Option<Error> Inner = default, string Expression = "")
+internal sealed record DarkroomFault(object? Subject, DarkroomReason Reason, Option<int> Index = default, Option<Error> Inner = default, Option<string> Expression = default)
     : Expected(Reason.Message, 0, Inner),
     IValidationError<DarkroomFault> {
     public object? Subject { get; } = Subject;
     public DarkroomReason Reason { get; } = Reason;
-    public string Expression { get; } = Expression;
+    public Option<string> Expression { get; } = Expression;
 
-    public override string Message => string.Create(CultureInfo.InvariantCulture,
-        $"{Reason.Message}: {Expression}{(Expression.Length is 0 ? "" : " = ")}{Subject}{Index.Map(static at => string.Create(CultureInfo.InvariantCulture, $" at index {at}")).IfNone("")}");
+    public override string Message =>
+        string.Concat([
+            Reason.Message, ": ", .. Expression.Map(static named => $"{named} = ").ToSeq(), string.Create(CultureInfo.InvariantCulture, $"{Subject}"),
+            .. Index.Map(static at => string.Create(CultureInfo.InvariantCulture, $" at index {at}")).ToSeq(),
+        ]);
 
     public static DarkroomFault Create(string message) => new(message, DarkroomReason.Stated);
 
-    public static Fin<Unit> Unless<T>(bool flag, DarkroomReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new DarkroomFault(rejected, reason, index, Expression: names);
+    public static Fin<Unit> Unless<T>(bool flag, DarkroomReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string? names = null) =>
+        flag ? unit : new DarkroomFault(rejected, reason, index, Expression: Optional(names));
 }

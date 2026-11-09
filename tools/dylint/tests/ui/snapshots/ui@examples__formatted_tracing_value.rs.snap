@@ -8,7 +8,7 @@ error: tracing message interpolates values into text
 22 |     tracing::info!("loaded {} rows from {path}", rows);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: record each value beside a constant message: directly for `tracing::Value`, `%value` for `Display` formatting, or `?value` for `Debug` formatting
+   = help: move each value out of the message into a field: bare for `tracing::Value`, `%value` for `Display`, `?value` for `Debug`
    = note: `#[deny(formatted_tracing_value)]` on by default
 
 error: tracing field records a value rendered to text
@@ -17,7 +17,7 @@ error: tracing field records a value rendered to text
 28 |     tracing::warn!(port = format!("{port}"), "listening");
    |                           ^^^^^^^^^^^^^^^^^
    |
-   = help: record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting
+   = help: record the value as a field: bare for `tracing::Value`, `%value` for `Display`, `?value` for `Debug`
 
 error: tracing field records a value rendered to text
   --> tools/dylint/examples/formatted_tracing_value.rs:29:28
@@ -32,7 +32,7 @@ error: tracing field records a value rendered to text
 32 |     let _span = tracing::info_span!("request", port = format!("{port}"));
    |                                                       ^^^^^^^^^^^^^^^^^
    |
-   = help: record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting
+   = help: record the value as a field: bare for `tracing::Value`, `%value` for `Display`, `?value` for `Debug`
 
 error: tracing field records a value rendered to text
   --> tools/dylint/examples/formatted_tracing_value.rs:33:65
@@ -68,7 +68,7 @@ error: tracing field records a value rendered to text
 38 |     tracing::Span::record(&span, "port", format!("{port}"));
    |                                          ^^^^^^^^^^^^^^^^^
    |
-   = help: pass a native `tracing::Value` to `Span::record`, or use `tracing::field::display` for `Display` formatting and `tracing::field::debug` for `Debug` formatting
+   = help: pass `Span::record` a `tracing::Value`, `tracing::field::display(value)`, or `tracing::field::debug(value)`
 
 error: tracing field records a value rendered to text
   --> tools/dylint/examples/formatted_tracing_value.rs:42:19
@@ -76,7 +76,7 @@ error: tracing field records a value rendered to text
 42 |     let message = format!("handled {count} rows");
    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting
+   = help: record the value as a field: bare for `tracing::Value`, `%value` for `Display`, `?value` for `Debug`
 
 error: tracing field records a value rendered to text
   --> tools/dylint/examples/formatted_tracing_value.rs:44:31
@@ -84,7 +84,7 @@ error: tracing field records a value rendered to text
 44 |     tracing::info!(summary = %format_args!("handled {count}"), "done");
    |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting
+   = help: record the value as a field: bare for `tracing::Value`, `%value` for `Display`, `?value` for `Debug`
 
 error: tracing message interpolates values into text
   --> tools/dylint/examples/formatted_tracing_value.rs:54:5
@@ -92,7 +92,7 @@ error: tracing message interpolates values into text
 54 |     tracing::info!("state {status:?}");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: record each value beside a constant message: directly for `tracing::Value`, `%value` for `Display` formatting, or `?value` for `Debug` formatting
+   = help: move each value out of the message into a field: bare for `tracing::Value`, `%value` for `Display`, `?value` for `Debug`
 
 error: tracing field records a value rendered to text
   --> tools/dylint/examples/formatted_tracing_value.rs:55:29
@@ -100,7 +100,7 @@ error: tracing field records a value rendered to text
 55 |     tracing::debug!(state = format!("{status:?}"), "state");
    |                             ^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting
+   = help: record the value as a field: bare for `tracing::Value`, `%value` for `Display`, `?value` for `Debug`
 
 error: tracing field records a value rendered to text
   --> tools/dylint/examples/formatted_tracing_value.rs:56:67
@@ -108,7 +108,7 @@ error: tracing field records a value rendered to text
 56 |     tracing::info_span!("request", state = Empty).record("state", format!("{status:?}"));
    |                                                                   ^^^^^^^^^^^^^^^^^^^^^
    |
-   = help: pass a native `tracing::Value` to `Span::record`, or use `tracing::field::display` for `Display` formatting and `tracing::field::debug` for `Debug` formatting
+   = help: pass `Span::record` a `tracing::Value`, `tracing::field::display(value)`, or `tracing::field::debug(value)`
 
 error: tracing field records a value rendered to text
   --> tools/dylint/examples/formatted_tracing_value.rs:61:67

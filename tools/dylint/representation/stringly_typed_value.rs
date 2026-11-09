@@ -1,4 +1,4 @@
-use core::{cell::LazyCell, iter, mem};
+use core::{cell::LazyCell, iter, mem, ops::ControlFlow};
 
 use clippy_utils::{
     consts::{ConstEvalCtxt, Constant},
@@ -6,14 +6,17 @@ use clippy_utils::{
     fn_def_id, get_parent_expr,
     macros::root_macro_call,
     paths::PathNS,
-    peel_blocks, peel_hir_expr_while, sym,
+    peel_blocks, peel_hir_expr_while,
+    res::MaybeResPath as _,
+    sym,
+    visitors::for_each_expr,
 };
 use itertools::Itertools as _;
 use rustc_ast::LitKind;
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap, FxIndexSet};
 use rustc_hir::{
-    BinOpKind, Expr, ExprKind, LetStmt, MatchSource, Pat, PatKind, UnOp,
+    BinOpKind, Expr, ExprKind, LetStmt, MatchSource, Node, Pat, PatKind, UnOp,
     def::{DefKind, Res},
     def_id::DefId,
 };
@@ -28,6 +31,7 @@ use crate::{Access, Place, access, constructed, expanded_externally, exported, f
 
 pub(crate) struct Pass {
     collections: FxHashSet<DefId>,
+    interned: FxHashSet<DefId>,
     branches: FxIndexMap<Place, (Vec<Span>, FxIndexSet<Symbol>)>,
     written: FxIndexMap<Place, Option<FxIndexSet<Symbol>>>,
     keyed: FxIndexMap<Place, (Vec<Span>, FxIndexSet<Symbol>)>,
@@ -36,7 +40,7 @@ pub(crate) struct Pass {
 lint! {
     Pass;
     STRINGLY_TYPED_VALUE:
-        "text fields, statics, parameters, and locals branched on by string literal, and text-keyed maps and sets addressed by string literal keys",
+        "text fields, statics, parameters, and locals branched on by string literal, text-keyed maps and sets addressed by string literal keys, and interned names compared by their text",
 }
 
 impl Pass {
@@ -47,6 +51,7 @@ impl Pass {
                 .filter_map(|collection| tcx.get_diagnostic_item(collection))
                 .chain(paths(tcx, PathNS::Type, &["indexmap::IndexMap", "indexmap::IndexSet"]))
                 .collect(),
+            interned: paths(tcx, PathNS::Value, &["xot::Xot::local_name_str", "xot::Xot::uri_str", "xot::Xot::namespace_str", "xot::Xot::prefix_str"]),
             branches: FxIndexMap::default(),
             written: FxIndexMap::default(),
             keyed: FxIndexMap::default(),
@@ -103,8 +108,55 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 .then_some(tags)
         }
 
+        fn listed<'tcx>(cx: &LateContext<'tcx>, list: &'tcx Expr<'tcx>) -> Option<Vec<Symbol>> {
+            let list = peel_hir_expr_while(list.peel_borrows(), |inner| match inner.kind {
+                ExprKind::MethodCall(segment, receiver, [], _) if matches!(segment.ident.name, sym::iter | sym::into_iter) => Some(receiver.peel_borrows()),
+                _ => None,
+            });
+            let items = match list.kind {
+                ExprKind::Array(items) => items,
+                ExprKind::Path(path)
+                    if let Res::Def(DefKind::Const | DefKind::Static { .. }, item) = cx.qpath_res(&path, list.hir_id)
+                        && let Some(local) = item.as_local()
+                        && let ExprKind::Array(items) = peel_blocks(cx.tcx.hir_body_owned_by(local).value).kind =>
+                    items,
+                _ => return None,
+            };
+            items
+                .iter()
+                .map(|item| match peel_blocks(item).kind {
+                    ExprKind::Lit(literal) if let LitKind::Str(text, _) = literal.node => Some(text),
+                    _ => None,
+                })
+                .collect()
+        }
+
+        fn bound<'tcx>(cx: &LateContext<'tcx>, key: &'tcx Expr<'tcx>) -> Option<Vec<Symbol>> {
+            let binding = peel_hir_expr_while(key, |inner| if let ExprKind::AddrOf(_, _, operand) | ExprKind::Unary(UnOp::Deref, operand) = inner.kind { Some(operand) } else { None }).res_local_id()?;
+            let Node::Param(parameter) = cx.tcx.parent_hir_node(binding) else { return None };
+            let Node::Expr(closure @ Expr { kind: ExprKind::Closure(_), .. }) = cx.tcx.parent_hir_node(parameter.hir_id) else { return None };
+            let Node::Expr(Expr { kind: ExprKind::MethodCall(_, receiver, arguments, _), .. }) = cx.tcx.parent_hir_node(closure.hir_id) else { return None };
+            arguments.iter().any(|argument| argument.hir_id == closure.hir_id).then(|| listed(cx, receiver)).flatten()
+        }
+
         let typeck = cx.typeck_results();
         let site = expr.span.source_callsite();
+        let interned = |subject: &'tcx Expr<'tcx>| {
+            let callee = fn_def_id(cx, peel_hir_expr_while(subject, |inner| text_view(cx, inner)))?;
+            let wrapped = callee.as_local().and_then(|local| cx.tcx.hir_maybe_body_owned_by(local).map(|body| (cx.tcx.typeck(local), body))).is_some_and(|(owned, body)| {
+                for_each_expr(cx.tcx, body.value, |inner| match owned.type_dependent_def_id(inner.hir_id) {
+                    Some(method) if self.interned.contains(&method) => ControlFlow::Break(()),
+                    Some(_) | None => ControlFlow::Continue(()),
+                })
+                .is_some()
+            });
+            (self.interned.contains(&callee) || wrapped).then_some(callee)
+        };
+        let compared = |subject: &'tcx Expr<'tcx>, callee: DefId| {
+            span_lint_hir_and_then(cx, STRINGLY_TYPED_VALUE, subject.hir_id, subject.span, format!("text from `{}` is compared with string literals", cx.tcx.def_path_str(callee)), |diag| {
+                diag.help("look up each name once through `Xot::name` or `Xot::add_name` and compare its `NameId`");
+            });
+        };
         let mut branch = |subject: &'tcx Expr<'tcx>, span: Span, tags: &[Symbol]| {
             if !tags.is_empty()
                 && let Some(held) = place(cx, peel_hir_expr_while(subject, |inner| text_view(cx, inner)))
@@ -123,25 +175,30 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let tagged = arms.iter().filter_map(|arm| Some((tags(cx, arm.pat)?, arm.body))).collect::<Vec<_>>()
             && !tagged.iter().all(|(_, body)| decoded(cx, body))
         {
-            branch(scrutinee, site, &tagged.into_iter().flat_map(|(tags, _)| tags).collect::<Vec<_>>());
+            match interned(scrutinee) {
+                Some(callee) => compared(scrutinee, callee),
+                None => branch(scrutinee, site, &tagged.into_iter().flat_map(|(tags, _)| tags).collect::<Vec<_>>()),
+            }
         }
         if let ExprKind::Binary(operator, left, right) = expr.kind
             && matches!(operator.node, BinOpKind::Eq | BinOpKind::Ne)
             && *branched
-            && let Some((subject, compared)) = [(left, right), (right, left)].into_iter().find_map(|(subject, other)| Some((subject, tag(cx, other)?)))
+            && let Some((subject, literal)) = [(left, right), (right, left)].into_iter().find_map(|(subject, other)| Some((subject, tag(cx, other)?)))
             && is_text(cx, typeck.expr_ty(subject))
             && !get_parent_expr(cx, expr)
                 .and_then(|condition| if let ExprKind::DropTemps(_) = condition.kind { get_parent_expr(cx, condition) } else { Some(condition) })
                 .is_some_and(|conditional| matches!(conditional.kind, ExprKind::If(_, then, _) if decoded(cx, then)))
         {
-            branch(subject, site, &[compared]);
+            match interned(subject) {
+                Some(callee) => compared(subject, callee),
+                None => branch(subject, site, &[literal]),
+            }
         }
         if let ExprKind::MethodCall(segment, receiver, [subject], _) = expr.kind
             && segment.ident.name == sym::contains
             && *branched
             && fn_def_id(cx, expr).and_then(|method| impl_owner(cx.tcx, method)).is_some_and(Ty::is_slice)
-            && let ExprKind::Array(items) = receiver.peel_borrows().kind
-            && let Some(listed) = items.iter().map(|item| tag(cx, item)).collect::<Option<Vec<_>>>()
+            && let Some(listed) = listed(cx, receiver)
             && is_text(cx, typeck.expr_ty(subject))
         {
             branch(subject, site, &listed);
@@ -155,13 +212,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     .and_then(|method| cx.tcx.inherent_impl_of_assoc(method))
                     .is_some_and(|implementation| cx.tcx.type_of(implementation).instantiate_identity().skip_normalization().ty_adt_def() == Some(*keyed)))
             && is_text(cx, args.type_at(0))
-            && let Some(literal) = tag(cx, key)
+            && let Some(literals) = tag(cx, key).map(|literal| vec![literal]).or_else(|| bound(cx, key))
             && let Some(held) =
                 place(cx, peel_hir_expr_while(collection, |inner| if let ExprKind::AddrOf(_, _, operand) | ExprKind::Unary(UnOp::Deref, operand) = inner.kind { Some(operand) } else { None }))
         {
             let (sites, keys) = self.keyed.entry(held).or_default();
             sites.push(key.span);
-            keys.insert(literal);
+            keys.extend(literals);
         }
         if let Some((_, fields)) = constructed(typeck, expr) {
             let written =

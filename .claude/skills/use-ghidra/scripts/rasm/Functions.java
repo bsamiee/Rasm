@@ -137,10 +137,10 @@ public final class Functions {
             Map<Arguments.Setting, Integer> settings,
             TaskMonitor monitor)
             throws Exception {
-        int timeout = settings.get(Arguments.Setting.TIMEOUT);
+        int timeout = Arguments.Setting.TIMEOUT.read(settings);
         DecompileOptions options = new DecompileOptions();
         options.grabFromProgram(program);
-        options.setMaxPayloadMBytes(settings.get(Arguments.Setting.PAYLOAD));
+        options.setMaxPayloadMBytes(Arguments.Setting.PAYLOAD.read(settings));
         DecompilerCallback<DecompileResults> callback =
                 new DecompilerCallback<>(
                         program,
@@ -176,6 +176,9 @@ public final class Functions {
                                     function -> function,
                                     function ->
                                             switch (byFunction.get(function)) {
+                                                case null ->
+                                                        new Report.Failure<>(
+                                                                "Decompiler returned no result");
                                                 case DecompileResults results
                                                         when results.decompileCompleted() ->
                                                         new Report.Success<>(results);

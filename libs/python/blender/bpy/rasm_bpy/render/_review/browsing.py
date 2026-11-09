@@ -111,7 +111,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 for renders in identity.reports.reported(self.history.held)(identity).to_list()
                 for names in (renders.names,)
                 for identifier, name, description, _, value in choices(
-                    (entry.value.hex(), f"{names[entry.value]}  {entry.moment.astimezone():%H:%M:%S}", renders.notes.get(entry.value.hex(), "")) for entry in renders.history.past
+                    (entry.value.hex(), f"{names[entry.value]}  {entry.moment.astimezone():%H:%M:%S}", renders.notes.get(entry.value.hex())) for entry in renders.history.past
                 )
             )
         )

@@ -36,7 +36,7 @@ const within = <A>(acquire: () => () => void, body: () => A): A => {
     }
 };
 const reflectionOf = (value: unknown): Reflection | undefined => {
-    const isReflection = (each: unknown): each is Reflection => isRecord(each) && typeof each.name === 'string' && isList(each.properties) && isList(each.methods) && isList(each.staticProperties);
+    const isReflection = (each: unknown): each is Reflection => typeof readProperty(each, 'name') === 'string' && isList(readProperty(each, 'properties')) && isList(readProperty(each, 'methods')) && isList(readProperty(each, 'staticProperties'));
     const reflection = readProperty(value, 'reflect');
     return isReflection(reflection) ? reflection : undefined;
 };
@@ -92,7 +92,7 @@ const specifierStep = (kind: string, selector?: readonly [index: number] | reado
     return `/${kind}[@${selector[0]}=${typeof selector[1] === 'number' ? selector[1] : escaped(selector[1])}]`;
 };
 const member = (collection: Fields, base: number, selector: string): unknown => {
-    const [split, length] = [selector.indexOf('='), Number(collection.length)];
+    const [split, length] = [selector.indexOf('='), Number(readProperty(collection, 'length'))];
     if (selector.charAt(0) !== '@' || split < 0) {
         const index = Number(selector);
         return attempt(() => collection[(index < 0 ? length + index : index) + base]);
@@ -110,7 +110,7 @@ const member = (collection: Fields, base: number, selector: string): unknown => 
 };
 const named = (collection: Fields, base: number): string[] => {
     const names: string[] = [];
-    for (let at = base; at < Number(collection.length) + base; at += 1) {
+    for (let at = base; at < Number(readProperty(collection, 'length')) + base; at += 1) {
         try {
             names.push(String(readProperty(collection[at], 'name')));
         } catch (thrown) {

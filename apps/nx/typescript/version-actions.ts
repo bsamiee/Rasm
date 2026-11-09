@@ -1,14 +1,10 @@
 import { joinPathFragments, type Tree } from '@nx/devkit';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
-import { Array, Effect, Option, pipe, Schema } from 'effect';
+import { Array, Effect, Option, pipe, Schema, SemVer } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { VersionActions } from 'nx/release';
 import { PACKAGES, TypeScriptError } from '#/plugins/adobe-packages';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const NUMERIC = /^\d+\.\d+\.\d+$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -35,8 +31,8 @@ const MANIFESTS = {
 const located = Effect.fnUntraced(function* (tree: Tree, root: string, options: unknown) {
     const { manifest } = yield* Schema.decodeUnknownEffect(Options)(options);
     const at = joinPathFragments(root, manifest);
-    const text = yield* Effect.fromNullishOr(tree.read(at, 'utf-8')).pipe(Effect.mapError(() => TypeScriptError.make({ message: `${at} is missing` })));
-    return { at, ...(yield* Effect.fromOption(MANIFESTS[manifest](text), () => TypeScriptError.make({ message: `${at} states no version` }))) };
+    const text = yield* Effect.fromNullishOr(tree.read(at, 'utf-8')).pipe(Effect.mapError(() => TypeScriptError.make({ subject: at, detail: 'is missing' })));
+    return { at, ...(yield* Effect.fromOption(MANIFESTS[manifest](text), () => TypeScriptError.make({ subject: at, detail: 'states no version' }))) };
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -61,7 +57,7 @@ class AdobeVersionActions extends VersionActions {
     }
 
     override readCurrentVersionFromRegistry() {
-        return Effect.runPromise(Effect.fail(TypeScriptError.make({ message: `${this.projectGraphNode.name} ships through Adobe's portals and GitHub release files, which hold no registry version; use the disk or git-tag current version resolver` })));
+        return Effect.runPromise(Effect.fail(TypeScriptError.make({ subject: this.projectGraphNode.name, detail: `ships through Adobe's portals and GitHub release files, which hold no registry version; use the disk or git-tag current version resolver` })));
     }
 
     override readCurrentVersionOfDependency() {
@@ -74,7 +70,11 @@ class AdobeVersionActions extends VersionActions {
         return Effect.runPromise(
             Effect.gen(function* () {
                 const { at, write } = yield* located(tree, root, options);
-                yield* NUMERIC.test(newVersion) ? Effect.void : TypeScriptError.make({ message: `${at} takes a major.minor.patch version alone, which ${newVersion} is not` });
+                yield* Effect.filterOrFail(
+                    Effect.fromResult(SemVer.parse(newVersion)),
+                    (version) => !(SemVer.isPrerelease(version) || SemVer.hasBuild(version)),
+                    () => TypeScriptError.make({ subject: at, detail: `takes a major.minor.patch version alone, which ${newVersion} is not` }),
+                );
                 tree.write(at, write(newVersion));
                 return [`New version ${newVersion} written to manifest: ${at}`];
             }),

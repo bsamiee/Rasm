@@ -30,7 +30,7 @@
             }
         },
         "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to every command" },
-        "outputs": { "type": "array", "items": { "type": "string" }, "description": "Files the commands write, each folder created before the run, which the target's outputs read for the running configuration" }
+        "outputs": { "type": "array", "items": { "type": "string" }, "description": "Files the commands write, each folder created before the run" }
     },
     "required": [ "cwd", "commands" ]
 }

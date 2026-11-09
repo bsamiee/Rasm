@@ -2,7 +2,7 @@
 
 ## [01]-[DERIVED_TYPES]
 
-Return types infer from the body, and every type a consumer names derives at its use from the value that owns it. Packages export the owning value in place of a type:
+Return types infer from the body, and every type a consumer names derives at its use from the value that owns it. An annotation stays where it adds a fact: a parameter, a recursive return, `unknown` over a host `any`, a host type checking an object literal; one restating the inferred type goes. Packages export the owning value in place of a type:
 
 | [INDEX] | [OWNER]            | [DERIVED_TYPE]                                                      |
 | :-----: | :----------------- | :------------------------------------------------------------------ |

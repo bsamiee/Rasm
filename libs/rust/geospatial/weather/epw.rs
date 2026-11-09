@@ -213,7 +213,7 @@ struct Row {
     day: i8,
     hour: i8,
     minute: i8,
-    flags: String,
+    flags: Option<String>,
     #[serde_as(as = "Coded<Temperature, 1>")]
     dry_bulb: Option<ThermodynamicTemperature>,
     #[serde_as(as = "Coded<Temperature, 1>")]
@@ -472,7 +472,7 @@ where R: io::Read {
                 .as_array::<9>()
                 .filter(|_| row.observation == Some(0))
                 .map(|codes| codes.map(|code| if code.is_ascii_digit() { code.strict_sub(b'0') } else { 9 })),
-            flags: Some(row.flags).filter(|flags| !flags.is_empty()),
+            flags: row.flags,
         } from row))
     };
     let (headers, rows): (Vec<_>, Vec<_>) = ReaderBuilder::new().has_headers(false).flexible(true).from_reader(reader).byte_records().process_results(|lines| {
@@ -480,7 +480,9 @@ where R: io::Read {
             let position = record.position().cloned();
             let mut record = StringRecord::from_byte_record_lossy(record);
             record.set_position(position);
-            if let Ok(stated) = Keyword::deserialize(value::StrDeserializer::<value::Error>::new(record.get(0).unwrap_or_default().trim())) {
+            if let Some(first) = record.get(0)
+                && let Ok(stated) = Keyword::deserialize(value::StrDeserializer::<value::Error>::new(first.trim()))
+            {
                 let line = record.clone();
                 record.trim();
                 Either::Left((stated, line, record))
@@ -570,7 +572,7 @@ where W: io::Write {
             day: before.day(),
             hour: before.hour().strict_add(1),
             minute: before.minute().strict_add(1),
-            flags: record.flags.clone().unwrap_or_default(),
+            flags: record.flags.clone(),
             observation: Some(record.present_weather.map_or(9, |_| 0)),
             present_weather: record.present_weather.unwrap_or([9; 9]).iter().join(""),
         } from record))

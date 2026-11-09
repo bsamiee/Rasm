@@ -29,8 +29,8 @@ const decoded =
     (line: string) =>
         Schema.decodeEffect(wire(schema))(line);
 const windowsOf = (state: typeof State.Type) => State.match<readonly (typeof State.Window.Type)[]>(state, { running: Struct.get('windows'), failed: () => [], exited: () => [] });
-const rowOf = ({ kind, asking, presented, element }: typeof State.Window.Type) => [kind, asking, presented, element?.actions];
-const keptOf = (state: typeof State.Type) => State.match<unknown>(state, { running: ({ status }) => status, failed: ({ error }) => error, exited: ({ report }) => report?.pid });
+const rowOf = ({ kind, asking, presented, element }: typeof State.Window.Type) => [kind, asking, presented, Option.flatMap(Option.fromUndefinedOr(element), Record.get('actions'))];
+const keptOf = (state: typeof State.Type) => State.match<unknown>(state, { running: ({ status }) => status, failed: ({ error }) => error, exited: ({ report }) => Option.flatMap(Option.fromUndefinedOr(report), Record.get('pid')) });
 const buildOf = ({ build }: Installation) => Option.getOrUndefined(build);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -47,11 +47,11 @@ it.effect(
         ]);
         assert.deepStrictEqual(State.asking(running).map(Struct.get('number')), [BLOCKING]);
         assert.deepStrictEqual(windowsOf(running).map(rowOf), [
-            ['blocking', true, true, undefined],
-            ['window', false, true, []],
-            ['undescribed', false, false, undefined],
+            ['blocking', true, true, Option.none()],
+            ['window', false, true, Option.some([])],
+            ['undescribed', false, false, Option.none()],
         ]);
-        assert.deepStrictEqual([keptOf(running), keptOf(failed), keptOf(exited)], ['unresponsive', AX_ERROR, PID]);
+        assert.deepStrictEqual([keptOf(running), keptOf(failed), keptOf(exited)], ['unresponsive', AX_ERROR, Option.some(PID)]);
         assert.deepStrictEqual(launching.map(Struct.keys), [['launched'], ['state'], ['prompts'], ['failed']]);
         assert.deepStrictEqual(Record.map(shots, Result.isSuccess), { [BLOCKING]: true, 20900: false });
         assert.deepStrictEqual((yield* Effect.fromResult(listing)).map(buildOf), ['3826']);

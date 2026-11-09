@@ -1,7 +1,7 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { PgClient } from '@effect/sql-pg';
 import { assert, inject, it } from '@effect/vitest';
-import { Catalog, Relation } from '@rasm/database';
+import { Catalog, Relation, Tokenizer } from '@rasm/database';
 import { Pg } from '@rasm/database/pg';
 import { service } from '@rasm/test-support/compose';
 import { Context, Effect, FileSystem, Layer, Option, Path, Record, Redacted, Schema, String, Struct } from 'effect';
@@ -45,7 +45,7 @@ it.layer(
             const database = `catalog-${yield* SecureRandom.SecureRandom.use(({ uuidV7 }) => uuidV7())}`;
             const dropped = admin`DROP DATABASE IF EXISTS ${admin(database)} WITH (FORCE)`;
             const restore = dropped.pipe(Effect.andThen(admin`CREATE DATABASE ${admin(database)}`), Effect.asVoid);
-            yield* Effect.addFinalizer(() => Effect.orDie(Effect.andThen(dropped, admin`DROP ROLE IF EXISTS ${admin(`${database}-search`)}`)));
+            yield* Effect.addFinalizer(() => Effect.orDie(Effect.andThen(dropped, admin`DROP ROLE IF EXISTS ${admin([database, 'search'].join('-'))}`)));
             return { name: database, restore, url: at(database) };
         }),
     ).pipe(Layer.provideMerge(Layer.merge(layer, SecureRandom.layerWebCrypto))),
@@ -66,7 +66,7 @@ it.layer(
             const app = sql('search_app');
             const extensions = sql('search_extensions');
             const runtime = `${(yield* Database).name}-search`;
-            const terms = Relation.make('terms', { id: Schema.String, text: Schema.String }, { search: { columns: ['text'], tokenizer: 'trigram' } });
+            const terms = Relation.make('terms', { id: Schema.String, text: Schema.String }, { search: { columns: ['text'], tokenizer: Tokenizer.Trigram() } });
             const row = { id: 'term', text: 'Timber frame' };
             yield* sql`CREATE SCHEMA ${app}`;
             yield* sql`CREATE SCHEMA ${extensions}`;

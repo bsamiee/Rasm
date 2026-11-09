@@ -51,40 +51,40 @@ const aggregated = (targets: Targets): Targets => ({
         (members, verb): TargetConfiguration => ({
             executor: 'nx:noop',
             dependsOn: [`${verb}--*`],
-            inputs: ['...', ...Array.dedupe(members.flatMap(([, held]) => held.inputs ?? []))],
+            inputs: ['...', ...Array.dedupe(members.flatMap(([, member]) => member.inputs ?? []))],
             metadata: { technologies: TECHNOLOGIES, description: `Runs every ${verb}--* target` },
         }),
     ),
 });
 
-const crateTargets = (plugin: Plugin, path: Path.Path, found: Workspace, files: ReadonlySet<string>, named: readonly Input[], crate: Crate, root: string): Targets => {
-    const selected = { cwd: found.root, package: crate.name };
+const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, files: ReadonlySet<string>, named: readonly Input[], crate: Crate, root: string): Targets => {
+    const selected = { cwd: workspace.root, package: crate.name };
     const shared: readonly Input[] = [
         ...named,
-        ...(found.root === root ? [] : [tokened(path, path.join(found.root, MANIFEST))]),
-        ...ancestors(path, found.root).flatMap((at) =>
+        ...(workspace.root === root ? [] : [tokened(path, path.join(workspace.root, MANIFEST))]),
+        ...ancestors(path, workspace.root).flatMap((at) =>
             ['.cargo/config.toml', '.cargo/config', 'rust-toolchain.toml', 'rust-toolchain']
                 .map((name) => path.join(at, name))
                 .filter((file) => files.has(file))
                 .map((file) => tokened(path, file)),
         ),
     ];
-    const nextest = Option.liftPredicate(path.join(found.root, '.config/nextest.toml'), (file) => files.has(file));
+    const nextest = Option.liftPredicate(path.join(workspace.root, '.config/nextest.toml'), (file) => files.has(file));
     const tested = crate.targets.some(({ test }) => test);
     const documented = crate.targets.some(({ doctest }) => doctest);
     const filters = Record.keys(Record.filter(SELECTIONS, (selects) => crate.targets.some(selects)));
-    const products = crate.targets.filter(({ kind, crate_types }) => kind.join() === crate_types.join()).flatMap(found.files);
-    const written = (folder: string) => Option.toArray(found.output).flatMap((at) => products.map((file) => tokened(path, path.join(at, folder, file))));
-    const profiles = ['release', ...found.profiles];
+    const products = crate.targets.filter(({ kind, crate_types }) => kind.join() === crate_types.join()).flatMap(workspace.files);
+    const written = (folder: string) => Option.toArray(workspace.output).flatMap((at) => products.map((file) => tokened(path, path.join(at, folder, file))));
+    const profiles = ['release', ...workspace.profiles];
     const configured = nearest(path, files, root, ['.clippy.toml', 'clippy.toml']);
     const compiler =
-        Option.isSome(configured) || found.linted(crate).has('clippy') ? { tool: 'clippy', check: ['clippy'] as const, fix: ['clippy', '--fix'] as const, inputs: Option.toArray(Option.map(configured, (file) => tokened(path, file))) } : { tool: 'cargo', check: ['check'] as const, fix: ['fix'] as const, inputs: [] };
-    const libraries = (found.metadata.metadata?.dylint?.libraries ?? []).flatMap(({ path: at }) => (at === undefined ? [] : [tokened(path, path.join(found.root, at, '**/*'))]));
+        Option.isSome(configured) || workspace.linted(crate).has('clippy') ? { tool: 'clippy', check: ['clippy'] as const, fix: ['clippy', '--fix'] as const, inputs: Option.toArray(Option.map(configured, (file) => tokened(path, file))) } : { tool: 'cargo', check: ['check'] as const, fix: ['fix'] as const, inputs: [] };
+    const libraries = (workspace.metadata.metadata?.dylint?.libraries ?? []).flatMap(({ path: at }) => (at === undefined ? [] : [tokened(path, path.join(workspace.root, at, '**/*'))]));
     const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, '--keep-going', ...locked()], report: 'messages' }];
     const checked = (placed: (selection: readonly string[]) => Pick<Command, 'args' | 'trailing'>): Array.NonEmptyReadonlyArray<Command> =>
         Array.map(
             Array.prepend(
-                found.strategies.map((profile) => ['--profile', profile]),
+                workspace.strategies.map((profile) => ['--profile', profile]),
                 [],
             ),
             (profile): Command => ({ ...placed([...filters, ...profile, '--keep-going', ...locked()]), report: 'messages' }),
@@ -96,11 +96,11 @@ const crateTargets = (plugin: Plugin, path: Path.Path, found: Workspace, files: 
         });
         return [...(main.selected ? [{ args: [...main.args, ...locked()], report: main.report } as const] : []), ...(documentation ? [{ args: ['test', '--doc', ...locked()], report: 'status' } as const] : [])];
     };
-    const covered = Option.map(found.output, (at) => {
+    const covered = Option.map(workspace.output, (at) => {
         const tool = 'llvm-cov';
         const report = tokened(path, path.join(at, tool, `${crate.name}.lcov`));
         const exported = ['--lcov', '--output-path', report];
-        const subjects = found.members.filter((member) => crate.dependencies.some(({ name, path: to }) => to !== undefined && name === member.crate.name)).map((member) => ({ root: member.root, name: member.crate.name }));
+        const subjects = workspace.members.filter((member) => crate.dependencies.some(({ name, path: to }) => to !== undefined && name === member.crate.name)).map((member) => ({ root: member.root, name: member.crate.name }));
         return { outputs: ['{options.outputs.0}'], configurations: { coverage: { commands: runs({ nextest: [tool, 'nextest', ...exported], test: [tool, 'test', ...exported] }).map((command) => ({ ...command, packages: subjects })), outputs: [report] } } };
     });
     return {
@@ -132,11 +132,11 @@ const crateTargets = (plugin: Plugin, path: Path.Path, found: Workspace, files: 
     };
 };
 
-const workspaceTargets = (plugin: Plugin, path: Path.Path, found: Workspace): Targets => {
-    const manifests = Array.dedupe([...found.manifests, path.join(found.root, MANIFEST)]).map((file) => tokened(path, file));
-    const lock = tokened(path, path.join(found.root, 'Cargo.lock'));
+const workspaceTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace): Targets => {
+    const manifests = Array.dedupe([...workspace.manifests, path.join(workspace.root, MANIFEST)]).map((file) => tokened(path, file));
+    const lock = tokened(path, path.join(workspace.root, 'Cargo.lock'));
     return {
-        ...Option.match(found.deny, {
+        ...Option.match(workspace.deny, {
             onNone: () => ({}),
             onSome: ({ files, tables }) => {
                 const checks = CHECKS.filter((check) => tables.includes(check));
@@ -145,7 +145,7 @@ const workspaceTargets = (plugin: Plugin, path: Path.Path, found: Workspace): Ta
                         plugin,
                         'deny',
                         'Reports cargo-deny findings over the workspace graph, failing on any warning',
-                        { cwd: found.root, commands: [{ args: ['deny', '--workspace', ...locked(), 'check', '--deny', 'warnings', ...checks], report: 'status' }] },
+                        { cwd: workspace.root, commands: [{ args: ['deny', '--workspace', ...locked(), 'check', '--deny', 'warnings', ...checks], report: 'status' }] },
                         {
                             cache: !checks.includes('advisories'),
                             inputs: [...manifests, lock, ...files.map((file) => tokened(path, file))],
@@ -159,7 +159,7 @@ const workspaceTargets = (plugin: Plugin, path: Path.Path, found: Workspace): Ta
             'upgrade',
             'Moves every dependency requirement and the lock to the newest releases',
             {
-                cwd: found.root,
+                cwd: workspace.root,
                 commands: [
                     { args: ['upgrade', '--incompatible', 'allow'], report: 'status' },
                     { args: ['update'], report: 'status' },

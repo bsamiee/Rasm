@@ -22,7 +22,7 @@ const execute = (_options: unknown, context: ExecutorContext) =>
                 `build wrote no host package for ${process.platform}-${process.arch} under ${outputs.join(', ') || 'its outputs, which name no path'}`,
                 ...(configurations.length === 0 ? [] : [`its targets declare the configurations ${configurations.join(', ')}, which nx install ${project} -c <configuration> passes down`]),
             ].join('; ');
-            yield* local.length === 0 ? DistributionError.make({ subject: project, detail }) : Effect.forEach(local, (held) => held.host.install?.run(held) ?? Effect.void, { discard: true });
+            yield* local.length === 0 ? DistributionError.make({ subject: project, detail }) : Effect.forEach(local, (bundle) => bundle.host.install?.run(bundle) ?? Effect.void, { discard: true });
             return { success: true };
         }).pipe(Effect.provide(layer)),
     );

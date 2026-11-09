@@ -45,17 +45,17 @@ pub enum WorkbooksError {
     Decrypt(#[from] office_crypto::DecryptError),
     #[error(transparent)]
     Read(#[from] calamine::Error),
-    #[error("date-time or duration cell at row {}, column {} refused", cell.0, cell.1)]
+    #[error("cannot convert date-time or duration cell at row {}, column {}", cell.0, cell.1)]
     Moment {
         cell: (u32, u32),
         source: jiff::Error,
     },
-    #[error("record {index} refused")]
+    #[error("cannot decode record {index}")]
     Record {
         index: usize,
         source: calamine::DeError,
     },
-    #[error("worksheet cell at row {}, column {} refused", cell.0, cell.1)]
+    #[error("cannot write worksheet cell at row {}, column {}", cell.0, cell.1)]
     Write {
         cell: (rust_xlsxwriter::RowNum, rust_xlsxwriter::ColNum),
         source: rust_xlsxwriter::XlsxError,
@@ -78,13 +78,13 @@ pub enum WorkbooksError {
     Styles(#[from] roxmltree::Error),
     #[error(transparent)]
     Load(#[from] XlsxError),
-    #[error("ironcalc model refused: {0}")]
+    #[error("cannot build ironcalc model: {0}")]
     Model(String),
     #[error("duration cell at row {}, column {} exceeds the ODS duration range", cell.0, cell.1)]
     Interval {
         cell: (u32, u32),
     },
-    #[error("ODS cell at row {}, column {} refused", cell.0, cell.1)]
+    #[error("cannot convert ODS cell at row {}, column {}", cell.0, cell.1)]
     Ods {
         cell: (u32, u32),
         source: spreadsheet_ods::OdsError,

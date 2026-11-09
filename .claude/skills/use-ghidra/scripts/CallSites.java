@@ -112,14 +112,16 @@ public class CallSites extends GhidraScript {
         }
 
         String row() {
-            String selector =
-                    switch (callee) {
-                        case Direct _ -> "";
-                        case Stub(_, _, Optional<String> name) -> "$" + name.orElse("?") + " ";
-                    };
-            return "%s %s: %s%s"
+            String passed = String.join(",", arguments);
+            return "%s %s: %s"
                     .formatted(
-                            address, caller.getName(true), selector, String.join(",", arguments));
+                            address,
+                            caller.getName(true),
+                            switch (callee) {
+                                case Direct _ -> passed;
+                                case Stub(_, _, Optional<String> name) ->
+                                        "$%s %s".formatted(name.orElse("?"), passed);
+                            });
         }
     }
 

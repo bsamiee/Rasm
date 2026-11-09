@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { layerConfig } from '@effect/platform-node/NodeHttpServer';
-import { Config, ConfigProvider, Effect, Layer, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Config, ConfigProvider, Effect, Layer, Match, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { HttpEffect, HttpMiddleware, HttpRouter, HttpServerResponse, HttpStaticServer } from 'effect/http';
 import type { App, Binding } from '#/app';
 import { nodeBundle } from '#/node-bundle';
@@ -41,7 +41,12 @@ const serveNode = Effect.fnUntraced(
                 HttpRouter.add('GET', nodeBundle.readiness, HttpMiddleware.withLoggerDisabled(Effect.succeed(HttpServerResponse.empty()))),
                 HttpRouter.add('GET', '/*', files),
                 HttpRouter.middleware(
-                    Effect.map((response: HttpServerResponse.HttpServerResponse) => (response.body._tag === 'Raw' && response.body.body instanceof Response ? HttpServerResponse.fromWeb(HttpServerResponse.toWeb(response)) : response)),
+                    Effect.map((response: HttpServerResponse.HttpServerResponse) =>
+                        Match.value(response.body).pipe(
+                            Match.when({ _tag: 'Raw', body: Match.instanceOf(Response) }, () => HttpServerResponse.fromWeb(HttpServerResponse.toWeb(response))),
+                            Match.orElse(() => response),
+                        ),
+                    ),
                     { global: true },
                 ),
             ),

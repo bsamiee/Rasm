@@ -1,7 +1,7 @@
 // swift-tools-version: 6.4
 import PackageDescription
 
-let package: Package = Package(
+let package = Package(
     name: "NxApple",
     platforms: [.macOS(.v27)],
     dependencies: [

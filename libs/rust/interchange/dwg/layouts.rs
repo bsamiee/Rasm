@@ -20,6 +20,7 @@ use rasm_drawing::{
     Placement, Region,
     pages::{self, Page},
 };
+use strum::VariantArray as _;
 use uom::si::{f64::Length, length::millimeter, ratio::ratio};
 use validated::Validated;
 
@@ -28,9 +29,18 @@ use crate::{
     linework::{self, Authoring, Context, Projection, curves},
 };
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy, strum::IntoStaticStr, strum::EnumString, strum::VariantArray)]
+enum SheetField {
+    Number,
+    Title,
+    #[strum(serialize = "Desc")]
+    Description,
+}
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const STATED: [&str; 3] = ["Number", "Title", "Desc"];
 const REFERENCE: &str = "Layout";
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -92,9 +102,10 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
             .and_then(|(database, drawing)| database.sheet_for(drawing, Some(&layout.name)))
             .filter(|sheet| sheet.named(REFERENCE).and_then(|reference| reference.prop("Name")).is_some_and(|name| name.eq_ignore_ascii_case(&layout.name)));
         let fields = sheet.map_or_default(|sheet| {
-            STATED
+            SheetField::VARIANTS
                 .iter()
-                .filter_map(|field| sheet.prop(field).map(|value| (Arc::from(*field), Arc::from(value))))
+                .map(|&field| <&str>::from(field))
+                .filter_map(|field| sheet.prop(field).map(|value| (Arc::from(field), Arc::from(value))))
                 .chain(custom_properties(sheet).into_iter().map(|(field, value, _)| (Arc::from(field), Arc::from(value))))
                 .collect()
         });
@@ -360,7 +371,8 @@ pub fn set(document: &CadDocument, name: &str, drawing: &str, pages: &[(Arc<str>
     let database = SheetSetDatabase::new(name, "");
     let parent = database.sheet_set().id().to_owned();
     pages.iter().fold(database, |mut database, (key, page)| {
-        let [number, title, description] = STATED.map(|field| page.fields.get(field).map_or("", |value| &**value));
+        #[cfg_attr(dylint_lib = "rasm_lints", expect(empty_string_default, reason = "`SheetSetDatabase::add_sheet` takes an empty number, title, or description as unset"))]
+        let [number, title, description] = [SheetField::Number, SheetField::Title, SheetField::Description].map(|field| page.fields.get(<&str>::from(field)).map_or("", |value| &**value));
         let handle = document.objects.values().find_map(|object| {
             if let ObjectType::Layout(layout) = object
                 && *layout.name == **key
@@ -370,12 +382,13 @@ pub fn set(document: &CadDocument, name: &str, drawing: &str, pages: &[(Arc<str>
                 None
             }
         });
+        #[cfg_attr(dylint_lib = "rasm_lints", expect(empty_string_default, reason = "`LayoutReference::handle` holds an empty string for a layout without a handle"))]
         let reference = LayoutReference { file_name: drawing.to_owned(), name: key.to_string(), handle: handle.map_or_default(|handle| format!("{handle:X}")) };
         if let Some(sheet) = database.add_sheet(&parent, number, title, description)
             && database.set_layout_reference(&sheet, REFERENCE, &reference)
             && let Some(element) = database.find_mut(&sheet)
         {
-            page.fields.iter().filter(|(field, _)| !STATED.contains(&&***field)).for_each(|(field, value)| set_custom_property(element, field, value, CUSTOM_SHEET_PROP));
+            page.fields.iter().filter(|(field, _)| field.parse::<SheetField>().is_err()).for_each(|(field, value)| set_custom_property(element, field, value, CUSTOM_SHEET_PROP));
         }
         database
     })

@@ -289,7 +289,7 @@ internal static partial class Dispatch {
 
     // --- [LOGS]
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "{Caution}")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Render queue preflight caution: {Caution}")]
     private static partial void Cautioned(ILogger logger, string caution);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Render queue entry {Index} needs an estimated {Bytes} bytes of memory")]

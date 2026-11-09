@@ -17,7 +17,7 @@ def _unfolded(segment: _Segment, nib: tuple[float, float], /) -> tuple[_Segment,
     """Splits a quadratic where its tangent runs parallel to the nib, at the root of their linear cross product, leaving no swept piece folded."""
     match segment:
         case ((x0, y0), (x1, y1), (x2, y2)) if (bend := (x2 - 2 * x1 + x0) * nib[1] - (y2 - 2 * y1 + y0) * nib[0]) and 0.0 < (at := ((y1 - y0) * nib[0] - (x1 - x0) * nib[1]) / bend) < 1.0:
-            return tuple(tuple(piece) for piece in splitQuadraticAtT(*segment, at))  # type: ignore[no-untyped-call]  # ty: ignore[unsound-return-statement]
+            return tuple(tuple((float(x), float(y)) for x, y in piece) for piece in splitQuadraticAtT(*segment, at))  # type: ignore[no-untyped-call]
         case _:
             return (segment,)
 

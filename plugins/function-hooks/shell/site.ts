@@ -118,7 +118,7 @@ const built = (command: Command, head: Word, assigned: readonly Word[], args: re
 
 const innerWords = ({ row, items, rest, informational, last }: Site): readonly (readonly Word[])[] => {
     const launched = items.filter(({ names }) => names.some((name) => row.execs?.includes(name) === true)).map(({ words: [, ...supplied] }) => supplied.filter(({ text }) => text !== ';' && text !== '+'));
-    const module = Array.filterMap(items, ({ names, words: [, value] }) => (value !== undefined && names.includes(row.module ?? '') ? Result.succeed({ ...value, text: value.text.slice(value.text.lastIndexOf('.') + 1) }) : Result.failVoid));
+    const module = Array.filterMap(items, ({ names, words: [, value] }) => (value !== undefined && row.module !== undefined && names.includes(row.module) ? Result.succeed({ ...value, text: value.text.slice(value.text.lastIndexOf('.') + 1) }) : Result.failVoid));
     if (informational || (launched.length === 0 && last && module.length === 0)) {
         return [];
     }
@@ -134,7 +134,7 @@ const invocations = Effect.fnUntraced(function* (command: Command, words: readon
     }
     const leaf = head.text.slice(head.text.lastIndexOf('/') + 1);
     const name = leaf.replace(VERSIONED, '');
-    const program = [leaf, name].find((held) => programs.has(held)) ?? leaf;
+    const program = [leaf, name].find((candidate) => programs.has(candidate)) ?? leaf;
     const site = built(command, head, assigned, args, programs.has(program) ? yield* Cache.get(grammars, program) : NO_GRAMMAR, program, programs.get(program) ?? {}, outer);
     return [site, ...(yield* Effect.forEach(innerWords(site), (inner) => invocations(command, inner, [...outer, site]))).flat()];
 });
@@ -157,15 +157,15 @@ const bodies = (site: Site): readonly Body[] => {
 
 const bodyAnalyzed = Effect.fnUntraced(function* ({ site, text, file }: Body, { origin, visited = new Set() }: Beginning): Effect.fn.Return<Option.Option<Analysis>, HookError, Shell | Host> {
     const host = yield* Host;
-    const place = Option.getOrUndefined(Option.filter(host.place(text, site.command.cwd), (held) => !visited.has(held)));
+    const place = Option.getOrUndefined(Option.filter(host.place(text, site.command.cwd), (unvisited) => !visited.has(unvisited)));
     const tracked = !file || place === undefined || (host.inside(place, host.root) && (yield* Effect.orElseSucceed(host.run(['git', 'ls-files', '--error-unmatch', '--', place]), () => ({ code: 1 }))).code === 0);
-    const content = !tracked && place !== undefined ? Option.map(yield* Effect.option(host.fs.readFileString(place)), (held) => ({ text: held, visited: visited.union(new Set([place])) })) : Option.liftPredicate({ text, visited }, () => !file);
-    return yield* Effect.transposeOption(Option.map(content, (held) => analyzed(held.text, { cwd: site.command.cwd, fed: site.command.fed, looping: site.repeated, origin: file || origin === 'file' ? 'file' : 'body', visited: held.visited }, site.program === 'zsh' || (file && text.endsWith('.zsh')) ? 'zsh' : 'bash')));
+    const content = !tracked && place !== undefined ? Option.map(yield* Effect.option(host.fs.readFileString(place)), (read) => ({ text: read, visited: visited.union(new Set([place])) })) : Option.liftPredicate({ text, visited }, () => !file);
+    return yield* Effect.transposeOption(Option.map(content, (body) => analyzed(body.text, { cwd: site.command.cwd, fed: site.command.fed, looping: site.repeated, origin: file || origin === 'file' ? 'file' : 'body', visited: body.visited }, site.program === 'zsh' || (file && text.endsWith('.zsh')) ? 'zsh' : 'bash')));
 });
 
 const analyzed = Effect.fnUntraced(function* (text: string, beginning: Beginning, dialect: 'bash' | 'zsh' = 'bash'): Effect.fn.Return<Analysis, HookError, Shell | Host> {
     const { trees } = yield* Shell;
-    const script = yield* scripted(dialect === 'bash' ? yield* Cache.get(trees, text) : yield* tree(text, dialect), text, beginning);
+    const script = yield* scripted(yield* { bash: Cache.get(trees, text), zsh: tree(text, 'zsh') }[dialect], text, beginning);
     const sites = (yield* Effect.forEach(script.commands, (command) => invocations(command, command.words, []))).flat();
     const nested = yield* Effect.forEach(sites.filter(({ last, informational }) => last && !informational).flatMap(bodies), (body) => bodyAnalyzed(body, beginning), { concurrency: 'unbounded' });
     const found = Array.getSomes(nested);

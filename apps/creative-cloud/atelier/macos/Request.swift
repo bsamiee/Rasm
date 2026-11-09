@@ -30,7 +30,7 @@ enum HelperRequest: Decodable, Sendable {
     case face(name: String)
 
     init(from decoder: any Decoder) throws {
-        let keys: KeyedDecodingContainer<Own> = try decoder.container(keyedBy: Own.self)
+        let keys = try decoder.container(keyedBy: Own.self)
         self =
             switch keys.allKeys.first {
                 case .faces: .faces

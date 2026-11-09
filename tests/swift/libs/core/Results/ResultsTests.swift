@@ -62,9 +62,9 @@ struct AccumulationTests {
 
     @Test
     func holdsAtLeastOneError() {
-        let empty: AggregateError<Refusal>? = AggregateError([Refusal]())
-        let errors: AggregateError<Refusal>? = AggregateError([Refusal(field: "a"), Refusal(field: "b")])
-        let underlying: [Refusal]? = errors?.errorUserInfo[NSMultipleUnderlyingErrorsKey] as? [Refusal]
+        let empty = AggregateError([Refusal]())
+        let errors = AggregateError([Refusal(field: "a"), Refusal(field: "b")])
+        let underlying = errors?.errorUserInfo[NSMultipleUnderlyingErrorsKey] as? [Refusal]
         let description: String? = errors?.errorDescription
         expectNoDifference(empty?.errors, nil)
         expectNoDifference(description, "Refused a\nRefused b")
@@ -74,9 +74,9 @@ struct AccumulationTests {
     @Test
     func singlesOutOneMatch() {
         let named: (String) -> String = \.self
-        let single: Result<String, Unmatched> = Unmatched.single(["a"], subject: "window", query: "a", candidates: [], named: named)
-        let none: Result<String, Unmatched> = Unmatched.single([], subject: "window", query: "z", candidates: ["a", "b"], named: named)
-        let many: Result<String, Unmatched> = Unmatched.single(["a", "b"], subject: "window", query: nil, candidates: [], named: named)
+        let single = Unmatched.single(["a"], subject: "window", query: "a", candidates: [], named: named)
+        let none = Unmatched.single([], subject: "window", query: "z", candidates: ["a", "b"], named: named)
+        let many = Unmatched.single(["a", "b"], subject: "window", query: nil, candidates: [], named: named)
         expectNoDifference(single, .success("a"))
         expectNoDifference(none, .failure(Unmatched(subject: "window", query: "z", candidates: ["a", "b"])))
         expectNoDifference(many, .failure(Unmatched(subject: "single window", query: nil, candidates: ["a", "b"])))
@@ -93,7 +93,7 @@ struct RaceTests {
 
     @Test
     func expiresSlowWork() async {
-        let outcome: Result<Int, Refusal> = await Result { () async throws(Refusal) -> Int in
+        let outcome = await Result { () async throws(Refusal) -> Int in
             try await withTimeout(.milliseconds(10), expired: Refusal(field: "timeout")) { () async throws(Refusal) -> Int in
                 try? await Task.sleep(for: .seconds(60))
                 return 1

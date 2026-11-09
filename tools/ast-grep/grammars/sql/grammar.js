@@ -9,7 +9,7 @@ const TRIVIA = ['\f', BYTE_ORDER_MARK];
 const RULES = sqlite.grammar.rules;
 const ASSIGNMENTS = RULES.update_statement.members.findIndex((member) => reaches(member, named('assignment')));
 const CLAUSES = RULES._select_core.members.findIndex((member) => reaches(member, named('from')));
-const VARIABLE_CHARACTER = '[0-9A-Za-z_$\\u{80}-\\u{10FFFF}]';
+const VARIABLE_CHARACTER = String.raw`[0-9A-Za-z_$\u{80}-\u{10FFFF}]`;
 const VARIABLE_TAIL = `(?:${VARIABLE_CHARACTER}|::)*(?:\\([^\\t-\\r )]*\\))?`;
 const VARIABLE = new RegExp(`(?:::)*${VARIABLE_CHARACTER}${VARIABLE_TAIL}`, 'u');
 const REGISTERLESS = new RegExp(`(?:(?:::)+${VARIABLE_CHARACTER}|[A-Za-z_$\\u{80}-\\u{10FFFF}])${VARIABLE_TAIL}`, 'u');

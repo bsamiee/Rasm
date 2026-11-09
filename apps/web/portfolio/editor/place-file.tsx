@@ -45,9 +45,9 @@ const PlaceFile = ({
                 {Option.match(file, { onNone: () => 'Select file', onSome: Struct.get('name') })}
             </MenuButton>
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="hint">{joinDetails([format.quantity(chosen.length, { other: (shown) => `${shown} selected` }), pages.length > 0 ? format.quantity(pages.length, { one: (shown) => `${shown} sheet`, other: (shown) => `${shown} sheets` }) : undefined])}</p>
+                <p className="hint">{joinDetails([format.quantity(chosen.length, { other: (count) => `${count} selected` }), pages.length > 0 ? format.quantity(pages.length, { one: (count) => `${count} sheet`, other: (count) => `${count} sheets` }) : undefined])}</p>
                 <button className="button button-outline" disabled={chosen.length === 0} onClick={add} type="button">
-                    {format.quantity(chosen.length, { one: (shown) => `Add ${shown} composition`, other: (shown) => `Add ${shown} compositions` })}
+                    {format.quantity(chosen.length, { one: (count) => `Add ${count} composition`, other: (count) => `Add ${count} compositions` })}
                 </button>
             </div>
             {pages.length > 0 ? (

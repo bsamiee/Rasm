@@ -232,9 +232,9 @@ public class Headers extends GhidraScript {
                         MatchResult token = tokens.get(index);
                         int depth = depths.get(index);
                         boolean close = ")".equals(token.group());
-                        return close && depth < 0
-                                        || depth == 0
-                                                && token.group().equals(String.valueOf(endChar))
+                        return (close && depth < 0)
+                                        || (depth == 0
+                                                && token.group().equals(String.valueOf(endChar)))
                                 ? Optional.of(token.start())
                                 : close && depth == 0 && endChar == 0
                                         ? Optional.of(token.end())
@@ -395,7 +395,7 @@ public class Headers extends GhidraScript {
                             Report.Section.rows(
                                     "REJECTED",
                                     applied.stream().flatMap(Report.Result::failures).toList()));
-            println(Report.write(out, currentProgram, sections, String.join(" ", tokens)));
+            println(Report.write(out, currentProgram, sections, tokens));
         } finally {
             FileUtilities.deleteDir(overlay);
         }

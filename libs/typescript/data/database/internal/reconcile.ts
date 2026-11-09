@@ -1,9 +1,9 @@
 import { Array, Effect, Equal, Filter, Function, Graph, HashSet, Match, Option, Order, Result, Schema, String, Struct } from 'effect';
-import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
+import { type SqlClient, SqlSchema, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import { Column } from '#/column';
-import { ReconcileError } from '#/error';
 import type { Engine } from '#/engine';
+import { ReconcileError } from '#/error';
 import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -132,7 +132,7 @@ const render = (
                                   ),
                               ]
                             : []),
-                        ...(entry.kind === 'integer' && !entry.textual ? [sql`${subject} BETWEEN ${sql.literal(`${-Number.MAX_SAFE_INTEGER}`)} AND ${sql.literal(`${Number.MAX_SAFE_INTEGER}`)}`] : []),
+                        ...(entry.kind === 'integer' && !entry.textual ? [sql`${subject} BETWEEN ${sql.literal((-Number.MAX_SAFE_INTEGER).toString())} AND ${sql.literal(Number.MAX_SAFE_INTEGER.toString())}`] : []),
                         ...entry.bounds.map(checked(subject)),
                         ...engine.domain(sql, subject, entry.kind),
                     ],
@@ -164,15 +164,23 @@ const render = (
         .map((index) => {
             const { keys, unique, include, where, method, parts } = index;
             const [{ name }, covering, columns] = [label(parts), engine.covering(sql, unique, include), keys.map((part) => keyed(part, method))];
-            const text = (prefix: string) =>
+            const text = (modifiers: readonly string[]) =>
                 sql`${spaced([
-                    sql`CREATE ${sql.literal(unique ? 'UNIQUE ' : '')}INDEX ${sql.literal(prefix)}${sql(name)} ON ${relation}${sql.literal(method === 'btree' ? '' : ` USING ${method}`)} (${sql.csv([...columns.map(Struct.get('text')), ...covering.keys])})`,
+                    'CREATE',
+                    ...(unique ? ['UNIQUE'] : []),
+                    'INDEX',
+                    ...modifiers,
+                    Statement.fragment([sql(name)]),
+                    'ON',
+                    relation,
+                    ...(method === 'btree' ? [] : ['USING', method]),
+                    sql.join('', false)(['(', sql.csv([...columns.map(Struct.get('text')), ...covering.keys]), ')']),
                     ...covering.clause,
                     ...(Array.isReadonlyArrayNonEmpty(where) ? [spaced(['WHERE', conjunction(where.map(predicate))])] : []),
                 ])}`;
             return { name, parts, extensions: Array.dedupe(columns.flatMap(Struct.get('extensions'))), configuration: Option.none(), text, declared: Option.some(index) };
         });
-    const searched = Option.map(search, (found) => engine.fulltext(sql, owner, found));
+    const searched = Option.map(search, (searchable) => engine.fulltext(sql, owner, searchable));
     const stamp = Option.getOrElse(identity, () => ({ origin: Option.getOrElse(declared.renamedFrom, () => owner), generation: Array.countBy(catalog.retired, Equal.equals(owner)) }));
     const comment = engine.comment(sql, owner, stamp);
     return {
@@ -180,10 +188,10 @@ const render = (
         identity: stamp,
         definitions,
         links,
-        indexes: [...built, ...Option.toArray(searched).flatMap(({ indexes: found }) => found.map((index) => ({ ...index, text: (prefix: string) => index.text(prefix, relation), declared: Option.none<Relation['indexes'][number]>() })))],
+        indexes: [...built, ...Option.toArray(searched).flatMap(({ indexes: found }) => found.map((index) => ({ ...index, text: (modifiers: readonly string[]) => index.text(modifiers, relation), declared: Option.none<Relation['indexes'][number]>() })))],
         virtual: Option.flatMap(searched, Struct.get('virtual')),
         policy: Option.flatMap(tenant, ({ column, setting }) => Option.map(engine.policy(sql, owner, column.name, engine.types[column.kind], setting), (rule) => ({ ...rule, text: (role: Statement.Fragment) => rule.text(relation, role) }))),
-        create: sql`CREATE TABLE ${relation}${comment.inline} (${sql.csv([...definitions.map(({ text }) => text), ...elements, spaced(['PRIMARY KEY', sql`(${list(key)}${sql.literal(autoincrement ? ' AUTOINCREMENT' : '')})`]), ...links.filter(inline).map(({ name, text }) => engine.constraint(sql, name, text))])})${sql.literal(engine.suffix(withoutRowid))}`,
+        create: sql`CREATE TABLE ${relation}${comment.inline} (${sql.csv([...definitions.map(({ text }) => text), ...elements, spaced(['PRIMARY KEY', sql.join('', false)(['(', spaced([list(key), ...(autoincrement ? ['AUTOINCREMENT'] : [])]), ')'])]), ...links.filter(inline).map(({ name, text }) => engine.constraint(sql, name, text))])})${sql.literal(engine.suffix(withoutRowid))}`,
         comments: [...comment.statements(relation, Option.none()), ...definitions.flatMap(({ name, comment: stamped }) => stamped.statements(relation, Option.some(name)))],
     };
 };

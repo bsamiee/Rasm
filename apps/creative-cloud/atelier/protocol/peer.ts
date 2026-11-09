@@ -2,7 +2,7 @@
 
 import { Unmatched } from '@rasm/search';
 import { Array, Cause, Deferred, Duration, Effect, flow, Latch, Layer, Number, Option, Predicate, Record, Ref, Schedule, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
-import { HttpRouter, HttpServerRequest, HttpServerResponse, Url } from 'effect/http';
+import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse, Url } from 'effect/http';
 import { Host, NetAddress } from 'effect/net';
 import { type Rpc, RpcClient, type RpcClientError, type RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
 import { Socket, SocketServer } from 'effect/socket';
@@ -72,7 +72,9 @@ class Peer extends Schema.Class<Peer, { readonly brand: unique symbol }>('Peer')
     static readonly serves = (application: URL) => (peer: Peer) => peer.application.href === application.href;
     static readonly listen = Effect.fn('Peer.listen')(function* <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, middleware: Layer.Layer<Rpc.MiddlewareClient<Rpcs>, never, RpcClient.Protocol>) {
         const [router, links, connections] = yield* Effect.all([HttpRouter.HttpRouter, SubscriptionRef.make<readonly Linked<Rpcs>[]>([]), Ref.make(0)]);
-        yield* router.add('GET', Peer.link.path, (request) => (request.headers.origin === 'file://' ? Effect.flatMap(Ref.updateAndGet(connections, Number.increment), (connection) => accept(group, middleware, links, request, connection)) : Effect.succeed(HttpServerResponse.empty({ status: 403 }))));
+        yield* router.add('GET', Peer.link.path, (request) =>
+            Option.contains(Headers.get(request.headers, 'origin'), 'file://') ? Effect.flatMap(Ref.updateAndGet(connections, Number.increment), (connection) => accept(group, middleware, links, request, connection)) : Effect.succeed(HttpServerResponse.empty({ status: 403 })),
+        );
         return {
             peers: Effect.map(SubscriptionRef.get(links), Array.map(Struct.get('peer'))),
             changes: Stream.map(SubscriptionRef.changes(links), Array.map(Struct.get('peer'))),
@@ -85,7 +87,7 @@ class Peer extends Schema.Class<Peer, { readonly brand: unique symbol }>('Peer')
 
 const accept = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, middleware: Layer.Layer<Rpc.MiddlewareClient<Rpcs>, never, RpcClient.Protocol>, links: SubscriptionRef.SubscriptionRef<readonly Linked<Rpcs>[]>, request: HttpServerRequest.HttpServerRequest, connection: number) {
     const [peer, socket, made, ended] = yield* Effect.all([HttpServerRequest.schemaSearchParams(Peer), request.upgrade, Deferred.make<Linked<Rpcs>>(), Latch.make()]);
-    const replaced = ({ peer: held }: Linked<Rpcs>) => held.extension === peer.extension && Peer.serves(peer.application)(held);
+    const replaced = ({ peer: linked }: Linked<Rpcs>) => linked.extension === peer.extension && Peer.serves(peer.application)(linked);
     const report = (adobePlugin: typeof Peer.Connection.Type.adobePlugin) => Effect.logInfo(Peer.Connection.make({ adobePlugin, connection, application: peer.application.href, extension: peer.extension, ...Record.getSomes({ root: Option.map(peer.root, Struct.get('href')) }) }));
     const protocol = yield* RpcClient.makeProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) }).pipe(
         Effect.provideService(RpcClient.ConnectionHooks, {

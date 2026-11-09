@@ -250,10 +250,12 @@ public static class SectionCommands {
             Seq(Ran("section-copy", "Copy values", DataTransfer.Copy(history.Group, None, scope)))
                 + Seq(Ran("section-paste", "Paste values", DataTransfer.Paste(history.Group, None, scope))).Filter(_ => pastes),
             Seq(Ran("section-clear", "Clear history", history.Clear)).Filter(_ => !(held.Done.IsEmpty && held.Undone.IsEmpty))
-                + Seq<Command<Invoke>>(new Command<Invoke>.Menu(new CommandFace("section-restore", "Restore"), [held.Done.Map(entry => Ran(
-                    string.Create(CultureInfo.InvariantCulture, $"section-restore-{entry.Serial}"),
-                    LocalText.Of("{0}, {1}", Described(entry), stamp.Format(entry.At.InZone(zone).LocalDateTime)).Local,
-                    Heard(history.Restore(entry.Serial), scope)))])).Filter(_ => !held.Done.IsEmpty));
+                + Seq<Command<Invoke>>(new CommandFace("section-restore", "Restore") switch {
+                    var restore => new Command<Invoke>.Menu(restore, [held.Done.Map(entry => Ran(
+                        string.Create(CultureInfo.InvariantCulture, $"{restore.Name}-{entry.Serial}"),
+                        LocalText.Of("{0} at {1}", Described(entry), stamp.Format(entry.At.InZone(zone).LocalDateTime)).Local,
+                        Heard(history.Restore(entry.Serial), scope)))]),
+                }).Filter(_ => !held.Done.IsEmpty));
 
     private static Command<Invoke> Ran<T>(string name, string caption, IO<T> run) =>
         new Command<Invoke>.Run(new CommandFace(name, caption), new Invoke.Effect(_ => run.Map(unit)));

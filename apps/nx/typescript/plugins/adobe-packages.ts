@@ -1,4 +1,4 @@
-import { Array, Config, Effect, FileSystem, Option, Path, Redacted, Schema, Stream } from 'effect';
+import { Array, Config, Effect, FileSystem, Formatter, Option, Path, Redacted, Schema, Stream } from 'effect';
 import { Base64, Xml, Zip } from 'effect/encoding';
 import { ChildProcess } from 'effect/process';
 
@@ -15,7 +15,11 @@ const Cep = Schema.Struct({ ExtensionBundleId: Schema.String }).annotate({ descr
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class TypeScriptError extends Schema.TaggedError<TypeScriptError, { readonly brand: unique symbol }>()('TypeScriptError', { message: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {}
+class TypeScriptError extends Schema.TaggedError<TypeScriptError, { readonly brand: unique symbol }>()('TypeScriptError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
+    override get message() {
+        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
+    }
+}
 
 // --- [TABLES] --------------------------------------------------------------------------
 

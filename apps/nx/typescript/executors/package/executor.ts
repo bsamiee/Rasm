@@ -28,7 +28,7 @@ const execute = (options: unknown, context: ExecutorContext) =>
             const [fs, path, { outputPath, timestampAuthority }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeUnknownEffect(Options)(options)]);
             const graph = yield* Effect.fromNullishOr(context.taskGraph);
             const task = yield* Effect.fromNullishOr(Record.values(graph.tasks).find(({ target }) => target.project === context.projectName && target.target === context.targetName));
-            const root = task.projectRoot ?? '';
+            const root = yield* Effect.fromNullishOr(task.projectRoot);
             const folders = Array.match(graph.dependencies[task.id] ?? [], {
                 onEmpty: () => [
                     {
@@ -46,7 +46,7 @@ const execute = (options: unknown, context: ExecutorContext) =>
                 const present = yield* Effect.filter(manifests, ({ manifest }) => fs.exists(manifest));
                 const accepted = yield* Effect.filter(present, ({ row, manifest }) => Effect.flatMap(fs.readFileString(manifest), row.accepts));
                 const packages = yield* Array.match(accepted, {
-                    onEmpty: () => TypeScriptError.make({ message: `${task.id} found no ${Array.map(Record.values(PACKAGES), Struct.get('manifest')).join(' or ')} in ${folders.map(({ folder }) => folder).join(', ')}` }),
+                    onEmpty: () => TypeScriptError.make({ subject: task.id, detail: `finds no ${Array.map(Record.values(PACKAGES), Struct.get('manifest')).join(' or ')} in ${folders.map(({ folder }) => folder).join(', ')}` }),
                     onNonEmpty: Effect.succeed,
                 });
                 const directory = path.join(context.root, destination);

@@ -25,7 +25,7 @@ final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
 private func disclaimResponsibility() throws(Errno) {
     func check(_ status: Int32) throws(Errno) { if status != 0 { throw Errno(rawValue: status) } }
     guard responsiblePID(getpid()) != getpid() else { return }
-    guard let executable: String = Bundle.main.executablePath else { throw .noSuchFileOrDirectory }
+    guard let executable = Bundle.main.executablePath else { throw .noSuchFileOrDirectory }
     var attributes: posix_spawnattr_t?
     try check(unsafe posix_spawnattr_init(&attributes))
     defer { _ = unsafe posix_spawnattr_destroy(&attributes) }
@@ -44,11 +44,11 @@ private func disclaim(_: UnsafeMutablePointer<posix_spawnattr_t?>, _: Int32) -> 
 @main
 enum Atelier {
     static func main() async {
-        let logger: Logger = Logger(for: Self.self)
-        let input: Result<Stat, Errno> = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }
+        let logger = Logger(for: Self.self)
+        let input = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }
         guard case .success(let stat) = input, [FileType.fifo, .socket].contains(stat.type) else {
             do {
-                let agents: [SMAppService] = try FileManager.default.contentsOfDirectory(
+                let agents = try FileManager.default.contentsOfDirectory(
                     at: Bundle.main.bundleURL.appending(components: "Contents", "Library", "LaunchAgents"),
                     includingPropertiesForKeys: nil,
                 )
@@ -62,15 +62,15 @@ enum Atelier {
             }
             return
         }
-        let definitions: ScriptingDefinitions = ScriptingDefinitions()
-        let calls: DispatchQueue = DispatchQueue(label: "Atelier.calls", attributes: .concurrent)
-        let output: DispatchSerialQueue = DispatchSerialQueue(label: "Atelier.output")
+        let definitions = ScriptingDefinitions()
+        let calls = DispatchQueue(label: "Atelier.calls", attributes: .concurrent)
+        let output = DispatchSerialQueue(label: "Atelier.output")
         do {
             try disclaimResponsibility()
             do { try checkAccessibilityTrust(prompting: true) } catch { logger.notice("Started without Accessibility trust, \(error, privacy: .public)") }
             if !CGRequestScreenCaptureAccess() { logger.notice("Started without Screen Recording grant") }
-            let updaterDelegate: UpdaterDelegate = UpdaterDelegate()
-            let updater: SPUStandardUpdaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
+            let updaterDelegate = UpdaterDelegate()
+            let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
             defer { extendLifetime((updater, updaterDelegate)) }
             try await serve(
                 reading: FileHandle.standardInput.bytes.jsonLines,

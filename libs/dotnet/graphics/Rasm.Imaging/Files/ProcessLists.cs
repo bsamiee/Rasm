@@ -1,10 +1,8 @@
-using System.Collections.Generic;
 using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.Json;
 using System.Xml;
 using System.Xml.Linq;
 using CommunityToolkit.HighPerformance;
@@ -33,16 +31,37 @@ internal sealed partial class ClfLogStyle {
 }
 
 public sealed partial class LutFormat {
+    [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+    [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+    [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+    private sealed partial class ClfNode {
+        public static readonly ClfNode Matrix = new("Matrix", Some<Func<XElement, Fin<LutTable>>>(ReadMatrix), ctf: false);
+        public static readonly ClfNode Lut1D = new("LUT1D", Some<Func<XElement, Fin<LutTable>>>(static node => ReadCurve(node, inverted: false)), ctf: false);
+        public static readonly ClfNode InverseLut1D = new("InverseLUT1D", Some<Func<XElement, Fin<LutTable>>>(static node => ReadCurve(node, inverted: true)), ctf: true);
+        public static readonly ClfNode Lut3D = new("LUT3D", Some<Func<XElement, Fin<LutTable>>>(ReadLattice), ctf: false);
+        public static readonly ClfNode Range = new("Range", Some<Func<XElement, Fin<LutTable>>>(ReadRange), ctf: false);
+        public static readonly ClfNode Log = new("Log", Some<Func<XElement, Fin<LutTable>>>(ReadLog), ctf: false);
+        public static readonly ClfNode Exponent = new("Exponent", Some<Func<XElement, Fin<LutTable>>>(static node => ReadExponent(node, ExponentParams, ExponentValue)), ctf: false);
+        public static readonly ClfNode Gamma = new("Gamma", Some<Func<XElement, Fin<LutTable>>>(static node => ReadExponent(node, "GammaParams", "gamma")), ctf: true);
+        public static readonly ClfNode Cdl = new("ASC_CDL", Some<Func<XElement, Fin<LutTable>>>(ReadCdl), ctf: false);
+        public static readonly ClfNode Description = new("Description", None, ctf: false);
+        public static readonly ClfNode InputDescriptor = new("InputDescriptor", None, ctf: false);
+        public static readonly ClfNode OutputDescriptor = new("OutputDescriptor", None, ctf: false);
+        public static readonly ClfNode Info = new("Info", None, ctf: false);
+
+        public Option<Func<XElement, Fin<LutTable>>> Read { get; }
+        public bool Ctf { get; }
+    }
+
+    [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+    private sealed partial class ClfInterpolation {
+        public static readonly ClfInterpolation Trilinear = new("trilinear", LutInterpolation.Trilinear);
+        public static readonly ClfInterpolation Tetrahedral = new("tetrahedral", LutInterpolation.Tetrahedral);
+
+        public LutInterpolation Interpolation { get; }
+    }
+
     private const string ProcessListNode = "ProcessList";
-    private const string MatrixNode = "Matrix";
-    private const string Lut1DNode = "LUT1D";
-    private const string Lut3DNode = "LUT3D";
-    private const string RangeNode = "Range";
-    private const string LogNode = "Log";
-    private const string ExponentNode = "Exponent";
-    private const string GammaNode = "Gamma";
-    private const string CdlNode = "ASC_CDL";
-    private const string InverseLut1DNode = "InverseLUT1D";
     private const string ArrayNode = "Array";
     private const string Dimensions = "dim";
     private const string Identifier = "id";
@@ -76,16 +95,7 @@ public sealed partial class LutFormat {
     private const string SopNode = "SOPNode";
     private const string SatNode = "SatNode";
     private static readonly XNamespace Asc = "urn:ASC:CDL:v1.01";
-    private static readonly FrozenSet<string> Descriptive = FrozenSet.Create(StringComparer.Ordinal, ["Description", "InputDescriptor", "OutputDescriptor", "Info"]);
-    private static readonly FrozenSet<string> CtfNodes = FrozenSet.Create(StringComparer.Ordinal, [GammaNode, InverseLut1DNode]);
-    private static readonly FrozenDictionary<string, Func<XElement, Fin<LutTable>>> Steps = new Dictionary<string, Func<XElement, Fin<LutTable>>>(StringComparer.Ordinal) {
-        [MatrixNode] = ReadMatrix, [Lut1DNode] = static node => ReadCurve(node, inverted: false), [InverseLut1DNode] = static node => ReadCurve(node, inverted: true),
-        [Lut3DNode] = ReadLattice, [RangeNode] = ReadRange, [LogNode] = ReadLog, [ExponentNode] = static node => ReadExponent(node, ExponentParams, ExponentValue),
-        [GammaNode] = static node => ReadExponent(node, "GammaParams", "gamma"), [CdlNode] = ReadCdl,
-    }.ToFrozenDictionary(StringComparer.Ordinal);
     private static readonly string Float = Token(OutputDepth.Float32);
-    private static readonly FrozenDictionary<string, float> Scales =
-        OutputDepth.Items.ToFrozenDictionary(Token, static depth => depth.Levels.Match(Some: static levels => levels.MaxCode, None: 1f), StringComparer.Ordinal);
 
     public static Fin<Seq<(Option<string> Id, LutTable.Cdl Correction)>> Corrections(ReadOnlyMemory<byte> bytes) => Loaded(bytes).Bind(static document => Corrections(document));
 
@@ -102,12 +112,12 @@ public sealed partial class LutFormat {
             document =>
                 from root in document.Root is { Name.LocalName: ProcessListNode } held ? Fin.Succ(held) : ImagingFault.Of(ImagingReason.Malformed, key, document.Root is { } other ? Line(other) : 1)
                 from steps in toSeq(root.Elements())
-                    .Filter(static node => !Flag(node, "bypass") && !Descriptive.Contains(node.Name.LocalName))
-                    .Traverse(node => Steps.TryGetValue(node.Name.LocalName, out Func<XElement, Fin<LutTable>>? read) && (ctf || !CtfNodes.Contains(node.Name.LocalName))
-                        ? read(node)
+                    .Filter(static node => !Flag(node, "bypass"))
+                    .Traverse(node => ClfNode.TryGet(node.Name.LocalName, out ClfNode? kind) && (ctf || !kind.Ctf)
+                        ? kind.Read.Traverse(read => read(node)).As()
                         : ImagingFault.Of(ImagingReason.Unsupported, node.Name.LocalName, Line(node)))
                     .As()
-                select LutTable.Of(steps),
+                select LutTable.Of(steps.Somes()),
             (table, name) => table.Steps.TraverseM(step => Nodes(step, ctf)).As().Map(nodes =>
                 new XElement(ProcessListNode, new XAttribute(Identifier, name), ctf ? new XAttribute("version", "2") : new XAttribute("compCLFversion", "3"), nodes.Flatten())));
 
@@ -160,7 +170,9 @@ public sealed partial class LutFormat {
         from read in (
                 Depths(node),
                 Values<float>(node),
-                Enum.TryParse(Attribute(node, Interpolation).IfNone(nameof(LutInterpolation.Trilinear)), ignoreCase: true, out LutInterpolation interpolation) ? Fin.Succ(interpolation) : Malformed(node))
+                Attribute(node, Interpolation).Match<Fin<LutInterpolation>>(
+                    Some: token => ClfInterpolation.TryGet(token, out ClfInterpolation? held) ? held.Interpolation : Malformed(node),
+                    None: static () => ClfInterpolation.Trilinear.Interpolation))
             .Apply(static (scales, array, interpolation) => (Scales: scales, Array: array, Interpolation: interpolation))
             .As()
         from size in (read.Array.Dimensions is [var red, var green, var blue, 3] && red == green && green == blue && read.Array.Values.Length == 3 * red * red * red ? Some(red) : None).ToFin(Malformed(node))
@@ -174,7 +186,7 @@ public sealed partial class LutFormat {
         let style = Attribute(node, Style)
         let clamps = !style.Exists(static held => held is NoClamp)
         let bounded = (from low in stated.Minimum from high in stated.Maximum select low.In != high.In).IfNone(clamps && stated.Minimum.IsSome != stated.Maximum.IsSome)
-        from _ in ImagingFault.Unless(style.ForAll(static held => held is Clamp or NoClamp) && bounded, ImagingReason.Malformed, RangeNode, Line(node))
+        from _ in ImagingFault.Unless(style.ForAll(static held => held is Clamp or NoClamp) && bounded, ImagingReason.Malformed, ClfNode.Range.Key, Line(node))
         select (LutTable)new LutTable.Range(stated.Minimum, stated.Maximum, clamps);
 
     private static Fin<LutTable> ReadLog(XElement node) =>
@@ -226,7 +238,7 @@ public sealed partial class LutFormat {
     private static Fin<LutTable> Indexed(XElement node, float scale, int length, LutTable table) =>
         Child(node, "IndexMap").Match(
             Some: map =>
-                from entries in (map.Value.Split(Blanks.ToCharArray(), StringSplitOptions.RemoveEmptyEntries) is [var first, var second]
+                from entries in (map.Value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries) is [var first, var second]
                     ? from low in IndexEntry(first) from high in IndexEntry(second) select (Low: low, High: high)
                     : None).ToFin(Malformed(map))
                 select LutTable.Of([new LutTable.Range((entries.Low.Input / scale, entries.Low.Index / (length - 1)), (entries.High.Input / scale, entries.High.Index / (length - 1))), table]),
@@ -278,7 +290,10 @@ public sealed partial class LutFormat {
         (Depth(node, InBitDepth), Depth(node, OutBitDepth)).Apply(static (input, output) => (In: input, Out: output)).As();
 
     private static Fin<float> Depth(XElement node, string name) =>
-        Scales.TryGetValue(Attribute(node, name).IfNone(Float), out float scale) ? scale : Malformed(node);
+        Attribute(node, name).Match<Fin<OutputDepth>>(
+                Some: token => toSeq(OutputDepth.Items).Find(depth => string.Equals(Token(depth), token, StringComparison.Ordinal)).ToFin(Malformed(node)),
+                None: static () => OutputDepth.Float32)
+            .Map(static depth => depth.Scale);
 
     private static Fin<(int[] Dimensions, T[] Values)> Values<T>(XElement node) where T : struct, INumberBase<T> =>
         (from array in Child(node, ArrayNode)
@@ -303,33 +318,33 @@ public sealed partial class LutFormat {
         step.Switch(
             ctf,
             cube: static (_, cube) => Some(Normalized(cube.Lattice.DomainMinimum, cube.Lattice.DomainMaximum).Add(Node(
-                Lut3DNode,
-                new XAttribute(Interpolation, JsonNamingPolicy.CamelCase.ConvertName(cube.Interpolation.ToString())),
+                ClfNode.Lut3D.Key,
+                new XAttribute(Interpolation, ClfInterpolation.Items.First(item => item.Interpolation == cube.Interpolation).Key),
                 Grid([cube.Lattice.Size, cube.Lattice.Size, cube.Lattice.Size, 3], Transposed(cube.Lattice.Data, cube.Lattice.Size, 1f))))),
             channelCurve: static (ctf, curve) => (curve.Inverted, ctf) switch {
-                (false, _) => Some((curve.Table.HalfDomain ? [] : Normalized(curve.Table.DomainMinimum, curve.Table.DomainMaximum)).Add(Curved(Lut1DNode, curve))),
-                (true, true) => Some(Seq(Curved(InverseLut1DNode, curve)) + (curve.Table.HalfDomain ? [] : Restored(curve.Table.DomainMinimum, curve.Table.DomainMaximum))),
+                (false, _) => Some((curve.Table.HalfDomain ? [] : Normalized(curve.Table.DomainMinimum, curve.Table.DomainMaximum)).Add(Curved(ClfNode.Lut1D.Key, curve))),
+                (true, true) => Some(Seq(Curved(ClfNode.InverseLut1D.Key, curve)) + (curve.Table.HalfDomain ? [] : Restored(curve.Table.DomainMinimum, curve.Table.DomainMaximum))),
                 _ => None,
             },
             affine: static (_, affine) => Some(Seq(Matrix(affine.Matrix))),
             range: static (_, range) => Some(Seq(Node(
-                RangeNode,
+                ClfNode.Range.Key,
                 new XAttribute(Style, range.Clamps ? Clamp : NoClamp),
                 range.Minimum.ToSeq().Bind(static bound => Seq(new XElement(MinIn, Invariant(bound.In)), new XElement(MinOut, Invariant(bound.Out)))),
                 range.Maximum.ToSeq().Bind(static bound => Seq(new XElement(MaxIn, Invariant(bound.In)), new XElement(MaxOut, Invariant(bound.Out))))))),
             log: static (_, log) => Some(Seq(Node(
-                LogNode,
+                ClfNode.Log.Key,
                 new XAttribute(Style, ClfLogStyle.Items.First(style => style.Base.IsNone && style.Camera == log.Curve.Camera.IsSome && style.Inverted == log.Inverted).Key),
                 Parameters(LogParams, channel =>
                     Seq((LogBase, log.Curve.Base), (LogSideSlope, log.Curve.LogSideSlope[channel]), (LogSideOffset, log.Curve.LogSideOffset[channel]), (LinSideSlope, log.Curve.LinSideSlope[channel]), (LinSideOffset, log.Curve.LinSideOffset[channel]))
                     + log.Curve.Camera.ToSeq().Bind(camera => Seq((LinSideBreak, camera.LinSideBreak[channel]), (LinearSlope, camera.LinearSlope[channel]))))))),
             exponent: static (_, exponent) => Some(Seq(Node(
-                ExponentNode,
+                ClfNode.Exponent.Key,
                 new XAttribute(Style, exponent.Style.Key),
                 Parameters(ExponentParams, channel => exponent.Style.MonCurve
                     ? Seq((ExponentValue, exponent.Power[channel]), (OffsetValue, exponent.Offset[channel]))
                     : Seq((ExponentValue, exponent.Power[channel])))))),
-            cdl: static (_, cdl) => Some(Seq(Node(CdlNode, new XAttribute(Style, cdl.Style.Key), CorrectionNodes(XNamespace.None, cdl)))),
+            cdl: static (_, cdl) => Some(Seq(Node(ClfNode.Cdl.Key, new XAttribute(Style, cdl.Style.Key), CorrectionNodes(XNamespace.None, cdl)))),
             fixedFunction: static (_, _) => Option<Seq<XElement>>.None,
             sequence: static (ctf, sequence) => sequence.Steps.TraverseM(step => Nodes(step, ctf)).As().Map(static nodes => nodes.Flatten()));
 
@@ -350,7 +365,7 @@ public sealed partial class LutFormat {
 
     private static XElement Matrix(Matrix4x4 matrix) =>
         (matrix.Translation == Vector3.Zero ? 3 : 4) switch {
-            var columns => Node(MatrixNode, Grid([3, columns], Cells(matrix, columns))),
+            var columns => Node(ClfNode.Matrix.Key, Grid([3, columns], Cells(matrix, columns))),
         };
 
     private static Seq<XElement> Normalized(Vector3 minimum, Vector3 maximum) =>

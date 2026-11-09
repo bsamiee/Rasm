@@ -43,7 +43,7 @@ Graph walks are lazy sequences over one `OrderedSet` that is both visited set an
 func reachable<Node: Hashable, Successors: Sequence<Node>>(from start: Node, successors: @escaping (Node) -> Successors) -> some Sequence<Node> {
     sequence(state: (found: OrderedSet([start]), next: 0)) { state in
         guard state.next < state.found.count else { return nil }
-        let node: Node = state.found[state.next]
+        let node = state.found[state.next]
         state.found.append(contentsOf: successors(node))
         state.next += 1
         return node
@@ -94,7 +94,7 @@ indirect enum Expression: Sendable {
 let evaluated: Double = try expression.fold(
     number: { value throws(OrderError) in value },
     variable: { name throws(OrderError) in
-        guard let value: Double = bindings[name] else { throw OrderError(subject: "variable \(name)", reason: .missing) }
+        guard let value = bindings[name] else { throw OrderError(subject: "variable \(name)", reason: .missing) }
         return value
     },
     apply: { op, left, right throws(OrderError) in op(left, right) },

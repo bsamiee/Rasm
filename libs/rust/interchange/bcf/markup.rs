@@ -7,7 +7,7 @@ use xot::Node;
 use crate::{
     BcfError, CommentUuid, DateTime, DocumentReferenceUuid, DocumentUuid, FILE, GUID, IS_EXTERNAL, Image, REFERENCE, TOPIC, Text, TopicUuid, ViewpointUuid,
     visualization::Visualization,
-    xml::{Codec, Keyed, Reader, Writer, codec, document, local_name, required, resolve, sides, stated, stored},
+    xml::{Codec, Keyed, Reader, Writer, codec, document, holds_text, required, resolve, sides, stored},
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ impl Codec for Resource {
         let holder = reader.xot.parent(node).unwrap_or(node);
         let stated_external = reader
             .attribute::<Option<bool>>(holder, &[], IS_EXTERNAL)
-            .map2(Text::read(reader, node), |external, reference| (external.unwrap_or_else(|| local_name(reader.xot, holder) == FILE), reference));
+            .map2(Text::read(reader, node), |external, reference| (external.unwrap_or_else(|| reader.xot.name(FILE).is_some_and(|file| reader.xot.node_name(holder) == Some(file))), reference));
         stated_external
             .ok()
             .map_or_else(Validated::Fail, |(external, reference)| Validated::from(if external { Ok(None) } else { reader.file(&reference).map(Some) }.map(|content| Self { reference, content })))
@@ -88,13 +88,13 @@ impl Codec for Resource {
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> {
         let Self { reference, content } = self;
         let holder = writer.xot.parent(node).unwrap_or(node);
-        let external = content.is_none();
-        writer.attribute(holder, &[], IS_EXTERNAL, &(external != (local_name(writer.xot, holder) == FILE)).then_some(external))?;
+        let (external, file) = (content.is_none(), writer.xot.add_name(FILE));
+        writer.attribute(holder, &[], IS_EXTERNAL, &(external != (writer.xot.node_name(holder) == Some(file))).then_some(external))?;
         reference.write(writer, node)?;
         content.iter().try_for_each(|content| writer.file(reference, content, zip::CompressionMethod::Deflated))
     }
 
-    fn present(xot: &xot::Xot, node: Node) -> bool { stated(xot, node) }
+    fn present(xot: &xot::Xot, node: Node) -> bool { holds_text(xot, node) }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

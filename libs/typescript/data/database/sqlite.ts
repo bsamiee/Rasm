@@ -1,9 +1,10 @@
 import { Array, Cause, Effect, Equal, Filter, Function, Graph, HashSet, Layer, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
-import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
+import { type SqlClient, SqlSchema, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import { Column } from '#/column';
 import { Engine } from '#/engine';
 import { constant, diff, identifier, literal, referentialActions, render, unsupported } from '#/internal/reconcile';
+import { Tokenizer } from '#/relation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -18,7 +19,7 @@ const SqliteTable = Schema.Struct({
     strict: Schema.BooleanFromBit,
     withoutRowid: Schema.BooleanFromBit,
     sql: Schema.String,
-    columns: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, required: Schema.BooleanFromBit, default: Schema.OptionFromNullOr(Schema.String), hidden: Schema.Int })),
+    columns: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.OptionFromNullOr(Schema.String), required: Schema.BooleanFromBit, default: Schema.OptionFromNullOr(Schema.String), hidden: Schema.Int })),
     references: Schema.Array(Schema.Struct({ target: Schema.String, onDelete: Schema.Literals(referentialActions), onUpdate: Schema.Literals(referentialActions), columns: Schema.NonEmptyArray(Schema.String), to: Schema.Array(Schema.String) })),
     indexes: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String, unique: Schema.BooleanFromBit, partial: Schema.BooleanFromBit, keys: Schema.Array(Schema.Struct({ name: Schema.NullOr(Schema.String), collation: Schema.String, descending: Schema.BooleanFromBit })) })),
     triggers: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
@@ -30,14 +31,14 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     // --- [ROWS]
 
     static readonly types = { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', decimal: 'TEXT', real: 'REAL', boolean: 'INTEGER', blob: 'BLOB' } as const satisfies Engine['Service']['types'];
-    static readonly member: Engine['Service']['member'] = (sql, field) => sql`e.value ->> ${sql.literal(literal(`$."${field}"`))}`;
+    static readonly member: Engine['Service']['member'] = (sql, field) => sql`e.value ->> ${sql.literal(literal(['$."', field, '"'].join('')))}`;
     static readonly element: Engine['Service']['element'] = (sql, { kind }, text) => (kind === 'blob' ? sql`unhex(${text})` : text);
     static readonly texts: Engine['Service']['texts'] = (sql, body) => sql.join(' ', false)([sql`json_each(${body})`, 'e']);
     static readonly insertion: Engine['Service']['insertion'] = (sql, body) => sql.join(' ', false)([Sqlite.texts(sql, body), 'WHERE true']);
     static readonly read: Engine['Service']['read'] = (sql, { name, textual }, scope) => (textual ? sql`CAST(${scope}${sql(name)} AS TEXT) AS ${sql(name)}` : sql`${scope}${sql(name)}`);
     static readonly upsert: Engine['Service']['upsert'] = ({ sql, engine, owner, prefix, unqualified, order, ignore, element, keys, reads, inserting, flags }, body, set) => {
-        const inserted = (flag: 0 | 1) => sql`${sql.literal(`${flag}`)} AS ${sql(flags.inserted)}`;
-        const update = sql`UPDATE ${owner} SET (${sql.csv(set.map(({ name }) => sql`${sql(name)}`))}) = (${sql.csv(set.map(element))}) FROM ${Sqlite.texts(sql, body)} WHERE (${keys(prefix)}) = (${order}) AND (${sql.csv(set.map(({ name }) => sql`${prefix}${sql(name)}`))}) IS DISTINCT FROM (${sql.csv(set.map(element))}) RETURNING ${reads(unqualified, inserted(0))}`;
+        const inserted = (flag: 0 | 1) => sql`${sql.literal(flag.toString())} AS ${sql(flags.inserted)}`;
+        const update = sql`UPDATE ${owner} SET (${sql.csv(set.map(({ name }) => Statement.fragment([sql(name)])))}) = (${sql.csv(set.map(element))}) FROM ${Sqlite.texts(sql, body)} WHERE (${keys(prefix)}) = (${order}) AND (${sql.csv(set.map(({ name }) => sql.join('', false)([prefix, Statement.fragment([sql(name)])])))}) IS DISTINCT FROM (${sql.csv(set.map(element))}) RETURNING ${reads(unqualified, inserted(0))}`;
         return Effect.map(engine.atomic([inserting(body, ignore, reads(unqualified, inserted(1))), ...(Array.isReadonlyArrayNonEmpty(set) ? [update] : [])]), Array.flatten);
     };
     static readonly ensure: Engine['Service']['ensure'] = ({ sql, engine, owner, prefix, unqualified, order, ignore, keys, reads, inserting }, body) =>
@@ -46,9 +47,14 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly search: Engine['Service']['search'] = ({ sql, name: table, owner, prefix, keys, reads, flags }, { columns: searched, tokenizer }, text, pattern, marks, count) => {
         const virtual = sql(`${table}_fts`);
         const gram = 3;
-        const terms = (tokenizer === 'trigram' ? [text] : text.trim().split(words)).map((term) => `"${term.replaceAll('"', '""')}"`).join(' ');
-        const marked = Option.match(marks, { onNone: () => sql.literal('NULL'), onSome: ({ open, close }) => sql`json_object(${sql.csv(searched.flatMap((entry, index) => [literal(entry.field), sql`highlight(${virtual}, ${sql.literal(`${index}`)}, ${open}, ${close})`]))})` });
-        const [filter, rank] = tokenizer === 'trigram' && [...text].length < gram ? [sql.or(searched.map(({ name }) => sql`${virtual}.${sql(name)} LIKE ${pattern} ESCAPE '\\'`)), sql.literal('0')] : [sql`${virtual} MATCH ${terms}`, sql`-${virtual}."rank"`];
+        const terms = Tokenizer.$match(tokenizer, { Trigram: () => [text], Words: () => text.trim().split(words) })
+            .map((term) => `"${term.replaceAll('"', '""')}"`)
+            .join(' ');
+        const marked = Option.match(marks, {
+            onNone: () => sql.literal('NULL'),
+            onSome: ({ open, close }) => sql.join('', false)(['json_object(', sql.csv(searched.flatMap((entry, index) => [literal(entry.field), sql`highlight(${virtual}, ${sql.literal(index.toString())}, ${open}, ${close})`])), ')']),
+        });
+        const [filter, rank] = Tokenizer.$is('Trigram')(tokenizer) && [...text].length < gram ? [sql.or(searched.map(({ name }) => sql`${virtual}.${sql(name)} LIKE ${pattern} ESCAPE '\\'`)), sql.literal('0')] : [sql`${virtual} MATCH ${terms}`, sql`-${virtual}."rank"`];
         return sql`SELECT ${reads(prefix)}, ${rank} AS ${sql(flags.rank)}, ${marked} AS ${sql(flags.highlight)} FROM ${virtual} JOIN ${owner} ON ${owner}."rowid" = ${virtual}."rowid" WHERE ${filter} ORDER BY ${virtual}."rank", ${keys(prefix)} LIMIT ${count}`;
     };
 
@@ -77,12 +83,15 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const [virtual, table, values] = [sql(name), sql(owner), sql.csv(searched.map((entry) => sql`${sql(entry.name)}`))];
         const row = (prefix: string) => sql.csv(searched.map((entry) => sql`${sql.literal(prefix)}.${sql(entry.name)}`));
         const [inserted, deleted] = [sql`INSERT INTO ${virtual} ("rowid", ${values}) VALUES (NEW."rowid", ${row('NEW')});`, sql`INSERT INTO ${virtual} (${virtual}, "rowid", ${values}) VALUES ('delete', OLD."rowid", ${row('OLD')});`];
-        const trigger = (event: string, verb: string, body: Statement.Fragment) => ({ name: `${name}_${event}`, create: sql`CREATE TRIGGER ${sql(`${name}_${event}`)} AFTER ${sql.literal(verb)} ON ${table} BEGIN ${body} END` });
+        const trigger = (event: string, verb: string, body: Statement.Fragment) => {
+            const named = `${name}_${event}`;
+            return { name: named, create: sql`CREATE TRIGGER ${sql(named)} AFTER ${sql.literal(verb)} ON ${table} BEGIN ${body} END` };
+        };
         return {
             indexes: [],
             virtual: Option.some({
                 name,
-                create: sql`CREATE VIRTUAL TABLE ${virtual} USING fts5 (${values}, content = ${sql.literal(literal(owner))}, content_rowid = 'rowid', tokenize = ${sql.literal(literal(tokenizer === 'trigram' ? tokenizer : tokenizer.tokenize))})`,
+                create: sql`CREATE VIRTUAL TABLE ${virtual} USING fts5 (${values}, content = ${sql.literal(literal(owner))}, content_rowid = 'rowid', tokenize = ${sql.literal(literal(Tokenizer.$match(tokenizer, { Trigram: () => 'trigram', Words: ({ tokenize }) => tokenize })))})`,
                 triggers: [trigger('insert', 'INSERT', inserted), trigger('delete', 'DELETE', deleted), trigger('update', 'UPDATE', sql.join(' ', false)([deleted, inserted]))],
                 rebuild: sql`INSERT INTO ${virtual} (${virtual}) VALUES ('rebuild')`,
             }),
@@ -140,8 +149,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             autoincrement: body.some(({ token }) => token.toUpperCase() === 'AUTOINCREMENT'),
             identity: Option.getOrNull(comment(Array.findFirst(Array.take(tokens, Math.max(opening, 0)), (token) => token.startsWith('/*')))),
             columns: columns.map((column) => {
-                const found = Record.get(definitions, column.name);
-                return { ...column, identity: Option.getOrNull(Option.flatMap(found, Struct.get('identity'))), constrained: Option.exists(found, Struct.get('constrained')) };
+                const parsed = Record.get(definitions, column.name);
+                return { ...column, identity: Option.getOrNull(Option.flatMap(parsed, Struct.get('identity'))), constrained: Option.exists(parsed, Struct.get('constrained')) };
             }),
         };
     };
@@ -153,7 +162,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                 sql`WITH relations AS (SELECT l.name, l.type, l.strict, l.wr, m.sql FROM pragma_table_list l JOIN sqlite_schema m ON m.name = l.name WHERE l.schema = 'main' AND l.name NOT GLOB 'sqlite_*' AND (${sql.driver !== 'd1'} OR instr(l.name, '_cf_') <> 1))
                     SELECT json_object(
                         'tables', (SELECT json_group_array(json_object('name', r.name, 'strict', r.strict, 'withoutRowid', r.wr, 'sql', r.sql,
-                            'columns', (SELECT json_group_array(json_object('name', x.name, 'type', x.type, 'required', x."notnull", 'default', x.dflt_value, 'hidden', x.hidden)) FROM pragma_table_xinfo(r.name) x),
+                            'columns', (SELECT json_group_array(json_object('name', x.name, 'type', nullif(x.type, ''), 'required', x."notnull", 'default', x.dflt_value, 'hidden', x.hidden)) FROM pragma_table_xinfo(r.name) x),
                             'references', (SELECT json_group_array(json_object('target', f."table", 'onDelete', f.on_delete, 'onUpdate', f.on_update,
                                 'columns', (SELECT json_group_array(k."from" ORDER BY k.seq) FROM pragma_foreign_key_list(r.name) k WHERE k.id = f.id),
                                 'to', (SELECT json_group_array(k."to" ORDER BY k.seq) FROM pragma_foreign_key_list(r.name) k WHERE k.id = f.id AND k."to" IS NOT NULL))) FROM pragma_foreign_key_list(r.name) f WHERE f.seq = 0),
@@ -183,7 +192,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                 entry.fields,
                 Filter.fromPredicateOption(({ found, ...field }) => found.pipe(Option.bindTo('found'), Option.map(Struct.assign(field)))),
             );
-            const wanted = entry.rendered.indexes.map((index) => ({ ...index, created: index.text(''), prior: identifier([entry.live.name, ...index.parts.map(entry.original)]) }));
+            const wanted = entry.rendered.indexes.map((index) => ({ ...index, created: index.text([]), prior: identifier([entry.live.name, ...index.parts.map(entry.original)]) }));
             const wantedNames = new Set(wanted.map(Struct.get('name')));
             const indexesByName = Map.groupBy(
                 wanted.flatMap((index) => Array.dedupe([index.name, index.prior]).map((name) => ({ name, index }))),
@@ -219,7 +228,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                         (entry.live.name !== entry.declared.name && entry.live.identity === null) ||
                         fields.some(({ definition, found }) => found.name !== definition.name && found.identity === null) ||
                         fields.some(
-                            ({ definition, found: { type, required, default: stored }, recorded }) => definition.retype && (type !== definition.type || required === definition.nullable || !Equal.equals(stored, definition.default) || !Option.contains(Option.map(recorded, Struct.get('digest')), definition.digest)),
+                            ({ definition, found: { type, required, default: stored }, recorded }) =>
+                                definition.retype && (!Option.contains(type, definition.type) || required === definition.nullable || !Equal.equals(stored, definition.default) || !Option.contains(Option.map(recorded, Struct.get('digest')), definition.digest)),
                         )),
                 dropped,
                 indexes: wanted.map(({ created }) => created),
@@ -261,7 +271,9 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             const copied = sql.csv([...(entry.live.withoutRowid || entry.declared.withoutRowid ? [] : [quoted('rowid')]), ...[...entry.fields.filter(({ definition, found }) => Option.isNone(definition.projection) && Option.isSome(found)).map(({ definition }) => definition), ...kept].map(({ name }) => quoted(name))]);
             const observed = sql.csv([...(entry.live.withoutRowid ? [] : [quoted('rowid')]), ...entry.live.columns.map(({ name }) => quoted(entry.renamed(name)))]);
             const elements = [
-                ...kept.map(({ name, type, required: needed, default: stored, identity }) => sql.join(' ', false)([sql`${sql(name)}${sql.literal(identity === null ? '' : ` /* ${identity} */`)}`, type === '' ? 'ANY' : type, ...(needed ? ['NOT NULL'] : []), ...Option.toArray(stored).map((value) => `DEFAULT ${value}`)])),
+                ...kept.map(({ name, type, required: needed, default: stored, identity }) =>
+                    sql.join(' ', false)([sql`${sql(name)}`, ...Array.fromNullishOr(identity).map((text) => `/* ${text} */`), Option.getOrElse(type, () => 'ANY'), ...(needed ? ['NOT NULL'] : []), ...Option.toArray(stored).map((value) => `DEFAULT ${value}`)]),
+                ),
                 ...entry.unstated.map(({ columns, target, to, onDelete, onUpdate }) =>
                     sql.join(' ', false)(['FOREIGN KEY', sql`(${sql.csv(columns.map(quoted))})`, 'REFERENCES', quoted(temporary(target)), ...Array.match(to, { onEmpty: () => [], onNonEmpty: (keys) => [sql`(${sql.csv(keys.map(quoted))})`] }), `ON UPDATE ${onUpdate} ON DELETE ${onDelete}`]),
                 ),
@@ -293,13 +305,13 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             session: [],
             drifted: ({ live: row }, { definition, found, recorded }) => {
                 const digestChanged = Option.exists(Option.flatMapNullishOr(recorded, Struct.get('digest')), (digest) => digest !== definition.digest);
-                return row.strict && Option.exists(found, ({ type, required: needed, default: stored }) => type !== definition.type || needed === definition.nullable || !Equal.equals(stored, definition.default) || (Option.isNone(definition.projection) && digestChanged));
+                return row.strict && Option.exists(found, ({ type, required: needed, default: stored }) => !Option.contains(type, definition.type) || needed === definition.nullable || !Equal.equals(stored, definition.default) || (Option.isNone(definition.projection) && digestChanged));
             },
             preamble: [],
             opening: Array.isReadonlyArrayNonEmpty(rebuilds) || Array.isReadonlyArrayNonEmpty(resolved.removed) ? [sql`PRAGMA defer_foreign_keys = on`] : [],
             statements: [
                 ...this.virtual.filter(({ name }) => resolved.removed.some((owner) => name === `${owner}_fts`)).map(({ name }) => sql`DROP TABLE ${sql(name)}`),
-                ...resolved.created.flatMap(({ rendered: table }) => [table.create, ...table.indexes.map(({ text }) => text('')), ...Option.match(table.virtual, { onNone: () => [], onSome: (virtual) => [virtual.create, ...virtual.triggers.map(({ create }) => create)] })]),
+                ...resolved.created.flatMap(({ rendered: table }) => [table.create, ...table.indexes.map(({ text }) => text([])), ...Option.match(table.virtual, { onNone: () => [], onSome: (virtual) => [virtual.create, ...virtual.triggers.map(({ create }) => create)] })]),
                 ...altered.flatMap((entry) => [
                     ...entry.dropped.map(({ name }) => sql`DROP INDEX ${sql(name)}`),
                     ...entry.search.dropped,

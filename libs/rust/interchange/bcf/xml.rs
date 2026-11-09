@@ -94,12 +94,12 @@ where T: Simple
 {
     fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, BcfError> {
         let text = reader.xot.string_value(node);
-        Validated::from(Self::decode(text.trim()).map_err(reader.malformed(local_name(reader.xot, node))))
+        Validated::from(reader.local_name(node).and_then(|element| Self::decode(text.trim()).map_err(reader.malformed(element))))
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> { writer.xot.append_text(node, &self.encode()).map_err(writer.xml()) }
 
-    fn present(xot: &Xot, node: Node) -> bool { stated(xot, node) }
+    fn present(xot: &Xot, node: Node) -> bool { holds_text(xot, node) }
 }
 
 impl Codec for () {
@@ -224,6 +224,10 @@ pub(super) struct Reader<'xml> {
 }
 
 impl Reader<'_> {
+    pub(super) fn local_name(&self, node: Node) -> Result<&str, BcfError> {
+        self.xot.node_name(node).map(|name| self.xot.local_name_str(name)).ok_or_else(|| BcfError::Xml { entry: self.entry.into(), source: xot::Error::NotElement(node) })
+    }
+
     pub(super) fn refused(&self, element: &str, text: Option<&str>) -> BcfError { BcfError::Element { entry: self.entry.into(), element: element.into(), text: text.map(Into::into) } }
 
     fn malformed(&self, element: &str) -> impl FnOnce(BcfError) -> BcfError { move |source| BcfError::Content { entry: self.entry.into(), element: element.into(), source: Box::new(source) } }
@@ -403,13 +407,13 @@ pub(super) fn document<T>(
         Builder::from_custom_bytes(array::from_fn(|index| digest[index])).into_uuid()
     };
     let documents = |xot: &mut Xot, document_element: Node, held: &Upgrade| -> Result<(), BcfError> {
-        let (external, guid) = (xot.add_name("isExternal"), xot.add_name(GUID));
-        xot.descendants(document_element).collect::<Vec<_>>().into_iter().enumerate().try_for_each(|(position, node)| match local_name(xot, node) {
-            "DocumentReference" if xot.get_attribute(node, guid).is_none() => {
+        let (external, guid, reference, referenced) = (xot.add_name("isExternal"), xot.add_name(GUID), xot.add_name("DocumentReference"), xot.add_name("ReferencedDocument"));
+        xot.descendants(document_element).collect::<Vec<_>>().into_iter().enumerate().try_for_each(|(position, node)| match xot.node_name(node) {
+            Some(name) if name == reference && xot.get_attribute(node, guid).is_none() => {
                 xot.set_attribute(node, guid, derived(&[entry.as_bytes(), &position.to_le_bytes()]).to_string());
                 Ok(())
             }
-            "ReferencedDocument" => {
+            Some(name) if name == referenced => {
                 if xot.parent(node).and_then(|holder| xot.get_attribute(holder, external)).map(bool::decode).transpose()?.unwrap_or_default() {
                     rename(xot, node, "Url");
                 } else {
@@ -423,7 +427,7 @@ pub(super) fn document<T>(
                 }
                 Ok(())
             }
-            _ => Ok(()),
+            Some(_) | None => Ok(()),
         })
     };
     let upgraded = |xot: &mut Xot, document: Node| -> Result<(), xot::Error> {
@@ -439,7 +443,8 @@ pub(super) fn document<T>(
             (&["Components"], "ViewSetupHints", "ViewSetupHints", &["Components", "Visibility"]),
         ];
         let document_element = xot.document_element(document)?;
-        if local_name(xot, document_element) == "ProjectExtension" {
+        let extension = xot.add_name("ProjectExtension");
+        if xot.node_name(document_element) == Some(extension) {
             rename(xot, document_element, PROJECT_INFO.1);
         }
         UPGRADES.iter().try_for_each(|&(parents, child, renamed, ancestors)| -> Result<(), xot::Error> {
@@ -455,16 +460,16 @@ pub(super) fn document<T>(
             })
         })?;
         let (external, is_external, aspect) = (xot.add_name("isExternal"), xot.add_name(IS_EXTERNAL), xot.add_name(ASPECT_RATIO));
+        let cameras = [ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA].map(|camera| xot.add_name(camera));
         xot.descendants(document_element).collect::<Vec<_>>().into_iter().try_for_each(|node| -> Result<(), xot::Error> {
             if let Some(value) = xot.get_attribute(node, external).map(str::to_owned) {
                 xot.set_attribute(node, is_external, value);
             }
-            match local_name(xot, node) {
-                ORTHOGONAL_CAMERA | PERSPECTIVE_CAMERA if xot.children(node).all(|child| xot.element(child).is_none_or(|element| element.name() != aspect)) => {
-                    let ratio = appended(xot, node, ASPECT_RATIO)?;
-                    xot.append_text(ratio, "1")
-                }
-                _ => Ok(()),
+            if xot.node_name(node).is_some_and(|name| cameras.contains(&name)) && xot.children(node).all(|child| xot.node_name(child) != Some(aspect)) {
+                let ratio = appended(xot, node, ASPECT_RATIO)?;
+                xot.append_text(ratio, "1")
+            } else {
+                Ok(())
             }
         })
     };
@@ -493,10 +498,9 @@ pub(super) fn stored(store: &Store<'_>, (entry, root): (&str, &'static str), wri
     store(entry, text.as_bytes(), Sha256::digest(text.as_bytes()), CompressionMethod::Deflated)
 }
 
-pub(super) fn resolve(entry: &str, name: &str) -> String {
-    let (folder, _) = entry.rsplit_once('/').unwrap_or_default();
-    Utf8UnixPath::new(folder).join(name.replace('\\', "/")).normalize().as_str().trim_start_matches('/').to_owned()
-}
+pub(super) fn resolve(entry: &str, name: &str) -> String { normalized(Utf8UnixPath::new(entry).with_file_name(name.replace('\\', "/")).as_str()) }
+
+pub(super) fn normalized(name: &str) -> String { Utf8UnixPath::new(&name.replace('\\', "/")).normalize().as_str().trim_start_matches('/').to_owned() }
 
 pub(super) fn unique<K, V>(entry: &str, entries: Vec<(TypedUuid<K>, V)>) -> Validated<IndexMap<TypedUuid<K>, V>, BcfError>
 where
@@ -517,9 +521,7 @@ pub(super) fn archive_error(entry: &str) -> impl Fn(ZipError) -> BcfError { move
 
 // --- [TREES]
 
-pub(super) fn local_name(xot: &Xot, node: Node) -> &str { xot.element(node).map_or("", |element| xot.local_name_str(element.name())) }
-
-pub(super) fn stated(xot: &Xot, node: Node) -> bool { xot.descendants(node).filter_map(|child| xot.text_str(child)).any(|text| !text.trim().is_empty()) }
+pub(super) fn holds_text(xot: &Xot, node: Node) -> bool { xot.descendants(node).filter_map(|child| xot.text_str(child)).any(|text| !text.trim().is_empty()) }
 
 pub(super) fn named<'xml>(xot: &'xml Xot, node: Node, name: &str) -> impl Iterator<Item = Node> + use<'xml> {
     let name = xot.name(name);

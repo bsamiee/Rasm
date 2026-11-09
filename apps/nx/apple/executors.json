@@ -8,7 +8,7 @@
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Attaches the zips a SwiftPM executable product's release build wrote to the GitHub release of its tag"
+            "description": "Attaches the zips a release build wrote to the project's GitHub release and adds notarized apps to their Sparkle feeds"
         },
         "run": {
             "implementation": "./dist/executors/run/executor#execute",

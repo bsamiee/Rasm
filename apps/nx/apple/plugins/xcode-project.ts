@@ -2,7 +2,7 @@ import type { TargetConfiguration } from '@nx/devkit';
 import { isCI } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Schema, Struct } from 'effect';
 import type { Options } from '#/plugins/project-graph';
-import { AppleError, type Part, type Plugin, spawned, target, tokened } from '#/plugins/targets';
+import { AppleError, type Part, type Plugin, published, spawned, target, tokened } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -60,23 +60,23 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: O
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map(({ name }) => name);
     const archived = Array.zip(schemes, yield* Effect.forEach(schemes, (scheme) => read(scheme, [])));
     const others = yield* Effect.forEach(
-        archived.flatMap(([scheme, held]) =>
+        archived.flatMap(([scheme, listed]) =>
             Array.difference(
                 container.configurations,
-                held.map(({ buildSettings }) => buildSettings.CONFIGURATION),
+                listed.map(({ buildSettings }) => buildSettings.CONFIGURATION),
             ).map((configuration) => [scheme, configuration] as const),
         ),
         ([scheme, configuration]) => read(scheme, ['-configuration', configuration]),
     );
-    const settings = [...archived.flatMap(([, held]) => held), ...others.flat()];
+    const settings = [...archived.flatMap(([, listed]) => listed), ...others.flat()];
     const real = yield* fs.realPath(workspaceRoot);
     const [resolved, missing] = yield* Effect.partition(
         settings.flatMap(({ target: owner, buildSettings }) => Object.entries(Struct.pick(buildSettings, ['INFOPLIST_FILE', 'CODE_SIGN_ENTITLEMENTS'])).map(([setting, value]) => ({ owner, setting, value, at: path.resolve(buildSettings.SRCROOT, value) }))),
         (setting) => Effect.mapBoth(fs.realPath(setting.at), { onFailure: () => `target ${setting.owner} ${setting.setting}: ${setting.value} does not exist`, onSuccess: (at) => path.relative(real, at) }),
     );
-    const archives = archived.flatMap(([scheme, held]) =>
+    const archives = archived.flatMap(([scheme, listed]) =>
         Array.match(
-            held.filter(({ buildSettings }) => !buildSettings.SKIP_INSTALL).map(({ buildSettings }) => buildSettings),
+            listed.filter(({ buildSettings }) => !buildSettings.SKIP_INSTALL).map(({ buildSettings }) => buildSettings),
             {
                 onEmpty: () => [],
                 onNonEmpty: (installed) => [
@@ -127,7 +127,7 @@ const xcodeParts = (
     ].flatMap((kind) =>
         Array.match(
             exported.filter(({ notarized }) => notarized === kind.notarized),
-            { onEmpty: () => [], onNonEmpty: (held) => [{ ...kind, held }] },
+            { onEmpty: () => [], onNonEmpty: (exports) => [{ ...kind, exports }] },
         ),
     );
     const referenced = container.buildFiles
@@ -142,7 +142,7 @@ const xcodeParts = (
                 invoke(
                     'test',
                     scheme.name,
-                    Option.toArray(plan).flatMap((held) => ['-testPlan', held]),
+                    Option.toArray(plan).flatMap((testPlan) => ['-testPlan', testPlan]),
                 ),
             ),
         );
@@ -154,8 +154,8 @@ const xcodeParts = (
         );
     const installs = archives.map(({ scheme, places }) => invoke('install', scheme, [`DSTROOT=${Array.headNonEmpty(places)}`, 'INSTALL_PATH=/']));
     const launches = Array.dedupe(schemes.flatMap(({ launch }) => Option.toArray(Option.fromUndefinedOr(launch))));
-    const modes = (held: (configuration: Option.Option<string>) => Runs): Partial<TargetConfiguration> => ({
-        configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: held(Option.some(configuration)).map((run) => [...run, '-configuration', configuration]) }]),
+    const modes = (planned: (configuration: Option.Option<string>) => Runs): Partial<TargetConfiguration> => ({
+        configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned(Option.some(configuration)).map((run) => [...run, '-configuration', configuration]) }]),
         ...Option.match(
             Option.filter(Array.head(launches), () => launches.length === 1),
             { onNone: () => ({}), onSome: (launch) => ({ defaultConfiguration: launch.toLowerCase() }) },
@@ -179,7 +179,7 @@ const xcodeParts = (
                       ),
                       'check--xcodebuild': { executor: 'nx:noop', dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Compiles each shared scheme as its type check' } },
                   }),
-            ...Record.fromIterableWith(packaging, ({ name: tool, held, options: given, description, help }): readonly [string, TargetConfiguration] => [
+            ...Record.fromIterableWith(packaging, ({ name: tool, exports, options: given, description, help }): readonly [string, TargetConfiguration] => [
                 tool,
                 {
                     executor: `${plugin.name}:zip`,
@@ -187,13 +187,23 @@ const xcodeParts = (
                     inputs: plugin.inputs,
                     options: { exports: [], ...given },
                     configurations: Record.map(
-                        Array.groupBy(held, ({ configuration }) => configuration.toLowerCase()),
+                        Array.groupBy(exports, ({ configuration }) => configuration.toLowerCase()),
                         (group) => ({ exports: group.map(Struct.get('entry')) }),
                     ),
-                    outputs: held.map(({ folder }) => path.join('{workspaceRoot}', folder, '*.zip')),
+                    outputs: exports.map(({ folder }) => path.join('{workspaceRoot}', folder, '*.zip')),
                     metadata: { technologies: ['xcode'], description, help },
                 },
             ]),
+            ...(exported.length === 0
+                ? {}
+                : {
+                      'nx-release-publish': published(
+                          plugin,
+                          'xcode',
+                          exported.map(({ folder }) => folder),
+                          exported.filter(({ notarized }) => notarized).map(({ folder }) => folder),
+                      ),
+                  }),
             ...(runs.length === 0
                 ? {}
                 : {

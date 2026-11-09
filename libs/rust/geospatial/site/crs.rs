@@ -292,7 +292,7 @@ impl Distortion {
         let refused = |message: String| crs.refused()(ProjCreateError::ProjError(message));
         let message = |context: *mut PJ_CONTEXT, errno: i32| {
             let text = unsafe { proj_sys::proj_context_errno_string(context, errno) };
-            NonNull::new(text.cast_mut()).map_or_default(|text| unsafe { CStr::from_ptr(text.as_ptr()) }.to_string_lossy().into_owned())
+            NonNull::new(text.cast_mut()).map_or_else(|| format!("PROJ error number {errno}"), |text| unsafe { CStr::from_ptr(text.as_ptr()) }.to_string_lossy().into_owned())
         };
         let definition = CString::new(crs.as_ref()).map_err(|source| crs.refused()(ProjCreateError::ArgumentNulError(source)))?;
         let context = NonNull::new(unsafe { proj_sys::proj_context_create() }).ok_or_else(|| refused(message(core::ptr::null_mut(), PROJ_ERR_OTHER.cast_signed())))?;

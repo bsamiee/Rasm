@@ -44,30 +44,32 @@ private struct BundleInfo: Decodable {
 public struct Installation: Encodable, Hashable, Sendable {
     public struct Version: RawRepresentable, Codable, Hashable, Comparable, Sendable {
         public let rawValue: String
+        private let release: [Int]
+        private let prerelease: Substring?
 
-        private var parts: (release: [Int], prerelease: Substring?) {
+        public init(rawValue: String) {
             let end: String.Index = rawValue.firstIndex { character in !character.isASCII || !(character.isNumber || character == ".") } ?? rawValue.endIndex
-            let numbers: [Int] = rawValue[..<end].split(separator: ".").compactMap { component in Int(component) }
             let suffix: Substring = rawValue[end...].drop { character in character == "-" }
-            return (Array(numbers.reversed().drop { component in component == 0 }.reversed()), suffix.isEmpty ? nil : suffix)
+            self.rawValue = rawValue
+            let numbers: [Int] = rawValue[..<end].split(separator: ".").compactMap { component in Int(component) }
+            release = Array(numbers.reversed().drop { component in component == 0 }.reversed())
+            prerelease = suffix.isEmpty ? nil : suffix
         }
 
-        public init(rawValue: String) { self.rawValue = rawValue }
-
-        public static func == (lhs: Self, rhs: Self) -> Bool { lhs.parts == rhs.parts }
+        public static func == (lhs: Self, rhs: Self) -> Bool { (lhs.release, lhs.prerelease) == (rhs.release, rhs.prerelease) }
 
         public static func < (lhs: Self, rhs: Self) -> Bool {
-            switch (lhs.parts, rhs.parts) {
-                case (let left, let right) where left.release != right.release: left.release.lexicographicallyPrecedes(right.release)
-                case ((_, .some(let left)), (_, .some(let right))): left.compare(right, options: .numeric) == .orderedAscending
-                case ((_, .some), (_, .none)): true
-                case ((_, .none), _): false
+            switch (lhs.prerelease, rhs.prerelease) {
+                case _ where lhs.release != rhs.release: lhs.release.lexicographicallyPrecedes(rhs.release)
+                case (.some(let left), .some(let right)): left.compare(right, options: .numeric) == .orderedAscending
+                case (.some, .none): true
+                case (.none, _): false
             }
         }
 
         public func hash(into hasher: inout Hasher) {
-            hasher.combine(parts.release)
-            hasher.combine(parts.prerelease)
+            hasher.combine(release)
+            hasher.combine(prerelease)
         }
     }
 

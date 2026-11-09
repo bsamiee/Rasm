@@ -22,7 +22,7 @@ lazy from ufo2ft import compileTTF
 lazy from ufo2ft.constants import OPENTYPE_CATEGORIES_KEY, OPENTYPE_META_KEY, TRUETYPE_INSTRUCTIONS_KEY
 lazy from ufoLib2.objects.info import GaspBehavior, GaspRangeRecord
 
-from rasm_typography._faces.glyphs import Source
+from rasm_typography._faces.glyphs import _Category, Source
 lazy from rasm_records import Error, Fault, Ok, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces
 lazy from rasm_typography._faces.importing import imported
@@ -77,9 +77,9 @@ def _font(writer: _FeatureWriter, /) -> ufoLib2.Font:
             styleName=face.style,
             versionMajor=info.version[0],
             versionMinor=info.version[1],
-            copyright=info.copyright or None,
-            openTypeNameDesigner=info.designer or None,
-            openTypeOS2VendorID=info.vendor or None,
+            copyright=info.copyright,
+            openTypeNameDesigner=info.designer,
+            openTypeOS2VendorID=info.vendor,
             unitsPerEm=source.upm,
             ascender=metrics.ascender,
             descender=metrics.descender,
@@ -101,7 +101,7 @@ def _font(writer: _FeatureWriter, /) -> ufoLib2.Font:
     font.info.openTypeOS2WidthClass = face.width if isinstance(face, Face) else None
     font.info.openTypeGaspRangeRecords = [GaspRangeRecord(rangeMaxPPEM=0xFFFF, rangeGaspBehavior=list(GaspBehavior))]
     font.lib.update({
-        **({OPENTYPE_CATEGORIES_KEY: categories} if {"mark", "ligature"} & {*categories.values()} else {}),
+        **({OPENTYPE_CATEGORIES_KEY: categories} if {_Category.MARK, _Category.LIGATURE} & {*categories.values()} else {}),
         TRUETYPE_INSTRUCTIONS_KEY: {"formatVersion": "1", "controlValueProgram": "PUSHW[ ] 511 SCANCTRL[ ] PUSHB[ ] 4 SCANTYPE[ ]"},
         **({OPENTYPE_META_KEY: {"slng": languages, **({"dlng": sorted(face.genre.script.scripts)} if isinstance(face, Face) else {})}} if languages else {}),
     })

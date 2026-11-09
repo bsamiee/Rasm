@@ -16,7 +16,8 @@ const Reply = Schema.fromJsonString(Completion);
 const served = (cep: Cep) =>
     Effect.fnUntraced(function* <Tag extends Requests['_tag'], Payload extends Requests['payloadSchema'], Success extends Requests['successSchema']>(payload: Payload['Type'], { rpc }: { readonly rpc: Rpc.Rpc<Tag, Payload, Success, Requests['errorSchema']> }) {
         const sent = yield* Effect.orDie(Schema.encodeEffect(Sent(rpc))({ tag: rpc._tag, label: payload.label, payload }));
-        return yield* Effect.callback<string>((resume) => cep.evalScript(`${ExtensionManifest.global}(${sent.replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029')})`, flow(Effect.succeed, resume))).pipe(
+        const literal = sent.replaceAll('\u2028', String.raw`\u2028`).replaceAll('\u2029', String.raw`\u2029`);
+        return yield* Effect.callback<string>((resume) => cep.evalScript(`${ExtensionManifest.global}(${literal})`, flow(Effect.succeed, resume))).pipe(
             Effect.filterOrFail(
                 (reply) => reply !== 'EvalScript error.',
                 () => HostError.make({ reason: { _tag: 'Unavailable' }, subject: `${payload.label}: ${ExtensionManifest.script} ${ExtensionManifest.global}` }),

@@ -19,20 +19,10 @@ public static class PreferenceRows {
         where TControl : Control
         where T : notnull {
         public ValueRow<TControl, T> Over(Preference<T> preference) =>
-            Ref(Option<IO<Unit>>.None) switch {
-                var restore => row with {
-                    Current = preference.Read.Map(Some),
-                    Changes = row.Changes.Add(Signal(preference)),
-                    Edited = edit => edit.Switch(
-                        (Restore: restore, Preference: preference),
-                        changed: static (state, held) => held.Applies
-                            ? Taken(state.Restore).Bind(_ => state.Preference.Write(held.Value))
-                            : atomicIO(() => state.Restore.Value).Bind(prior => prior.IsSome
-                                ? state.Preference.Write(held.Value)
-                                : state.Preference.Swap(held.Value).Bind(back => atomicIO(() => state.Restore.Value = Some(back))).Map(unit)),
-                        cancel: static (state, _) => Taken(state.Restore).Bind(static prior => prior.IfNone(IO.pure(unit)))),
-                },
-            };
+            Bound(row, preference.Read.Map(Some), preference.Write, preference.Swap, Signal(preference));
+
+        public ValueRow<TControl, T> Over(Preference<Option<T>> preference) =>
+            Bound(row, preference.Read, held => preference.Write(held), held => preference.Swap(held), Signal(preference));
 
         public ValueRow<TControl, T> Over(Seq<Preference<T>> targets) =>
             row with {
@@ -59,6 +49,8 @@ public static class PreferenceRows {
 
         public static Row Of<T>(string label, Preference<T> preference, Seq<ChoiceItem<T>> items) where T : notnull => Row.Of(label, Values.Choice(None, items, Ignored).Over(preference));
 
+        public static Row Of<T>(string label, Preference<Option<T>> preference, Seq<ChoiceItem<T>> items) where T : notnull => Row.Of(label, Values.Choice(None, items, Ignored).Over(preference));
+
         public static Row Of<T>(string label, Preference<T> preference) where T : struct, Enum => Row.Of(label, Values.Enumerated<T>(None, Ignored).Over(preference));
 
         public static Row Of<T>(string label, Preference<T> preference, Func<T, string> caption) where T : class, ISmartEnum<string, T, ValidationError> =>
@@ -68,6 +60,24 @@ public static class PreferenceRows {
     // --- [EDITS]
 
     internal static HostEvent<Unit> Signal<T>(Preference<T> preference, [CallerArgumentExpression(nameof(preference))] string label = "") => new(label, deliver => preference.Changed(_ => deliver(unit)));
+
+    private static ValueRow<TControl, T> Bound<TControl, T>(ValueRow<TControl, T> row, IO<Option<T>> current, Func<T, IO<Unit>> write, Func<T, IO<IO<Unit>>> swap, HostEvent<Unit> signal)
+        where TControl : Control
+        where T : notnull =>
+        Ref(Option<IO<Unit>>.None) switch {
+            var restore => row with {
+                Current = current,
+                Changes = row.Changes.Add(signal),
+                Edited = edit => edit.Switch(
+                    (Restore: restore, Write: write, Swap: swap),
+                    changed: static (state, held) => held.Applies
+                        ? Taken(state.Restore).Bind(_ => state.Write(held.Value))
+                        : atomicIO(() => state.Restore.Value).Bind(prior => prior.IsSome
+                            ? state.Write(held.Value)
+                            : state.Swap(held.Value).Bind(back => atomicIO(() => state.Restore.Value = Some(back))).Map(unit)),
+                    cancel: static (state, _) => Taken(state.Restore).Bind(static prior => prior.IfNone(IO.pure(unit)))),
+            },
+        };
 
     private static IO<Option<IO<Unit>>> Taken(Ref<Option<IO<Unit>>> restore) =>
         atomicIO(() => {

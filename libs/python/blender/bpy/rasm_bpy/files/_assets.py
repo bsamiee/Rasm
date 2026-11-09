@@ -55,14 +55,14 @@ _LOADS: Final[Mapping[str, Mapping[str, bool]]] = MappingProxyType({
 
 
 class _AssetMark(msgspec.Struct, frozen=True, kw_only=True):
-    """Asset metadata under extension key."""
+    """Asset metadata under extension key, an absent text member leaving the host's value in place."""
 
     key: Key
     catalog: _CatalogPath
-    description: str = ""
-    author: str = ""
-    copyright: str = ""
-    license: str = ""
+    description: str | None = None
+    author: str | None = None
+    copyright: str | None = None
+    license: str | None = None
     tags: frozenset[str] = frozenset()
     method: Option[_ImportMethod] = Nothing
 

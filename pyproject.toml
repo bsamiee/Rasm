@@ -619,9 +619,10 @@ warn_unreachable        = true
 exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
-enable_error_code       = ["exhaustive-match", "redundant-self"]
+strict_bytes            = true
+enable_error_code       = ["deprecated", "exhaustive-match", "explicit-override", "narrowed-type-not-subtype", "redundant-expr", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 disable_error_code      = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type"] # ty owns each defect these codes report, ruff PGH003 owns suppressions without a code
-overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sysexits", "ttfautohint.*", "ufo2ft.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }]
+overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sysexits", "ttfautohint.*", "ufo2ft.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }, { module = ["rasm_bpy.*"], disable_error_code = ["redundant-expr"] }]
 
 # --- [REFURB] ---------------------------------------------------------------------------
 

@@ -15,7 +15,7 @@ struct RelayApp: App {
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate: AppDelegate
     @SwiftUI.Environment(\.openWindow) private var openWindow: OpenWindowAction
-    private let userDriverDelegate: UserDriverDelegate = UserDriverDelegate()
+    private let userDriverDelegate: UserDriverDelegate = .init()
     private let updater: SPUStandardUpdaterController
 
     init() {
@@ -56,7 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @ObservationIgnored private var launch: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_: Notification) {
-        let logger: Logger = Logger(for: AppDelegate.self)
+        let logger = Logger(for: AppDelegate.self)
         launch = Task(name: "Launch Relay") { [self] in
             switch await Result(catching: { () async throws(ProcessFailure) in try await loginShellEnvironment(within: .seconds(5)) }).map(AccountStore.init(environment:)) {
                 case .failure(let failure) where failure.reason.is(\.cancelled): logger.info("Quit canceled launch during login shell read")

@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsxlang
+severity: error
+utils:
+    string-parameter:
+        kind: identifier
+        pattern: $RECEIVER
+        inside:
+            stopBy: end
+            kind: arrow_function
+            has: {field: parameters, has: {kind: required_parameter, all: [{has: {field: pattern, pattern: $RECEIVER}}, {has: {field: type, has: {kind: predefined_type, regex: '^string$'}}}]}}
+    string-result:
+        any:
+            - kind: template_string
+            - kind: call_expression
+              has:
+                field: function
+                kind: member_expression
+                all:
+                    - has: {field: property, regex: '^(replace|replaceAll|trim|trimStart|trimEnd|slice|toLowerCase|toUpperCase|normalize|padStart|padEnd|repeat|concat)$'}
+                    - has: {field: object, matches: string-parameter}
+    boolean-result:
+        kind: binary_expression
+        has: {field: operator, regex: '^([!=]==?|<=?|>=?|in|instanceof)$'}
+rule:
+    kind: arrow_function
+    any:
+        - all: [{has: {field: return_type, has: {kind: predefined_type, regex: '^string$', pattern: $TYPE}}}, {has: {field: body, matches: string-result}}]
+        - all: [{has: {field: return_type, has: {kind: predefined_type, regex: '^boolean$', pattern: $TYPE}}}, {has: {field: body, matches: boolean-result}}]
+message: 'Return type `$TYPE` restates the type its body infers'
+note: 'Delete the return type annotation'

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: swiftlang
+severity: error
+utils:
+    extension-test:
+        kind: equality_expression
+        all:
+            - has: {field: lhs, regex: '\.(pathExtension|extension)$'}
+            - has: {field: rhs, kind: line_string_literal}
+rule:
+    kind: function_declaration
+    all:
+        - has: {stopBy: end, matches: extension-test, has: {field: rhs, pattern: $FIRST}}
+        - has: {stopBy: end, matches: extension-test, not: {has: {field: rhs, pattern: $FIRST}}}
+message: 'Branches select files by `$FIRST` and other filename extension literals'
+note: 'Decode the extension once into a `String`-backed enum (`<Enum>(rawValue:)`) or a `UTType`, and switch over it'

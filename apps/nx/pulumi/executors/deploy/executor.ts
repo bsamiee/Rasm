@@ -91,8 +91,8 @@ const programmed = Effect.fnUntraced(function* (entry: string, { program, reques
     const module: unknown = yield* Effect.tryPromise({ try: () => import(pathToFileURL(resolved).href), catch: StackError.of(program, `failed to load ${resolved}`) });
     const automation: typeof import('@pulumi/pulumi/automation/index.js') = yield* Effect.try({ try: () => createRequire(resolved)('@pulumi/pulumi/automation/index.js'), catch: StackError.of(program, 'declares no @pulumi/pulumi') });
     const { stacks } = yield* Effect.mapError(Schema.decodeUnknownEffect(Program)(module), StackError.of(program, `${resolved} exports no stacks function`));
-    const held = yield* Effect.tryPromise({ try: () => stacks(request), catch: StackError.of(program, 'stacks failed') });
-    return yield* Effect.forEach(held, (args) => applied(automation, args, OPERATIONS[operation]), { concurrency: 'unbounded' });
+    const selected = yield* Effect.tryPromise({ try: () => stacks(request), catch: StackError.of(program, 'stacks failed') });
+    return yield* Effect.forEach(selected, (args) => applied(automation, args, OPERATIONS[operation]), { concurrency: 'unbounded' });
 });
 
 const run = (select: (options: typeof Options.Type, context: ExecutorContext, project: string) => Effect.Effect<Option.Option<{ readonly request: StackRequest; readonly operation: keyof typeof OPERATIONS }>, StackError>) => {
@@ -100,12 +100,12 @@ const run = (select: (options: typeof Options.Type, context: ExecutorContext, pr
         const [path, decoded, project] = yield* Effect.all([Path.Path, Schema.decodeUnknownEffect(Options)(options), Effect.fromNullishOr(context.projectName)]);
         const { root } = yield* Effect.fromNullishOr(context.projectsConfigurations.projects[project]);
         const chosen = Option.toArray(yield* select(decoded, context, project));
-        const [held, failures] = yield* Effect.partition(
+        const [reports, failures] = yield* Effect.partition(
             chosen.flatMap((selected) => decoded.programs.map((program) => ({ ...selected, program }))),
             (selected) => programmed(path.join(context.root, root, 'package.json'), selected),
             { concurrency: 'unbounded' },
         );
-        const lines = held.flat();
+        const lines = reports.flat();
         yield* Effect.forEach(lines, (line) => Effect.flatMap(Schema.encodeEffect(Line)(line), Console.log));
         yield* Effect.forEach(failures, (failure) => Console.error(failure.message));
         return { success: failures.length === 0 && lines.every(({ error }) => error === undefined) };

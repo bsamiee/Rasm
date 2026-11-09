@@ -17,7 +17,7 @@ public protocol LockFailure: Error {
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct Lockfile: Sendable {
-    fileprivate static let logger: Logger = Logger(for: Self.self)
+    fileprivate static let logger: Logger = .init(for: Self.self)
 
     let url: URL
     let stale: Duration
@@ -36,7 +36,7 @@ public struct Lockfile: Sendable {
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
         _ body: @escaping @Sendable () async throws(Failure) -> Value,
     ) async throws(Failure) -> Value {
-        var generator: SystemRandomNumberGenerator = SystemRandomNumberGenerator()
+        var generator = SystemRandomNumberGenerator()
         let (date, start): (Date, _) = (Date(), clock.now)
         let now: @Sendable () -> Duration = { .seconds(date.timeIntervalSince1970) + start.duration(to: clock.now) }
         let holder: Holder<Failure> = try await acquire(lockfiles, delays: lockfiles.map { lockfile in lockfile.retry?.delays(using: &generator) ?? [] }, clock: clock, now: now)
@@ -45,7 +45,7 @@ public struct Lockfile: Sendable {
                 try await race(work) { () async throws(Failure) -> Value in try await holder.heartbeat(index, every: lockfiles[index].update, clock: clock, now: now) }
             }
         }
-        let outcome: Result<Value, Failure> = await Result(catching: work)
+        let outcome = await Result(catching: work)
         let released: Result<Void, Failure> = release(await holder.held)
         return try outcome.mapError { error in error.releasing(released) }.flatMap { value in released.map { _ in value } }.get()
     }
@@ -132,11 +132,11 @@ private struct Held: Equatable, Sendable {
     func updated(at now: Duration) throws(FileFailure) -> Self {
         try unchanged()
         var touched: URL = url
-        var values: URLResourceValues = URLResourceValues()
+        var values = URLResourceValues()
         values.contentModificationDate = Date(timeIntervalSince1970: now / .seconds(1))
         let present: Void? = try ifPresent(url) { try touched.setResourceValues(values) }
         guard present != nil else { throw FileFailure(file: url, reason: .compromised) }
-        let current: Self = try Self.current(url)
+        let current = try Self.current(url)
         guard current.inode == inode else { throw FileFailure(file: url, reason: .compromised) }
         return current
     }

@@ -268,7 +268,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
 
     private static DropDown<T> Choice<T>(Preference<T> preference, T current, Nomen face, Seq<T> choices) where T : notnull {
         DropDown<T> choice = new(face, value => Written(preference, value));
-        _ = choices.Iter(item => choice.AddOption(item, new Nomen(item.ToString() ?? "", face.Info)));
+        _ = choices.Iter(item => choice.AddOption(item, new Nomen(string.Create(CultureInfo.InvariantCulture, $"{item}"), face.Info)));
         _ = choice.SetValue(current);
         return choice;
     }

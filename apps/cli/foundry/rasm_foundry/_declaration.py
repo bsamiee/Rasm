@@ -43,7 +43,7 @@ class _Group(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
 
     name: _Name
     original: str
-    notes: str = ""
+    notes: str | None = None
 
 
 class _Family(_Group, frozen=True, kw_only=True):

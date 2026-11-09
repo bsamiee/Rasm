@@ -83,7 +83,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             }
             match rendering {
                 Rendering::Interpolated => {
-                    diag.help("record each value beside a constant message: directly for `tracing::Value`, `%value` for `Display` formatting, or `?value` for `Debug` formatting");
+                    diag.help("move each value out of the message into a field: bare for `tracing::Value`, `%value` for `Display`, `?value` for `Debug`");
                 }
                 Rendering::Converted { receiver, typed } if value.hir_id == field.hir_id => {
                     let mut applicability = Applicability::MaybeIncorrect;
@@ -99,10 +99,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     suggest(cx, value.hir_id, diag, span, help, replacement, applicability);
                 }
                 Rendering::Formatted | Rendering::Converted { .. } if recorded => {
-                    diag.help("pass a native `tracing::Value` to `Span::record`, or use `tracing::field::display` for `Display` formatting and `tracing::field::debug` for `Debug` formatting");
+                    diag.help("pass `Span::record` a `tracing::Value`, `tracing::field::display(value)`, or `tracing::field::debug(value)`");
                 }
                 Rendering::Formatted | Rendering::Converted { .. } => {
-                    diag.help("record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting");
+                    diag.help("record the value as a field: bare for `tracing::Value`, `%value` for `Display`, `?value` for `Debug`");
                 }
             }
         });

@@ -76,7 +76,12 @@ pub struct Document {
 
 impl Document {
     pub fn new(bytes: Vec<u8>, password: Option<&SecretString>) -> Result<Self, PdfError> {
-        Pdf::new_with_password(bytes, password.map_or("", |secret| secret.expose_secret())).map(|pdf| Self { pdf: Arc::new(pdf), password: password.cloned() }).map_err(PdfError::Load)
+        match password {
+            Some(secret) => Pdf::new_with_password(bytes, secret.expose_secret()),
+            None => Pdf::new(bytes),
+        }
+        .map(|pdf| Self { pdf: Arc::new(pdf), password: password.cloned() })
+        .map_err(PdfError::Load)
     }
 }
 

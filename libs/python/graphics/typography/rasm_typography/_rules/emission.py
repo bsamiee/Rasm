@@ -169,7 +169,7 @@ def _statements(entries: Iterable[tuple[int, Lookups]], systems: tuple[tuple[str
 def _rendered(source: Source, entries: Iterable[tuple[int, Lookups]], /) -> str:
     fea, systems = ast.FeatureFile(), _systems(source)
     fea.statements.extend((*starmap(ast.LanguageSystemStatement, systems), *_statements(entries, systems, {})))
-    return fea.asFea()  # type: ignore[no-any-return] # ty: ignore[unsound-return-statement]
+    return str(fea.asFea())
 
 
 def _emitted(source: Source, /) -> str:

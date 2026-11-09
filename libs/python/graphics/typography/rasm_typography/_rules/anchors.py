@@ -67,14 +67,14 @@ def _clearances(original: Binary, corpus: Corpus, vowels: tuple[int, int], /) ->
 # --- [ANCHORS]
 
 
-def _anchors(glyph: _Glyph, x: float, above: float, below: float, widths: tuple[float, float], suffix: str = "", /) -> tuple[_Anchor, ...]:
-    """Top and bottom anchors of the vowel and wide classes over and under the outline column of each width at x."""
+def _anchors(glyph: _Glyph, x: float, above: float, below: float, widths: tuple[float, float], component: int | None = None, /) -> tuple[_Anchor, ...]:
+    """Top and bottom anchors of the vowel and wide classes over and under the outline column of each width at x, named `_<component>` on a ligature component."""
     return tuple(
-        anchor
+        _Anchor(name=f"{side}{tier}" if component is None else f"{side}{tier}_{component}", x=x, y=y)
         for tier, width in zip(("", "wide"), widths, strict=False)
         for column in (_bounds(_strip(glyph.contours, x - width / 2, x + width / 2)) or _bounds(glyph.contours),)
         if column
-        for anchor in (_Anchor(name=f"top{tier}{suffix}", x=x, y=column.ymax + above), _Anchor(name=f"bottom{tier}{suffix}", x=x, y=column.ymin - below))
+        for side, y in (("top", column.ymax + above), ("bottom", column.ymin - below))
     )
 
 
@@ -97,10 +97,7 @@ def _based(glyph: _Glyph, above: float, below: float, widths: tuple[float, float
             )
             return msgspec.structs.replace(
                 glyph,
-                anchors=(
-                    *(*_anchors(glyph, x, above, below, widths, f"_{index}") for index, x in enumerate(middles, 1)),
-                    *(_Anchor(name=f"caret_{index}", x=x, y=0.0) for index, x in enumerate(carets, 1)),
-                ),
+                anchors=(*(*_anchors(glyph, x, above, below, widths, index) for index, x in enumerate(middles, 1)), *(_Anchor(name=f"caret_{index}", x=x, y=0.0) for index, x in enumerate(carets, 1))),
             )
         case box, _:
             x = next((anchor.x for anchor in glyph.anchors if anchor.name == "top"), box.middle[0])
@@ -151,7 +148,7 @@ def _cleared(source: Source, rule: Anchors, /) -> tuple[tuple[_Glyph, ...], tupl
         and (move := otRound(math.copysign(min(math.ceil(short / unit) * unit if unit else short, max(glyph.advance - box.xmax if after else box.xmin, 0.0)), 1 if after else -1)))
     )
     shifts = {
-        (name, move): msgspec.structs.replace(held, variant=f"{held.variant}.{suffix}" if held.variant else suffix)
+        (name, move): msgspec.structs.replace(held, suffixes=(*held.suffixes, suffix))
         for index, (name, move) in enumerate(dict.fromkeys((name, move) for name, _, move, _ in moves), 1)
         for held, suffix in ((source.named[name].name, f"calt{index}"),)
     }
@@ -222,7 +219,7 @@ def _positioned(source: Source, rule: Anchors, stem: _Box, scale: float, clearan
         if (isinstance(glyph.role, Letter | Ligature) or glyph.name.text == carrier) and glyph.contours and not glyph.components
     )
     placed = source.replaced(*bases, *(_marked(glyph, stack, rule.wide * widths[0]) for glyph in source.by_role(Mark) if not glyph.components))
-    models, spaces = {"top": placed.key(script.stem), "bottom": placed.key(script.kashida) if script.kashida is not None else ""}, frozenset(script.spaces)
+    models, spaces = {"top": placed.key(script.stem), **({"bottom": placed.key(script.kashida)} if script.kashida is not None else {})}, frozenset(script.spaces)
     spaced = placed.replaced(
         *(
             msgspec.structs.replace(

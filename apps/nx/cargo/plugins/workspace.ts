@@ -1,6 +1,6 @@
-import { parse } from '@decimalturn/toml-patch';
 import { DependencyType, type ProjectGraphExternalNode, type RawProjectGraphDependency } from '@nx/devkit';
-import { Array, Effect, FileSystem, Option, Path, Record, Result, Schema, Stream } from 'effect';
+import { Array, Effect, FileSystem, Formatter, flow, Option, Path, Record, Result, Schema, Stream, String } from 'effect';
+import { Toml } from 'effect/encoding';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -42,11 +42,11 @@ const Manifest = Schema.Struct({
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class CargoError extends Schema.TaggedError<CargoError, { readonly brand: unique symbol }>()('CargoError', { subject: Schema.String, detail: Schema.String }) {
-    static readonly of = (subject: string) => (cause: { readonly message: string }) => (Schema.is(CargoError)(cause) ? cause : CargoError.make({ subject, detail: cause.message }));
+class CargoError extends Schema.TaggedError<CargoError, { readonly brand: unique symbol }>()('CargoError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
+    static readonly of = (subject: string, detail: string) => (cause: unknown) => (Schema.is(CargoError)(cause) ? cause : CargoError.make({ subject, detail, cause }));
 
     override get message() {
-        return `${this.subject}: ${this.detail}`;
+        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
     }
 }
 
@@ -61,23 +61,23 @@ const spawned = (command: string, args: readonly string[], cwd: string, input?: 
         }),
     );
 
-const ancestors = (path: Path.Path, folder: string): readonly string[] => Array.unfold(Option.some(folder), (held) => Option.map(held, (at) => [at, Option.liftPredicate(path.dirname(at), () => at !== '.')] as const));
+const ancestors = (path: Path.Path, folder: string): readonly string[] => Array.unfold(Option.some(folder), (next) => Option.map(next, (at) => [at, Option.liftPredicate(path.dirname(at), () => at !== '.')] as const));
 
 const nearest = (path: Path.Path, files: ReadonlySet<string>, folder: string, names: readonly string[]) => Array.findFirst(ancestors(path, folder), (at) => Array.findFirst(names, (name) => files.has(path.join(at, name))).pipe(Option.map((name) => path.join(at, name))));
 
 const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
     FileSystem.FileSystem.pipe(
         Effect.flatMap((fs) => fs.readFileString(file)),
-        Effect.flatMap((text) => Effect.try({ try: (): unknown => parse(text), catch: (cause) => CargoError.make({ subject: file, detail: String(cause) }) })),
+        Effect.flatMap(flow(Toml.parse, Effect.fromResult)),
         Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-        Effect.mapError(CargoError.of(file)),
+        Effect.mapError(CargoError.of(file, 'does not read as the TOML table it declares')),
     );
 
 const externals = (lock: readonly (typeof Locked.Type)[], roots: ReadonlyMap<string, string>) => {
     const node = (entry: typeof Locked.Type) => `cargo:${entry.name}@${entry.version}`;
     const named = Array.groupBy(lock, ({ name }) => name);
     const sourced = (spec: string) => {
-        const [name = '', version] = spec.split(' ');
+        const [name, version] = String.split(spec, ' ');
         return Option.filter(
             Array.findFirst(named[name] ?? [], (entry) => version === undefined || entry.version === version),
             ({ source }) => source !== undefined,
@@ -106,9 +106,9 @@ const workspace = Effect.fnUntraced(
         const top = path.join(metadata.workspace_root, MANIFEST);
         const [lock, read, printed, deny] = yield* Effect.all(
             [
-                files.has(lockFile) ? Effect.map(toml(Lock, path.join(workspaceRoot, lockFile)), (held) => Option.some(held.package)) : Effect.succeed(Option.none<readonly (typeof Locked.Type)[]>()),
+                files.has(lockFile) ? Effect.map(toml(Lock, path.join(workspaceRoot, lockFile)), (lockfile) => Option.some(lockfile.package)) : Effect.succeed(Option.none<readonly (typeof Locked.Type)[]>()),
                 Effect.map(
-                    Effect.forEach(Array.dedupe([top, ...metadata.packages.map(({ manifest_path }) => manifest_path)]), (file) => Effect.map(toml(Manifest, file), (held) => [file, held] as const), { concurrency: 'unbounded' }),
+                    Effect.forEach(Array.dedupe([top, ...metadata.packages.map(({ manifest_path }) => manifest_path)]), (file) => Effect.map(toml(Manifest, file), (parsed) => [file, parsed] as const), { concurrency: 'unbounded' }),
                     Record.fromEntries,
                 ),
                 Effect.map(spawned('rustc', ['--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], path.join(workspaceRoot, root), ''), (text) => text.split('\n')),
@@ -142,7 +142,7 @@ const workspace = Effect.fnUntraced(
             files: (target: typeof Target.Type) => target.crate_types.flatMap((type) => Option.toArray(Option.map(Array.get(printed, types.indexOf(type)), (file) => file.replace(CRATE, target.name)))),
         };
     },
-    (effect, _, manifest) => Effect.mapError(effect, CargoError.of(manifest)),
+    (effect, _, manifest) => Effect.mapError(effect, CargoError.of(manifest, 'does not resolve as a Cargo workspace')),
 );
 
 type Workspace = Effect.Success<ReturnType<typeof workspace>>;
@@ -151,14 +151,14 @@ const workspaces = (workspaceRoot: string, manifests: readonly string[], files: 
     Option.match(Array.head(manifests), {
         onNone: () => Effect.succeed([]),
         onSome: (manifest) =>
-            Effect.flatMap(Effect.result(workspace(workspaceRoot, manifest, files)), (held) =>
+            Effect.flatMap(Effect.result(workspace(workspaceRoot, manifest, files)), (resolved) =>
                 Effect.map(
                     workspaces(
                         workspaceRoot,
-                        manifests.filter((other) => other !== manifest && !(Result.isSuccess(held) && held.success.manifests.includes(other))),
+                        manifests.filter((other) => other !== manifest && !(Result.isSuccess(resolved) && resolved.success.manifests.includes(other))),
                         files,
                     ),
-                    (rest) => [[manifest, held] as const, ...rest],
+                    (rest) => [[manifest, resolved] as const, ...rest],
                 ),
             ),
     });

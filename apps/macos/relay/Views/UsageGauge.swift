@@ -9,7 +9,7 @@ extension VerticalAlignment {
         }
     }
 
-    static let glyphRow: VerticalAlignment = VerticalAlignment(GlyphRow.self)
+    static let glyphRow: VerticalAlignment = .init(GlyphRow.self)
 }
 
 // --- [VIEWS] ---------------------------------------------------------------------------

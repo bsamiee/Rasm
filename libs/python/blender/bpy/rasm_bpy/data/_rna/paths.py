@@ -86,10 +86,10 @@ def id_data[K: bpy.types.ID](kind: type[K], struct: Struct, /) -> Option[K]:
     return Option.of_optional(try_downcast(kind, struct.id_data))
 
 
-def _context_path(owner: Struct, name: str = "", /) -> Option[str]:
-    """Returns the context data path of an owner or member, through `blend_data` or preferences, Nothing for other data or a partial host path."""
+def _context_path(owner: Struct, name: str | None = None, /) -> Option[str]:
+    """Returns the context data path of an owner, or of its member under name, through `blend_data` or preferences, Nothing for other data or a partial host path."""
     return (
-        catch(owner.path_from_module, exception=ValueError)(name)
+        catch(owner.path_from_module, exception=ValueError)(*Option.of_optional(name).to_list())
         .to_option()
         .filter(lambda path: " ... " not in path and path.startswith(("bpy.data.", "bpy.context.")))
         .map(lambda path: f"blend_data.{path.removeprefix('bpy.data.')}" if path.startswith("bpy.data.") else path.removeprefix("bpy.context."))

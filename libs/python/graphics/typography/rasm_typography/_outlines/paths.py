@@ -122,10 +122,10 @@ def _segments(outline: _Outline, /, *, closed: bool = True) -> tuple[_Segment, .
     """Returns every line as two points and every quadratic as three, implied on-curve points explicit, closed contours read from their union with each closing line."""
     path = pathops.Path()
     _trace(path.getPen(), outline, closed=closed)
-    return tuple(  # ty: ignore[unsound-return-statement]
+    return tuple(
         (before[-1], *step)
         for contour in (pathops.simplify(path, **_FILL) if closed else path).contours
-        for steps in (tuple(points for _, points in contour if points),)
+        for steps in (tuple(tuple((float(x), float(y)) for x, y in points) for _, points in contour if points),)
         for before, step in pairwise((*steps, *(((steps[0][0],),) if closed and steps[-1][-1] != steps[0][0] else ())))
     )
 
@@ -186,7 +186,7 @@ def _area(outline: _Outline, /) -> float:
     """Returns the filled area of the outline's union."""
     path = pathops.Path()
     _draw(path.getPen(), outline)
-    return path.area  # type: ignore[no-any-return]  # ty: ignore[unsound-return-statement]
+    return float(path.area)
 
 
 def _bounds(outline: _Outline, /) -> _Box | None:
@@ -201,8 +201,8 @@ def _iou(a: _Outline, b: _Outline, /) -> float:
     one, two = pathops.Path(), pathops.Path()
     _trace(one.getPen(), a)
     _trace(two.getPen(), b)
-    joined = pathops.op(one, two, pathops.PathOp.UNION, **_FILL).area
-    return pathops.op(one, two, pathops.PathOp.INTERSECTION, **_FILL).area / joined if joined else 0.0  # ty: ignore[unsound-return-statement]
+    joined = float(pathops.op(one, two, pathops.PathOp.UNION, **_FILL).area)
+    return float(pathops.op(one, two, pathops.PathOp.INTERSECTION, **_FILL).area) / joined if joined else 0.0
 
 
 # --- [SHAPES]

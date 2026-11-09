@@ -56,7 +56,7 @@ class Section(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruf
 
     key: Key
     title: Option[str] = Nothing
-    description: str = ""
+    description: str | None = None
     rows: tuple[RowContent, ...] = ()
     header: tuple[RowContent, ...] = ()
     enable: Option[Member] = Nothing

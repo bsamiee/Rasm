@@ -34,7 +34,7 @@ public sealed record EntryRow(Option<string> Value, EntryForm Form, Func<Edit<st
         from show in Values.Bound(entry.Field,
             new BindableBinding<TextControl, Option<string>>(entry.Field,
                 _ => Some(entry.Read()),
-                (_, value) => entry.Write(value.IfNone("")),
+                (_, value) => entry.Write(Conversions.Unset(value)),
                 static (held, handler) => held.TextChanged += handler,
                 static (held, handler) => held.TextChanged -= handler),
             static _ => true,

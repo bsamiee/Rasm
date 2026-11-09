@@ -115,7 +115,7 @@ internal static class Exports {
         from rendering in IO.lift(scene.Camera.Bind(static camera => camera.Lens is Projection.Rectilinear rectilinear ? Some(rectilinear) : None)
             .ToFin(new DarkroomFault(nameof(Projection.Rectilinear), DarkroomReason.Missing)))
         from map in IO.lift(lens.Map(rendering))
-        let image = new ImageFile.Exr([new ExrLayer("", map.ToSTMap(extent, extent), TargetFile.Rgba)], OutputDepth.Float32, OutputTarget.Default.Codec, None, Multipart: false)
+        let image = new ImageFile.Exr([new ExrLayer(None, map.ToSTMap(extent, extent), TargetFile.Rgba)], OutputDepth.Float32, OutputTarget.Default.Codec, None, Multipart: false)
         select new ExportFile(TargetFile.Exr.Extension, stream => image.Write(metadata, stream));
 
     // --- [BOOK]

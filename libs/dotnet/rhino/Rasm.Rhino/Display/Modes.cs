@@ -78,34 +78,34 @@ public static class DisplayModes {
             from recorded in Recorded(id).Read
             let owned = touched.AddOrUpdateRange(toHashMap(formatted).AsIterable())
             from written in when(!owned.IsEmpty, Imported(id, table.AddOrUpdateRange(owned.AsIterable())).Map(unit)).As()
-            from marked in Record(id, toSeq(Ini.Table(recorded).Keys) + toSeq(owned.Keys))
+            from marked in Record(id, recorded.ToSeq().Bind(static text => toSeq(Ini.Table(text).Keys)) + toSeq(owned.Keys))
             select unit))
         from saved in IO.lift(DisplayModeDescription.SaveDisplayModes)
         from raised in IO.lift(() => Raise(ids))
         select unit;
 
-    private static IO<(HashMap<(string Section, string Key), string> Table, HashMap<(string Section, string Key), string> Owned)> Intended(
-        DisplayModeDefinition mode, HashMap<(string Section, string Key), string> source, FolderPath package) =>
+    private static IO<(HashMap<(Option<string> Section, string Key), string> Table, HashMap<(Option<string> Section, string Key), string> Owned)> Intended(
+        DisplayModeDefinition mode, HashMap<(Option<string> Section, string Key), string> source, FolderPath package) =>
         from formatted in IO.lift(() => Ini.Merged(Root(mode, source) + mode.Keys).Traverse(key => key.Value.Formatted(Some(package)).Map(text => ((key.Section, key.Key), text))).As())
         from touched in Touched(mode.Base, mode.Edits, source)
         let owned = touched.AddOrUpdateRange(toHashMap(formatted).AsIterable())
         select (source.AddOrUpdateRange(owned.AsIterable()), owned.Filter(static (key, _) => !Volatile(key)));
 
-    private static Seq<ModeKey> Root(DisplayModeDefinition mode, HashMap<(string Section, string Key), string> source) =>
-        Seq(new ModeKey("", "Name", new ModeValue.Text(mode.Name)), new ModeKey("", Order, new ModeValue.Whole(0)), new ModeKey("", "AddToMenu", new ModeValue.Flag(Value: true)))
-        + (source.Find(("", Order)).Bind(Ini.Integral).Exists(static order => order < 0)
-            ? Seq(new ModeKey("", DerivedFrom, new ModeValue.Id(mode.Base)))
+    private static Seq<ModeKey> Root(DisplayModeDefinition mode, HashMap<(Option<string> Section, string Key), string> source) =>
+        Seq(new ModeKey(None, "Name", new ModeValue.Text(mode.Name)), new ModeKey(None, Order, new ModeValue.Whole(0)), new ModeKey(None, "AddToMenu", new ModeValue.Flag(Value: true)))
+        + (source.Find((None, Order)).Bind(Ini.Integral).Exists(static order => order < 0)
+            ? Seq(new ModeKey(None, DerivedFrom, new ModeValue.Id(mode.Base)))
             : Seq<ModeKey>());
 
-    private static IO<HashMap<(string Section, string Key), string>> Touched(Guid source, Seq<Action<DisplayModeDescription>> edits, HashMap<(string Section, string Key), string> before) =>
+    private static IO<HashMap<(Option<string> Section, string Key), string>> Touched(Guid source, Seq<Action<DisplayModeDescription>> edits, HashMap<(Option<string> Section, string Key), string> before) =>
         edits.IsEmpty
-            ? IO.pure(HashMap<(string Section, string Key), string>())
+            ? IO.pure(HashMap<(Option<string> Section, string Key), string>())
             : With(source, staged =>
                 from edited in IO.lift(() => edits.Iter(edit => edit(staged)))
                 from after in Exported(staged)
-                select after.Filter((key, text) => !Volatile(key) && key != ("", "Name") && before.Find(key) != Some(text)));
+                select after.Filter((key, text) => !Volatile(key) && key != (None, "Name") && before.Find(key) != Some(text)));
 
-    private static IO<Option<bool>> Stale(Guid id, HashMap<(string Section, string Key), string> owned, Seq<ModeKey> keys, bool present, FolderPath package) =>
+    private static IO<Option<bool>> Stale(Guid id, HashMap<(Option<string> Section, string Key), string> owned, Seq<ModeKey> keys, bool present, FolderPath package) =>
         present
             ? from live in Keys(id)
               from recorded in Recorded(id).Read
@@ -115,20 +115,18 @@ public static class DisplayModes {
               select Conversions.Present(!differs || Unedited(recorded, live), differs)
             : IO.pure(Some(value: true));
 
-    private static Preference<string> Recorded(Guid id) =>
-        Preferences.Setting(new SettingsNode(new SettingsRoot.PlugInNode(Session.PlugIn.Id)).Child(nameof(DisplayModes)), id.ToString("D"), fallback: "", hidden: true);
+    private static Preference<Option<string>> Recorded(Guid id) =>
+        Preferences.Setting(new SettingsNode(new SettingsRoot.PlugInNode(Session.PlugIn.Id)).Child(nameof(DisplayModes)), id.ToString("D"), hidden: true);
 
-    private static IO<Unit> Record(Guid id, Seq<(string Section, string Key)> owned) =>
+    private static IO<Unit> Record(Guid id, Seq<(Option<string> Section, string Key)> owned) =>
         Keys(id).Bind(live => Recorded(id).Write(Ini.Rendered(id, toHashMap(owned.Distinct().Filter(static key => !Volatile(key)).Choose(key => live.Find(key).Map(text => (key, text)))))));
 
-    private static bool Unedited(string recorded, HashMap<(string Section, string Key), string> live) =>
-        Ini.Table(recorded) switch {
-            var held => !held.IsEmpty && held.ForAll((key, text) => live.Find(key) == Some(text)),
-        };
+    private static bool Unedited(Option<string> recorded, HashMap<(Option<string> Section, string Key), string> live) =>
+        recorded.Map(Ini.Table).Exists(held => !held.IsEmpty && held.ForAll((key, text) => live.Find(key) == Some(text)));
 
-    private static bool Volatile((string Section, string Key) key) => key is ("", Order or DerivedFrom);
+    private static bool Volatile((Option<string> Section, string Key) key) => key.Section.IsNone && key.Key is Order or DerivedFrom;
 
-    private static IO<Guid> Imported(Guid id, HashMap<(string Section, string Key), string> table) =>
+    private static IO<Guid> Imported(Guid id, HashMap<(Option<string> Section, string Key), string> table) =>
         from deleted in IO.lift(() => ignore(DisplayModeDescription.DeleteDisplayMode(id)))
         from imported in Scoped(file =>
             from written in IO.lift(() => Ini.Write(file, id, table))
@@ -144,20 +142,20 @@ public static class DisplayModes {
         let retired = owned.Somes()
         from moves in Products.Each(retired.Map(static mode => mode.Successor.Match(
             Some: successor => IO.pure((mode.Id, successor)),
-            None: Keys(mode.Id).Bind(table => IO.lift(Conversions.Required(table.Find(("", DerivedFrom)).Bind(parseGuid)).Map(source => (mode.Id, source)))))))
+            None: Keys(mode.Id).Bind(table => IO.lift(Conversions.Required(table.Find((None, DerivedFrom)).Bind(parseGuid)).Map(source => (mode.Id, source)))))))
         from moved in Reassigned(toHashMap(written.Map(static id => (id, id))).AddOrUpdateRange(moves))
         from deleted in Products.Each(retired.Map(static mode =>
             from removed in Products.Accepted(() => DisplayModeDescription.DeleteDisplayMode(mode.Id))
             from forgotten in SettingsNode.Options.Child("DisplayAttributesManager").Delete(mode.Id.ToString("D"))
-            from unrecorded in Recorded(mode.Id).Write("")
+            from unrecorded in Recorded(mode.Id).Write(None)
             select unit))
         select retired.Map(static mode => mode.Id);
 
     // --- [FILES]
 
-    public static IO<HashMap<(string Section, string Key), string>> Keys(Guid id) => With(id, Exported);
+    public static IO<HashMap<(Option<string> Section, string Key), string>> Keys(Guid id) => With(id, Exported);
 
-    private static IO<HashMap<(string Section, string Key), string>> Exported(DisplayModeDescription mode) =>
+    private static IO<HashMap<(Option<string> Section, string Key), string>> Exported(DisplayModeDescription mode) =>
         Scoped(file =>
             from exported in Products.Accepted(() => DisplayModeDescription.ExportToFile(mode, file))
             from table in IO.lift(() => Ini.Read(file))

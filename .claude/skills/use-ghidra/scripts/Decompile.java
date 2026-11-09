@@ -103,16 +103,12 @@ public class Decompile extends GhidraScript {
         }
 
         String row(Listing listing) {
-            return "// %s %s %s%s"
-                    .formatted(
-                            address,
-                            type.getDisplayName(),
-                            name,
-                            Optional.ofNullable(listing.getDefinedDataAt(address))
-                                    .map(Data::getDefaultValueRepresentation)
-                                    .filter(Predicate.not(String::isEmpty))
-                                    .map(" = "::concat)
-                                    .orElse(""));
+            String declared = "// %s %s %s".formatted(address, type.getDisplayName(), name);
+            return Optional.ofNullable(listing.getDefinedDataAt(address))
+                    .map(Data::getDefaultValueRepresentation)
+                    .filter(Predicate.not(String::isEmpty))
+                    .map(value -> declared + " = " + value)
+                    .orElse(declared);
         }
     }
 
@@ -259,12 +255,12 @@ public class Decompile extends GhidraScript {
                                 function -> Functions.callees(function, monitor).toList(),
                                 Callee::new,
                                 1,
-                                request.settings().get(Arguments.Setting.CALLEES)),
+                                Arguments.Setting.CALLEES.read(request.settings())),
                         request.seeds(),
                         callersOf,
                         Caller::new,
                         1,
-                        request.settings().get(Arguments.Setting.CALLERS));
+                        Arguments.Setting.CALLERS.read(request.settings()));
         SequencedMap<Function, Report.Result<DecompileResults>> results =
                 Functions.decompile(
                         currentProgram,

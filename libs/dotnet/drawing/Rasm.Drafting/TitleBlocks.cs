@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Numerics;
 using NodaTime.Text;
 
@@ -13,6 +14,9 @@ public sealed partial class RevisionAlphabet {
     public string Symbols { get; }
     public int MaxLetters { get; }
     public int Count => Symbols.Length * (int.CreateChecked(BigInteger.Pow(Symbols.Length, MaxLetters)) - 1) / (Symbols.Length - 1);
+
+    [IgnoreMember]
+    internal SearchValues<char> Letters => field ??= SearchValues.Create(Symbols);
 }
 
 [ComplexValueObject(SkipFactoryMethods = true, SkipToString = true)]
@@ -25,7 +29,7 @@ public sealed partial class RevisionIndex {
 
     public static Fin<RevisionIndex> FromLetters(RevisionAlphabet alphabet, string text) =>
         text.ToUpperInvariant() switch {
-            var letters when letters.Length < 1 || letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Symbols) => new DraftingFault(letters, DraftingReason.RevisionLetters),
+            var letters when letters.Length < 1 || letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Letters) => new DraftingFault(letters, DraftingReason.RevisionLetters),
             var letters => new RevisionIndex(alphabet, toSeq(letters).Fold(0, (ordinal, letter) => (ordinal * alphabet.Symbols.Length) + alphabet.Symbols.IndexOf(letter, StringComparison.Ordinal) + 1)),
         };
 

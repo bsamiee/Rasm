@@ -84,7 +84,7 @@ enum Progress {
 // --- [ERRORS] --------------------------------------------------------------------------
 
 #[derive(Debug, Error)]
-#[error("application release failed: {release}")]
+#[error("cannot release the application: {release}")]
 struct ReleaseFailure {
     #[source]
     operation: io::Error,

@@ -86,7 +86,7 @@ const Compositions = ({
         <>
             <div className="actions">
                 <h3 className="max-editor:w-full mr-auto text-xl tracking-tight">
-                    Sequence <span className="text-muted ml-2.5 text-sm">{format.quantity(entry.compositions.length, { one: (shown) => `${shown} composition`, other: (shown) => `${shown} compositions` })}</span>
+                    Sequence <span className="text-muted ml-2.5 text-sm">{format.quantity(entry.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
                 </h3>
                 <button className="button button-outline" onClick={onUpload} type="button">
                     Add files
@@ -103,7 +103,7 @@ const Compositions = ({
                     <ReorderableList
                         actions={(keys) => (
                             <ConfirmDialog
-                                label={format.quantity(keys.size, { one: (shown) => `Remove ${shown} selected composition`, other: (shown) => `Remove ${shown} selected compositions` })}
+                                label={format.quantity(keys.size, { one: (count) => `Remove ${count} selected composition`, other: (count) => `Remove ${count} selected compositions` })}
                                 onConfirm={() => setDraft(updateEntry(entry.id, Struct.evolve({ compositions: Array.filter((candidate) => !keys.has(candidate.id)) })))}
                             />
                         )}

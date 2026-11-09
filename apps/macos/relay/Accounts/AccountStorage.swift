@@ -24,8 +24,8 @@ nonisolated enum AccountStorageFailure: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-            case .read(let error): "Could not read accounts.json. \(error.localizedDescription)"
-            case .write(let error): "Could not save accounts.json. \(error.localizedDescription)"
+            case .read(let error): "Could not read accounts.json: \(error.localizedDescription)"
+            case .write(let error): "Could not save accounts.json: \(error.localizedDescription)"
             case .invalidData: "Invalid data in accounts.json"
         }
     }
@@ -45,7 +45,7 @@ actor AccountStorage {
     // --- [PERSISTENCE]
 
     func load() -> Result<[SavedAccount], AccountStorageFailure> {
-        let decoder: JSONDecoder = JSONDecoder()
+        let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return Result { try ifPresent { try Data(contentsOf: fileURL) }.map { data in try decoder.decode(Document.self, from: data) } }
             .mapError(AccountStorageFailure.read)
@@ -55,7 +55,7 @@ actor AccountStorage {
     }
 
     func save(_ value: [SavedAccount]) -> Result<Void, AccountStorageFailure> {
-        let encoder: JSONEncoder = JSONEncoder()
+        let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return Result {
@@ -109,7 +109,7 @@ actor AccountStorage {
                 organizationID: organizationID,
                 email: email,
                 plan: plan,
-            ).mapError { failure in failure.map { error in .invalidAccount(id: id, error: error) } }
+            ).mapError { failure in failure.map { error in AccountStorageError.invalidAccount(id: id, error: error) } }
             let snapshot: Result<AccountUsage?, AggregateError<AccountStorageError>> =
                 usage?.accountUsage(id: id).map(Optional.some) ?? .success(nil)
             return combine(identity, snapshot).map { identity, snapshot in

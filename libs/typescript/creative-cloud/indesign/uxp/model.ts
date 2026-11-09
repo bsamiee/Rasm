@@ -43,6 +43,7 @@ interface Typed {
     readonly type: Option.Option<string>;
 }
 type Failure = HostError | Unmatched | Schema.SchemaError;
+type Member<E extends Enumeration> = [Extract<E[keyof E], Enumerator>] extends [never] ? Enumerator : Extract<E[keyof E], Enumerator>;
 type Owned = {
     readonly toSpecifier: InDesignDOMObject<unknown>;
     readonly createTOC: Document;
@@ -82,7 +83,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         const enumeration = (name: string): Option.Option<Enumeration> => Option.liftPredicate(Reflect.get(indesign, name), (value): value is Enumeration => value instanceof indesign.Enumeration);
         const enumerator = (value: unknown): value is Enumerator => value instanceof indesign.Enumerator;
         const members = <E extends Enumeration>(found: E) => {
-            const keyed = (member: unknown, key: string): member is Extract<E[keyof E], Enumerator> => enumerator(member) && String(member) === key;
+            const keyed = (member: unknown, key: string): member is Member<E> => enumerator(member) && member.toString() === key;
             return Array.filterMap(Object.getOwnPropertyNames(Object.getPrototypeOf(found)), (key) => {
                 const member: unknown = Reflect.get(found, key);
                 return keyed(member, key) ? Result.succeed(member) : Result.failVoid;
@@ -121,8 +122,8 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                     return Option.none();
                 }
                 return Option.liftThrowable((): unknown => Reflect.get(value, name))().pipe(
-                    Option.filter((held) => !(Predicate.isNullish(held) || nothing(held))),
-                    Option.map((held) => [name, picking(type, held)] as const),
+                    Option.filter((property) => !(Predicate.isNullish(property) || nothing(property))),
+                    Option.map((property) => [name, picking(type, property)] as const),
                 );
             };
             return Object.fromEntries([...(referenced ? Object.entries(Model.referenceUnsafe(value)) : []), ...Array.getSomes(Array.map(node.propertySignatures, read))]);
@@ -149,7 +150,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 Option.getOrElse(row.types, Array.empty<string>),
                 Array.map(enumeration),
                 Array.getSomes,
-                Array.flatMap((found) => Array.map(members(found), String)),
+                Array.flatMap((enumerated) => Array.map(members(enumerated), (member) => member.toString())),
                 Array.dedupe,
                 Option.liftPredicate(Array.isArrayNonEmpty),
             ),
@@ -239,7 +240,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
     static readonly member = Effect.fnUntraced(function* (kind: string, name: string) {
         const { enumeration, members, enumerations } = yield* Model;
         const found = yield* Effect.fromOption(enumeration(kind), () => Unmatched.make({ subject: 'enumeration', query: Option.some(kind), candidates: enumerations }));
-        return yield* Unmatched.single(members(found), `${kind} member`, Option.some(name), (each) => [String(each)]);
+        return yield* Unmatched.single(members(found), `${kind} member`, Option.some(name), (member) => [member.toString()]);
     });
     static readonly object = Effect.fnUntraced(function* (type: string, name: string, scope: Option.Option<object>) {
         const model = yield* Model;
@@ -281,14 +282,16 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         const located = (path: string): Option.Option<InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[]> => {
             const requested = identified(path);
             const valid = (each: unknown): each is InDesignDOMObject<unknown> => model.domObject(each) && each.isValid && (Option.isNone(requested) || Equal.equals(identified(each.toSpecifier()), requested));
-            return Option.filter(Option.liftThrowable((): unknown => model.app.doScript('resolve(arguments[0])', model.ScriptLanguage.JAVASCRIPT, [path]))(), (found): found is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] => (Array.isArray(found) ? found.every(valid) : valid(found)));
+            return Option.filter(Option.liftThrowable((): unknown => model.app.doScript('resolve(arguments[0])', model.ScriptLanguage.JAVASCRIPT, [path]))(), (resolved): resolved is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] =>
+                Array.isArray(resolved) ? resolved.every(valid) : valid(resolved),
+            );
         };
         const nearest = function* (): Effect.fn.Return<readonly InDesignDOMObject<unknown>[], HostError | Unmatched> {
             const listed = flow(located, Option.toArray, Array.flatMap(Array.ensure));
             const siblings = listed(`${specifier.container}${specifier.separator}${specifier.kind}`);
             const container = Array.head(listed(specifier.container || '/'));
             const fields = Option.toArray(yield* Effect.transposeOption(Option.map(container, (at) => Cache.get(model.declarations, at.constructorName)))).flatMap(flow(Struct.get('fields'), Record.toEntries));
-            const value = (field: string): unknown => Option.getOrUndefined(Option.map(container, (at) => Reflect.get(at, field)));
+            const value = (field: string): unknown => Option.getOrUndefined(Option.map(container, (at): unknown => Reflect.get(at, field)));
             const sibling = Option.map(Array.head(siblings), Struct.get('constructorName'));
             const related = fields.flatMap(([field, { type, array }]) => (array && Option.isSome(sibling) && Equal.equals(type, sibling) ? Array.ensure<unknown>(value(field)) : [])).filter(model.named);
             const collections = Array.getSomes(
@@ -311,7 +314,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
             );
         };
         return yield* Option.match(located(written), {
-            onSome: (found) => Effect.succeed(specifier.root || Option.isSome(specifier.selector) || specifier.property ? found : Array.ensure(found)),
+            onSome: (resolved) => Effect.succeed(specifier.root || Option.isSome(specifier.selector) || specifier.property ? resolved : Array.ensure(resolved)),
             onNone: () => Option.match(specifier.end, { onNone: () => Effect.gen(nearest), onSome: () => Effect.fail(Unmatched.make({ subject: 'range', query: Option.some(written) })) }),
         });
     });
@@ -458,7 +461,8 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: HostError.refused(label) }).pipe(Effect.catch((error) => Deferred.fail(done, error)));
         return yield* Deferred.await(done).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), closed, { discard: true })));
     });
-    static readonly written = <W, E, R>(label: string, target: InDesignDOMObject<unknown>, body: Effect.Effect<W, E, R>): Effect.Effect<Schema.Struct<typeof Reference.fields>['Type'] & { readonly written: W }, E | HostError, R | Model> => Model.commit(label, Effect.all([body, Model.reference(target)]).pipe(Effect.map(([members, reference]) => ({ ...reference, written: members }))));
+    static readonly written = <W, E, R>(label: string, target: InDesignDOMObject<unknown>, body: Effect.Effect<W, E, R>): Effect.Effect<Schema.Struct<typeof Reference.fields>['Type'] & { readonly written: W }, E | HostError, R | Model> =>
+        Model.commit(label, Effect.all([body, Model.reference(target)]).pipe(Effect.map(([members, reference]) => ({ ...reference, written: members }))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -471,7 +475,7 @@ const writer = (target: InDesignDOMObject<unknown>, specifier: string, fonts: Pa
         const nested = Value.plainObject(value) && !row.settable;
         const { domObject } = yield* Model;
         yield* Effect.transposeOption(Option.map(unavailableReason(target.constructorName, field, Option.some(target), !nested), refused));
-        const inner: unknown = nested ? yield* Effect.try({ try: () => Reflect.get(target, field), catch: refused }) : undefined;
+        const inner: unknown = nested ? yield* Effect.try({ try: (): unknown => Reflect.get(target, field), catch: refused }) : undefined;
         if (Value.plainObject(value) && domObject(inner)) {
             return Array.map(yield* Model.write(inner, value), (name) => `${field}.${name}`);
         }

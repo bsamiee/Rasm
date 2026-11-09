@@ -87,7 +87,7 @@ func decoded(_ container: FilePath) throws(AnalyzerError) -> XCSchema.Project {
 func versioned(_ held: XCSchema.Project, to version: String) throws(AnalyzerError) -> XCSchema.Project {
     let build: Int =
         try held.buildSettings[VersionSetting.project.rawValue].map { (setting: XCSchema.BuildSetting) throws(AnalyzerError) -> Int in
-            guard let number = setting.text.flatMap(Int.init) else { throw AnalyzerError(subject: VersionSetting.project.rawValue, reason: .nonInteger(String(describing: setting))) }
+            guard let number: Int = setting.text.flatMap(Int.init) else { throw AnalyzerError(subject: VersionSetting.project.rawValue, reason: .nonInteger(String(describing: setting))) }
             return number
         } ?? 0
     var next: XCSchema.Project = held

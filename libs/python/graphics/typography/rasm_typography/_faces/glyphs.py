@@ -5,7 +5,7 @@
 from datetime import datetime
 from enum import auto, StrEnum
 from functools import cache, cached_property
-from typing import Annotated, Literal, Self
+from typing import Annotated, Self
 from urllib.parse import urlsplit
 lazy from collections.abc import Callable, Mapping
 lazy import csv
@@ -37,7 +37,6 @@ lazy from rasm_records import committed, Fault, Ok, Outcome, read, Reason
 
 type _Contour = tuple[_Point, ...]
 type _Outline = tuple[_Contour, ...]
-type _Category = Literal["base", "ligature", "mark", "unassigned"]
 
 
 class _Joining(StrEnum):
@@ -71,6 +70,15 @@ class _Side(StrEnum):
     def of(cls, code: int, /) -> _Side:
         """Returns the side a mark's canonical combining class states, below for class 220 and the kasra and kasratan classes."""
         return cls.BELOW if unicodedata.combining(chr(code)) in {220, *map(unicodedata.combining, "ٍِ")} else cls.ABOVE
+
+
+class _Category(StrEnum):
+    """OpenType category `public.openTypeCategories` gives a glyph, each value its UFO token."""
+
+    BASE = auto()
+    LIGATURE = auto()
+    MARK = auto()
+    UNASSIGNED = auto()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -187,13 +195,13 @@ class _Glyph(msgspec.Struct, frozen=True, kw_only=True):
         """OpenType category for `public.openTypeCategories`, spaces and controls left unassigned."""
         match self.role:
             case Mark():
-                return "mark"
+                return _Category.MARK
             case Ligature():
-                return "ligature"
+                return _Category.LIGATURE
             case Space() | Control():
-                return "unassigned"
+                return _Category.UNASSIGNED
             case Letter() | Digit() | Sign() | Ornament():
-                return "base"
+                return _Category.BASE
 
     def anchor(self, name: str, /) -> Option[_Anchor]:
         """Returns the anchor with a name."""
@@ -208,9 +216,9 @@ class _Info(msgspec.Struct, frozen=True, kw_only=True):
 
     created: Annotated[datetime, msgspec.Meta(tz=True)]
     version: tuple[int, int]
-    copyright: str
-    designer: str
-    vendor: str
+    copyright: str | None
+    designer: str | None
+    vendor: str | None
 
 
 class _Metrics(msgspec.Struct, frozen=True, kw_only=True):
@@ -285,7 +293,11 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 case glyph:
                     pen = BoundsPen(named)
                     glyph.draw(pen)
-                    return pen.bounds  # ty: ignore[unsound-return-statement]
+                    match pen.bounds:
+                        case (x_min, y_min, x_max, y_max):
+                            return (float(x_min), float(y_min), float(x_max), float(y_max))
+                        case _:
+                            return None
 
         return measured
 

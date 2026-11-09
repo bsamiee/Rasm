@@ -10,7 +10,7 @@
         "registry": { "type": "string", "description": "Registry name from Cargo configuration, crates.io when unset" },
         "dryRun": { "type": "boolean", "description": "Packages and verifies without uploading" },
         "firstRelease": { "type": "boolean", "description": "Skips the registry version check" },
-        "nxReleaseVersionData": { "type": "object", "description": "Version data nx release passes per project" }
+        "nxReleaseVersionData": { "type": "object", "description": "Versions nx release resolved per project" }
     },
     "required": [ "cwd", "package" ]
 }

@@ -18,22 +18,18 @@ func isDialogHelper(_ process: pid_t) -> Bool {
     NSRunningApplication(processIdentifier: process)?.isDialogHelper == true
 }
 
-extension StringProtocol {
-    func holds(wholeWords name: String) -> Bool {
-        let word: Regex<Substring> = Regex {
-            Anchor.wordBoundary
-            name
-            Anchor.wordBoundary
-        }
-        return String(self).firstMatch(of: word) != nil
-    }
-}
-
 extension InstanceState {
     func prompting(_ names: [String]) -> [Window] {
-        self[case: \.running]?.windows.filter { window in
+        let words: [Regex<Substring>] = names.map { name in
+            Regex {
+                Anchor.wordBoundary
+                name
+                Anchor.wordBoundary
+            }
+        }
+        return self[case: \.running]?.windows.filter { window in
             if let element: Element = window.description[case: \.element], element.asking {
-                ([element.title].compactMap(\.self) + (element.detail?.text ?? [])).contains { text in names.contains(where: text.holds(wholeWords:)) }
+                ([element.title].compactMap(\.self) + (element.detail?.text ?? [])).contains { text in words.contains { word in text.contains(word) } }
             } else {
                 false
             }

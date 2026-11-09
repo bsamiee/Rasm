@@ -15,13 +15,35 @@ utils:
               has: {field: result, matches: empty-string}
     empty-block:
         matches: {swift-single-statement: {first: {matches: empty-result}}}
+    text-fragment:
+        inside: {kind: 'additive_expression, interpolated_expression', stopBy: {not: {kind: tuple_expression}}}
+    host-unset:
+        inside:
+            kind: value_argument
+            has: {field: name, regex: '^(abstract|discussion|version)$'}
+            inside:
+                kind: value_arguments
+                inside:
+                    kind: call_suffix
+                    inside:
+                        kind: call_expression
+                        any:
+                            - regex: '^(ArgumentParser\.)?CommandConfiguration(\.init)?\('
+                            - regex: '^\.init\('
+                              inside: {kind: property_declaration, has: {kind: type_annotation, regex: 'CommandConfiguration$'}}
 rule:
     any:
         - kind: nil_coalescing_expression
           all:
             - has: {field: value, pattern: $SHAPE}
             - has: {field: if_nil, matches: empty-string}
-            - not: {inside: {kind: 'additive_expression, interpolated_expression', stopBy: {not: {kind: tuple_expression}}}}
+            - not: {matches: text-fragment}
+            - not: {matches: host-unset}
+        - kind: ternary_expression
+          all:
+            - has: {field: condition, pattern: $SHAPE}
+            - any: [{has: {field: if_true, matches: empty-string}}, {has: {field: if_false, matches: empty-string}}]
+            - not: {matches: text-fragment}
         - kind: switch_entry
           all:
             - has: {kind: 'switch_pattern, default_keyword', pattern: $SHAPE}
@@ -67,4 +89,4 @@ rule:
                         - precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {field: name, regex: '^(Swift(\.|::))?String$'}}
                         - not: {precedes: {stopBy: {kind: pattern}, kind: type_annotation}}
 message: '`$SHAPE` yields an empty string standing for absence'
-note: 'Declare or return `String?` with `nil` for absence'
+note: 'Declare or return `String?` with `nil` for absence, or choose a complete value per case in one expression (`<condition> ? "<whole text>" : "<other whole text>"`)'

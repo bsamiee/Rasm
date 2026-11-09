@@ -1,5 +1,5 @@
 import { Choice, Field, MenuButton } from '@rasm/ui';
-import { Match, Record, Struct } from 'effect';
+import { Match, Option, Record, String, Struct } from 'effect';
 import type { ReactNode } from 'react';
 import { choiceLayout, descriptionLabel, joinDetails, sheetLabel } from '#/media/labels';
 import { Asset, type Assets } from '#/model/asset';
@@ -9,16 +9,27 @@ import { Placement } from '#/model/placement';
 
 const imageRoles = Record.collect({ drawing: 'Drawing (full sheet)', photograph: 'Photograph' } satisfies Record.ReadonlyRecord<Extract<typeof Placement.Type, { readonly kind: 'image' }>['role'], string>, (id, label) => ({ id, label }));
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const present = <K extends 'caption' | 'alt' | 'description'>(key: K, input: string) => Option.getOrUndefined(Option.map(Option.liftPredicate(input, String.isNonEmpty), (text) => Record.singleton(key, text)));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const PlacementFields = ({ value, assets, onChange, children }: { readonly value: typeof Placement.Type; readonly assets: typeof Assets.Service; readonly onChange: (value: typeof Placement.Type) => void; readonly children?: ReactNode }) => (
     <div className="border-line flex flex-col gap-3.25 border-t pt-4.5">
         <span className="text-caption wrap-anywhere">{value.asset.name}</span>
-        <Field label="Caption" onChange={(caption) => onChange({ ...value, caption })} value={value.caption} />
+        <Field
+            label="Caption"
+            onChange={(caption) => {
+                const { caption: _, ...rest } = value;
+                onChange({ ...rest, ...present('caption', caption) });
+            }}
+            value={value.caption ?? ''}
+        />
         {Match.value(value).pipe(
             Match.discriminatorsExhaustive('kind')({
                 pdf: (sheet) => (
-                    <MenuButton aria-label="Sheet" onAction={({ page }) => onChange({ ...sheet, page })} options={sheet.asset.sheets.map((page) => ({ id: String(page.number), label: sheetLabel(page, sheet.asset.pages.length), page }))}>
+                    <MenuButton aria-label="Sheet" onAction={({ page }) => onChange({ ...sheet, page })} options={sheet.asset.sheets.map((page) => ({ id: page.number.toString(), label: sheetLabel(page, sheet.asset.pages.length), page }))}>
                         {sheetLabel(sheet.page, sheet.asset.pages.length)}
                     </MenuButton>
                 ),
@@ -74,8 +85,24 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                 ),
             }),
         )}
-        <Field label="Accessible description" onChange={(alt) => onChange({ ...value, alt })} placeholder="What image or sheet conveys" value={value.alt ?? ''} />
-        <Field label={descriptionLabel(value)} multiline={true} onChange={(description) => onChange({ ...value, description })} value={value.description ?? ''} />
+        <Field
+            label="Accessible description"
+            onChange={(alt) => {
+                const { alt: _, ...rest } = value;
+                onChange({ ...rest, ...present('alt', alt) });
+            }}
+            placeholder="What image or sheet conveys"
+            value={value.alt ?? ''}
+        />
+        <Field
+            label={descriptionLabel(value)}
+            multiline={true}
+            onChange={(description) => {
+                const { description: _, ...rest } = value;
+                onChange({ ...rest, ...present('description', description) });
+            }}
+            value={value.description ?? ''}
+        />
         {children}
     </div>
 );

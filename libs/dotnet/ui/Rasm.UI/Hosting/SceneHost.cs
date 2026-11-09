@@ -64,7 +64,7 @@ public sealed class SceneHost : IDisposable {
     public SceneHost(SceneBackend backend, TimeProvider clock, Seq<SKTypeface> embedded = default) {
         (this.backend, this.clock) = (backend, clock);
         shaping = new Shaping(embedded);
-        timer = clock.CreateTimer(static held => ((SceneHost)held!).TimerElapsed(), this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        timer = clock.CreateTimer(_ => TimerElapsed(), state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     public Option<Mount> Current => Volatile.Read(ref session).Current;

@@ -378,6 +378,6 @@ public class Rtti extends GhidraScript {
                                 Stream.concat(parsed.stream(), read.stream())
                                         .flatMap(Report.Result::failures)
                                         .toList()));
-        println(Report.write(out, currentProgram, sections, ""));
+        println(Report.write(out, currentProgram, sections, List.of()));
     }
 }

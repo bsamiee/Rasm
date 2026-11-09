@@ -140,6 +140,6 @@ public class Catalog extends GhidraScript {
                                         .filter(Predicate.not(Function::isThunk))
                                         .filter(Predicate.not(Functions::isStub))
                                         .map(function -> new FunctionRow(function, monitor))));
-        println(Report.write(out, currentProgram, sections, ""));
+        println(Report.write(out, currentProgram, sections, List.of()));
     }
 }

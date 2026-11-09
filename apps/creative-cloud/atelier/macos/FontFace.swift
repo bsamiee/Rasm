@@ -14,13 +14,13 @@ struct FontFace: Codable, Hashable, Sendable {
 
 extension FontFace {
     static func available() -> [Self] {
-        let collection: CTFontCollection = CTFontCollectionCreateFromAvailableFonts([kCTFontCollectionRemoveDuplicatesOption as String: true] as CFDictionary)
+        let collection = CTFontCollectionCreateFromAvailableFonts([kCTFontCollectionRemoveDuplicatesOption as String: true] as CFDictionary)
         return (CTFontCollectionCreateMatchingFontDescriptors(collection) as? [CTFontDescriptor] ?? []).compactMap(Self.init(_:))
     }
 
     init(named name: String) throws(Unmatched) {
-        let query: CTFontDescriptor = CTFontDescriptorCreateWithAttributes([kCTFontNameAttribute: name] as CFDictionary)
-        guard let face: Self = CTFontDescriptorCreateMatchingFontDescriptor(query, nil).flatMap(Self.init(_:)) else {
+        let query = CTFontDescriptorCreateWithAttributes([kCTFontNameAttribute: name] as CFDictionary)
+        guard let face = CTFontDescriptorCreateMatchingFontDescriptor(query, nil).flatMap(Self.init(_:)) else {
             throw Unmatched(
                 subject: "font",
                 query: name,

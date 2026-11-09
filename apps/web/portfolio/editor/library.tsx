@@ -33,12 +33,12 @@ const Library = ({
     const setDraft = useAtomSet(draft);
     const remove = useAtomSet(deleteRequest);
     const selected = Option.flatMap(assetId, (id) => Record.get(assets, id));
-    const summary = (asset: typeof Asset.Type) => [format.bytes(ByteSize.bytes(asset.size)), asset.kind === 'pdf' ? format.quantity(asset.pages.length, { one: (shown) => `${shown} sheet`, other: (shown) => `${shown} sheets` }) : undefined];
+    const summary = (asset: typeof Asset.Type) => [format.bytes(ByteSize.bytes(asset.size)), asset.kind === 'pdf' ? format.quantity(asset.pages.length, { one: (count) => `${count} sheet`, other: (count) => `${count} sheets` }) : undefined];
     return (
         <section className="border-line min-w-0 border-t pt-5">
             <div className="mb-4 flex items-center justify-between gap-3">
                 <h3 className="text-xl tracking-tight">Library</h3>
-                <span className="text-muted text-xs">{format.quantity(Object.keys(assets).length, { one: (shown) => `${shown} file`, other: (shown) => `${shown} files` })}</span>
+                <span className="text-muted text-xs">{format.quantity(Object.keys(assets).length, { one: (count) => `${count} file`, other: (count) => `${count} files` })}</span>
             </div>
             <div className="editor:grid-cols-2 grid min-w-0 gap-6">
                 <GridList

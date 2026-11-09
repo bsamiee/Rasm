@@ -6,6 +6,7 @@ lazy import math
 lazy import unicodedata
 
 import msgspec
+lazy from expression import Option, Some
 lazy from expression.extra.result import catch
 lazy from fontTools.misc.transform import Offset, Transform
 lazy import pathops
@@ -13,7 +14,7 @@ lazy from scipy.special import cosdg, sindg
 
 from rasm_typography._faces.declaration import Em, Ratio, Recipe, Script
 from rasm_typography._rules.measures import _made, _nuqta, _placement, _text_outline, bounded_glyph, Rule
-lazy from rasm_records import Outcome
+lazy from rasm_records import Nothing, Outcome
 lazy from rasm_typography._faces.glyphs import _Glyph, _Outline, _Side, _traced, Mark, Source
 lazy from rasm_typography._faces.layout import _Chain, Contextual
 lazy from rasm_typography._faces.names import _Form, _GlyphName
@@ -183,27 +184,27 @@ def _marked(source: Source, rule: Marks, width: float, height: _Box, /) -> Sourc
 # --- [MINIATURES]
 
 
-def _letter(script: str, name: str, /) -> str:
-    """Letter of a script a Unicode name gives after `<script> LETTER`, empty for a name Unicode lacks."""
-    return catch(unicodedata.lookup, exception=KeyError)(f"{script} LETTER {name}").default_value("")
+def _letter(script: str, name: str, /) -> Option[str]:
+    """Letter of a script a Unicode name gives after `<script> LETTER`, Nothing for a name Unicode lacks."""
+    return catch(unicodedata.lookup, exception=KeyError)(f"{script} LETTER {name}").to_option()
 
 
-def _text(code: int, /) -> str:
-    """Letters a small mark's Unicode name spells, joined, in the form it names, empty for a name spelling no letter."""
+def _text(code: int, /) -> Option[str]:
+    """Letters a small mark's Unicode name spells, joined, in the form it names, Nothing for a name spelling a letter Unicode lacks."""
     script, _, rest = unicodedata.name(chr(code)).partition(" SMALL ")
     match rest.split():
         case ["HIGH" | "LOW", "LIGATURE", *words]:
-            spelled = tuple(_letter(script, letter) for letter in " ".join(words).split(" WITH "))
-            return "\N{ZERO WIDTH JOINER}".join(spelled) if all(spelled) else ""
+            parts = " ".join(words).split(" WITH ")
+            letters = tuple(*_letter(script, part).to_list() for part in parts)
+            return Some("\N{ZERO WIDTH JOINER}".join(letters)).filter(lambda _: len(letters) == len(parts))
         case ["HIGH" | "LOW", first, second]:
-            return combined if (combined := _letter(script, f"{first} {second}")) else "".join(pair) if all(pair := (_letter(script, first), _letter(script, second))) else ""
+            return _letter(script, f"{first} {second}").or_else_with(lambda: _letter(script, first).map2(str.__add__, _letter(script, second)))
         case ["HIGH" | "LOW", *words, "INITIAL" | "ISOLATED" as form, "FORM"]:
-            letter = _letter(script, " ".join(words))
-            return letter + ("\N{ZERO WIDTH JOINER}" if form == "INITIAL" and letter else "")
+            return _letter(script, " ".join(words)).map(lambda letter: f"{letter}\N{ZERO WIDTH JOINER}" if form == "INITIAL" else letter)
         case ["HIGH" | "LOW", *words]:
             return _letter(script, " ".join(words))
         case _:
-            return ""
+            return Nothing
 
 
 def _quranic(source: Source, rule: QuranicMarks, /, *, original: Binary) -> Outcome[Source]:
@@ -222,7 +223,8 @@ def _miniatures(source: Source, rule: QuranicMarks, original: Binary, move: Tran
     drawn = tuple(
         (glyph, code, _transformed(_text_outline(original, text), move))
         for glyph, code in _targets(source, rule.codes)
-        if pen and (glyph is None or not source.drawn(glyph.name.text).contours) and (text := _text(code))
+        if pen and (glyph is None or not source.drawn(glyph.name.text).contours)
+        for text in _text(code).to_list()
     )
     glyphs = tuple(
         _with_contours(glyph, code, 0.0, _restroked(_transformed(contours, (factor, 0, 0, factor, -factor * box.middle[0], -factor * foot)), pen))
@@ -240,10 +242,8 @@ def _miniatures(source: Source, rule: QuranicMarks, original: Binary, move: Tran
         code: vowel
         for glyph in source.by_role(Mark)
         for code in glyph.name.codes[:1]
-        if code in glyph.codes
-        and unicodedata.category(chr(code)) == "Mn"
-        and (name := unicodedata.name(chr(code), "")).endswith("TAN")
-        and (vowel := catch(unicodedata.lookup, exception=KeyError)(name.removesuffix("TAN")).default_value(""))
+        if code in glyph.codes and unicodedata.category(chr(code)) == "Mn" and (name := unicodedata.name(chr(code))).endswith("TAN")
+        for vowel in catch(unicodedata.lookup, exception=KeyError)(name.removesuffix("TAN")).to_option().to_list()
     }
     rules = tuple(
         _Chain(input=(((source.key(code),), source.key(ord(vowel))),), lookahead=((source.key(meem),),))

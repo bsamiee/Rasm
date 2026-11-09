@@ -50,11 +50,11 @@ pub struct Tolerance(f64);
 pub enum StatsError {
     #[error("log density or its gradient is not finite")]
     NotFinite,
-    #[error("chain {chain} failed")]
+    #[error("cannot sample chain {chain}")]
     Sampler { chain: u64, source: anyhow::Error },
     #[error("start of chain {chain} lies outside the open bounds of dimension {dimension}")]
     Start { chain: u64, dimension: usize },
-    #[error("sampler settings refused")]
+    #[error("cannot apply sampler settings")]
     Settings(#[source] anyhow::Error),
     #[error("{found} entries along an axis of {expected}")]
     Shape { expected: usize, found: usize },

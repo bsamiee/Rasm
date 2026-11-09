@@ -11,7 +11,6 @@ import ghidra.util.task.CancelledListener;
 
 import org.apache.commons.io.input.BoundedInputStream;
 
-import rasm.Arguments;
 import rasm.Report;
 
 import java.io.BufferedReader;
@@ -26,10 +25,8 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -43,6 +40,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -77,8 +76,9 @@ public class Serve extends GhidraScript {
         Function<String, Report.Result<Program>> open =
                 name -> {
                     String path = name.startsWith("/") ? name : "/" + name;
-                    if (programs.get(path) instanceof Program program) {
-                        return new Report.Success<>(program);
+                    Program cached = programs.get(path);
+                    if (cached != null) {
+                        return new Report.Success<>(cached);
                     }
                     DomainFile file = state.getProject().getProjectData().getFile(path);
                     if (file == null) {
@@ -115,7 +115,10 @@ public class Serve extends GhidraScript {
                             return new Report.Success<>(Optional.empty());
                         }
                         program.save(
-                                request.script() + " " + String.join(" ", request.arguments()),
+                                Stream.concat(
+                                                Stream.of(request.script()),
+                                                request.arguments().stream())
+                                        .collect(Collectors.joining(" ")),
                                 monitor);
                         return new Report.Success<>(Optional.of(program.getDomainFile()));
                     } catch (Exception exception) {
@@ -130,10 +133,8 @@ public class Serve extends GhidraScript {
         String elapsed = "%.1fs".formatted((System.nanoTime() - start) / 1e9);
         return switch (outcome) {
             case Report.Success<Optional<DomainFile>>(Optional<DomainFile> saved) ->
-                    "ok %s%s\n"
-                            .formatted(
-                                    elapsed,
-                                    saved.map(file -> " saved " + file.getPathname()).orElse(""));
+                    saved.map(file -> "ok %s saved %s\n".formatted(elapsed, file.getPathname()))
+                            .orElseGet(() -> "ok %s\n".formatted(elapsed));
             case Report.Failure<Optional<DomainFile>>(String cause) ->
                     "failed %s %s\n".formatted(elapsed, cause);
         };
@@ -152,10 +153,12 @@ public class Serve extends GhidraScript {
                         new BufferedReader(
                                 Channels.newReader(
                                         Channels.newChannel(input), StandardCharsets.UTF_8))) {
-            String line = reader.readLine();
+            Optional<String> line = Optional.ofNullable(reader.readLine());
             return input.getCount() > REQUEST_BYTES
                     ? new Report.Failure<>("Request exceeds %d bytes".formatted(REQUEST_BYTES))
-                    : new Report.Success<>(Objects.requireNonNullElse(line, "").strip());
+                    : line.map(String::strip)
+                            .<Report.Result<String>>map(Report.Success::new)
+                            .orElseGet(() -> new Report.Failure<>("Request closed before a line"));
         } catch (IOException exception) {
             return new Report.Failure<>(exception.toString());
         }
@@ -185,20 +188,23 @@ public class Serve extends GhidraScript {
                     continue;
                 }
                 clients.add(channel);
-                CompletableFuture.supplyAsync(() -> read(channel), transfers)
-                        .orTimeout(TRANSFER_SECONDS, TimeUnit.SECONDS)
-                        .whenComplete((result, failure) -> {
-                            if (result instanceof Report.Success<String>(String line)) {
-                                pending.add(new Report.Success<>(new Connection(channel, line)));
-                                return;
-                            }
-                            disconnect(channel, clients);
-                            String cause =
-                                    result instanceof Report.Failure<String>(String message)
-                                            ? message
-                                            : String.valueOf(failure);
-                            printerr("Request intake failed, %s".formatted(cause));
-                        });
+                CompletableFuture<Report.Result<String>> _ =
+                        CompletableFuture.supplyAsync(() -> read(channel), transfers)
+                                .orTimeout(TRANSFER_SECONDS, TimeUnit.SECONDS)
+                                .whenComplete((result, failure) -> {
+                                    if (result instanceof Report.Success<String>(String line)) {
+                                        pending.add(
+                                                new Report.Success<>(
+                                                        new Connection(channel, line)));
+                                        return;
+                                    }
+                                    disconnect(channel, clients);
+                                    String cause =
+                                            result instanceof Report.Failure<String>(String message)
+                                                    ? message
+                                                    : String.valueOf(failure);
+                                    printerr("Request intake failed, %s".formatted(cause));
+                                });
             }
         } catch (IOException exception) {
             pending.add(new Report.Failure<>(exception.toString()));
@@ -232,13 +238,12 @@ public class Serve extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        new Arguments.Usage(getScriptName(), "")
-                .values(
-                        Arrays.stream(getScriptArgs())
-                                .<Report.Result<String>>map(argument ->
-                                        new Report.Failure<>(
-                                                "Argument `%s` follows the script name"
-                                                        .formatted(argument))));
+        String[] args = getScriptArgs();
+        if (args.length > 0) {
+            throw new IllegalArgumentException(
+                    "%s takes no arguments, got `%s`"
+                            .formatted(getScriptName(), String.join(" ", args)));
+        }
         ProjectLocator locator = state.getProject().getProjectLocator();
         Path socket = locator.getMarkerFile().toPath().resolveSibling(locator.getName() + ".sock");
         end(true);

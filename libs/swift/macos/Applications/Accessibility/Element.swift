@@ -64,7 +64,7 @@ public struct Element: Encodable, Hashable, Sendable {
         init(token: Data) { self.token = token }
 
         public init?(base64Encoded text: String) {
-            guard let token: Data = Data(base64Encoded: text) else { return nil }
+            guard let token = Data(base64Encoded: text) else { return nil }
             self.token = token
         }
 
@@ -146,7 +146,7 @@ public struct Element: Encodable, Hashable, Sendable {
         guard let controls: [Control] = detail?.controls else { return nil }
         let attributed: (String) -> Control? = { attribute in controls.first { control in control.attribute == attribute } }
         let identified: (String) -> Control? = { identifier in controls.first { control in control.identifier == identifier } }
-        let answers: Answers = Answers(
+        let answers = Answers(
             accept: attributed(kAXDefaultButtonAttribute) ?? identified(acceptIdentifier),
             discard: identified(discardIdentifier),
             cancel: attributed(kAXCancelButtonAttribute) ?? identified(cancelIdentifier) ?? attributed(kAXCloseButtonAttribute),
@@ -212,7 +212,7 @@ extension AXUIElement {
     }
 
     private static func children(_ read: [String: CFTypeRef]) -> [(offset: Int, element: AXUIElement)] {
-        let role: String? = read[kAXRoleAttribute] as? String
+        let role = read[kAXRoleAttribute] as? String
         let nested: CFTypeRef? =
             switch role {
                 case kAXBrowserRole: nil
@@ -226,7 +226,7 @@ extension AXUIElement {
     private func walk(marking marked: [(attribute: String, node: AXUIElement)], menu: (process: pid_t, path: [Int])?) throws(ApplicationFailure) -> (role: String?, parts: [Part]) {
         do throws(ApplicationFailure) {
             let read: [String: CFTypeRef] = try values(nodeAttributes)
-            let role: String? = read[kAXRoleAttribute] as? String
+            let role = read[kAXRoleAttribute] as? String
             guard role.map(boundedRoles.contains) != true else { return (role, []) }
             let children: [(role: String?, parts: [Part])] = try Self.children(read).map { child throws(ApplicationFailure) in
                 try child.element.walk(marking: marked, menu: menu.map { menu in (menu.process, menu.path + [child.offset]) })
@@ -246,7 +246,7 @@ extension AXUIElement {
 
     private func part(_ read: [String: CFTypeRef], id: Data, attribute: String?, items: [Control]) throws(ApplicationFailure) -> Part? {
         do throws(ApplicationFailure) {
-            guard let role: String = read[kAXRoleAttribute] as? String, role != kAXMenuRole else { return nil }
+            guard let role = read[kAXRoleAttribute] as? String, role != kAXMenuRole else { return nil }
             let value: CFTypeRef? =
                 switch role {
                     case kAXTextAreaRole: try visibleText().map { text in text as CFString }
@@ -283,8 +283,8 @@ extension AXUIElement {
 
     func described(walking walked: (Element) -> Bool, helper: Bool, among listed: [InstanceState.Window], bar: Int? = nil) throws(ApplicationFailure) -> (window: CGWindowID?, element: Element)? {
         let read: [String: CFTypeRef] = try values(outlineAttributes)
-        guard let role: String = read[kAXRoleAttribute] as? String else { return nil }
-        let window: CGWindowID? = Self.window(framed: read, among: listed)
+        guard let role = read[kAXRoleAttribute] as? String else { return nil }
+        let window = Self.window(framed: read, among: listed)
         guard window != nil || menuRoles.contains(role) else { return nil }
         let marked: [(attribute: String, node: AXUIElement)] = buttonAttributes.compactMap { attribute in
             read[attribute].flatMap(Self.checked).map { node in (attribute: attribute, node: node) }

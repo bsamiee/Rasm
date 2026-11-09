@@ -22,8 +22,8 @@ private struct Peer {
         _ body: (JSONRPCConnection<Method, JSONRPCFailure>, inout Self) async throws -> Value,
     ) async throws -> Value {
         let (lines, incoming): (AsyncThrowingStream<Data, any Error>, AsyncThrowingStream<Data, any Error>.Continuation) = AsyncThrowingStream.makeStream()
-        let (written, outgoing): (AsyncStream<JSONValue>, AsyncStream<JSONValue>.Continuation) = AsyncStream.makeStream()
-        var peer: Self = Self(incoming: incoming, outgoing: written.makeAsyncIterator())
+        let (written, outgoing) = AsyncStream<JSONValue>.makeStream()
+        var peer = Self(incoming: incoming, outgoing: written.makeAsyncIterator())
         return try await JSONRPCConnection<Method, JSONRPCFailure>.run(
             reading: lines,
             writing: { line in outgoing.yield(try JSONDecoder().decode(JSONValue.self, from: line)) },
@@ -49,7 +49,7 @@ private struct Peer {
 struct JSONRPCConnectionTests {
     @Test
     func answersRequestsById() async throws {
-        let total: Int = try await Peer.connected { connection, peer in
+        let total = try await Peer.connected { connection, peer in
             async let total: Int = connection.request(.sum, params: [2, 3], returning: Int.self)
             let request: [String: JSONValue] = try await peer.sent()
             expectNoDifference(request["method"], .string("sum"))
@@ -62,8 +62,8 @@ struct JSONRPCConnectionTests {
 
     @Test
     func surfacesRefusals() async throws {
-        let answer: Result<JSONValue, JSONRPCFailure> = try await Peer.connected { connection, peer in
-            async let answer: Result<JSONValue, JSONRPCFailure> = Result { () async throws(JSONRPCFailure) in try await connection.request(.sum) }
+        let answer = try await Peer.connected { connection, peer in
+            async let answer = Result { () async throws(JSONRPCFailure) in try await connection.request(.sum) }
             let request: [String: JSONValue] = try await peer.sent()
             try peer.reply(["id": try #require(request["id"]), "error": .object(["code": .number(-32_602), "message": .string("Invalid params")])])
             return await answer
@@ -78,8 +78,8 @@ struct JSONRPCConnectionTests {
 
     @Test
     func endsPendingRequestsWhenInputCloses() async throws {
-        let (answer, ending): (Result<JSONValue, JSONRPCFailure>, JSONRPCFailure) = try await Peer.connected { connection, peer in
-            async let answer: Result<JSONValue, JSONRPCFailure> = Result { () async throws(JSONRPCFailure) in try await connection.request(.sum) }
+        let (answer, ending) = try await Peer.connected { connection, peer in
+            async let answer = Result { () async throws(JSONRPCFailure) in try await connection.request(.sum) }
             _ = try await peer.sent()
             peer.incoming.finish()
             return (await answer, await connection.finished())
@@ -93,7 +93,7 @@ struct JSONRPCConnectionTests {
 
     @Test
     func servesPeerRequests() async throws {
-        let reply: [String: JSONValue] = try await Peer.connected(
+        let reply = try await Peer.connected(
             serving: { (method: String, params: JSONValue?) async throws(JSONRPCError) -> JSONValue in
                 guard method == Method.sum.rawValue, case .array(let terms)? = params else { throw JSONRPCError(code: -32_601, message: method) }
                 return .number(terms.reduce(0) { total, term in if case .number(let value) = term { total + value } else { total } })
@@ -109,7 +109,7 @@ struct JSONRPCConnectionTests {
 
     @Test
     func deliversNotifications() async throws {
-        let progress: Result<[String: Int], JSONRPCFailure>? = try await Peer.connected { connection, peer in
+        let progress = try await Peer.connected { connection, peer in
             var values: AsyncStream<Result<[String: Int], JSONRPCFailure>>.Iterator = connection.subscribe(.progress, to: [String: Int].self).makeAsyncIterator()
             try peer.reply(["method": .string("progress"), "params": .object(["done": .number(4)])])
             return await values.next(isolation: nil)

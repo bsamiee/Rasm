@@ -141,9 +141,9 @@ pub enum ViewsError {
     Proximity(#[from] ProximityError),
     #[error(transparent)]
     Triangulation(#[from] InsertionError),
-    #[error("edge run refused")]
+    #[error("cannot trace edge run")]
     Path { class: Class, source: linesweeper::Error },
-    #[error("{operation} refused")]
+    #[error("cannot complete {operation}")]
     Linework { operation: Operation, source: LineworkError },
     #[error("view cancelled before hidden-line classification")]
     Cancelled,

@@ -164,9 +164,9 @@ pub struct Trajectory {
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
 #[display(rename_all = "lowercase")]
 pub enum Operation {
-    #[display("import of {}", _0.display())]
+    #[display("import {}", _0.display())]
     Import(PathBuf),
-    #[display("instantiation of {}", _0.display())]
+    #[display("instantiate {}", _0.display())]
     Instantiate(PathBuf),
     Initialize,
     Set,
@@ -282,7 +282,7 @@ pub enum DynamicsError {
         longest: Time,
     },
     #[cfg(feature = "fmu")]
-    #[error("{operation} failed")]
+    #[error("cannot {operation}")]
     Fmi {
         operation: Operation,
         source: fmi::Error,

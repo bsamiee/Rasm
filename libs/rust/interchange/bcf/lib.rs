@@ -2,7 +2,7 @@
 
 use core::{
     cell::RefCell,
-    iter,
+    convert, iter,
     num::{ParseFloatError, ParseIntError, TryFromIntError},
 };
 use std::{
@@ -25,7 +25,7 @@ use validated::Validated;
 use xot::{Node, Xot};
 use zip::{CompressionMethod, ZIP64_BYTES_THR, ZipArchive, ZipWriter, result::ZipError, write::SimpleFileOptions};
 
-use self::xml::{Codec, Keyed, Reader, Simple, Upgrade, Writer, archive_error, codec, document, local_name, required, resolve, stated, stored, unique};
+use self::xml::{Codec, Keyed, Reader, Simple, Upgrade, Writer, archive_error, codec, document, holds_text, normalized, required, resolve, stored, unique};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -145,7 +145,7 @@ impl TryFrom<Box<[u8]>> for Image {
 impl Codec for Image {
     fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, BcfError> {
         let text = reader.xot.string_value(node);
-        Validated::from(reader.file(text.trim()).and_then(|content| Self::try_from(content).map_err(|_: Box<[u8]>| reader.refused(local_name(reader.xot, node), Some(text.trim())))))
+        Validated::from(reader.file(text.trim()).and_then(|content| Self::try_from(content).map_err(|_: Box<[u8]>| reader.local_name(node).map_or_else(convert::identity, |element| reader.refused(element, Some(text.trim()))))))
     }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> {
@@ -156,7 +156,7 @@ impl Codec for Image {
         (writer.store)(&resolve(writer.entry, &name), content, held, CompressionMethod::Stored)
     }
 
-    fn present(xot: &Xot, node: Node) -> bool { stated(xot, node) }
+    fn present(xot: &Xot, node: Node) -> bool { holds_text(xot, node) }
 }
 
 #[derive(Debug, Clone, PartialEq, Default, derive_more::AsRef)]
@@ -372,7 +372,7 @@ where R: Read + Seek {
     let entries = zip
         .file_names()
         .enumerate()
-        .map(|(index, name)| name.map(|raw| (resolve("", &raw).to_ascii_lowercase(), index)).map_err(archive_error(CENTRAL_DIRECTORY)))
+        .map(|(index, name)| name.map(|raw| (normalized(&raw).to_ascii_lowercase(), index)).map_err(archive_error(CENTRAL_DIRECTORY)))
         .collect::<Validated<IndexMap<_, _>, _>>()
         .ok()?;
     let zip = RefCell::new(zip);
@@ -403,7 +403,7 @@ where R: Read + Seek {
         .collect::<Validated<Vec<_>, _>>();
     let listed = |schema: &Text| -> Validated<EnumMap<Extension, IndexSet<Text>>, BcfError> {
         let mut xot = Xot::new();
-        let (name, value) = (xot.add_name("name"), xot.add_name("value"));
+        let (name, value, simple_type, enumeration) = (xot.add_name("name"), xot.add_name("value"), xot.add_name("simpleType"), xot.add_name("enumeration"));
         let parsed = match Url::parse(schema) {
             Ok(_) => Ok(None),
             Err(url::ParseError::RelativeUrlWithoutBase) => {
@@ -417,9 +417,9 @@ where R: Read + Seek {
                 let [_, restricted] = names(kind);
                 root.into_iter()
                     .flat_map(|root| xot.descendants(root))
-                    .filter(|&node| local_name(&xot, node) == "simpleType" && xot.get_attribute(node, name) == Some(restricted))
+                    .filter(|&node| xot.node_name(node) == Some(simple_type) && xot.get_attribute(node, name) == Some(restricted))
                     .flat_map(|node| xot.descendants(node))
-                    .filter(|&node| local_name(&xot, node) == "enumeration")
+                    .filter(|&node| xot.node_name(node) == Some(enumeration))
                     .filter_map(|node| xot.get_attribute(node, value))
                     .map(|text| Validated::from(Text::try_new(text)))
                     .collect::<Validated<IndexSet<_>, _>>()
@@ -565,7 +565,7 @@ pub fn ifc_guid(uuid: &Uuid) -> String {
     let mut bytes = [0; 18];
     bytes[2..].copy_from_slice(uuid.as_bytes());
     let mut text = IFC_GUID.encode(&bytes);
-    text.replace_range(..2, "");
+    text.drain(..2);
     text
 }
 

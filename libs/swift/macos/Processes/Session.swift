@@ -9,7 +9,7 @@ private let errorLimit: Int = 1 << 20
 
 extension PlatformOptions {
     public static func session(grace: Duration = .seconds(2)) -> Self {
-        var options: Self = Self()
+        var options = Self()
         options.createSession = true
         options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: grace)]
         return options

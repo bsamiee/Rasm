@@ -4,7 +4,6 @@ import ghidra.app.decompiler.DecompileOptions;
 import ghidra.program.model.data.StringDataInstance;
 import ghidra.program.model.listing.Data;
 import ghidra.program.model.listing.Function;
-import ghidra.program.model.listing.FunctionTag;
 import ghidra.program.model.listing.Program;
 import ghidra.program.util.DefinedDataIterator;
 
@@ -109,6 +108,10 @@ public final class Arguments {
             return "[%s<%s>]".formatted(key(), unit);
         }
 
+        public int read(Map<Setting, Integer> settings) {
+            return settings.getOrDefault(this, defaultValue);
+        }
+
         public static Map<Setting, Integer> defaults() {
             return Arrays.stream(values())
                     .collect(
@@ -188,34 +191,47 @@ public final class Arguments {
         TAG("tag:", "<tag>") {
             @Override
             Report.Result<List<Function>> find(String name, Program program) {
-                return program.getFunctionManager().getFunctionTagManager().getFunctionTag(name)
-                                instanceof FunctionTag tag
-                        ? new Report.Success<>(
-                                Functions.internal(program)
-                                        .filter(function -> function.getTags().contains(tag))
-                                        .toList())
-                        : new Report.Failure<>("names no function tag");
+                return Optional.ofNullable(
+                                program.getFunctionManager()
+                                        .getFunctionTagManager()
+                                        .getFunctionTag(name))
+                        .<Report.Result<List<Function>>>map(tag ->
+                                new Report.Success<>(
+                                        Functions.internal(program)
+                                                .filter(function ->
+                                                        function.getTags().contains(tag))
+                                                .toList()))
+                        .orElseGet(() -> new Report.Failure<>("names no function tag"));
             }
         },
-        NAME("", "<name> | <namespace>::<name>") {
+        NAME("<name> | <namespace>::<name>") {
             @Override
             Report.Result<List<Function>> find(String name, Program program) {
                 return new Report.Success<>(named(name::equals, program));
             }
         };
 
-        final String prefix;
+        final Optional<String> prefix;
         final String placeholder;
 
         Seed(String prefix, String placeholder) {
-            this.prefix = prefix;
+            this.prefix = Optional.of(prefix);
+            this.placeholder = placeholder;
+        }
+
+        Seed(String placeholder) {
+            this.prefix = Optional.empty();
             this.placeholder = placeholder;
         }
 
         abstract Report.Result<List<Function>> find(String text, Program program);
 
         String usage() {
-            return prefix + placeholder;
+            return prefix.map(each -> each + placeholder).orElse(placeholder);
+        }
+
+        Optional<String> operand(String seed) {
+            return prefix.filter(seed::startsWith).map(each -> seed.substring(each.length()));
         }
 
         private static List<Function> named(Predicate<String> test, Program program) {
@@ -247,19 +263,20 @@ public final class Arguments {
     record SettingValue(Setting setting, int value) implements Operand {}
 
     public record Request(
-            Path out, List<Function> seeds, Map<Setting, Integer> settings, String arguments) {}
+            Path out,
+            List<Function> seeds,
+            Map<Setting, Integer> settings,
+            List<String> arguments) {}
 
     private Arguments() {}
 
     // --- [PARSING]
 
     public static Report.Result<List<Function>> functions(String seed, Program program) {
-        Seed form =
-                Arrays.stream(Seed.values())
-                        .filter(each -> seed.startsWith(each.prefix))
-                        .findFirst()
-                        .orElseThrow();
-        return switch (form.find(seed.substring(form.prefix.length()), program)) {
+        return switch (Arrays.stream(Seed.values())
+                .flatMap(form -> form.operand(seed).map(text -> form.find(text, program)).stream())
+                .findFirst()
+                .orElseGet(() -> Seed.NAME.find(seed, program))) {
             case Report.Success<List<Function>>(List<Function> found) when found.isEmpty() ->
                     new Report.Failure<>("Seed `%s` matches no function".formatted(seed));
             case Report.Success<List<Function>> found -> found;
@@ -314,6 +331,6 @@ public final class Arguments {
                                         (_, last) -> last,
                                         () -> new EnumMap<>(Setting.class)));
         List<Function> seeds = operands.stream().flatMap(Operand::seeds).distinct().toList();
-        return new Request(out, seeds, settings, String.join(" ", arguments));
+        return new Request(out, seeds, settings, arguments);
     }
 }

@@ -20,7 +20,7 @@ public func processEndings() -> AsyncStream<Int32?> {
             for source: any DispatchSourceProtocol in sources {
                 source.cancel()
             }
-            for (number, previous, _) in signals {
+            for (number, previous, _): (Int32, sig_t?, any DispatchSourceSignal) in signals {
                 signal(number, previous)
             }
         }

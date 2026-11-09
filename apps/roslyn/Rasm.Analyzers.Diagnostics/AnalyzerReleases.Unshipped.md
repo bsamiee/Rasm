@@ -58,3 +58,4 @@ RASM3013 | CSharp | Error | LanguageAnalyzer
 RASM3101 | CSharp | Error | ConstructionAnalyzer
 RASM3102 | CSharp | Error | ConstructionAnalyzer
 RASM3104 | CSharp | Error | CaptureAnalyzer
+RASM3105 | CSharp | Error | ConstructionAnalyzer

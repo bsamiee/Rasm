@@ -129,8 +129,8 @@ public class Emu extends GhidraScript {
                                     .mapToObj(index -> ops.get(index - 1))
                                     .filter(op ->
                                             op.getOpcode() == PcodeOp.STORE
-                                                    || op.getOutput() != null
-                                                            && op.getOutput().isRegister()))
+                                                    || (op.getOutput() != null
+                                                            && op.getOutput().isRegister())))
                     .findFirst()
                     .<Report.Result<Convention>>map(op -> {
                         boolean register = op.getOpcode() != PcodeOp.STORE;
@@ -237,9 +237,11 @@ public class Emu extends GhidraScript {
                                                                         external.getEntryPoint()))
                                                 .map(Reference::getFromAddress)
                                                 .filter(from ->
-                                                        program.getListing().getDataAt(from)
-                                                                        instanceof Data data
-                                                                && data.isPointer())
+                                                        Optional.ofNullable(
+                                                                        program.getListing()
+                                                                                .getDataAt(from))
+                                                                .filter(Data::isPointer)
+                                                                .isPresent())
                                                 .toList()))
                         .filter(entry -> !entry.getValue().isEmpty())
                         .toList();
@@ -263,12 +265,10 @@ public class Emu extends GhidraScript {
 
     record Outcome(Stop stop, long steps, Address counter, Optional<String> cause) {
         String text() {
-            return "%s steps=%d pc=%s%s"
-                    .formatted(
-                            stop.name().toLowerCase(Locale.ROOT),
-                            steps,
-                            counter,
-                            cause.map(": "::concat).orElse(""));
+            String state =
+                    "%s steps=%d pc=%s"
+                            .formatted(stop.name().toLowerCase(Locale.ROOT), steps, counter);
+            return cause.map(text -> state + ": " + text).orElse(state);
         }
     }
 
@@ -460,7 +460,10 @@ public class Emu extends GhidraScript {
                                 .orElseGet(() ->
                                         new Report.Failure<>(
                                                 "`%s` is no hex bytes".formatted(text)));
-        Report.Result<Address> entry = entry(Objects.requireNonNullElse(run.entry(), ""));
+        Report.Result<Address> entry =
+                Optional.ofNullable(run.entry())
+                        .map(this::entry)
+                        .orElseGet(() -> new Report.Failure<>("Entry is absent"));
         Report.Result<Map<Register, byte[]>> registers =
                 Emu.<Register, BigInteger, String>entries(run.registers(), register, number)
                         .map(values ->
@@ -717,8 +720,6 @@ public class Emu extends GhidraScript {
                         Report.Section.rows("EXECUTED", executed),
                         Report.Section.rows("UNINITIALIZED", uninitialized),
                         Report.Section.rows("USEROPS", userops));
-        println(
-                Report.write(
-                        out, currentProgram, sections, String.join(" ", usage.operands(args))));
+        println(Report.write(out, currentProgram, sections, usage.operands(args)));
     }
 }

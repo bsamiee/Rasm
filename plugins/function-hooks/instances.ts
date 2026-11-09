@@ -50,7 +50,7 @@ const observed = (text: string) => {
 
 const exitNote = ({ status = 0, reporting, report, reportFailure }: typeof Exited.Type): readonly string[] => {
     const crashed = [reporting, report, reportFailure].some(Predicate.isNotUndefined);
-    return crashed || status !== 0 ? [`${crashed ? 'crashed, read its report' : `exited ${status}, read it`} with ${WATCHER} log`] : [];
+    return crashed || status !== 0 ? [crashed ? `crashed, read its report with ${WATCHER} log` : `exited ${status}, read it with ${WATCHER} log`] : [];
 };
 
 const watched = (text: string) =>

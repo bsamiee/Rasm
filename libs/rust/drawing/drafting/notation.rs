@@ -288,11 +288,17 @@ fn written(notation: &Decimal, magnitude: rust_decimal::Decimal) -> String {
         Visibility::Hidden => magnitude.normalize(),
     };
     let text = shown.to_string();
-    let (integer, decimals) = text.split_once('.').unwrap_or((text.as_str(), ""));
-    let whole = match (leading, shown.trunc().is_zero() && !decimals.is_empty()) {
+    let (integer, decimals) = match text.split_once('.') {
+        Some((integer, decimals)) => (integer, Some(decimals)),
+        None => (text.as_str(), None),
+    };
+    let whole = match (leading, decimals.is_some() && shown.trunc().is_zero()) {
         (Visibility::Hidden, true) => String::new(),
         (Visibility::Visible, true | false) | (Visibility::Hidden, false) =>
             grouping.map_or_else(|| integer.to_owned(), |mark| integer.chars().collect::<Vec<_>>().rchunks(3).rev().map(|group| group.iter().collect::<String>()).join(&mark.to_string())),
     };
-    if decimals.is_empty() { whole } else { format!("{whole}{separator}{decimals}") }
+    match decimals {
+        Some(decimals) => format!("{whole}{separator}{decimals}"),
+        None => whole,
+    }
 }

@@ -16,7 +16,7 @@ from rasm_typography._rules.ornaments import _encoded, Ornaments
 from rasm_typography._rules.scale import _scaled, Scale
 from rasm_typography._rules.spacing import _spaced, Spacing
 lazy from rasm_records import Faults, Ok, Outcome
-lazy from rasm_typography._faces.declaration import Face, Faces, OrnamentFace, Sheared
+lazy from rasm_typography._faces.declaration import Advance, Face, Faces, OrnamentFace, Sheared
 lazy from rasm_typography._faces.glyphs import Source
 lazy from rasm_typography._shaping.corpus import Corpus
 lazy from rasm_typography._shaping.runs import Binary
@@ -35,7 +35,7 @@ def planned(face: Faces, /) -> tuple[Rules | Metrics, ...]:
             script, stack = genre.script, values.stack_gap if values.stack_gap is not None else genre.stack_gap
             return (
                 Locale(script=script, coverage=genre.coverage),
-                Digits(script=script, zero=values.zero, advance=values.digit_advance or "tabular", bearing=values.digit_bearing),
+                Digits(script=script, zero=values.zero, advance=values.digit_advance or Advance.TABULAR, bearing=values.digit_bearing),
                 Outlines(floor=values.nuqta_floor if values.nuqta_floor is not None else genre.nuqta_floor, spurs=genre.spurs, opened=values.counter, letters=script.counters, dot=script.dotted),
                 Marks(script=script, band=genre.mark, ratio=values.mark, floor=genre.mark_floor, drawn=values.marks_drawn, angle=values.fatha_angle, length=values.fatha_length, stack=stack),
                 QuranicMarks(codes=frozenset(code for code in genre.coverage.required if unicodedata.category(chr(code)) == "Mn" and code not in script.recipes), script=script),
@@ -82,7 +82,7 @@ def _applied(source: Source, rule: Rules, /, *, original: Binary, corpus: Corpus
 
 def _named(rule: str, faults: Faults, /) -> Faults:
     """Prefixes each fault's member with the rule that refused."""
-    head, *rest = (msgspec.structs.replace(fault, member=f"{rule} {fault.member}".strip()) for fault in faults)
+    head, *rest = (msgspec.structs.replace(fault, member=rule if fault.member is None else f"{rule} {fault.member}") for fault in faults)
     return (head, *rest)
 
 

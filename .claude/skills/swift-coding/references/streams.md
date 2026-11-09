@@ -10,8 +10,8 @@ func values<Value: Sendable, Token: Sendable>(
     observe: (@escaping @Sendable (Value) -> Void) -> Token,
     remove: @escaping @Sendable (Token) -> Void,
 ) -> AsyncStream<Value> {
-    let (stream, continuation): (AsyncStream<Value>, AsyncStream<Value>.Continuation) = AsyncStream.makeStream(bufferingPolicy: bufferingPolicy)
-    let token: Token = observe { continuation.yield($0) }
+    let (stream, continuation) = AsyncStream<Value>.makeStream(bufferingPolicy: bufferingPolicy)
+    let token = observe { continuation.yield($0) }
     continuation.onTermination = { _ in remove(token) }
     return stream
 }
@@ -108,7 +108,7 @@ func drain<Item: Sendable>(
     produce: @escaping @Sendable (AsyncChannel<Item>) async -> Void,
     into store: (Item) async -> Void,
 ) async {
-    let channel: AsyncChannel<Item> = AsyncChannel()
+    let channel = AsyncChannel<Item>()
     await withDiscardingTaskGroup { group in
         group.addTask {
             await produce(channel)

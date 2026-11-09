@@ -144,6 +144,7 @@ Absence a host returns decodes to `Option`, absence a domain default fills decod
 |  [08]   | Key missing or `undefined`   | `A`         | `A.pipe(Schema.withDecodingDefaultType(Effect.succeed(a)))`    |
 |  [09]   | Key a caller omits           | `?: A`      | `Schema.optionalKey(A)`                                        |
 
+- Caller text decodes through `Schema.Trim` and `Schema.NonEmptyString` (`Schema.Trim.check(Schema.isNonEmpty())`), every reader taking it trimmed and present
 - Absence as `null` or `''` decodes by `transform({ decode: flow(Option.fromNullOr, Option.filter(String.isNonEmpty)), encode: Option.getOrNull })`
 - Defaults are effects producing the decoded value, `Schema.withDecodingDefaultTypeKey(DateTime.now)` stamps an instant from the clock
 - `{ encodingStrategy: 'omit' }` drops the key from every encode, a set value included, and the default `'passthrough'` writes it

@@ -32,6 +32,7 @@ fn text_view<'tcx>(cx: &LateContext<'tcx>, inner: &'tcx Expr<'tcx>) -> Option<&'
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+pub(crate) mod empty_string_default;
 pub(crate) mod formatted_tracing_value;
 pub(crate) mod manual_reference_impl;
 pub(crate) mod manual_serialization;

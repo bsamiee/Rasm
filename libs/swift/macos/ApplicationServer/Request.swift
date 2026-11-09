@@ -43,7 +43,7 @@ private func admitted(_ identifier: String?, by admitting: NSPredicate) -> Bool 
 }
 
 private func installation(at url: URL, admitting: () -> NSPredicate) throws(ApplicationFailure) -> Installation {
-    let installation: Installation = try Installation(at: url)
+    let installation = try Installation(at: url)
     let admission: NSPredicate = admitting()
     guard admitted(installation.identifier, by: admission) else {
         throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .unmatched(Unmatched(subject: admission.predicateFormat, query: installation.identifier, candidates: [])))
@@ -52,7 +52,7 @@ private func installation(at url: URL, admitting: () -> NSPredicate) throws(Appl
 }
 
 private func running(_ pid: pid_t, admitting: () -> NSPredicate) throws(ApplicationFailure) -> NSRunningApplication {
-    guard let instance: NSRunningApplication = NSRunningApplication(processIdentifier: pid), !instance.isTerminated else {
+    guard let instance = NSRunningApplication(processIdentifier: pid), !instance.isTerminated else {
         throw ApplicationFailure(subject: String(pid), reason: .noProcess)
     }
     let admission: NSPredicate = admitting()

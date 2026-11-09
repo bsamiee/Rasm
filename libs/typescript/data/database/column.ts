@@ -60,19 +60,32 @@ class Column extends Data.Class<{
             ),
         }));
     static readonly make = <F extends Fields>(field: FieldName<F>, schema: F[FieldName<F>], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[]) => {
-        const flat = (node: SchemaRepresentation.Representation): readonly SchemaRepresentation.Representation[] => (node._tag === 'Union' ? node.types.flatMap(flat) : [node]);
+        const flat = (node: SchemaRepresentation.Representation): readonly SchemaRepresentation.Representation[] =>
+            Match.value(node).pipe(
+                Match.tag('Union', ({ types }) => types.flatMap(flat)),
+                Match.orElse((leaf) => [leaf]),
+            );
         const walk = (ast: SchemaAST.AST) => Array.partition(flat(SchemaRepresentation.toRepresentation(ast, { referencePolicy: () => undefined }).representation), Filter.tagged<SchemaRepresentation.Representation>()('Null'));
         const [nulls, values] = walk(schema.ast);
         const [, decoded] = walk(SchemaAST.toType(schema.ast));
-        const leaves = (check: SchemaRepresentation.Check): readonly SchemaRepresentation.Check[] => (check._tag === 'FilterGroup' ? check.checks.flatMap(leaves) : [check]);
+        const leaves = (check: SchemaRepresentation.Check): readonly SchemaRepresentation.Check[] =>
+            Match.value(check).pipe(
+                Match.tag('FilterGroup', ({ checks }) => checks.flatMap(leaves)),
+                Match.orElse((leaf) => [leaf]),
+            );
         const payloads =
             (nodes: readonly SchemaRepresentation.Representation[]) =>
             <P>({ id, payloadSchema }: Pick<SchemaRepresentation.FilterReviver<P>, 'id' | 'payloadSchema'>) =>
                 Array.flatMapNullishOr(
-                    nodes.flatMap((node) => (node._tag === 'Reference' ? [] : node.checks.flatMap(leaves))),
+                    nodes.flatMap(
+                        Match.type<SchemaRepresentation.Representation>().pipe(
+                            Match.tag('Reference', () => []),
+                            Match.orElse(({ checks }) => checks.flatMap(leaves)),
+                        ),
+                    ),
                     Struct.get('representation'),
                 ).flatMap((check) => (check.id === id ? Option.toArray(Schema.decodeOption(Schema.toCodecJson(payloadSchema))(check.payload)) : []));
-        const textual = values[0]?._tag === 'String' && decoded.some(({ _tag }) => _tag === 'Number' || _tag === 'BigInt');
+        const textual = Option.exists(Array.head(values), Predicate.isTagged('String')) && decoded.some(Predicate.or(Predicate.isTagged('Number'), Predicate.isTagged('BigInt')));
         const [stored, typed] = [payloads(values), payloads(decoded)];
         const numbers = textual ? typed : stored;
         const has = flow(stored, Array.isReadonlyArrayNonEmpty);
@@ -97,12 +110,12 @@ class Column extends Data.Class<{
                         Match.orElse((tag) => [tag]),
                     ),
             });
-        const boolean = decoded.some(({ _tag }) => _tag === 'Boolean');
+        const boolean = decoded.some(Predicate.isTagged('Boolean'));
         const literals = boolean ? [] : Option.match(Option.all(values.map(members)), { onNone: () => [], onSome: Array.flatten });
         const numeric = Array.isReadonlyArrayNonEmpty(literals) && literals.every((member) => typeof member === 'number');
         const integer = Array.isReadonlyArrayNonEmpty(numbers(SchemaRepresentation.isIntReviver)) || (numeric && literals.every(Number.isInteger));
         const finite = Array.isReadonlyArrayNonEmpty(numbers(SchemaRepresentation.isFiniteReviver));
-        const number = values[0]?._tag === 'Number' || (textual && decoded.some(({ _tag }) => _tag === 'Number'));
+        const number = Option.exists(Array.head(values), Predicate.isTagged('Number')) || (textual && decoded.some(Predicate.isTagged('Number')));
         const name = String.camelToSnake(field);
         return new Column({
             field,

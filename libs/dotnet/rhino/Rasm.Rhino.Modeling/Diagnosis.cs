@@ -31,7 +31,7 @@ public sealed partial class DefectKind {
 
 public sealed record Defect<T>(DefectKind Kind, int Count, Seq<ComponentIndex> At, Seq<Step<T>> Repair) where T : GeometryBase;
 
-public sealed record Diagnosis<T>(bool Valid, string Log, Seq<Defect<T>> Defects) where T : GeometryBase {
+public sealed record Diagnosis<T>(bool Valid, Option<string> Log, Seq<Defect<T>> Defects) where T : GeometryBase {
     public Seq<Step<T>> Repair => Defects.Bind(static defect => defect.Repair);
 }
 
@@ -43,14 +43,14 @@ public static class Diagnostics {
 
     extension<T>(T geometry) where T : GeometryBase {
         public IO<Diagnosis<T>> Diagnose(Tolerances tolerances) =>
-            from validity in IO.lift(() => (Valid: geometry.IsValidWithLog(out string log), Log: log))
+            from validity in IO.lift(() => (Valid: geometry.IsValidWithLog(out string log), Log: Conversions.Present(log)))
             from found in geometry switch {
                 Mesh mesh => MeshDefects<T>(tolerances, mesh),
                 Brep brep => IO.lift(() => BrepDefects<T>(tolerances, brep)),
                 Curve curve => IO.lift(() => CurveDefects<T>(tolerances, curve)),
-                _ => IO.pure((Log: "", Defects: Seq<Defect<T>>())),
+                _ => IO.pure((Logs: Seq<string>(), Defects: Seq<Defect<T>>())),
             }
-            select new Diagnosis<T>(validity.Valid, string.Join(Environment.NewLine, Seq(validity.Log, found.Log).Filter(static text => text.Length > 0)), validity.Valid
+            select new Diagnosis<T>(validity.Valid, Some(validity.Log.ToSeq() + found.Logs).Filter(static logs => !logs.IsEmpty).Map(static logs => string.Join(Environment.NewLine, logs)), validity.Valid
                 ? found.Defects
                 : Seq(Located<T, GeometryBase>(DefectKind.Invalid, 1, [], geometry switch {
                     Brep => [Lifted<GeometryBase, Brep>(Steps.Of<Brep>(brep => brep.Repair(tolerances.Absolute)))],
@@ -61,17 +61,17 @@ public static class Diagnostics {
 
     // --- [MESHES]
 
-    private static IO<(string Log, Seq<Defect<T>> Defects)> MeshDefects<T>(Tolerances tolerances, Mesh mesh) where T : GeometryBase =>
+    private static IO<(Seq<string> Logs, Seq<Defect<T>> Defects)> MeshDefects<T>(Tolerances tolerances, Mesh mesh) where T : GeometryBase =>
         from checkedMesh in IO.lift(() => {
             using TextLog log = new();
             MeshCheckParameters counts = MeshCheckParameters.Defaults();
             _ = mesh.Check(log, ref counts);
-            return (Log: log.ToString(), Counts: counts);
+            return (Logs: Conversions.Present(log.ToString()).ToSeq(), Counts: counts);
         })
         from manifold in MeshManifold.Of(mesh)
         let counts = checkedMesh.Counts
         let badNormals = counts.NonUnitVectorNormalCount + counts.ZeroLengthNormalCount + counts.VertexFaceNormalsDifferCount
-        select (checkedMesh.Log, Seq(
+        select (checkedMesh.Logs, Seq(
                 (Count: counts.DegenerateFaceCount, Locate: (Func<Defect<T>>)(() => {
                     _ = mesh.Faces.GetZeroAreaFaces(out int[] whole, out int[] partial);
                     return Located<T, Mesh>(DefectKind.ZeroAreaFaces, counts.DegenerateFaceCount, Components(ComponentIndexType.MeshFace, toSeq(whole) + toSeq(partial)), [Steps.Count<Mesh>(static held => {
@@ -116,10 +116,10 @@ public static class Diagnostics {
 
     // --- [BREPS]
 
-    private static (string Log, Seq<Defect<T>> Defects) BrepDefects<T>(Tolerances tolerances, Brep brep) where T : GeometryBase =>
-        (Logs: Seq(brep.IsValidTopology(out string topology) ? "" : topology, brep.IsValidGeometry(out string shape) ? "" : shape, brep.IsValidTolerancesAndFlags(out string flags) ? "" : flags),
+    private static (Seq<string> Logs, Seq<Defect<T>> Defects) BrepDefects<T>(Tolerances tolerances, Brep brep) where T : GeometryBase =>
+        (Logs: Seq(brep.IsValidTopology(out string topology) ? None : Conversions.Present(topology), brep.IsValidGeometry(out string shape) ? None : Conversions.Present(shape), brep.IsValidTolerancesAndFlags(out string flags) ? None : Conversions.Present(flags)).Somes(),
             Edges: brep.Edges.ToLookup(static edge => edge.Valence, static edge => edge.EdgeIndex)) switch {
-                var read => (string.Join(Environment.NewLine, read.Logs.Filter(static text => text.Length > 0)), Seq(
+                var read => (read.Logs, Seq(
                         Located<T, Brep>(DefectKind.NakedEdges, read.Edges[EdgeAdjacency.Naked].Count(),
                             Components(ComponentIndexType.BrepEdge, toSeq(read.Edges[EdgeAdjacency.Naked])),
                             [Steps.Count<Brep>(held => held.JoinNakedEdges(tolerances.Absolute), static count => count >= 0)]),
@@ -134,8 +134,8 @@ public static class Diagnostics {
 
     // --- [CURVES]
 
-    private static (string Log, Seq<Defect<T>> Defects) CurveDefects<T>(Tolerances tolerances, Curve curve) where T : GeometryBase =>
-        ("", Seq(
+    private static (Seq<string> Logs, Seq<Defect<T>> Defects) CurveDefects<T>(Tolerances tolerances, Curve curve) where T : GeometryBase =>
+        (Seq<string>(), Seq(
                 Located<T, Curve>(DefectKind.ShortCurve, curve.IsShort(tolerances.Absolute) ? 1 : 0, [], []),
                 Located<T, Curve>(DefectKind.OpenCurve, !curve.IsClosed && curve.IsClosable(tolerances.Absolute) ? 1 : 0, [], [Steps.Of<Curve>(held => held.MakeClosed(tolerances.Absolute))]),
                 Located<T, Curve>(DefectKind.SeamKink, curve.IsClosed && CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous)

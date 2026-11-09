@@ -11,7 +11,7 @@ lazy from fontTools.unicodedata import Blocks
 lazy from scipy.special import cosdg, sindg
 
 from rasm_typography._faces.coverage import Coverage
-from rasm_typography._faces.declaration import Derived, Script
+from rasm_typography._faces.declaration import Derived, Foot, Script
 from rasm_typography._rules.measures import _dotted, _made, _nuqta, Rule
 lazy from rasm_typography._faces.glyphs import _Component, _Glyph, _joined, _Joining, _Outline, Mark, Source
 lazy from rasm_typography._faces.layout import Ligatures, Lookups, Single
@@ -96,7 +96,7 @@ def _derived(source: Source, rule: Derived, /) -> _Glyph | None:
     """Draws a glyph from its model: its lowest small piece around a circle a share of the reference height across, or scaled to that share, turned with its foot at its own, the baseline, or the reference middle, and that piece repeated after it."""
     model = source.glyph(source.key(rule.model) if isinstance(rule.model, int) else rule.model).map(lambda glyph: source.drawn(glyph.name.text)).default_value(None)
     reference = _Box.of(rect) if rule.reference is not None and (rect := source.bounds(source.key(rule.reference))) is not None else None
-    name = _GlyphName(stem=(rule.code,), variant=rule.variant)
+    name = _GlyphName(stem=(rule.code,), suffixes=() if rule.variant is None else (rule.variant,))
     match model, _bounds(model.contours) if model else None:
         case (_Glyph(contours=contours), _Box()) if rule.around and reference and rule.height is not None and (dot := _bounds(piece := _lowest(contours))):
             radius, step = rule.height * reference.height / 2, 1.25 * dot.width
@@ -106,12 +106,12 @@ def _derived(source: Source, rule: Derived, /) -> _Glyph | None:
                 2 * (radius + step),
                 contours=tuple(*_transformed(piece, Offset(radius + step + radius * cosdg(turn) - dot.middle[0], reference.middle[1] + radius * sindg(turn) - dot.middle[1])) for turn in turns),  # ty: ignore[no-matching-overload]
             )
-        case (_Glyph(advance=advance, contours=contours), _Box() as box) if not rule.around and (reference or (rule.height is None and rule.foot != "middle")):
+        case (_Glyph(advance=advance, contours=contours), _Box() as box) if not rule.around and (reference or (rule.height is None and rule.foot is not Foot.MIDDLE)):
             factor = rule.height * reference.height / box.height if rule.height is not None and reference else 1.0
             scaled = _transformed(contours, (factor, 0.0, 0.0, factor, 0.0, 0.0))
             ring = _lowest(scaled) if rule.repeats else ()
             step = 1.25 * extent.width if (extent := _bounds(ring)) else 0.0
-            foot, (x, y) = {"own": factor * box.ymin, "base": 0.0, "middle": reference.middle[1] if reference else 0.0}[rule.foot], (extent := _bounds(scaled) or box).middle
+            foot, (x, y) = {Foot.OWN: factor * box.ymin, Foot.BASE: 0.0, Foot.MIDDLE: reference.middle[1] if reference else 0.0}[rule.foot], (extent := _bounds(scaled) or box).middle
             drawn = _transformed(scaled, Transform().translate(0, foot - extent.ymin).translate(x, y).scale(-1, -1).translate(-x, -y)) if rule.turned else scaled
             return _made(
                 name,
@@ -132,7 +132,7 @@ def _relaid(source: Source, added: tuple[_Glyph, ...], script: Script, /) -> tup
     }
     named, tag = {*source.named, *(glyph.name.text for glyph in added)}, script.language[1].strip().lower()
     local = {name: target for default, other in script.locl.items() for form in _Form if (name := source.key(default, form)) in named and (target := source.key(other, form)) in named}
-    local |= {glyph.name.text.removesuffix(f".{tag}"): glyph.name.text for glyph in added if glyph.name.variant == tag}
+    local |= {glyph.name.text.removesuffix(f".{tag}"): glyph.name.text for glyph in added if glyph.name.suffixes == (tag,)}
     relaid: list[Lookups] = []
     for lookup in source.lookups:
         if not (features := frozendict({tag: systems for tag, systems in lookup.features.items() if tag != "locl"})):

@@ -58,7 +58,7 @@ const READS = {
             const script = yield* Effect.fromOption(Record.get(bin, 'playwright'));
             return { script: path.resolve(path.dirname(manifest), script), args: ['test', '--list', '--pass-with-no-tests', '--reporter=json'], env: { PLAYWRIGHT_JSON_OUTPUT_FILE: report } };
         }),
-        report: (text: string) => Effect.map(Schema.decodeEffect(Listing)(text), ({ config, suites }) => ({ found: suites.length > 0, written: config.projects.map(({ outputDir }) => outputDir), loaded: Array.empty<string>() })),
+        report: (text: string) => Effect.map(Schema.decodeEffect(Listing)(text), ({ config, suites }) => ({ present: suites.length > 0, written: config.projects.map(({ outputDir }) => outputDir), loaded: Array.empty<string>() })),
     },
 };
 const RUNNERS = {
@@ -74,7 +74,7 @@ const programs = Effect.fnUntraced(function* (workspaceRoot: string, roots: read
     const path = yield* Path.Path;
     const relative = (at: string) => path.relative(workspaceRoot, at);
     const referenced = ({ projectReferences = [] }: ParsedCommandLine) => projectReferences.map(({ path: at }) => (path.extname(at) === '.json' ? at : path.join(at, CONFIG)));
-    const failed = (cause: unknown) => TypeScriptError.make({ message: `Reading ${roots.length} TypeScript configurations: ${cause instanceof Error ? cause.message : String(cause)}`, cause });
+    const failed = (cause: unknown) => TypeScriptError.make({ subject: `${roots.length} TypeScript configurations`, detail: 'do not read', cause });
     const api = yield* Effect.acquireRelease(
         Effect.sync(() => new API({ cwd: workspaceRoot })),
         (opened) => Effect.sync(() => opened.close()),
@@ -106,7 +106,7 @@ const programs = Effect.fnUntraced(function* (workspaceRoot: string, roots: read
                         .flatMap(
                             ({ parsed: { options } }) =>
                                 [
-                                    [options.outDir, `**/*.{js,cjs,mjs,jsx${options.resolveJsonModule === true ? ',json' : ''},d.ts,d.cts,d.mts}{,.map}`],
+                                    [options.outDir, options.resolveJsonModule === true ? '**/*.{js,cjs,mjs,jsx,json,d.ts,d.cts,d.mts}{,.map}' : '**/*.{js,cjs,mjs,jsx,d.ts,d.cts,d.mts}{,.map}'],
                                     [options.declarationDir, '**/*.{d.ts,d.cts,d.mts}{,.map}'],
                                 ] as const,
                         ),
@@ -128,12 +128,12 @@ const listed = Effect.fnUntraced(
         const { script, args, env } = yield* child(manifest, path.join(workspaceRoot, file), report);
         const handle = yield* ChildProcess.make(process.execPath, [script, ...args], { cwd: folder, env, extendEnv: true, stdin: 'ignore' });
         const [, stderr, code] = yield* Effect.all([Stream.runDrain(handle.stdout), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-        const { found, written, loaded } = code === 0 ? yield* Effect.flatMap(fs.readFileString(report), decoded) : yield* TypeScriptError.make({ message: `${file}: ${kind} read exited ${code}: ${stderr.trim()}` });
+        const { present, written, loaded } = code === 0 ? yield* Effect.flatMap(fs.readFileString(report), decoded) : yield* TypeScriptError.make({ subject: `${file} ${kind} read`, detail: `exited ${code}: ${stderr.trim()}` });
         const relative = Array.dedupe(written.map((at) => path.relative(workspaceRoot, at)));
-        return { root, kind, found, written: relative.filter((at) => !relative.some((other) => at.startsWith(`${other}/`))), loaded };
+        return { root, kind, present, written: relative.filter((at) => !relative.some((other) => at.startsWith(`${other}/`))), loaded };
     },
     Effect.scoped,
-    (effect, _, { file, kind }) => Effect.mapError(effect, (error) => (Schema.is(TypeScriptError)(error) ? error : TypeScriptError.make({ message: `${file}: ${kind} read: ${error.message}`, cause: error }))),
+    (effect, _, { file, kind }) => Effect.mapError(effect, (error) => (Schema.is(TypeScriptError)(error) ? error : TypeScriptError.make({ subject: `${file} ${kind} read`, detail: 'fails', cause: error }))),
 );
 
 const resolved = Effect.fnUntraced(function* (workspaceRoot: string, reads: readonly Read[]) {
@@ -146,8 +146,8 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, reads: read
             succeeded.filter(({ kind }) => kind === 'vite'),
             ({ root, written }) => [root, written],
         ),
-        tests: Array.filterMap(succeeded, ({ root, kind, found, written }) => (kind === 'vite' || !found ? Result.failVoid : Result.succeed({ root, runner: kind, outputs: written }))),
-        failures: Array.filterMap(Array.zip(reads, results), ([{ file }, result]) => Result.map(Result.flip(result), (failure): [string, Error] => [file, new Error(failure.message)])),
+        tests: Array.filterMap(succeeded, ({ root, kind, present, written }) => (kind === 'vite' || !present ? Result.failVoid : Result.succeed({ root, runner: kind, outputs: written }))),
+        failures: Array.filterMap(Array.zip(reads, results), ([{ file }, result]) => Result.map(Result.flip(result), (failure): [string, Error] => [file, failure])),
         loaded,
         digest: yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...loaded])),
     };
@@ -157,7 +157,7 @@ const targets = (
     path: Path.Path,
     plugin: { readonly name: string; readonly inputs: NonNullable<TargetConfiguration['inputs']> },
     program: Program,
-    held: ReadonlySet<Kind>,
+    kinds: ReadonlySet<Kind>,
     bundles: Option.Option<readonly string[]>,
     tests: readonly { readonly runner: Runner; readonly outputs: readonly string[] }[],
     external: readonly string[],
@@ -166,13 +166,13 @@ const targets = (
     const metadata = (description: string, help: readonly string[], example: readonly string[]) => ({ technologies: TECHNOLOGIES, description, help: { command: line([...help, '--help']), example: { args: [...example] } } });
     const command = (argv: readonly string[]) => ({ executor: 'nx:run-commands', options: { command: line(argv), cwd: program.root } });
     const chained = program.chain.map((at) => path.join('{workspaceRoot}', at));
-    const compiled = (held.has('cloudflare') ? [{ dependentTasksOutputFiles: '**/*.d.ts' }] : []) satisfies NonNullable<TargetConfiguration['inputs']>;
+    const compiled = (kinds.has('cloudflare') ? [{ dependentTasksOutputFiles: '**/*.d.ts' }] : []) satisfies NonNullable<TargetConfiguration['inputs']>;
     const tsc: TargetConfiguration = {
         executor: 'nx:run-commands',
         options: { commands: program.commands.map(line), cwd: program.root },
         cache: true,
         inputs: ['default', '^default', ...chained, ...compiled, { externalDependencies: ['@typescript/native', ...external] }],
-        ...(held.has('cloudflare') ? { dependsOn: ['build--cf'] } : {}),
+        ...(kinds.has('cloudflare') ? { dependsOn: ['build--cf'] } : {}),
         outputs: [],
     };
     const storybook = Option.map(outputPath, (at) => path.join(at, 'storybook', '{projectName}'));
@@ -183,7 +183,7 @@ const targets = (
                   'check--tsc': { executor: 'nx:noop', dependsOn: ['build--tsc'], inputs: tsc.inputs ?? [], metadata: metadata('Type-checks through the build--tsc compile', ['tsc'], ['--extendedDiagnostics']) },
               }
             : { 'check--tsc': { ...tsc, metadata: metadata('Type-checks every program of the project with tsc', ['tsc'], ['--extendedDiagnostics']) } }),
-        ...(held.has('cloudflare')
+        ...(kinds.has('cloudflare')
             ? {
                   'build--cf': {
                       ...command(['cf', 'workers', 'types']),
@@ -194,7 +194,7 @@ const targets = (
                   },
               }
             : {}),
-        ...(held.has('storybook')
+        ...(kinds.has('storybook')
             ? {
                   'build--storybook': {
                       ...command(['storybook', 'build', ...Option.match(storybook, { onNone: () => [], onSome: (at) => ['--output-dir', path.relative(program.root, at)] })]),
@@ -225,7 +225,7 @@ const targets = (
                 metadata: metadata(RUNNERS[runner].description, RUNNERS[runner].run, RUNNERS[runner].example),
             },
         ]),
-        ...(held.has('publint') && program.outputs.length > 0
+        ...(kinds.has('publint') && program.outputs.length > 0
             ? {
                   'check--publint': {
                       ...command(['publint', '--strict']),
@@ -238,7 +238,7 @@ const targets = (
               }
             : {}),
         ...Record.mapEntries(
-            Record.filter(PACKAGES, (_, kind) => held.has(kind)),
+            Record.filter(PACKAGES, (_, kind) => kinds.has(kind)),
             ({ archive, variables, description }, kind): [string, TargetConfiguration] => {
                 const destination = { outputPath: Option.match(outputPath, { onNone: () => program.root, onSome: (at) => path.join(at, kind, '{projectName}') }) };
                 const built = Option.isSome(bundles) || program.outputs.length > 0;
@@ -308,7 +308,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
             const reads: readonly Read[] = [...markers.filter(({ root, kind }) => kind === 'vite' && projects.includes(root)).map(({ root, file }) => ({ root, file, kind: 'vite' as const })), ...suites];
             const installed = (specifier: string) => Option.isSome(resolves(specifier, '.'));
             const linted = installed('publint') ? ['publint' as const] : [];
-            const held = (root: string) => new Set<Kind>([...Array.filterMap(markers, (marker) => (marker.root === root ? Result.succeed(marker.kind) : Result.failVoid)), ...linted]);
+            const detected = (root: string) => new Set<Kind>([...Array.filterMap(markers, (marker) => (marker.root === root ? Result.succeed(marker.kind) : Result.failVoid)), ...linted]);
             const external = installed('@effect/tsgo') ? ['@effect/tsgo'] : [];
             const modules = (yield* fs.readDirectory(import.meta.dirname)).toSorted().map((module) => path.join(import.meta.dirname, module));
             const hash = hashArray([
@@ -340,7 +340,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 onSome: (entry) => Effect.succeed({ read: entry, failures: Array.empty<[string, Error]>() }),
                 onNone: () =>
                     Effect.all([programs(workspaceRoot, projects), resolved(workspaceRoot, reads)], { concurrency: 'unbounded' }).pipe(
-                        Effect.map(([found, { failures: failed, ...entry }]) => ({ read: { programs: found, ...entry }, failures: failed })),
+                        Effect.map(([compiled, { failures: failed, ...entry }]) => ({ read: { programs: compiled, ...entry }, failures: failed })),
                         Effect.tap((fresh) =>
                             fresh.failures.length === 0
                                 ? Effect.sync(() => {
@@ -355,7 +355,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 Option.match(
                     Array.findFirst(
                         Record.collect(PACKAGES, (kind, { manifest }) => ({ kind, manifest })),
-                        ({ kind }) => held(root).has(kind),
+                        ({ kind }) => detected(root).has(kind),
                     ),
                     {
                         onNone: () => ({}),
@@ -372,7 +372,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                                 path,
                                 plugin,
                                 program,
-                                held(program.root),
+                                detected(program.root),
                                 Record.get(read.bundles, program.root),
                                 read.tests.filter(({ root }) => root === program.root),
                                 external,
@@ -385,7 +385,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
             ]);
             return failures.length === 0 ? nodes : yield* Effect.fail(new AggregateCreateNodesError(failures, nodes));
         }).pipe(
-            Effect.mapError((error) => (error instanceof AggregateCreateNodesError ? error : new AggregateCreateNodesError([[null, new Error(error.message)]], []))),
+            Effect.mapError((error) => (error instanceof AggregateCreateNodesError ? error : new AggregateCreateNodesError([[null, error]], []))),
             Effect.provide(layer),
             Effect.runPromise,
         ),

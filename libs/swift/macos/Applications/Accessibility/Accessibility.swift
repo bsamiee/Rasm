@@ -6,14 +6,14 @@ import Foundation
 
 private let labelAttributes: [String] = [kAXTitleAttribute, kAXDescriptionAttribute]
 private let absentAttribute: Set<AXError> = [.noValue, .attributeUnsupported, .invalidUIElement]
-private let menuMark: Data = Data("menu".utf8)
+private let menuMark: Data = .init("menu".utf8)
 let menuBars: [String] = [kAXMenuBarAttribute, kAXExtrasMenuBarAttribute]
 let frameAttributes: [String] = [kAXPositionAttribute, kAXSizeAttribute]
 let messagingTimeout: Duration = .seconds(1)
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-let accessibility: DispatchQueue = DispatchQueue(label: "Applications.accessibility", attributes: .concurrent)
+let accessibility: DispatchQueue = .init(label: "Applications.accessibility", attributes: .concurrent)
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -99,7 +99,7 @@ extension AXUIElement {
     func failure(_ error: AXError, reading reads: [String]) -> ApplicationFailure {
         let subject: String = token.base64EncodedString()
         return ApplicationFailure(error, subject: subject, process: process) {
-            let read: [String: CFTypeRef] = Dictionary(uniqueKeysWithValues: copied([kAXRoleAttribute] + labelAttributes).slots)
+            let read = Dictionary(uniqueKeysWithValues: copied([kAXRoleAttribute] + labelAttributes).slots)
             return ApplicationFailure(subject: subject, reason: .unreadable(FailedRead(reads: reads, role: read[kAXRoleAttribute] as? String, label: ownLabel(read), error: error)))
         }
     }
@@ -129,8 +129,8 @@ extension AXUIElement {
     }
 
     static func window(framed read: [String: CFTypeRef], among listed: [InstanceState.Window]) -> CGWindowID? {
-        guard let origin: CGPoint = AXValue.unpacked(read[kAXPositionAttribute], .cgPoint, CGPoint.zero),
-            let size: CGSize = AXValue.unpacked(read[kAXSizeAttribute], .cgSize, CGSize.zero)
+        guard let origin = AXValue.unpacked(read[kAXPositionAttribute], .cgPoint, CGPoint.zero),
+            let size = AXValue.unpacked(read[kAXSizeAttribute], .cgSize, CGSize.zero)
         else { return nil }
         let framed: [InstanceState.Window] = listed.filter { row in row.frame == CGRect(origin: origin, size: size) }
         let shown: [InstanceState.Window] = framed.filter(\.onScreen)

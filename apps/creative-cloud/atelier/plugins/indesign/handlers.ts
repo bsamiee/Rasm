@@ -7,7 +7,7 @@ import { Search, Specifier, Value } from '@rasm/indesign';
 import { AGGREGATE_FIELD, declaredMember, InDesignSettings, Model, unavailableReason } from '@rasm/indesign/uxp';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
-import { Array, Cache, Cause, Effect, Equivalence, Filter, Function, flow, identity, Layer, Match, Number, Option, Path, Predicate, pipe, Record, Result, Schema, SchemaGetter, Scope, Semaphore, String, Struct } from 'effect';
+import { Array, Cache, Cause, Effect, Equivalence, Filter, Formatter, Function, flow, identity, Layer, Match, Number, Option, Path, Predicate, pipe, Record, Result, Schema, SchemaGetter, Scope, Semaphore, String, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -50,7 +50,14 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pic
     const { app, enumerator } = model;
     yield* Effect.forEach(members.preferences, preserved, { discard: true });
     const counted = Match.type<number | readonly unknown[]>().pipe(Match.when(Predicate.isNumber, identity<number>), Match.orElse(Array.length));
-    const rendered = (contents: unknown): string => Array.map(Array.ensure(contents), (each) => (enumerator(each) ? `<${globalThis.String(each)}>` : globalThis.String(each))).join('');
+    const rendered = (contents: unknown) =>
+        Array.map(Array.ensure(contents), (each) =>
+            Match.value(each).pipe(
+                Match.when(enumerator, (special) => `<${special.toString()}>`),
+                Match.when(Predicate.isString, identity),
+                Match.orElse(Formatter.format),
+            ),
+        ).join('');
     const searched = model.owning(members.change);
     const scopes = yield* Effect.forEach(
         Array.ensure(located),
@@ -149,7 +156,7 @@ const declaration = Effect.fnUntraced(function* (name: string) {
     const type: unknown = Reflect.get(model, name);
     const [live] = Predicate.isFunction(type) ? Uxp.members(type.prototype) : [{ fields: [], methods: [] }];
     return yield* Option.match(enumeration(name), {
-        onSome: (found) => Effect.succeed(Enumeration.make({ name, members: Array.map(members(found), (each) => ({ name: globalThis.String(each), description: Record.get(statics, globalThis.String(each)) })) })),
+        onSome: (enumerated) => Effect.succeed(Enumeration.make({ name, members: Array.map(members(enumerated), (member) => ({ name: member.toString(), description: Record.get(statics, member.toString()) })) })),
         onNone: () =>
             Effect.map(
                 Effect.all({
@@ -189,7 +196,7 @@ const fontView = Effect.fnUntraced(function* (face: Font) {
                     features: model
                         .members(model.OpenTypeFeature)
                         .filter((feature) => face.checkOpenTypeFeature(feature))
-                        .map(globalThis.String),
+                        .map((feature) => feature.toString()),
                 };
             },
             catch: HostError.refused(`styles and features of ${face.name}`),
@@ -262,7 +269,7 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
                     const container = Option.orElse(Array.findFirst(ancestors, model.document), () => Option.some(model.app));
                     const base = Predicate.isString(basedOn) ? yield* Model.object(style.constructorName, basedOn, container) : basedOn;
                     const baseProperties = yield* Effect.try({ try: (): object => (model.domObject(base) ? base.properties : {}), catch: refused });
-                    const own = yield* differing(style, properties, (name) => Reflect.get(baseProperties, name), Inspect.Style.cases.ParagraphStyle.fields);
+                    const own = yield* differing(style, properties, (name): unknown => Reflect.get(baseProperties, name), Inspect.Style.cases.ParagraphStyle.fields);
                     const settings = yield* Effect.transposeOption(Option.map(Option.liftPredicate(style, model.paragraphStyle), InDesignSettings.read));
                     return yield* Model.picked(
                         Inspect.Style,
@@ -343,7 +350,7 @@ const pointAfterBase = (text: Text) =>
         try: () => {
             const last = text.insertionPoints.lastItem();
             const container = last.parent;
-            const marks = Array.unfold(last.index - 1, (index) => (index >= 0 && MARK.test(globalThis.String(container.characters.item(index).contents)) ? Option.some([index, index - 1] as const) : Option.none()));
+            const marks = Array.unfold(last.index - 1, (index) => (index >= 0 && MARK.test(container.characters.item(index).contents.toString()) ? Option.some([index, index - 1] as const) : Option.none()));
             return last.index > marks.length ? Option.some(container.insertionPoints.item(last.index - marks.length)) : Option.none();
         },
         catch: HostError.refused(`base letter before ${text.toSpecifier()}`),
@@ -417,7 +424,7 @@ const handlers = InDesign.Contract.of({
         );
         return Inspect.Object.make({ ...(yield* Model.reference(found)), view: shown, fields: yield* Model.read(Inspect.Readings, found.toSpecifier(), () => scalars), collections });
     }),
-    change: (payload: Change) => Effect.flatMap(Model.located(payload.target), (found) => Model.written(payload.label, found, Model.write(found, payload.values))),
+    change: (payload: Change) => Effect.flatMap(Model.located(payload.target), (target) => Model.written(payload.label, target, Model.write(target, payload.values))),
     call: Effect.fn('InDesign.Contract.call')(function* (payload: Call) {
         const [model, found] = yield* Effect.all([Model, Model.located(payload.target)]);
         const before = yield* Model.reference(found);
@@ -433,9 +440,9 @@ const handlers = InDesign.Contract.of({
         const [method, { parameters, returns }] = yield* Unmatched.single(Record.toEntries(methods), `method of ${kind}`, Option.some(payload.method), ([name]) => [name]);
         const required = parameters.filter(({ optional }) => !optional).length;
         const positional = payload.arguments;
-        yield* positional.length < required || positional.length > parameters.length
-            ? new Cause.IllegalArgumentError(`${kind} ${method} takes ${required === parameters.length ? required : `${required} to ${parameters.length}`} arguments (${Array.map(parameters, ({ name, optional }) => (optional ? `${name}?` : name)).join(', ')}), given ${positional.length}`)
-            : Effect.void;
+        const arity = Array.dedupe([required, parameters.length]).join(' to ');
+        const signature = Array.map(parameters, ({ name, optional }) => (optional ? `${name}?` : name)).join(', ');
+        yield* positional.length < required || positional.length > parameters.length ? new Cause.IllegalArgumentError(`${kind} ${method} takes ${arity} arguments (${signature}), given ${positional.length}`) : Effect.void;
         const decode = Model.decoder(found, yield* Effect.cached(Model.fonts));
         const positioned = yield* Effect.forEach(Array.zip(positional, parameters), ([value, parameter]) => decode(Option.some(parameter), Option.map(returns, Struct.get('type')))(value));
         const properties = Option.map(payload.properties, (supplied) => flow(Array.ensure<unknown>, Array.findFirst(model.domObject), Effect.fromOption(Function.constant(new Cause.IllegalArgumentError(`${kind} ${method} returned no object for properties`))), Effect.flatMap(Model.write(supplied))));
@@ -470,7 +477,7 @@ const handlers = InDesign.Contract.of({
         ),
     invoke: Effect.fn('InDesign.Contract.invoke')(function* (payload: Invoke) {
         const [{ app }, listed] = yield* Effect.all([Model, actions]);
-        const chosen = yield* Unmatched.single(listed, 'menu action', Option.some(globalThis.String(payload.action)), ({ id, name, area }) => [`${id} ${name} (${area})`, globalThis.String(id), name]);
+        const chosen = yield* Unmatched.single(listed, 'menu action', Option.some(payload.action.toString()), ({ id, name, area }) => [`${id} ${name} (${area})`, id.toString(), name]);
         yield* Model.commit(payload.label, Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: HostError.refused(chosen.name) }));
         return chosen;
     }),

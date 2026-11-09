@@ -11,7 +11,7 @@ public import System
 
 public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
-    public enum Reason: Equatable, Sendable {
+    public enum Reason: Encodable, Equatable, Sendable {
         case untrusted
         case noCaptureAccess
         case unanswered(ElementAction?)
@@ -36,6 +36,12 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case cancelled
         case unmatched(Unmatched)
         case unwatched(FileFailure)
+        case malformed(String)
+
+        public func encode(to encoder: any Encoder) throws {
+            var label: any SingleValueEncodingContainer = encoder.singleValueContainer()
+            try label.encode(caseLabel(of: self))
+        }
     }
 
     public let subject: String
@@ -46,17 +52,15 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         self.reason = reason
     }
 
-    public var name: String { Mirror(reflecting: reason).children.first?.label ?? String(describing: reason) }
-
     public var errorDescription: String? {
         switch reason {
             case .untrusted: "\(subject) lacks Accessibility access, grant it in System Settings > Privacy & Security > Accessibility"
             case .noCaptureAccess: "\(subject) lacks Screen Recording access, grant it in System Settings > Privacy & Security > Screen & System Audio Recording"
             case .unanswered(.none): "\(subject) did not answer within messaging timeout"
-            case .unanswered(.some): "\(subject) got no answer within messaging timeout, action can have run"
+            case .unanswered(.some): "\(subject) got no answer within messaging timeout, the action may have run"
             case .noProcess: "Process \(subject) exited"
             case .unreadable(let read):
-                "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \"\(label)\"" } ?? "") failed with AXError \(read.error.rawValue)"
+                "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \(String(reflecting: label))" } ?? "") failed with AXError \(read.error.rawValue)"
             case .unresolved: "\(subject) no longer exists in its app, read the app again for a current id"
             case .foreign(let process): "\(subject) belongs to a process other than \(process)"
             case .disabled: "Element \(subject) is disabled"
@@ -77,6 +81,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .cancelled: "Canceled \(subject)"
             case .unmatched(let miss): miss.errorDescription
             case .unwatched(let failure): failure.errorDescription
+            case .malformed(let message): message
         }
     }
 
@@ -89,7 +94,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
             case .untrusted, .noCaptureAccess, .unanswered, .unreadable, .unresolved, .foreign, .disabled, .notSettable, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noImage,
-                .noExtension, .noEncoder, .noReport, .cancelled:
+                .noExtension, .noEncoder, .noReport, .cancelled, .malformed:
                 [:]
         }
     }
@@ -102,7 +107,7 @@ extension ApplicationFailure: Encodable {
 
     public func encode(to encoder: any Encoder) throws {
         var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-        try fields.encode(name, forKey: .reason)
+        try fields.encode(reason, forKey: .reason)
         try fields.encode(subject, forKey: .subject)
         try fields.encodeIfPresent(errorDescription, forKey: .message)
         switch reason {
@@ -120,7 +125,7 @@ extension ApplicationFailure: Encodable {
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
             case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow, .noImage, .noExtension, .noEncoder,
                 .host,
-                .cancelled, .unwatched:
+                .cancelled, .unwatched, .malformed:
                 break
         }
     }
@@ -141,4 +146,10 @@ extension ApplicationFailure {
     init(_ error: Errno, process: pid_t) {
         self = Self(subject: String(process), reason: error == .noSuchProcess ? .noProcess : .system(error))
     }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+func caseLabel(of value: some Any) -> String {
+    Mirror(reflecting: value).children.first?.label ?? String(describing: value)
 }

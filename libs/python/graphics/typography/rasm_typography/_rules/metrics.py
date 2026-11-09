@@ -42,7 +42,7 @@ class Records(Rule, frozen=True, kw_only=True):
 # --- [EXTENTS]
 
 
-def _reach(binary: Binary[TTFont], texts: tuple[tuple[str, str], ...], /) -> tuple[float, float]:
+def _reach(binary: Binary[TTFont], texts: tuple[tuple[str, str | None], ...], /) -> tuple[float, float]:
     """Baseline and actual outline extrema after native substitutions and positioning under each run's language."""
     return reduce(lambda held, box: (max(held[0], box.ymax), min(held[1], box.ymin)), (box for text, language in texts for _, box in binary.placed_extents(text, language)), (0.0, 0.0))
 

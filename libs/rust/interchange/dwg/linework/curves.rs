@@ -23,7 +23,7 @@ pub(super) fn ocs(normal: Vector3, elevation: f64) -> Affine {
 
 pub(crate) fn path(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> Result<Option<BezPath>, Refusal> {
     let splined = |spline: &Spline| -> Result<Option<BezPath>, Refusal> {
-        let weights: &[f64] = if spline.flags.rational { &spline.weights } else { &[] };
+        let weights = Some(spline.weights.as_slice()).filter(|weights| spline.flags.rational && !weights.is_empty());
         match (spline.control_points.as_slice(), spline.fit_points.as_slice()) {
             ([], []) => Ok(None),
             ([], [_, ..]) => Err(Refusal::Fitted),
@@ -208,7 +208,7 @@ pub(super) fn boundary(hatch: &Hatch, frame: Affine, tolerance: Tolerance, subje
                 }
                 BoundaryEdge::Spline(spline) => {
                     let stated = spline.control_points.iter().map(|control| control.z).collect::<Vec<_>>();
-                    let weights: &[f64] = if spline.rational { &stated } else { &[] };
+                    let weights = Some(stated.as_slice()).filter(|weights| spline.rational && !weights.is_empty());
                     match (spline.control_points.as_slice(), spline.fit_points.as_slice()) {
                         ([], [_, ..]) => Err(Refusal::Fitted),
                         (control, _) =>
@@ -359,7 +359,7 @@ pub(super) fn signed(dashes: &Dashes, offset: f64) -> Vec<f64> {
     }
 }
 
-fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], tolerance: f64) -> Option<BezPath> {
+fn nurbs(degree: usize, control: &[Point], weights: Option<&[f64]>, knots: &[f64], tolerance: f64) -> Option<BezPath> {
     fn polynomial<T>(control: &[T], point: impl Fn(&T) -> Point) -> Option<PathEl> {
         match control {
             [_, end] => Some(PathEl::LineTo(point(end))),
@@ -393,11 +393,11 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
         Some((blended, spread.iter().take(split).chain(iter::once(&value)).chain(spread.iter().skip(split)).copied().collect()))
     };
     let count = control.len();
-    let rational = weights.array_windows().any(|[left, right]| left.total_cmp(right).is_ne());
+    let rational = weights.is_some_and(|weights| weights.array_windows().any(|[left, right]| left.total_cmp(right).is_ne()));
     let valid = degree > 0
         && count > degree
         && knots.len() == count.checked_add(degree)?.checked_add(1)?
-        && (weights.is_empty() || weights.len() == count && weights.iter().all(|weight| weight.is_finite() && *weight > 0.0))
+        && weights.is_none_or(|weights| weights.len() == count && weights.iter().all(|weight| weight.is_finite() && *weight > 0.0))
         && control.iter().all(|vertex| vertex.is_finite())
         && knots.iter().all(|knot| knot.is_finite())
         && knots.is_sorted();
@@ -414,7 +414,7 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
     let (_, lows) = breaks.split_last()?;
     let (points, knots) = breaks.iter().try_fold(
         (
-            iter::zip(control, weights.iter().copied().chain(iter::repeat(1.0)))
+            iter::zip(control, weights.into_iter().flatten().copied().chain(iter::repeat(1.0)))
                 .map(|(vertex, weight)| {
                     let weight = f128::from(weight);
                     [f128::from(vertex.x) * weight, f128::from(vertex.y) * weight, weight]

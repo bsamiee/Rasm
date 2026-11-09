@@ -9,7 +9,7 @@ import System
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let beatAttributes: [String] = [kAXWindowsAttribute, kAXFocusedWindowAttribute, kAXFrontmostAttribute]
-private let modalPanelLayer: Int = Int(CGWindowLevelForKey(.modalPanelWindow))
+private let modalPanelLayer: Int = .init(CGWindowLevelForKey(.modalPanelWindow))
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -46,7 +46,7 @@ extension NSRunningApplication {
     }
 
     private func rows(_ listed: [InstanceState.Window], in beat: Beat, reading once: Bool, _ description: (CGWindowID) -> InstanceState.Window.Description) -> [InstanceState.Window] {
-        let numbers: Set<CGWindowID> = Set(listed.map(\.number))
+        let numbers = Set(listed.map(\.number))
         return (listed + beat.described.keys.filter { number in !numbers.contains(number) }.compactMap(InstanceState.Window.listed(number:))).map { window in
             window.described(description(window.number), arrived: beat.baseline.map { baseline in !baseline.contains(window.number) } ?? once)
         }
@@ -61,7 +61,7 @@ extension NSRunningApplication {
         ticks: AsyncStream<Void>.Continuation?,
     ) throws(ApplicationFailure) -> Beat {
         var next: Beat = held
-        let application: AXUIElement = AXUIElement.application(processIdentifier)
+        let application = AXUIElement.application(processIdentifier)
         if let ticks {
             next.observer = next.observer ?? Result { () throws(ApplicationFailure) in try Observer(self, ticks: ticks) }
             try next.observer?.get().register(on: application)
@@ -69,7 +69,7 @@ extension NSRunningApplication {
         let read: [String: CFTypeRef] = try application.values(beatAttributes)
         let tokens: [Data?] =
             (read[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(AXUIElement.checked).map(\.token) + [read[kAXFocusedWindowAttribute].flatMap(AXUIElement.checked)?.token]
-        let numbers: Set<CGWindowID> = Set(listed.map(\.number))
+        let numbers = Set(listed.map(\.number))
         if !heartbeat || next.tokens != tokens || next.numbers != numbers {
             let helper: Bool = isDialogHelper
             let elements: [(window: CGWindowID?, element: Element)] = try AXUIElement.candidates(read).map { candidate throws(ApplicationFailure) in
@@ -99,7 +99,7 @@ extension NSRunningApplication {
     private func silent(after held: Beat, sampling: Bool, process: ProcessStatus, listed: [InstanceState.Window]) throws(ApplicationFailure) -> Beat {
         let time: Duration
         do { time = try mainThreadUserTime(of: processIdentifier) } catch { throw ApplicationFailure(error, process: processIdentifier) }
-        let tagged: Set<CGWindowID> = Set(listed.filter { window in window.layer == modalPanelLayer }.map(\.number))
+        let tagged = Set(listed.filter { window in window.layer == modalPanelLayer }.map(\.number))
         let idle: Bool = held.mainThread == time
         let flat: Bool = isFinishedLaunching && idle
         let status: InstanceState.Running.Status =
@@ -178,7 +178,7 @@ extension NSRunningApplication {
     }
 
     func beats(walking walked: @escaping @Sendable (Element) -> Bool, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
-        let (ticks, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let (ticks, tick) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         return merge(chain([()].async, ticks).map { _ in false }, AsyncTimerSequence(interval: messagingTimeout, clock: clock).map { _ in true })
             .reductions(Beat()) { last, heartbeat in await self.beat(after: last, walking: walked, heartbeat: heartbeat, ticks: tick) }
             .compactMap(\.state)

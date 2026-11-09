@@ -61,9 +61,9 @@ internal static class Workspace {
             [.. read.Bind(static held => held.Result.Match(Succ: static evaluated => evaluated.Evaluated, Fail: static _ => Seq<string>())).Distinct().Order(StringComparer.Ordinal)]);
     }
 
-    private static (Node Node, Seq<string> Evaluated) Evaluate(string root, string file, EvaluationContext context, ProjectCollection collection) {
+    private static Fin<(Node Node, Seq<string> Evaluated)> Evaluate(string root, string file, EvaluationContext context, ProjectCollection collection) {
         string path = Path.GetFullPath(Path.Combine(root, file));
-        string folder = Path.GetDirectoryName(path)!;
+        if (Path.GetDirectoryName(path) is not { } folder) return Error.New($"{path} names no folder");
         ProjectInstance outer = Load(path, Defaults, context, collection);
         Seq<string> frameworks = Listed(outer, "TargetFrameworks");
         Seq<(string Configuration, Option<string> Runtime, Seq<ProjectInstance> Instances)> modes =
@@ -94,7 +94,7 @@ internal static class Workspace {
                     [.. mode.Instances.Filter(static instance => Flag(instance, "IsPublishable")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)]))],
                 [.. instances
                     .Bind(static instance => toSeq(instance.GetItems("ProjectReference")))
-                    .Map(reference => new Reference(Relative(root, Path.GetDirectoryName(reference.GetMetadataValue("FullPath"))!), Relative(root, reference.GetMetadataValue("DefiningProjectFullPath"))))
+                    .Choose(reference => Optional(Path.GetDirectoryName(reference.GetMetadataValue("FullPath"))).Map(referenced => new Reference(Relative(root, referenced), Relative(root, reference.GetMetadataValue("DefiningProjectFullPath")))))
                     .Distinct()],
                 [.. imports
                     .Append(instances.Bind(static instance => Linked.Bind(type => toSeq(instance.GetItems(type)))).Map(static item => item.GetMetadataValue("FullPath")))
@@ -148,7 +148,7 @@ internal static class Workspace {
     }
 
     private static Seq<string> Ancestors(string root, string folder) =>
-        Path.GetRelativePath(root, folder) is "." ? Seq(folder) : Seq(folder) + Ancestors(root, Path.GetDirectoryName(folder)!);
+        Path.GetRelativePath(root, folder) is "." ? Seq(folder) : Seq(folder) + Optional(Path.GetDirectoryName(folder)).ToSeq().Bind(parent => Ancestors(root, parent));
 
     private static Seq<string> Listed(ProjectInstance instance, string property) =>
         toSeq(instance.GetPropertyValue(property).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));

@@ -126,7 +126,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                     .onError(({ error, portfolio: submitted }) => (
                         <div className="w-full">
                             <RequestAlert error={error} onField={(path) => locate(path, submitted)} />
-                            {error._tag === 'PreconditionFailed' && (
+                            {Predicate.isTagged(error, 'PreconditionFailed') && (
                                 <div className="actions">
                                     <ConfirmDialog description="Discards unsaved edits. Uploaded files stay in library. Edits stay if reload fails" disabled={busy || pending.length > 0} label="Reload latest draft" onConfirm={() => reload(undefined)} />
                                     <ConfirmDialog description={`Saves these edits over draft revision ${error.revision}. Published work changes on next publish`} disabled={busy} label="Replace newer draft" onConfirm={() => submit({ ...state, revision: error.revision, publish: false })} />
@@ -143,7 +143,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                     .orNull()}
                 {pending.length > 0 && (
                     <p className="text-caption text-muted w-full" id={`${idPrefix}uploads`}>
-                        {format.quantity(pending.length, { one: (shown) => `${shown} file not uploaded`, other: (shown) => `${shown} files not uploaded` })}. Upload or remove before publishing or reloading{' '}
+                        {format.quantity(pending.length, { one: (count) => `${count} file not uploaded`, other: (count) => `${count} files not uploaded` })}. Upload or remove before publishing or reloading{' '}
                         <button className="quiet-link" onClick={() => show('files')} type="button">
                             View uploads
                         </button>
@@ -157,7 +157,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                             Projects and studies
                         </Tab>
                         <Tab className="editor-tab" id={`${idPrefix}files`}>
-                            Files{pending.length > 0 ? ` (${pending.length})` : ''}
+                            Files{pending.length > 0 && ` (${pending.length})`}
                         </Tab>
                         <Tab className="editor-tab" id={`${idPrefix}identity`}>
                             Identity and hero

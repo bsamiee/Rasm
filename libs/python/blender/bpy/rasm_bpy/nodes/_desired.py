@@ -5,7 +5,6 @@ from enum import Enum
 from functools import partial
 import inspect
 from itertools import chain, islice
-import re
 from types import MappingProxyType, MemberDescriptorType
 from typing import ClassVar, Final, get_args, override, Self, TypeAliasType
 
@@ -20,7 +19,7 @@ from rasm_bpy.data._rna.descriptors import _differing, Value, written
 from rasm_bpy.data._rna.paths import RnaPath
 from rasm_bpy.data._rna.properties import _titled
 from rasm_bpy.nodes._trees import _matched_items, _ordered_items, GraphTree
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason, words
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -342,7 +341,7 @@ def item_key(*parts: object) -> Key:
             case MemberDescriptorType():
                 return value.__name__
             case type():
-                return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", value.__name__).lower()
+                return "_".join(word.lower() for word in words(value.__name__))
             case _:
                 return str(value)
 

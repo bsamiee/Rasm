@@ -14,6 +14,7 @@ use thiserror::Error;
 #[display(rename_all = "lowercase")]
 enum Stage {
     Start,
+    #[display("read the output of")]
     Output,
 }
 
@@ -21,9 +22,9 @@ enum Stage {
 
 #[derive(Debug, Error)]
 enum Failure {
-    #[error("cargo dylint {stage} failed")]
+    #[error("cannot {stage} cargo dylint")]
     Io { stage: Stage, source: io::Error },
-    #[error("cargo dylint failed with {status}\n{errors}")]
+    #[error("cargo dylint exited with {status}\n{errors}")]
     Compile { errors: String, status: ExitStatus },
     #[error("diagnostics in targets no fixture pattern names\n{found}")]
     Unmatched { found: String },
@@ -61,7 +62,11 @@ fn ui() -> Result<(), Failure> {
         })?;
     (checked && errors.is_empty()).ok_or(Failure::Compile { errors, status: output.status })?;
     insta::with_settings!({ prepend_module_to_snapshot => false, omit_expression => true }, {
-        insta::glob!("../..", "{examples/*.rs,tests/expansions/*.rs}", |path| insta::assert_snapshot!(found.remove(path).unwrap_or_default()));
+        insta::glob!("../..", "{examples/*.rs,tests/expansions/*.rs}", |path| {
+            #[cfg_attr(dylint_lib = "rasm_lints", expect(empty_string_default, reason = "a fixture the lints pass over snapshots as empty output"))]
+            let diagnostics = found.remove(path).unwrap_or_default();
+            insta::assert_snapshot!(diagnostics);
+        });
     });
     found.is_empty().ok_or_else(|| Failure::Unmatched { found: found.into_values().collect() })
 }

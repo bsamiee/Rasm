@@ -15,7 +15,7 @@ use std::{
 };
 
 use indexmap::IndexMap;
-use itertools::Itertools as _;
+use itertools::{Either, Itertools as _};
 use jiff::fmt::temporal::Pieces;
 use nonempty_collections::{NEVec, NonEmptyIterator as _, iter};
 use serde::{
@@ -164,7 +164,7 @@ pub enum DataType {
         #[serde(rename = "enumRestrictions")]
         restrictions: EnumRestrictions,
     },
-    #[display("an array of {} to {} items", restrictions.min.unwrap_or_default(), restrictions.max.map_or_else(|| "any".to_owned(), |max| max.to_string()))]
+    #[display("an array of {} to {} items", restrictions.min.unwrap_or_default(), restrictions.max.map_or(Either::Left("any"), Either::Right))]
     Array {
         #[serde(rename = "arrayRestrictions")]
         restrictions: Box<ArrayRestrictions>,

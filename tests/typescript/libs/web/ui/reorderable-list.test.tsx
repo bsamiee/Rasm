@@ -24,7 +24,7 @@ const _sheets = async () => {
     const drag = async (source: string, target: string, half: 'upper' | 'lower') => {
         const row = screen.getByRole('row', { name: target });
         const { height } = row.element().getBoundingClientRect();
-        await userEvent.dragAndDrop(screen.getByRole('row', { name: source }), row, { targetPosition: { x: 1, y: half === 'upper' ? 2 : height - 2 } });
+        await userEvent.dragAndDrop(screen.getByRole('row', { name: source }), row, { targetPosition: { x: 1, y: { upper: 2, lower: height - 2 }[half] } });
         await screen.rerender(list(Option.getOrThrow(Array.last(onChange.mock.calls))[0]));
     };
     const disabled = () =>

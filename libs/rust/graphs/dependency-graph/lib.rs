@@ -83,7 +83,7 @@ where E: 'static {
     }
     let edges = edges.into_iter().collect::<Vec<_>>();
     present(evaluation, edges.iter().flat_map(|&(source, target, _)| [source, target]))?;
-    let graph: &StableDiGraph<N, E> = evaluation;
+    let graph = evaluation.inner();
     let incoming = match inputs {
         Inputs::Extend => BTreeSet::new(),
         Inputs::Replace =>
@@ -109,7 +109,7 @@ pub fn disconnect<N, E>(evaluation: &mut Evaluation<N, E>, edges: impl IntoItera
 }
 
 pub fn remove<N, E>(evaluation: &mut Evaluation<N, E>, node: NodeIndex) -> Option<(N, Edges<E>)> {
-    let graph: &StableDiGraph<N, E> = evaluation;
+    let graph = evaluation.inner();
     let incident = graph
         .contains_node(node)
         .then(|| [Direction::Incoming, Direction::Outgoing].into_iter().flat_map(|direction| graph.edges_directed(node, direction)).map(|edge| edge.id()).collect::<Vec<_>>())?;

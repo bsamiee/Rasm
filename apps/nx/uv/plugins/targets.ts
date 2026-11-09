@@ -1,6 +1,6 @@
 import { logger, type TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Result, Schema } from 'effect';
+import { Array, Effect, FileSystem, Formatter, Option, Path, Predicate, Record, Result, Schema } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
 import type { Member } from '#/plugins/project-graph';
 
@@ -88,24 +88,24 @@ const documents = Effect.fnUntraced(function* (workspaceRoot: string, roots: rea
     const read = Effect.fnUntraced(function* (at: string) {
         const text = yield* fs.readFileString(path.join(workspaceRoot, at));
         const parsed = path.extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text));
-        yield* Result.isFailure(parsed) ? Effect.sync(() => logger.warn(`${at} does not parse (${String(parsed.failure)}), so inference reads no setting from it and its tools report it when their targets run`)) : Effect.void;
+        yield* Result.isFailure(parsed) ? Effect.sync(() => logger.warn(`${at} does not parse (${Formatter.format(parsed.failure)}), so inference reads no setting from it and its tools report it when their targets run`)) : Effect.void;
         return [at, Result.getOrElse(parsed, Record.empty)] as const;
     });
     return new Map(yield* Effect.forEach(present, read, { concurrency: 'unbounded' }));
 });
 
-const declared = (path: Path.Path, held: ReadonlyMap<string, unknown>, root: string, checker: Checker) => {
+const declared = (path: Path.Path, documented: ReadonlyMap<string, unknown>, root: string, checker: Checker) => {
     const candidates = ancestors(path, root).flatMap((folder) => CHECKERS[checker].files.map(([file, ...keys]) => [path.join(folder, file), keys] as const));
     return Option.map(
         Array.findFirstWithIndex(candidates, ([at, keys]) =>
             Option.flatMap(
-                keys.reduce<Option.Option<unknown>>((table, key) => Option.flatMap(table, (value) => (Predicate.hasProperty(value, key) ? Option.fromUndefinedOr(value[key]) : Option.none())), Option.fromUndefinedOr(held.get(at))),
+                keys.reduce<Option.Option<unknown>>((table, key) => Option.flatMap(table, (value) => (Predicate.hasProperty(value, key) ? Option.fromUndefinedOr(value[key]) : Option.none())), Option.fromUndefinedOr(documented.get(at))),
                 (table) => Option.map(Schema.decodeUnknownOption(Settings)(table), (settings) => [at, settings] as const),
             ),
         ),
         ([[config, settings], index]) => ({
             config,
-            inputs: Array.dedupe(candidates.slice(0, index + 1).flatMap(([at]) => (held.has(at) ? [path.join('{workspaceRoot}', at)] : []))),
+            inputs: Array.dedupe(candidates.slice(0, index + 1).flatMap(([at]) => (documented.has(at) ? [path.join('{workspaceRoot}', at)] : []))),
             patterns: Option.match(Option.fromUndefinedOr(settings.python_files ?? settings.ini_options?.python_files ?? settings.pytest?.python_files), {
                 onNone: () => CHECKERS[checker].matches,
                 onSome: (files) => (typeof files === 'string' ? files.split(SEPARATOR).filter((file) => file.length > 0) : files),
@@ -114,7 +114,7 @@ const declared = (path: Path.Path, held: ReadonlyMap<string, unknown>, root: str
     );
 };
 
-const targets = (path: Path.Path, member: Member, plugin: string, dependencies: string, found: ReadonlySet<Member['checks'][string]>, outputPath: string | undefined): Targets => {
+const targets = (path: Path.Path, member: Member, plugin: string, dependencies: string, present: ReadonlySet<Member['checks'][string]>, outputPath: string | undefined): Targets => {
     const at = path.relative(member.workspace, member.root) || '.';
     const root = member.root === member.workspace;
     const named = Option.fromUndefinedOr(member.name);
@@ -123,7 +123,7 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
     const inferred: Targets = {
         ...Record.fromEntries(
             (member.nested ? [] : Record.collect(CHECKERS, (key, row) => [key, row] as const)).flatMap(([key, row]) =>
-                Option.toArray(Option.filter(Option.fromUndefinedOr(member.checks[key]), (checked) => found.has(checked))).map(
+                Option.toArray(Option.filter(Option.fromUndefinedOr(member.checks[key]), (checked) => present.has(checked))).map(
                     (checked) =>
                         [
                             row.verb === 'check' ? `${row.verb}--${key}` : row.verb,
@@ -212,7 +212,7 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
             (members, verb): TargetConfiguration => ({
                 executor: 'nx:noop',
                 dependsOn: [`${verb}--*`],
-                inputs: ['...', ...Array.dedupe(members.flatMap(([, held]) => held.inputs ?? []))],
+                inputs: ['...', ...Array.dedupe(members.flatMap(([, configuration]) => configuration.inputs ?? []))],
                 metadata: { technologies: TECHNOLOGIES, description: `Runs every ${verb}--* target` },
             }),
         ),

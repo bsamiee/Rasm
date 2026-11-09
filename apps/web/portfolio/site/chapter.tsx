@@ -85,7 +85,7 @@ const Chapter = ({ entry, navigation }: { entry: typeof Entry.Type; navigation: 
             </div>
             {entry.compositions.length > 0 ? (
                 <section aria-label={`${title} compositions`} aria-roledescription="carousel" className="@container touch-pan-y touch-pinch-zoom">
-                    <div className={carousel ? 'grid-cols-trailing-pair grid items-center gap-x-3 gap-y-2' : ''}>
+                    <div className={carousel ? 'grid-cols-trailing-pair grid items-center gap-x-3 gap-y-2' : undefined}>
                         {carousel && (
                             <>
                                 <Overview compositions={entry.compositions} onSelect={api.goTo} selected={selectedSnap} title={title} />

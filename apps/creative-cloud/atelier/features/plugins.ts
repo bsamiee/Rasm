@@ -60,7 +60,7 @@ const opener = Effect.fnUntraced(function* (links: Effect.Success<typeof listeni
     const candidates = rows.filter(
         flow(
             library,
-            Option.exists((found) => serves({ library: found })),
+            Option.exists((served) => serves({ library: served })),
         ),
     );
     const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.make({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(rows, Struct.get('name')) }));
@@ -132,7 +132,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
     );
     yield* Route(opened.optional('linked application Launch Services picks for file'))(
         Tool.make(opened.tag, {
-            description: 'Opens document without dialogs and returns its reference, without window where application allows, launching the picked application when none runs and waiting for its link. After Effects replaces its open project',
+            description: 'Opens the document without dialogs and returns its reference, with no window where the application allows it. Starts the application Launch Services picks when none runs and waits for its link. In After Effects the document replaces the open project',
             parameters: Opening,
             success: Opened,
         }),
@@ -167,7 +167,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
             },
             menu: { description: 'Menu actions of one area or every area', completion: { area: (rows) => Array.dedupe(Array.map(rows, Struct.get('area'))) } },
             preflight: {
-                description: 'Preflight rows per document, finished live results without profile. Reads wait on a process that restarts every live check',
+                description: 'Preflight rows per document, or the finished live results when no profile is given. Each read waits for the preflight process, which restarts with every live check',
                 completion: { document: Array.map((process) => process.targetObject.specifier) },
                 report: Array.some(({ aggregatedResults }) => Array.isReadonlyArrayNonEmpty(aggregatedResults)),
             },

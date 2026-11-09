@@ -104,7 +104,7 @@ struct JSONValueDecoder: Decoder, SingleValueDecodingContainer {
                 case (_, is Bool.Type), (_, is String.Type), (_, is URL.Type), (_, is Data.Type), (_, is any BinaryFloatingPoint.Type), (_, is any BinaryInteger.Type): nil
                 default: try Decoded(from: self)
             }
-        guard let decoded: Decoded = read as? Decoded else { throw mismatch(Decoded.self) }
+        guard let decoded = read as? Decoded else { throw mismatch(Decoded.self) }
         return decoded
     }
 

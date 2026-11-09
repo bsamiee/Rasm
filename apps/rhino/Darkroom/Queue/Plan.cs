@@ -203,8 +203,8 @@ internal sealed record QueueSettings(int Retries, Duration Delay, bool SampleEst
             .As());
 
     private static IO<NoticeSettings> Notified(SettingsNode node) =>
-        (Preferences.Setting(node, "NoticeServer", "https://ntfy.sh").Read, Preferences.Setting(node, "NoticeTopic", "").Read)
-            .Apply(static (server, topic) => Located(server).Map(located => new NoticeSettings(located, Conversions.Present(topic))))
+        (Preferences.Setting(node, "NoticeServer", "https://ntfy.sh").Read, Preferences.Setting(node, "NoticeTopic").Read)
+            .Apply(static (server, topic) => Located(server).Map(located => new NoticeSettings(located, topic)))
             .As()
             .Bind(IO.lift);
 
@@ -212,13 +212,13 @@ internal sealed record QueueSettings(int Retries, Duration Delay, bool SampleEst
         (Preferences.Setting(node, "FlamencoManager", "http://localhost:8080").Read,
          Preferences.Setting(node, "FlamencoPlatform", WorkerPlatform.Current().Key).Read,
          Preferences.Setting(node, "FlamencoPriority", 50, Some<Func<int, bool>>(static priority => priority is >= 0 and <= 100)).Read,
-         Preferences.Setting(node, "FlamencoScripts", "").Read,
-         Preferences.Setting(node, "FlamencoWorkerTag", "").Read)
+         Preferences.Setting(node, "FlamencoScripts").Read,
+         Preferences.Setting(node, "FlamencoWorkerTag").Read)
             .Apply(static (manager, platform, priority, scripts, tag) => (
                     Located(manager),
                     WorkerPlatform.TryGet(platform, out WorkerPlatform? worker) ? Fin.Succ(worker) : new DarkroomFault(platform, DarkroomReason.Invalid),
-                    Conversions.Present(tag).Traverse(static text => Guid.TryParse(text, out Guid id) ? Fin.Succ(id) : new DarkroomFault(text, DarkroomReason.Invalid)).As())
-                .Apply((located, worker, workerTag) => new FlamencoSettings(located, worker, priority, Conversions.Present(scripts), workerTag))
+                    tag.Traverse(static text => Guid.TryParse(text, out Guid id) ? Fin.Succ(id) : new DarkroomFault(text, DarkroomReason.Invalid)).As())
+                .Apply((located, worker, workerTag) => new FlamencoSettings(located, worker, priority, scripts, workerTag))
                 .As())
             .As()
             .Bind(IO.lift);

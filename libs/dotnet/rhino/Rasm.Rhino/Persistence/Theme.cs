@@ -82,10 +82,10 @@ public sealed record RhinoTheme(string Name) {
 
     public Seq<IO<IO<Unit>>> Overrides { get; init; }
 
-    private static Preference<string> Stored =>
-        Preferences.Setting(new SettingsNode(new SettingsRoot.PlugInNode(Session.PlugIn.Id)), nameof(RhinoTheme), fallback: "", hidden: true);
+    private static Preference<Option<string>> Stored =>
+        Preferences.Setting(new SettingsNode(new SettingsRoot.PlugInNode(Session.PlugIn.Id)), nameof(RhinoTheme), hidden: true);
 
-    public static Preference<string> Current { get; } =
+    public static Preference<Option<string>> Current { get; } =
         Preferences.Of(IO.lift(static () => Stored).Bind(static stored => stored.Read), static name => IO.lift(static () => Stored).Bind(stored => stored.Write(name)));
 
     // --- [HOST_SETTINGS]
@@ -116,9 +116,9 @@ public sealed record RhinoTheme(string Name) {
 
     private static IO<Unit> Selected(Seq<RhinoTheme> themes, Ref<Option<Owned<string>>> slot) =>
         from name in Current.Read
-        from moved in unless(slot.Value.Exists(held => string.Equals(held.Value, name, StringComparison.Ordinal)),
-            Products.Clear(slot) >> themes.Find(theme => string.Equals(theme.Name, name, StringComparison.Ordinal))
-                .Traverse(theme => Products.Replace(slot, theme.Painted(theme.Overrides).Map(_ => name))).As().Map(unit)).As()
+        from moved in unless(slot.Value.Exists(held => name.Exists(named => string.Equals(held.Value, named, StringComparison.Ordinal))),
+            Products.Clear(slot) >> name.Bind(named => themes.Find(theme => string.Equals(theme.Name, named, StringComparison.Ordinal)))
+                .Traverse(theme => Products.Replace(slot, theme.Painted(theme.Overrides).Map(_ => theme.Name))).As().Map(unit)).As()
         select unit;
 
     private IO<Unit> Painted(Seq<IO<IO<Unit>>> swaps) =>
@@ -140,7 +140,7 @@ public sealed record RhinoTheme(string Name) {
         from dark in Running
         from current in Current.Read
         let held = latest.Value
-        from switched in when(string.Equals(current, Name, StringComparison.Ordinal) && held.Exists(owned => owned.Value.Dark != dark),
+        from switched in when(current.Exists(named => string.Equals(named, Name, StringComparison.Ordinal)) && held.Exists(owned => owned.Value.Dark != dark),
             Restored(latest) >> Products.Replace(latest, Colored).Map(static _ => unit) >> Flush).As()
         select switched;
 
@@ -156,11 +156,15 @@ public sealed record RhinoTheme(string Name) {
             paint: static (color, key) => Moded(key, Preferences.Property(() => AppearanceSettings.GetPaintColor(key.Member), held => AppearanceSettings.SetPaintColor(key.Member, held, forceUiUpdate: true)).Swap(color)),
             widget: static (color, key) => Moded(key, Preferences.Property(() => AppearanceSettings.GetWidgetColor(key.Member), held => AppearanceSettings.SetWidgetColor(key.Member, held, forceUiUpdate: true)).Swap(color)),
             appearance: static (color, key) => Moded(key, AppearanceColors.Find(member => string.Equals(member.Name, key.Member, StringComparison.Ordinal)).Match(
-                Some: member => Preferences.Property(() => (Color)member.GetValue(obj: null)!, held => member.SetValue(obj: null, held)).Swap(color),
+                Some: member => Preferences.Property(member.Read, member.Write).Swap(color),
                 None: () => IO.fail<IO<Unit>>(new RhinoFault(key.Member, RhinoReason.Missing))))));
 
-    private static readonly Seq<PropertyInfo> AppearanceColors =
-        toSeq(typeof(AppearanceSettings).GetProperties(BindingFlags.Public | BindingFlags.Static)).Filter(static member => member.PropertyType == typeof(Color) && member is { CanRead: true, CanWrite: true }).Strict();
+    private static readonly Seq<(string Name, Func<Color> Read, Action<Color> Write)> AppearanceColors =
+        toSeq(typeof(AppearanceSettings).GetProperties(BindingFlags.Public | BindingFlags.Static))
+            .Choose(static member => member is { GetMethod: { } getter, SetMethod: { } setter } && member.PropertyType == typeof(Color)
+                ? Some((member.Name, Read: getter.CreateDelegate<Func<Color>>(), Write: setter.CreateDelegate<Action<Color>>()))
+                : None)
+            .Strict();
 
     private static IO<IO<Unit>> Moded(ThemeKey key, IO<IO<Unit>> swap) =>
         swap.Map(restore => Running.Bind(dark => when(key.Dark.ForAll(mode => mode == dark), restore).As()));
@@ -206,7 +210,7 @@ public sealed record RhinoTheme(string Name) {
         from widgets in IO.lift(() => toSeq(Enum.GetValues<WidgetColor>())
             .Map(member => (Key: (ThemeKey)new ThemeKey.Widget(member) { Dark = Some(dark) }, Color: AppearanceSettings.GetWidgetColor(member))).Strict())
         from appearance in IO.lift(() => AppearanceColors
-            .Map(member => (Key: (ThemeKey)new ThemeKey.Appearance(member.Name) { Dark = Some(dark) }, Color: (Color)member.GetValue(obj: null)!)).Strict())
+            .Map(member => (Key: (ThemeKey)new ThemeKey.Appearance(member.Name) { Dark = Some(dark) }, Color: member.Read())).Strict())
         select (
             toHashMap(entries + paints.Map(paint => (Key: (ThemeKey)new ThemeKey.Paint(paint.Member) { Dark = Some(dark) }, paint.Color)) + widgets + appearance),
             toHashSet(paints.Filter(static paint => paint.Hooked).Map(static paint => paint.Member)));

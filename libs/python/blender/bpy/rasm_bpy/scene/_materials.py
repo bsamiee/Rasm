@@ -33,7 +33,7 @@ from rasm_bpy.nodes.changes import reconciled
 from rasm_bpy.nodes.functions import ColorExpr, grouped, lowered, VectorExpr
 from rasm_bpy.scene._objects import _fanned, _ObjectState
 from rasm_bpy.settings._attachments import Stored
-from rasm_records import accumulated, Case, Fault, Finite, NonNegative, Nothing, Ok, Outcome, paired, Reason, Unit
+from rasm_records import accumulated, Case, Fault, Finite, NonNegative, Nothing, Ok, Outcome, paired, Reason, Unit, words
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -175,8 +175,8 @@ _AOVS: Final[Mapping[_DataPass, Expr]] = MappingProxyType({
 
 
 def _map_kind(path: str) -> Option[_MapKind]:
-    """Returns kind of longest filename word match, each case change a word boundary, `Nothing` on no match or tie."""
-    stem = re.sub(r"(?<=[a-z])(?=[A-Z])", "_", PurePath(path).stem)
+    """Returns kind of longest filename word match, each case change, digit run, and separator a word boundary, `Nothing` on no match or tie."""
+    stem = "_".join(words(PurePath(path).stem))
     found = tuple((len(word), member) for member, role in _MAPS.items() for word in role.words if re.search(rf"(?<![a-z]){re.escape(word)}(?![a-z])", stem, re.IGNORECASE))
     longest = max((size for size, _ in found), default=0)
     match tuple(frozenset(member for size, member in found if size == longest)):

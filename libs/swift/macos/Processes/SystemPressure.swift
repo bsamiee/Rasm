@@ -39,13 +39,13 @@ public struct SystemPressure: Encodable, Equatable, Sendable {
 extension SystemPressure {
     public static func current() throws(Errno) -> Self {
         var level: Int32 = 0
-        var size: Int = MemoryLayout<Int32>.size
+        var size = MemoryLayout<Int32>.size
         guard unsafe sysctlbyname("kern.memorystatus_vm_pressure_level", &level, &size, nil, 0) == 0 else { throw Errno(rawValue: errno) }
         return Self(memory: DispatchSource.MemoryPressureEvent(rawValue: UInt(level)), thermal: ProcessInfo.processInfo.thermalState)
     }
 
     public static func changes() -> some AsyncSequence<Result<Self, Errno>, Never> & Sendable {
-        let (memory, signal): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let (memory, signal) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let source: any DispatchSourceMemoryPressure = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical], queue: .global())
         source.setEventHandler { signal.yield(()) }
         signal.onTermination = { _ in source.cancel() }

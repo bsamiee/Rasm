@@ -93,11 +93,21 @@ utils:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|FindIndex|Where|Any|Filter|Exists)$'}}, {has: {field: expression, pattern: $SUBJECT}}]}
             - not: {has: {field: function, has: {field: expression, matches: thinktecture-smart-enum-items}}}
             - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: text-key-comparison}}}}
+    text-entry:
+        kind: assignment_expression
+        has: {field: left, kind: element_binding_expression, has: {kind: argument, has: {matches: text-constant}}}
+    text-table:
+        kind: initializer_expression
+        all:
+            - inside: {kind: object_creation_expression, pattern: $SUBJECT, has: {field: type, regex: '(?:Func|Action)<'}}
+            - has: {kind: assignment_expression, nthChild: 1, matches: text-entry}
+            - has: {kind: assignment_expression, nthChild: 2}
 rule:
-    kind: switch_expression, switch_statement, invocation_expression
+    kind: switch_expression, switch_statement, invocation_expression, initializer_expression
     any:
         - matches: text-switch
         - matches: key-scan
+        - matches: text-table
     not:
         inside:
             stopBy: end

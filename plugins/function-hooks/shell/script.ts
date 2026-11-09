@@ -76,8 +76,8 @@ const REFERENCE = /(?<=\$\{?)[A-Za-z_]\w*/gu;
 const DECODER = new TextDecoder();
 const ANSI_ESCAPE = /\\(?:(?<code>[abeEfnrtv\\'"?])|(?<octal>[0-7]{1,3})|x(?<hex>[\da-fA-F]{1,2})|[uU](?<wide>[\da-fA-F]{1,8}))/gu;
 const ANSI_CODES = { a: '\x07', b: '\b', e: '\x1B', E: '\x1B', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' } as const;
-const UNQUOTED_ESCAPE = /\\(?<code>[\s\S])/gu;
-const QUOTED_ESCAPE = /\\(?<code>["\\$`\n])/gu;
+const UNQUOTED_ESCAPE = /\\(?:\n|(?<code>[\s\S]))/gu;
+const QUOTED_ESCAPE = /\\(?:\n|(?<code>["\\$`]))/gu;
 const GLOB = /[*?[{]/u;
 const SPREADS = /\s|^$/u;
 const FIELD = /\S+/gu;
@@ -117,7 +117,7 @@ const ansiDecoded = (_all: string, code?: keyof typeof ANSI_CODES, octal?: strin
 
 const pieceOf = ({ Value = '', ...part }: Node, frame: Frame, place: Place, quoted: boolean): Piece =>
     Match.value(part.Type).pipe(
-        Match.when('Lit', () => ({ text: Value.replaceAll(quoted ? QUOTED_ESCAPE : UNQUOTED_ESCAPE, (_all, code: string) => (code === '\n' ? '' : code)), known: true, glob: !quoted && GLOB.test(Value), spread: false })),
+        Match.when('Lit', () => ({ text: Value.replaceAll(quoted ? QUOTED_ESCAPE : UNQUOTED_ESCAPE, '$<code>'), known: true, glob: !quoted && GLOB.test(Value), spread: false })),
         Match.when('SglQuoted', () => ({ text: part.Dollar === true ? Value.replaceAll(ANSI_ESCAPE, ansiDecoded) : Value, known: true, glob: false, spread: false })),
         Match.when('DblQuoted', () => pieces(part.Parts ?? [], frame, place, true)),
         Match.when('ParamExp', () => {
@@ -311,7 +311,7 @@ const called = ({ Assigns = [], Args = [] }: Node, stmt: Node, frame: Frame, pla
     const redirects = stmt.Redirs ?? [];
     const prefix = Assigns.map((assign): Word => {
         const value = assignedValue(assign, ready, place);
-        return { raw: sliced(assign, place), text: `${assign.Name?.Value}=${Option.getOrElse(value, () => '')}`, ...spanOf(assign), known: Option.isSome(value), glob: false, spread: false };
+        return { raw: sliced(assign, place), text: Option.match(value, { onNone: () => `${assign.Name?.Value}=`, onSome: (assigned) => `${assign.Name?.Value}=${assigned}` }), ...spanOf(assign), known: Option.isSome(value), glob: false, spread: false };
     });
     const command: Command = {
         start: stmt.Pos.Offset,

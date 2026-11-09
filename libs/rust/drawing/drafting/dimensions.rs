@@ -170,7 +170,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
     fn written<D>(
         style: &crate::Style,
         dimension: &Dimension,
-        symbol: &str,
+        symbol: Option<&str>,
         tolerancing: Option<&Tolerancing<Quantity<D, SI<f64>, f64>>>,
         measured: Quantity<D, SI<f64>, f64>,
         nominal: impl Fn(Quantity<D, SI<f64>, f64>) -> String,
@@ -183,7 +183,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         let ordered = |[first, second]: [Quantity<D, SI<f64>, f64>; 2]| cmp::minmax_by(first, second, |left, right| left.value.total_cmp(&right.value));
         let framed = |content: String| Label { content: content.into(), frame: dimension.frame, .. };
         let plain = |content: &str| Label { content: content.into(), .. };
-        let base = || format!("{symbol}{}", dimension.stated.as_deref().map_or_else(|| nominal(measured), str::to_owned));
+        let base = || format!("{}{}", symbol.iter().format(""), dimension.stated.as_deref().map_or_else(|| nominal(measured), str::to_owned));
         let (head, stack) = match tolerancing {
             None => (Some(framed(base())), None),
             Some(Tolerancing::Deviations(deviations)) => match ordered(*deviations) {
@@ -199,7 +199,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             },
             Some(Tolerancing::Limits(deviations)) => {
                 let [lower, upper] = ordered(*deviations);
-                ((!symbol.is_empty()).then(|| plain(symbol)), Some(framed(format!("{}\n{}", nominal(measured + upper), nominal(measured + lower)))))
+                (symbol.map(plain), Some(framed(format!("{}\n{}", nominal(measured + upper), nominal(measured + lower)))))
             }
         };
         [dimension.prefix.as_deref().map(plain), head, stack, dimension.suffix.as_deref().map(plain)].into_iter().flatten().collect()
@@ -267,7 +267,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         Some(alternate) => format!("{} [{}]", notation::linear(&style.linear, length, Sign::Negative), notation::linear(alternate, length, Sign::Negative)),
         None => notation::linear(&style.linear, length, Sign::Negative),
     };
-    let lengths = |symbol: &str, tolerancing: Option<&Tolerancing<Length>>, measured: Length| {
+    let lengths = |symbol: Option<&str>, tolerancing: Option<&Tolerancing<Length>>, measured: Length| {
         written(style, dimension, symbol, tolerancing, measured, nominal, |length, sign| notation::linear(&style.linear, length, sign))
     };
     let extended = |extension: Extension, feature: Point, foot: Point| {
@@ -299,7 +299,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             at + leaning * ((level - normal.dot(at - start)) / lean)
         };
         let position = dimension.position.map(|at| *placement * at);
-        let labels = |first: Point, second: Point| lengths("", tolerancing.as_ref(), *style.unit * measuring.dot(second - first).abs());
+        let labels = |first: Point, second: Point| lengths(None, tolerancing.as_ref(), *style.unit * measuring.dot(second - first).abs());
         let mut span =
             |first: Point, second: Point, level: f64| spanned(typesetter, style, &labels(first, second), &Line::new(foot(first, level), foot(second, level)), EitherOrBoth::Both((), ()), position);
         let points = iter::once(*origin).chain(ends.iter().copied());
@@ -358,7 +358,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         let labels = written(
             style,
             dimension,
-            "",
+            None,
             tolerancing.as_ref(),
             Angle::new::<radian>(swept(model_first, model_second).abs()),
             |angle| notation::angular(&style.angular, angle, Sign::Negative),
@@ -381,7 +381,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             Size::Radius | Size::ControlledRadius | Size::SphericalRadius => circle.radius,
             Size::Diameter | Size::SphericalDiameter => circle.radius * 2.0,
         };
-        let labels = lengths(&size.to_string(), tolerancing.as_ref(), *style.unit * measured.abs());
+        let labels = lengths(Some(&size.to_string()), tolerancing.as_ref(), *style.unit * measured.abs());
         let position = dimension.position.map(|point| *placement * point);
         match (size, jog) {
             (Size::Radius | Size::ControlledRadius | Size::SphericalRadius, None) => spanned(typesetter, style, &labels, &Line::new(center, rim), EitherOrBoth::Right(()), position),
@@ -412,7 +412,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         let [opening, closing] = [near, far].map(|point| point - center);
         let curve = kurbo::Arc::new(center, Vec2::splat(radius), opening.atan2(), if parallel { opening.cross(closing).atan2(opening.dot(closing)) } else { sweep }, 0.0);
         let model_accuracy = accuracy / placement.determinant().abs().sqrt();
-        let labels = lengths("⌒", tolerancing.as_ref(), *style.unit * arc.to_path(model_accuracy).perimeter(model_accuracy));
+        let labels = lengths(Some("⌒"), tolerancing.as_ref(), *style.unit * arc.to_path(model_accuracy).perimeter(model_accuracy));
         let [first, rest] = dimension.extensions;
         joined(
             [extended(first, start, near), extended(rest, end, far)].into_iter().flatten(),
@@ -434,7 +434,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
                 .map(|point| basis * point),
         );
         let outward = if offset.y.is_sign_negative() { -leading } else { leading };
-        let labels = lengths("", tolerancing.as_ref(), *style.unit * (feature.get_coord(*axis) - origin.get_coord(*axis)));
+        let labels = lengths(None, tolerancing.as_ref(), *style.unit * (feature.get_coord(*axis) - origin.get_coord(*axis)));
         joined([stroked(leader, &style.pen, None)], [beside(typesetter, &labels, tip, outward)])
     };
     let level = |typesetter: &mut Typesetter, Level { datum, instance, slot }: &Level| {

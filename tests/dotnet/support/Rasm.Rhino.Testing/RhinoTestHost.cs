@@ -20,7 +20,7 @@ public sealed class RhinoTestHost(IServiceProvider services) : ITestHostLauncher
 
     public string Uid => nameof(RhinoTestHost);
 
-    public string Version { get; } = typeof(RhinoTestHost).Assembly.GetName().Version?.ToString() ?? "";
+    public string Version { get; } = typeof(RhinoTestHost).Assembly.GetName().Version?.ToString() ?? throw new UnreachableException($"{nameof(RhinoTestHost)} loads from a versioned assembly");
 
     public string DisplayName => "Rhino test host";
 

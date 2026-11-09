@@ -28,8 +28,8 @@ const analyze = Effect.fnUntraced(function* (context: CreateNodesContext, plugin
     const files = new Set(matched);
     const manifests = matched.filter((file) => path.basename(file) === MANIFEST).toSorted((left, right) => left.split('/').length - right.split('/').length || left.localeCompare(right));
     const results = yield* workspaces(context.workspaceRoot, manifests, files);
-    const found = results.flatMap(([, held]) => (Result.isSuccess(held) ? [held.success] : []));
-    const parts = found.map((workspace) => {
+    const resolved = results.flatMap(([, result]) => (Result.isSuccess(result) ? [result.success] : []));
+    const parts = resolved.map((workspace) => {
         const crates = Record.fromIterableWith(workspace.members, ({ crate, root }) => {
             const named = getNamedInputs(root, context);
             const { targets, ...configured } = released(plugin, crate, workspace.root);
@@ -55,7 +55,7 @@ const analyze = Effect.fnUntraced(function* (context: CreateNodesContext, plugin
     });
     return {
         graph: { nodes: parts.map(({ node }) => node), edges: parts.flatMap(({ edges }) => edges) } satisfies Graph,
-        failures: results.flatMap(([file, held]) => (Result.isFailure(held) ? [[file, held.failure] as const] : [])),
+        failures: results.flatMap(([file, result]) => (Result.isFailure(result) ? [[file, result.failure] as const] : [])),
     };
 });
 
@@ -77,7 +77,7 @@ const graph = Effect.fnUntraced(function* (context: CreateNodesContext, matched:
     ]);
     const cache = new PluginCache<Graph>(path.join(workspaceDataDirectory, `${path.basename(manifest.name)}-${hashObject(options ?? {})}.hash`));
     const built = yield* Option.match(Option.fromNullishOr(cache.get(hash)), {
-        onSome: (held) => Effect.succeed({ graph: held, failures: [] }),
+        onSome: (cached) => Effect.succeed({ graph: cached, failures: [] }),
         onNone: () =>
             Effect.tap(analyze(context, plugin, matched.toSorted()), ({ graph: report, failures }) =>
                 failures.length === 0
@@ -99,13 +99,13 @@ const createNodes: CreateNodes = [
     (files, options, context) =>
         Effect.runPromise(
             Effect.flatMap(
-                Effect.mapError(graph(context, files, options), (error) => new AggregateCreateNodesError([[null, new Error(error.message)]], [])),
+                Effect.mapError(graph(context, files, options), (error) => new AggregateCreateNodesError([[null, error]], [])),
                 ({ graph: built, failures }) =>
                     failures.length === 0
                         ? Effect.succeed(built.nodes)
                         : Effect.fail(
                               new AggregateCreateNodesError(
-                                  failures.map(([file, error]) => [file, new Error(error.message)]),
+                                  failures.map(([file, error]) => [file, error]),
                                   [...built.nodes],
                               ),
                           ),

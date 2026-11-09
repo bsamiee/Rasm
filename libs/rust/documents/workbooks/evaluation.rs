@@ -49,14 +49,17 @@ pub fn recalculate(book: &mut Workbook, locale: &str, timezone: &str) -> Result<
     let document = Document::parse(&styles)?;
     let part = |tag| document.root_element().children().find(|node| node.has_tag_name(tag));
     let bytes = match (part("cellStyleXfs"), part("cellXfs"), part("cellStyles")) {
-        (Some(_), _, Some(_)) | (_, None, _) => archive.into_inner().into_inner(),
-        (formats, Some(cells), named) => {
+        (formats, Some(cells), named)
+            if (formats.is_none() || named.is_none())
+                && let Some((head, rest)) = styles.split_at_checked(cells.range().start)
+                && let Some((inside, tail)) = rest.split_at_checked(cells.range().len()) =>
+        {
             let normal = [
-                &styles[..cells.range().start],
+                head,
                 formats.map_or(r#"<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>"#, |_| ""),
-                &styles[cells.range()],
+                inside,
                 named.map_or(r#"<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>"#, |_| ""),
-                &styles[cells.range().end..],
+                tail,
             ]
             .concat();
             let mut rebuilt = ZipWriter::new(Cursor::new(Vec::new()));
@@ -73,6 +76,7 @@ pub fn recalculate(book: &mut Workbook, locale: &str, timezone: &str) -> Result<
             })?;
             rebuilt.finish()?.into_inner()
         }
+        _ => archive.into_inner().into_inner(),
     };
     let mut model = Model::from_workbook(import::load_from_xlsx_bytes(&bytes, book.properties().title(), locale, timezone)?, "en").map_err(WorkbooksError::Model)?;
     drop(bytes);

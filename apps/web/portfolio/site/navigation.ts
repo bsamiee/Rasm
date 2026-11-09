@@ -29,7 +29,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     const located = (target: string) => Option.bind(UrlFragment.read(target), 'entry', ({ project }) => Array.findFirst(portfolio.entries, ({ id }) => id === project));
     const current = located(hash);
     const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
-    const selected = (entry: typeof Entry.Type) => first(entry, Option.getOrUndefined(Option.filter(current, (shown) => shown.entry === entry))?.composition ?? selections[entry.id]);
+    const selected = (entry: typeof Entry.Type) => first(entry, Option.getOrUndefined(Option.filter(current, (position) => position.entry === entry))?.composition ?? selections[entry.id]);
     const write = (method: 'pushState' | 'replaceState', target: string) => {
         history.scrollRestoration = Option.isSome(UrlFragment.read(target)) ? 'manual' : 'auto';
         if (location.hash !== target) {
@@ -52,11 +52,11 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
         records.forEach(({ isIntersecting, target: { id } }) => intersections.current[isIntersecting ? 'add' : 'delete'](id));
         const entry = entries.findLast(({ id }) => intersections.current.has(id));
         const page = work.current !== null && work.current.getBoundingClientRect().top > line() ? UrlFragment.top : UrlFragment.work;
-        const held = Option.exists(current, ({ entry: shown }) => {
-            const section = document.getElementById(shown.id);
+        const pinned = Option.exists(current, ({ entry: active }) => {
+            const section = document.getElementById(active.id);
             return section !== null && section.getBoundingClientRect().top < globalThis.innerHeight && Math.ceil(globalThis.scrollY + globalThis.innerHeight) >= document.documentElement.scrollHeight;
         });
-        if (foreground && !held) {
+        if (foreground && !pinned) {
             write('replaceState', entry === undefined ? page : UrlFragment(entry.id, selected(entry)));
         }
     });
@@ -71,7 +71,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
                 work.current?.scrollIntoView({ behavior: 'instant' });
             },
             onSome: ({ entry, composition }) => {
-                if (event === undefined || !Option.exists(current, (shown) => shown.entry.id === entry.id)) {
+                if (event === undefined || !Option.exists(current, (position) => position.entry.id === entry.id)) {
                     document.getElementById(entry.id)?.scrollIntoView({ behavior: 'instant' });
                 }
                 write('replaceState', UrlFragment(entry.id, first(entry, composition)));

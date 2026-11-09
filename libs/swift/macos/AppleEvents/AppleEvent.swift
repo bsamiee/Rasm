@@ -3,7 +3,7 @@ public import Foundation
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-package let appleEvents: DispatchQueue = DispatchQueue(label: "AppleEvents", attributes: .concurrent)
+package let appleEvents: DispatchQueue = .init(label: "AppleEvents", attributes: .concurrent)
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ extension NSAppleEventDescriptor {
         do {
             reply = try sendEvent(options: [.waitForReply, .neverInteract], timeout: timeout)
         } catch {
-            let status: OSStatus = OSStatus(truncatingIfNeeded: (error as NSError).code)
+            let status = OSStatus(truncatingIfNeeded: (error as NSError).code)
             throw AppleEventFailure(subject: subject, reason: undelivered.contains(status) ? .undelivered(status) : .unanswered(status))
         }
         return switch reply.paramDescriptor(forKeyword: AEKeyword(keyErrorNumber))?.int32Value {

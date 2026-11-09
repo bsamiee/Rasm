@@ -186,9 +186,9 @@ impl<A> Resources<A> {
             Ok((route, String::new()))
         } else {
             let not_found = || McpError::ResourceNotFound { uri: uri.to_owned() };
-            let (path, query) = uri.split_once('?').unwrap_or((uri, ""));
+            let (path, query) = uri.split_once('?').map_or((uri, None), |(path, query)| (path, Some(query)));
             let matchit::Match { value: (route, Query { variables, literals }), params } = self.patterns.at(path).map_err(|matchit::MatchError::NotFound| not_found())?;
-            let pairs = form_urlencoded::parse(query.as_bytes()).collect::<Vec<_>>();
+            let pairs = query.into_iter().flat_map(|query| form_urlencoded::parse(query.as_bytes())).collect::<Vec<_>>();
             literals.iter().all(|(name, value)| pairs.iter().any(|(held, given)| (&**held, &**given) == (name.as_str(), value.as_str()))).ok_or_else(not_found)?;
             params
                 .iter()
@@ -230,26 +230,29 @@ fn translated(template: &str) -> Result<(String, Query), McpError> {
     let mut tokens = iter::chain(head, pieces.map(|piece| piece.split_once('}').map(|(expression, literal)| (Some(expression), literal)).ok_or_else(|| refused(piece))));
     let (pattern, query, _) = tokens.try_fold((String::new(), None::<Query>, None::<&str>), |(mut pattern, mut query, closed), token| {
         let (braced, literal) = token?;
-        let operated =
-            braced.map(|expression| (expression, expression.split_at_checked(1).filter(|(operator, _)| operator.starts_with(['+', '#', '.', '/', ';', '?', '&'])).unwrap_or(("", expression))));
+        let operated = braced.map(|expression| match expression.strip_prefix(['+', '#', '.', '/', ';', '?', '&']) {
+            Some(names) => (expression, (expression.chars().next(), names)),
+            None => (expression, (None, expression)),
+        });
         let closed = match operated {
             None => Ok(closed),
             Some((expression, (operator, names))) => {
                 let (single, listed) = (!names.is_empty() && !names.contains([',', '*', ':']), !names.is_empty() && !names.contains(['*', ':']));
                 match (operator, &mut query, closed) {
-                    ("" | "/" | ".", None, None) if single => {
-                        pattern.extend([operator, "{", names, "}"]);
+                    (None | Some('/' | '.'), None, None) if single => {
+                        pattern.extend(operator);
+                        pattern.extend(["{", names, "}"]);
                         Ok(None)
                     }
-                    ("+", None, None) if single => {
+                    (Some('+'), None, None) if single => {
                         pattern.extend(["{*", names, "}"]);
                         Ok(Some(expression))
                     }
-                    ("?", None, _) if listed => {
+                    (Some('?'), None, _) if listed => {
                         query = Some(Query { variables: names.split(',').map(str::to_owned).collect(), literals: Vec::new() });
                         Ok(closed)
                     }
-                    ("&", Some(Query { variables, literals: _ }), _) if listed => {
+                    (Some('&'), Some(Query { variables, literals: _ }), _) if listed => {
                         variables.extend(names.split(',').map(str::to_owned));
                         Ok(closed)
                     }

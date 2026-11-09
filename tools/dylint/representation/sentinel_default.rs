@@ -13,7 +13,7 @@ pub(crate) struct Pass {
     fallbacks: FxHashSet<DefId>,
 }
 
-lint!(Pass; SENTINEL_DEFAULT: "`Option::unwrap_or_default`, `unwrap_or`, and `map_or` calls producing a native `Copy` default tested immediately");
+lint!(Pass; SENTINEL_DEFAULT: "`Option::unwrap_or_default`, `unwrap_or`, and `map_or` calls producing a native `Copy` number, flag, character, or slice default tested immediately");
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
@@ -29,7 +29,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let typeck = cx.typeck_results();
         let held = typeck.expr_ty(expr);
         if expanded_externally(cx, expr.span)
-            || !(held.is_numeric() || held.is_bool() || held.is_char() || matches!(held.kind(), ty::Ref(_, content, Mutability::Not) if content.is_str() || content.is_slice()))
+            || !(held.is_numeric() || held.is_bool() || held.is_char() || matches!(held.kind(), ty::Ref(_, content, Mutability::Not) if content.is_slice()))
             || !fn_def_id(cx, expr).is_some_and(|callee| self.fallbacks.contains(&callee))
             || !arguments.first().is_none_or(|fallback| is_default_equivalent(cx, fallback))
         {
@@ -40,8 +40,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             matches!(*kind, PatKind::Expr(&PatExpr { kind: PatExprKind::Lit { lit, negated: false }, .. })
             if match lit.node {
                 LitKind::Int(value, _) => value.get() == 0,
-                LitKind::Str(text, _) => text.is_empty(),
-                LitKind::Bool(value) => !value,
+                                LitKind::Bool(value) => !value,
                 LitKind::Char(value) => value == '\0',
                 _ => false,
             })
@@ -63,7 +62,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let (span, held) = (segment.ident.span.to(expr.span.shrink_to_hi()), with_forced_trimmed_paths!(held.to_string()));
             span_lint_hir_and_then(cx, SENTINEL_DEFAULT, expr.hir_id, span, format!("`{}` replaces `None` with a `{held}` default tested immediately", segment.ident), |diag| {
                 diag.span_note(test, "tested here");
-                diag.help("test the `Option` directly with `is_none_or`, `is_some_and`, or a match; preserve mapping and `Some` values equal to the default");
+                diag.help("test the `Option` with `is_none_or`, `is_some_and`, or a `match`, so a `Some` holding the default stays distinct from `None`");
             });
         }
     }

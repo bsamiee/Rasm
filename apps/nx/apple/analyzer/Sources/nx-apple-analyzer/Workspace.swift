@@ -49,10 +49,11 @@ func schemes(in container: FilePath, identifiers: [String: Set<String>]) throws(
 
 func members(of element: XMLElement, group: FilePath, root: FilePath) -> [FilePath] {
     (element.children ?? []).compactMap { node in node as? XMLElement }.flatMap { (child: XMLElement) -> [FilePath] in
-        let location: String = child.attribute(forName: "location")?.stringValue ?? "\(WorkspaceLocation.group.rawValue):"
-        let path: String = String(location.drop { character in character != ":" }.dropFirst())
+        let (location, path): (WorkspaceLocation?, String) =
+            child.attribute(forName: "location")?.stringValue.map { text in text.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false) }
+            .map { parts in (WorkspaceLocation(rawValue: String(parts[0])), parts.dropFirst().joined()) } ?? (.group, "")
         let place: FilePath? =
-            switch WorkspaceLocation(rawValue: String(location.prefix { character in character != ":" })) {
+            switch location {
                 case .group: joined(group, path)
                 case .container: joined(root, path)
                 case .absolute: FilePath(path)
@@ -72,6 +73,6 @@ func workspace(_ container: FilePath, identifiers: [String: Set<String>]) throws
     let declared: [(scheme: Scheme, references: [Reference])] = try schemes(in: container, identifiers: identifiers)
     return try checked(
         Container(path: container.string, schemes: declared.map(\.scheme), configurations: [], inputs: [], projects: Set(listed.map(\.string)).sorted(), buildFiles: []),
-        declared.flatMap(\.references) + listed.map { member in Reference(owner: "workspace", setting: "FileRef", path: member) },
+        declared.flatMap(\.references) + listed.map { member in Reference(owner: "workspace", setting: WorkspaceElement.fileReference.rawValue, path: member) },
     )
 }

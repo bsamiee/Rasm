@@ -38,15 +38,13 @@ public func mainThreadUserTime(of process: pid_t) throws(Errno) -> Duration {
 public func processes(executing path: String) throws(Errno) -> Set<pid_t> {
     let capacity: Int32 = proc_listallpids(nil, 0)
     guard capacity > 0 else { throw Errno(rawValue: errno) }
-    var listing: (listed: Int32, errno: Int32) = (0, 0)
     let listed: [pid_t] = unsafe [pid_t](unsafeUninitializedCapacity: Int(capacity)) { buffer, count in
-        listing = (unsafe proc_listallpids(buffer.baseAddress, Int32(buffer.count * MemoryLayout<pid_t>.size)), errno)
-        count = Int(max(listing.listed, 0))
+        count = Int(max(unsafe proc_listallpids(buffer.baseAddress, Int32(buffer.count * MemoryLayout<pid_t>.size)), 0))
     }
-    guard listing.listed > 0 else { throw Errno(rawValue: listing.errno) }
+    guard !listed.isEmpty else { throw Errno(rawValue: errno) }
     return Set(
         listed.filter { process in
-            var name: [UInt8] = [UInt8](repeating: 0, count: Int(MAXPATHLEN) * 4)
+            var name = [UInt8](repeating: 0, count: Int(MAXPATHLEN) * 4)
             return unsafe proc_pidpath(process, &name, UInt32(name.count)) > 0 && name.prefix { byte in byte != 0 }.elementsEqual(path.utf8)
         }
     )

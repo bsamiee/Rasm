@@ -81,7 +81,7 @@ public abstract partial record ImageSource {
 }
 
 public sealed record GlyphSource {
-    public GlyphSource(string key, SKData light) => (Key, Light, Animated) = (key, light, light.AsSpan().TrimStart(" \t\r\n﻿"u8) is [(byte)'{', ..]);
+    public GlyphSource(string key, SKData light) => (Key, Light, Animated) = (key, light, light.AsSpan().TrimStart(" \t\r\n\uFEFF"u8) is [(byte)'{', ..]);
 
     public string Key { get; }
     public SKData Light { get; }

@@ -114,7 +114,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
         "`{0}` takes `{1}` as a value and `{2}` as a factory, which multiplies binds at calls passing a lambda in that position, keep one overload",
         "Overload sets take a method type parameter at one position as a value or as a parameterless delegate returning it, never both when each overload holds a delegate over that type parameter.");
 
-    private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant);
+    private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Reader, Covered, Discarded, Fallback, Borrowed, Clash, Tested, Folder, Shadowed, Qualified, Restated, Forwarded, Factory];
 
@@ -447,7 +447,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                     return false;
                 ImmutableHashSet<string> local = [with(StringComparer.Ordinal), .. Scopes.Declared(site), "value"];
                 bool Kept(IOperation named) =>
-                    Words(member.Name).IsSubsetOf(Words(Naming(named, candidates) ?? "").Union(
+                    Words(member.Name).IsSubsetOf((Naming(named, candidates) is { } name ? Words(name) : [with(StringComparer.Ordinal)]).Union(
                         value.Syntax.DescendantTokens().Where(static token => token.IsKind(SyntaxKind.IdentifierToken)).SelectMany(static token => Words(token.ValueText))));
                 return (member, read) switch {
                     (IFieldSymbol field, _) when Listed(field, value) => Contained(read) && Free(value.Syntax, [with(StringComparer.Ordinal)], local),

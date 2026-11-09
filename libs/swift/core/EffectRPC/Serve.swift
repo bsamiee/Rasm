@@ -35,10 +35,20 @@ enum Reason: Encodable, Sendable {
     case fail(any Error)
     case die(any Error)
 
+    private enum Key: String, CodingKey {
+        case tag = "_tag"
+        case error, defect
+    }
+
     func encode(to encoder: any Encoder) throws {
+        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
         switch self {
-            case .fail(let error): try Tagged(tag: "Fail", value: ["error": EncodedError(error: error)]).encode(to: encoder)
-            case .die(let error): try Tagged(tag: "Die", value: ["defect": EncodedError(error: error)]).encode(to: encoder)
+            case .fail(let error):
+                try fields.encode("Fail", forKey: .tag)
+                try fields.encode(EncodedError(error: error), forKey: .error)
+            case .die(let error):
+                try fields.encode("Die", forKey: .tag)
+                try fields.encode(EncodedError(error: error), forKey: .defect)
         }
     }
 }
@@ -99,7 +109,7 @@ actor Calls {
 
     func start(_ id: JSONValue, _ call: @escaping @concurrent @Sendable (AsyncStream<Void>) async -> Void) {
         guard !closed, running[id] == nil else { return }
-        let (acks, ack): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let (acks, ack) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         running[id] = (Task { await call(acks) }, ack, false)
     }
 
@@ -135,10 +145,10 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
     dropped: @escaping @Sendable (EffectRPCFailure) -> Void,
     _ perform: @escaping @Sendable (Request) async throws(Failure) -> Response,
 ) async throws(EffectRPCFailure) {
-    let output: AsyncChannel<Data> = AsyncChannel()
-    let calls: Calls = Calls()
-    let decoder: JSONDecoder = JSONDecoder()
-    let encoder: JSONEncoder = JSONEncoder()
+    let output = AsyncChannel<Data>()
+    let calls = Calls()
+    let decoder = JSONDecoder()
+    let encoder = JSONEncoder()
     @Sendable func exit(_ id: JSONValue, _ reasons: AggregateError<Reason>) throws -> Data {
         try encoder.encodeLine(Envelope<Never, Tagged<Cause>>(id: id, error: Tagged(tag: "Cause", value: Cause(reasons))))
     }
@@ -153,7 +163,7 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
         }
     }
     @concurrent @Sendable func answer(_ id: JSONValue, _ method: String, _ params: JSONValue?, acknowledged acks: AsyncStream<Void>) async {
-        let outcome: Result<Response, AggregateError<Reason>> = await Result { () async throws(AggregateError<Reason>) -> Response in
+        let outcome = await Result { () async throws(AggregateError<Reason>) -> Response in
             let request: Request
             do { request = try JSONValue.object([method: params ?? .object([:])]).decode(Request.self) } catch { throw AggregateError(first: .die(error)) }
             do throws(Failure) { return try await perform(request) } catch { throw AggregateError(failing: error) }

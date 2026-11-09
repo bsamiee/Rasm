@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsxlang
+severity: error
+utils:
+    literal-union:
+        kind: union_type
+        not: {has: {kind: 'predefined_type, type_identifier, generic_type, object_type, array_type, function_type, parenthesized_type'}}
+        has: {kind: literal_type, has: {kind: string}}
+rule:
+    kind: binary_expression
+    pattern: $TEST
+    all:
+        - has: {field: operator, regex: '^[!=]==?$'}
+        - has: {kind: string}
+        - has: {kind: identifier, pattern: $PARAMETER}
+        - inside:
+            matches: typescript-function-boundary
+            stopBy: end
+            has:
+                field: parameters
+                has:
+                    kind: required_parameter, optional_parameter
+                    all:
+                        - has: {field: pattern, pattern: $PARAMETER}
+                        - has: {field: type, has: {matches: literal-union}}
+message: '`$TEST` selects behavior by comparing string parameter `$PARAMETER` to one of its literals'
+note: 'Index an `as const` table keyed by the literals, or take the value the literal stands for (a sign, a predicate, a flag) as the parameter'

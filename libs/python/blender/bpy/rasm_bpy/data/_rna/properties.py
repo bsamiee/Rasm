@@ -5,7 +5,6 @@ from contextlib import contextmanager, ExitStack
 import enum
 from functools import partial, reduce
 import inspect
-import re
 from types import MappingProxyType
 from typing import Final, get_args, get_type_hints, Never, overload, ReadOnly, TYPE_CHECKING, TypeAliasType, TypedDict
 import zlib
@@ -21,7 +20,7 @@ from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import Handle, holder
 from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import Struct
-from rasm_records import Fault, Faults, Outcome, reached
+from rasm_records import Fault, Faults, Outcome, reached, words
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import PropertySubtypeStringItems
@@ -83,19 +82,19 @@ _NUMBERS: Final[Mapping[tuple[type[bpy.types.Property], bool], Callable[..., bpy
 
 
 @overload
-def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str] | EnumItem]) -> tuple[EnumItem, ...]: ...
+def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str | None] | EnumItem]) -> tuple[EnumItem, ...]: ...
 @overload
 def choices(rows: Iterable[IconedItem]) -> tuple[IconedItem, ...]: ...
 @overload
-def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str] | EnumItem | IconedItem]) -> tuple[EnumItem | IconedItem, ...]: ...
-def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str] | EnumItem | IconedItem]) -> tuple[EnumItem | IconedItem, ...]:
+def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str | None] | EnumItem | IconedItem]) -> tuple[EnumItem | IconedItem, ...]: ...
+def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str | None] | EnumItem | IconedItem]) -> tuple[EnumItem | IconedItem, ...]:
     """Returns `EnumProperty` items, each value fixed per identifier.
 
     Host items the owning property declares statically keep their value, config items and module rows take a value hashed from the identifier.
     Interface buttons compare enum values as float32, and hashed values stay within its exact integers for an expanded row to show its item.
 
     Args:
-        rows: Host enum items, generated `(identifier, name, description)` rows, or full native items.
+        rows: Host enum items, generated `(identifier, name, description)` rows, a `None` description the host's empty one, or full native items.
 
     Returns:
         Five-part items in row order.
@@ -108,12 +107,14 @@ def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str] | E
     def hashed(identifier: str) -> int:
         return zlib.crc32(identifier.encode()) & mask
 
-    def item(row: bpy.types.EnumPropertyItem | tuple[str, str, str] | EnumItem | IconedItem) -> tuple[EnumItem | IconedItem, bool]:
+    def item(row: bpy.types.EnumPropertyItem | tuple[str, str, str | None] | EnumItem | IconedItem) -> tuple[EnumItem | IconedItem, bool]:
         match row:
             case bpy.types.EnumPropertyItem() as host:
                 fixed = any(host.identifier in prop.enum_items_static for prop in host.rna_ancestors() if isinstance(prop, bpy.types.EnumProperty))
                 return (host.identifier, host.name, host.description, host.icon, host.value if fixed else hashed(host.identifier)), not fixed
-            case (identifier, name, description):
+            case (identifier, name, None):
+                return (identifier, name, "", "NONE", hashed(identifier)), True
+            case (identifier, name, str(description)):
                 return (identifier, name, description, "NONE", hashed(identifier)), True
             case _:
                 return row, False
@@ -152,8 +153,7 @@ def _flagged[F: enum.Flag](kind: type[F], names: Iterable[str]) -> F:
 
 def _titled(kind: type, /) -> str:
     """Returns a class name split into title-cased words, an acronym run kept whole (`CDL`, `HDRTone` as `HDR Tone`)."""
-    words = (match.group() for match in re.finditer(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+", kind.__name__))
-    return " ".join(word if word.isupper() else word.capitalize() for word in words)
+    return " ".join(word if word.isupper() else word.capitalize() for word in words(kind.__name__))
 
 
 def case_choices(union: TypeAliasType) -> tuple[EnumItem, ...]:

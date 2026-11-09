@@ -109,6 +109,9 @@ utils:
             - inside: {kind: return_statement, inside: {stopBy: {matches: typescript-function-boundary}, matches: typescript-function-boundary, has: {field: return_type, matches: schema-type}}}
             - inside: {field: value, kind: variable_declarator, has: {field: type, matches: schema-type}}
             - inside: {kind: 'parenthesized_expression, ternary_expression', matches: schema-result}
+    foreign-reference:
+        matches: typescript-package-reference
+        not: {matches: {typescript-import-reference: {source: {regex: '^#'}, exported: {regex: '.'}}}}
     protocol-row:
         kind: object
         any:
@@ -116,9 +119,9 @@ utils:
                 kind: arguments
                 inside:
                     any:
-                        - {kind: new_expression, has: {field: 'constructor', matches: typescript-package-reference}}
+                        - {kind: new_expression, has: {field: 'constructor', matches: foreign-reference}}
                         - kind: call_expression
-                          has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^make$'}}, {has: {field: object, matches: typescript-package-reference}}]}
+                          has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^make$'}}, {has: {field: object, matches: foreign-reference}}]}
             - matches: schema-result
             - inside: {kind: pair, field: value, inside: {matches: protocol-row}}
     row-builder:

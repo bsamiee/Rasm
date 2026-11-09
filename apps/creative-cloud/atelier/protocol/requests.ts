@@ -28,7 +28,7 @@ const HostUrl = Schema.String.pipe(
 class ExecuteScript extends Schema.Class<ExecuteScript, { readonly brand: unique symbol }>('ExecuteScript')({ code: Schema.String.annotate({ description: 'Function expression the host evaluates and calls' }) }) {
     static readonly Result = Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) });
     static readonly Awaits = Context.Reference<boolean>('@rasm/atelier-protocol/requests/ExecuteScript/Awaits', { defaultValue: () => false });
-    static readonly expression = (body: string, awaits: boolean) => `(${awaits ? 'async ' : ''}${BODY}\n${body}\n})`;
+    static readonly expression = (body: string, awaits: boolean) => (awaits ? `(async ${BODY}\n${body}\n})` : `(${BODY}\n${body}\n})`);
 
     get label(): string {
         const [, ...body] = this.code.split(BODY);

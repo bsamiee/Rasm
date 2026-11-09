@@ -3,7 +3,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, hashArray, logger, type ProjectConfiguration, type ProjectGraphExternalNode, type RawProjectGraphDependency } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { major, minor, minSatisfying, validRange } from '@renovatebot/pep440';
-import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Schema, SchemaTransformation, Stream } from 'effect';
+import { Array, Effect, FileSystem, Formatter, Option, Path, Predicate, Record, Schema, SchemaTransformation, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { CHECKERS, CONFIGS, declared, documents, targets } from '#/plugins/targets';
 
@@ -53,9 +53,9 @@ const Metadata = Schema.fromJsonString(
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class UvError extends Schema.TaggedError<UvError, { readonly brand: unique symbol }>()('UvError', { subject: Schema.String, detail: Schema.String }) {
+class UvError extends Schema.TaggedError<UvError, { readonly brand: unique symbol }>()('UvError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
     override get message() {
-        return `${this.subject}: ${this.detail}`;
+        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
     }
 }
 
@@ -70,7 +70,7 @@ const spawned = (command: string, args: readonly string[], cwd: string) =>
         }),
     );
 
-const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: typeof Metadata.Type, held: ReadonlyMap<string, unknown>, releases: readonly string[]) => {
+const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: typeof Metadata.Type, documented: ReadonlyMap<string, unknown>, releases: readonly string[]) => {
     const { resolution } = metadata;
     const local = (node: typeof Node.Type) =>
         Option.map(
@@ -78,7 +78,9 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
             ([, at]) => path.relative(workspaceRoot, path.normalize(String(at))) || '.',
         );
     const workspace = path.relative(workspaceRoot, metadata.workspace.path) || '.';
-    const named = (node: typeof Node.Type) => (Option.isSome(local(node)) || node.name === undefined ? Option.none() : Option.some(`pypi:${path.join(workspace, node.name)}@${node.version ?? ''}`));
+    const pinned = (node: typeof Node.Type) => Option.filter(Option.all({ name: Option.fromUndefinedOr(node.name), version: Option.fromUndefinedOr(node.version) }), () => Option.isNone(local(node)));
+    const keyed = ({ name, version }: { readonly name: string; readonly version: string }) => `pypi:${path.join(workspace, name)}@${version}`;
+    const named = (node: typeof Node.Type) => Option.map(pinned(node), keyed);
     const external = (id: string) => Option.flatMap(Option.fromUndefinedOr(resolution[id]), named);
     const target = (id: string) => Option.orElse(external(id), () => Option.flatMap(Option.fromUndefinedOr(resolution[id]), local));
     const reach = (ids: ReadonlySet<string>): ReadonlySet<string> => {
@@ -86,7 +88,7 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
         return next.size === ids.size ? ids : reach(next);
     };
     const closure = (start: string) => [...reach(new Set([start]))].flatMap((id) => Option.toArray(Option.fromUndefinedOr(resolution[id])));
-    const manifest = (root: string) => Option.map(Schema.decodeUnknownOption(Declared)(held.get(path.join(root, 'pyproject.toml'))), ({ project }) => project);
+    const manifest = (root: string) => Option.map(Schema.decodeUnknownOption(Declared)(documented.get(path.join(root, 'pyproject.toml'))), ({ project }) => project);
     const floor = (root: string) =>
         Option.flatMap(
             Option.flatMap(manifest(root), (project) => Option.fromUndefinedOr(project['requires-python'])),
@@ -136,8 +138,8 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
                         const group = Array.findFirst(groups, ({ id }) => (resolution[id]?.dependencies ?? []).some(provides));
                         const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
                         const projects = Array.dedupe(from.flatMap((id) => (Option.isSome(external(id)) ? [] : Option.toArray(Option.fromUndefinedOr(resolution[id]?.name))))).toSorted();
-                        return Option.map(Option.all([declared(path, held, member.root, key), Array.findFirst(closure(member.id).concat(...from.map(closure)), distributed)]), ([found, tool]) => ({
-                            ...found,
+                        return Option.map(Option.all([declared(path, documented, member.root, key), Array.findFirst(closure(member.id).concat(...from.map(closure)), distributed)]), ([project, tool]) => ({
+                            ...project,
                             group: Option.getOrUndefined(group)?.name,
                             externals: Array.dedupe([...Option.toArray(named(tool)), ...Array.getSomes(from.map(external))]).toSorted(),
                             projects,
@@ -148,15 +150,15 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
         }),
         externalNodes: Record.map(
             Array.groupBy(
-                Record.values(resolution).flatMap((node) => Option.toArray(Option.map(named(node), (key) => ({ key, node })))),
+                Record.values(resolution).flatMap((node) => Option.toArray(Option.map(pinned(node), (pin) => ({ key: keyed(pin), node, ...pin })))),
                 ({ key }) => key,
             ),
             (group, key): ProjectGraphExternalNode => ({
                 type: 'pypi',
                 name: key,
                 data: {
-                    version: group[0].node.version ?? '',
-                    packageName: group[0].node.name ?? '',
+                    version: group[0].version,
+                    packageName: group[0].name,
                     hash: hashArray([JSON.stringify(group[0].node.source), ...group.flatMap(({ node }) => [...Option.toArray(Option.fromNullishOr(node.sdist)), ...(node.wheels ?? [])].flatMap(({ hashes }) => Record.values(hashes))).toSorted()]),
                 },
             }),
@@ -198,7 +200,7 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: objec
         (lock) =>
             spawned('uv', ['workspace', 'metadata', '--preview-features', 'workspace-metadata', '--quiet'], path.join(workspaceRoot, path.dirname(lock))).pipe(
                 Effect.flatMap(Schema.decodeEffect(Metadata)),
-                Effect.catchTag('SchemaError', (error) => UvError.make({ subject: `uv workspace metadata for ${lock}`, detail: error.message })),
+                Effect.catchTag('SchemaError', (cause) => UvError.make({ subject: `uv workspace metadata for ${lock}`, detail: 'does not decode', cause })),
                 Effect.mapBoth({ onFailure: (error) => ({ lock, error }), onSuccess: (metadata) => ({ lock, metadata }) }),
             ),
         { concurrency: 'unbounded' },
@@ -211,7 +213,7 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: objec
             return { lock, metadata: { schema: { version: 'preview' as const }, workspace: { path: at, id: `workspace+${at}` }, members: [], resolution: {} } };
         }),
     ];
-    const held = yield* documents(
+    const documented = yield* documents(
         workspaceRoot,
         read.flatMap(({ metadata }) => [metadata.workspace.path, ...metadata.members.map((member) => member.path)]).map((at) => path.relative(workspaceRoot, at) || '.'),
     );
@@ -220,10 +222,10 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: objec
         : Array.dedupe(
               (yield* spawned('uv', ['python', 'list', 'cpython', '--only-downloads', '--all-versions', '--offline', '--output-format', 'json'], workspaceRoot).pipe(
                   Effect.flatMap(Schema.decodeEffect(Releases)),
-                  Effect.catchTag('SchemaError', (error) => UvError.make({ subject: 'uv python list', detail: error.message })),
+                  Effect.catchTag('SchemaError', (cause) => UvError.make({ subject: 'uv python list', detail: 'does not decode', cause })),
               )).map(({ version }) => version),
           );
-    const reports = Option.getOrElse(cached, () => read.map(({ lock, metadata }) => report(path, workspaceRoot, lock, metadata, held, releases)));
+    const reports = Option.getOrElse(cached, () => read.map(({ lock, metadata }) => report(path, workspaceRoot, lock, metadata, documented, releases)));
     yield* Option.isNone(cached) && unlocked.length === 0
         ? Effect.sync(() => {
               cache.set(hash, reports);
@@ -251,7 +253,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
         Effect.runPromise(
             Effect.gen(function* () {
                 const settings = options ?? {};
-                const [path, { outputPath }, { name, reports, present }] = yield* Effect.all([Path.Path, Schema.decodeEffect(Options)(settings), graph(context.workspaceRoot, settings, files)]).pipe(Effect.mapError((error) => new AggregateCreateNodesError([[null, new Error(error.message)]], [])));
+                const [path, { outputPath }, { name, reports, present }] = yield* Effect.all([Path.Path, Schema.decodeEffect(Options)(settings), graph(context.workspaceRoot, settings, files)]).pipe(Effect.mapError((error) => new AggregateCreateNodesError([[null, error]], [])));
                 return reports.map(({ lock, members, externalNodes }): CreateNodesResultArray[number] => [
                     lock,
                     {

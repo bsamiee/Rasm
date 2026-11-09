@@ -41,7 +41,7 @@ def _made(name: _GlyphName, advance: float, /, *, contours: _Outline = (), compo
         name=name,
         role=_role(name),
         advance=advance,
-        codes=frozenset(name.codes) if len(name.codes) == 1 and name.form is _Form.ISOL and not name.variant else frozenset(),
+        codes=frozenset(name.codes) if len(name.codes) == 1 and name.form is _Form.ISOL and not name.suffixes else frozenset(),
         contours=contours,
         components=components,
     )

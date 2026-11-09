@@ -186,9 +186,9 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         return _titled(self.record)
 
     @property
-    def description(self) -> str:
-        """Record documentation describing the effect's group and commands."""
-        return Option.of_optional(inspect.getdoc(self.record)).default_value("")
+    def description(self) -> str | None:
+        """Record documentation describing the effect's group and commands, `None` for an undocumented record."""
+        return inspect.getdoc(self.record)
 
     @property
     def framed(self) -> tuple[DerivedInputs, ...]:
@@ -441,7 +441,9 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         def assembled(result: Expr) -> Outcome[NodeGroup]:
             ownership = self.ownership(record)
             return functions.built(ownership.key, interface, {COLOR_RESULT.key: result.keeping(*kept)}, bpy.types.CompositorNodeTree, name=Some(self.title)).map(
-                lambda group: msgspec.structs.replace(group, single=ownership.single, graph=msgspec.structs.replace(group.graph, members={"description": self.description}))
+                lambda group: msgspec.structs.replace(
+                    group, single=ownership.single, graph=msgspec.structs.replace(group.graph, members=Option.of_optional(self.description).map(lambda text: {"description": text}).default_value({}))
+                )
             )
 
         def finished(parts: _Graphed) -> Outcome[NodeGroup]:

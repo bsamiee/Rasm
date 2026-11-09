@@ -1,7 +1,7 @@
-import { Array, Duration, Effect, Option, type Predicate } from 'effect';
+import { Array, Duration, Effect, Option, type Predicate, Record, String } from 'effect';
 import { Verdict } from '#/decision';
 import { installed, WATCHER } from '#/instances';
-import { absent, all, BACKGROUNDED, type Call, dropped, edited, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, unwrap, type Verdicts, when, within } from '#/policies/fix';
+import { absent, all, BACKGROUNDED, type Call, dropped, edited, erased, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, unwrap, type Verdicts, when, within } from '#/policies/fix';
 import type { Word } from '#/shell/script';
 import type { Site } from '#/shell/site';
 
@@ -55,14 +55,14 @@ const watching: Fix = (site, call) => {
     return command.pipes
         ? Option.match(closing, {
               onNone: () => refusal(`Filter drops ${WATCHER} lines, run it unfiltered`),
-              onSome: ({ end }) => edited(site, { start: command.end, end }, '', 'Filter'),
+              onSome: ({ end }) => erased(site, { start: command.end, end }, 'Filter'),
           })
         : [];
 };
 
 // --- [TIMERS]
 
-const taskIds = (text: string): readonly string[] => [...new Set(Array.fromIterable(text.matchAll(TASK_OUTPUTS)).map(({ groups }) => `${groups?.id}`))];
+const taskIds = (text: string): readonly string[] => Array.dedupe(Array.getSomes(Array.fromIterable(text.matchAll(TASK_OUTPUTS)).map(({ groups }) => Option.flatMap(Option.fromNullishOr(groups), Record.get('id')))));
 
 const taskNotice = (ids: readonly string[]): Verdicts => refusal(`Task ${ids.join(' ')} notifies on completion, continue until its notice`);
 
@@ -98,8 +98,8 @@ const polledApp: Fix = (site, call) => {
     const pids = [...site.operands.map(({ text }) => text), ...site.values('-p')].flatMap((value) => value.split(',')).filter((pid) => DIGITS.test(pid));
     return !site.repeated || pids.length === 0
         ? []
-        : Effect.map(installed(pids), (found) => {
-              const bundles = Object.values(found)
+        : Effect.map(installed(pids), (running) => {
+              const bundles = Object.values(running)
                   .flat()
                   .filter(({ activationPolicy }) => activationPolicy !== 'prohibited')
                   .map(({ identifier }) => identifier);
@@ -115,10 +115,16 @@ const psFilter: Fix = (site, call) => {
 const onlyTimed = ({ analysis: { sites } }: Call): boolean => sites.filter(({ command: { origin, stage }, outer }) => origin === 'call' && outer.length === 0 && !Option.exists(stage, ({ at }) => at > 0)).every(({ program }) => QUICK.has(program));
 
 const limited: Fix = Effect.fnUntraced(function* (site: Site, call: Call) {
-    const { value, unit = 's' } = LIMIT.exec(site.leading[0]?.text ?? '')?.groups ?? {};
+    const { value, unit = 's' } = Option.getOrElse(
+        Option.flatMapNullishOr(
+            Option.flatMap(Array.head(site.leading), ({ text }) => String.match(LIMIT)(text)),
+            ({ groups }) => groups,
+        ),
+        Record.empty<string, string>,
+    );
     const limit = Duration.toMillis(LIMIT_UNITS[unit]?.(Number(value)) ?? Duration.zero);
     const fallback = Option.map(yield* call.host.environment('BASH_DEFAULT_TIMEOUT_MS'), Number);
-    const applies = call.request.kind === 'foreground' && call.request.timeout === undefined && !site.repeated && (onlyTimed(call) || Option.exists(fallback, (held) => limit > held));
+    const applies = call.request.kind === 'foreground' && call.request.timeout === undefined && !site.repeated && (onlyTimed(call) || Option.exists(fallback, (milliseconds) => limit > milliseconds));
     return yield* all(unwrap(applies && limit > 0 ? limit : undefined))(site, call);
 });
 
@@ -139,9 +145,10 @@ const tailedTask: Fix = (site, call) => {
     }
     return Effect.map(
         Effect.forEach(files, (file) => writerOf(file, call), { concurrency: 'unbounded' }),
-        (found): Verdicts => {
-            const roots = Array.getSomes(found);
-            return roots.length < files.length ? taskNotice(taskIds(files.join(' '))) : [...inserted(site, site.head.start, '{ '), ...inserted(site, Array.lastNonEmpty(site.words).end, ` & ${roots.map((pid) => `caffeinate -w ${pid}`).join('; ')}; kill $!; }`)];
+        (writers): Verdicts => {
+            const roots = Array.getSomes(writers);
+            const awake = roots.map((pid) => `caffeinate -w ${pid}`).join('; ');
+            return roots.length < files.length ? taskNotice(taskIds(files.join(' '))) : [...inserted(site, site.head.start, '{ '), ...inserted(site, Array.lastNonEmpty(site.words).end, ` & ${awake}; kill $!; }`)];
         },
     );
 };
@@ -163,7 +170,7 @@ const jobbed = ({ analysis, request }: Call): Verdicts => {
     if (!trailing) {
         return refusal(`& job outlives the call, ${request.kind === 'plain' ? 'run it as its own call' : 'set run_in_background'}`);
     }
-    return [Verdict.Edit({ start: job.start, end: job.end, text: '', notice: Option.none(), timeout: Option.none() }), ...(request.kind === 'foreground' ? BACKGROUNDED : [])];
+    return [Verdict.Edit({ start: job.start, end: job.end, text: Option.none(), notice: Option.none(), timeout: Option.none() }), ...(request.kind === 'foreground' ? BACKGROUNDED : [])];
 };
 
 const masked = ({ analysis: { sites } }: Call): Verdicts => {

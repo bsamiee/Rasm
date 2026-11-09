@@ -831,12 +831,19 @@ precedence_bits            = "deny" # Shifts mixed with `&`, `|`, or `^` without
 suspicious_xor_used_as_pow = "deny" # `2 ^ 8` read as power, `pow` states exponentiation
 unseparated_literal_suffix = "deny" # `1u32` suffixes, `1_u32` is the one spelling Clippy's suggestions write
 
+# --- [CASTS]
+
+as_pointer_underscore  = "deny" # `ptr as *const _` casts, the cast names the pointee it produces
+as_underscore          = "deny" # `x as _` casts, the cast names the type it produces
+fn_to_numeric_cast_any = "deny" # Function items cast to integers, an address varies per build and states no value
+
 # --- [STRINGS]
 
 needless_raw_strings = "deny" # `r"..."` literals with nothing to escape, code keeps the direct form
 str_to_string        = "deny" # `str::to_string` calls, `to_owned` names conversion directly
 string_add           = "deny" # `String + &str`, asymmetric `Add` that `push_str` replaces
 string_lit_chars_any = "deny" # `"abc".chars().any(..)` membership tests, `matches!` states set directly
+string_slice         = "deny" # `&text[a..b]` byte-index slices panicking off a char boundary, `str::get` returns absence
 
 # --- [OWNERSHIP]
 

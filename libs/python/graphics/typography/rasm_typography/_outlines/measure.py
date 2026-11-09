@@ -43,7 +43,7 @@ def _stroke(outline: _Outline, /) -> float:
     path, pen = Path(), PerimeterPen()
     _draw(path.getPen(), outline)
     path.draw(pen)
-    return 2 * path.area / pen.value if pen.value else 0.0  # ty: ignore[unsound-return-statement]
+    return 2 * float(path.area) / float(pen.value) if pen.value else 0.0
 
 
 def _restroked(outline: _Outline, pen: float, /) -> _Outline:
@@ -83,16 +83,20 @@ def _moments(outline: _Outline, /) -> _Moments:
 def _flattened(outline: _Outline, /) -> tuple[tuple[tuple[float, float], ...], tuple[tuple[tuple[float, float], tuple[float, float]], ...]]:
     """Vertices and edges of the union flattened within a quarter unit, each quadratic cut into as many steps as the square root of its second difference length."""
     runs = tuple(
-        tuple(segmentPointAtT(segment, step / steps) for step in range(steps + 1))
+        tuple((float(x), float(y)) for step in range(steps + 1) for x, y in (segmentPointAtT(segment, step / steps),))
         for segment in _segments(outline)
         for steps in (max(1, math.ceil(math.sqrt(math.hypot(*(a - 2 * b + c for a, b, c in zip(*segment, strict=True)))))) if len(segment) == 3 else 1,)
     )
-    return (tuple(*run for run in runs), tuple(*pairwise(run) for run in runs))  # ty: ignore[unsound-return-statement]
+    return (tuple(*run for run in runs), tuple(*pairwise(run) for run in runs))
 
 
 def _strung(edges: tuple[tuple[tuple[float, float], tuple[float, float]], ...], /) -> MultiLineString:
-    """Edges as one geometry through the array constructors, an empty one for none."""
-    return multilinestrings(linestrings(edges)) if edges else MultiLineString()  # ty: ignore[invalid-return-type]
+    """Edges as one geometry through the array constructors, an empty one for none, `TypeError` for an array the constructors return in its place."""
+    match multilinestrings(linestrings(edges)) if edges else MultiLineString():
+        case MultiLineString() as strung:
+            return strung
+        case other:
+            raise TypeError(other)
 
 
 def _inradius(outline: _Outline, /) -> float:

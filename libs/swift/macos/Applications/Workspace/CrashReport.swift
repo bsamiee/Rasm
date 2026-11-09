@@ -1,4 +1,5 @@
 import CasePathsCore
+import Encoding
 import Files
 public import Foundation
 import Results
@@ -7,7 +8,11 @@ import Results
 
 public struct CrashReport: Codable, Hashable, Sendable {
     private struct Header: Decodable {
-        let bugType: String
+        enum BugType: String {
+            case crash = "309"
+        }
+
+        let bugType: Lenient<BugType>
         let bundleID: String?
         let isSimulated: Int?
     }
@@ -22,7 +27,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
         let bundleInfo: [String: String]?
     }
 
-    public static let directory: URL = URL.libraryDirectory.appending(components: "Logs", "DiagnosticReports")
+    public static let directory: URL = .libraryDirectory.appending(components: "Logs", "DiagnosticReports")
 
     public let url: URL
     public let pid: pid_t
@@ -30,11 +35,12 @@ public struct CrashReport: Codable, Hashable, Sendable {
     public let exception: String?
 
     init?(_ data: Data, at url: URL) throws {
-        let decoder: JSONDecoder = JSONDecoder()
+        let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let header: Header = try decoder.decode(Header.self, from: data.prefix { byte in byte != UInt8(ascii: "\n") })
-        guard header.bugType == "309", header.isSimulated != 1 else { return nil }
-        let body: Body = try decoder.decode(Body.self, from: data.drop { byte in byte != UInt8(ascii: "\n") }.dropFirst())
+        let end: Data.Index = data.firstIndex(of: UInt8(ascii: "\n")) ?? data.endIndex
+        let header: Header = try decoder.decode(Header.self, from: data[..<end])
+        guard case .known(.crash) = header.bugType, header.isSimulated != 1 else { return nil }
+        let body: Body = try decoder.decode(Body.self, from: data[end...].dropFirst())
         self.url = url
         pid = body.pid
         bundleIdentifier = [header.bundleID, body.bundleInfo?[kCFBundleIdentifierKey as String]].lazy.compactMap(\.self).first { identifier in !["", "unknown"].contains(identifier) }
@@ -63,7 +69,7 @@ extension CrashReport {
     ) async -> Result<Self, ApplicationFailure> {
         await Result { () async throws(ApplicationFailure) in
             try await withTimeout(limit, expired: ApplicationFailure(subject: String(process), reason: .noReport(limit)), clock: clock) { () async throws(ApplicationFailure) in
-                var listed: Bool = false
+                var listed = false
                 for await change: Result<[FileEvent], FileFailure> in FileEvent.events(of: directory) {
                     let batch: [FileEvent] =
                         switch change {

@@ -15,7 +15,7 @@ import _rna_xml  # ruff: ignore[import-private-name]
 from bl_ui.space_userpref import USERPREF_MT_interface_theme_presets
 import bpy
 from coloraide.everything import ColorAll
-from expression import Result
+from expression import Option, Result
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -42,9 +42,9 @@ _LIGHTNESS: Final = tuple(np.linspace(0.0, 1.0, np.iinfo(np.uint8).max + 1).toli
 
 
 class Adjust(Case, frozen=True, kw_only=True):
-    """Sets a value to `value * factor + offset`: a color's channel named as coloraide reads it (`oklch.l`, `hct.t`, `alpha`), or a number when `channel` is empty."""
+    """Sets a value to `value * factor + offset`: a color's channel named as coloraide reads it (`oklch.l`, `hct.t`, `alpha`), or a number when `channel` is absent."""
 
-    channel: str = ""
+    channel: str | None = None
     factor: float = 1.0
     offset: float = 0.0
 
@@ -162,17 +162,17 @@ class _Binding(msgspec.Struct, frozen=True, kw_only=True):
                 literal = (ColorAll,)
             case _:
                 literal = ()
-        return frozenset({*literal, *((ColorAll,) if self.where else ()), *(float if isinstance(step, Adjust) and not step.channel else ColorAll for step in self.steps)})
+        return frozenset({*literal, *((ColorAll,) if self.where else ()), *(float if isinstance(step, Adjust) and step.channel is None else ColorAll for step in self.steps)})
 
 
 class _InterfaceTheme(msgspec.Struct, frozen=True, kw_only=True):
     """Theme stated as bindings over a base theme, a later binding of a member replacing an earlier one.
 
-    `base` is an installed theme's preset file stem or an XML file, the session's theme when empty, the factory theme in a factory-startup run.
+    `base` is an installed theme's preset file stem or an XML file, the session's theme when absent, the factory theme in a factory-startup run.
     `fit` is the keywords of the `Color.fit` every stored color takes (`method`, `pspace`).
     """
 
-    base: str = ""
+    base: str | None = None
     fit: _Options = msgspec.field(default_factory=dict)
     bindings: tuple[_Binding, ...] = ()
 
@@ -227,8 +227,10 @@ def _legible(value: ColorAll, grounds: tuple[ColorAll, ...], ratio: float, fit: 
 def _stepped(read: Callable[[str], ColorAll], fit: _Options, value: ColorAll, step: _Step, /) -> ColorAll:
     """Returns a color after one step, coloraide members refusing names and channels they lack."""
     match step:
-        case Adjust(channel=channel, factor=factor, offset=offset):
+        case Adjust(channel=str() as channel, factor=factor, offset=offset):
             return value.set(channel, lambda level: level * factor + offset, nans=False)
+        case Adjust():
+            raise ValueError("Adjust without a channel sets a number, not a color")
         case Harmony(name=name, index=index, options=options):
             return value.harmony(name, **options)[index]
         case Filter(name=name, amount=amount, options=options):
@@ -316,8 +318,17 @@ def _laid(context: bpy.types.Context, theme: _InterfaceTheme, /) -> Outcome[Mapp
             lambda values: accumulated(assigned(root, {descriptors[key].path: value for key, value in values.items() if descriptors[key].root is type(root)}) for root in roots).map(lambda _: values)
         )
 
-    preset = bpy.utils.preset_find(theme.base, USERPREF_MT_interface_theme_presets.preset_subdir, ext=".xml") or theme.base
-    based = called(bpy.ops.script.execute_preset, {"filepath": preset, "menu_idname": USERPREF_MT_interface_theme_presets.__name__}) if theme.base else Ok(frozenset())
+    based = (
+        Option
+        .of_optional(theme.base)
+        .map(
+            lambda base: called(
+                bpy.ops.script.execute_preset,
+                {"filepath": bpy.utils.preset_find(base, USERPREF_MT_interface_theme_presets.preset_subdir, ext=".xml") or base, "menu_idname": USERPREF_MT_interface_theme_presets.__name__},
+            )
+        )
+        .default_value(Ok(frozenset()))
+    )
     return based.bind(lambda _: accumulated(map(Snapshot.capture, _roots(context)))).bind(bound)
 
 

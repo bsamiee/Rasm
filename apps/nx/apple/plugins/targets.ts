@@ -26,9 +26,11 @@ const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, vers
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class AppleError extends Schema.TaggedError<AppleError, { readonly brand: unique symbol }>()('AppleError', { subject: Schema.String, detail: Schema.String }) {
+class AppleError extends Schema.TaggedError<AppleError, { readonly brand: unique symbol }>()('AppleError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
+    static readonly of = (subject: string, detail: string) => (cause: unknown) => AppleError.make({ subject, detail, cause });
+
     override get message() {
-        return `${this.subject}: ${this.detail}`;
+        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
     }
 }
 
@@ -38,7 +40,7 @@ const core = Effect.gen(function* () {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
     const { name, version, optionalDependencies } = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
-    const analyzer = Effect.flatMap(Effect.try({ try: () => new URL(import.meta.resolve('#analyzer')), catch: (cause) => AppleError.make({ subject: '#analyzer', detail: Formatter.format(cause) }) }), path.fromFileUrl);
+    const analyzer = Effect.flatMap(Effect.try({ try: () => new URL(import.meta.resolve('#analyzer')), catch: AppleError.of('#analyzer', 'does not resolve') }), path.fromFileUrl);
     const packages = [name, ...Record.keys(optionalDependencies)];
     const plugin = (workspaceRoot: string) =>
         Effect.map(
@@ -72,6 +74,18 @@ const present = (command: string, args: readonly string[], cwd: string) =>
 
 const tokened = (path: Path.Path, at: string) => (path.isAbsolute(at) || at.startsWith('..') ? [] : [path.join('{workspaceRoot}', at)]);
 
+const published = (plugin: Plugin, technology: string, folders: readonly string[], notarized: readonly string[]): TargetConfiguration => ({
+    executor: `${plugin.name}:release-publish`,
+    dependsOn: ['^nx-release-publish'],
+    inputs: plugin.inputs,
+    options: { folders, notarized },
+    metadata: {
+        technologies: [technology],
+        description: notarized.length === 0 ? "Attaches the zips the release build wrote to the project's GitHub release" : "Attaches the zips the release build wrote to the project's GitHub release, then adds each notarized app naming SUFeedURL to its Sparkle feed",
+        help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
+    },
+});
+
 const target = (plugin: Plugin, runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, extra: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
     executor: `${plugin.name}:run`,
     options: { runs },
@@ -81,4 +95,4 @@ const target = (plugin: Plugin, runs: (typeof Run.Type)['runs'], metadata: NonNu
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AppleError, core, type Part, type Plugin, present, spawned, target, tokened };
+export { AppleError, core, type Part, type Plugin, present, published, spawned, target, tokened };

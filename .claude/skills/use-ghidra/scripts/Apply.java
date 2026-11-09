@@ -59,7 +59,13 @@ public class Apply extends GhidraScript {
 
     enum Kind {
         FUNCTION,
-        LABEL
+        LABEL;
+
+        static String listed(String delimiter) {
+            return Arrays.stream(values())
+                    .map(each -> each.name().toLowerCase(Locale.ROOT))
+                    .collect(Collectors.joining(delimiter));
+        }
     }
 
     enum Step {
@@ -70,12 +76,24 @@ public class Apply extends GhidraScript {
         RENAMED
     }
 
-    record Local(
-            String name, Predicate<String> matcher, String replacement, Optional<String> type) {
+    record Rename(String name, Optional<String> type) {
+        String text() {
+            return type.map(each -> name + ":" + each).orElse(name);
+        }
+    }
+
+    record Local(String name, Predicate<String> matcher, Optional<Rename> rename) {
         static Report.Result<Local> of(String at, String entry) {
             int split = entry.lastIndexOf('=');
-            String name = (split < 0 ? entry : entry.substring(0, split)).strip();
-            String[] named = (split < 0 ? "" : entry.substring(split + 1)).split(":", 2);
+            if (split < 0) {
+                return new Report.Failure<>(
+                        "%s local `%s` holds no `=`".formatted(at, entry.strip()));
+            }
+            String name = entry.substring(0, split).strip();
+            List<String> named =
+                    Arrays.stream(entry.substring(split + 1).split(":", 2))
+                            .map(String::strip)
+                            .toList();
             try {
                 return new Report.Success<>(
                         new Local(
@@ -83,10 +101,17 @@ public class Apply extends GhidraScript {
                                 name.startsWith("re:")
                                         ? Pattern.compile(name.substring(3)).asMatchPredicate()
                                         : name::equals,
-                                named[0].strip(),
-                                named.length > 1
-                                        ? Optional.of(named[1].strip())
-                                        : Optional.empty()));
+                                Optional.of(named.getFirst())
+                                        .filter(Predicate.not(String::isEmpty))
+                                        .map(replacement ->
+                                                new Rename(
+                                                        replacement,
+                                                        named.stream()
+                                                                .skip(1)
+                                                                .filter(
+                                                                        Predicate.not(
+                                                                                String::isEmpty))
+                                                                .findFirst()))));
             } catch (PatternSyntaxException exception) {
                 return new Report.Failure<>(
                         "%s locals regex `%s` did not parse (%s)"
@@ -95,7 +120,7 @@ public class Apply extends GhidraScript {
         }
 
         boolean removes() {
-            return replacement.isEmpty();
+            return rename.isEmpty();
         }
     }
 
@@ -122,7 +147,10 @@ public class Apply extends GhidraScript {
         String[] cells = line.split("\t", -1);
         IntFunction<Optional<String>> cell =
                 index ->
-                        Optional.of(index < cells.length ? cells[index].strip() : "")
+                        Arrays.stream(cells)
+                                .skip(index)
+                                .findFirst()
+                                .map(String::strip)
                                 .filter(text -> !text.isEmpty() && !"-".equals(text));
         String at = "%s:%d".formatted(file, number);
         Report.Result<Address> address =
@@ -132,16 +160,20 @@ public class Apply extends GhidraScript {
                                 new Report.Failure<>(
                                         "%s `%s` names no address".formatted(at, cells[0])));
         Report.Result<Kind> kind =
-                Arrays.stream(Kind.values())
-                        .filter(each ->
-                                each.name()
-                                        .equalsIgnoreCase(
-                                                cell.apply(6).orElse(Kind.FUNCTION.name())))
-                        .findFirst()
-                        .<Report.Result<Kind>>map(Report.Success::new)
-                        .orElseGet(() ->
-                                new Report.Failure<>(
-                                        "%s kind `%s` is no row kind".formatted(at, cells[6])));
+                cell.apply(6)
+                        .map(text ->
+                                Arrays.stream(Kind.values())
+                                        .filter(each -> each.name().equalsIgnoreCase(text))
+                                        .findFirst()
+                                        .<Report.Result<Kind>>map(Report.Success::new)
+                                        .orElseGet(() ->
+                                                new Report.Failure<>(
+                                                        "%s kind `%s` is not %s"
+                                                                .formatted(
+                                                                        at,
+                                                                        text,
+                                                                        Kind.listed(" or ")))))
+                        .orElseGet(() -> new Report.Success<>(Kind.FUNCTION));
         Report.Result<List<Local>> locals =
                 Report.all(
                         cell.apply(5).stream()
@@ -176,14 +208,13 @@ public class Apply extends GhidraScript {
             Namespace created =
                     row.namespace().isPresent()
                             ? NamespaceUtils.createNamespaceHierarchy(
-                                    row.namespace().get(),
+                                    row.namespace().orElseThrow(),
                                     null,
                                     currentProgram,
                                     SourceType.USER_DEFINED)
                             : currentProgram.getGlobalNamespace();
             Namespace namespace =
-                    row.namespace().isPresent()
-                                    && created.getSymbol().getSymbolType() == SymbolType.NAMESPACE
+                    created.getSymbol().getSymbolType().equals(SymbolType.NAMESPACE)
                             ? NamespaceUtils.convertNamespaceToClass(created)
                             : created;
             return switch (row.kind()) {
@@ -217,7 +248,7 @@ public class Apply extends GhidraScript {
                         function.setParentNamespace(namespace);
                     }
                     if (row.name().isPresent()) {
-                        function.setName(row.name().get(), SourceType.USER_DEFINED);
+                        function.setName(row.name().orElseThrow(), SourceType.USER_DEFINED);
                     }
                     row.comment().ifPresent(function::setComment);
                     yield new Outcome(
@@ -260,41 +291,47 @@ public class Apply extends GhidraScript {
                 });
     }
 
-    private Outcome rename(Address address, Local local, Map<String, HighSymbol> symbols) {
+    private Outcome rename(
+            Address address, String local, Rename target, Map<String, HighSymbol> symbols) {
         DataTypeManager types = currentProgram.getDataTypeManager();
-        try {
-            HighSymbol symbol =
-                    Optional.ofNullable(symbols.get(local.name()))
-                            .orElseThrow(() ->
-                                    new InvalidInputException(
-                                            "Local `%s` matches no decompiled local"
-                                                    .formatted(local.name())));
-            DataType type =
-                    local.type().isPresent()
-                            ? new DataTypeParser(types, types, null, AllowedDataTypes.ALL)
-                                    .parse(local.type().get())
-                            : null;
-            HighFunctionDBUtil.updateDBVariable(
-                    symbol, local.replacement(), type, SourceType.USER_DEFINED);
-            return new Outcome(
-                    Step.RENAMED,
-                    address,
-                    new Report.Success<>(
-                            "%s -> %s%s"
-                                    .formatted(
-                                            local.name(),
-                                            local.replacement(),
-                                            local.type().map(":"::concat).orElse(""))));
-        } catch (InvalidInputException
-                | DuplicateNameException
-                | InvalidDataTypeException
-                | CancelledException exception) {
-            return new Outcome(Step.RENAMED, address, new Report.Failure<>(exception.getMessage()));
-        }
+        DataTypeParser parser = new DataTypeParser(types, types, null, AllowedDataTypes.ALL);
+        Report.Result<HighSymbol> symbol =
+                Optional.ofNullable(symbols.get(local))
+                        .<Report.Result<HighSymbol>>map(Report.Success::new)
+                        .orElseGet(() ->
+                                new Report.Failure<>(
+                                        "Local `%s` matches no decompiled local".formatted(local)));
+        Report.Result<Optional<DataType>> type =
+                target.type()
+                        .map(text -> {
+                            try {
+                                return new Report.Success<>(Optional.of(parser.parse(text)));
+                            } catch (InvalidDataTypeException | CancelledException exception) {
+                                return new Report.Failure<Optional<DataType>>(
+                                        exception.getMessage());
+                            }
+                        })
+                        .orElseGet(() -> new Report.Success<>(Optional.empty()));
+        return new Outcome(
+                Step.RENAMED,
+                address,
+                symbol.zip(type, Map::entry)
+                        .flatMap(found -> {
+                            try {
+                                HighFunctionDBUtil.updateDBVariable(
+                                        found.getKey(),
+                                        target.name(),
+                                        found.getValue().orElse(null),
+                                        SourceType.USER_DEFINED);
+                                return new Report.Success<>(
+                                        "%s -> %s".formatted(local, target.text()));
+                            } catch (InvalidInputException | DuplicateNameException exception) {
+                                return new Report.Failure<>(exception.getMessage());
+                            }
+                        }));
     }
 
     private Stream<Outcome> rename(Row row, Report.Result<DecompileResults> result) {
-        List<Local> renames = row.locals().stream().filter(Predicate.not(Local::removes)).toList();
         return switch (result) {
             case Report.Success<DecompileResults>(DecompileResults decompiled) -> {
                 Map<String, HighSymbol> symbols =
@@ -308,7 +345,15 @@ public class Apply extends GhidraScript {
                                                 HighSymbol::getName,
                                                 symbol -> symbol,
                                                 (first, _) -> first));
-                yield renames.stream().map(local -> rename(row.address(), local, symbols));
+                yield row.locals().stream()
+                        .flatMap(local ->
+                                local.rename().stream()
+                                        .map(target ->
+                                                rename(
+                                                        row.address(),
+                                                        local.name(),
+                                                        target,
+                                                        symbols)));
             }
             case Report.Failure<DecompileResults>(String cause) ->
                     Stream.of(
@@ -323,11 +368,13 @@ public class Apply extends GhidraScript {
         Arguments.Usage usage =
                 new Arguments.Usage(
                         getScriptName(),
-                        "<report> <rows>...\n"
-                                + "row: <address> <namespace> <name> <prototype> <comment> <locals>"
-                                + " <kind> by tab\n"
-                                + "local: <local>=<name>[:<type>] | <local>= | re:<regex>=\n"
-                                + "kind: function | label");
+                        """
+                        <report> <rows>...
+                        row: <address> <namespace> <name> <prototype> <comment> <locals> <kind> by tab
+                        local: <local>=<name>[:<type>] | <local>= | re:<regex>=
+                        kind: %s\
+                        """
+                                .formatted(Kind.listed(" | ")));
         String[] args = getScriptArgs();
         Path out = usage.out(args);
         List<String> files = usage.operands(args);
@@ -414,15 +461,19 @@ public class Apply extends GhidraScript {
                                                         Step.TYPED,
                                                         address,
                                                         new Report.Failure<>(
-                                                                "`%s` did not parse (%s)"
-                                                                        .formatted(
-                                                                                prototype,
-                                                                                exception
-                                                                                        .getMessage()
-                                                                                        .lines()
-                                                                                        .findFirst()
-                                                                                        .orElse(
-                                                                                                ""))));
+                                                                exception
+                                                                        .getMessage()
+                                                                        .lines()
+                                                                        .findFirst()
+                                                                        .map(line ->
+                                                                                "`%s` did not parse (%s)"
+                                                                                        .formatted(
+                                                                                                prototype,
+                                                                                                line))
+                                                                        .orElseGet(() ->
+                                                                                "`%s` did not parse"
+                                                                                        .formatted(
+                                                                                                prototype))));
                                             }
                                         }))
                         .toList();
@@ -475,6 +526,6 @@ public class Apply extends GhidraScript {
                                                         .map(Outcome::row)
                                                         .toList())))
                         .toList();
-        println(Report.write(out, currentProgram, sections, String.join(" ", files)));
+        println(Report.write(out, currentProgram, sections, files));
     }
 }

@@ -1,10 +1,10 @@
-import { Array, Cause, Data, Duration, Effect, Number, type Option, Schema, Struct } from 'effect';
+import { Array, Cause, Data, Duration, Effect, Number, Option, Predicate, Record, Schema, String, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Verdict = Data.TaggedEnum<{
     Refuse: { readonly reason: string };
-    Edit: { readonly start: number; readonly end: number; readonly text: string; readonly notice: Option.Option<string>; readonly timeout: Option.Option<number> };
+    Edit: { readonly start: number; readonly end: number; readonly text: Option.Option<string>; readonly notice: Option.Option<string>; readonly timeout: Option.Option<number> };
     Background: { readonly notice: string };
 }>;
 
@@ -48,13 +48,27 @@ const Verdict = Data.taggedEnum<Verdict>();
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const unjudged = (cause: Cause.Cause<unknown>): Effect.Effect<Decision> => Effect.succeed(Decision.cases.Deny.make({ reason: `Not judged, ${LEADING_WORDS.exec(Cause.pretty(cause))?.groups?.words}` }));
+const unjudged = (cause: Cause.Cause<unknown>): Effect.Effect<Decision> => {
+    const pretty = Cause.pretty(cause);
+    const words = String.match(LEADING_WORDS)(pretty).pipe(
+        Option.flatMapNullishOr(({ groups }) => groups),
+        Option.flatMap(Record.get('words')),
+        Option.filter(Predicate.isString),
+    );
+    return Effect.succeed(Decision.cases.Deny.make({ reason: `Not judged, ${Option.getOrElse(words, () => pretty)}` }));
+};
 
 const applied = (source: Uint8Array, edits: readonly Extract<Verdict, { readonly _tag: 'Edit' }>[]): string => {
     const decoder = new TextDecoder();
     const ordered = edits.toSorted((left, right) => left.start - right.start || left.end - right.end);
     const between = (start: number, end?: number): string => decoder.decode(source.subarray(start, end));
-    return [...ordered.map(({ start, text }, index) => `${between(ordered[index - 1]?.end ?? 0, start)}${text}`), between(ordered.at(-1)?.end ?? 0)].join('');
+    return [
+        ...ordered.map(({ start, text }, index) => {
+            const kept = between(ordered[index - 1]?.end ?? 0, start);
+            return Option.match(text, { onNone: () => kept, onSome: (replacement) => `${kept}${replacement}` });
+        }),
+        between(ordered.at(-1)?.end ?? 0),
+    ].join('');
 };
 
 const decisionOf = (command: string, verdicts: readonly Verdict[], observes: boolean): Decision => {

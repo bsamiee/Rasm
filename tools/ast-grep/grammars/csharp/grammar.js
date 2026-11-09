@@ -6,7 +6,7 @@ import { after, any, children, choiceOf, classes, constants, extend, named, opti
 
 const DIRECTIVE_SEPARATORS = { sdk: '@', package: '@', property: '=', project: '', ref: '', include: '', exclude: '' };
 const METADATA_DIRECTIVES = new Set(['package', 'project', 'ref', 'include']);
-const SPACE = '\\t\\v\\f\\p{Zs}\\u{FEFF}';
+const SPACE = String.raw`\t\v\f\p{Zs}\u{FEFF}`;
 const WHITESPACE = new RegExp(`[\\n\\r\\u{85}\\u{2028}\\u{2029}${SPACE}]+`, 'u');
 const DIRECTIVE_SPACE = new RegExp(`[${SPACE}]+`, 'u');
 const QUOTED = /(?:[^"\\\r\n]|\\[^\r\n])+/u;

@@ -1,4 +1,4 @@
-import { Record, Schema, Struct } from 'effect';
+import { Record, Schema, SemVer, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -8,7 +8,7 @@ const FILLS = Record.map({ light: { color: '#000000', opacity: 0.8 }, dark: { co
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Version = Schema.String.check(Schema.isPattern(/^\d+\.\d+\.\d+$/u)).annotate({ description: 'major.minor.patch' });
+const Version = Schema.SemVerFromString.check(Schema.makeFilter((version) => !(SemVer.isPrerelease(version) || SemVer.hasBuild(version)), { description: 'major.minor.patch' }));
 const Flag = Schema.optionalKey(Schema.Boolean);
 const Size = Schema.optionalKey(Schema.Struct({ width: Schema.Finite, height: Schema.Finite }));
 const Localized = Schema.Union([Schema.String, Schema.StructWithRest(Schema.Struct({ default: Schema.String }), [Schema.Record(Schema.String, Schema.String)])]);

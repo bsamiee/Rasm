@@ -13,17 +13,18 @@ use tracing_subscriber::layer::Identity;
 #[derive(Parser)]
 #[command(version, about)]
 struct Upstream {
-    #[arg(required = true, num_args = 1.., trailing_var_arg = true, allow_hyphen_values = true, value_hint = ValueHint::CommandWithArguments, help = "Stdio MCP server command line")]
-    command: Vec<OsString>,
+    #[arg(value_hint = ValueHint::CommandName, help = "Stdio MCP server program")]
+    program: OsString,
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true, help = "Arguments the program receives")]
+    arguments: Vec<OsString>,
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() -> ExitCode {
-    host::run(Defaults { .. }, Identity::new(), |Upstream { command }, host| {
-        let mut parts = command.into_iter();
-        let mut upstream = Command::new(parts.next().unwrap_or_default());
-        upstream.args(parts);
+    host::run(Defaults { .. }, Identity::new(), |Upstream { program, arguments }, host| {
+        let mut upstream = Command::new(program);
+        upstream.args(arguments);
         Proxy::spawn(upstream, host)
     })
 }

@@ -1,5 +1,5 @@
-import { Array, Cache, Effect, Function, Option, Predicate } from 'effect';
-import { absent, become, type Call, cut, dropped, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, quote, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unresolved, type Verdicts, when, whole } from '#/policies/fix';
+import { Array, Cache, Effect, Function, Option, Predicate, Record } from 'effect';
+import { absent, become, type Call, cut, dropped, edited, ensure, erased, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, quote, type Respelling, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unresolved, type Verdicts, when, whole } from '#/policies/fix';
 import { lockDeletes } from '#/policies/ghidra';
 import type { Word } from '#/shell/script';
 import { Shell, type Site } from '#/shell/site';
@@ -28,30 +28,29 @@ const INLINE_LOOKUPS = [
     [/^(?:console\.log\()?require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)?;?$/u, 'realpath node_modules/$<name>/package.json'],
     [/^(?:console\.log\()?require\(['"](?:node:)?path['"]\)\.dirname\(require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)\)?;?$/u, 'realpath node_modules/$<name>'],
 ] as const;
-const GREP_AS_RG: Readonly<Record<string, string>> = {
-    '--recursive': '',
-    '--dereference-recursive': '',
-    '--extended-regexp': '',
-    '--with-filename': '',
-    '--exclude-dir': '',
-    '--line-number': '-n',
-    '--ignore-case': '-i',
-    '--files-with-matches': '-l',
-    '--count': '-c',
-    '--word-regexp': '-w',
-    '--invert-match': '-v',
-    '--only-matching': '-o',
-    '--after-context': '-A',
-    '--before-context': '-B',
-    '--context': '-C',
-    '--regexp': '-e',
-    '--fixed-strings': '-F',
-    '--no-filename': '-I',
-    '--include': '-g',
+const GREP_AS_RG: Required<Respelling> = {
+    drops: ['--recursive', '--dereference-recursive', '--extended-regexp', '--with-filename', '--exclude-dir'],
+    renames: {
+        '--line-number': '-n',
+        '--ignore-case': '-i',
+        '--files-with-matches': '-l',
+        '--count': '-c',
+        '--word-regexp': '-w',
+        '--invert-match': '-v',
+        '--only-matching': '-o',
+        '--after-context': '-A',
+        '--before-context': '-B',
+        '--context': '-C',
+        '--regexp': '-e',
+        '--fixed-strings': '-F',
+        '--no-filename': '-I',
+        '--include': '-g',
+    },
 };
 const NEXT_STEP = /^(?:\s*(?:;|&&)\s*|\s*\n\s*)/u;
 const SHELL_SYNTAX = /[$|&;<>()`]|^\w+=/u;
-const FIND_AS_FD: Readonly<Record<string, string>> = { '-type': '-t', '-maxdepth': '-d', '-mindepth': '--min-depth', '-name': '-g', '-iname': '-i -g', '-not': '', '-path': '' };
+const FIND_RENAMES: Record.ReadonlyRecord<string, string> = { '-type': '-t', '-maxdepth': '-d', '-mindepth': '--min-depth', '-name': '-g', '-iname': '-i -g' };
+const FIND_DROPS: readonly string[] = ['-not', '-path'];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -96,7 +95,7 @@ const rootIgnored = (site: Site, call: Call) => Effect.flatMap(Shell, ({ ignored
 const unignored =
     (named: Predicate.Predicate<Site>): Fix =>
     (site, call) =>
-        Effect.map(rootIgnored(site, call), (held) => (held || named(site) ? ensure('--no-ignore', ...NO_IGNORE)(site) : []));
+        Effect.map(rootIgnored(site, call), (ignored) => (ignored || named(site) ? ensure('--no-ignore', ...NO_IGNORE)(site) : []));
 
 // --- [DELETES]
 
@@ -150,7 +149,9 @@ const struck = (site: Site): Verdicts => {
     const { command, outer } = site;
     const tail = new TextDecoder().decode(command.source.subarray(command.end));
     const skipped = NEXT_STEP.exec(tail)?.[0].length ?? 0;
-    return command.start === 0 && outer.length === 0 && (skipped > 0 || tail.trim() === '') ? edited(site, { start: 0, end: command.end + skipped }, tail.slice(skipped).trim() === '' ? ':' : '') : [];
+    const span = { start: 0, end: command.end + skipped };
+    const struckOut = tail.slice(skipped).trim() === '' ? edited(site, span, ':') : erased(site, span);
+    return command.start === 0 && outer.length === 0 && (skipped > 0 || tail.trim() === '') ? struckOut : [];
 };
 
 const unfed: Fix = (site, { request }) => {
@@ -199,7 +200,7 @@ const grepsAsRg: Predicate.Predicate<Site> = (site) => {
         site.program === 'grep' &&
         !patterns.some(({ text }) => BACK_REFERENCE.test(text)) &&
         site.has('--recursive', '--dereference-recursive') &&
-        [...site.names].every((name) => GREP_AS_RG[name] !== undefined) &&
+        [...site.names].every((name) => Record.has(GREP_AS_RG.renames, name) || GREP_AS_RG.drops.includes(name)) &&
         site.values('--exclude-dir').every((value) => IGNORED.test(value)) &&
         site.items.every(({ names, words: [word] }) => names.length === 0 || word.known) &&
         (site.has('--extended-regexp', '--fixed-strings') || (patterns.every(({ known }) => known) && site.values('--regexp').length === site.supplied('--regexp').length))
@@ -219,37 +220,44 @@ const extendedPatterns: Fix = (site) =>
 const findsAsFd: Predicate.Predicate<Site> = ({ row, last, values, items, operands }) => {
     const { before } = row.walks ?? {};
     const excludesIgnored = items.every(({ names, values: held }, at) => (!names.includes('-not') || items[at + 1]?.names.includes('-path') === true) && (!names.includes('-path') || (items[at - 1]?.names.includes('-not') === true && held.every((value) => IGNORED_PATH.test(value)))));
-    return before !== undefined && last && values('-name', '-iname').length <= 1 && excludesIgnored && items.every(({ names }) => names.every((name) => FIND_AS_FD[name] !== undefined)) && !operands.some(({ text }) => before.some((prefix) => text.startsWith(prefix)));
+    return before !== undefined && last && values('-name', '-iname').length <= 1 && excludesIgnored && items.every(({ names }) => names.every((name) => Record.has(FIND_RENAMES, name) || FIND_DROPS.includes(name))) && !operands.some(({ text }) => before.some((prefix) => text.startsWith(prefix)));
 };
 
 const skipsIgnored = (site: Site, call: Call) =>
     (GITIGNORE_READERS.has(site.program) || grepsAsRg(site) || findsAsFd(site)) && !site.has(...NO_IGNORE) && walkRoots(site).every(({ known, text }) => known && Option.exists(call.host.place(text, site.command.cwd), (place) => call.host.inside(place, call.host.root)))
-        ? Effect.map(rootIgnored(site, call), (held) => !held)
+        ? Effect.map(rootIgnored(site, call), (ignored) => !ignored)
         : Effect.succeed(false);
 
 const unfiltered =
-    (table: Readonly<Record<string, string>>, only: RegExp): Fix =>
+    (drops: readonly string[], only: RegExp): Fix =>
     (site, call) => {
-        const edits = respell(table, { only })(site);
+        const edits = respell({ drops }, { only })(site);
         return edits.length === 0 ? [] : Effect.map(skipsIgnored(site, call), (skips) => (skips ? edits : []));
     };
 
 const excludedStage: Fix = (site, call) => {
     const { earlier } = stages(site, call);
     const previous = earlier.at(-1)?.command;
-    return previous === undefined || site.names.size > 1 || !ONLY_IGNORED.test(site.leading[0]?.text ?? '')
+    return previous === undefined || site.names.size > 1 || !Option.exists(Array.head(site.leading), ({ text }) => ONLY_IGNORED.test(text))
         ? []
         : Effect.map(
               Effect.forEach(
                   earlier.filter(({ command }) => command === previous),
-                  (held) => skipsIgnored(held, call),
+                  (stage) => skipsIgnored(stage, call),
               ),
-              (skipping) => (skipping.some(Boolean) ? edited(site, { start: previous.end, end: site.command.end }, '') : []),
+              (skipping) => (skipping.some(Boolean) ? erased(site, { start: previous.end, end: site.command.end }) : []),
           );
 };
 
 const findAsFd: Fix = Effect.fnUntraced(function* (site, call) {
-    const options = site.items.filter(({ names: [name] }) => name !== undefined && FIND_AS_FD[name] !== '').map(({ names: [name = ''], words: [, ...values] }) => `${FIND_AS_FD[name] ?? name} ${spoken(values)}`);
+    const options = Array.getSomes(
+        site.items.map(({ names: [name], words: [, ...values] }) =>
+            Option.fromUndefinedOr(name).pipe(
+                Option.flatMap((flag) => Record.get(FIND_RENAMES, flag)),
+                Option.map((spelled) => `${spelled} ${spoken(values)}`),
+            ),
+        ),
+    );
     const roots = walkRoots(site)
         .map(({ raw }) => raw)
         .filter((raw) => raw !== '.');
@@ -259,7 +267,7 @@ const findAsFd: Fix = Effect.fnUntraced(function* (site, call) {
     return whole(site, ['fd --hidden', ...((yield* rootIgnored(site, call)) ? ['--no-ignore'] : []), ...options, ...(site.has('-name', '-iname') ? [] : ["-g '*'"]), ...roots].join(' '), 'find');
 });
 
-const grepAsRg: Fix = (site, call) => Effect.map(rootIgnored(site, call), (held) => become(`rg ${HIDDEN_EXCEPT_GIT}${held ? ' --no-ignore' : ''}`)(site));
+const grepAsRg: Fix = (site, call) => Effect.map(rootIgnored(site, call), (ignored) => become(ignored ? `rg ${HIDDEN_EXCEPT_GIT} --no-ignore` : `rg ${HIDDEN_EXCEPT_GIT}`)(site));
 
 const treeOnly: Predicate.Predicate<Site> = Predicate.and(has('-R'), ({ names }) => names.size === 1);
 
@@ -327,7 +335,7 @@ const FILES: Policy = {
             leading: 1,
             execs: ['--exec', '--exec-batch'],
             walks: { paths: ['--search-path'], base: ['--base-directory'], names: ['--extension'] },
-            fixes: [ensure('--hidden', '--no-hidden', '--unrestricted'), unfiltered({ '--exclude': '' }, ONLY_IGNORED), unignored(holds(IGNORED))],
+            fixes: [ensure('--hidden', '--no-hidden', '--unrestricted'), unfiltered(['--exclude'], ONLY_IGNORED), unignored(holds(IGNORED))],
         },
         find: {
             aliases: ['gfind'],
@@ -337,7 +345,7 @@ const FILES: Policy = {
             fixes: [when(has('-delete'), removed), when(findsAsFd, findAsFd)],
         },
         rm: { aliases: ['rimraf', 'trash', 'unlink', 'shred'], fixes: [removed] },
-        tree: { walks: {}, fixes: [respell({ '-a': '', '--all': '', '--noreport': '', '--dirsfirst': '--group-directories-first', '-d': '-D' }), unfiltered({ '-I': '' }, ONLY_IGNORED)] },
+        tree: { walks: {}, fixes: [respell({ drops: ['-a', '--all', '--noreport'], renames: { '--dirsfirst': '--group-directories-first', '-d': '-D' } }), unfiltered(['-I'], ONLY_IGNORED)] },
         du: { flags: ['-I='], walks: { stats: true } },
         grep: {
             flags: ['--include-dir='],
@@ -353,10 +361,10 @@ const FILES: Policy = {
             leadingUnless: ['--regexp', '--file', '--files', '--type-list', '--generate'],
             walks: {},
             closes: ['--quiet', '--max-count', '--files-with-matches'],
-            fixes: [when((site) => walkRoots(site).length > 0, ensure(HIDDEN_EXCEPT_GIT, '--no-hidden', '--unrestricted', '--no-config')), unfiltered({ '--glob': '', '--iglob': '' }, NEGATED_IGNORED), unignored(Function.constFalse)],
+            fixes: [when((site) => walkRoots(site).length > 0, ensure(HIDDEN_EXCEPT_GIT, '--no-hidden', '--unrestricted', '--no-config')), unfiltered(['--glob', '--iglob'], NEGATED_IGNORED), unignored(Function.constFalse)],
         },
-        cat: { reads: 'default', fixes: [respell({ '-A': '-vet' })] },
-        ls: { fixes: [when(treeOnly, become('tree', false), respell({ '-R': '' })), when(Predicate.not(treeOnly), optionsFirst)] },
+        cat: { reads: 'default', fixes: [respell({ renames: { '-A': '-vet' } })] },
+        ls: { fixes: [when(treeOnly, become('tree', false), respell({ drops: ['-R'] })), when(Predicate.not(treeOnly), optionsFirst)] },
         sd: {
             closed: true,
             leading: 2,
@@ -372,7 +380,7 @@ const FILES: Policy = {
         jq: { flags: ['--arg=2', '--argjson=2', '--slurpfile=2', '--rawfile=2'], leading: 1, leadingUnless: ['--from-file'], ends: ['--args', '--jsonargs'], reads: 'default', readsUnless: ['--null-input'], fixes: [readsItsOwnFile] },
         hyperfine: {
             flags: ['-P, --parameter-scan=3', '-L, --parameter-list=2'],
-            fixes: [ensure('-i'), shellBodies, silenced, when(({ supplied }) => supplied('--input').some(({ raw }) => raw.startsWith('<(')), refuse('FIFO feeds one run', 'pass a file', '--input'))],
+            fixes: [ensure('-i'), shellBodies, silenced, when(({ supplied }) => supplied('--input').some(({ raw }) => raw.startsWith('<(')), refuse('process substitution is read once', 'pass a file every run reads', '--input'))],
         },
         nproc: { fixes: [absent((site) => whole(site, 'sysctl -n hw.ncpu'))] },
         shuf: { flags: ['-n='], fixes: [absent(shuffled)] },

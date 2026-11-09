@@ -43,6 +43,12 @@ pub enum Operation {
     Observe,
     #[display("release the process group or job")]
     Release,
+    #[display("remove the run scratch directory")]
+    Scratch,
+    #[display("list run attachments")]
+    Attachments,
+    #[display("publish the run report")]
+    Publish,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -277,7 +283,7 @@ mod report;
 
 #[cfg(target_os = "macos")]
 pub use macos::{Launch, launch};
-pub use report::Run;
+pub use report::{Event, Run};
 pub use nonempty_collections;
 pub use serde;
 pub use tokio;

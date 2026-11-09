@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO.Compression;
 using System.Numerics;
@@ -40,7 +41,7 @@ public abstract partial record ImageFile {
         private const TiffTag ImageSourceData = (TiffTag)37724;
         private static readonly uint Signature = BinaryPrimitives.ReadUInt32BigEndian("8BIM"u8);
         private static readonly uint PassThrough = BinaryPrimitives.ReadUInt32BigEndian("pass"u8);
-        private static readonly Encoding MacRoman = CodePagesEncodingProvider.Instance.GetEncoding(10000)!;
+        private static readonly Encoding MacRoman = CodePagesEncodingProvider.Instance.GetEncoding(10000) ?? throw new UnreachableException("The code page provider carries Mac Roman");
         private static readonly FrozenDictionary<OutputDepth, uint> Keys = new Dictionary<OutputDepth, uint> {
             [OutputDepth.UInt8] = BinaryPrimitives.ReadUInt32BigEndian("Layr"u8),
             [OutputDepth.UInt16] = BinaryPrimitives.ReadUInt32BigEndian("Lr16"u8),

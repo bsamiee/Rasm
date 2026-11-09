@@ -8,11 +8,12 @@ classifiers     = ["Private :: Do Not Upload"]
 requires-python = ">=3.15"
 
 dependencies = [
-    "expression", # `Option` and `Result`, whose fullnames RASM101 reads
-    "msgspec",    # `msgspec.Struct` and `msgspec.field`, whose fullnames RASM102 reads
-    "mypy",       # Nodes and types of the build refurb hands each check
-    "refurb",     # Check host, visitor, and `get_mypy_type`
-    "structlog",  # Bound logger types the log-field check reads
+    "expression",   # `Option` and `Result`, whose fullnames RASM101 reads
+    "msgspec",      # `msgspec.Struct` and `msgspec.field`, whose fullnames RASM102 reads
+    "mypy",         # Nodes and types of the build refurb hands each check
+    "rasm-records", # Words of a check class name its finding name derives from
+    "refurb",       # Check host, visitor, and `get_mypy_type`
+    "structlog",    # Bound logger types the log-field check reads
 ]
 
 [project.entry-points."refurb.plugins"]

@@ -171,7 +171,7 @@ public abstract record Field {
         public Option<string> Placeholder { get; init; }
         public Option<int> MaxLines { get; init; } = Some(1);
 
-        private protected override View Editor(CultureInfo culture) => Marked(new TextField(Value.IfNone(""), Edited) { Placeholder = Placeholder, MaxLines = MaxLines }.Drawn);
+        private protected override View Editor(CultureInfo culture) => Marked(new TextField(Value, Edited) { Placeholder = Placeholder, MaxLines = MaxLines }.Drawn);
 
         private protected override Option<string> Spoken(string value, CultureInfo culture) => value;
 

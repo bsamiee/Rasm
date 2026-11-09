@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: rustlang
+severity: error
+rule:
+    kind: let_declaration
+    all:
+        - has: {field: type, pattern: $TYPE}
+        - has: {field: value, kind: try_block, has: {field: type, pattern: $TYPE}}
+message: '`let` restates `$TYPE` that its `try bikeshed` block names'
+note: 'Delete the binding annotation'

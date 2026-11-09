@@ -24,19 +24,19 @@ Each category holds one block of IDs.
 
 Category `LanguageExt`:
 
-| [INDEX] | [ID]                          | [TITLE]                                                                       |
-| :-----: | :---------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | <a id="RASM1001"></a>RASM1001 | Explicit result lift, write the value                                         |
-|  [02]   | <a id="RASM1003"></a>RASM1003 | Type test on `Error`, call `IsType` or `Filter`                               |
-|  [03]   | <a id="RASM1004"></a>RASM1004 | `Fin` round trip through `Validation`, delete both conversions                |
-|  [04]   | <a id="RASM1005"></a>RASM1005 | `Seq` accumulator copied per step, call `Add`                                 |
-|  [05]   | <a id="RASM1007"></a>RASM1007 | Redundant `As`, delete the call                                               |
-|  [06]   | <a id="RASM1008"></a>RASM1008 | `Match` passing one case through, call the one-handler member                 |
-|  [07]   | <a id="RASM1009"></a>RASM1009 | `Option` converted to nullable by hand, call `ValueUnsafe` or `ToNullable`    |
-|  [08]   | <a id="RASM1010"></a>RASM1010 | Record property lens written by hand, write `with` at the edit                |
-|  [09]   | <a id="RASM1011"></a>RASM1011 | `IO.lift` thunk or `IO.pure` value returned from a continuation               |
-|  [10]   | <a id="RASM1012"></a>RASM1012 | `Map` then `Flatten`, call `Bind`                                             |
-|  [11]   | <a id="RASM1013"></a>RASM1013 | `Catch` predicate bypassed by an evaluated failure, apply it through `@catch` |
+| [INDEX] | [ID]                          | [TITLE]                                                                                                |
+| :-----: | :---------------------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | <a id="RASM1001"></a>RASM1001 | Explicit result lift, write the value                                                                  |
+|  [02]   | <a id="RASM1003"></a>RASM1003 | Type test on `Error`, call `IsType` or `Filter`                                                        |
+|  [03]   | <a id="RASM1004"></a>RASM1004 | `Fin` round trip through `Validation`, delete both conversions                                         |
+|  [04]   | <a id="RASM1005"></a>RASM1005 | `Seq` accumulator copied per step, call `Add`                                                          |
+|  [05]   | <a id="RASM1007"></a>RASM1007 | Redundant `As`, delete the call                                                                        |
+|  [06]   | <a id="RASM1008"></a>RASM1008 | `Match` passing one case through, call the one-handler member                                          |
+|  [07]   | <a id="RASM1009"></a>RASM1009 | `Option` to nullable outside its conversion member, call `ValueUnsafe` or `ToNullable` by element kind |
+|  [08]   | <a id="RASM1010"></a>RASM1010 | Record property lens written by hand, write `with` at the edit                                         |
+|  [09]   | <a id="RASM1011"></a>RASM1011 | `IO.lift` thunk or `IO.pure` value returned from a continuation                                        |
+|  [10]   | <a id="RASM1012"></a>RASM1012 | `Map` then `Flatten`, call `Bind`                                                                      |
+|  [11]   | <a id="RASM1013"></a>RASM1013 | `Catch` predicate bypassed by an evaluated failure, apply it through `@catch`                          |
 
 ### [02.2]-[THINKTECTURE]
 
@@ -115,7 +115,8 @@ Category `CSharp`:
 |  [12]   | <a id="RASM3012"></a>RASM3012 | Forwarding property, read member at its uses                                |
 |  [13]   | <a id="RASM3013"></a>RASM3013 | Overloads take a value and its factory, keep one overload                   |
 |  [14]   | <a id="RASM3101"></a>RASM3101 | Type name stored as text, store the type                                    |
-|  [15]   | <a id="RASM3102"></a>RASM3102 | Sentinel for an absent member, state absence in the type                    |
+|  [15]   | <a id="RASM3102"></a>RASM3102 | Sentinel stands for absence, state absence in the type                      |
 |  [16]   | <a id="RASM3104"></a>RASM3104 | Callback value passed out through a captured write, return it in the result |
+|  [17]   | <a id="RASM3105"></a>RASM3105 | Null-forgiving operator on a nullable result, lift the absence              |
 
 Retired and never reassigned: RASM1002, RASM1006, RASM1201, RASM2001, RASM2013 (now RASM1106), RASM3103 (now RASM1013), RASM4001, RASM4002.

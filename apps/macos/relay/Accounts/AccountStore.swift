@@ -44,7 +44,7 @@ final class AccountStore {
     private let storage: AccountStorage
     private let claude: ClaudeClient
     private let codex: CodexClient
-    private let logger: Logger = Logger(for: AccountStore.self)
+    private let logger: Logger = .init(for: AccountStore.self)
     private let saves: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
     @ObservationIgnored private var root: Task<Void, Never>?
     @ObservationIgnored private var authenticationTask: Task<Void, Never>?
@@ -202,7 +202,7 @@ final class AccountStore {
                     .dropFirst().debounce(for: .milliseconds(300))
                 {
                     logger.debug("\(provider.name, privacy: .public) live store \(file.lastPathComponent, privacy: .public) changed")
-                    let before: [UUID: Bool] = Dictionary(
+                    let before = Dictionary(
                         uniqueKeysWithValues: accounts.map { model in (model.account.id, model.isSelected) }
                     )
                     await readSelection(provider)
@@ -237,7 +237,7 @@ final class AccountStore {
             }
         }
         func observeCredentialWrites() async {
-            let lock: URL = ClaudeCredentialStore.storageWriteLockfile(in: claude.shared.directory)
+            let lock = ClaudeCredentialStore.storageWriteLockfile(in: claude.shared.directory)
             do {
                 for try await present: Bool in FileEvent.presence(of: lock).map({ present in try present.get() }).removeDuplicates().dropFirst()
                 where !present {
@@ -250,7 +250,7 @@ final class AccountStore {
         }
         func schedule() async {
             while !Task.isCancelled {
-                let now: Date = Date()
+                let now = Date()
                 let base: Duration =
                     switch (isMenuBarExtraVisible, lastPanelOpen?.duration(to: .now)) {
                         case (true, _): .seconds(AccountModel.usageReadSpacing.selected)
@@ -261,10 +261,10 @@ final class AccountStore {
                 let boundary: Duration? = accounts.compactMap(\.usage.usage?.nextReset)
                     .filter { date in date > now }
                     .min()
-                    .map { date in .seconds(date.timeIntervalSince(now) + 1) }
+                    .map { date in Duration.seconds(date.timeIntervalSince(now) + 1) }
                 let delay: Duration = min(base, boundary ?? base)
                 logger.debug("Next refresh in \(delay, privacy: .public)")
-                let (wakes, wake): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+                let (wakes, wake) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
                 refreshWake = wake
                 let slept: Result<Bool, any Error> = await Result {
                     try await race {
@@ -311,10 +311,10 @@ final class AccountStore {
                     )
                 }
                 storageState = .available
-                logger.notice("Loaded \(loaded.count, privacy: .public) accounts from accounts.json")
+                logger.notice("Loaded \(loaded.count, privacy: .public) accounts from \(self.locations.accountsFile.lastPathComponent, privacy: .public)")
             case .failure(let error):
                 storageState = .unavailable
-                logger.error("accounts.json load failed with \(error, privacy: .public)")
+                logger.error("\(self.locations.accountsFile.lastPathComponent, privacy: .public) load failed with \(error, privacy: .public)")
         }
     }
 
@@ -397,7 +397,7 @@ final class AccountStore {
                 apply(selected: existing.account.id)
                 return
             }
-            let model: AccountModel = AccountModel(
+            let model = AccountModel(
                 account: Account(id: UUID(), provider: provider, identity: identity),
                 authentication: .connected,
                 usage: .unavailable,
@@ -517,7 +517,7 @@ final class AccountStore {
         guard let model: AccountModel = model(id) else { return }
         let account: Account = model.account
         run(model, .removing) { [self, client = client(for: account.provider)] stores in
-            let removed: Result<Void, ProviderError> = await Result { () async throws(ProviderError) in
+            let removed = await Result { () async throws(ProviderError) in
                 try await client.signOut(account, isSelected: model.isSelected).flatMapError { error in error.failure.requiresSignIn ? .success(()) : .failure(error) }.get()
                 try await client.deletePrivateStore(id: id).get()
             }
@@ -537,7 +537,7 @@ final class AccountStore {
 
     private func authenticate(_ id: UUID, provider: Provider) {
         let existing: AccountModel? = model(id)
-        let codes: (stream: AsyncStream<String>, continuation: AsyncStream<String>.Continuation) = AsyncStream<String>.makeStream()
+        let codes = AsyncStream<String>.makeStream()
         authentication = AuthenticationPresentation(id: id, provider: provider, phase: .pending, startedAt: Date(), codes: codes.continuation)
         let task: Task<Void, Never> = Task(name: "Sign in \(provider.name)") { [self] in
             defer { codes.continuation.finish() }
@@ -600,14 +600,14 @@ final class AccountStore {
                     return
                 }
                 let replaced: AccountModel? = existing == nil ? duplicate : nil
-                let model: AccountModel =
+                let model =
                     existing
                     ?? AccountModel(
                         account: Account(id: id, provider: provider, identity: identity),
                         authentication: .connected,
                         usage: replaced?.usage ?? .unavailable,
                     )
-                if let replaced, let index: Int = accounts.firstIndex(where: { stored in stored.account.id == replaced.account.id }) {
+                if let replaced, let index = accounts.firstIndex(where: { stored in stored.account.id == replaced.account.id }) {
                     accounts[index] = model
                     logger.notice("Account \(id, privacy: .public) replaces signed-out account \(replaced.account.id, privacy: .public) with same identity")
                     await deletePrivateStore(replaced.account.id, provider: provider, owning: stores)
@@ -642,7 +642,7 @@ final class AccountStore {
 
     private func refresh(_ candidates: [AccountModel]) {
         guard storageState == .available, !isStopping else { return }
-        let now: Date = Date()
+        let now = Date()
         for model: AccountModel in candidates where !model.isBusy {
             let due: Bool = model.usageReadAfter.map { date in date <= now } ?? true
             guard due || !model.isConnected else { continue }
@@ -708,9 +708,9 @@ final class AccountStore {
         }
         switch await storage.save(snapshot) {
             case .success:
-                logger.debug("Saved \(snapshot.count, privacy: .public) accounts to accounts.json")
+                logger.debug("Saved \(snapshot.count, privacy: .public) accounts to \(self.locations.accountsFile.lastPathComponent, privacy: .public)")
             case .failure(let error):
-                logger.error("accounts.json save failed with \(error, privacy: .public)")
+                logger.error("\(self.locations.accountsFile.lastPathComponent, privacy: .public) save failed with \(error, privacy: .public)")
         }
     }
 

@@ -132,7 +132,12 @@ const siteHead = (head: Head): Plugin => {
             watcher.add(files());
             middlewares.use((request, response, next) => {
                 Effect.runPromise(rendered)
-                    .then(({ assets }) => Option.match(Record.get(assets, request.url ?? ''), { onNone: () => next(), onSome: ({ mimeType, source }) => response.setHeader('Content-Type', mimeType).end(source) }))
+                    .then(({ assets }) =>
+                        Option.match(
+                            Option.flatMap(Option.fromNullishOr(request.url), (url) => Record.get(assets, url)),
+                            { onNone: () => next(), onSome: ({ mimeType, source }) => response.setHeader('Content-Type', mimeType).end(source) },
+                        ),
+                    )
                     .catch(next);
             });
         },

@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "version": 2,
     "title": "Install",
-    "description": "Installs each host package the project's build wrote for this platform through the host's own installer; the build outputs and each package's manifest state every fact, so the executor takes no options",
+    "description": "Installs each host package the project's build wrote for this platform through the host's own installer",
     "type": "object",
     "properties": {}
 }

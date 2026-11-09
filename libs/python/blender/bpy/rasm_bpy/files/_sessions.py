@@ -85,10 +85,10 @@ class _Pack(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class _TemplateVariable(msgspec.Struct, frozen=True, kw_only=True):
-    """Project variable, value type choosing variable type."""
+    """Project variable, value type choosing variable type, an absent description leaving the host's in place."""
 
     value: Path | str | int | float
-    description: str = ""
+    description: str | None = None
 
 
 class _Project(msgspec.Struct, frozen=True, kw_only=True):

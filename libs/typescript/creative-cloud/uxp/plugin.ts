@@ -28,7 +28,7 @@ const Chunk = Schema.Union([Schema.String, Schema.Uint8Array.pipe(Schema.decodeT
 const Script = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) });
 const Entrypoints = Schema.Struct({ setup: Schema.declare(Predicate.isFunction) });
 const ThemeEvents = Schema.Struct({ getCurrent: Schema.declare(Predicate.isFunction), onUpdated: Schema.Struct({ addListener: Schema.declare(Predicate.isFunction), removeListener: Schema.declare(Predicate.isFunction) }) });
-const Themed = Schema.Struct({ theme: Schema.declare((held): held is ThemeEvents => Schema.is(ThemeEvents)(held)) });
+const Themed = Schema.Struct({ theme: Schema.declare((value): value is ThemeEvents => Schema.is(ThemeEvents)(value)) });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -85,9 +85,10 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             Effect.validate(([key, value]) => Effect.try({ try: () => Object.assign(target, { [key]: value }), catch: HostError.refused(`restore of ${key}`) }), { discard: true }),
             Effect.orDie,
         );
-    static readonly preserve = <T extends object>(target: T, replacements: Partial<T>, held: readonly string[] = Struct.keys(replacements)) => {
-        const refused = HostError.refused(`preferences ${held.join(', ')}`);
-        return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(held, (key): readonly [string, unknown] => [key, Reflect.get(target, key)]), catch: refused }), (saved) => Uxp.restore(target, saved)).pipe(Effect.tap(Effect.try({ try: () => Object.assign(target, replacements), catch: refused })));
+    static readonly preserve = <T extends object>(target: T, replacements: Partial<T>, keys: readonly string[] = Struct.keys(replacements)) => {
+        const refused = HostError.refused(`preferences ${keys.join(', ')}`);
+        const current = (key: string): unknown => Reflect.get(target, key);
+        return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(keys, (key) => [key, current(key)] as const), catch: refused }), (saved) => Uxp.restore(target, saved)).pipe(Effect.tap(Effect.try({ try: () => Object.assign(target, replacements), catch: refused })));
     };
     static readonly members = (prototype: object) => {
         const declared = (each: object) => {

@@ -104,9 +104,9 @@ const configured = (inferred: Targets, options: Options): Targets => {
         return option === false ? undefined : (option?.targetName ?? key);
     };
     const renamed = (dependency: string) => {
-        const upstream = dependency.startsWith('^') ? '^' : '';
-        const key = dependency.slice(upstream.length);
-        return Option.map(Option.fromUndefinedOr(key in inferred ? named(key) : key), (name) => `${upstream}${name}`);
+        const upstream = dependency.startsWith('^');
+        const key = upstream ? dependency.slice(1) : dependency;
+        return Option.map(Option.fromUndefinedOr(key in inferred ? named(key) : key), (name) => (upstream ? `^${name}` : name));
     };
     return Record.fromEntries(
         Record.toEntries(inferred).flatMap(([key, target]): readonly (readonly [string, TargetConfiguration])[] => {
@@ -118,11 +118,11 @@ const configured = (inferred: Targets, options: Options): Targets => {
     );
 };
 
-const aggregated = (held: Targets, technologies: readonly string[]): Targets => ({
-    ...held,
+const aggregated = (declared: Targets, technologies: readonly string[]): Targets => ({
+    ...declared,
     ...Record.map(
         Array.groupBy(
-            Record.toEntries(held).filter(([name]) => name.includes('--')),
+            Record.toEntries(declared).filter(([name]) => name.includes('--')),
             ([name]) => name.slice(0, name.indexOf('--')),
         ),
         (members, verb): TargetConfiguration => ({

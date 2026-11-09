@@ -58,7 +58,7 @@ class Output(StrEnum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _RESERVED: Final = r'\x00-\x1f"*:<>?|'
-_UNLITERAL = re.compile(r"[{}\x00]")
+_BRACES = re.compile(r"[{}\x00]")
 _SEPARATOR = re.compile(r"[\W_]")
 _VERSION = re.compile(r"(?i)(?<![^\W\d_])(?:version|v)[._]?(\d+)")
 
@@ -106,7 +106,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         def parted(text: str, name: str | None, spec: str | None, conversion: str | None) -> Outcome[tuple[_Part, ...]]:
             literal: tuple[_Part, ...] = (Text(text=text),) if text else ()
             match name, spec, conversion:
-                case _ if _UNLITERAL.search(text):
+                case _ if _BRACES.search(text):
                     return Error(Fault.of(Reason.OUTSIDE, template, text, member="literal text without braces or NUL"))
                 case None, _, _:
                     return Ok(literal)
@@ -178,7 +178,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                     value = Option.of_optional(raw).filter(lambda held: pattern.fullmatch(held) is not None)
                 case NumberField(key=key, width=width):
                     raw = fields.numbers.get(key)
-                    value = Option.of_optional(raw).filter(lambda count: key is NumberKey.FRAME or count >= 0).map(lambda count: "%.*d" % (width, count))  # ruff: ignore[printf-string-formatting]
+                    value = Option.of_optional(raw).filter(lambda count: key is NumberKey.FRAME or count >= 0).map(lambda count: f"{count:0{width + (count < 0)}d}")
             return written(part).or_else(value).to_result_with(lambda: Fault.of(Reason.OUTSIDE, f"{{{key}}}", raw, member=pattern.pattern))
 
         return accumulated(map(spelled, self.parts)).map("".join)
@@ -208,12 +208,12 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             .to_result_with(functools.partial(Fault.of, Reason.OUTSIDE, type(self).__name__, text, member=grammar.pattern))
         )
 
-    def path(self, root: Path, fields: Fields, *, suffix: str = "", written: Callable[[Field], Option[str]] = lambda _: Nothing) -> Outcome[Path]:
-        """Composes path with its file suffix, refusing one resolving outside root."""
+    def path(self, root: Path, fields: Fields, *, suffix: str | None = None, written: Callable[[Field], Option[str]] = lambda _: Nothing) -> Outcome[Path]:
+        """Composes path with its file suffix when one is given, refusing one resolving outside root."""
         return (
             self
             .compose(fields, written)
-            .map(lambda text: root.joinpath(f"{text}{suffix}"))
+            .map(lambda text: root.joinpath(text if suffix is None else f"{text}{suffix}"))
             .map(lambda path: (path, path.resolve(), root.resolve()))
             .filter_with(lambda paths: paths[1].is_relative_to(paths[2]), lambda paths: Fault.of(Reason.OUTSIDE, str(paths[2]), str(paths[1]), member="paths beneath it"))
             .map(lambda paths: paths[0])

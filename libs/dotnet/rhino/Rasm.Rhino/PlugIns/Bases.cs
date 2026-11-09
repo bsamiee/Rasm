@@ -190,12 +190,12 @@ internal static class FileFormats {
 
     private static Unit DisplayOptionsDialog<TOptions>(IterableNE<FileFormat<TOptions>> formats, string description, string extension) where TOptions : class =>
         Session.Run(
-            (from dialog in IO.lift(() => toSeq(formats)
+            (from dialog in IO.lift(() => FileExtension.Validated($"{FileExtension.Mark}{extension}").Bind(wanted => toSeq(formats)
                  .Find(format =>
                      string.Equals(LocalText.Of(format.Description).Local, description, StringComparison.Ordinal)
-                     && format.Extensions.Any(candidate => string.Equals(((string)candidate)[1..], extension, StringComparison.Ordinal)))
+                     && format.Extensions.Any(candidate => candidate == wanted))
                  .Bind(static format => format.Options)
-                 .ToFin(new RhinoFault((description, extension), RhinoReason.Missing)))
+                 .ToFin(new RhinoFault((description, extension), RhinoReason.Missing))))
              from shown in Documents.With(new DocumentSource.Active(), document => Showing.ShowSemiModal(dialog, document))
              select unit)
                 | @catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit)));

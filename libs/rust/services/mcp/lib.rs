@@ -1,4 +1,4 @@
-#![feature(associated_type_defaults, default_field_values, error_reporter, integer_casts, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
+#![feature(associated_type_defaults, byte_str, default_field_values, error_reporter, integer_casts, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
 
 use core::{
     error::Error,
@@ -166,7 +166,7 @@ pub enum McpError {
     Completion {
         prompt: String,
     },
-    #[error("{count} declarations failed{listed}", count = .errors.len(), listed = fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", Report::new(error)))))]
+    #[error("cannot register {count} declarations{listed}", count = .errors.len(), listed = fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", Report::new(error)))))]
     Declarations {
         #[serde(skip)]
         errors: NEVec<Self>,
@@ -223,7 +223,7 @@ pub enum McpError {
         #[serde(skip)]
         source: io::Error,
     },
-    #[error("upstream handshake failed")]
+    #[error("cannot complete the upstream handshake")]
     Handshake {
         #[serde(skip)]
         source: Box<ClientInitializeError>,

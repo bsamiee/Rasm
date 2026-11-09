@@ -235,20 +235,20 @@ pub(super) fn written(text: &rasm_drawing::Text, frame: Affine) -> (EntityType, 
             ..SpanProperties::default()
         }
     };
-    let content: &str = &text.content;
+    let content = &*text.content;
     let paragraphs = content
         .split('\n')
-        .scan(0_usize, |start, line| {
-            let begin = *start;
-            *start = begin.strict_add(line.len()).strict_add(1);
-            Some((begin, begin.strict_add(line.len())))
-        })
-        .map(|(begin, end)| {
+        .filter_map(|line| content.substr_range(line))
+        .map(|Range { start: begin, end }| {
             let cuts = iter::chain([begin, end], text.spans.iter().flat_map(|span| [span.range.start, span.range.end]))
                 .filter(|cut| (begin..=end).contains(cut) && content.is_char_boundary(*cut))
                 .collect::<BTreeSet<_>>();
             MTextParagraph {
-                spans: cuts.iter().tuple_windows::<(_, _)>().map(|(&low, &high)| MTextSpan::new(&content[low..high], properties(Range { start: low, end: high }))).collect(),
+                spans: cuts
+                    .iter()
+                    .tuple_windows::<(_, _)>()
+                    .filter_map(|(&low, &high)| Some(MTextSpan::new(content.get(low..high)?, properties(Range { start: low, end: high }))))
+                    .collect(),
                 ..MTextParagraph::new()
             }
         })

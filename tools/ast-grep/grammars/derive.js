@@ -11,7 +11,7 @@ const LEXICAL = new Set(['STRING', 'PATTERN', 'TOKEN', 'IMMEDIATE_TOKEN']);
 
 // --- [AUTOMATA]
 
-const written = ({ value, flags }) => refa.JS.Parser.fromLiteral({ source: value, flags: `u${flags?.includes('i') ? 'i' : ''}` }).parse().expression.alternatives;
+const written = ({ value, flags }) => refa.JS.Parser.fromLiteral({ source: value, flags: flags?.includes('i') === true ? 'ui' : 'u' }).parse().expression.alternatives;
 const fragment = (rule, parse) => {
     const within = (part) => fragment(part, parse);
     const repeated = (min) => [{ type: 'Concatenation', elements: [{ type: 'Quantifier', min, max: Number.POSITIVE_INFINITY, lazy: false, alternatives: within(rule.content) }] }];
@@ -25,7 +25,7 @@ const fragment = (rule, parse) => {
         REPEAT1: () => repeated(1),
     };
     if (forms[rule.type] === undefined && rule.content === undefined) {
-        throw new SyntaxError(`${rule.type} ${rule.name ?? ''} is not lexical`);
+        throw new SyntaxError(rule.name === undefined ? `${rule.type} is not lexical` : `${rule.type} ${rule.name} is not lexical`);
     }
     return (forms[rule.type] ?? (() => within(rule.content)))();
 };
@@ -37,9 +37,8 @@ const minimal = (fa) => {
 };
 const point = (code) => `\\u{${code.toString(HEXADECIMAL)}}`;
 const span = ({ min, max }) => (min === max ? point(min) : `${point(min)}-${point(max)}`);
-const bound = (max) => (Number.isFinite(max) ? String(max) : '');
-const quantity = ({ type, min, max }) => (type === 'Quantifier' ? `{${min},${bound(max)}}` : '');
-const element = (part) => (part.type === 'CharacterClass' ? `[${part.characters.ranges.map(span).join('')}]` : `(?:${spelled(part.alternatives)})${quantity(part)}`);
+const quantity = ({ min, max }) => (Number.isFinite(max) ? `{${min},${max}}` : `{${min},}`);
+const element = (part) => (part.type === 'CharacterClass' ? `[${part.characters.ranges.map(span).join('')}]` : [`(?:${spelled(part.alternatives)})`, ...(part.type === 'Quantifier' ? [quantity(part)] : [])].join(''));
 const spelled = (alternatives) => alternatives.map(({ elements }) => elements.map(element).join('')).join('|');
 const pattern = (fa) => ({ type: 'PATTERN', value: spelled(fa.toRegex().alternatives) });
 const without = (kept, removed) => {

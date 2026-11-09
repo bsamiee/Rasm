@@ -44,7 +44,7 @@ class Shaped(msgspec.Struct, frozen=True, kw_only=True):
     """Text shaped under one language, its glyphs in visual order and the glyph list `hb-shape` prints between its brackets, the form fontspector expectations hold."""
 
     text: str
-    language: str
+    language: str | None
     placed: tuple[_Placed, ...]
     serialized: str
 
@@ -89,6 +89,11 @@ class Binary[T: bytes | TTFont = bytes]:
         return hash(self.data) if isinstance(self.data, bytes) else object.__hash__(self)
 
     # --- [READS]
+
+    @cached_property
+    def upem(self) -> int:
+        """Units per em the native face states."""
+        return int(self.face.upem)
 
     @cached_property
     def face(self) -> Face:  # type: ignore[no-any-unimported]
@@ -151,7 +156,7 @@ class Binary[T: bytes | TTFont = bytes]:
         text: str,
         /,
         *,
-        language: str = "",
+        language: str | None = None,
         features: Mapping[str, int | bool | Sequence[tuple[int, int, int | bool]]] = frozendict(),
         shapers: tuple[str, ...] = ("ot",),
         direction: _Direction | None = None,
@@ -160,7 +165,7 @@ class Binary[T: bytes | TTFont = bytes]:
 
         Args:
             text: Characters of the run.
-            language: BCP 47 tag selecting the font's language system, empty for its default system.
+            language: BCP 47 tag selecting the font's language system, `None` for its default system.
             features: Native feature selectors over the whole run or cluster ranges.
             shapers: Native shapers in fallback order, empty for the native default.
             direction: Run direction in place of the guessed one.
@@ -178,7 +183,8 @@ class Binary[T: bytes | TTFont = bytes]:
         if direction is not None:
             buffer.direction = direction
         buffer.guess_segment_properties()
-        buffer.language = language
+        if language is not None:
+            buffer.language = language
         shape(font, buffer, dict(features), shapers=list(shapers))
         positions = buffer.glyph_positions
         pens = zip(accumulate((position.x_advance for position in positions), initial=0), accumulate((position.y_advance for position in positions), initial=0), strict=False)
@@ -233,11 +239,11 @@ class Binary[T: bytes | TTFont = bytes]:
         return measured
 
     @cached_property
-    def placed_extents(self) -> Callable[[str, str], tuple[tuple[_Placed, _Box], ...]]:
+    def placed_extents(self) -> Callable[[str, str | None], tuple[tuple[_Placed, _Box], ...]]:
         """Shaped glyphs with their curve extents at their positions, memoized for this binary."""
 
         @cache
-        def placed(text: str, language: str, /) -> tuple[tuple[_Placed, _Box], ...]:
+        def placed(text: str, language: str | None, /) -> tuple[tuple[_Placed, _Box], ...]:
             return tuple((glyph, box.shifted(glyph.x, glyph.y)) for glyph in self.shaped(text, language=language).placed if (box := self.extent(glyph.glyph)))
 
         return placed

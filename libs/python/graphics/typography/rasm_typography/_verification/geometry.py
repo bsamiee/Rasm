@@ -51,7 +51,7 @@ def _split(binary: Binary, nuqta: float, glyph: str, /) -> tuple[_Outline, tuple
     return tuple(contour for index, (size, piece) in enumerate(held) if index == 0 or size > limit for contour in piece), tuple(piece for size, piece in held[1:] if size <= limit)
 
 
-def _letter(binary: Binary, form: str, language: str, /) -> str:
+def _letter(binary: Binary, form: str, language: str | None, /) -> str:
     """Drawn glyph the letter of a form run shapes to, the joiners before it and the marks after it passed over."""
     cluster = len(form.encode()) - len(form.lstrip("\N{ZERO WIDTH JOINER}").encode())
     return next((placed.glyph for placed, _ in binary.placed_extents(form, language) if placed.cluster == cluster and placed.glyph not in binary.marks), binary.order[0])
@@ -71,16 +71,16 @@ def _clearance(binary: Binary, corpus: Corpus, floor: float, /) -> tuple[_Breach
     Returns:
         The lowest gap of each glyph pair under its reach, with the run that showed it.
     """
-    split, boxes, minimum = cache(partial(_split, binary, _nuqta(binary))), cache(_bounds), floor * binary.face.upem
+    split, boxes, minimum = cache(partial(_split, binary, _nuqta(binary))), cache(_bounds), floor * binary.upem
 
     @cache
     def grown(outline: _Outline, reach: float, /) -> _Outline:
         return _offset(outline, reach) if reach else outline
 
-    def clashes(text: str, language: str, /) -> tuple[tuple[tuple[str, ...], float, float], ...]:
+    def clashes(text: str, language: str | None, /) -> tuple[tuple[tuple[str, ...], float, float], ...]:
         extents, held = binary.placed_extents(text, language), binary.marks
-        return tuple(  # ty: ignore[unsound-return-statement]
-            (tuple(sorted((placed.glyph, other.glyph))), apart / binary.face.upem, reach / binary.face.upem)
+        return tuple(
+            (tuple(sorted((placed.glyph, other.glyph))), apart / binary.upem, reach / binary.upem)
             for placed, piece, reaches in (
                 *((placed, binary.outline(placed.glyph), (minimum, 0.0)) for placed, _ in extents if placed.glyph in held),
                 *((placed, piece, (0.0, None)) for placed, _ in extents if placed.glyph not in held for piece in split(placed.glyph)[1]),
@@ -94,7 +94,7 @@ def _clearance(binary: Binary, corpus: Corpus, floor: float, /) -> tuple[_Breach
             and (apart := _gap(_transformed(piece, shift), near)) < reach
         )
 
-    around = next((chr(code) for code in corpus.letters if _Joining.of(code) is _Joining.DUAL), "")
+    around = next((chr(code) for code in corpus.letters if _Joining.of(code) is _Joining.DUAL), None)
     texts = dict.fromkeys((*corpus.matrix, *corpus.pairs(), *corpus.pairs(around), *corpus.word_runs))
     found = sorted((pair, measured, bound, text) for language in corpus.languages for text in texts for pair, measured, bound in clashes(text, language))
     return tuple((f"{' '.join(pair)} in {text}", measured, bound) for pair, group in groupby(found, key=lambda clash: clash[0]) for _, measured, bound, text in (next(group),))
@@ -103,14 +103,14 @@ def _clearance(binary: Binary, corpus: Corpus, floor: float, /) -> tuple[_Breach
 def _mark_line(binary: Binary, corpus: Corpus, tolerance: float, /) -> tuple[_Breach, ...]:
     """Spread of the bottoms of the single above marks over each letter form, held within a tolerance in em."""
     above, held = tuple(stack for stack in corpus.vowel_stacks if len(stack) == 1 and _Side.of(ord(stack)) is _Side.ABOVE), binary.marks
-    return tuple(  # ty: ignore[unsound-return-statement]
+    return tuple(
         dict.fromkeys(
-            (_letter(binary, form, language), spread / binary.face.upem, tolerance)
+            (_letter(binary, form, language), spread / binary.upem, tolerance)
             for code in corpus.letters
             for language in corpus.languages
             for index, form in enumerate(corpus.forms(code))
             if len(bottoms := tuple(box.ymin for stack in above for placed, box in binary.placed_extents(corpus.forms(code, stack)[index], language) if placed.glyph in held)) > 1
-            and (spread := max(bottoms) - min(bottoms)) > tolerance * binary.face.upem
+            and (spread := max(bottoms) - min(bottoms)) > tolerance * binary.upem
         )
     )
 
@@ -129,13 +129,13 @@ def _ligature_area(binary: Binary, ratio: float, /) -> tuple[_Breach, ...]:
         for first, rules in sub.ligatures.items()
         for rule in rules
     )
-    return tuple(  # ty: ignore[unsound-return-statement]
+    return tuple(
         dict.fromkeys(
             (f"{target} {measure}", value, ratio)
             for glyph, parts in ligatures
             for target in (binary.order[font.getGlyphID(glyph)],)
             for whole, box in ((math.fsum(_area(binary.outline(binary.order[font.getGlyphID(part)])) for part in parts), binary.extent(target)),)
-            for measure, measured, reference in (("area", _area(binary.outline(target)), whole), ("span", box.width if box else 0.0, font["hmtx"][glyph][0]))
+            for measure, measured, reference in (("area", _area(binary.outline(target)), whole), ("span", box.width if box else 0.0, float(font["hmtx"][glyph][0])))
             if measured < ratio * reference
             for value in (measured / reference,)
         )
@@ -190,13 +190,13 @@ def _join_parity(binary: Binary, corpus: Corpus, /) -> tuple[_Breach, ...]:
     """Distance between the pen positions of each joined letter pair with `kern` on against off, held at zero."""
     held = binary.marks
 
-    def steps(text: str, language: str, features: frozendict[str, bool], /) -> tuple[tuple[str, str, float], ...]:
+    def steps(text: str, language: str | None, features: frozendict[str, bool], /) -> tuple[tuple[str, str, float], ...]:
         letters = tuple(placed for placed in binary.shaped(text, language=language, features=features).placed if placed.glyph not in held)
         return tuple((a.glyph, b.glyph, b.x - a.x) for a, b in pairwise(letters) if _GlyphName.parse(a.glyph).form.right and _GlyphName.parse(b.glyph).form.left)
 
-    return tuple(  # ty: ignore[unsound-return-statement]
+    return tuple(
         dict.fromkeys(
-            (f"{a} {b} in {text}", (on - off) / binary.face.upem, 0.0)
+            (f"{a} {b} in {text}", (on - off) / binary.upem, 0.0)
             for text in (*corpus.plain, *corpus.marked, *corpus.zwnj, *corpus.words)
             for language in corpus.languages
             for (a, b, on), (_, _, off) in zip(steps(text, language, frozendict()), steps(text, language, frozendict(kern=False)), strict=False)
@@ -222,7 +222,7 @@ def _seam(binary: Binary, corpus: Corpus, band: tuple[float, float], sizes: tupl
     """
 
     def ratios(outlines: tuple[tuple[_Outline, _Box], ...], box: _Box, size: int, /) -> tuple[float, ...]:
-        unit = binary.face.upem / size
+        unit = binary.upem / size
         bottom, top = math.floor(box.ymin / unit), math.ceil(box.ymax / unit)
         rows = top - bottom
         return tuple(
@@ -256,7 +256,7 @@ def _seam(binary: Binary, corpus: Corpus, band: tuple[float, float], sizes: tupl
 def _pitch(binary: Binary, /) -> float:
     """Line pitch in em the `hhea` ascender, descender, and line gap state."""
     hhea = binary.tables["hhea"]
-    return (hhea.ascent - hhea.descent + hhea.lineGap) / binary.face.upem  # type: ignore[no-any-return] # ty: ignore[unresolved-attribute, unsound-return-statement]
+    return float(hhea.ascent - hhea.descent + hhea.lineGap) / binary.upem  # ty: ignore[unresolved-attribute]
 
 
 def _metrics(binary: Binary, original: Binary, corpus: Corpus, pitch: tuple[float, float] | None, /) -> tuple[_Breach, ...]:
@@ -271,7 +271,7 @@ def _metrics(binary: Binary, original: Binary, corpus: Corpus, pitch: tuple[floa
     Returns:
         The line pitch outside its band and each win metric short of the outline extent.
     """
-    upm, line, os2 = binary.face.upem, _pitch(binary), binary.tables["OS/2"]
+    upm, line, os2 = binary.upem, _pitch(binary), binary.tables["OS/2"]
     low, high = pitch or (_pitch(original),) * 2
     glyphs = tuple((glyph, box) for glyph in binary.order if (box := binary.extent(glyph)))
     extents = (
@@ -285,18 +285,18 @@ def _metrics(binary: Binary, original: Binary, corpus: Corpus, pitch: tuple[floa
         ),
     )
     top, bottom = max(extents, key=lambda extent: extent[1].ymax, default=None), min(extents, key=lambda extent: extent[1].ymin, default=None)
-    return (  # ty: ignore[unsound-return-statement]
+    return (
         *((("line pitch", line, low if line < low else high),) if not low <= line <= high else ()),
-        *(((f"win ascent at {top[0]}", top[1].ymax / upm, os2.usWinAscent / upm),) if top and top[1].ymax > os2.usWinAscent else ()),  # ty: ignore[unresolved-attribute]
-        *(((f"win descent at {bottom[0]}", -bottom[1].ymin / upm, os2.usWinDescent / upm),) if bottom and -bottom[1].ymin > os2.usWinDescent else ()),  # ty: ignore[unresolved-attribute]
+        *(((f"win ascent at {top[0]}", top[1].ymax / upm, float(os2.usWinAscent) / upm),) if top and top[1].ymax > os2.usWinAscent else ()),  # ty: ignore[unresolved-attribute]
+        *(((f"win descent at {bottom[0]}", -bottom[1].ymin / upm, float(os2.usWinDescent) / upm),) if bottom and -bottom[1].ymin > os2.usWinDescent else ()),  # ty: ignore[unresolved-attribute]
     )
 
 
 def _reachable(binary: Binary, corpus: Corpus, shapers: tuple[str, ...], /) -> tuple[_Breach, ...]:
     """Counts glyph 0 under every shaper and language, with native backend failures reported independently."""
 
-    def measured(text: str, language: str, shaper: str, /) -> tuple[_Breach, ...]:
-        subject = f"{text} under {shaper} {language or 'dflt'}"
+    def measured(text: str, language: str | None, shaper: str, /) -> tuple[_Breach, ...]:
+        subject = f"{text} under {shaper} {'dflt' if language is None else language}"
         return (
             catch(binary.shaped, exception=RuntimeError)(text, language=language, shapers=(shaper,))
             .map(lambda run: ((subject, float(count), 0.0),) if (count := run.names.count(binary.order[0])) else ())

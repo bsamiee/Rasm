@@ -155,7 +155,7 @@ impl Solid {
 
 #[derive(Debug, thiserror::Error)]
 pub enum MeshError {
-    #[error("{operation} failed: {status}")]
+    #[error("cannot complete {operation}: {status}")]
     Kernel {
         operation: Operation,
         status: Error,

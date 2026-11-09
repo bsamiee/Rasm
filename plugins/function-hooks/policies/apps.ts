@@ -2,7 +2,7 @@ import { constants } from 'node:os';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Installation } from '@rasm/applications';
-import { Array, Effect, Option, Predicate, Record } from 'effect';
+import { Array, Effect, Option, Predicate, Record, String } from 'effect';
 import { installed, WATCHER } from '#/instances';
 import { type Call, type Fix, has, type Policy, quote, refusal, refuse, stages, when, whole, within } from '#/policies/fix';
 import type { Program } from '#/shell/programs';
@@ -28,12 +28,12 @@ const FINDERS = new Set(['ps', 'pgrep', 'pidof']);
 
 // --- [BUNDLES]
 
-const foreground = ({ activationPolicy }: Installation): boolean => activationPolicy === 'regular';
+const foreground = ({ activationPolicy }: Installation) => activationPolicy === 'regular';
 
 const launchLine = (subjects: readonly string[], documents: readonly string[], environment: readonly Word[] = [], args: readonly Word[] = []): string =>
     [WATCHER, 'launch', ...subjects, ...(documents.length > 0 ? ['--document', ...documents] : []), ...(environment.length > 0 ? ['--environment', ...environment.map(({ raw }) => raw)] : []), ...(args.length > 0 ? ['--arguments', ...args.map(({ raw }) => raw)] : [])].join(' ');
 
-const installationsOf = ({ text }: Word, cwd: Option.Option<string>, { host }: Call) => Effect.map(installed(text.includes('/') ? Option.toArray(host.place(text, cwd)) : [text]), (found) => Record.values(found).flat());
+const installationsOf = ({ text }: Word, cwd: Option.Option<string>, { host }: Call) => Effect.map(installed(text.includes('/') ? Option.toArray(host.place(text, cwd)) : [text]), (installations) => Record.values(installations).flat());
 
 const headlessPath = ([installation, ...others]: readonly Installation[], rest: readonly Word[], programs: ReadonlyMap<string, Program>): Option.Option<string> =>
     Option.map(
@@ -107,8 +107,23 @@ const statements = (lines: readonly string[]) =>
             if (app !== undefined && body === undefined) {
                 return [[...stack, app], []];
             }
-            const launching = LAUNCHING.exec(body ?? line);
-            return [stack, [{ app: app ?? stack.at(-1), launches: launching !== null, path: launching?.groups?.path }]];
+            const launching = body ?? line;
+            return [
+                stack,
+                [
+                    {
+                        app: app ?? stack.at(-1),
+                        launches: LAUNCHING.test(launching),
+                        path: Option.getOrUndefined(
+                            String.match(LAUNCHING)(launching).pipe(
+                                Option.flatMapNullishOr(({ groups }) => groups),
+                                Option.flatMap(Record.get('path')),
+                                Option.filter(Predicate.isString),
+                            ),
+                        ),
+                    },
+                ],
+            ];
         },
     )[1].flat();
 
@@ -142,21 +157,30 @@ const absoluteArgument =
             Option.filter(host.place(word.text, cwd), () => word.known && !word.text.startsWith('-') && !host.path.isAbsolute(word.text)),
             {
                 onNone: () => Effect.succeed(word),
-                onSome: (place) => Effect.map(host.exists(place), (held) => (held ? { ...word, raw: quote(place) } : word)),
+                onSome: (place) => Effect.map(host.exists(place), (exists) => (exists ? { ...word, raw: quote(place) } : word)),
             },
         );
 
 const binary: Fix = (site, call) => {
-    const head = Option.getOrElse(call.host.place(site.head.text, site.command.cwd), () => '');
-    const bundle = BUNDLE.exec(head)?.groups?.bundle;
-    return bundle === undefined || site.has(...(site.row.headless ?? []))
-        ? []
-        : Effect.gen(function* () {
-              const found = Record.values(yield* installed([bundle])).flat();
-              const args = yield* Effect.forEach(site.words.slice(1), absoluteArgument(call, site.command.cwd));
-              const runs = found.some((installation) => foreground(installation) && Option.exists(installation.executable, ({ href }) => fileURLToPath(href) === head));
-              return runs ? whole(site, launchLine([quote(bundle)], [], site.assigned, args), site.program, site.assigned[0]) : [];
-          });
+    const executable = Option.filter(call.host.place(site.head.text, site.command.cwd), () => !site.has(...(site.row.headless ?? [])));
+    return Option.match(
+        Option.all({
+            head: executable,
+            bundle: Option.flatMap(executable, String.match(BUNDLE)).pipe(
+                Option.flatMapNullishOr(({ groups }) => groups),
+                Option.flatMap(Record.get('bundle')),
+            ),
+        }),
+        {
+            onNone: () => [],
+            onSome: Effect.fnUntraced(function* ({ head, bundle }) {
+                const installations = Record.values(yield* installed([bundle])).flat();
+                const args = yield* Effect.forEach(site.words.slice(1), absoluteArgument(call, site.command.cwd));
+                const runs = installations.some((installation) => foreground(installation) && Option.exists(installation.executable, ({ href }) => fileURLToPath(href) === head));
+                return runs ? whole(site, launchLine([quote(bundle)], [], site.assigned, args), site.program, site.assigned[0]) : [];
+            }),
+        },
+    );
 };
 
 // --- [KILLS]

@@ -55,8 +55,8 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
                 Option.match(riwayah, {
                     onNone: () => true,
                     onSome: (name) => {
-                        const found = surahs.flatMap(uncounted(getListsOfRiwaya(name)));
-                        return Array.isReadonlyArrayEmpty(found) || `${name} counts no ${found.join(', ')}`;
+                        const missing = surahs.flatMap(uncounted(getListsOfRiwaya(name)));
+                        return Array.isReadonlyArrayEmpty(missing) || `${name} counts no ${missing.join(', ')}`;
                     },
                 }),
             { description: 'Surah and ayah numbers the riwayah counts' },
@@ -114,7 +114,7 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
     }
     select(selection: typeof Quran.Selection.Type): Effect.Effect<readonly Ayah[], Unmatched> {
         return Quran.Selection.match(selection, {
-            Surah: ({ surah, from, to }) => Effect.flatMap(this.surah(surah), (found) => (Option.isNone(this.riwayah) ? within(found, { from, to }) : counted(this, { _tag: 'Part', part: 'surah', number: found.number, from, to }))),
+            Surah: ({ surah, from, to }) => Effect.flatMap(this.surah(surah), (chapter) => (Option.isNone(this.riwayah) ? within(chapter, { from, to }) : counted(this, { _tag: 'Part', part: 'surah', number: chapter.number, from, to }))),
             Part: (part) => counted(this, part),
         });
     }

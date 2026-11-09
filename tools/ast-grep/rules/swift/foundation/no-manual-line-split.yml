@@ -39,50 +39,55 @@ utils:
                                     - matches: newline-byte
                                     - inside: {kind: for_statement, stopBy: end, has: {field: item, follows: {regex: '^await$'}}}
 rule:
-    kind: for_statement
-    all:
-        - has: {field: collection, pattern: $BYTES}
-        - has: {field: item, has: {field: bound_identifier, pattern: $B}}
-        - not: {has: {stopBy: end, kind: call_expression, all: [{has: {kind: navigation_expression, regex: '^[^(]+\.decode$'}}, {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}, has: {field: name, regex: '^from$'}}}}}]}}
-        - has:
-            kind: statements
-            has:
-                stopBy: end
-                any:
-                    - kind: equality_expression
-                      all:
-                        - has: {pattern: $B}
-                        - has: {matches: newline}
-                    - kind: switch_statement
-                      all:
-                        - has: {pattern: $B}
-                        - has: {kind: switch_entry, has: {kind: switch_pattern, has: {matches: newline, stopBy: end}}}
-                    - pattern: $B.isNewline
-                    - pattern: $_.newlines.contains($B)
-                    - all:
-                        - matches: newline-search
-                        - any:
-                            - has: {stopBy: end, pattern: $B}
-                            - all:
-                                - has: {kind: navigation_expression, has: {field: target, pattern: $BUF}}
-                                - inside:
-                                    kind: statements
-                                    stopBy: end
-                                    has:
+    any:
+        - kind: call_expression
+          all:
+            - has: {kind: navigation_expression, all: [{has: {field: target, pattern: $BYTES}}, {has: {field: suffix, regex: '^\.(split|components)$'}}]}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, kind: line_string_literal, regex: '^"((\\r)?\\n|\\u\{0*[aA]\})"$'}}}}
+        - kind: for_statement
+          all:
+            - has: {field: collection, pattern: $BYTES}
+            - has: {field: item, has: {field: bound_identifier, pattern: $B}}
+            - not: {has: {stopBy: end, kind: call_expression, all: [{has: {kind: navigation_expression, regex: '^[^(]+\.decode$'}}, {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}, has: {field: name, regex: '^from$'}}}}}]}}
+            - has:
+                kind: statements
+                has:
+                    stopBy: end
+                    any:
+                        - kind: equality_expression
+                          all:
+                            - has: {pattern: $B}
+                            - has: {matches: newline}
+                        - kind: switch_statement
+                          all:
+                            - has: {pattern: $B}
+                            - has: {kind: switch_entry, has: {kind: switch_pattern, has: {matches: newline, stopBy: end}}}
+                        - pattern: $B.isNewline
+                        - pattern: $_.newlines.contains($B)
+                        - all:
+                            - matches: newline-search
+                            - any:
+                                - has: {stopBy: end, pattern: $B}
+                                - all:
+                                    - has: {kind: navigation_expression, has: {field: target, pattern: $BUF}}
+                                    - inside:
+                                        kind: statements
                                         stopBy: end
-                                        any: [{pattern: '$BUF.append($$$)'}, {pattern: '$BUF += $_'}]
                                         has:
                                             stopBy: end
-                                            any:
-                                                - pattern: $B
-                                                - kind: simple_identifier
-                                                  pattern: $PIECE
-                                                  inside:
-                                                    kind: statements
-                                                    stopBy: end
-                                                    has:
-                                                        kind: property_declaration
-                                                        all:
-                                                            - has: {kind: pattern, has: {field: bound_identifier, pattern: $PIECE}, precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, any: [{pattern: $B}, {has: {stopBy: end, pattern: $B}}]}}
-message: '`for` over `$BYTES` splits lines by hand'
+                                            any: [{pattern: '$BUF.append($$$)'}, {pattern: '$BUF += $_'}]
+                                            has:
+                                                stopBy: end
+                                                any:
+                                                    - pattern: $B
+                                                    - kind: simple_identifier
+                                                      pattern: $PIECE
+                                                      inside:
+                                                        kind: statements
+                                                        stopBy: end
+                                                        has:
+                                                            kind: property_declaration
+                                                            all:
+                                                                - has: {kind: pattern, has: {field: bound_identifier, pattern: $PIECE}, precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, any: [{pattern: $B}, {has: {stopBy: end, pattern: $B}}]}}
+message: '`$BYTES` splits lines by hand'
 note: 'Read JSON with Encoding `jsonLines` or Subprocess `strings(separatedBy: .unicodeScalarSequence(["\n"]))`, text with `lines` or `\.isNewline`'

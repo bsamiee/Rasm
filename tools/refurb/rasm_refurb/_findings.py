@@ -1,9 +1,10 @@
 """Finding base every Rasm check derives, and the mypy fullname of a runtime declaration."""
 
 from typing import override, Protocol
-lazy import re
 
 from refurb.error import Error
+
+from rasm_records import words
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -27,7 +28,7 @@ class RasmError(Error):
     @override
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
-        cls.name = "-".join(word.lower() for word in re.findall(r"[A-Z\d]+(?![a-z])|[A-Z\d][a-z\d]*", cls.__name__.removeprefix("Error").removesuffix("Error")))
+        cls.name = "-".join(word.lower() for word in words(cls.__name__.removeprefix("Error").removesuffix("Error")))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

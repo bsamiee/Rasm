@@ -40,7 +40,7 @@ final class AccountModel {
     func run(_ operation: AccountOperation, _ work: @escaping @MainActor () async -> Void) {
         guard acceptsOperation else { return }
         let previous: Task<Void, Never>? = running?.task
-        let token: UUID = UUID()
+        let token = UUID()
         running = RunningOperation(
             token: token,
             kind: operation,

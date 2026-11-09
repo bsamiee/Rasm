@@ -104,8 +104,8 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                                 <span className="text-muted basis-full text-xs" role="status">
                                     {Match.value({ query, ...state.matchesCount }).pipe(
                                         Match.when({ query: '' }, () => 'Search drawing numbers or text'),
-                                        Match.when({ total: 0 }, ({ total }) => format.quantity(total, { one: (shown) => `${shown} match`, other: (shown) => `${shown} matches` })),
-                                        Match.orElse(({ current, total }) => format.quantity(total, { one: (shown) => `${current} of ${shown} match`, other: (shown) => `${current} of ${shown} matches` })),
+                                        Match.when({ total: 0 }, ({ total }) => format.quantity(total, { one: (count) => `${count} match`, other: (count) => `${count} matches` })),
+                                        Match.orElse(({ current, total }) => format.quantity(total, { one: (count) => `${current} of ${count} match`, other: (count) => `${current} of ${count} matches` })),
                                     )}
                                 </span>
                             </div>

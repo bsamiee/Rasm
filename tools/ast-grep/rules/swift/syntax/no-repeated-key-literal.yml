@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: swiftlang
+severity: error
+rule:
+    kind: line_string_literal
+    regex: '^"[A-Z][A-Z0-9]*(_[A-Z0-9]+)+"$'
+    pattern: $KEY
+    inside:
+        stopBy: end
+        follows: {stopBy: end, has: {stopBy: end, kind: line_string_literal, pattern: $KEY}}
+message: '`$KEY` repeats a key literal stated earlier in this file'
+note: 'Declare the key once as a constant, a `String`-backed enum case, or a host key type (`Environment.Key`), and read it at each use'

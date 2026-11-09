@@ -611,6 +611,7 @@ pub extern "Rust" fn register_lints(session: &rustc_session::Session, store: &mu
         manual::manual_vec_from_fn,
         patterns::rest_pattern_workspace_field,
         patterns::wildcard_workspace_enum_match_arm,
+        representation::empty_string_default(format_args.clone()),
         representation::formatted_tracing_value(Rc::clone(&recorded), reported.clone()),
         representation::manual_reference_impl,
         representation::manual_serialization,

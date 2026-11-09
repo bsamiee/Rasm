@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: swiftlang
+severity: error
+utils:
+    encoding-call:
+        any:
+            - kind: call_expression
+              has: {kind: navigation_expression, has: {field: suffix, regex: '^\.(encode|encodeLine)$'}}
+            - kind: call_expression
+              has: {kind: simple_identifier, regex: '^(encode|encodeLine|encoded)$'}
+rule:
+    kind: dictionary_literal
+    pattern: $RECORD
+    has: {kind: line_string_literal, precedes: {regex: '^:$'}}
+    any:
+        - inside: {stopBy: {not: {kind: 'dictionary_literal, value_argument, value_arguments, call_suffix'}}, matches: encoding-call}
+        - inside: {stopBy: end, kind: navigation_expression, has: {field: suffix, regex: '^\.encode$'}}
+message: '`$RECORD` encodes a record as a dictionary with literal keys'
+note: 'Declare the record as an `Encodable` type, or write it through a keyed container over `CodingKeys` in `encode(to:)`'

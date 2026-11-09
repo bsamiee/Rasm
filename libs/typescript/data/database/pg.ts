@@ -1,13 +1,14 @@
+import { PgClient, PgTypes } from '@effect/sql-pg';
 import { traverse } from '@pgsql/traverse';
 import type { Node } from '@pgsql/types';
-import { PgClient, PgTypes } from '@effect/sql-pg';
 import { Array, Config, Duration, Effect, Equal, Equivalence, Exit, Filter, Function, flow, HashSet, Layer, Match, Option, Record, Result, Schema, Struct } from 'effect';
-import { SqlClient, SqlSchema, type Statement } from 'effect/sql';
+import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
 import type { Catalog } from '#/catalog';
 import { Column, type Kind } from '#/column';
 import { Engine } from '#/engine';
 import { constant, diff, type Identity, identifier, literal, methods, type referentialActions, render, unsupported } from '#/internal/reconcile';
+import { Tokenizer } from '#/relation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -31,7 +32,7 @@ const PgTable = Schema.Struct({
     rls: Schema.Boolean,
     force: Schema.Boolean,
     grants: Schema.Array(Schema.Tuple([Schema.String, Schema.String])),
-    columns: Schema.Array(Schema.Struct({ name: Schema.String, identity: Schema.NullOr(Schema.String), type: Schema.String, expression: Schema.NullOr(Schema.String), generated: Schema.Literals(['', 's', 'v']), required: Schema.Boolean, sources: Names })),
+    columns: Schema.Array(Schema.Struct({ name: Schema.String, identity: Schema.NullOr(Schema.String), type: Schema.String, expression: Schema.NullOr(Schema.String), generated: Schema.OptionFromNullOr(Schema.Literals(['STORED', 'VIRTUAL'])), required: Schema.Boolean, sources: Names })),
     checks: Schema.Array(Schema.Struct({ name: Schema.String, definition: Schema.String, columns: Names })),
     references: Schema.Array(Schema.Struct({ name: Schema.String, columns: Schema.NonEmptyArray(Schema.String), target: Schema.String, onDelete: Schema.Literals(Object.values(confdeltype)).transform(Record.keys(confdeltype)) })),
     invalid: Names,
@@ -63,8 +64,8 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly read: Engine['Service']['read'] = (sql, { name, textual }, scope) => (textual ? sql`${scope}${sql(name)}::text AS ${sql(name)}` : sql`${scope}${sql(name)}`);
     static readonly upsert: Engine['Service']['upsert'] = ({ sql, owner, unqualified, ignore, keys, reads, inserting, flags }, body, set) => {
         const parts = set.map(({ name }) => sql(name));
-        const update = sql`ON CONFLICT (${keys(unqualified)}) DO UPDATE SET ${sql.csv(parts.map((part) => sql`${part} = excluded.${part}`))} WHERE (${sql.csv(parts.map((part) => sql`${owner}.${part}`))}) IS DISTINCT FROM (${sql.csv(parts.map((part) => sql`excluded.${part}`))})`;
-        return inserting(body, Array.isReadonlyArrayNonEmpty(parts) ? update : ignore, sql`WITH (OLD AS ${sql(flags.previous)}) ${reads(unqualified, sql`${sql(flags.previous)} IS NULL AS ${sql(flags.inserted)}`)}`);
+        const update = sql.join('', false)(['ON CONFLICT (', keys(unqualified), ') DO UPDATE SET ', sql.csv(parts.map((part) => sql`${part} = excluded.${part}`)), ' WHERE (', sql.csv(parts.map((part) => sql`${owner}.${part}`)), ') IS DISTINCT FROM (', sql.csv(parts.map((part) => sql`excluded.${part}`)), ')']);
+        return inserting(body, Array.isReadonlyArrayNonEmpty(parts) ? update : ignore, sql.join('', false)(['WITH (OLD AS ', Statement.fragment([sql(flags.previous)]), ') ', reads(unqualified, sql`${sql(flags.previous)} IS NULL AS ${sql(flags.inserted)}`)]));
     };
     static readonly ensure: Engine['Service']['ensure'] = ({ sql, owner, unqualified, order, ignore, keys, reads, inserting }, body) => {
         const outer = sql.literal('t.');
@@ -75,7 +76,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly configuration = ({ configuration, filters }: { readonly configuration: string; readonly filters: readonly string[] }) => identifier([configuration, ...filters]);
     static readonly document = (sql: SqlClient.SqlClient, { columns, tokenizer }: Parameters<Engine['Service']['fulltext']>[2]) => {
         const joined = sql.join(` || ' ' || `, false)(columns.map(({ name }) => sql`coalesce(${sql(name)}, '')`));
-        return tokenizer === 'trigram' ? joined : sql`to_tsvector(${sql.literal(literal(Pg.configuration(tokenizer)))}, ${joined})`;
+        return Tokenizer.$match(tokenizer, { Trigram: () => joined, Words: (words) => sql.join('', false)(['to_tsvector(', literal(Pg.configuration(words)), ', ', joined, ')']) });
     };
     static readonly #engine = Layer.effect(
         Engine,
@@ -95,25 +96,24 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         Effect.fnUntraced(function* (...[context, searchable, text, pattern, marks, count]: Parameters<Engine['Service']['search']>) {
             const { sql, owner, prefix, unqualified, keys, reads, flags } = context;
             const [body, rank] = [Pg.document(sql, searchable), sql(flags.rank)];
-            const { score, source, filter, mark } = yield* Match.value(searchable.tokenizer).pipe(
-                Match.when('trigram', () =>
+            const { score, source, filter, mark } = yield* Tokenizer.$match(searchable.tokenizer, {
+                Trigram: () =>
                     Effect.map(extension, (namespace) => ({
                         score: sql`${sql.literal(namespace)}.word_similarity(${text}, ${body})`,
                         source: owner,
                         filter: sql`(${body}) ILIKE ${pattern}`,
-                        mark: (part: string, open: string, close: string) => sql`regexp_replace(${sql(part)}, ${`***=${text}`}, ${`${open.replaceAll('\\', '\\\\')}\\&${close.replaceAll('\\', '\\\\')}`}, 'gi')`,
+                        mark: (part: string, open: string, close: string) => sql`regexp_replace(${sql(part)}, ${['***=', text].join('')}, ${[open.replaceAll('\\', '\\\\'), '\\&', close.replaceAll('\\', '\\\\')].join('')}, 'gi')`,
                     })),
-                ),
-                Match.orElse((tokenizer) => {
-                    const dictionary = sql.literal(literal(Pg.configuration(tokenizer)));
+                Words: (words) => {
+                    const dictionary = sql.literal(literal(Pg.configuration(words)));
                     return Effect.succeed({
                         score: sql`ts_rank(${body}, q)`,
                         source: sql`${owner} CROSS JOIN plainto_tsquery(${dictionary}, ${text}) q`,
                         filter: sql`${body} @@ q`,
-                        mark: (part: string, open: string, close: string) => sql`ts_headline(${dictionary}, ${sql(part)}, q, ${`StartSel="${open.replaceAll('"', '""')}", StopSel="${close.replaceAll('"', '""')}", HighlightAll=true`})`,
+                        mark: (part: string, open: string, close: string) => sql`ts_headline(${dictionary}, ${sql(part)}, q, ${['StartSel="', open.replaceAll('"', '""'), '", StopSel="', close.replaceAll('"', '""'), '", HighlightAll=true'].join('')})`,
                     });
-                }),
-            );
+                },
+            });
             const marked = Option.match(marks, { onNone: () => sql.literal('NULL'), onSome: ({ open, close }) => sql`jsonb_build_object(${sql.csv(searchable.columns.flatMap((entry) => [literal(entry.field), mark(entry.name, open, close)]))})` });
             return yield* sql`SELECT ${reads(unqualified)}, ${score} AS ${rank}, ${marked} AS ${sql(flags.highlight)} FROM ${source} WHERE ${filter} ORDER BY ${rank} DESC, ${keys(prefix)} LIMIT ${count}`;
         });
@@ -129,7 +129,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             Match.when('instant', () => [sql`isfinite(${subject})`]),
             Match.orElse(() => []),
         );
-    static readonly projection: Engine['Service']['projection'] = (sql, { kind }, { from, path }) => sql`(${sql(from)} ${sql.literal(kind === 'json' ? '#>' : '#>>')} ARRAY[${sql.literal(path.map(literal).join(', '))}])${sql.literal(['json', 'text'].includes(kind) ? '' : `::${Pg.types[kind]}`)}`;
+    static readonly projection: Engine['Service']['projection'] = (sql, { kind }, { from, path }) => sql.join('', false)([sql`(${sql(from)} ${sql.literal(kind === 'json' ? '#>' : '#>>')} ARRAY[${sql.literal(path.map(literal).join(', '))}])`, ...(['json', 'text'].includes(kind) ? [] : ['::', Pg.types[kind]])]);
     static readonly generated: Engine['Service']['generated'] = (sql, expression) => sql`GENERATED ALWAYS AS (${expression}) VIRTUAL`;
     static readonly constraint: Engine['Service']['constraint'] = (sql, name, text) => sql`CONSTRAINT ${sql(name)} ${text}`;
     static readonly casefold: Engine['Service']['casefold'] = (sql, name) => sql`casefold(${sql(name)} COLLATE pg_unicode_fast)`;
@@ -143,11 +143,11 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         );
     static readonly projected: Engine['Service']['projected'] = (sql, expression) => sql`(${expression})`;
     static readonly methods: Engine['Service']['methods'] = methods;
-    static readonly covering: Engine['Service']['covering'] = (sql, _, include) => ({ keys: [], clause: Array.isReadonlyArrayNonEmpty(include) ? [sql`INCLUDE (${sql.csv(include.map((name) => sql`${sql(name)}`))})`] : [] });
+    static readonly covering: Engine['Service']['covering'] = (sql, _, include) => ({ keys: [], clause: Array.isReadonlyArrayNonEmpty(include) ? [sql.join('', false)(['INCLUDE (', sql.csv(include.map((name) => Statement.fragment([sql(name)]))), ')'])] : [] });
     static readonly suffix: Engine['Service']['suffix'] = () => '';
     static readonly fulltext: Engine['Service']['fulltext'] = (sql, owner, search) => {
         const [name, body] = [identifier([owner, 'search']), Pg.document(sql, search)];
-        const words = search.tokenizer === 'trigram' ? Option.none() : Option.some({ ...search.tokenizer, name: Pg.configuration(search.tokenizer) });
+        const words = Option.map(Option.liftPredicate(search.tokenizer, Tokenizer.$is('Words')), ({ configuration, filters }) => ({ name: Pg.configuration({ configuration, filters }), configuration, filters }));
         return {
             indexes: [
                 {
@@ -155,7 +155,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                     parts: ['search'],
                     extensions: Option.match(words, { onNone: () => [trigram.extension], onSome: () => [] }),
                     configuration: Option.filter(words, ({ filters }) => Array.isReadonlyArrayNonEmpty(filters)),
-                    text: (prefix, on) => sql`CREATE INDEX ${sql.literal(prefix)}${sql(name)} ON ${on} USING gin (${Option.match(words, { onNone: () => sql`(${body}) ${sql.literal(trigram.classes.gin)}`, onSome: () => body })})`,
+                    text: (modifiers, on) => sql`CREATE INDEX ${sql.join(' ', false)([...modifiers, Statement.fragment([sql(name)])])} ON ${on} USING gin (${Option.match(words, { onNone: () => sql.join('', false)(['(', body, ') ', trigram.classes.gin]), onSome: () => body })})`,
                 },
             ],
             virtual: Option.none(),
@@ -186,14 +186,14 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly role: Engine['Service']['role'] = (sql) => Effect.map(SqlSchema.findOne({ Request: Schema.Void, Result: Role, execute: () => sql`SELECT current_user AS role` })(undefined), Struct.get('role'));
     static readonly open: Engine['Service']['open'] = () => Effect.void;
     static readonly transactional = true;
-    static readonly #indexText = flow(Struct.get<ReturnType<typeof render>['indexes'][number], 'text'>('text'), Function.apply(''));
+    static readonly #indexText = flow(Struct.get<ReturnType<typeof render>['indexes'][number], 'text'>('text'), Function.apply([]));
     static readonly #reference: Node = { ColumnRef: { fields: [{ String: { sval: '$column' } }] } };
     static readonly #normalized = (column: string, definition: string) => {
         const parsed = parseSync(`ALTER TABLE _ ADD ${definition}`);
         traverse(parsed, { ColumnRef: (ref) => (Option.contains(Array.last<Node>(ref.node.fields), { String: { sval: column } }) ? ref.replaceWith(Pg.#reference) : undefined) });
         return deparseSync(parsed);
     };
-    static readonly #block = (sql: SqlClient.SqlClient, statements: readonly Statement.Statement<object>[]) => sql`DO ${sql.literal(literal(`BEGIN ${statements.map((statement) => `${statement.compile(true)[0]};`).join(' ')} END`))}`;
+    static readonly #block = (sql: SqlClient.SqlClient, statements: readonly Statement.Statement<object>[]) => sql`DO ${sql.literal(literal(['BEGIN', ...statements.map((statement) => [statement.compile(true)[0], ';'].join('')), 'END'].join(' ')))}`;
     static readonly plan: Engine['Service']['plan'] = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>) {
         const rendered = catalog.tables.map((declared) => ({ declared, rendered: render(sql, Pg, catalog, declared) }));
         const indexes = rendered.flatMap(({ rendered: table }) => table.indexes);
@@ -245,7 +245,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                         FROM pg_constraint n JOIN relations r ON r.oid = n.conrelid),
                     described AS (SELECT r.scratch, json_build_object('name', r.relname, 'identity', obj_description(r.oid, 'pg_class'), 'rls', r.relrowsecurity, 'force', r.relforcerowsecurity,
                         'grants', array(SELECT json_build_array(g.rolname, a.privilege_type) FROM aclexplode(r.relacl) a JOIN pg_roles g ON g.oid = a.grantee WHERE a.grantee <> r.relowner),
-                        'columns', array(SELECT json_build_object('name', a.attname, 'identity', col_description(a.attrelid, a.attnum), 'type', format_type(a.atttypid, a.atttypmod), 'expression', pg_get_expr(d.adbin, d.adrelid), 'generated', a.attgenerated::text,
+                        'columns', array(SELECT json_build_object('name', a.attname, 'identity', col_description(a.attrelid, a.attnum), 'type', format_type(a.atttypid, a.atttypmod), 'expression', pg_get_expr(d.adbin, d.adrelid), 'generated', CASE a.attgenerated WHEN 's' THEN 'STORED' WHEN 'v' THEN 'VIRTUAL' END,
                             'required', EXISTS (SELECT 1 FROM pg_constraint n WHERE n.conrelid = a.attrelid AND n.contype = 'n' AND n.conkey = ARRAY[a.attnum] AND n.convalidated),
                             'sources', array(SELECT s.attname::text FROM pg_depend p JOIN pg_attribute s ON (s.attrelid, s.attnum) = (p.refobjid, p.refobjsubid) WHERE p.classid = 'pg_attrdef'::regclass AND p.objid = d.oid AND p.refobjsubid > 0 AND s.attnum <> a.attnum))
                             FROM pg_attribute a LEFT JOIN pg_attrdef d ON (d.adrelid, d.adnum) = (a.attrelid, a.attnum) WHERE a.attrelid = r.oid AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum),
@@ -364,12 +364,22 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             const unmatched = Array.differenceWith(Equivalence.mapInput(Equivalence.String, Struct.get<(typeof had)[number], 'definition'>('definition')));
             const [obsolete, missing] = [unmatched(had, needs), unmatched(needs, had)];
             const movedColumns = new Set(moved.map(({ now }) => now.name));
-            const dependents = entry.live.columns.filter((row) => row.generated !== '' && !new Set(row.sources).isDisjointFrom(movedColumns));
+            const dependents = Array.filterMap(
+                entry.live.columns,
+                Filter.fromPredicateOption((row) =>
+                    Option.map(
+                        Option.filter(Option.all({ keyword: row.generated, expression: Option.fromNullOr(row.expression) }), () => !new Set(row.sources).isDisjointFrom(movedColumns)),
+                        (generated) => ({ ...row, ...generated }),
+                    ),
+                ),
+            );
             const dependentColumns = new Set(dependents.map(Struct.get('name')));
             const tightened = pairs.filter(({ wants, now }) => wants.required && !now.required).map(({ column }) => ({ column: column.name, constraint: identifier([name, column.name, 'not', 'null']) }));
             const changes = pairs.flatMap(({ column, wants, now }) => [
                 ...(now.type === wants.type ? [] : [sql`ALTER COLUMN ${sql(column.name)} TYPE ${sql.literal(wants.type)} USING ${sql(column.name)}::${sql.literal(wants.type)}`]),
-                ...(wants.generated !== '' || now.expression === wants.expression ? [] : [Option.match(Option.fromNullOr(wants.expression), { onNone: () => sql`ALTER COLUMN ${sql(column.name)} DROP DEFAULT`, onSome: (expression) => sql`ALTER COLUMN ${sql(column.name)} SET DEFAULT ${sql.literal(expression)}` })]),
+                ...(Option.isSome(wants.generated) || now.expression === wants.expression
+                    ? []
+                    : [Option.match(Option.fromNullOr(wants.expression), { onNone: () => sql`ALTER COLUMN ${sql(column.name)} DROP DEFAULT`, onSome: (expression) => sql`ALTER COLUMN ${sql(column.name)} SET DEFAULT ${sql.literal(expression)}` })]),
                 ...(now.required && !wants.required ? [sql`ALTER COLUMN ${sql(column.name)} DROP NOT NULL`] : []),
             ]);
             const retyping = [
@@ -386,7 +396,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                 ...tightened.map(({ column, constraint }) => sql`ALTER TABLE ${owner} ADD CONSTRAINT ${sql(constraint)} NOT NULL ${sql(column)} NOT VALID`),
                 ...missing.map((row) => sql`ALTER TABLE ${owner} ADD CONSTRAINT ${sql(row.name)} ${sql.literal(row.definition)} NOT VALID`),
                 ...dependents.flatMap((row) => [
-                    sql`ALTER TABLE ${owner} ADD COLUMN ${sql(row.name)} ${sql.literal(row.type)} GENERATED ALWAYS AS (${sql.literal(`${row.expression}`)}) ${sql.literal(row.generated === 's' ? 'STORED' : 'VIRTUAL')}`,
+                    sql`ALTER TABLE ${owner} ADD COLUMN ${sql(row.name)} ${sql.literal(row.type)} GENERATED ALWAYS AS (${sql.literal(row.expression)}) ${sql.literal(row.keyword)}`,
                     ...Array.fromNullishOr(row.identity).map((comment) => sql`COMMENT ON COLUMN ${owner}.${sql(row.name)} IS ${sql.literal(literal(comment))}`),
                 ]),
                 ...entry.live.indexes.filter((index) => !new Set(index.columns).isDisjointFrom(dependentColumns)).map(({ definition }) => sql`${sql.literal(definition)}`),
@@ -403,10 +413,19 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                 relabels: [...relabels.map(({ from, to }) => sql`ALTER TABLE ${owner} RENAME CONSTRAINT ${sql(from)} TO ${sql(to)}`), ...plans.filter(({ rename }) => rename).map(({ index }) => sql`ALTER INDEX ${sql(prior(index.parts))} RENAME TO ${sql(index.name)}`)],
                 statements: [
                     ...entry.dropping.map((row) => sql`ALTER TABLE ${owner} DROP COLUMN ${sql(row.name)}`),
-                    ...added.map(
-                        ({ definition, row }) =>
-                            sql`ALTER TABLE ${owner} ADD COLUMN ${sql(definition.name)} ${sql.literal(row.type)}${sql.literal(row.generated === 'v' ? ` GENERATED ALWAYS AS (${row.expression}) VIRTUAL` : '')}${sql.literal(definition.nullable ? '' : ' NOT NULL')}${sql.literal(row.generated === '' && row.expression !== null ? ` DEFAULT ${row.expression}` : '')}`,
-                    ),
+                    ...added.map(({ definition, row }) => {
+                        const expression = Option.fromNullOr(row.expression);
+                        return sql`ALTER TABLE ${owner} ADD COLUMN ${sql.join(
+                            ' ',
+                            false,
+                        )([
+                            Statement.fragment([sql(definition.name)]),
+                            row.type,
+                            ...Option.toArray(Option.all([row.generated, expression])).map(([keyword, value]) => ['GENERATED ALWAYS AS (', value, ') ', keyword].join('')),
+                            ...(definition.nullable ? [] : ['NOT NULL']),
+                            ...Option.toArray(Option.filter(expression, () => Option.isNone(row.generated))).map((value) => ['DEFAULT', value].join(' ')),
+                        ])}`;
+                    }),
                     ...additions.map((row) => sql`ALTER TABLE ${owner} ADD CONSTRAINT ${sql(row.name)} ${sql.literal(row.definition)} NOT VALID`),
                     ...retyping,
                     ...stale.flatMap((link) => [...(linkNames.has(link.name) ? [sql`ALTER TABLE ${owner} DROP CONSTRAINT ${sql(link.name)}`] : []), sql`ALTER TABLE ${owner} ADD CONSTRAINT ${sql(link.name)} ${link.text} NOT VALID`]),
@@ -419,7 +438,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                     ...added.flatMap(({ definition }) => definition.comment.statements(owner, Option.some(definition.name))),
                 ],
                 dropped: [...plans.flatMap(({ dropped }) => dropped), ...entry.live.indexes.filter((row) => entry.retiredIndexes.includes(row.name)).map((row) => row.name)],
-                built: plans.filter(({ keep, rename }) => !(keep || rename)).map(({ index }) => index.text('CONCURRENTLY IF NOT EXISTS ')),
+                built: plans.filter(({ keep, rename }) => !(keep || rename)).map(({ index }) => index.text(['CONCURRENTLY', 'IF NOT EXISTS'])),
                 reindexed: plans.filter(({ index, keep, rename }) => (keep || rename) && Option.exists(index.configuration, (configuration) => drifted.includes(configuration.name))).map(({ index }) => sql`REINDEX INDEX CONCURRENTLY ${sql(index.name)}`),
                 validated: [...entry.live.invalid.map(relabeled), ...additions.map((row) => row.name), ...tightened.map(({ constraint }) => constraint), ...missing.map((row) => row.name), ...stale.map((link) => link.name)],
                 undeclared: {
@@ -449,8 +468,8 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                     ({ expected: { desired, wants }, now }) =>
                         now.type !== wants.type ||
                         now.required !== wants.required ||
-                        now.generated !== wants.generated ||
-                        (wants.generated === '' && now.expression !== wants.expression) ||
+                        !Equal.equals(now.generated, wants.generated) ||
+                        (Option.isNone(wants.generated) && now.expression !== wants.expression) ||
                         Option.match(Option.flatMapNullishOr(recorded, Struct.get('digest')), {
                             onNone: () => !Equal.equals(checks(table, now.name), checks(desired, definition.name)),
                             onSome: (digest) => Option.isNone(definition.projection) && digest !== definition.digest,
@@ -463,7 +482,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                     ...(configured ? [] : [sql`CREATE TEXT SEARCH CONFIGURATION ${sql(name)} (COPY = ${sql.literal(configuration)})`]),
                     ...drift.map(
                         ({ tokens, dictionaries }) =>
-                            sql`ALTER TEXT SEARCH CONFIGURATION ${sql(name)} ${Option.match(dictionaries, { onNone: () => sql`DROP MAPPING IF EXISTS FOR ${sql.literal(tokens.join(', '))}`, onSome: (chain) => sql`ALTER MAPPING FOR ${sql.literal(tokens.join(', '))} WITH ${sql.literal(chain.join(', '))}` })}`,
+                            sql`ALTER TEXT SEARCH CONFIGURATION ${sql(name)} ${Option.match(dictionaries, { onNone: () => sql.join(' ', false)(['DROP MAPPING IF EXISTS FOR', tokens.join(', ')]), onSome: (chain) => sql.join(' ', false)(['ALTER MAPPING FOR', tokens.join(', '), 'WITH', chain.join(', ')]) })}`,
                     ),
                 ]),
             ],
@@ -503,8 +522,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         return { ...Column.transforms, types };
     };
     static readonly layer = (config: Omit<PgClient.PgPoolConfig, 'types' | keyof typeof Column.transforms>) => Pg.#engine.pipe(Layer.provideMerge(PgClient.layer({ ...config, ...Pg.#types() })));
-    static readonly layerConfig = (config: Config.Wrap<Omit<PgClient.PgPoolConfig, 'types' | keyof typeof Column.transforms>>) =>
-        Pg.#engine.pipe(Layer.provideMerge(PgClient.layerConfig(Config.map(Config.unwrap(config), (settings) => ({ ...settings, ...Pg.#types() })))));
+    static readonly layerConfig = (config: Config.Wrap<Omit<PgClient.PgPoolConfig, 'types' | keyof typeof Column.transforms>>) => Pg.#engine.pipe(Layer.provideMerge(PgClient.layerConfig(Config.map(Config.unwrap(config), (settings) => ({ ...settings, ...Pg.#types() })))));
 }
 const Prelude = Schema.Struct({ required: Names, filters: Names, declared: Schema.fromJsonString(Schema.Array(Pg.Configuration)) });
 const Observed = Schema.Struct({ observed: Schema.fromJsonString(Pg) });

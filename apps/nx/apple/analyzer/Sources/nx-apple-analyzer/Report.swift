@@ -14,6 +14,11 @@ enum WorkspaceLocation: String {
     case absolute
 }
 
+enum ContainerFormat: String {
+    case xcodeproj
+    case xcworkspace
+}
+
 enum WorkspaceElement: String {
     case group = "Group"
     case fileReference = "FileRef"
@@ -64,6 +69,7 @@ struct AnalyzerError: LocalizedError {
         case undecodable(any Error)
         case missing([String])
         case nonInteger(String)
+        case empty
     }
 
     let subject: String
@@ -73,8 +79,9 @@ struct AnalyzerError: LocalizedError {
         switch reason {
             case .unreadable(let cause): "\(subject) is unreadable: \(cause.localizedDescription)"
             case .undecodable(let cause): "\(subject) is undecodable: \(cause.localizedDescription)"
-            case .missing(let references): (["\(subject) references what does not exist:"] + references).joined(separator: "\n  ")
+            case .missing(let references): (["\(subject) has missing references:"] + references).joined(separator: "\n  ")
             case .nonInteger(let value): "\(subject) holds \(value), not an integer"
+            case .empty: "\(subject) is empty"
         }
     }
 }
@@ -92,7 +99,8 @@ func read(_ path: FilePath) throws(AnalyzerError) -> Data {
 }
 
 func joined(_ base: FilePath, _ relative: String) -> FilePath {
-    relative.hasPrefix("/") || relative.hasPrefix("~") ? FilePath(NSString(string: relative).expandingTildeInPath) : base.appending(relative).lexicallyNormalized()
+    let expanded = FilePath(NSString(string: relative).expandingTildeInPath)
+    return expanded.isAbsolute ? expanded : base.appending(relative).lexicallyNormalized()
 }
 
 func checked(_ container: Container, _ references: [Reference]) throws(AnalyzerError) -> Container {

@@ -122,7 +122,7 @@ const reference = Effect.fnUntraced(function* (value: object): Effect.fn.Return<
     const kind = yield* Effect.fromOption(Schema.decodeUnknownOption(Kind)(String.uncapitalize(element.typename)));
     const rooted = COLLECTIONS[kind] in app;
     const container: object = rooted ? app : yield* Effect.fromOption(Option.flatMap(Option.firstSomeOf([element.document, element.parent]), owner));
-    const above = rooted ? '' : (yield* reference(container)).specifier;
+    const above = rooted ? Option.none() : Option.some((yield* reference(container)).specifier);
     const selector = yield* Effect.fromOption(
         Option.firstSomeOf([
             Option.map(element.id, (id) => Reference.Selector.cases.Identified.make({ id })),
@@ -134,7 +134,7 @@ const reference = Effect.fnUntraced(function* (value: object): Effect.fn.Return<
         ]),
     );
     const step = yield* Effect.orDie(Schema.encodeEffect(Reference.Selector)(selector));
-    return Reference.make({ type: element.typename, specifier: `${above}/${kind}${step}`, name: element.name, valid: true });
+    return Reference.make({ type: element.typename, specifier: Option.match(above, { onNone: () => `/${kind}${step}`, onSome: (parent) => `${parent}/${kind}${step}` }), name: element.name, valid: true });
 });
 const encoded = (value: unknown): Effect.Effect<unknown> =>
     Match.value(value).pipe(
@@ -161,7 +161,7 @@ const modal = Effect.fnUntraced(function* <A, E, R>(commandName: string, body: (
 const stored = (url: URL, opened: (files: Uxp['Service']['uxp']['storage']['localFileSystem'], href: string) => Promise<unknown>) =>
     Effect.flatMap(Uxp, ({ uxp: { storage } }) => Effect.tryPromise({ try: () => opened(storage.localFileSystem, url.href), catch: HostError.refused(url.href) })).pipe(
         Effect.filterOrFail(
-            (found): found is File => Schema.is(Entry)(found),
+            (entry): entry is File => Schema.is(Entry)(entry),
             () => new Cause.IllegalArgumentError(`${url.href} names no file`),
         ),
     );
@@ -188,7 +188,7 @@ const handlers = Layer.merge(
         execute_script: (payload) => modal(payload.label, (context) => executed(payload, context)),
         open: ({ file, label }) =>
             stored(file, (files, href) => files.getEntryWithUrl(href)).pipe(
-                Effect.flatMap((found) => modal(label, () => Effect.tryPromise({ try: () => app.open(found), catch: HostError.refused(label) }))),
+                Effect.flatMap((entry) => modal(label, () => Effect.tryPromise({ try: () => app.open(entry), catch: HostError.refused(label) }))),
                 Effect.flatMap(reference),
                 Effect.catchTag('NoSuchElementError', () => new Cause.IllegalArgumentError(`${label} opened no document`)),
             ),

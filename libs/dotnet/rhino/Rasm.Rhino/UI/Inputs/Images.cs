@@ -105,7 +105,7 @@ public sealed record ImageRow(ReadoutSource<Loading<Bitmap>> Image) : IRow<Image
         from drawn in IO.lift(() => state.Image.Held.Match(
             Some: image => {
                 (view.Image, view.Size) = (image, state.Zoom.Sized(image.Size, scroll.ClientSize));
-                readout.Text = LocalText.Of("{0}%", (int)double.Round(100d * view.Width / image.Width, MidpointRounding.AwayFromZero)).Local;
+                readout.Text = LocalText.Of("{0:P0}", (double)view.Width / image.Width).Local;
             },
             None: () => (view.Image, readout.Text) = (null, "")))
         select unit;

@@ -1,7 +1,6 @@
 use core::{error::Error, iter, mem::DropGuard};
 use std::{
     backtrace::Backtrace,
-    borrow::Cow,
     collections::HashMap,
     error::Report,
     ffi::OsStr,
@@ -105,7 +104,8 @@ enum Propagator {
 
 #[derive(Debug)]
 pub struct Defaults {
-    pub directives: Cow<'static, str> = Cow::Borrowed("info"),
+    pub level: LevelFilter = LevelFilter::INFO,
+    pub targets: Vec<(&'static str, LevelFilter)> = Vec::new(),
     pub attributes: Vec<KeyValue> = Vec::new(),
 }
 
@@ -176,7 +176,7 @@ impl Options {
         T: Termination,
         E: Failure,
     {
-        const INTERNAL_LOGS: &str = "opentelemetry=warn";
+        const INTERNAL_LOGS: (&str, LevelFilter) = ("opentelemetry", LevelFilter::WARN);
         const TRANSPORT: [&str; 6] = ["h2", "hyper", "mio", "reqwest", "rustls", "want"];
         fn built<B>(signal: Signal, exporter: Exporter, build: impl FnOnce() -> Result<B, ExporterBuildError>) -> Validated<Option<B>, TelemetryError> {
             match exporter {
@@ -208,7 +208,7 @@ impl Options {
         }
         fn reported<F>(errors: &NEVec<F>)
         where F: Error {
-            errors.iter().for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "failed"));
+            errors.iter().for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "command failed"));
         }
         fn status<F>(failures: NEVec<F>) -> ExitCode
         where F: Into<sysexits::ExitCode> {
@@ -242,7 +242,7 @@ impl Options {
             })
         };
         let Self { log, service_name, propagators, traces_exporter, metrics_exporter, logs_exporter, sdk_disabled, traceparent, tracestate, baggage } = self;
-        let Defaults { directives, attributes } = defaults;
+        let Defaults { level, targets, attributes } = defaults;
         let exporters = [&traces_exporter, &metrics_exporter, &logs_exporter].map(|exporter| match exporter {
             Ok(Some(exporter)) if !matches!(sdk_disabled, Ok(Some(true))) => *exporter,
             Ok(Some(_) | None) | Err(Unrecognized { setting: _, value: _, source: _ }) => Exporter::None,
@@ -250,9 +250,9 @@ impl Options {
         let exported = exporters.iter().any(Exporter::is_otlp);
         let [traces, metrics, logs] = exporters;
         let nonempty = |directive: &&str| !directive.is_empty();
-        let default_directives = directives.split(',').filter(nonempty);
         let log = log.iter().map(String::as_str).filter(nonempty);
-        let level = iter::chain(default_directives.clone(), log.clone()).filter_map(|directive| directive.parse::<LevelFilter>().ok()).next_back().unwrap_or(LevelFilter::OFF);
+        let default_level = level;
+        let level = log.clone().filter_map(|directive| directive.parse::<LevelFilter>().ok()).next_back().unwrap_or(default_level);
         let (accepted, refused): (Vec<Directive>, Vec<_>) = log.map(|directive| directive.parse().map_err(|source: ParseError| (directive, source))).partition_result();
         let resource = Resource::builder_empty()
             .with_schema_url(
@@ -272,8 +272,11 @@ impl Options {
         .build();
         let started = subscriber::with_default(tracing_subscriber::registry().with(json(&resource, writer.clone())).with(LevelFilter::WARN), || {
             (try bikeshed Result<_, NEVec<TelemetryError>> {
-                let (filter, tracer_provider, meter_provider, logger_provider) = iter::chain([INTERNAL_LOGS], default_directives)
-                    .map(|directive| directive.parse().map_err(|source| TelemetryError::Filter { directive: directive.into(), source }))
+                let (filter, tracer_provider, meter_provider, logger_provider) = iter::chain([INTERNAL_LOGS], targets)
+                    .map(|(target, level)| {
+                        let directive = format!("{target}={level}");
+                        directive.parse().map_err(|source| TelemetryError::Filter { directive: directive.into(), source })
+                    })
                     .collect::<Validated<Vec<Directive>, _>>()
                     .map4(
                         built(Signal::Traces, traces, || SpanExporter::builder().build()),
@@ -281,7 +284,7 @@ impl Options {
                         built(Signal::Logs, logs, || LogExporter::builder().build()),
                         |directives, span_exporter, metric_exporter, log_exporter| {
                             (
-                                iter::chain(directives, accepted).fold(EnvFilter::default(), EnvFilter::add_directive),
+                                iter::chain(iter::chain([Directive::from(default_level)], directives), accepted).fold(EnvFilter::default(), EnvFilter::add_directive),
                                 span_exporter.into_iter().fold(SdkTracerProvider::builder().with_resource(resource.clone()), TracerProviderBuilder::with_batch_exporter).build(),
                                 metric_exporter.into_iter().fold(SdkMeterProvider::builder().with_resource(resource.clone()), MeterProviderBuilder::with_periodic_exporter).build(),
                                 log_exporter.into_iter().fold(SdkLoggerProvider::builder().with_resource(resource.clone()), LoggerProviderBuilder::with_batch_exporter).build(),

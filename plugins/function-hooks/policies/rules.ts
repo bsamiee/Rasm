@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Record } from 'effect';
+import { Effect, Layer, Option, Record, String } from 'effect';
 import { decisionOf, type Request, unjudged, Verdict } from '#/decision';
 import { Host } from '#/host';
 import { WATCHER } from '#/instances';
@@ -17,7 +17,7 @@ import { analyzed, Shell } from '#/shell/site';
 const POLICIES: readonly Policy[] = [APPS, FILES, WAITS, GIT, GHIDRA, TASKS, { programs: PROGRAMS }];
 const EVERY = POLICIES.flatMap(({ every = [] }) => every);
 const CALLS = POLICIES.flatMap(({ calls = [] }) => calls);
-const MERGED = POLICIES.reduce<Policy['programs']>((rows, { programs }) => Record.union(rows, programs, (held, added) => ({ ...held, ...added, fixes: [...(held.fixes ?? []), ...(added.fixes ?? [])] })), {});
+const MERGED = POLICIES.reduce<Policy['programs']>((rows, { programs }) => Record.union(rows, programs, (existing, added) => ({ ...existing, ...added, fixes: [...(existing.fixes ?? []), ...(added.fixes ?? [])] })), {});
 const PROGRAMS_BY_NAME = new Map(Record.toEntries(MERGED).flatMap(([name, row]) => [name, ...(row.aliases ?? [])].map((alias) => [alias, row] as const)));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -27,8 +27,8 @@ const decide = Effect.fnUntraced(function* (request: Request) {
     const analysis = yield* analyzed(request.command, { cwd: host.place(request.cwd, Option.none()), origin: 'call' });
     const call: Call = { request, analysis, host };
     const verdicts = yield* Effect.forEach(analysis.sites, (site) => all(...(site.informational ? [] : [...(site.row.fixes ?? []), ...EVERY]))(site, call), { concurrency: 'unbounded' });
-    const held = [...verdicts.flat(), ...CALLS.flatMap((fix) => fix(call))];
-    return decisionOf(request.command, held, analysis.sites.some(({ program }) => program === WATCHER) || held.some((verdict) => Verdict.$is('Edit')(verdict) && verdict.text.startsWith(WATCHER)));
+    const judged = [...verdicts.flat(), ...CALLS.flatMap((fix) => fix(call))];
+    return decisionOf(request.command, judged, analysis.sites.some(({ program }) => program === WATCHER) || judged.some((verdict) => Verdict.$is('Edit')(verdict) && Option.exists(verdict.text, String.startsWith(WATCHER))));
 }, Effect.catchCause(unjudged));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

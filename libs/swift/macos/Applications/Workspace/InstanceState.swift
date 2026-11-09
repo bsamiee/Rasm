@@ -19,19 +19,16 @@ private let reportLimit: Duration = .seconds(60)
 public enum InstanceState: Equatable, Sendable {
     public struct Running: Equatable, Sendable {
         @CasePathable
-        public enum Status: Equatable, Sendable {
+        public enum Status: Encodable, Equatable, Sendable {
             case launching
             case responding
             case unresponsive(ProcessStatus)
 
             public var settled: Bool { self != .launching }
 
-            public var name: String {
-                switch self {
-                    case .launching: "launching"
-                    case .responding: "responding"
-                    case .unresponsive: "unresponsive"
-                }
+            public func encode(to encoder: any Encoder) throws {
+                var label: any SingleValueEncodingContainer = encoder.singleValueContainer()
+                try label.encode(caseLabel(of: self))
             }
         }
 
@@ -47,10 +44,19 @@ public enum InstanceState: Equatable, Sendable {
 
     public struct Window: Equatable, Sendable {
         @CasePathable
-        public enum Description: Equatable, Sendable {
+        public enum Description: Encodable, Equatable, Sendable {
             case element(Element)
             case undescribed
             case blocking
+
+            public func encode(to encoder: any Encoder) throws {
+                switch self {
+                    case .element(let element): try element.kind.encode(to: encoder)
+                    case .undescribed, .blocking:
+                        var label: any SingleValueEncodingContainer = encoder.singleValueContainer()
+                        try label.encode(caseLabel(of: self))
+                }
+            }
         }
 
         public let number: CGWindowID
@@ -84,8 +90,8 @@ public enum InstanceState: Equatable, Sendable {
 
 extension InstanceState.Window {
     init?(_ row: [String: Any]) {
-        guard let number: CGWindowID = row[kCGWindowNumber as String] as? CGWindowID, let layer: Int = row[kCGWindowLayer as String] as? Int, layer >= 0,
-            let frame: CGRect = (row[kCGWindowBounds as String] as? [String: Any]).flatMap({ bounds in CGRect(dictionaryRepresentation: bounds as CFDictionary) })
+        guard let number = row[kCGWindowNumber as String] as? CGWindowID, let layer = row[kCGWindowLayer as String] as? Int, layer >= 0,
+            let frame = (row[kCGWindowBounds as String] as? [String: Any]).flatMap({ bounds in CGRect(dictionaryRepresentation: bounds as CFDictionary) })
         else { return nil }
         self.init(
             number: number,
@@ -159,7 +165,7 @@ extension InstanceState: Encodable {
                 }
                 switch report {
                     case .some(.success(let report)): try fields.encode(report, forKey: .report)
-                    case .some(.failure(let failure)): try fields.encode(failure.name, forKey: .reportFailure)
+                    case .some(.failure(let failure)): try fields.encode(failure.reason, forKey: .reportFailure)
                     case .none: break
                 }
         }
@@ -175,7 +181,7 @@ extension InstanceState.Running: Encodable {
         var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
         try fields.encode(active, forKey: .active)
         if !menus.isEmpty { try fields.encode(menus, forKey: .menus) }
-        try fields.encode(status.name, forKey: .status)
+        try fields.encode(status, forKey: .status)
         try fields.encodeIfPresent(status[case: \.unresponsive], forKey: .process)
         switch usage {
             case .some(.success(let usage)): try fields.encode(usage, forKey: .usage)
@@ -200,13 +206,8 @@ extension InstanceState.Window: Encodable {
         try fields.encode(onScreen, forKey: .onScreen)
         try fields.encodeIfPresent(title, forKey: .title)
         if !presented { try fields.encode(false, forKey: .presented) }
-        switch description {
-            case .element(let element):
-                try fields.encode(element.kind, forKey: .kind)
-                try fields.encode(element, forKey: .element)
-            case .undescribed: try fields.encode("undescribed", forKey: .kind)
-            case .blocking: try fields.encode("blocking", forKey: .kind)
-        }
+        try fields.encode(description, forKey: .kind)
+        try fields.encodeIfPresent(description[case: \.element], forKey: .element)
     }
 }
 
@@ -272,8 +273,8 @@ extension NSRunningApplication {
     public func quit(saving: Bool = false, clock: some Clock<Duration> & Sendable = ContinuousClock()) -> some AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
         AsyncStream { output in
             let states: some AsyncSequence<InstanceState, Never> & Sendable = states(clock: clock)
-            let following: Task<Void, Never> = Task {
-                let (replies, reply): (AsyncStream<Result<InstanceState, ApplicationFailure>>, AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation) = AsyncStream.makeStream()
+            let following = Task {
+                let (replies, reply) = AsyncStream<Result<InstanceState, ApplicationFailure>>.makeStream()
                 var sending: Task<Void, Never>?
                 defer { sending?.cancel() }
                 for await event: Result<InstanceState, ApplicationFailure> in merge(states.map(Result.success), replies) {
@@ -296,7 +297,7 @@ extension NSRunningApplication {
 
     private func requestQuit(saving: Bool, answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
         defer { reply.finish() }
-        let request: NSAppleEventDescriptor = NSAppleEventDescriptor(
+        let request = NSAppleEventDescriptor(
             eventClass: AEEventClass(kCoreEventClass),
             eventID: AEEventID(kAEQuitApplication),
             targetDescriptor: NSAppleEventDescriptor(processIdentifier: processIdentifier),
@@ -304,7 +305,7 @@ extension NSRunningApplication {
             transactionID: AETransactionID(kAnyTransactionID),
         )
         if saving { request.setParam(NSAppleEventDescriptor(enumCode: kAEYes), forKeyword: keyAESaveOptions) }
-        let subject: String = String(processIdentifier)
+        let subject = String(processIdentifier)
         do {
             _ = try await request.sent(timeout: NSAppleEventTimeOutDefault)
         } catch  where error.status == OSStatus(userCanceledErr) {
@@ -365,16 +366,16 @@ extension NSWorkspace {
         walking walked: @escaping @Sendable (Element) -> Bool,
         clock: some Clock<Duration> & Sendable,
     ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
-        let (inserted, insert): (AsyncStream<NSRunningApplication>, AsyncStream<NSRunningApplication>.Continuation) = AsyncStream.makeStream()
-        let listed: Mutex<Set<NSRunningApplication>?> = Mutex(nil)
+        let (inserted, insert) = AsyncStream<NSRunningApplication>.makeStream()
+        let listed = Mutex<Set<NSRunningApplication>?>(nil)
         let observation: NSKeyValueObservation = observe(\.runningApplications, options: [.initial]) { workspace, _ in
             let running: [NSRunningApplication] = workspace.instances(of: matching)
             listed.withLock { held in held = held ?? Set(running) }
             for instance: NSRunningApplication in running { insert.yield(instance) }
         }
         let initial: Set<NSRunningApplication> = listed.withLock { held in held ?? [] }
-        let changes: AsyncStream<(instance: NSRunningApplication, state: InstanceState)> = AsyncStream { change in
-            let following: Task<Void, Never> = Task {
+        let changes = AsyncStream<(instance: NSRunningApplication, state: InstanceState)> { change in
+            let following = Task {
                 await withDiscardingTaskGroup { group in
                     var followed: Set<NSRunningApplication> = []
                     for await instance: NSRunningApplication in inserted where followed.insert(instance).inserted {

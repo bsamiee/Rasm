@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsxlang
+severity: error
+rule:
+    kind: string
+    pattern: $TEXT
+    has: {kind: escape_sequence, regex: '^\\\\$', precedes: {kind: string_fragment, regex: '^[pPdDsSwWbBuxk]'}}
+message: '`$TEXT` doubles each backslash of a pattern'
+note: 'Write the pattern as a ``String.raw`<pattern>` `` template'

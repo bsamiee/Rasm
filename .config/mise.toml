@@ -33,6 +33,7 @@ GHIDRA_PROJECT_DIR           = "{{ xdg_cache_home }}/rasm/ghidra/projects"
 HK_CACHE_DIR                 = "{{config_root}}/.cache/hk"
 HK_PKL_CACHE_DIR             = "{{config_root}}/.cache/pklr"
 HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
+JAVAC_PLUGINS                = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
 NODE_COMPILE_CACHE           = "{{config_root}}/.cache/node"
 NODE_VERSION                 = { tools = true, value = "{{ tools.node.version }}" }
 NX_WORKSPACE_DATA_DIRECTORY  = "{{config_root}}/.cache/nx/workspace-data"
@@ -150,6 +151,46 @@ version_list_url = "https://download.docker.com/mac/static/test/aarch64/"
 version_order    = "semver"
 version_regex    = 'href="docker-cli_([^"]+)\.tgz"'
 
+[tools."http:dataflow-errorprone"]
+bin              = "dataflow-errorprone.jar"
+format           = "raw"
+url              = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/{{ version }}/dataflow-errorprone-{{ version }}.jar"
+version          = "latest"
+version_list_url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/maven-metadata.xml"
+version_regex    = "<version>([^<]+)</version>"
+
+[tools."http:dataflow-nullaway"]
+bin              = "dataflow-nullaway.jar"
+format           = "raw"
+url              = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/{{ version }}/dataflow-nullaway-{{ version }}.jar"
+version          = "latest"
+version_list_url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/maven-metadata.xml"
+version_regex    = "<version>([^<]+)</version>"
+
+[tools."http:error-prone"]
+bin              = "error-prone.jar"
+format           = "raw"
+url              = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/{{ version }}/error_prone_core-{{ version }}-with-dependencies.jar"
+version          = "latest"
+version_list_url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/maven-metadata.xml"
+version_regex    = "<version>([^<]+)</version>"
+
+[tools."http:jspecify"]
+bin              = "jspecify.jar"
+format           = "raw"
+url              = "https://repo1.maven.org/maven2/org/jspecify/jspecify/{{ version }}/jspecify-{{ version }}.jar"
+version          = "latest"
+version_list_url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/maven-metadata.xml"
+version_regex    = "<version>([^<]+)</version>"
+
+[tools."http:nullaway"]
+bin              = "nullaway.jar"
+format           = "raw"
+url              = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/{{ version }}/nullaway-{{ version }}.jar"
+version          = "latest"
+version_list_url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/maven-metadata.xml"
+version_regex    = "<version>([^<]+)</version>"
+
 [tools."http:rustc-source"]
 postinstall      = { run = 'rm -rf "$MISE_TOOL_INSTALL_PATH/src/llvm-project" && ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/.cargo/rustc-source"', when = "always" }
 strip_components = 1
@@ -225,5 +266,5 @@ port        = 7401
 proxy       = false
 ready_port  = 7401
 retry       = true
-run         = "exec env -C / roslyn-codelens-mcp --http --port $PORT"
+run         = 'exec env -C / roslyn-codelens-mcp --http --port "$PORT"'
 stop_signal = { signal = "SIGTERM", timeout = "30s" }

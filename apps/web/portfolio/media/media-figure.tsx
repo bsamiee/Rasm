@@ -33,7 +33,7 @@ const MediaFigure = ({ placement, active, presentation, priority, renderMedia }:
                     {presentation !== 'thumbnail' && (
                         <>
                             <figcaption className="grid-cols-trailing text-muted leading-body grid items-start gap-x-3 pt-2 text-sm wrap-anywhere empty:hidden">
-                                {Boolean(placement.caption) && <span className="col-start-1 block min-w-0 whitespace-pre-line">{placement.caption}</span>}
+                                {placement.caption !== undefined && <span className="col-start-1 block min-w-0 whitespace-pre-line">{placement.caption}</span>}
                                 {placement.kind === 'pdf' && (
                                     <span className="col-start-1 flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
                                         <span>{placement.asset.name}</span>

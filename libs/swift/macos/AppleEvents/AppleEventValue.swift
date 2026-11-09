@@ -83,7 +83,7 @@ extension AppleEventValue: Codable {
             let fields: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
             func code() throws -> DescType {
                 let code: String = try fields.decode(String.self, forKey: .type)
-                guard let type: DescType = DescType(sdef: code) else { throw DecodingError.dataCorruptedError(forKey: .type, in: fields, debugDescription: "\(code) is no four-character code") }
+                guard let type = DescType(sdef: code) else { throw DecodingError.dataCorruptedError(forKey: .type, in: fields, debugDescription: "\(code) is no four-character code") }
                 return type
             }
             return switch try fields.decodeIfPresent(Tag.self, forKey: .tag) {
@@ -165,9 +165,9 @@ extension AppleEventValue {
         }
         func specifier() -> Self? {
             guard let want: NSAppleEventDescriptor = descriptor.forKeyword(AEKeyword(keyAEDesiredClass)),
-                let form: KeyForm = descriptor.forKeyword(AEKeyword(keyAEKeyForm)).flatMap({ form in KeyForm.allCases.first { candidate in candidate.code == form.enumCodeValue } }),
-                let seld: NSAppleEventDescriptor = descriptor.forKeyword(AEKeyword(keyAEKeyData)),
-                let from: NSAppleEventDescriptor = descriptor.forKeyword(AEKeyword(keyAEContainer))
+                let form = descriptor.forKeyword(AEKeyword(keyAEKeyForm)).flatMap({ form in KeyForm.allCases.first { candidate in candidate.code == form.enumCodeValue } }),
+                let seld = descriptor.forKeyword(AEKeyword(keyAEKeyData)),
+                let from = descriptor.forKeyword(AEKeyword(keyAEContainer))
             else { return nil }
             let container: FourCharCode = from.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue ?? FourCharCode(cApplication)
             return .specifier(
@@ -276,11 +276,11 @@ extension AppleEventValue {
                 let (desired, data, container): (ScriptingDictionary.Term, NSAppleEventDescriptor, NSAppleEventDescriptor) =
                     try combine(ScriptingDictionary.resolve(want, in: [dictionary.types, dictionary.properties]), key, encoded(from)).get()
                 guard var containerDesc: AEDesc = unsafe container.aeDesc?.pointee, var keyDesc: AEDesc = unsafe data.aeDesc?.pointee,
-                    let specifier: NSAppleEventDescriptor = unsafe NSAppleEventDescriptor(made: { made in unsafe CreateObjSpecifier(desired.code, &containerDesc, form.code, &keyDesc, false, made) })
+                    let specifier = unsafe NSAppleEventDescriptor(made: { made in unsafe CreateObjSpecifier(desired.code, &containerDesc, form.code, &keyDesc, false, made) })
                 else { throw unencodable(DescType(typeObjectSpecifier)) }
                 return specifier
             case .opaque(let type, let data, _):
-                guard let descriptor: NSAppleEventDescriptor = NSAppleEventDescriptor(descriptorType: type, data: data) else { throw unencodable(type) }
+                guard let descriptor = NSAppleEventDescriptor(descriptorType: type, data: data) else { throw unencodable(type) }
                 return descriptor
         }
     }

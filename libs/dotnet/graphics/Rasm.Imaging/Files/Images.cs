@@ -20,14 +20,14 @@ namespace Rasm.Imaging.Files;
 public abstract partial record ImageFile {
     private static readonly ColorEncoding Untagged = new(Gamut.StandardRgb, Transfer.Gamma.Srgb);
 
-    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(string path, string layer = "", Option<Configuration> configuration = default) =>
+    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(string path, Option<string> layer = default, Option<Configuration> configuration = default) =>
         (from stream in use(() => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.Asynchronous))
          from read in Read(stream, layer, configuration)
          select read)
             .Bracket()
             | @catch(static error => error.IsExceptional, error => IO.fail<(PixelFrame, Option<ColorEncoding>)>(ImagingFault.Of(ImagingReason.Unreadable, path, inner: error)));
 
-    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(Stream stream, string layer = "", Option<Configuration> configuration = default) =>
+    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(Stream stream, Option<string> layer = default, Option<Configuration> configuration = default) =>
         stream.CanSeek
             ? Seeked(stream, stream.Position, layer, configuration.IfNone(Configuration.Default))
             : (from buffered in use(Buffered(stream))
@@ -42,7 +42,7 @@ public abstract partial record ImageFile {
             return copy;
         });
 
-    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Seeked(Stream stream, long start, string layer, Configuration configuration) =>
+    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Seeked(Stream stream, long start, Option<string> layer, Configuration configuration) =>
         from exr in IO.lift(() => Claimed(stream, start))
         from read in exr
             ? Loaded(stream, layer)
@@ -56,7 +56,7 @@ public abstract partial record ImageFile {
         return ExrFile.IsExr(magic[..count]);
     }
 
-    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Loaded(Stream stream, string layer) =>
+    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Loaded(Stream stream, Option<string> layer) =>
         from result in IO.liftVAsync(environment => ExrFile.LoadFromStreamAsync(stream, cancellationToken: environment.Token))
         from image in IO.lift(Optional(result.Value).ToFin(ImagingFault.Of(ImagingReason.Refused, result.Status, inner: Optional(result.Error).Map(Error.New))))
         from read in IO.lift(Layer(toSeq(image.Parts), layer))
@@ -99,13 +99,13 @@ public abstract partial record ImageFile {
          }))
          select (frame, scale.Map(static _ => Untagged))).Bracket();
 
-    private static Fin<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Layer(Seq<Part> parts, string layer) =>
-        from part in (parts.Find(candidate => string.Equals(candidate.Header.Name, layer, StringComparison.Ordinal)) | parts.Find(static candidate => candidate.Header.Name.Length is 0))
+    private static Fin<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Layer(Seq<Part> parts, Option<string> layer) =>
+        from part in (layer.Bind(named => parts.Find(candidate => string.Equals(candidate.Header.Name, named, StringComparison.Ordinal))) | parts.Find(static candidate => candidate.Header.Name.Length is 0))
             .ToFin(ImagingFault.Of(ImagingReason.Empty, layer))
         from header in (
                 from samples in part.Header.IsDeep
                      ? ImagingFault.Of(ImagingReason.Unsupported, part.Header.Name)
-                     : Fin.Succ(layer.Length is 0 && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part))
+                     : Fin.Succ(layer.IsNone && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part))
                 from layout in Components(samples.ChannelNames, layer)
                 select (Samples: samples, Layout: layout),
                 PixelExtent.Validated(int.CreateSaturating(part.Width), int.CreateSaturating(part.Height)),
@@ -127,11 +127,11 @@ public abstract partial record ImageFile {
                     PixelFrame.Unassociated(pixels);
             }), primaries.Map(static gamut => new ColorEncoding(gamut, new Transfer.Linear())));
 
-    private static Fin<((int Component, int Channel)[] Rows, bool Associated)> Components(IReadOnlyList<string> names, string layer) =>
+    private static Fin<((int Component, int Channel)[] Rows, bool Associated)> Components(IReadOnlyList<string> names, Option<string> layer) =>
         toSeq(
             (from family in Seq("RGBA", "XYZW", "UV")
              from entry in toSeq(names).Map(static (name, channel) => (Name: name, Channel: channel, Dot: name.LastIndexOf('.')))
-             where entry.Name.Length == entry.Dot + 2 && entry.Name.AsSpan(0, int.Max(entry.Dot, 0)).SequenceEqual(layer)
+             where entry.Name.Length == entry.Dot + 2 && (entry.Dot < 0 ? Option<string>.None : Some(entry.Name[..entry.Dot])) == layer
              let component = family.IndexOf(entry.Name[^1], StringComparison.OrdinalIgnoreCase)
              where component >= 0
              select (Component: component, entry.Channel, Letter: entry.Name[^1])).DistinctBy(static row => row.Component)) switch {

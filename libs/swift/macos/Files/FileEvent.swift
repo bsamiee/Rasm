@@ -11,7 +11,7 @@ public struct FileEvent: Sendable {
 
     public static func events(of file: URL) -> AsyncStream<Result<[Self], FileFailure>> {
         AsyncStream { continuation in
-            let watcher: Watcher = Watcher(continuation: continuation)
+            let watcher = Watcher(continuation: continuation)
             watcher.enqueue { watcher in watcher.start(file) }
             continuation.onTermination = { _ in watcher.enqueue { watcher in watcher.stop() } }
         }
@@ -27,7 +27,7 @@ public struct FileEvent: Sendable {
         // --- [STATE]
 
         private let continuation: AsyncStream<Result<[FileEvent], FileFailure>>.Continuation
-        private let queue: DispatchSerialQueue = DispatchSerialQueue(label: String(reflecting: FileEvent.self))
+        private let queue: DispatchSerialQueue = .init(label: String(reflecting: FileEvent.self))
         private var stream: FSEventStreamRef?
 
         init(continuation: AsyncStream<Result<[FileEvent], FileFailure>>.Continuation) {
@@ -91,7 +91,7 @@ public struct FileEvent: Sendable {
         private static let changed: FSEventStreamCallback = { _, info, count, eventPaths, eventFlags, _ in
             guard let info: UnsafeMutableRawPointer = unsafe info else { return }
             let reported: AnyObject = unsafe Unmanaged<AnyObject>.fromOpaque(eventPaths).takeUnretainedValue()
-            guard let paths: [String] = reported as? [String] else { return }
+            guard let paths = reported as? [String] else { return }
             unsafe Unmanaged<Watcher>.fromOpaque(info).takeUnretainedValue().continuation.yield(
                 .success(zip(paths, unsafe UnsafeBufferPointer(start: eventFlags, count: count)).map { path, flags in FileEvent(url: URL(filePath: path), flags: flags) })
             )

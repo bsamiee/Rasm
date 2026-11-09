@@ -82,6 +82,11 @@ public static class Preferences {
                 select unit,
             Some(node.Saved));
 
+    public static Preference<Option<string>> Setting(SettingsNode node, string key, bool hidden = false, Seq<string> legacy = default) =>
+        Setting(node, key, Conversions.Unset(Option<string>.None), hidden: hidden, legacy: legacy) switch {
+            var text => new(text.Read.Map(static held => Conversions.Present(held)), value => text.Write(Conversions.Unset(value)), Some(node.Saved)),
+        };
+
     private static IO<PersistentSettings> Registered<T>(SettingsNode node, string key, T fallback, Option<Func<T, bool>> rule, bool hidden) where T : notnull =>
         from supported in IO.lift(SettingOverloads<T>.Supported)
         from settings in node.Created

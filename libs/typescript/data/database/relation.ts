@@ -1,5 +1,5 @@
 import { Array, Data, Effect, Equal, Filter, Option, Record, Schema, String, Struct } from 'effect';
-import { SqlClient, SqlSchema, type Statement } from 'effect/sql';
+import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import { Column, type FieldName, type Fields, type Where } from '#/column';
 import { Engine } from '#/engine';
 import type { methods, referentialActions } from '#/internal/reconcile';
@@ -8,7 +8,7 @@ import type { methods, referentialActions } from '#/internal/reconcile';
 
 type Present<F extends Fields> = string extends keyof F ? string : { readonly [K in keyof F]: null extends F[K]['Encoded'] ? never : K }[keyof F] & string;
 type Method = (typeof methods)[number];
-type Tokenizer = 'trigram' | { readonly configuration: string; readonly filters: readonly string[]; readonly tokenize: string };
+type Tokenizer = Data.TaggedEnum<{ Trigram: Record<never, never>; Words: { readonly configuration: string; readonly filters: readonly string[]; readonly tokenize: string } }>;
 interface RelationOptions<F extends Fields> {
     readonly key?: Array.NonEmptyReadonlyArray<Present<F>>;
     readonly defaults?: { readonly [K in keyof F]?: Exclude<F[K]['Encoded'], Uint8Array | readonly number[]> };
@@ -35,6 +35,7 @@ type Selection<F extends Fields> = { readonly [K in FieldName<F>]?: Array.NonEmp
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Tokenizer = Data.taggedEnum<Tokenizer>();
 const Search = Schema.Struct({ text: Schema.String, pattern: Schema.String, count: Schema.Natural, marks: Schema.Option(Schema.Struct({ open: Schema.String, close: Schema.String })) });
 class Relation<const Shape extends Fields = Fields, const Options extends RelationOptions<Shape> = RelationOptions<Shape>> extends Data.Class<{
     readonly schema: Schema.Struct<Shape>;
@@ -77,7 +78,7 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
     static readonly withTenant = Effect.fnUntraced(function* <F extends Fields, O extends RelationOptions<F> & { readonly tenant: NonNullable<RelationOptions<F>['tenant']> }, A, E, R>(relation: Relation<F, O>, id: F[O['tenant']['column']]['Type'], effect: Effect.Effect<A, E, R>) {
         const { column, setting } = yield* Effect.orDie(Effect.fromOption(relation.tenant));
         const [sql, encoded] = yield* Effect.all([SqlClient.SqlClient, Schema.encodeEffect(column.schema)(id)]);
-        return yield* sql.withTransaction(Effect.andThen(sql`SELECT set_config(${setting}, ${globalThis.String(encoded)}, true)`, effect));
+        return yield* sql.withTransaction(Effect.andThen(sql`SELECT set_config(${setting}, ${encoded}, true)`, effect));
     });
 }
 
@@ -130,7 +131,7 @@ const selecting = (
         sql.csv([
             ...Array.filterMap(
                 order,
-                Filter.fromPredicateOption((entry) => Option.map(Record.get(columns, typeof entry === 'string' ? entry : entry.descending), ({ name }) => sql`${scope}${sql(name)}${sql.literal(typeof entry === 'string' ? '' : ' DESC')}`)),
+                Filter.fromPredicateOption((entry) => Option.map(Record.get(columns, typeof entry === 'string' ? entry : entry.descending), ({ name }) => sql.join(' ', false)([sql`${scope}${sql(name)}`, ...(typeof entry === 'string' ? [] : ['DESC'])]))),
             ),
             keys(scope),
         ]);
@@ -139,7 +140,7 @@ const selecting = (
     return Option.match(Option.all({ count: limit, by: Option.flatMap(per, (field) => Record.get(columns, field)) }), {
         onNone: () => Option.match(limit, { onNone: () => filtered, onSome: (count) => sql`${filtered} LIMIT ${count}` }),
         onSome: ({ count, by }) =>
-            sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(Engine.flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(Engine.flags.position)} <= ${count} ORDER BY ${sql.csv([sql`t.${sql(by.name)}`, ordering(outer)])}`,
+            sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(Engine.flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(Engine.flags.position)} <= ${count} ORDER BY ${sql.csv([sql.join('', false)([outer, Statement.fragment([sql(by.name)])]), ordering(outer)])}`,
     });
 };
 const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Relation, 'name' | 'columns' | 'key' | 'search'>) => {
@@ -189,4 +190,4 @@ const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Rela
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Relation, type RelationOptions };
+export { Relation, type RelationOptions, Tokenizer };

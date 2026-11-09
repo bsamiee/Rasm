@@ -33,8 +33,8 @@ nonisolated enum CodexProtocol {
             let experimentalApi: Bool = true
         }
 
-        let clientInfo: ClientInfo = ClientInfo()
-        let capabilities: Capabilities = Capabilities()
+        let clientInfo: ClientInfo = .init()
+        let capabilities: Capabilities = .init()
     }
 
     struct ConfigReadParams: Encodable, Sendable {
@@ -127,7 +127,7 @@ nonisolated enum CodexProtocol {
 
 nonisolated enum CodexAuthFile {
     private static let decoder: JSONDecoder = {
-        let decoder: JSONDecoder = JSONDecoder()
+        let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return decoder
     }()
@@ -170,7 +170,7 @@ nonisolated enum CodexAuthFile {
         let components: [Substring] = idToken.split(separator: ".")
         guard components.count == 3 else { throw .invalidAuthFile(url, nil) }
         let encoded: String = String(components[1]).replacing("-", with: "+").replacing("_", with: "/")
-        guard let payload: Data = Data(base64Encoded: encoded + String(repeating: "=", count: (4 - encoded.count % 4) % 4)) else { throw .invalidAuthFile(url, nil) }
+        guard let payload = Data(base64Encoded: encoded + String(repeating: "=", count: (4 - encoded.count % 4) % 4)) else { throw .invalidAuthFile(url, nil) }
         let claims: Claims = try Result { try decoder.decode(Claims.self, from: payload) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
         let workspace: String? = claims.auth?.chatgptAccountId ?? tokens.accountId
         let identity: AccountIdentity = try combine(

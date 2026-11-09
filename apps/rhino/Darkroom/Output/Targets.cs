@@ -41,7 +41,7 @@ internal sealed partial class TargetFile {
     public static readonly TargetFile Exr = new("exr", FileExtension.Create(".exr"), [OutputDepth.Float16, OutputDepth.Float32], Encoded(static (doc, source, target, _) =>
         target.Reader.Match(
                 Some: reader => Passes(doc, source, target, reader),
-                None: () => source.Linear.Map(beauty => Seq(new ExrLayer("", beauty, target.Alpha ? Rgba : Rgb))))
+                None: () => source.Linear.Map(beauty => Seq(new ExrLayer(None, beauty, target.Alpha ? Rgba : Rgb))))
             .Map(layers => (ImageFile)new ImageFile.Exr(
                 layers, target.ColorDepth, target.Codec, Some(ChainScene.Working.Gamut), Multipart: target.Reader.IsSome))));
     public static readonly TargetFile Dng = new("dng", FileExtension.Create(".dng"), [OutputDepth.Float32], Encoded(static (_, source, _, metadata) =>

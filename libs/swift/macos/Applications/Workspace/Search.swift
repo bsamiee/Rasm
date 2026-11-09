@@ -30,7 +30,7 @@ extension Installation {
     @MainActor
     public static func installed(named name: String, in directories: [URL] = []) async throws(ApplicationFailure) -> [Self] {
         func listing(_ comparison: NSComparisonPredicate.Operator) async throws(ApplicationFailure) -> [Self] {
-            let matching: NSPredicate = NSCompoundPredicate(
+            let matching = NSCompoundPredicate(
                 orPredicateWithSubpredicates: [kMDItemCFBundleIdentifier as String, NSMetadataItemDisplayNameKey].map { key in
                     NSComparisonPredicate(
                         leftExpression: NSExpression(forKeyPath: key),
@@ -63,7 +63,7 @@ extension Installation {
 
     private static func metadataForm(of predicate: NSPredicate) -> NSPredicate? {
         guard predicate != NSPredicate(value: true) else { return nil }
-        guard let compound: NSCompoundPredicate = predicate as? NSCompoundPredicate, compound.compoundPredicateType != .not else { return predicate }
+        guard let compound = predicate as? NSCompoundPredicate, compound.compoundPredicateType != .not else { return predicate }
         let clauses: [NSPredicate] = compound.subpredicates.compactMap { $0 as? NSPredicate }.compactMap(metadataForm(of:))
         return if compound.compoundPredicateType == .or, clauses.count < compound.subpredicates.count {
             nil
@@ -77,14 +77,14 @@ extension Installation {
     @MainActor
     private static func listings(_ predicate: NSPredicate, in directories: [URL]) -> some AsyncSequence<(installations: [Self], failures: [ApplicationFailure]), Never> & Sendable {
         AsyncStream { continuation in
-            let following: Task<Void, Never> = Task { @MainActor in
-                let query: NSMetadataQuery = NSMetadataQuery()
-                let application: NSPredicate = NSPredicate(format: "%K == %@", NSMetadataItemContentTypeKey, UTType.applicationBundle.identifier)
+            let following = Task { @MainActor in
+                let query = NSMetadataQuery()
+                let application = NSPredicate(format: "%K == %@", NSMetadataItemContentTypeKey, UTType.applicationBundle.identifier)
                 query.predicate = metadataForm(of: NSCompoundPredicate(andPredicateWithSubpredicates: [application, predicate])) ?? application
                 query.searchScopes = directories
                 query.sortDescriptors = [NSMetadataItemDisplayNameKey, NSMetadataItemVersionKey].map { key in NSSortDescriptor(key: key, ascending: true) }
                 query.operationQueue = .main
-                let (changes, change): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+                let (changes, change) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
                 let observations: [NotificationCenter.ObservationToken] = [
                     NotificationCenter.default.addObserver(of: query, for: .didFinishGathering) { _ in change.yield() },
                     NotificationCenter.default.addObserver(of: query, for: NSMetadataQuery.DidUpdateMessage.self) { _ in change.yield() },
@@ -94,7 +94,7 @@ extension Installation {
                     query.stop()
                     observations.forEach(NotificationCenter.default.removeObserver)
                 }
-                for await _: Void in changes {
+                for await _ in changes {
                     query.disableUpdates()
                     let paths: [String?] = (0..<query.resultCount).map { index in (query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String }
                     query.enableUpdates()

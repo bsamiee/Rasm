@@ -65,12 +65,12 @@ extension NSWorkspace {
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<Launching, Never> & Sendable {
         AsyncStream { output in
-            let prompting: Task<Void, Never> = Task {
+            let prompting = Task {
                 for await held: OrderedDictionary<NSRunningApplication, InstanceState> in Self.shared.systemPrompts(naming: [installation.name], clock: clock) {
                     output.yield(.prompts(held.compactMap { instance, state in RunningInstance(instance, state: state) }))
                 }
             }
-            let following: Task<Void, Never> = Task {
+            let following = Task {
                 defer {
                     prompting.cancel()
                     output.finish()
@@ -86,7 +86,7 @@ extension NSWorkspace {
                     prompting.cancel()
                     output.yield(.launched(Launched(pid: instance.processIdentifier, identifier: installation.identifier, created: created)))
                     for await state: InstanceState in instance.states(clock: clock) {
-                        if let running: RunningInstance = RunningInstance(instance, state: state) { output.yield(.state(running)) }
+                        if let running = RunningInstance(instance, state: state) { output.yield(.state(running)) }
                         switch state {
                             case .running(let running) where !waiting && (!created || running.status.settled || !running.asking.isEmpty): return
                             case .failed where !waiting: return

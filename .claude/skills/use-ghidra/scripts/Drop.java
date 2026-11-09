@@ -35,6 +35,6 @@ public class Drop extends GhidraScript {
                         Report.Section.rows(
                                 "ABSENT",
                                 results.stream().flatMap(Report.Result::failures).toList()));
-        println(Report.write(out, currentProgram, sections, String.join(" ", paths)));
+        println(Report.write(out, currentProgram, sections, paths));
     }
 }

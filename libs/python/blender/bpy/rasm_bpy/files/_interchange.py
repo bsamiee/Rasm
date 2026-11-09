@@ -64,15 +64,23 @@ class _Interchange[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgsp
 
 
 class References(msgspec.Struct, frozen=True, kw_only=True):
-    """Export path mode and destination subfolder for copied files."""
+    """Export path mode and destination subfolder for copied files, the destination itself without one."""
 
     mode: Literal["AUTO", "ABSOLUTE", "RELATIVE", "MATCH", "STRIP", "COPY"] = path_reference_mode.keywords["default"]
-    subfolder: str = ""
+    subfolder: str | None = None
 
     def path(self, filepath: str, destination: Path, library: Option[bpy.types.Library] = Nothing) -> Outcome[str]:
         """Copies referenced files, returning export path."""
         copies: set[tuple[str, str]] = set()
-        reference = path_reference(filepath, bpy.path.abspath("//"), str(destination), mode=self.mode, copy_subdir=self.subfolder, copy_set=copies, library=library.to_optional())
+        reference = path_reference(
+            filepath,
+            bpy.path.abspath("//"),
+            str(destination),
+            mode=self.mode,
+            copy_set=copies,
+            library=library.to_optional(),
+            **Option.of_optional(self.subfolder).map(lambda folder: {"copy_subdir": folder}).default_value({}),
+        )
         return files_copied((Path(source), Path(target)) for source, target in copies).map(lambda _: reference)
 
 

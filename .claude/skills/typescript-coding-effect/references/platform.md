@@ -77,7 +77,8 @@ Command.make(
 - `Ndjson.decodeSchema(S)()` and `Csv.decodeSchema(S)()` read bytes, `decodeSchemaString` and `Sse.decodeDataSchema(S)` text, each with an encoder
 - `Csv.decodeSchemaString(S)({ headers: true })` keys cells by header, an empty optional cell decoding as a missing key
 - Caller-named CSV fields map to columns through `Schema.encodeKeys` on the row schema
-- `Toml.parse`, `Jsonc.parse`, and `Json5.parse` return a `Result`, `Yaml.parse` throws `SyntaxError` into `Effect.try`, and `Ini.parse` is total
+- Reads parse through these codecs, a format-preserving patch library serving writes alone
+- `Toml.parse`, `Jsonc.parse`, and `Json5.parse` return a `Result` for `Effect.fromResult`, `Yaml.parse` throws `SyntaxError` into `Effect.try`, and `Ini.parse` is total
 - `Xml.decodeString` piped through `Xml.elements(path)` reads XML trees for a schema, and `Xml.encodeString` writes an `Xml.Event` stream unindented
 - Indented documents build from a tree through one module-scope `fast-xml-builder` `Builder({ ignoreAttributes: false, format: true })` reading `@_` keys
 - `Tar` and `Zip` stream archive entries

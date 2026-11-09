@@ -36,17 +36,16 @@ internal sealed partial class ArchReason {
     public string Message { get; }
 }
 
-internal sealed record ArchFault(object? Subject, ArchReason Reason, string Expression = "") : Expected(Reason.Message, 0) {
+internal sealed record ArchFault(object? Subject, ArchReason Reason, Option<string> Expression = default) : Expected(Reason.Message, 0) {
     public object? Subject { get; } = Subject;
     public ArchReason Reason { get; } = Reason;
-    public string Expression { get; } = Expression;
+    public Option<string> Expression { get; } = Expression;
 
-    public override string Message => Expression.Length is 0
-        ? string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject}")
-        : string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Expression} = {Subject}");
+    public override string Message =>
+        string.Concat([Reason.Message, ": ", .. Expression.Map(static named => $"{named} = ").ToSeq(), string.Create(CultureInfo.InvariantCulture, $"{Subject}")]);
 
-    public static Fin<Unit> Unless<T>(bool flag, ArchReason reason, T rejected, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new ArchFault(rejected, reason, names);
+    public static Fin<Unit> Unless<T>(bool flag, ArchReason reason, T rejected, [CallerArgumentExpression(nameof(rejected))] string? names = null) =>
+        flag ? unit : new ArchFault(rejected, reason, Optional(names));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

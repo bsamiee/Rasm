@@ -14,7 +14,7 @@ namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record ExrLayer(string Name, PixelFrame Frame, Seq<string> Channels) {
+public sealed record ExrLayer(Option<string> Name, PixelFrame Frame, Seq<string> Channels) {
     public static ExrLayer Reciprocal(string name, PixelFrame distance) => new(name, ImageFile.Mapped(distance, static (depth, _) => new Vector4(1f / depth.X)), ["Z"]);
 }
 
@@ -75,13 +75,13 @@ public abstract partial record ImageFile {
             from floating in IO.lift(ImagingFault.Unless(Depth.Levels.IsNone, ImagingReason.Unsupported, Depth))
             from canvas in IO.lift(Canvas(Layers.Map(static layer => layer.Frame), windowed: !Multipart))
             let attributes = metadata.Exr(Gamut)
-            from image in IO.lift(() => new Image((Multipart ? Layers.Map(static layer => (layer.Name, Layers: Seq(layer))) : Seq((Name: "", Layers))).Map(part => Assembled(part.Name, part.Layers, canvas, attributes)).Strict()))
+            from image in IO.lift(() => new Image((Multipart ? Layers.Map(static layer => (layer.Name, Layers: Seq(layer))) : Seq((Name: Option<string>.None, Layers))).Map(part => Assembled(part.Name, part.Layers, canvas, attributes)).Strict()))
                 .Catch(static error => error.HasException<ArgumentException>(), error => IO.fail<Image>(ImagingFault.Of(ImagingReason.Refused, Layers.Map(static layer => layer.Name), inner: error)))
             from result in IO.liftVAsync(environment => ExrFile.SaveToStreamAsync(image, stream, cancellationToken: environment.Token))
             from written in IO.lift(result.IsSuccess ? Fin.Succ(unit) : ImagingFault.Of(ImagingReason.Refused, result.Status, inner: Optional(result.Error).Map(Error.New)))
             select written;
 
-        private Part Assembled(string name, Seq<ExrLayer> layers, PixelFrame canvas, Seq<HeaderAttribute> attributes) {
+        private Part Assembled(Option<string> name, Seq<ExrLayer> layers, PixelFrame canvas, Seq<HeaderAttribute> attributes) {
             Rectangle window = layers.Head.Map(static layer => layer.Frame.Window).IfNone(canvas.Window);
             Seq<ChannelBuffer> buffers = layers.Bind(Buffers).Strict();
             Header header = new(
@@ -90,7 +90,7 @@ public abstract partial record ImageFile {
                 buffers.Map(static buffer => new Channel(buffer.Name, buffer.PixelType)),
                 compression: Codec == ExrCompression.Pxr24 && !layers.ForAll(Colored) ? Compression.ZIP : Codec.Method,
                 displayWindow: new Box2i(0, 0, canvas.Extent.Width - 1, canvas.Extent.Height - 1),
-                name: name,
+                name: name.ValueUnsafe(),
                 chromaticities: Gamut.Map(static gamut => new Chromaticities(
                     (float)gamut.Rgb.ChromaticityR.X, (float)gamut.Rgb.ChromaticityR.Y, (float)gamut.Rgb.ChromaticityG.X, (float)gamut.Rgb.ChromaticityG.Y,
                     (float)gamut.Rgb.ChromaticityB.X, (float)gamut.Rgb.ChromaticityB.Y, (float)gamut.Rgb.WhitePoint.Chromaticity.X, (float)gamut.Rgb.WhitePoint.Chromaticity.Y)).ToNullable(),
@@ -111,7 +111,8 @@ public abstract partial record ImageFile {
             using SpanOwner<float> plane = SpanOwner<float>.Allocate(count);
             ChannelBuffer[] buffers = new ChannelBuffer[layer.Channels.Count];
             for (int component = 0; component < buffers.Length; component++) {
-                string name = layer.Name.Length is 0 ? layer.Channels[component] : $"{layer.Name}.{layer.Channels[component]}";
+                string channel = layer.Channels[component];
+                string name = layer.Name.Match(Some: named => $"{named}.{channel}", None: () => channel);
                 samples.GetColumn(component).CopyTo(plane.Span);
                 buffers[component] = colored && Depth == OutputDepth.Float16
                     ? Buffer<Half>(name, PixelType.Half, plane.Span)

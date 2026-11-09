@@ -9,7 +9,7 @@ struct OpenFile: ~Copyable {
     let descriptor: FileDescriptor
 
     consuming func close() throws(OrderError) {
-        let descriptor: FileDescriptor = descriptor
+        let descriptor = descriptor
         discard self
         do { try descriptor.close() } catch { throw OrderError(subject: "descriptor \(descriptor.rawValue)", reason: .failed(error)) }
     }
@@ -76,7 +76,7 @@ Spans lend contiguous storage to a call without a copy or an escaping pointer an
 
 ```swift
 func values<Value: FixedWidthInteger & ConvertibleFromBytes>(in bytes: RawSpan, order: ByteOrder) -> [Value] {
-    let width: Int = MemoryLayout<Value>.size
+    let width = MemoryLayout<Value>.size
     return (0..<bytes.byteCount / width).map { index in bytes.load(fromByteOffset: index * width, as: Value.self, order) }
 }
 
@@ -91,7 +91,7 @@ let levels: [Int16] = values(in: frame.bytes, order: .littleEndian)
 
 ```swift
 func debit(_ amount: Decimal, from account: Account.ID, in balances: inout [Account.ID: Decimal]) throws(OrderError) {
-    let balance: Decimal = balances[account, default: 0]
+    let balance = balances[account, default: 0]
     guard balance >= amount else { throw OrderError(subject: "debit \(amount) against \(balance)", reason: .insufficientFunds(shortBy: amount - balance)) }
     balances[account] = balance - amount
 }

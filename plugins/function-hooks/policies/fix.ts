@@ -1,4 +1,4 @@
-import { Array, Cache, Effect, Option, type Predicate, type Record, Result, String } from 'effect';
+import { Array, Cache, Effect, Option, type Predicate, Record, Result, String, Struct } from 'effect';
 import { type Request, Verdict } from '#/decision';
 import type { HookError, Host } from '#/host';
 import type { Item } from '#/shell/grammar';
@@ -14,6 +14,10 @@ interface Call {
     readonly host: typeof Host.Service;
 }
 type Verdicts = readonly Verdict[];
+interface Respelling {
+    readonly renames?: Record.ReadonlyRecord<string, string>;
+    readonly drops?: readonly string[];
+}
 type Fix = (site: Site, call: Call) => Verdicts | Effect.Effect<Verdicts, HookError, Host | Shell>;
 interface Policy {
     readonly programs: Readonly<Record<string, Program>>;
@@ -61,7 +65,7 @@ const stages = ({ command }: Site, { analysis: { sites } }: Call) => {
 
 const within = ({ command }: Site, { analysis: { sites } }: Call): readonly Site[] => sites.filter(({ command: other }) => other !== command && other.source === command.source && other.start >= command.start && other.end <= command.end);
 
-const feedsJq = (site: Site, call: Call): boolean => stages(site, call).later.at(0)?.program === 'jq';
+const feedsJq = (site: Site, call: Call) => stages(site, call).later.at(0)?.program === 'jq';
 
 const redirected = ({ command }: Site, op: string, descriptor?: string, target?: string) =>
     command.redirects.filter((redirect) => redirect.op === op && (descriptor === undefined || Option.contains(redirect.descriptor, descriptor)) && (target === undefined || Option.exists(redirect.target, ({ text }) => text === target)));
@@ -70,12 +74,17 @@ const redirected = ({ command }: Site, op: string, descriptor?: string, target?:
 
 const refusal = (reason: string): Verdicts => [Verdict.Refuse({ reason: NINE_WORDS.exec(reason)?.[0] ?? reason })];
 
-const edited = (site: Site, { start, end }: Span, text: string, before?: string, timeout?: number): Verdicts => {
+const changed = (site: Site, { start, end }: Span, text: Option.Option<string>, before?: string, timeout?: number): Verdicts => {
+    const outcome = Option.match(text, { onNone: () => 'removed', onSome: (replacement) => `became ${replacement}` });
     if (site.command.origin === 'call') {
-        return [Verdict.Edit({ start, end, text, notice: Option.map(Option.fromNullishOr(before), (word) => `${word} ${text === '' ? 'removed' : `became ${text}`}`), timeout: Option.fromNullishOr(timeout) })];
+        return [Verdict.Edit({ start, end, text, notice: Option.map(Option.fromNullishOr(before), (word) => `${word} ${outcome}`), timeout: Option.fromNullishOr(timeout) })];
     }
-    return before === undefined ? [] : refusal(`Nested ${before}, run ${text === '' ? 'without it' : text}`);
+    return before === undefined ? [] : refusal(`Nested ${before}, run ${Option.getOrElse(text, () => 'without it')}`);
 };
+
+const edited = (site: Site, span: Span, text: string, before?: string, timeout?: number) => changed(site, span, Option.some(text), before, timeout);
+
+const erased = (site: Site, span: Span, before?: string, timeout?: number) => changed(site, span, Option.none(), before, timeout);
 
 const inserted = (site: Site, at: number, text: string): Verdicts => edited(site, { start: at, end: at }, text);
 
@@ -83,14 +92,14 @@ const silent = (verdicts: Verdicts): Verdicts => verdicts.map((verdict) => (Verd
 
 const whole = (site: Site, text: string, before?: string, { start }: Span = site.head): Verdicts => {
     const { end } = Array.lastNonEmpty(site.words);
-    const held = site.command.redirects.filter((redirect) => redirect.start >= start && redirect.end <= end);
-    return edited(site, { start, end }, [text, ...held.map(({ raw }) => raw)].join(' '), before);
+    const kept = site.command.redirects.filter((redirect) => redirect.start >= start && redirect.end <= end);
+    return edited(site, { start, end }, [text, ...kept.map(({ raw }) => raw)].join(' '), before);
 };
 
 const cut = (site: Site, parts: Array.NonEmptyReadonlyArray<Span>, before?: string): Verdicts => {
     const { start } = Array.headNonEmpty(parts);
     const ends = [...site.command.words, ...site.command.redirects].map(({ end }) => end).filter((end) => end <= start);
-    return edited(site, { start: Math.max(site.command.start, ...ends), end: Array.lastNonEmpty(parts).end }, '', before);
+    return erased(site, { start: Math.max(site.command.start, ...ends), end: Array.lastNonEmpty(parts).end }, before);
 };
 
 const dropped = (site: Site, before: string): Verdicts => edited(site, site.command, ':', before);
@@ -98,12 +107,12 @@ const dropped = (site: Site, before: string): Verdicts => edited(site, site.comm
 const unwrap =
     (timeout?: number): Fix =>
     (site) =>
-        Option.match(Array.head(site.rest), { onNone: () => [], onSome: ({ start }) => edited(site, { start: site.head.start, end: start }, '', spoken(site.words), timeout) });
+        Option.match(Array.head(site.rest), { onNone: () => [], onSome: ({ start }) => erased(site, { start: site.head.start, end: start }, spoken(site.words), timeout) });
 
 const unassign =
     (pattern: RegExp, notify = true): Fix =>
     (site) =>
-        Array.window([...site.assigned, site.head], 2).flatMap(([word, next]) => (pattern.test(word.text) ? edited(site, { start: word.start, end: next.start }, '', notify ? word.text.slice(0, word.text.indexOf('=')) : undefined) : []));
+        Array.window([...site.assigned, site.head], 2).flatMap(([word, next]) => (pattern.test(word.text) ? erased(site, { start: word.start, end: next.start }, notify ? word.text.slice(0, word.text.indexOf('=')) : undefined) : []));
 
 // --- [FIXES]
 
@@ -123,7 +132,7 @@ const absent =
     (site, call) =>
         Effect.flatMap(
             Shell.use(({ installed }) => Cache.get(installed, site.program)),
-            (held) => all(...(held ? [] : [fix]))(site, call),
+            (installed) => all(...(installed ? [] : [fix]))(site, call),
         );
 
 const when =
@@ -134,7 +143,12 @@ const when =
 const perSubcommand =
     (table: Record.ReadonlyRecord<string, readonly Fix[]>): Fix =>
     (site, call) =>
-        all(...(table[site.path[0] ?? site.operands[0]?.text ?? ''] ?? []))(site, call);
+        all(
+            ...Option.getOrElse(
+                Option.flatMap(Option.firstSomeOf([Array.head(site.path), Option.map(Array.head(site.operands), Struct.get('text'))]), (name) => Record.get(table, name)),
+                () => [],
+            ),
+        )(site, call);
 
 const refuse =
     (fact: string, action: string, ...names: readonly string[]) =>
@@ -164,19 +178,55 @@ const spelledFlags = (kept: readonly string[], attached: readonly string[]): str
     return longs.length > 0 ? [spelled, ...attached].join('=') : `${spelled}${attached.join('')}`;
 };
 
-const respelled = (site: Site, table: Record.ReadonlyRecord<string, string>, { names, words, values }: Item, before: string | undefined): Verdicts => {
-    const kept = names.map((name) => table[name] ?? name).filter(String.isNonEmpty);
-    const valueGoes = names.some((name, at) => at === names.length - 1 && table[name] === '');
+const respelled = (site: Site, { renames = {}, drops = [] }: Respelling, { names, words, values }: Item, before: string | undefined): Verdicts => {
+    const kept = Array.difference(names, drops).map((name) => renames[name] ?? name);
+    const valueGoes = Option.exists(Array.last(names), (name) => drops.includes(name));
     return kept.length === 0 ? cut(site, words, before) : edited(site, valueGoes ? { start: words[0].start, end: Array.lastNonEmpty(words).end } : words[0], spelledFlags(kept, words.length === 1 && !valueGoes ? values.map(quote) : []), before);
 };
 
 const respell =
-    (table: Record.ReadonlyRecord<string, string>, { only, notify = false }: { readonly only?: RegExp; readonly notify?: boolean } = {}) =>
+    (respelling: Respelling, { only, notify = false }: { readonly only?: RegExp; readonly notify?: boolean } = {}) =>
     (site: Site): Verdicts =>
         site.items
-            .filter(({ names, words, values }) => names.some((name) => (table[name] ?? name) !== name) && values.every((value) => only?.test(value) !== false) && (words.every(({ spread }) => !spread) || notify))
-            .flatMap((item) => (item.words.some(({ spread }) => spread) ? refusal(`${subject(site)} ${item.words[0].text} expands later, pass it literally`) : respelled(site, table, item, notify ? `${subject(site)} ${item.words[0].raw}` : undefined)));
+            .filter(({ names, words, values }) => names.some((name) => respelling.drops?.includes(name) === true || (respelling.renames?.[name] ?? name) !== name) && values.every((value) => only?.test(value) !== false) && (words.every(({ spread }) => !spread) || notify))
+            .flatMap((item) => (item.words.some(({ spread }) => spread) ? refusal(`${subject(site)} ${item.words[0].text} expands later, pass it literally`) : respelled(site, respelling, item, notify ? `${subject(site)} ${item.words[0].raw}` : undefined)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { absent, all, BACKGROUNDED, become, type Call, cut, dropped, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unassign, unresolved, unwrap, type Verdicts, when, whole, within };
+export {
+    absent,
+    all,
+    BACKGROUNDED,
+    become,
+    type Call,
+    cut,
+    dropped,
+    edited,
+    ensure,
+    erased,
+    type Fix,
+    feedsJq,
+    folderOf,
+    has,
+    holds,
+    inserted,
+    type Policy,
+    perSubcommand,
+    quote,
+    type Respelling,
+    redirected,
+    refusal,
+    refuse,
+    respell,
+    silent,
+    spoken,
+    stages,
+    subject,
+    unassign,
+    unresolved,
+    unwrap,
+    type Verdicts,
+    when,
+    whole,
+    within,
+};

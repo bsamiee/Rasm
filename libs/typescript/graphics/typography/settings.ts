@@ -1,4 +1,4 @@
-import { Effect, Option, Predicate, Record, Schema, SchemaTransformation, String, Struct } from 'effect';
+import { Effect, Match, Option, Predicate, Record, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Digits } from '#/digits';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -17,7 +17,16 @@ const Elongation = {
     fractional: Schema.Boolean.annotate({ description: 'Elongation below one tatweel width' }).pipe(Schema.withConstructorDefault(Effect.succeed(false))),
 };
 const Kashida = Schema.TaggedUnion({ None: {}, Tatweel: Elongation, Stretched: Elongation })
-    .check(Schema.makeFilter((kashida) => kashida._tag === 'None' || kashida.lower <= kashida.upper, { description: 'lower <= upper' }))
+    .check(
+        Schema.makeFilter(
+            (kashida) =>
+                Match.value(kashida).pipe(
+                    Match.tag('None', () => true),
+                    Match.orElse(({ lower, upper }) => lower <= upper),
+                ),
+            { description: 'lower <= upper' },
+        ),
+    )
     .annotate({ description: 'Elongation by tatweel characters or by jalt alternates then tatweels' });
 const Feature = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 const Marks = Schema.Struct(Struct.Record(['x', 'y'], Schema.Finite.pipe(Schema.withConstructorDefault(Effect.succeed(0))))).annotate({ description: 'Mark offset in em, x right and y away from the base, below-base marks moving down' });

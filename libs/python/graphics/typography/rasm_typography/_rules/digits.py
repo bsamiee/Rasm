@@ -1,12 +1,11 @@
 """Digits: a second script's digits sharing the first's drawings, one digit pen, a held zero, a default advance kind, and both `pnum` and `tnum`."""
 
-from typing import Literal
 lazy import unicodedata
 
 import msgspec
 lazy from fontTools.misc.transform import Transform
 
-from rasm_typography._faces.declaration import Em, Ratio, Script
+from rasm_typography._faces.declaration import Advance, Em, Ratio, Script
 from rasm_typography._rules.measures import _middle, Rule
 lazy from rasm_typography._faces.glyphs import Digit, Source
 lazy from rasm_typography._faces.layout import Lookups, Single
@@ -21,7 +20,7 @@ class Digits(Rule, frozen=True, kw_only=True):
 
     script: Script
     zero: Ratio | None
-    advance: Literal["tabular", "proportional"]
+    advance: Advance
     bearing: Em | None
     tolerance: Ratio = 0.08
 
@@ -61,9 +60,9 @@ def _figured(source: Source, rule: Digits, /) -> Source:
     even = (own[broadest].advance - boxes[broadest].width) / 2
     bearing = _middle(sides)
     margin = rule.bearing * source.upm if rule.bearing is not None else max(bearing, even)
-    widths = {name: {"tabular": boxes[broadest].width + 2 * (even if even >= 0 else bearing), "proportional": boxes[models[name]].width + 2 * margin} for name in names}
-    variant, other = ("pnum", "proportional") if rule.advance == "tabular" else ("tnum", "tabular")
-    aliases = {name: msgspec.structs.replace(own[name].name, variant=".".join(filter(None, (own[name].name.variant, variant)))) for name in names}
+    widths = {name: {Advance.TABULAR: boxes[broadest].width + 2 * (even if even >= 0 else bearing), Advance.PROPORTIONAL: boxes[models[name]].width + 2 * margin} for name in names}
+    other = rule.advance.other
+    aliases = {name: msgspec.structs.replace(own[name].name, suffixes=(*own[name].name.suffixes, other.feature)) for name in names}
     glyphs = tuple(
         msgspec.structs.replace(
             glyph,
@@ -83,8 +82,8 @@ def _figured(source: Source, rule: Digits, /) -> Source:
     order = max((lookup.order for lookup in source.lookups), default=0) + 1
     mapping = {name: alias.text for name, alias in aliases.items()}
     lookups = (
-        Single(features=frozendict({variant: frozendict()}), order=order, mapping=frozendict(mapping)),
-        Single(features=frozendict({"tnum" if variant == "pnum" else "pnum": frozendict()}), order=order + 1, mapping=frozendict({held: default for default, held in mapping.items()})),
+        Single(features=frozendict({other.feature: frozendict()}), order=order, mapping=frozendict(mapping)),
+        Single(features=frozendict({rule.advance.feature: frozendict()}), order=order + 1, mapping=frozendict({held: default for default, held in mapping.items()})),
     )
     affected = frozenset((*aliases, *(alias.text for alias in aliases.values())))
     features = frozenset(*lookup.features for lookup in lookups)

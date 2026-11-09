@@ -23,7 +23,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries
     };
     return (
         <ReorderableList
-            actions={(keys) => <ConfirmDialog disabled={locked(keys)} label={format.quantity(keys.size, { one: (shown) => `Remove ${shown} selected entry`, other: (shown) => `Remove ${shown} selected entries` })} onConfirm={() => remove(keys)} />}
+            actions={(keys) => <ConfirmDialog disabled={locked(keys)} label={format.quantity(keys.size, { one: (count) => `Remove ${count} selected entry`, other: (count) => `Remove ${count} selected entries` })} onConfirm={() => remove(keys)} />}
             aria-label="Projects and studies"
             className="editor-sequence"
             items={entries}
@@ -35,7 +35,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries
                 <div className="flex items-center justify-between gap-4.5 pb-2.5 max-sm:items-start max-sm:gap-2">
                     <Button aria-pressed={selected === item.id} className="aria-pressed:text-accent-text min-w-0 flex-1 text-left text-lg wrap-anywhere aria-pressed:underline aria-pressed:underline-offset-5" onPress={() => onSelect(item)}>
                         {entryTitle(item)}
-                        <span className="meta-line no-underline">{format.quantity(item.compositions.length, { one: (shown) => `${shown} composition`, other: (shown) => `${shown} compositions` })}</span>
+                        <span className="meta-line no-underline">{format.quantity(item.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
                     </Button>
                     <ConfirmDialog disabled={locked(new Set([item.id]))} label="Remove entry" onConfirm={() => remove(new Set([item.id]))} />
                 </div>

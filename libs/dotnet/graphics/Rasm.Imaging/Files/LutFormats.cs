@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
@@ -38,7 +39,8 @@ public sealed partial class LutFormat {
     public static readonly LutFormat KeyShotLookup = Lookup("keyshot-lookup", static edge => Some(edge * edge), static (row, run, _, edge) => (edge * (edge - 1 - row)) + (edge * edge * run));
     public static readonly LutFormat DirectDrawSurface = new(Dds, $".{Dds}", Volume, static (_, _, _) => ImagingFault.Of(ImagingReason.Unsupported, Dds));
 
-    private const string Blanks = " \t\r\n";
+    private static readonly SearchValues<char> Blanks = SearchValues.Create(" \t\r\n");
+
     private const string Dds = "dds";
     private const int Codes = ushort.MaxValue + 1;
     private const string Lut1DSize = "LUT_1D_SIZE";

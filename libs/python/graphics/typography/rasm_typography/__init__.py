@@ -3,6 +3,7 @@
 lazy from rasm_typography._builds import compressed, constructed, Construction
 lazy from rasm_typography._faces.coverage import Coverage, Excluded
 lazy from rasm_typography._faces.declaration import (
+    Advance,
     Band,
     BlackNaskh,
     Code,
@@ -13,6 +14,7 @@ lazy from rasm_typography._faces.declaration import (
     Em,
     Face,
     Faces,
+    Foot,
     Genre,
     Genres,
     Kufi,
@@ -74,6 +76,7 @@ lazy from rasm_typography._verification.requirements import (
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "Advance",
     "Anchors",
     "Band",
     "Binary",
@@ -99,6 +102,7 @@ __all__ = [
     "Face",
     "Faces",
     "Finding",
+    "Foot",
     "Genre",
     "Genres",
     "Identity",

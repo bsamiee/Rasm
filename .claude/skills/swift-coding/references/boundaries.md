@@ -39,7 +39,7 @@ enum Event: Decodable, Sendable {
     }
 
     init(from decoder: any Decoder) throws {
-        let container: KeyedDecodingContainer<CodingKeys> = try decoder.container(keyedBy: CodingKeys.self)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
         self =
             switch try container.decode(Lenient<Kind>.self, forKey: .kind) {
                 case .known(.placed): .placed(try Line(from: decoder))
@@ -76,7 +76,7 @@ func attachment(_ name: FilePath, under root: FileDescriptor) throws(OrderError)
 ```swift
 extension PlatformOptions {
     static func session(grace: Duration) -> Self {
-        var options: Self = Self()
+        var options = Self()
         options.createSession = true
         options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: grace)]
         return options
@@ -85,7 +85,7 @@ extension PlatformOptions {
 
 extension Configuration {
     func reduceLines<Value: Sendable>(into initial: Value, limit: Int, _ update: @Sendable (inout Value, String) -> Void) async throws(OrderError) -> Value {
-        let subject: String = "\(executable) \(arguments)"
+        let subject = "\(executable) \(arguments)"
         let result: ExecutionResult<Value, SequenceOutput, StringOutput<UTF8>>
         do {
             result = try await Subprocess.run(self, input: .none, output: .sequence, error: .string(limit: limit)) { execution in
@@ -133,9 +133,9 @@ struct Report: ParsableCommand {
     var minimum: Bounded<1, 999>
 
     func run() throws {
-        let decoder: JSONDecoder = JSONDecoder()
+        let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let lines: [Line] = try decoder.decode([Event].self, from: Data(contentsOf: log)).compactMap(\.placed)
+        let lines = try decoder.decode([Event].self, from: Data(contentsOf: log)).compactMap(\.placed)
         print(lines.filter { line in line.quantity.rawValue >= minimum.rawValue }.reduce(Decimal.zero) { sum, line in sum + line.unitPrice * Decimal(line.quantity.rawValue) })
     }
 }

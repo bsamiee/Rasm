@@ -2,13 +2,13 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "version": 2,
     "title": "Unreal build",
-    "description": "Builds a .uproject's editor target through UnrealBuildTool, or packages a .uplugin through AutomationTool's BuildPlugin once per engine its hosts name and archives each package; every task of a run goes one at a time, since UnrealBuildTool runs once per engine and BuildPlugin's own runs never wait",
+    "description": "Builds a .uproject's editor target through UnrealBuildTool, or packages a .uplugin through AutomationTool's BuildPlugin once per engine its hosts name and archives each package",
     "type": "object",
     "required": [ "outputPath", "descriptor", "hosts", "dependencies" ],
     "properties": {
         "outputPath": { "type": "string", "description": "Workspace-relative folder a plug-in's archives are written to" },
-        "descriptor": { "type": "string", "description": "The project's .uproject or .uplugin, relative to the workspace root" },
-        "hosts": { "type": "array", "items": { "type": "string" }, "description": "The .uproject files building a plug-in, whose engine associations name each engine BuildPlugin runs on; empty for a plug-in no project builds, which takes its EngineVersion" },
+        "descriptor": { "type": "string", "description": "Project .uproject or .uplugin, relative to the workspace root" },
+        "hosts": { "type": "array", "items": { "type": "string" }, "description": ".uproject files building a plug-in, whose engine associations name each engine BuildPlugin runs on; empty for a plug-in no project builds, which takes its EngineVersion" },
         "dependencies": { "type": "array", "items": { "type": "string" }, "description": "Workspace plug-ins a .uplugin names, passed to BuildPlugin as -Dependencies" },
         "engines": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Engine roots by association, read before Epic's install registry" },
         "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to the UnrealBuildTool or AutomationTool command" }

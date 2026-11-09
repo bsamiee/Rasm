@@ -13,6 +13,7 @@ dotnet_banned_api_analyzer.exclude_generated_code = true
 
 dotnet_code_quality.CA1003.api_surface = all
 dotnet_code_quality.CA2000.dispose_ownership_transfer_at_constructor = true
+dotnet_code_quality.CA2241.additional_string_formatting_methods = M:Rasm.Rhino.LocalText.Of(System.String,System.ReadOnlySpan{System.Object})
 dotnet_diagnostic.CA1000.severity = none
 dotnet_diagnostic.CA1021.severity = error
 dotnet_diagnostic.CA1034.severity = none
@@ -59,7 +60,6 @@ dotnet_diagnostic.RMG096.severity = error
 # --- [MEZIANTOU_ANALYZERS] --------------------------------------------------------------
 
 dotnet_diagnostic.MA0008.severity = none
-dotnet_diagnostic.MA0009.severity = none
 dotnet_diagnostic.MA0018.severity = none
 dotnet_diagnostic.MA0038.severity = none
 dotnet_diagnostic.MA0041.severity = none
@@ -89,7 +89,6 @@ dotnet_diagnostic.MA0211.severity = none
 dotnet_diagnostic.MA0213.severity = none
 dotnet_diagnostic.MA0214.severity = none
 dotnet_diagnostic.MA0215.severity = none
-dotnet_diagnostic.MA0243.severity = none
 dotnet_diagnostic.MA0245.severity = none
 MA0053.class_with_virtual_member_should_be_sealed = true
 MA0053.exceptions_should_be_sealed = true
@@ -118,6 +117,7 @@ dotnet_diagnostic.RCS1208.severity = error
 dotnet_diagnostic.RCS1217.severity = none
 dotnet_diagnostic.RCS1238.severity = none
 dotnet_diagnostic.RCS1241.severity = none
+dotnet_diagnostic.RCS1248.severity = error
 dotnet_diagnostic.RCS1252.severity = error
 dotnet_diagnostic.RCS1253.severity = error
 dotnet_diagnostic.ROS0003.severity = error
@@ -126,6 +126,7 @@ roslynator_doc_comment_summary_style = single_line
 roslynator_empty_string_style = literal
 roslynator_enum_flag_value_style = shift_operator
 roslynator_infinite_loop_style = while
+roslynator_null_check_style = pattern_matching
 roslynator_object_creation_parentheses_style = omit
 
 # --- [THREADING_ANALYZERS] --------------------------------------------------------------
