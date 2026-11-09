@@ -95,7 +95,7 @@ const targets = (project: Project): Record<string, TargetConfiguration> => {
                     verb,
                     {
                         executor: 'nx:noop',
-                        dependsOn: [{ target: `${verb}--*`, params: 'forward' }],
+                        dependsOn: [`${verb}--*`],
                         inputs: [
                             '...',
                             ...Array.dedupe(

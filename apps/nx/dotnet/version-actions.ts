@@ -2,12 +2,8 @@ import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { joinPathFragments, type Tree, workspaceRoot } from '@nx/devkit';
 import { Array, Effect, Option, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
-import { spawned } from '#/plugins/project-graph';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const VERSION = /<Version>(?<version>[^<]*)<\/Version>/u;
-const GROUP = /(?<open><PropertyGroup>)(?<newline>\r?\n)(?<indent>[ \t]*)/u;
+import { isValid, sortReversed } from 'verkit';
+import { assembly, DotnetError, spawned } from '#/plugins/project-graph';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,11 +22,15 @@ const searched = Effect.fnUntraced(function* (project: string, metadata: Readonl
     const [{ Properties }, decoded] = yield* Effect.all([evaluated(project), Schema.decodeEffect(Metadata)(metadata)]);
     const registry = decoded?.registry;
     const { searchResult } = yield* Effect.flatMap(spawned(['package', 'search', Properties.PackageId, '--exact-match', '--prerelease', '--format', 'json', ...(registry === undefined ? [] : ['--source', registry])], workspaceRoot), Schema.decodeEffect(Searched));
-    const latest = Array.last(searchResult.flatMap(({ packages }) => packages));
+    const latest = Array.head(sortReversed(searchResult.flatMap(({ packages }) => packages.map(({ version }) => version)).filter((version) => isValid(version))));
     return {
-        currentVersion: Option.getOrNull(Option.map(latest, ({ version }) => version)),
-        logText: Option.match(latest, { onNone: () => `${Properties.PackageId} has no release on ${registry ?? 'the NuGet.config sources'}`, onSome: ({ version }) => `${Properties.PackageId} ${version}` }),
+        currentVersion: Option.getOrNull(latest),
+        logText: Option.match(latest, { onNone: () => `${Properties.PackageId} has no release on ${registry ?? 'the NuGet.config sources'}`, onSome: (version) => `${Properties.PackageId} ${version}` }),
     };
+});
+
+const written = Effect.fnUntraced(function* (text: string, version: string) {
+    return yield* spawned([yield* assembly(workspaceRoot), 'version', version], workspaceRoot, text);
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -67,9 +67,14 @@ class DotnetVersionActions extends VersionActions {
     }
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
-        const text = tree.read(this.project, 'utf-8') ?? '';
-        tree.write(this.project, VERSION.test(text) ? text.replace(VERSION, `<Version>${newVersion}</Version>`) : text.replace(GROUP, `$<open>$<newline>$<indent><Version>${newVersion}</Version>$<newline>$<indent>`));
-        return Promise.resolve([`New version ${newVersion} written to manifest: ${this.project}`]);
+        const { project } = this;
+        return run(
+            Effect.gen(function* () {
+                const text = yield* Effect.fromNullishOr(tree.read(project, 'utf-8')).pipe(Effect.mapError(() => DotnetError.make({ subject: project, detail: 'is missing' })));
+                tree.write(project, yield* written(text, newVersion));
+                return [`New version ${newVersion} written to manifest: ${project}`];
+            }),
+        );
     }
 
     override updateProjectDependencies() {

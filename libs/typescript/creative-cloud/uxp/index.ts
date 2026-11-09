@@ -1,4 +1,3 @@
-import { Version } from '@rasm/automation';
 import { Record, Schema, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -9,6 +8,7 @@ const FILLS = Record.map({ light: { color: '#000000', opacity: 0.8 }, dark: { co
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Version = Schema.String.check(Schema.isPattern(/^\d+\.\d+\.\d+$/u)).annotate({ description: 'major.minor.patch' });
 const Flag = Schema.optionalKey(Schema.Boolean);
 const Size = Schema.optionalKey(Schema.Struct({ width: Schema.Finite, height: Schema.Finite }));
 const Localized = Schema.Union([Schema.String, Schema.StructWithRest(Schema.Struct({ default: Schema.String }), [Schema.Record(Schema.String, Schema.String)])]);
@@ -80,6 +80,7 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     static readonly themes = THEMES;
     static readonly fills = FILLS;
     static readonly json = Schema.fromJsonString(UxpManifest);
+    static readonly identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String })).annotate({ description: 'Plugin id, the one manifest field a running plugin reads' });
     static readonly file = 'manifest.json';
     static readonly target = 'es2022';
 }

@@ -1,16 +1,16 @@
 import { Effect, Layer, Option, Record } from 'effect';
-import { decisionOf, type Request, unjudged, Verdict } from '#/decision.ts';
-import { Host } from '#/host.ts';
-import { WATCHER } from '#/instances.ts';
-import { APPS } from '#/policies/apps.ts';
-import { FILES } from '#/policies/files.ts';
-import { all, type Call, type Policy } from '#/policies/fix.ts';
-import { GHIDRA } from '#/policies/ghidra.ts';
-import { GIT } from '#/policies/git.ts';
-import { TASKS } from '#/policies/tasks.ts';
-import { WAITS } from '#/policies/waits.ts';
-import { PROGRAMS } from '#/shell/programs.ts';
-import { analyzed, Shell } from '#/shell/site.ts';
+import { decisionOf, type Request, unjudged, Verdict } from '#/decision';
+import { Host } from '#/host';
+import { WATCHER } from '#/instances';
+import { APPS } from '#/policies/apps';
+import { FILES } from '#/policies/files';
+import { all, type Call, type Policy } from '#/policies/fix';
+import { GHIDRA } from '#/policies/ghidra';
+import { GIT } from '#/policies/git';
+import { TASKS } from '#/policies/tasks';
+import { WAITS } from '#/policies/waits';
+import { PROGRAMS } from '#/shell/programs';
+import { analyzed, Shell } from '#/shell/site';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

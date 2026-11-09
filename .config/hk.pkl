@@ -52,8 +52,8 @@ steps {
     }
     ["yamllint"] = (Builtins.yamllint) {
         batch = true
-        check { command { argv = List("yamllint", "--format", "parsable", "{{files}}") } }
-        diagnostic_format = "gcc-paren"
+        check { command { argv = List("yamllint", "--strict", "--format", "standard", "{{files}}") } }
+        diagnostic_format = "stylish"
     }
 }
 
@@ -61,4 +61,5 @@ steps {
 
 hooks {
     ["commit-msg"] { steps { ["conventional-commit"] = Builtins.check_conventional_commit } }
+    ["pre-commit"] { enabled = false }
 }

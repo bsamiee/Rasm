@@ -1,4 +1,4 @@
-import { Inspect } from '@rasm/indesign';
+import { Inspect } from '@rasm/atelier-protocol/indesign';
 import { Resource, Route } from '@rasm/mcp';
 import { Settings, type Source } from '@rasm/typography';
 import { Face, Justification, ShapedText } from '@rasm/typography/shaping';

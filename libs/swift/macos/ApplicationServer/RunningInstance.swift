@@ -19,18 +19,11 @@ public struct RunningInstance: Encodable, Sendable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        let activationPolicy: String =
-            switch instance.activationPolicy {
-                case .regular: "regular"
-                case .accessory: "accessory"
-                case .prohibited: "prohibited"
-                @unknown default: String(instance.activationPolicy.rawValue)
-            }
         var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
         try fields.encode(instance.processIdentifier, forKey: .pid)
         try fields.encode(identifier, forKey: .identifier)
         try fields.encode(url, forKey: .url)
-        try fields.encode(activationPolicy, forKey: .activationPolicy)
+        try fields.encode(instance.activationPolicy.name, forKey: .activationPolicy)
         try fields.encode(state, forKey: .state)
     }
 }

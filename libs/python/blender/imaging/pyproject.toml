@@ -39,8 +39,3 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
-
-# --- [FAWLTYDEPS] -----------------------------------------------------------------------
-
-[tool.fawltydeps]
-ignore_unused = ["matplotlib"] # Colour imports Matplotlib

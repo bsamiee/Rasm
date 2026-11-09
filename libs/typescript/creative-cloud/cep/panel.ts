@@ -1,10 +1,6 @@
-import { HostError, HostUrl, Requests } from '@rasm/automation';
-import { Peer } from '@rasm/automation/peer';
 import { fillColor } from '@rasm/mark';
 import { wcagContrast } from 'culori';
-import { Effect, FiberSet, Function, flow, Layer, Logger, Predicate, Queue, Record, Schema, type Scope, Stream, Struct } from 'effect';
-import type { Rpc } from 'effect/rpc';
-import { Completion, Envelope } from '#/contract';
+import { Effect, FiberSet, Function, Layer, Logger, Predicate, Queue, Record, Schema, type Scope, Stream, Struct } from 'effect';
 import { ExtensionManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -36,23 +32,9 @@ const Environment = Schema.fromJsonString(
         }),
     }),
 );
-const Sent = Function.memoize((rpc: Parameters<typeof Envelope>[0]) => Schema.fromJsonString(Schema.toCodecJson(Envelope(rpc))));
-const Reply = Schema.fromJsonString(Completion);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const served = (cep: Cep) =>
-    Effect.fnUntraced(function* <Tag extends Requests['_tag'], Payload extends Requests['payloadSchema'], Success extends Requests['successSchema']>(payload: Payload['Type'], { rpc }: { readonly rpc: Rpc.Rpc<Tag, Payload, Success, Requests['errorSchema']> }) {
-        const sent = yield* Effect.orDie(Schema.encodeEffect(Sent(rpc))({ tag: rpc._tag, label: payload.label, payload }));
-        return yield* Effect.callback<string>((resume) => cep.evalScript(`${ExtensionManifest.global}(${sent.replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029')})`, flow(Effect.succeed, resume))).pipe(
-            Effect.filterOrFail(
-                (reply) => reply !== 'EvalScript error.',
-                () => HostError.make({ reason: { _tag: 'Unavailable' }, subject: `${payload.label}: ${ExtensionManifest.script} ${ExtensionManifest.global}` }),
-            ),
-            Effect.flatMap(Schema.decodeEffect(Reply)),
-            Effect.flatMap(Completion.answered(Schema.toCodecJson(rpc.successSchema), payload.label)),
-        );
-    });
 const cepHost = Effect.suspend(() => Schema.decodeUnknownEffect(Panel)(globalThis)).pipe(Effect.map(Struct.get('__adobe_cep__')));
 const css = ({ red, green, blue }: typeof Rgb.Type) => `rgb(${red} ${green} ${blue})`;
 const skinned = (root: HTMLElement) => (environment: typeof Environment.Type) => {
@@ -84,15 +66,14 @@ const followed = <E>(cep: Cep, queue: Queue.Queue<string, E>) => {
         Function.constant(Effect.sync(() => cep.removeEventListener(themeChanged, listener))),
     );
 };
-const linked = (cep: Cep) => Peer.dial(Requests, Requests.toLayer(Struct.Record(Array.from(Requests.requests.values(), Struct.get('_tag')), served(cep))), Schema.decodeEffect(HostUrl)(cep.getSystemPath('hostApplication')))(cep.getExtensionId(), Schema.decodeEffect(HostUrl)(cep.getSystemPath('extension')));
 const skin = Stream.unwrap(Effect.map(cepHost, (cep) => Stream.callback<string>((queue) => followed(cep, queue)))).pipe(Stream.mapEffect((environment) => Schema.decodeEffect(Environment)(environment)));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const servePanel = <F = never>({ link = false, face }: { readonly link?: boolean; readonly face?: Face<F> }): void => {
+const servePanel = <E = never, F = never>({ link, face }: { readonly link?: (cep: Cep) => Layer.Layer<never, E>; readonly face?: Face<F> }): void => {
     Effect.gen(function* () {
         const cep = yield* cepHost;
-        yield* link ? Effect.forkScoped(Layer.launch(linked(cep))) : Effect.void;
+        yield* link === undefined ? Effect.void : Effect.forkScoped(Layer.launch(link(cep)));
         if (face !== undefined) {
             yield* Effect.forkScoped(Stream.runForEach(skin, skinned(document.documentElement)));
             const forked = yield* FiberSet.makeRuntime<never, void, never>();
@@ -103,4 +84,4 @@ const servePanel = <F = never>({ link = false, face }: { readonly link?: boolean
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { servePanel, skin };
+export { type Cep, servePanel, skin };

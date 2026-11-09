@@ -4,7 +4,7 @@
     "description": "Nx plugin inferring uv workspace members, their checkers, tests, builds, and releases from uv's own workspace metadata",
     "repository": {
         "type": "git",
-        "url": "https://github.com/bsamiee/Rasm",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/uv"
     },
     "license": "MIT",
@@ -27,10 +27,15 @@
         "@renovatebot/pep440": "catalog:",
         "effect": "catalog:"
     },
-    "peerDependencies": {
+    "devDependencies": {
+        "@types/node": "catalog:",
         "nx": "catalog:"
     },
+    "peerDependencies": {
+        "nx": "catalog:peers"
+    },
     "publishConfig": {
+        "access": "public",
         "exports": {
             ".": "./dist/plugins/workspace.js",
             "./release/version-actions": "./dist/version-actions.js",

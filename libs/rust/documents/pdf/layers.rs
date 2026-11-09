@@ -37,10 +37,9 @@ pub struct Group {
 
 pub fn groups(document: &Document) -> Result<Vec<(ObjectId, Group)>, PdfError> { crate::structure(document).and_then(|structure| entries(&structure)) }
 
-pub fn set<I>(document: &Document, groups: I) -> Result<Document, PdfError>
+pub fn set<I>(document: &Document, application: &str, groups: I) -> Result<Document, PdfError>
 where I: IntoIterator<Item: Borrow<(ObjectId, Group)>> {
-    let mut structure = crate::structure(document)?;
-    let held = entries(&structure)?;
+    let held = self::groups(document)?;
     let requested = groups.into_iter().collect::<Vec<_>>();
     let present = held.iter().map(|&(id, _)| id).collect::<HashSet<_>>();
     requested.iter().map(Borrow::<(ObjectId, Group)>::borrow).find(|(id, _)| !present.contains(id)).map_or(Ok(()), |&(id, _)| Err(PdfError::Group(id)))?;
@@ -49,18 +48,17 @@ where I: IntoIterator<Item: Borrow<(ObjectId, Group)>> {
     }
     let requested = requested.iter().map(Borrow::<(ObjectId, Group)>::borrow).map(|(id, group)| (*id, group)).collect::<HashMap<_, _>>();
     let ocgs = held.into_iter().map(|(id, stated)| (id, requested.get(&id).map_or(stated, |&group| group.clone()))).collect::<Vec<_>>();
-    apply(&mut structure, &ocgs)?;
-    crate::saved(structure)
+    crate::revised(document, |structure| apply(structure, &ocgs, application))
 }
 
-pub(crate) fn apply(structure: &mut lopdf::Document, ocgs: &[(ObjectId, Group)]) -> Result<(), PdfError> {
+pub(crate) fn apply(structure: &mut lopdf::Document, ocgs: &[(ObjectId, Group)], application: &str) -> Result<(), PdfError> {
     let forbids = forbids(structure)?;
     permitted(ocgs.iter().map(|(_, group)| group), forbids)?;
     ocgs.iter().try_for_each(|(id, group)| stamp(structure, *id, group))?;
-    configure(structure, ocgs, forbids).map_err(PdfError::from)
+    configure(structure, ocgs, forbids, application).map_err(PdfError::from)
 }
 
-pub(crate) fn bind(structure: &mut lopdf::Document, pages: &[Vec<Group>]) -> Result<(), PdfError> {
+pub(crate) fn bind(structure: &mut lopdf::Document, pages: &[Vec<Group>], application: &str) -> Result<(), PdfError> {
     let forbids = forbids(structure)?;
     permitted(pages.iter().flatten(), forbids)?;
     let mut registered = IndexMap::<&Group, ObjectId>::new();
@@ -96,7 +94,7 @@ pub(crate) fn bind(structure: &mut lopdf::Document, pages: &[Vec<Group>]) -> Res
         properties.as_hashmap_mut().extend(layers.iter().map(|&id| (resource(id).into_bytes(), Object::Reference(id))));
         Ok::<_, lopdf::Error>(())
     })?;
-    configure(structure, &ocgs, forbids).map_err(PdfError::from)
+    configure(structure, &ocgs, forbids, application).map_err(PdfError::from)
 }
 
 fn forbids(structure: &lopdf::Document) -> Result<bool, PdfError> {
@@ -188,7 +186,7 @@ fn stamp(structure: &mut lopdf::Document, id: ObjectId, group: &Group) -> Result
     })
 }
 
-fn configure(structure: &mut lopdf::Document, ocgs: &[(ObjectId, Group)], forbids: bool) -> Result<(), lopdf::Error> {
+fn configure(structure: &mut lopdf::Document, ocgs: &[(ObjectId, Group)], forbids: bool, application: &str) -> Result<(), lopdf::Error> {
     let all = ocgs.iter().map(|&(id, _)| Object::Reference(id)).collect::<Vec<_>>();
     let shown = |visibility: Visibility| ocgs.iter().filter(|(_, group)| group.view == visibility).map(|&(id, _)| Object::Reference(id)).collect::<Vec<_>>();
     let mut properties = subdictionary(structure, structure.catalog()?, OCPROPERTIES)?;
@@ -198,12 +196,12 @@ fn configure(structure: &mut lopdf::Document, ocgs: &[(ObjectId, Group)], forbid
     } else {
         applications(structure, &configuration)?
             .into_iter()
-            .map(|application| {
-                let event = application.get_deref(EVENT, structure)?.as_name()?;
+            .map(|usage| {
+                let event = usage.get_deref(EVENT, structure)?.as_name()?;
                 let managed = |category: &Object| [VIEW, PRINT].contains(&event) && category.as_name().is_ok_and(|name| name == event);
-                let categories = application.get_deref(CATEGORY, structure)?.as_array()?.iter().filter(|category| !managed(category)).cloned().collect::<Vec<_>>();
+                let categories = usage.get_deref(CATEGORY, structure)?.as_array()?.iter().filter(|category| !managed(category)).cloned().collect::<Vec<_>>();
                 Ok::<_, lopdf::Error>((!categories.is_empty()).then(|| {
-                    let mut kept = application.clone();
+                    let mut kept = usage.clone();
                     kept.set(CATEGORY, categories);
                     Object::Dictionary(kept)
                 }))
@@ -217,7 +215,7 @@ fn configure(structure: &mut lopdf::Document, ocgs: &[(ObjectId, Group)], forbid
     let usage = foreign.into_iter().flatten().chain(ours.into_iter().flatten()).collect::<Vec<_>>();
     configuration.set(ON, shown(Visibility::Visible));
     configuration.set(OFF, shown(Visibility::Hidden));
-    configuration.as_hashmap_mut().entry(NAME.to_vec()).or_insert_with(|| text_string(env!("CARGO_PKG_NAME")));
+    configuration.as_hashmap_mut().entry(NAME.to_vec()).or_insert_with(|| text_string(application));
     configuration.as_hashmap_mut().entry(ORDER.to_vec()).or_insert_with(|| Object::Array(all.clone()));
     if usage.is_empty() {
         configuration.remove(AS);

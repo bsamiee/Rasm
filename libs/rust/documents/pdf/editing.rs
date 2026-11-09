@@ -11,7 +11,7 @@ use crate::{Document, PdfError};
 fn edited<T>(document: &Document, edit: impl FnOnce(&mut DocumentEditor) -> pdf_oxide::Result<T>) -> Result<(Document, T), PdfError> {
     let mut editor = crate::editor(document)?;
     let outcome = edit(&mut editor)?;
-    Ok((Document::from_plain_bytes(editor.save_to_bytes()?)?, outcome))
+    Ok((crate::sealed(document, editor.save_to_bytes()?)?, outcome))
 }
 
 fn forms<'document>(structure: &'document lopdf::Document, resources: &'document Dictionary, mut found: BTreeSet<ObjectId>) -> Result<BTreeSet<ObjectId>, lopdf::Error> {

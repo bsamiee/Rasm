@@ -47,6 +47,10 @@ extension Installation {
             return listed
         }
         if name.hasPrefix("/") { return [try Self(at: URL(filePath: name, directoryHint: .isDirectory))] }
+        if let pid: pid_t = pid_t(name) {
+            guard let bundle: URL = NSRunningApplication(processIdentifier: pid)?.bundleURL else { throw ApplicationFailure(subject: name, reason: .noProcess) }
+            return [try Self(at: bundle)]
+        }
         let registered: [Self] = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: name).compactMap { url in
             Result { () throws(ApplicationFailure) in try Self(at: url) }[case: \.success]
         }

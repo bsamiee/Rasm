@@ -4,7 +4,7 @@
     "description": "Nx plugin inferring Cargo workspaces, crates, checks, and releases from cargo's own output",
     "repository": {
         "type": "git",
-        "url": "https://github.com/bsamiee/Rasm",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/cargo"
     },
     "license": "MIT",
@@ -15,8 +15,8 @@
     "exports": {
         ".": "./plugins/project-graph.ts",
         "./release/version-actions": "./version-actions.ts",
-        "./executors.json": "./executors.json",
-        "./package.json": "./package.json"
+        "./package.json": "./package.json",
+        "./executors.json": "./executors.json"
     },
     "files": [ "dist", "executors.json", "executors/*/schema.json" ],
     "dependencies": {
@@ -25,18 +25,23 @@
         "@nx/devkit": "catalog:",
         "effect": "catalog:"
     },
-    "peerDependencies": {
+    "devDependencies": {
+        "@types/node": "catalog:",
         "nx": "catalog:"
     },
+    "peerDependencies": {
+        "nx": "catalog:peers"
+    },
     "publishConfig": {
+        "access": "public",
         "exports": {
             ".": "./dist/plugins/project-graph.js",
             "./release/version-actions": "./dist/version-actions.js",
-            "./executors.json": "./executors.json",
-            "./package.json": "./package.json"
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json"
         },
         "imports": {
-                "#/*": "./dist/*.js"
+            "#/*": "./dist/*.js"
         }
     },
     "executors": "./executors.json"

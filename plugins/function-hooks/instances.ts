@@ -1,12 +1,11 @@
-import { Array, Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { type Change, Instance } from '#/decision.ts';
-import { Host } from '#/host.ts';
+import { Installation, Launched } from '@rasm/applications';
+import { Array, Effect, Predicate, Record, Schema } from 'effect';
+import { type Change, Instance } from '#/decision';
+import { Host } from '#/host';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const WATCHER = 'watch-apps';
-const BUNDLE_ID = /bundleID="(?<bundle>[\w.-]+)"/u;
-const BACKGROUND_ONLY = /\btype="BackgroundOnly"/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -18,8 +17,8 @@ const State = Schema.Struct({
     exited: Schema.optionalKey(Exited),
 });
 const Line = Schema.fromJsonString(Schema.Record(Instance.fields.bundle, Schema.Record(Schema.String.check(Schema.isPattern(/^\d+$/u)), State)));
-const Launched = Schema.Struct({ pid: Schema.Int, created: Schema.Boolean });
 const Answer = Schema.fromJsonString(Schema.Union([Schema.Struct({ launched: Launched }), Launched]));
+const Found = Schema.fromJsonString(Schema.toCodecJson(Schema.Record(Schema.String, Schema.Array(Installation))));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -33,26 +32,21 @@ const exitedOf = (text: string): Change['exited'] =>
         .filter(({ state }) => state.exited !== undefined)
         .map(({ pid }) => pid);
 
-const appOf = (pid: number | string) =>
-    Effect.map(
-        Host.use((host) => host.output(['lsappinfo', 'info', '-only', 'bundleID,ApplicationType', `${pid}`])),
-        (text) => Option.map(Option.fromNullishOr(BUNDLE_ID.exec(text)?.groups?.bundle), (bundle) => ({ bundle, foreground: !BACKGROUND_ONLY.test(text) })),
-    );
+const installed = (names: readonly (number | string)[]): Effect.Effect<Record<string, readonly Installation[]>, never, Host> =>
+    Array.isReadonlyArrayNonEmpty(names)
+        ? Effect.map(
+              Host.use((host) => host.output([WATCHER, 'find', ...Array.map(names, String)])),
+              (text) => Record.fromEntries(Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Found)(line))).flatMap(Record.toEntries)),
+          )
+        : Effect.succeed({});
 
-const instanceOf = (pid: number) =>
-    Effect.map(
-        appOf(pid),
-        Option.map(({ bundle }): Instance => ({ pid, bundle })),
-    );
-
-const observed = Effect.fnUntraced(function* (text: string) {
-    const answers = Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Answer)(line))).map((answer) => ('launched' in answer ? answer.launched : answer));
-    const answered = yield* Effect.forEach(answers, ({ pid, created }) => Effect.map(instanceOf(pid), Option.map(Struct.assign({ created }))), { concurrency: 'unbounded' });
+const observed = (text: string) => {
+    const answered = Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Answer)(line))).map((answer) => ('launched' in answer ? answer.launched : answer));
     const launched = statesOf(text).map(({ pid, bundle, state }) => ({ pid, bundle, created: state.launched?.created }));
-    const claimed = [...launched, ...Array.getSomes(answered)];
+    const claimed = [...launched, ...answered.map(({ pid, identifier, created }) => ({ pid, bundle: identifier, created }))];
     const holding = (created: boolean) => claimed.filter((claim) => claim.created === created).map(({ pid, bundle }): Instance => ({ pid, bundle }));
-    return { created: holding(true), reused: holding(false), exited: exitedOf(text) } satisfies Change;
-});
+    return Effect.succeed({ created: holding(true), reused: holding(false), exited: exitedOf(text) } satisfies Change);
+};
 
 const exitNote = ({ status = 0, reporting, report, reportFailure }: typeof Exited.Type): readonly string[] => {
     const crashed = [reporting, report, reportFailure].some(Predicate.isNotUndefined);
@@ -75,11 +69,12 @@ const watched = (text: string) =>
 
 const quit = Effect.fnUntraced(function* (instances: readonly Instance[]) {
     const host = yield* Host;
-    const live = yield* Effect.filter(instances, (instance) => Effect.map(instanceOf(instance.pid), Option.contains(instance)), { concurrency: 'unbounded' });
+    const running = yield* installed(instances.map(({ pid }) => pid));
+    const live = instances.filter(({ pid, bundle }) => (running[pid] ?? []).some(({ identifier }) => identifier === bundle));
     const answers = yield* Effect.forEach(live, ({ pid }) => host.output([WATCHER, 'quit', `${pid}`]), { concurrency: 'unbounded' });
     return { created: [], reused: [], exited: [...Array.difference(instances, live).map(({ pid }) => pid), ...exitedOf(answers.join('\n'))] } satisfies Change;
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { appOf, observed, quit, WATCHER, watched };
+export { installed, observed, quit, WATCHER, watched };

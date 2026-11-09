@@ -11,7 +11,7 @@ use tracing_subscriber::layer::Identity;
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Parser)]
-#[command(version = option_env!("RASM_VERSION").unwrap_or(env!("CARGO_PKG_VERSION")), about)]
+#[command(version, about)]
 struct Upstream {
     #[arg(required = true, num_args = 1.., trailing_var_arg = true, allow_hyphen_values = true, value_hint = ValueHint::CommandWithArguments, help = "Stdio MCP server command line")]
     command: Vec<OsString>,

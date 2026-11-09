@@ -134,7 +134,6 @@
         "dependencies": {
           "CommunityToolkit.HighPerformance": "[8.4.2, )",
           "CommunityToolkit.Mvvm": "[8.4.2, )",
-          "GeoTimeZone": "[7.0.0, )",
           "LanguageExt.Core": "[5.0.0-beta-78, )",
           "LanguageExt.Streaming": "[5.0.0-beta-78, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
@@ -168,12 +167,6 @@
         "requested": "[8.4.2, )",
         "resolved": "8.4.2",
         "contentHash": "WadCzGEc2U+3e20avRLng4qNtt4zoOGWrdUISqJWrHe3/FSnrYjuM5Sb4yQb09LhkBXrrI4Zt3dLKgRMbItsrg=="
-      },
-      "GeoTimeZone": {
-        "type": "CentralTransitive",
-        "requested": "[7.0.0, )",
-        "resolved": "7.0.0",
-        "contentHash": "IPVO7FeCcCmWjp4zctVJCF45IaRPrFNxyvCcxbJC/rqcMvtE08ZFFb5YL8fkFyrq2MJY3GdIsVr8npjU1iefcQ=="
       },
       "ini-parser-netstandard": {
         "type": "CentralTransitive",

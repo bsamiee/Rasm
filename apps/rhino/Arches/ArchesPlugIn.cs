@@ -1,11 +1,9 @@
 using Rasm.Rhino;
 using Rasm.Rhino.Commands;
-using Rasm.Rhino.Persistence;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
-using Rhino.PlugIns;
 
 namespace Arches;
 
@@ -13,8 +11,6 @@ namespace Arches;
 
 public sealed class ArchesPlugIn : DefinedPlugIn<ArchesPlugIn>, IDefined<PlugInDefinition>, IRuiSource {
     public static PlugInDefinition Definition { get; } = new() {
-        LoadTime = PlugInLoadTime.AtStartup,
-        Load = [AppSettings.NudgeFollowsActiveDocument(static (resolution, snap, grid) => (snap, 2 * resolution, grid))],
         Commands = toSeq(ArchFamily.Items).Map(static family =>
             (PlugInCommand)new CommandDefinition<CommandInput.Run>(family.Command, new CommandInput.Run((doc, _, _) => ArchPrompts.Run(doc, family)))),
     };

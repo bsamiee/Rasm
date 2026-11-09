@@ -1,10 +1,9 @@
-/// <reference types="vite/client" />
-
 import { Launched, Pid } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
-import { ExecuteScript, HostError, ObjectModel, Reference, Render } from '@rasm/automation';
-import { Peer } from '@rasm/automation/peer';
-import { Completion, ExtensionManifest } from '@rasm/cep';
+import { Completion, ExecuteScript, Render } from '@rasm/atelier-protocol';
+import { Peer } from '@rasm/atelier-protocol/peer';
+import { HostError, ObjectModel, Reference } from '@rasm/automation';
+import { ExtensionManifest } from '@rasm/cep';
 import { lower, traced } from '@rasm/cep/node';
 import { Resource, Route, registerRpcGroup, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
@@ -19,9 +18,7 @@ import type { routes } from '#/routes';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 declare global {
-    interface ImportMetaEnv {
-        readonly EXTENDSCRIPT_RUNTIME: string;
-    }
+    const EXTENDSCRIPT_RUNTIME: string;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -103,7 +100,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
         const { reply } = yield* automation.script({
             pid,
             url,
-            direct: `(function (self) { var body = ${source}\n${import.meta.env.EXTENDSCRIPT_RUNTIME}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`,
+            direct: `(function (self) { var body = ${source}\n${EXTENDSCRIPT_RUNTIME}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`,
         });
         return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(Completion.answered(ResultJson, ExecuteScript.make({ code: source }).label)), Effect.catchTag('HostError', relined));
     });

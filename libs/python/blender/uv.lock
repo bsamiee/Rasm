@@ -828,11 +828,11 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cbor2" },
-    { name = "expression" },
-    { name = "msgspec", extras = ["toml"] },
-    { name = "numpy" },
-    { name = "typing-extensions" },
+    { name = "cbor2", specifier = ">=6.0.0" },
+    { name = "expression", specifier = ">=5.2.0" },
+    { name = "msgspec", extras = ["toml"], specifier = ">=0.19.0" },
+    { name = "numpy", specifier = ">=2.1.0" },
+    { name = "typing-extensions", specifier = ">=4.13.0" },
 ]
 
 [[package]]

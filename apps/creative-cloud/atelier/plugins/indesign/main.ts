@@ -1,6 +1,6 @@
-import { link } from '@rasm/indesign/uxp';
 import { Plugin } from '@rasm/uxp/plugin';
 import { Effect } from 'effect';
+import { link } from '#/handlers';
 import { typesetting } from '#/typesetting';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

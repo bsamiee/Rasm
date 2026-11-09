@@ -1,8 +1,8 @@
 import { findPackageJSON } from 'node:module';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesResultArray, type TargetConfiguration } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesResultArray } from '@nx/devkit';
 import { Array, Effect, FileSystem, Option, Path, Record, Schema } from 'effect';
-import { HOSTS } from '#/plugins/host-packages';
+import { HOSTS, RELEASE } from '#/plugins/host-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -49,16 +49,16 @@ const createNodes: CreateNodes = [
                                         cache: false,
                                         metadata: { technologies: [host.technology], description: `Installs the ${host.technology} packages build wrote, through ${host.install.command}` },
                                     },
-                                    ...Option.match(Option.fromUndefinedOr(host.publish), {
-                                        onNone: (): Record<string, TargetConfiguration> => ({}),
-                                        onSome: ({ command }) => ({
-                                            'nx-release-publish': {
-                                                executor: `${name}:release-publish`,
-                                                dependsOn: ['build', '^nx-release-publish'],
-                                                metadata: { technologies: [host.technology], description: `Publishes the ${host.technology} packages build wrote, through ${command}` },
-                                            },
-                                        }),
-                                    }),
+                                    'nx-release-publish': {
+                                        executor: `${name}:release-publish`,
+                                        dependsOn: ['^nx-release-publish'],
+                                        defaultConfiguration: RELEASE,
+                                        configurations: { [RELEASE]: {} },
+                                        metadata: {
+                                            technologies: [host.technology],
+                                            description: `Attaches the ${host.technology} packages build wrote in its ${RELEASE} configuration to the project's GitHub release${Option.match(Option.fromUndefinedOr(host.publish), { onNone: () => '', onSome: ({ command }) => ` and publishes them through ${command}` })}`,
+                                        },
+                                    },
                                 },
                             },
                         },

@@ -1,0 +1,23 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-dependency-graph-tests"
+edition.workspace = true
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dev-dependencies]
+rasm-dependency-graph = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

@@ -4,7 +4,7 @@
 
 [workspace]
 resolver = "3"
-members  = ["libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tools/mcp-proxy"]
+members  = ["libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tools/mcp-proxy", "tests/rust/libs/*/*", "tests/rust/tools/mcp-proxy"]
 
 # --- [IDENTITY]
 
@@ -733,7 +733,7 @@ rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation" }
 rasm-form-finding       = { path = "libs/rust/geometry/form-finding" }
 rasm-lints              = { path = "tools/dylint" }
 rasm-lints-auxiliary    = { path = "tools/dylint/auxiliary" }
-rasm-mcp-proxy          = { path = "tools/mcp-proxy" }
+rasm-mcp-proxy          = { path = "tools/mcp-proxy", artifact = "bin" }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

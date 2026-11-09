@@ -1,7 +1,6 @@
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { isCI } from '@nx/devkit/internal';
 import { Effect, Option, type Path, Predicate, Record, Schema } from 'effect';
-import type { Options } from '#/plugins/project-graph';
 import { type Part, TOOLCHAIN, target } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -42,12 +41,10 @@ const sources = (path: Path.Path, { root, held }: Package, described: ReadonlyMa
         .filter((input) => !input.endsWith('Package.resolved')),
 ];
 
-const scratched = (path: Path.Path, options: Options, root: string) => Option.match(Option.fromUndefinedOr(options.outputPath), { onNone: () => [], onSome: (output) => ['--scratch-path', path.join(output, 'swiftpm', root, '.build')] });
-
-const packageParts = (path: Path.Path, options: Options, plugin: string, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
+const packageParts = (path: Path.Path, plugin: string, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
     const { file, root, held } = local;
     const modules = held.targets.filter((module) => module.product_memberships.length > 0 && module.name !== held.name);
-    const flags = [...scratched(path, options, root), ...(Predicate.isTruthy(isCI()) ? ['--disable-automatic-resolution'] : [])];
+    const flags = Predicate.isTruthy(isCI()) ? ['--disable-automatic-resolution'] : [];
     const suites = held.targets.filter(({ type }) => Schema.is(Tests)(type));
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
     const inputs = [...sources(path, local, described), path.join('{workspaceRoot}', '.swift-version'), ...TOOLCHAIN];
@@ -85,4 +82,4 @@ const packageEdges = (held: typeof Described.Type, described: ReadonlyMap<string
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Described, MANIFEST, type Package, packageEdges, packageParts, scratched, sources };
+export { Described, MANIFEST, type Package, packageEdges, packageParts, sources };

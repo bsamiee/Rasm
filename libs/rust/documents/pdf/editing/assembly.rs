@@ -64,7 +64,7 @@ enum Link {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn assemble<I>(parts: I) -> Result<Document, PdfError>
+pub fn assemble<I>(parts: I, application: &str) -> Result<Document, PdfError>
 where I: IntoNonEmptyIterator<Item: Borrow<Part>> {
     let (opening, rest) = parts
         .into_nonempty_iter()
@@ -79,16 +79,16 @@ where I: IntoNonEmptyIterator<Item: Borrow<Part>> {
         })
         .next();
     let read = opening.map2(rest.collect::<Validated<Vec<_>, _>>(), |opening, rest| NEVec::from((opening, rest))).ok().map_err(PdfError::Refused)?;
-    composed(&read.nonempty_iter().map(|(source, chosen)| (source, chosen.as_slice())).collect::<NEVec<_>>())
+    composed(&read.nonempty_iter().map(|(source, chosen)| (source, chosen.as_slice())).collect::<NEVec<_>>(), application)
 }
 
-pub fn split<I>(document: &Document, selections: I) -> Result<Vec<Document>, PdfError>
+pub fn split<I>(document: &Document, selections: I, application: &str) -> Result<Vec<Document>, PdfError>
 where I: IntoIterator<Item = NEVec<usize>> {
     let whole = source(document).ok().map_err(|failures| failures.into_nonempty_iter().next().0)?;
     selections
         .into_iter()
         .enumerate()
-        .map(|(index, pages)| selection(&whole, Some(&pages)).and_then(|chosen| composed(&NEVec::new((&whole, chosen.as_slice())))).map_err(|error| (Subject::Part(index), error)))
+        .map(|(index, pages)| selection(&whole, Some(&pages)).and_then(|chosen| composed(&NEVec::new((&whole, chosen.as_slice())), application)).map_err(|error| (Subject::Part(index), error)))
         .collect::<Validated<Vec<_>, _>>()
         .ok()
         .map_err(PdfError::Refused)
@@ -114,7 +114,7 @@ fn selection(source: &Source, pages: Option<&NEVec<usize>>) -> Result<Vec<(usize
     )
 }
 
-fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, PdfError> {
+fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>, application: &str) -> Result<Document, PdfError> {
     let opens = |assembly: &Assembly, explicit: &[Object]| matches!(explicit.first(), Some(Object::Reference(page)) if assembly.held.contains(page));
     let linked = |assembly: &mut Assembly, page: ObjectId, dests: &BTreeMap<Vec<u8>, Vec<Object>>| -> Result<(), lopdf::Error> {
         let Some(listed) = entry(&assembly.structure, assembly.structure.get_dictionary(page)?, ANNOTS)?.map(Object::as_array).transpose()?.cloned() else {
@@ -390,7 +390,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>) -> Result<Document, 
     let indices = parts.iter().map(|(_, chosen)| chosen.iter().map(|&(index, _)| index).collect::<Vec<_>>()).collect::<Vec<_>>();
     navigation::write(&mut assembly.structure, &navigation::assembled(iter::zip(parts, &indices).map(|((source, _), sheets)| (&source.navigation, sheets.as_slice()))))?;
     if !registered.is_empty() {
-        layers::apply(&mut assembly.structure, &registered)?;
+        layers::apply(&mut assembly.structure, &registered, application)?;
     }
     crate::saved(assembly.structure)
 }

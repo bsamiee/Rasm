@@ -4,12 +4,14 @@
     "description": "Atelier Illustrator",
     "type": "module",
     "dependencies": {
+        "@rasm/atelier-extendscript": "workspace:*",
+        "@rasm/atelier-protocol": "workspace:*",
         "@rasm/cep": "workspace:*",
-        "@rasm/illustrator": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {
-        "@rasm/atelier": "workspace:*",
+        "@types/node": "catalog:",
+        "types-for-adobe": "catalog:",
         "vite": "catalog:"
     }
 }

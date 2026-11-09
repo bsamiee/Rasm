@@ -1,6 +1,6 @@
 import { parse, patch } from '@decimalturn/toml-patch';
 import { layer } from '@effect/platform-node/NodeServices';
-import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
+import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Option, Path, Schema, Stream } from 'effect';
 import { Zip } from 'effect/encoding';
@@ -8,7 +8,7 @@ import { EXTENSION, spawned, UvError } from '#/plugins/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Build = Schema.Struct({ bundle: Schema.optionalKey(Schema.Boolean) });
+const Build = Schema.Struct({ outputPath: Schema.String, bundle: Schema.optionalKey(Schema.Boolean) });
 const Manifest = Schema.Struct({ platforms: Schema.optionalKey(Schema.Array(Schema.String)) });
 const Host = Schema.fromJsonString(Schema.Struct({ python: Schema.String, platform: Schema.String, tags: Schema.Array(Schema.String), distributions: Schema.Array(Schema.String), modules: Schema.Array(Schema.String) }));
 const Locked = Schema.Struct({ packages: Schema.Array(Schema.Struct({ directory: Schema.optionalKey(Schema.Struct({ path: Schema.String })) })) });
@@ -74,11 +74,9 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
 const execute = (options: unknown, context: ExecutorContext) =>
     Effect.runPromise(
         Effect.gen(function* () {
-            const [path, fs, { bundle = false }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Schema.decodeUnknownEffect(Build)(options)]);
+            const [path, fs, { outputPath: folder, bundle = false }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Schema.decodeUnknownEffect(Build)(options)]);
             const project = yield* Effect.fromNullishOr(context.projectName);
             const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
-            const [archive] = getOutputsForTargetAndConfiguration({ project, target: yield* Effect.fromNullishOr(context.targetName), ...(context.configurationName === undefined ? {} : { configuration: context.configurationName }) }, {}, node);
-            const folder = path.dirname(yield* Effect.fromNullishOr(archive));
             const text = yield* fs.readFileString(path.join(context.root, node.data.root, EXTENSION));
             const declared = yield* Effect.flatMap(toml(text, EXTENSION), Schema.decodeUnknownEffect(Manifest));
             yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });

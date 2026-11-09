@@ -1,4 +1,4 @@
-import type { Fix, Policy } from '#/policies/fix.ts';
+import type { Fix, Policy } from '#/policies/fix';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,18 +31,7 @@ interface Program {
     readonly endless?: When;
     readonly closes?: When;
     readonly reports?: true;
-    readonly routes?: {
-        readonly rooted?: true;
-        readonly flat?: true;
-        readonly entries?: true;
-        readonly across?: true;
-        readonly through?: string;
-        readonly selects?: readonly string[];
-        readonly config?: string;
-        readonly modes?: readonly string[];
-        readonly ignores?: readonly string[];
-        readonly requires?: `--${string}`;
-    };
+    readonly routes?: { readonly selects?: readonly string[]; readonly modes?: Readonly<Record<string, string>>; readonly ignores?: readonly string[] };
     readonly headless?: readonly string[];
     readonly fixes?: readonly Fix[];
 }

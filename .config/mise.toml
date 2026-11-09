@@ -20,7 +20,7 @@ use_versions_host_track             = false
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-_.path                       = ["./node_modules/.bin"]
+_.path                       = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
 CARGO_LLVM_COV_DENY_WARNINGS = "1"
 CF_QUIET                     = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH = "{{config_root}}/.cache/cloudflare/registry"
@@ -34,6 +34,7 @@ HK_LOG_FILE                  = "{{config_root}}/.artifacts/logs/hk.log"
 HK_PKL_CACHE_DIR             = "{{config_root}}/.cache/pklr"
 HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
 NODE_COMPILE_CACHE           = "{{config_root}}/.cache/node"
+NODE_VERSION                 = { tools = true, value = "{{ tools.node.version }}" }
 NX_WORKSPACE_DATA_DIRECTORY  = "{{config_root}}/.cache/nx/workspace-data"
 PITCHFORK_LOG_TIME_RETENTION = "7d"
 PLAYWRIGHT_MCP_OUTPUT_DIR    = "{{config_root}}/.artifacts/playwright"
@@ -41,7 +42,6 @@ PULUMI_HOME                  = "{{config_root}}/.cache/pulumi"
 PYTHONPYCACHEPREFIX          = "{{config_root}}/.cache/pycache"
 RUSTUP_AUTO_INSTALL          = "0"
 RUSTUP_TOOLCHAIN             = false
-STORYBOOK_DISABLE_TELEMETRY  = "1"
 TOMBI_CACHE_HOME             = "{{config_root}}/.cache/tombi"
 TY_UV                        = "1"
 WATCH_APPS_LOG               = "{{config_root}}/.artifacts/logs/watch-apps.log"

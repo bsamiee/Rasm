@@ -1,7 +1,7 @@
 {
     "name": "@rasm/indesign",
     "private": true,
-    "description": "InDesign operations and requests for UXP programs",
+    "description": "InDesign object model for UXP plugins: specifiers, values, find/change kinds, and extents, the Model reading the running host's dictionary, and typesetting settings over it",
     "sideEffects": false,
     "type": "module",
     "imports": {

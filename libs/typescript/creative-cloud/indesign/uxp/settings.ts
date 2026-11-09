@@ -1,8 +1,8 @@
 import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
-import { Digits } from '@rasm/search';
-import { Settings } from '@rasm/typography';
+
+import { Digits, Settings } from '@rasm/typography';
 import { Array, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
-import { STYLISTIC_SETS } from '#/internal/dictionary';
+import { STYLISTIC_SETS } from '#/uxp/dictionary';
 import { Model } from '#/uxp/model';
 
 // --- [TYPES] ---------------------------------------------------------------------------

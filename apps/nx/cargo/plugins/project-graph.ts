@@ -32,13 +32,13 @@ const analyze = Effect.fnUntraced(function* (context: CreateNodesContext, plugin
     const parts = found.map((workspace) => {
         const crates = Record.fromIterableWith(workspace.members, ({ crate, root }) => {
             const named = getNamedInputs(root, context);
-            const { release, targets } = released(plugin, crate, workspace.root);
+            const { targets, ...configured } = released(plugin, crate, workspace.root);
             return [
                 root,
                 {
                     name: crate.name,
                     metadata: { technologies: TECHNOLOGIES },
-                    ...(release === undefined ? {} : { release }),
+                    ...configured,
                     targets: { ...crateTargets(plugin, path, workspace, files, 'production' in named ? ['production', '^production'] : ['default', '^default'], crate, root), ...targets },
                 },
             ] as const;
@@ -95,15 +95,17 @@ const createNodes: CreateNodes = [
     FILES,
     (files, options, context) =>
         Effect.runPromise(
-            Effect.flatMap(Effect.mapError(graph(context, files, options), (error) => new AggregateCreateNodesError([[null, new Error(error.message)]], [])), ({ graph: built, failures }) =>
-                failures.length === 0
-                    ? Effect.succeed(built.nodes)
-                    : Effect.fail(
-                          new AggregateCreateNodesError(
-                              failures.map(([file, error]) => [file, new Error(error.message)]),
-                              [...built.nodes],
+            Effect.flatMap(
+                Effect.mapError(graph(context, files, options), (error) => new AggregateCreateNodesError([[null, new Error(error.message)]], [])),
+                ({ graph: built, failures }) =>
+                    failures.length === 0
+                        ? Effect.succeed(built.nodes)
+                        : Effect.fail(
+                              new AggregateCreateNodesError(
+                                  failures.map(([file, error]) => [file, new Error(error.message)]),
+                                  [...built.nodes],
+                              ),
                           ),
-                      ),
             ).pipe(Effect.provide(layer)),
         ),
 ];

@@ -161,7 +161,7 @@ pub fn register(
                                 Metric::Point => None,
                                 Metric::Plane(neighborhood) => *normals[item].get_or_init(|| points::normal(&points::search(cloud, &[corresponding], neighborhood)[0], None, scratch)),
                             };
-                            Some((point, moved, corresponding, normal, distance))
+                            Some((point, moved, corresponding, normal, normal.map_or(distance, |normal| (moved - corresponding).dot(&normal).abs())))
                         },
                     )
                     .flatten()

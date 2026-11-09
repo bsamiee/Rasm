@@ -20,6 +20,13 @@ pub enum Value<'cell> {
     Empty,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Uncached {
+    pub sheet: u32,
+    pub cell: (u32, u32),
+    pub kind: Error,
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -50,8 +57,6 @@ pub enum WorkbooksError {
     Template { name: String, refusal: Refusal },
     #[error(transparent)]
     Workbook(#[from] umya_spreadsheet::XlsxError),
-    #[error("recalculated {kind} at sheet {sheet}, row {}, column {} has no umya error kind", cell.0, cell.1)]
-    Cached { sheet: u32, cell: (u32, u32), kind: Error },
     #[error(transparent)]
     Load(#[from] XlsxError),
     #[error("ironcalc model refused: {0}")]

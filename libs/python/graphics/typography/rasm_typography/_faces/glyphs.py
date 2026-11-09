@@ -6,12 +6,19 @@ from datetime import datetime
 from enum import auto, StrEnum
 from functools import cache, cached_property
 from typing import Annotated, Literal, Self
+from urllib.parse import urlsplit
 lazy from collections.abc import Callable, Mapping
+lazy import csv
+lazy from functools import partial
+lazy import hashlib
 lazy from itertools import groupby
+lazy from pathlib import Path
 lazy import unicodedata
 
 import msgspec
+import platformdirs
 lazy from expression import Option
+lazy from expression.extra.result import catch
 lazy from fontTools.pens.basePen import AbstractPen
 lazy from fontTools.pens.boundsPen import BoundsPen
 lazy from fontTools.pens.cu2quPen import Cu2QuPen
@@ -19,11 +26,12 @@ lazy from fontTools.pens.filterPen import DecomposingFilterPen
 lazy from fontTools.pens.pointPen import AbstractPointPen, PointToSegmentPen, SegmentToPointPen
 lazy from fontTools.pens.recordingPen import RecordingPointPen
 lazy from fontTools.unicodedata import script
-lazy from youseedee import ucd_data
+lazy import httpx2
 
 from rasm_typography._faces.declaration import Faces
 from rasm_typography._faces.layout import Lookups
 from rasm_typography._faces.names import _Form, _GlyphName
+lazy from rasm_records import committed, Fault, Ok, Outcome, read, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -45,7 +53,7 @@ class _Joining(StrEnum):
     @classmethod
     def of(cls, code: int, /) -> _Joining:
         """Returns the joining type `ArabicShaping.txt` states, transparent for unlisted marks and format controls."""
-        return cls(ucd_data(code).get("Joining_Type", cls.TRANSPARENT if unicodedata.category(chr(code)) in {"Mn", "Me", "Cf"} else cls.NONE))
+        return joined[0] if (joined := _joined().get(code)) else cls.TRANSPARENT if unicodedata.category(chr(code)) in {"Mn", "Me", "Cf"} else cls.NONE
 
 
 class _Side(StrEnum):
@@ -63,6 +71,13 @@ class _Side(StrEnum):
     def of(cls, code: int, /) -> _Side:
         """Returns the side a mark's canonical combining class states, below for class 220 and the kasra and kasratan classes."""
         return cls.BELOW if unicodedata.combining(chr(code)) in {220, *map(unicodedata.combining, "ٍِ")} else cls.ABOVE
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_ARABIC_SHAPING = "https://www.unicode.org/Public/18.0.0/ucd/ArabicShaping.txt"
+_ARABIC_SHAPING_SHA256 = "8ccde4ebd070500a68e8bcb9d5514522fb0bebe57b9ebad3ff925b8e1e669f83"
+_ARABIC_SHAPING_FILE = platformdirs.user_cache_path("rasm-typography").joinpath(*urlsplit(_ARABIC_SHAPING).path.split("/"))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -330,7 +345,7 @@ def _traced(drawing: Callable[[AbstractPen], object], /) -> _Outline:
 def _role(name: _GlyphName, /, *, components: tuple[str, ...] = ()) -> _Roles:
     """Returns the role a glyph name states through its component count, form, and the Unicode data of its first code point."""
     head = next(iter(name.codes), 0)
-    match len(name.codes), name.form, unicodedata.category(chr(head)), ucd_data(head).get("Joining_Type"):
+    match len(name.codes), name.form, unicodedata.category(chr(head)), _joined().get(head):
         case count, _, _, _ if count > 1:
             return Ligature(components=components or tuple(_GlyphName(stem=(code,)).text for code in name.codes))
         case 1, form, _, _ if form is not _Form.ISOL:
@@ -343,10 +358,49 @@ def _role(name: _GlyphName, /, *, components: tuple[str, ...] = ()) -> _Roles:
             return Space()
         case 1, _, "Nd", _:
             return Digit(zero=head - unicodedata.decimal(chr(head)))
-        case 1, _, "Lo" | "Lm", str(joining):
-            return Letter(joining=_Joining(joining), form=_Form.ISOL)
+        case 1, _, "Lo" | "Lm", (joining, _):
+            return Letter(joining=joining, form=_Form.ISOL)
         case _:
             return Sign()
+
+
+# --- [UNICODE]
+
+
+def _fetched() -> Outcome[Path]:
+    """Holds the pinned `ArabicShaping.txt` in the user cache, downloading it where the cache lacks a copy matching its checksum.
+
+    Returns:
+        Ok(path), `FAILED` for a refused download, `OUTSIDE` for downloaded bytes of another checksum, `UNWRITABLE` for the cache.
+    """
+
+    def verified(data: bytes, /) -> Outcome[bytes]:
+        digest = hashlib.sha256(data).hexdigest()
+        return Ok(data).filter_with(lambda _: digest == _ARABIC_SHAPING_SHA256, lambda _: Fault.of(Reason.OUTSIDE, _ARABIC_SHAPING, digest, member=f"SHA-256 {_ARABIC_SHAPING_SHA256}"))
+
+    return (
+        read(_ARABIC_SHAPING_FILE)
+        .bind(verified)
+        .map(lambda _: _ARABIC_SHAPING_FILE)
+        .or_else_with(
+            lambda _: (
+                catch(lambda: httpx2.get(_ARABIC_SHAPING, follow_redirects=True).raise_for_status().content, exception=httpx2.HTTPError)()
+                .map_error(partial(Fault.of, Reason.FAILED, _ARABIC_SHAPING))
+                .bind(verified)
+                .bind(partial(committed, _ARABIC_SHAPING_FILE))
+            )
+        )
+    )
+
+
+@cache
+def _joined() -> frozendict[int, tuple[_Joining, str]]:
+    """Joining type and group of each code point `ArabicShaping.txt` lists, read from the copy `_fetched` holds."""
+    with _ARABIC_SHAPING_FILE.open(encoding="utf-8", newline="") as lines:
+        return frozendict({
+            int(code, 16): (_Joining(joining), group)
+            for code, _, joining, group in csv.reader((line for line in lines if line.strip() and not line.startswith("#")), delimiter=";", skipinitialspace=True)
+        })
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

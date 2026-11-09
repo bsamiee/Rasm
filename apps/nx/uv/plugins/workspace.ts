@@ -15,12 +15,15 @@ type Member = ReturnType<typeof report>['members'][number];
 
 const LOCK = 'uv.lock';
 const EXTENSION = 'blender_manifest.toml';
+const PRIVATE = 'Private ::';
+const RELEASE = 'release';
 const FILES = `**/{${[LOCK, 'uv.toml', '.python-version', EXTENSION, ...CONFIGS].join(',')}}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) });
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
+const Classified = Schema.Struct({ project: Schema.Struct({ classifiers: Schema.Array(Schema.String) }) });
 const Extension = Schema.Struct({ id: Schema.String, version: Schema.String, platforms: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) });
 const Local = Schema.Literals(['editable', 'virtual', 'directory', 'path']);
 const Artifact = Schema.Struct({ hashes: Schema.Record(Schema.String, Schema.String) });
@@ -90,11 +93,13 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
         lock,
         members: members.map((member) => {
             const groups = Array.unionWith(resolution[member.id]?.dependency_groups ?? [], workspaceGroups, (own, shared) => own.name === shared.name);
+            const packaged = 'editable' in (resolution[member.id]?.source ?? {});
             return {
                 name: member.name,
                 root: member.root,
                 workspace,
-                packaged: 'editable' in (resolution[member.id]?.source ?? {}),
+                packaged,
+                published: packaged && !Option.exists(Schema.decodeUnknownOption(Classified)(held.get(path.join(member.root, 'pyproject.toml'))), ({ project }) => project.classifiers.some((classifier) => classifier.startsWith(PRIVATE))),
                 extension: extensions.get(member.root),
                 nested: members.some((other) => other.root !== member.root && (member.root === '.' || other.root.startsWith(`${member.root}/`))),
                 manifests: locals.map((root) => path.join(root, 'pyproject.toml')).toSorted(),
@@ -235,7 +240,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                                     name: member.name,
                                     metadata: { technologies: ['python'] },
                                     targets: { ...targets(path, member, name, 'production' in getNamedInputs(member.root, context) ? '^production' : '^default', found.get(member) ?? new Set(), outputPath) },
-                                    ...(member.packaged || member.extension !== undefined ? { release: { version: { versionActions: `${name}/release/version-actions`, versionActionsOptions: { manifest: member.extension === undefined ? 'pyproject.toml' : EXTENSION } } } } : {}),
+                                    ...(member.published || member.extension !== undefined ? { tags: [RELEASE], release: { version: { versionActions: `${name}/release/version-actions`, versionActionsOptions: { manifest: member.extension === undefined ? 'pyproject.toml' : EXTENSION } } } } : {}),
                                 },
                             ]),
                         ),

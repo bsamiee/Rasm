@@ -1,7 +1,8 @@
-import { Adjust, Typeset } from '@rasm/indesign';
-import { handlers, InDesignSettings, type link, Model } from '@rasm/indesign/uxp';
+import { Adjust, Typeset } from '@rasm/atelier-protocol/indesign';
+import { InDesignSettings, Model } from '@rasm/indesign/uxp';
 import { Settings } from '@rasm/typography';
 import { Array, Cause, Effect, Function, flow, MutableRef, Number, Option, Record, Schema, Struct } from 'effect';
+import { handlers, type link } from '#/handlers';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

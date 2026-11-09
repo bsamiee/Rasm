@@ -1,9 +1,11 @@
 import uFuzzy from '@leeoniya/ufuzzy';
 import { Array, Effect, Equivalence, Function, flow, Option, Predicate, pipe, Schema } from 'effect';
-import { Digits } from '#/digits';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const DECIMAL_DIGITS = 10;
+const DECIMAL = /\p{Nd}/gu;
+const DIGIT = /^\p{Nd}$/u;
 const COLLATOR = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'accent' });
 const LISTING = new Intl.ListFormat('en');
 const FUZZY = new uFuzzy({ intraMode: 1, unicode: true, interSplit: "[^\\p{L}\\p{Nd}']+", interBound: '[^\\p{L}\\p{Nd}]', intraSplit: '\\p{Ll}\\p{Lu}', intraBound: '\\p{L}\\p{Nd}|\\p{Nd}\\p{L}|\\p{Ll}\\p{Lu}', intraChars: "[\\p{L}\\p{Nd}']", intraContr: "'\\p{L}{1,2}\\b" });
@@ -16,8 +18,10 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
     candidates: Schema.Array(Schema.String).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
 }) {
     static readonly named = Equivalence.make((left: string, right: string) => COLLATOR.compare(left, right) === 0);
+    static readonly #preceding = (point: number): number => (DIGIT.test(String.fromCodePoint(point - 1)) ? 1 + Unmatched.#preceding(point - 1) : 0);
+    static readonly #folded = (text: string): string => text.replace(DECIMAL, (digit) => String(Unmatched.#preceding(digit.codePointAt(0) ?? 0) % DECIMAL_DIGITS));
     static readonly rank = (query: string, candidates: readonly string[]): readonly string[] => {
-        const [found, info, order] = FUZZY.search(candidates.map(Digits.fold), Digits.fold(query), 0, Number.POSITIVE_INFINITY);
+        const [found, info, order] = FUZZY.search(candidates.map(Unmatched.#folded), Unmatched.#folded(query), 0, Number.POSITIVE_INFINITY);
         return found === null ? candidates : (info === null ? found : order.map((position) => Array.getUnsafe(info.idx, position))).map((index) => Array.getUnsafe(candidates, index));
     };
     static readonly #shown = <A>(candidates: readonly A[], names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): readonly string[] => Array.dedupe(Array.map(candidates, flow(names, Array.headNonEmpty)));

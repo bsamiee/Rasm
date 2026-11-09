@@ -1,8 +1,5 @@
 {
     "extends": "../../../../.config/tsconfig.web.json",
-    "compilerOptions": {
-        "types": [ "node", "vite/client" ]
-    },
     "files": [ ".cloudflare/types/index.d.ts" ],
     "include": [ "**/*" ]
 }

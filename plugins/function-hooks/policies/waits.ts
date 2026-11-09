@@ -1,9 +1,9 @@
 import { Array, Duration, Effect, Option, type Predicate } from 'effect';
-import { Verdict } from '#/decision.ts';
-import { appOf, WATCHER } from '#/instances.ts';
-import { absent, all, BACKGROUNDED, type Call, dropped, edited, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, unwrap, type Verdicts, when, within } from '#/policies/fix.ts';
-import type { Word } from '#/shell/script.ts';
-import type { Site } from '#/shell/site.ts';
+import { Verdict } from '#/decision';
+import { installed, WATCHER } from '#/instances';
+import { absent, all, BACKGROUNDED, type Call, dropped, edited, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, unwrap, type Verdicts, when, within } from '#/policies/fix';
+import type { Word } from '#/shell/script';
+import type { Site } from '#/shell/site';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -98,10 +98,11 @@ const polledApp: Fix = (site, call) => {
     const pids = [...site.operands.map(({ text }) => text), ...site.values('-p')].flatMap((value) => value.split(',')).filter((pid) => DIGITS.test(pid));
     return !site.repeated || pids.length === 0
         ? []
-        : Effect.map(Effect.forEach(pids, appOf, { concurrency: 'unbounded' }), (found) => {
-              const bundles = Array.getSomes(found)
-                  .filter(({ foreground }) => foreground)
-                  .map(({ bundle }) => bundle);
+        : Effect.map(installed(pids), (found) => {
+              const bundles = Object.values(found)
+                  .flat()
+                  .filter(({ activationPolicy }) => activationPolicy !== 'prohibited')
+                  .map(({ identifier }) => identifier);
               return bundles.length === 0 ? [] : polling(bundles, call);
           });
 };

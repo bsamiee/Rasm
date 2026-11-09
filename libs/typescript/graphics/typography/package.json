@@ -9,16 +9,13 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./shaping": "./shaping/index.ts",
-        "./quran": "./quran.ts"
+        "./shaping": "./shaping/index.ts"
     },
     "dependencies": {
-        "@quran.ws/text": "catalog:",
         "@rasm/search": "workspace:*",
         "fontkit": "catalog:",
         "harfbuzzjs": "catalog:",
-        "icu": "catalog:",
-        "quran-meta": "catalog:"
+        "icu": "catalog:"
     },
     "devDependencies": {
         "@types/fontkit": "catalog:",

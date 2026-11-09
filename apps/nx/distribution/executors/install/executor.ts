@@ -1,7 +1,7 @@
 import process from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 import { built, DistributionError, installable } from '#/plugins/host-packages';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -9,7 +9,7 @@ import { built, DistributionError, installable } from '#/plugins/host-packages';
 const execute = (_options: unknown, context: ExecutorContext) =>
     Effect.runPromise(
         Effect.gen(function* () {
-            const { project, outputs, configurations, packages } = yield* built(context);
+            const { project, outputs, configurations, packages } = yield* built(context, Option.none());
             const local = packages.filter(installable);
             const detail = [
                 `build wrote no host package for ${process.platform}-${process.arch} under ${outputs.join(', ') || 'its outputs, which name no path'}`,

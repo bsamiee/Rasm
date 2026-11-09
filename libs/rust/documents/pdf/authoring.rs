@@ -19,6 +19,7 @@ use krilla::{
 };
 use kurbo::{Point, Size};
 use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
+use pdf_oxide::compliance::{PdfUaLevel, PdfXLevel};
 use rasm_drawing::{
     Tolerance, Visibility,
     pages::{self, Destination, Link, Page},
@@ -27,7 +28,8 @@ use validated::Validated;
 
 use self::{content::Drawing, tagging::Leaves};
 use crate::{
-    Document, PdfError, Refusal, Resolution, Subject,
+    Document, PdfError, Refusal, Resolution, Standard, Subject,
+    conformance::{self, Verdict},
     layers::{self, Group},
     measurement,
     navigation::{self, Navigation},
@@ -37,6 +39,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct Options {
+    pub application: Arc<str>,
     pub metadata: Metadata,
     pub created: Zoned,
     pub standards: Standards = Standards { .. },
@@ -170,13 +173,24 @@ fn closed(document: krilla::Document, sheets: &[&Page], groups: &[Vec<Group>], o
     let mut structure = lopdf::Document::load_mem(&document.finish()?)?;
     standards::close(&mut structure, &options.standards)?;
     if groups.iter().any(|layer_groups| !layer_groups.is_empty()) {
-        layers::bind(&mut structure, groups)?;
+        layers::bind(&mut structure, groups, &options.application)?;
     }
     measurement::write(&mut structure, sheets.iter().copied())?;
     navigation::write(&mut structure, &options.navigation)?;
     let identifiers = structure.page_iter().collect::<Vec<_>>();
-    iter::zip(identifiers, sheets).try_for_each(|(identifier, sheet)| crate::write_fields(&mut structure, identifier, &sheet.fields, &options.created))?;
-    crate::saved(structure)
+    iter::zip(identifiers, sheets).try_for_each(|(identifier, sheet)| crate::write_fields(&mut structure, &options.application, identifier, &sheet.fields, &options.created))?;
+    let document = crate::saved(structure)?;
+    let Standards { archival: _, accessibility, press } = &options.standards;
+    let written = iter::chain(press.as_ref().map(|held| Standard::Press(*AsRef::<PdfXLevel>::as_ref(held))), accessibility.filter(|level| *level == PdfUaLevel::Ua2).map(Standard::Accessibility));
+    let refused = iter::zip(written.clone(), conformance::validate(&document, written)?)
+        .filter(|(_, verdict)| match verdict {
+            Verdict::Archival(result) => !result.is_compliant,
+            Verdict::Accessibility(result) => !result.is_compliant,
+            Verdict::Press(result) => !result.is_compliant,
+        })
+        .map(|(standard, verdict)| (Subject::Standard(standard), PdfError::Nonconforming(verdict)))
+        .collect::<Vec<_>>();
+    NEVec::try_from_vec(refused).map_or(Ok(document), |refused| Err(PdfError::Refused(refused)))
 }
 
 fn dimensioned(paper: Size) -> Result<(PageSettings, geom::Size), PdfError> {

@@ -4,7 +4,7 @@
     "description": "Nx plugin running Pulumi Automation API inline programs as install, deploy, and release targets of the projects they host",
     "repository": {
         "type": "git",
-        "url": "https://github.com/bsamiee/Rasm",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/pulumi"
     },
     "license": "MIT",
@@ -14,26 +14,28 @@
     },
     "exports": {
         ".": "./plugins/project-graph.ts",
-        "./stacks": "./executors/stacks/executor.ts",
+        "./stacks": "./executors/deploy/executor.ts",
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/*.json" ],
+    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "effect": "catalog:"
     },
     "devDependencies": {
-        "@pulumi/pulumi": "catalog:"
+        "@pulumi/pulumi": "catalog:",
+        "@types/node": "catalog:"
     },
     "peerDependencies": {
         "@pulumi/pulumi": "catalog:peers"
     },
     "publishConfig": {
+        "access": "public",
         "exports": {
             ".": "./dist/plugins/project-graph.js",
-            "./stacks": "./dist/executors/stacks/executor.js",
+            "./stacks": "./dist/executors/deploy/executor.js",
             "./package.json": "./package.json",
             "./executors.json": "./executors.json"
         },

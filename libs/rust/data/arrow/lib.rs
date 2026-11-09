@@ -44,7 +44,7 @@ where K: TypedUuidKind
 }
 
 impl Column for Timestamp {
-    fn field(name: String) -> Field { Field::new(name, DataType::Timestamp(TimeUnit::Microsecond, Some(Arc::from("UTC"))), false) }
+    fn field(name: String) -> Field { Field::new(name, DataType::Timestamp(TimeUnit::Nanosecond, Some(Arc::from("UTC"))), false) }
 }
 
 impl<D, U, V> Column for Quantity<D, U, V>

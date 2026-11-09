@@ -4,8 +4,8 @@
     "description": "IaC programs for repository and app hosting resources",
     "type": "module",
     "imports": {
-        "#/package.json": "./package.json",
-        "#/*": "./*.ts"
+        "#/*": "./*.ts",
+        "#/*.json": "./*.json"
     },
     "exports": {
         ".": "./stacks.ts"

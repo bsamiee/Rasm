@@ -3,16 +3,28 @@
     "private": true,
     "description": "Atelier Photoshop",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "dependencies": {
-        "@rasm/photoshop": "workspace:*",
+        "@rasm/atelier-protocol": "workspace:*",
+        "@rasm/automation": "workspace:*",
+        "@rasm/search": "workspace:*",
         "@rasm/uxp": "workspace:*",
+        "acorn": "catalog:",
         "effect": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/photoshop": "catalog:",
         "@adobe-uxp-types/uxp": "catalog:",
-        "@rasm/atelier": "workspace:*",
         "@types/node": "catalog:",
         "vite": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build--vite": {
+                "inputs": [ "...", "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/Atelier.svg" ]
+            }
+        }
     }
 }

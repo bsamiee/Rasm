@@ -1,7 +1,7 @@
 {
     "name": "@rasm/automation",
     "private": true,
-    "description": "Request contract Adobe plugins serve, the link peer dialing it, the error they report, their manifest version, build identity, and the plug-in installer agent",
+    "description": "What every Adobe host plugin shares: the error a host call reports, the object model and specifier reference a host describes, and the Vite bundle layout of a plugin build",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -9,12 +9,9 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./installer": "./installer.ts",
-        "./peer": "./peer.ts",
         "./vite": "./vite.ts"
     },
     "dependencies": {
-        "@rasm/applications": "workspace:*",
         "@rasm/search": "workspace:*"
     },
     "devDependencies": {

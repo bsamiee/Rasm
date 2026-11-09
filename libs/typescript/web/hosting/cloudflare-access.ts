@@ -31,7 +31,7 @@ class CloudflareAccess extends Schema.Class<CloudflareAccess, { readonly brand: 
         const identify = Effect.fn('identify')(function* <E, R>(app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>) {
             const request = yield* HttpServerRequest.HttpServerRequest;
             const anonymous = Headers.removeMany(request.headers, Object.values(User.sites.headers));
-            const headers = yield* Effect.fromNullishOr(request.cookies.CF_Authorization).pipe(
+            const headers = yield* Effect.fromOption(Headers.get(request.headers, 'cf-access-jwt-assertion')).pipe(
                 Effect.flatMap((token) => Jwt.verifyWithKeySet(Claims, token, { issuer, audience, algorithms: ['RS256'] })),
                 Effect.flatMap(({ claims }) => Effect.orDie(Schema.encodeEffect(User.headers)(claims))),
                 Effect.map((identity) => Headers.setAll(anonymous, identity)),

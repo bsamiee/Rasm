@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { Config, Effect, flow, Option } from 'effect';
 import { type ConfigEnv, type Plugin, searchForWorkspaceRoot } from 'vite';
@@ -14,7 +14,7 @@ const hosting = flow(
         function* ({ head, nodeEntry, mode }: { readonly head: Head; readonly nodeEntry: string; readonly mode: ConfigEnv['mode'] }) {
             const [{ siteHead }, { cloudflare }, analyze, context] = yield* Effect.all([Effect.promise(() => import('#/head')), Effect.promise(() => import('@cloudflare/vite-plugin')), Config.withDefault(Config.Boolean('ANALYZE'), false), Effect.context<never>()], { concurrency: 'unbounded' });
             const workspace = searchForWorkspaceRoot(process.cwd());
-            const project = relative(workspace, process.cwd());
+            const { name: project }: { readonly name: string } = createRequire(join(process.cwd(), 'package.json'))('./package.json');
             const bundle: Plugin = {
                 name: '@rasm/hosting',
                 config: ({ root = process.cwd() }, { command }) => {
@@ -22,7 +22,7 @@ const hosting = flow(
                     const workspaceRoot = searchForWorkspaceRoot(folder);
                     const { name }: { readonly name: string } = createRequire(join(folder, 'package.json'))('./package.json');
                     return {
-                        cacheDir: join(workspaceRoot, '.cache', 'vite', relative(workspaceRoot, folder)),
+                        cacheDir: join(workspaceRoot, '.cache', 'vite', name),
                         environments: {
                             [nodeBundle.layout.environment]: {
                                 consumer: 'server',

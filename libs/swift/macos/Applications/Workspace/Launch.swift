@@ -24,7 +24,7 @@ extension NSWorkspace {
         let running: [NSRunningApplication] = runningApplications.filter(installation.runs)
         let creating: Bool = newInstance || running.isEmpty
         if let reused: NSRunningApplication = running.first, !creating, documents.isEmpty { return (reused, false) }
-        let executable: String? = Bundle(url: url)?.executableURL?.path(percentEncoded: false)
+        let executable: String? = installation.executable?.path(percentEncoded: false)
         let before: Set<pid_t> = executable.map(processes(executing:)) ?? []
         let configuration: OpenConfiguration = OpenConfiguration()
         configuration.activates = false

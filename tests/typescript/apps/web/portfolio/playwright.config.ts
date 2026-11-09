@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
 import { Config, Effect } from 'effect';
 import { searchForWorkspaceRoot } from 'vite';
@@ -8,7 +8,8 @@ import { searchForWorkspaceRoot } from 'vite';
 
 const CI = Effect.runSync(Config.withDefault(Config.Boolean('CI'), false));
 const ROOT = searchForWorkspaceRoot(import.meta.dirname);
-const ARTIFACTS = join(ROOT, '.artifacts', 'playwright', relative(ROOT, import.meta.dirname));
+const { name }: { readonly name: string } = createRequire(import.meta.url)('./package.json');
+const ARTIFACTS = join(ROOT, '.artifacts', 'playwright', name);
 const ORIGIN = 'http://localhost:5173';
 const APP = dirname(createRequire(import.meta.url).resolve('@rasm/portfolio/package.json'));
 

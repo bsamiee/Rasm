@@ -1,5 +1,5 @@
 import { Array, Effect, Equal, Match, Option, Predicate, Result, Schema, Struct } from 'effect';
-import { HookError, Host } from '#/host.ts';
+import { HookError, Host } from '#/host';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

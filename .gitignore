@@ -15,8 +15,6 @@ node_modules/
 /.cargo/rustc-source
 dist/
 .cloudflare/
-storybook-static/
-*.tsbuildinfo
 .vs/
 *.received.*
 *.pending-snap

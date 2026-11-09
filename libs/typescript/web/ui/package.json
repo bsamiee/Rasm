@@ -22,6 +22,7 @@
         "@rasm/test-support": "workspace:*",
         "@storybook/addon-vitest": "catalog:",
         "@storybook/react-vite": "catalog:",
+        "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "effect": "catalog:",

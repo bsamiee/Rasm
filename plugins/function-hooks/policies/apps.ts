@@ -1,14 +1,17 @@
 import { constants } from 'node:os';
-import { Array, Effect, Option, Predicate, Schema } from 'effect';
-import { WATCHER } from '#/instances.ts';
-import { type Call, type Fix, has, type Policy, quote, refusal, refuse, stages, when, whole, within } from '#/policies/fix.ts';
-import type { Program } from '#/shell/programs.ts';
-import type { Word } from '#/shell/script.ts';
-import { Shell } from '#/shell/site.ts';
+import { basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { Installation } from '@rasm/applications';
+import { Array, Effect, Option, Predicate, Record } from 'effect';
+import { installed, WATCHER } from '#/instances';
+import { type Call, type Fix, has, type Policy, quote, refusal, refuse, stages, when, whole, within } from '#/policies/fix';
+import type { Program } from '#/shell/programs';
+import type { Word } from '#/shell/script';
+import { Shell } from '#/shell/site';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const BUNDLE = /^(?<bundle>\/.+?\.app)\/Contents\/MacOS\/(?<executable>[^/]+)$/u;
+const BUNDLE = /^(?<bundle>\/.+?\.app)\/Contents\/MacOS\/[^/]+$/u;
 const ADDRESSED = /^(?:tell|(?<verb>\w+)) (?:application|app) (?:id )?"(?<app>[^"]+)"(?: to (?<body>.+))?$/u;
 const LAUNCHING = /^(?:activate|launch|run|reopen|open (?:POSIX file )?"(?<path>[^"]+)")$/u;
 const SHELL_SCRIPT = /\bdo shell script\b/u;
@@ -18,32 +21,28 @@ const WEB_URL = /^https?:/iu;
 const SIGNAL_PREFIX = /^-?(?:SIG)?/u;
 const SIGNAL = /^-(?:\d+|(?:SIG)?[A-Z]{2,}\d*)$/u;
 const PIDS = /^\d+/gmu;
-const PLIST_TRUE = /^(?:1|YES|true)$/iu;
 const ENDING = new Set(['TERM', 'KILL', `${constants.signals.SIGTERM}`, `${constants.signals.SIGKILL}`]);
 const FINDERS = new Set(['ps', 'pgrep', 'pidof']);
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const BundleInfo = Schema.fromJsonString(Schema.Struct({ CFBundleExecutable: Schema.String, CFBundleIdentifier: Schema.String, LSBackgroundOnly: Schema.optionalKey(Schema.Unknown), LSUIElement: Schema.optionalKey(Schema.Unknown) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [BUNDLES]
 
-const bundleInfo = (bundle: string, { host }: Call) => Effect.map(host.output(['plutil', '-convert', 'json', '-o', '-', host.path.join(bundle, 'Contents/Info.plist')]), Schema.decodeOption(BundleInfo));
-
-const backgrounded = ({ LSBackgroundOnly, LSUIElement }: typeof BundleInfo.Type): boolean => [LSBackgroundOnly, LSUIElement].some((declared) => PLIST_TRUE.test(`${declared}`));
+const foreground = ({ activationPolicy }: Installation): boolean => activationPolicy === 'regular';
 
 const launchLine = (subjects: readonly string[], documents: readonly string[], environment: readonly Word[] = [], args: readonly Word[] = []): string =>
     [WATCHER, 'launch', ...subjects, ...(documents.length > 0 ? ['--document', ...documents] : []), ...(environment.length > 0 ? ['--environment', ...environment.map(({ raw }) => raw)] : []), ...(args.length > 0 ? ['--arguments', ...args.map(({ raw }) => raw)] : [])].join(' ');
 
-const appBundles = ({ text }: Word, cwd: Option.Option<string>, identifying: boolean, { host }: Call) =>
-    text.includes('/')
-        ? Effect.succeed(Option.toArray(host.place(text, cwd)))
-        : Effect.map(host.output(['mdfind', identifying ? `kMDItemCFBundleIdentifier == "${text}"` : `kMDItemContentType == "com.apple.application-bundle" && kMDItemFSName == "${host.path.basename(text, '.app')}.app"c`]), (found) => found.split('\n').filter(Predicate.isTruthy));
+const installationsOf = ({ text }: Word, cwd: Option.Option<string>, { host }: Call) => Effect.map(installed(text.includes('/') ? Option.toArray(host.place(text, cwd)) : [text]), (found) => Record.values(found).flat());
 
-const headlessPath = ([bundle, ...others]: readonly string[], [info]: readonly (typeof BundleInfo.Type)[], rest: readonly Word[], programs: ReadonlyMap<string, Program>): Option.Option<string> =>
-    bundle !== undefined && others.length === 0 && info !== undefined && !new Set(rest.map(({ text }) => text)).isDisjointFrom(new Set(programs.get(info.CFBundleExecutable)?.headless)) ? Option.some(quote(`${bundle}/Contents/MacOS/${info.CFBundleExecutable}`)) : Option.none();
+const headlessPath = ([installation, ...others]: readonly Installation[], rest: readonly Word[], programs: ReadonlyMap<string, Program>): Option.Option<string> =>
+    Option.map(
+        Option.filter(
+            Option.flatMap(Option.fromUndefinedOr(installation), ({ executable }) => Option.map(executable, ({ href }) => fileURLToPath(href))),
+            (path) => others.length === 0 && !new Set(rest.map(({ text }) => text)).isDisjointFrom(new Set(programs.get(basename(path))?.headless)),
+        ),
+        quote,
+    );
 
 // --- [LAUNCHES]
 
@@ -70,15 +69,14 @@ const launched = (named: readonly string[], waits: readonly string[], allowed: r
         if (foreign.size > 0) {
             return refusal(`${program} ${[...foreign].join(' ')} opens ${target}, use ${WATCHER} launch ${target}`);
         }
-        const bundles = app === undefined ? [] : yield* appBundles(app, site.command.cwd, site.supplied('--bundle').includes(app), call);
-        const infos = Array.getSomes(yield* Effect.forEach(bundles, (bundle) => bundleInfo(bundle, call), { concurrency: 'unbounded' }));
+        const found = app === undefined ? [] : yield* installationsOf(app, site.command.cwd, call);
         const environment = site.supplied('--env');
-        if (infos.length > 0 && infos.every(backgrounded)) {
+        if (found.length > 0 && !found.some(foreground)) {
             return [];
         }
         return whole(
             site,
-            Option.match(headlessPath(bundles, infos, rest, (yield* Shell).programs), {
+            Option.match(headlessPath(found, rest, (yield* Shell).programs), {
                 onNone: () =>
                     launchLine(
                         [...subjects, ...(site.has('--new') ? ['--new'] : [])],
@@ -149,13 +147,15 @@ const absoluteArgument =
         );
 
 const binary: Fix = (site, call) => {
-    const { bundle, executable } = BUNDLE.exec(Option.getOrElse(call.host.place(site.head.text, site.command.cwd), () => ''))?.groups ?? {};
+    const head = Option.getOrElse(call.host.place(site.head.text, site.command.cwd), () => '');
+    const bundle = BUNDLE.exec(head)?.groups?.bundle;
     return bundle === undefined || site.has(...(site.row.headless ?? []))
         ? []
         : Effect.gen(function* () {
-              const found = yield* bundleInfo(bundle, call);
+              const found = Record.values(yield* installed([bundle])).flat();
               const args = yield* Effect.forEach(site.words.slice(1), absoluteArgument(call, site.command.cwd));
-              return Option.toArray(Option.filter(found, (info) => info.CFBundleExecutable === executable && !backgrounded(info))).flatMap(() => whole(site, launchLine([quote(bundle)], [], site.assigned, args), site.program, site.assigned[0]));
+              const runs = found.some((installation) => foreground(installation) && Option.exists(installation.executable, ({ href }) => fileURLToPath(href) === head));
+              return runs ? whole(site, launchLine([quote(bundle)], [], site.assigned, args), site.program, site.assigned[0]) : [];
           });
 };
 

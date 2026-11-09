@@ -77,10 +77,7 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         const text = runs.map(({ run }) => Option.match(run.item, { onNone: () => run.text, onSome: (span) => span.slice(run.text) })).join('');
         const alignment = first.settings.lineAlignment({ last, single: Word.of(text).length <= 1 });
         const aligned = { start: 0, center: 0.5, end: 1, justified: 0 }[alignment];
-        const direction = Option.getOrElse(
-            Option.orElse(first.settings.direction, () => Word.direction(text)),
-            () => 'LTR' as const,
-        );
+        const direction = Option.getOrElse(first.settings.direction, () => Word.direction(text));
         const unjustified: Line = Array.map(runs, prepared);
         const justifying = alignment === 'justified' || width < lineWidth(unjustified);
         const ranks = Array.dedupe(

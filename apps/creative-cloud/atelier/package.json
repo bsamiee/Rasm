@@ -1,6 +1,5 @@
 {
     "name": "@rasm/atelier",
-    "version": "1.0.0",
     "private": true,
     "description": "Background agent control of Adobe applications",
     "type": "module",
@@ -8,19 +7,14 @@
         "#/*": "./*.ts",
         "#/*.json": "./*.json"
     },
-    "exports": {
-        "./plugin.config": "./plugin.config.ts"
-    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
-        "@rasm/aftereffects": "workspace:*",
         "@rasm/applications": "workspace:*",
+        "@rasm/atelier-protocol": "workspace:*",
         "@rasm/automation": "workspace:*",
         "@rasm/cep": "workspace:*",
-        "@rasm/illustrator": "workspace:*",
-        "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
-        "@rasm/photoshop": "workspace:*",
+        "@rasm/quran": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
@@ -28,8 +22,15 @@
         "image-size": "catalog:"
     },
     "devDependencies": {
-        "@rasm/extendscript": "workspace:*",
+        "@rasm/atelier-extendscript": "workspace:*",
         "@types/node": "catalog:",
         "vite": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build--vite": {
+                "inputs": [ "...", "{projectRoot}/macos/Atelier.xcodeproj/project.xcproj", "{projectRoot}/macos/Atelier.entitlements", "{workspaceRoot}/Xcode.xcconfig" ]
+            }
+        }
     }
 }

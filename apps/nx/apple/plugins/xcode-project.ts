@@ -11,9 +11,8 @@ const Container = Schema.Struct({
     schemes: Schema.Array(Schema.Struct({ name: Schema.String, containers: Schema.Array(Schema.String), plans: Schema.Array(Schema.String), tests: Schema.Boolean, launch: Schema.optionalKey(Schema.String) })),
     configurations: Schema.Array(Schema.String),
     inputs: Schema.Array(Schema.String),
-    members: Schema.Record(Schema.String, Schema.Array(Schema.String)),
     projects: Schema.Array(Schema.String),
-    references: Schema.Array(Schema.String),
+    buildFiles: Schema.Array(Schema.String),
 });
 const Analyzed = Schema.fromJsonString(Schema.Struct({ containers: Schema.Array(Container), failures: Schema.Record(Schema.String, Schema.String) }));
 const Evaluated = Schema.fromJsonString(Schema.Array(Schema.Struct({ target: Schema.String, buildSettings: Schema.Struct({ SRCROOT: Schema.String, INFOPLIST_FILE: Schema.optionalKey(Schema.String), CODE_SIGN_ENTITLEMENTS: Schema.optionalKey(Schema.String) }) })));
@@ -49,7 +48,10 @@ const xcodeParts = (path: Path.Path, options: Options, plugin: string, file: str
     const { lock, flags } = invocation(path, options, built);
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-scheme', scheme, ...extra] as const;
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every(packaged) }));
-    const referenced = container.references.flatMap((at) => tokened(path, at)).flatMap((input) => [input, path.join(input, '**/*')]);
+    const referenced = container.buildFiles
+        .filter((at) => path.relative(path.dirname(container.path), at).startsWith('..'))
+        .flatMap((at) => tokened(path, at))
+        .flatMap((input) => [input, path.join(input, '**/*')]);
     const read = Array.dedupe([path.join('{projectRoot}', '**/*'), ...inputs, ...referenced, ...tokened(path, lock), ...TOOLCHAIN]);
     const runs = schemes
         .filter(({ tests, packages }) => tests && !packages)

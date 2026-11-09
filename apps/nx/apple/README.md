@@ -5,39 +5,35 @@
 ## [01]-[USE]
 
 ```json
-{ "plugins": [{ "plugin": "@rasm/nx-apple", "options": { "trustPackages": true, "outputPath": ".artifacts" } }] }
+{ "plugins": [{ "plugin": "@rasm/nx-apple", "options": { "trustPackages": true } }] }
 ```
 
-| [INDEX] | [OPTION]        | [DEFAULT]           | [EFFECT]                                                                                 |
-| :-----: | :-------------- | :------------------ | :--------------------------------------------------------------------------------------- |
-|  [01]   | `trustPackages` | `false`             | `-skipMacroValidation -skipPackagePluginValidation` for third-party macros and plugins   |
-|  [02]   | `outputPath`    | Each tool's default | SwiftPM at `<outputPath>/swiftpm/<package folder>/.build`, Xcode at `<outputPath>/xcode` |
+| [INDEX] | [OPTION]        | [DEFAULT] | [EFFECT]                                                                               |
+| :-----: | :-------------- | :-------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `trustPackages` | `false`   | `-skipMacroValidation -skipPackagePluginValidation` for third-party macros and plugins |
 
 - Without `trustPackages`, `xcodebuild` stops at the first third-party macro or package plugin
 - Under CI, as Nx detects it, builds pass `--disable-automatic-resolution` and `-disableAutomaticPackageResolution`, so a stale `Package.resolved` fails the build
 
 ## [02]-[BUILD_STATE]
 
-Callers share one location per package and project:
+Each tool builds at its own default location, which every caller reaches with no option, flag, or file:
 
-| [INDEX] | [TOOL]        | [LOCATION]                                     | [STATED_BY]                                                             |
-| :-----: | :------------ | :--------------------------------------------- | :---------------------------------------------------------------------- |
-|  [01]   | SwiftPM       | `<outputPath>/swiftpm/<package folder>/.build` | Nx `outputPath`, direct `--scratch-path`, `SWIFTPM_BUILD_DIR` over both |
-|  [02]   | SourceKit-LSP | Package's SwiftPM location                     | `swiftPM.scratchPath` in each package's `.sourcekit-lsp/config.json`    |
-|  [03]   | Xcode         | `<outputPath>/xcode/<Project>`                 | Per-user `WorkspaceSettings.xcsettings`, read by IDE and `xcodebuild`   |
+| [INDEX] | [TOOL]  | [LOCATION]                                               | [SHARED_BY]                            |
+| :-----: | :------ | :------------------------------------------------------- | :------------------------------------- |
+|  [01]   | SwiftPM | `<package>/.build`                                       | Nx, direct `swift` runs, SourceKit-LSP |
+|  [02]   | Xcode   | `~/Library/Developer/Xcode/DerivedData/<Project>-<hash>` | Nx, direct `xcodebuild`, Xcode app     |
 
-- Without `outputPath`, packages build in `<package>/.build`, SwiftPM's default
-- Nx passes `--scratch-path` to `describe`, `build`, and `test`, since every SwiftPM command writes `.buildSystem_<config>` into its scratch path
-- Direct `swift build --scratch-path <the same path>` after an Nx build runs on the on-disk description and compiles nothing
-- SourceKit-LSP resolves a relative `scratchPath` against the package root and reads the config only after its trust prompt, once per user
-- Nx passes no `-derivedDataPath`, which moves `ModuleCache.noindex` and `CompilationCache.noindex` from beside the project folders into one
-- Switching between a custom location and `-derivedDataPath` changes every compile's module cache path and recompiles every Swift file
-- `xcodebuild` honors the per-user `WorkspaceSettings.xcsettings` and ignores the shared `xcshareddata` copy, so no committed file moves derived data
-- Repositories write the per-user file from `outputPath` through `plutil`, `WorkspaceRelativePath` style with `<outputPath>/xcode` relative to each project's folder
-- Without that file, Nx, `xcodebuild`, and the IDE share Xcode's default derived data
+- SwiftPM has no configuration file for its build folder, so Nx passes no `--scratch-path`, and repositories list `.build/` in `.gitignore`
+- Every SwiftPM command, `describe` included, writes `.buildSystem_<config>` into `.build`, so inference and builds share one folder
+- Direct `swift build` after an Nx build runs on the on-disk description and compiles nothing
+- SourceKit-LSP builds in `.build` with background indexing off
+- `SWIFTPM_BUILD_DIR` overrides every caller's location, so it stays unset
+- Nx passes no `-derivedDataPath`, so `xcodebuild` resolves the folder the Xcode app keys by workspace path and neither recompiles the other's files
+- `-derivedDataPath` moves `ModuleCache.noindex` and `CompilationCache.noindex` inside the project folder, which changes every compile's module cache path and recompiles every Swift file
 - `xcodebuild` writes `<package>/.swiftpm/xcode/` for each local package it resolves
 - Per-user caches (`~/Library/Caches/org.swift.swiftpm`, Xcode's package cache) stay where SwiftPM and Xcode share them
-- Xcode `test` keeps its result bundles in derived data `Logs/Test`, where the IDE's report navigator lists them
+- Xcode `test` keeps its result bundles in derived data `Logs/Test`, where the Xcode app's report navigator lists them
 
 ## [03]-[INFERENCE]
 
@@ -52,19 +48,19 @@ Callers share one location per package and project:
 - Packages and projects in one folder merge into one project, and fail when their names differ
 - `project.pbxproj` with no `project.xcproj` beside it fails by name
 - Workspaces inside an `.xcodeproj` and paths `.gitignore` lists stay out
-- Xcode inputs per target: `INFOPLIST_FILE`, `CODE_SIGN_ENTITLEMENTS`, each configuration's base xcconfig, test plans, the governing `Package.resolved`, file and folder references outside the project folder
+- Xcode inputs per target: `INFOPLIST_FILE`, `CODE_SIGN_ENTITLEMENTS`, each configuration's base xcconfig, test plans, the governing `Package.resolved`, build-phase files outside the project folder, the sources of each referenced local package
 - Files an xcconfig `#include`s are no inputs, since no Xcode output names them
 - `INFOPLIST_FILE` and `CODE_SIGN_ENTITLEMENTS` come from `xcodebuild -showBuildSettings -json` per shared scheme and configuration, resolved against `SRCROOT`
 - Missing files, scheme entries naming no target, and unlocatable base xcconfig files fail their project or workspace with target, setting, and path
 - Local packages sharing a folder name fail as undecodable, since `XcodeProjectFormat` refuses the project as Xcode does
 - Target edges follow `target_dependencies` and each local dependency's `products`; targets outside products stand for their package
-- Packages reach their local packages; Xcode projects reach linked modules, local packages, remote targets, and workspace members
+- Packages reach their local packages; Xcode projects reach no linked module, local package, remote target, or workspace member, since Xcode builds each itself and their sources are task inputs
 - Every edge is implicit, since each one reads files beyond its source project
 - `Package.swift` inside another package's target folder logs a warning, since SwiftPM compiles it into that target
 - Inference runs one `describe` per package with `--experimental-skip-acquiring-lock`, as SourceKit-LSP's build server does, so it never waits on a running build
 - Inference caches per options set by manifest, project, scheme, workspace, and xcconfig content, paths, plugin sources, and the built core
 - `createDependencies` reads the report `createNodes` built
-- Xcode projects reach each project whose declared `outputs` hold a file or folder they reference
+- Xcode projects reach each project whose declared `outputs` hold a build-phase file (`FileReference.buildFiles`), and no other project
 - Failures reach Nx as plain errors carrying their message, since Nx copies only an error's own properties out of the plugin worker
 
 ## [04]-[TARGETS]
@@ -79,14 +75,14 @@ Callers share one location per package and project:
 |  [06]   | `build`, `check`     | `build--*`, `check--*` | `build--*`, `check--*`       | `build--*`, `check--*`          |   No    |
 
 - `check--swift-build` and `check--xcodebuild` run the compile as the type check, since the Swift compiler is the type checker
-- `build` and `check` are `nx:noop` targets whose `dependsOn` glob reaches every `build--*` or `check--*` target with `params: "forward"`, so plugins sharing a project each add `<verb>--<tool>` targets and declare the same aggregate, and arguments after `--` reach every member
-- `build--xcodebuild` depends on `^build`, so the producers whose outputs a project references (an embedded `.ccx`, a bundled script) build first; it also builds the linked local packages through SwiftPM, which `xcodebuild` builds again in its own derived data
+- `build` and `check` are `nx:noop` targets over every `build--*` or `check--*` target, so plugins sharing a project add to one aggregate
+- Aggregates forward no arguments: Nx passes a command's arguments down every dependency's `dependsOn`, so forwarding would reach each `<verb>--*` tool of every project `^build` reaches; one-run switches go to the tool-named target (`nx run <project>:build--xcodebuild -- -jobs 4`)
+- `build--xcodebuild` depends on `^build`, so producers of its build-phase files (an embedded helper, a bundled script) build first, and no SwiftPM build runs before it
 - Projects with no `<verb>--*` target get no aggregate
 - Aggregate inputs open with `'...'`, then the union of their `<verb>--*` inputs, so `nx affected` selects them for any file a dependency reads
 - `swift format` and SwiftLint are hk steps in `.config/hk.pkl`; no Swift tool fixes with a project model, so no `fix` target exists
 - Module `test` exists when a test target depends on the module
 - Xcode `build--xcodebuild` covers each shared scheme building a target, `test` each test plan of a scheme with a test action; a project with no shared scheme gets neither
-- Xcode targets run no producer's `build` before them: an edge to a project producing a referenced file marks the Xcode project affected and orders no task
 - Targets run through the `run` executor, which removes `NX_*` and `LERNA_PACKAGE_NAME` from each child's environment
 - SwiftPM keys its manifest cache on the whole environment, and Nx sets per-task values
 - `run` appends the arguments after `--` to every invocation
@@ -105,7 +101,7 @@ Callers share one location per package and project:
 
 ## [05]-[RELEASE]
 
-- Each `.xcodeproj` project names `@rasm/nx-apple/release/version-actions` with its `project.xcproj` as the manifest
+- Each `.xcodeproj` project names `@rasm/nx-apple/release/version-actions` with its `project.xcproj` as the manifest and carries the `release` tag, which `nx.json` selects
 - Version actions read the project-level `MARKETING_VERSION` as the current version
 - New versions write `MARKETING_VERSION` and raise the project-level `CURRENT_PROJECT_VERSION` by one, through `XcodeProjectFormat` in the core
 - Projects publish through their host channel, so the registry current-version resolver fails; use the disk or git-tag resolver
@@ -113,8 +109,8 @@ Callers share one location per package and project:
 ## [06]-[REQUIREMENTS]
 
 - Hosts run macOS 27 with Xcode 27 and Swift 6.4, and projects use the JSON `project.xcproj` format
-- Package script `prepare` builds the core in release mode on `pnpm install`, at the `swiftPM.scratchPath` in the core's `.sourcekit-lsp/config.json`
-- Plugin runs the core from that path whatever `outputPath` says; workspaces with no Xcode project or workspace never run it
+- Package script `prepare` builds the core in release mode on `pnpm install` into the core package's `.build`
+- Plugin resolves the core through its `#analyzer` package import (`./.build/release/nx-apple-analyzer`); workspaces with no Xcode project or workspace never run it
 - Core sits in its own SwiftPM package, so the published plugin carries it without the repository's root package
 
 ## [07]-[LAYOUT]

@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 import { basename, join } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
-import { paint } from '@rasm/mark';
+import { paint } from '@rasm/mark/paint';
 import { generateManifestIconsEntry } from '@vite-pwa/assets-generator/api/generate-manifest-icons-entry';
 import { instructions } from '@vite-pwa/assets-generator/api/instructions';
 import { minimal2023Preset } from '@vite-pwa/assets-generator/presets/minimal-2023';

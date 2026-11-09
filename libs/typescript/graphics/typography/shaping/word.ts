@@ -1,5 +1,5 @@
-import { Array, Data, Option, Schema, Struct } from 'effect';
-import { BidiClass, GeneralCategory, JoiningGroup, JoiningType, Script } from 'icu';
+import { Array, Data, Number, Option, Schema, Struct } from 'effect';
+import { Bidi, GeneralCategory, JoiningGroup, JoiningType, LineSegmenter, Script } from 'icu';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -12,16 +12,11 @@ interface JoiningState {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const WORDS = /\P{White_Space}+/gu;
 const LETTERS = /\p{L}/gu;
-const TRAILING_WORD = /\P{White_Space}*$/u;
-const WORD_END = /\p{White_Space}|$/u;
+const PARAGRAPH_SEPARATOR = '\u{2029}';
 const UNJOINED = [JoiningType.NonJoining, JoiningType.Transparent];
-const STRONG = new Map([
-    [BidiClass.LeftToRight, 'LTR'],
-    [BidiClass.RightToLeft, 'RTL'],
-    [BidiClass.ArabicLetter, 'RTL'],
-] as const);
+const LINES = LineSegmenter.createAuto();
+const BIDI = new Bidi();
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -45,18 +40,27 @@ class Word extends Data.Class<{
 }> {
     static readonly Span = Span;
     static readonly of = (text: string): readonly Word[] =>
-        Array.fromIterable(text.matchAll(WORDS)).map(({ 0: content, index }) => new Word({ start: index, end: index + content.length, joins: closedJoins([...content].reduce<JoiningState>(joiningStep, { offset: index, joins: [], open: Option.none(), previous: 0 })) }));
-    static readonly expand = (text: string, first: number, last: number): readonly [number, number] => {
-        const start = text.slice(0, first + 1).search(TRAILING_WORD);
-        const end = text.slice(0, last).search(TRAILING_WORD) < last ? last + text.slice(last).search(WORD_END) : last;
-        return [Math.min(start, end), end];
-    };
+        Array.window(
+            Array.unfold(LINES.segment(text), (breaks) => Option.map(Option.liftPredicate(breaks.next(), Number.isGreaterThanOrEqualTo(0)), (at) => [at, breaks] as const)),
+            2,
+        ).flatMap(([start, next]) => {
+            const content = text.slice(start, next).trimEnd();
+            return content === '' ? [] : [new Word({ start, end: start + content.length, joins: closedJoins([...content].reduce<JoiningState>(joiningStep, { offset: start, joins: [], open: Option.none(), previous: 0 })) })];
+        });
+    static readonly expand = (text: string, first: number, last: number): readonly [number, number] =>
+        Word.of(text)
+            .filter(({ start, end }) => start < last && first < end)
+            .reduce<readonly [number, number]>(([from, to], { start, end }) => [Math.min(from, start), Math.max(to, end)], [first, last]);
     static readonly letters = (text: string) =>
         Array.fromIterable(text.matchAll(LETTERS)).map(({ 0: letter, index: offset }) => {
             const point = letter.codePointAt(0) ?? 0;
             return { offset, group: JoiningGroup.forChar(point), script: Script.forChar(point) };
         });
-    static readonly direction = (text: string) => Array.findFirst(Array.fromIterable(text), (character) => Option.fromUndefinedOr(STRONG.get(BidiClass.forChar(character.codePointAt(0) ?? 0))));
+    static readonly direction = (text: string) => {
+        const levels = BIDI.forText(`${text}${PARAGRAPH_SEPARATOR}`, null);
+        const rightToLeft: boolean = Bidi.levelIsRtl(levels.levelAt(levels.size - 1));
+        return rightToLeft ? 'RTL' : 'LTR';
+    };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

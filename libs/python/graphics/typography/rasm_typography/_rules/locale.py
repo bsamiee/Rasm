@@ -9,12 +9,11 @@ import msgspec
 lazy from fontTools.misc.transform import Offset, Transform
 lazy from fontTools.unicodedata import Blocks
 lazy from scipy.special import cosdg, sindg
-lazy from youseedee import ucd_data
 
 from rasm_typography._faces.coverage import Coverage
 from rasm_typography._faces.declaration import Derived, Script
 from rasm_typography._rules.measures import _dotted, _made, _nuqta, Rule
-lazy from rasm_typography._faces.glyphs import _Component, _Glyph, _Joining, _Outline, _Source, Mark
+lazy from rasm_typography._faces.glyphs import _Component, _Glyph, _joined, _Joining, _Outline, _Source, Mark
 lazy from rasm_typography._faces.layout import Ligatures, Lookups, Single
 lazy from rasm_typography._faces.names import _Form, _GlyphName
 lazy from rasm_typography._outlines.paths import _area, _bounds, _Box, _pieces, _transformed
@@ -67,7 +66,7 @@ def _composed(source: _Source, code: int, form: _Form, /) -> tuple[_Glyph, ...]:
 
 def _bodies(source: _Source, codes: frozenset[int], area_: float, /) -> tuple[_Glyph, ...]:
     """Forms of letters the face lacks, each the dotless body of the same form of a letter in its joining group."""
-    groups = {code: group for code in source.encoded if (group := ucd_data(code).get("Joining_Group", "No_Joining_Group")) != "No_Joining_Group"}
+    groups = {code: group for code in source.encoded if (group := _joined().get(code, (_Joining.NONE, "No_Joining_Group"))[1]) != "No_Joining_Group"}
     return tuple(
         _made(_GlyphName(stem=(code,), form=form), model.advance, contours=_dotted(model, area_)[0])
         for code in sorted(codes)
@@ -76,7 +75,11 @@ def _bodies(source: _Source, codes: frozenset[int], area_: float, /) -> tuple[_G
         if source.key(code, form) not in source.named
         and (
             model := next(
-                (held for other, group in groups.items() if other != code and group == ucd_data(code).get("Joining_Group") and (held := source.named.get(source.key(other, form))) and held.contours),
+                (
+                    held
+                    for other, group in groups.items()
+                    if other != code and group == _joined().get(code, (_Joining.NONE, "No_Joining_Group"))[1] and (held := source.named.get(source.key(other, form))) and held.contours
+                ),
                 None,
             )
         )

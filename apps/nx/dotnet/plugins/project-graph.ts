@@ -15,6 +15,7 @@ type Report = typeof Report.Type;
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PROJECTS = ['.csproj', '.fsproj', '.vbproj'];
+const RELEASE = 'release';
 const FILES = `**/{*.{${PROJECTS.map((extension) => extension.slice(1)).join(',')},props,targets,globalconfig},global.json,Directory.Build.rsp,nuget.config,NuGet.config,NuGet.Config,.editorconfig}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -59,15 +60,20 @@ const spawned = (args: readonly string[], cwd: string, input?: string) =>
         }),
     );
 
-const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, analyzer: string, files: readonly string[]) {
-    const path = yield* Path.Path;
-    const assembly =
-        path.extname(analyzer) === '.dll'
-            ? analyzer
-            : yield* Effect.flatMap(Effect.flatMap(spawned(['build', analyzer, '--configuration', 'Release', '-getTargetResult:Build'], workspaceRoot), Schema.decodeEffect(Built)), ({ TargetResults }) =>
-                  Effect.fromOption(Array.head(TargetResults.Build.Items)).pipe(Effect.mapBoth({ onSuccess: ({ Identity }) => Identity, onFailure: () => DotnetError.make({ subject: analyzer, detail: 'built no assembly' }) })),
-              );
-    return yield* Effect.flatMap(spawned([assembly, workspaceRoot], workspaceRoot, files.join('\n')), (stdout) => Schema.decodeEffect(Schema.fromJsonString(Report))(stdout).pipe(Effect.mapError((error) => DotnetError.make({ subject: assembly, detail: error.message }))));
+const imported = Effect.flatMap(Path.Path, (path) => path.fromFileUrl(new URL(import.meta.resolve('#analyzer'))));
+
+const assembly = Effect.fnUntraced(function* (workspaceRoot: string) {
+    const [path, analyzer] = yield* Effect.all([Path.Path, imported]);
+    return path.extname(analyzer) === '.dll'
+        ? analyzer
+        : yield* Effect.flatMap(Effect.flatMap(spawned(['build', analyzer, '--configuration', 'Release', '-getTargetResult:Build'], workspaceRoot), Schema.decodeEffect(Built)), ({ TargetResults }) =>
+              Effect.fromOption(Array.head(TargetResults.Build.Items)).pipe(Effect.mapBoth({ onSuccess: ({ Identity }) => Identity, onFailure: () => DotnetError.make({ subject: analyzer, detail: 'built no assembly' }) })),
+          );
+});
+
+const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, files: readonly string[]) {
+    const built = yield* assembly(workspaceRoot);
+    return yield* Effect.flatMap(spawned([built, workspaceRoot], workspaceRoot, files.join('\n')), (stdout) => Schema.decodeEffect(Schema.fromJsonString(Report))(stdout).pipe(Effect.mapError((error) => DotnetError.make({ subject: built, detail: error.message }))));
 });
 
 const external = ({ id, version }: Node['packages'][number]) => `nuget:${id}@${version}`;
@@ -93,7 +99,7 @@ const reports = new Map<string, Report>();
 
 const evaluate = Effect.fnUntraced(function* (workspaceRoot: string, options: Options, files: readonly string[], located: string, name: string) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const analyzer = yield* path.fromFileUrl(new URL(import.meta.resolve('#analyzer')));
+    const analyzer = yield* imported;
     const folder = path.dirname(analyzer);
     const modules = [located, ...(yield* fs.readDirectory(import.meta.dirname)).toSorted().map((module) => path.join(import.meta.dirname, module))];
     const hash = hashArray([
@@ -117,7 +123,7 @@ const evaluate = Effect.fnUntraced(function* (workspaceRoot: string, options: Op
         onNone: () => Effect.succeedNone,
         onSome: (entry) => Effect.map(Effect.all([evaluatedHash(entry.report), restoredStamp(entry.report)]), ([inputs, stamps]) => (inputs === entry.evaluated && stamps === entry.restored ? Option.some(entry.report) : Option.none())),
     });
-    const report = Option.isSome(held) ? held.value : yield* analyzed(workspaceRoot, analyzer, files);
+    const report = Option.isSome(held) ? held.value : yield* analyzed(workspaceRoot, files);
     yield* Option.isSome(held) || report.failures.length > 0
         ? Effect.void
         : Effect.flatMap(Effect.all([evaluatedHash(report), restoredStamp(report)]), ([inputs, stamps]) =>
@@ -159,7 +165,7 @@ const createNodes: CreateNodes<Options> = [
                                     name: node.name,
                                     metadata: { technologies: ['dotnet', node.language] },
                                     targets: aggregated(configured(targets(plugin, path, node, 'production' in getNamedInputs(root, context) ? 'production' : 'default'), options), ['dotnet', node.language]),
-                                    ...(node.packable ? { release: { version: { versionActions: `${plugin}/release/version-actions`, versionActionsOptions: { projectFile: path.basename(node.file) } } } } : {}),
+                                    ...(node.packable || node.publishable ? { tags: [RELEASE], release: { version: { versionActions: `${plugin}/release/version-actions`, versionActionsOptions: { projectFile: path.basename(node.file) } } } } : {}),
                                 },
                             },
                             externalNodes: Record.fromIterableWith(node.packages, (held): readonly [string, ProjectGraphExternalNode] => [external(held), { type: 'nuget', name: external(held), data: { version: held.version, packageName: held.id, hash: held.hash } }]),
@@ -196,4 +202,4 @@ const createDependencies: CreateDependencies<Options> = (options, { workspaceRoo
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createDependencies, createNodes, DotnetError, type Node, spawned };
+export { assembly, createDependencies, createNodes, DotnetError, type Node, spawned };

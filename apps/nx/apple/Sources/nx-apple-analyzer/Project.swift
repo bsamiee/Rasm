@@ -8,7 +8,7 @@ struct Node {
     let names: [String]
     let id: XCSchema.ObjectID?
     let path: FilePath?
-    let file: Bool
+    let built: Bool
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -23,17 +23,17 @@ func placed(_ path: XCSchema.FilePath, group: FilePath?, root: FilePath) -> File
 
 func nodes(_ references: [XCSchema.Reference], group: FilePath?, names: [String], root: FilePath) -> [Node] {
     references.flatMap { reference in
-        let (name, path, id, children): (String?, XCSchema.FilePath, XCSchema.ObjectID?, [XCSchema.Reference]?) =
+        let (name, path, id, built, children): (String?, XCSchema.FilePath, XCSchema.ObjectID?, Bool, [XCSchema.Reference]) =
             switch reference {
-                case .fileReference(let file): (nil, file.path, file.objectID, nil)
-                case .group(let group): (group.name, group.path, group.objectID, group.children)
-                case .folder(let folder): (nil, folder.path, folder.objectID, nil)
-                case .variantGroup(let group): (group.name, group.path, group.objectID, group.children.map(XCSchema.Reference.fileReference))
-                case .versionGroup(let group): (group.name, group.path, group.objectID, group.children.map(XCSchema.Reference.fileReference))
+                case .fileReference(let file): (nil, file.path, file.objectID, !file.buildFiles.isEmpty, [])
+                case .group(let group): (group.name, group.path, group.objectID, false, group.children)
+                case .folder(let folder): (nil, folder.path, folder.objectID, !folder.targets.isEmpty, [])
+                case .variantGroup(let group): (group.name, group.path, group.objectID, !group.buildFiles.isEmpty, group.children.map(XCSchema.Reference.fileReference))
+                case .versionGroup(let group): (group.name, group.path, group.objectID, !group.buildFiles.isEmpty, group.children.map(XCSchema.Reference.fileReference))
             }
         let location: FilePath? = placed(path, group: group, root: root)
         let named: [String] = names + [name ?? FilePath(path.path).lastComponent?.string ?? path.path]
-        return [Node(names: named, id: id, path: location, file: children == nil)] + nodes(children ?? [], group: location, names: named, root: root)
+        return [Node(names: named, id: id, path: location, built: built)] + nodes(children, group: location, names: named, root: root)
     }
 }
 
@@ -51,19 +51,13 @@ func located(_ reference: XCSchema.GroupTreeAnchoredReference, in tree: [Node]) 
 func project(_ container: FilePath, _ decoded: XCSchema.Project, identifiers: [String: Set<String>]) throws(AnalyzerError) -> Container {
     let root: FilePath = container.removingLastComponent()
     let tree: [Node] = nodes(decoded.topLevelReferences, group: root, names: [], root: root)
-    let locals: [(written: String?, path: String)] = decoded.packages.compactMap { package in
-        if case .local(let local) = package.location { (FilePath(local.path).lastComponent?.string, joined(root, local.path).string) } else { nil }
+    let locals: [String] = decoded.packages.compactMap { package in
+        if case .local(let local) = package.location { joined(root, local.path).string } else { nil }
     }
     let targets: [XCSchema.CommonTargetProperties] = decoded.targets.map(\.commonProperties)
     let bases: [(owner: String, file: FilePath?)] =
         decoded.configurations.compactMap(\.file).map { file in ("project", located(file, in: tree)) }
         + targets.flatMap { target in target.specializedConfigurations.compactMap(\.file).map { file in ("target \(target.name)", located(file, in: tree)) } }
-    let products: [XCSchema.SwiftPackageProductReference] = targets.flatMap { target in
-        target.packageProductTargetMembers.map(\.packageProduct) + target.dependencies.compactMap { dependency in if case .package(let product, _) = dependency { product } else { nil } }
-    }
-    let members: [(product: String, packages: [String])] = products.map { product in
-        (product.productName, locals.filter { local in local.written == product.package?.packageName }.map(\.path))
-    }
     let remotes: [FilePath] =
         targets.flatMap { target in target.dependencies.compactMap { dependency in if case .remoteTarget(let remote, _) = dependency { located(remote.project, in: tree) } else { nil } } }
         + decoded.importedProducts.compactMap { product in located(product.project, in: tree) }
@@ -74,9 +68,8 @@ func project(_ container: FilePath, _ decoded: XCSchema.Project, identifiers: [S
             schemes: declared.map(\.scheme),
             configurations: decoded.configurations.map(\.name.rawValue),
             inputs: Set((bases.compactMap(\.file) + declared.flatMap(\.references).compactMap(\.path)).map(\.string)).sorted(),
-            members: Dictionary(members.filter { member in !member.packages.isEmpty }, uniquingKeysWith: +).mapValues { packages in Set(packages).sorted() },
-            projects: Set(remotes.map(\.string) + locals.map(\.path)).sorted(),
-            references: Set(tree.filter(\.file).compactMap(\.path).filter { file in !file.starts(with: root) }.map(\.string)).sorted(),
+            projects: Set(remotes.map(\.string) + locals).sorted(),
+            buildFiles: Set(tree.filter(\.built).compactMap(\.path).map(\.string)).sorted(),
         ),
         bases.map { base in Reference(owner: base.owner, setting: "baseConfigurationReference", path: base.file) } + declared.flatMap(\.references),
     )

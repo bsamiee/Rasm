@@ -11,7 +11,12 @@
         "github": {
             "type": "http",
             "url": "https://api.githubcopilot.com/mcp/",
-            "headers": { "Authorization": "Bearer ${GH_PROJECTS_TOKEN}", "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search", "X-MCP-Exclude-Tools": "delete_repository,delete_file,create_repository,fork_repository,push_files,create_or_update_file", "X-MCP-Features": "file_blame,issue_dependencies" }
+            "headers": {
+                "Authorization": "Bearer ${GH_PROJECTS_TOKEN}",
+                "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search",
+                "X-MCP-Exclude-Tools": "delete_repository,delete_file,create_repository,fork_repository,push_files,create_or_update_file",
+                "X-MCP-Features": "file_blame,issue_dependencies"
+            }
         },
         "exa": { "type": "http", "url": "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run", "headers": { "x-api-key": "${EXA_API_KEY}" } },
         "context7": { "type": "http", "url": "https://mcp.context7.com/mcp", "headers": { "Authorization": "Bearer ${CONTEXT7_API_KEY}" } },
@@ -19,7 +24,11 @@
         "greptile": { "type": "http", "url": "https://api.greptile.com/mcp", "headers": { "Authorization": "Bearer ${GREPTILE_API_KEY}" } },
         "openaiDeveloperDocs": { "type": "http", "url": "https://developers.openai.com/mcp" },
         "claudeCodeDocs": { "type": "http", "url": "https://code.claude.com/docs/mcp" },
-        "illustrator": { "type": "http", "url": "http://localhost:18412/v1/mcp", "headersHelper": "app=$(ps -o comm= -p \"$(pgrep -x 'Adobe Illustrator')\" | sed 's#/Contents/MacOS/.*##') && prefs=$(jq -r --arg version \"$(defaults read \"$app/Contents/Info\" CFBundleShortVersionString)\" 'select(has($version)) | input_filename | sub(\"\\\\.runConfig$\"; \"Adobe Illustrator Prefs\")' \"$HOME\"/Library/Preferences/Adobe\\ Illustrator*Settings/*/.runConfig) && rg -o '/AuthToken \\[ [0-9]+[[:space:]]+([0-9a-f[:space:]]+)\\]' -r '$1' \"$prefs\" | tr -d ' \\t\\n' | xxd -r -p | jq -R '{Authorization: \"Bearer \\(.)\"}'" },
+        "illustrator": {
+            "type": "http",
+            "url": "http://localhost:18412/v1/mcp",
+            "headersHelper": "prefs=$(jq -r --arg version \"$(watch-apps find com.adobe.illustratorBeta | jq -r 'first(.[][]).version')\" 'select(has($version)) | input_filename | sub(\"\\\\.runConfig$\"; \"Adobe Illustrator Prefs\")' \"$HOME\"/Library/Preferences/Adobe\\ Illustrator*Settings/*/.runConfig) && rg -o '/AuthToken \\[ [0-9]+[[:space:]]+([0-9a-f[:space:]]+)\\]' -r '$1' \"$prefs\" | tr -d ' \\t\\n' | xxd -r -p | jq -R '{Authorization: \"Bearer \\(.)\"}'"
+        },
         "arena": { "type": "http", "url": "https://mcp.are.na/mcp" },
         "xcode": { "command": "xcrun", "args": [ "mcpbridge" ] },
         "lldb": { "command": "xcrun", "args": [ "lldb-mcp" ] }

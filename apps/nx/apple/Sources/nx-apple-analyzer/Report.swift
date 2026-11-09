@@ -28,9 +28,8 @@ struct Container: Encodable {
     let schemes: [Scheme]
     let configurations: [String]
     let inputs: [String]
-    let members: [String: [String]]
     let projects: [String]
-    let references: [String]
+    let buildFiles: [String]
 }
 
 struct Report: Encodable {

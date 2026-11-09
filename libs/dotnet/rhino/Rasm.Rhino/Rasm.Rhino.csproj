@@ -41,10 +41,6 @@
         <PackageReference Include="SuperLinq" />
     </ItemGroup>
 
-    <ItemGroup Label="Geospatial">
-        <PackageReference Include="GeoTimeZone" />
-    </ItemGroup>
-
     <ItemGroup Label="Color">
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>

@@ -60,8 +60,8 @@
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
         <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' == 'Windows'">$(DefaultItemExcludes);**/Mac/**</DefaultItemExcludes>
         <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' != 'Windows'">$(DefaultItemExcludes);**/Windows/**</DefaultItemExcludes>
-        <IconLightStylesheet>$(MSBuildThisFileDirectory).config/icon-light.css</IconLightStylesheet>
-        <IconDarkStylesheet>$(MSBuildThisFileDirectory).config/icon-dark.css</IconDarkStylesheet>
+        <IconLightStylesheet>$(MSBuildThisFileDirectory)libs/dotnet/rhino/assets/icon-light.css</IconLightStylesheet>
+        <IconDarkStylesheet>$(MSBuildThisFileDirectory)libs/dotnet/rhino/assets/icon-dark.css</IconDarkStylesheet>
         <_IconDir>$(IntermediateOutputPath)Icons/</_IconDir>
         <_RhinoMajorVersion Condition="'$(PkgRhinoCommon)' != ''">$([System.IO.Path]::GetFileName('$(PkgRhinoCommon)').Split('.')[0])</_RhinoMajorVersion>
         <RhinoInstallPath Condition="'$(RhinoInstallPath)' == '' and '$(_RhinoMajorVersion)' != '' and $([MSBuild]::IsOSPlatform('OSX'))">/Applications/Rhino $(_RhinoMajorVersion).app</RhinoInstallPath>

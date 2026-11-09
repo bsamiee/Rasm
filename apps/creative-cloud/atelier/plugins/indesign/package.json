@@ -7,16 +7,25 @@
         "#/*": "./*.ts"
     },
     "dependencies": {
+        "@rasm/atelier-protocol": "workspace:*",
+        "@rasm/automation": "workspace:*",
         "@rasm/indesign": "workspace:*",
+        "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",
-        "@rasm/atelier": "workspace:*",
         "@types/node": "catalog:",
         "indesign-uxp-types": "catalog:",
         "vite": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build--vite": {
+                "inputs": [ "...", "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/Atelier.svg" ]
+            }
+        }
     }
 }

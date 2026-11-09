@@ -1,7 +1,7 @@
 {
     "name": "rasm",
     "private": true,
-    "description": "Repository Node tooling",
+    "description": "Rasm is a polyglot monorepo with macOS-first development and portable code and tooling for Linux and Windows.",
     "repository": { "type": "git", "url": "git+https://github.com/bsamiee/Rasm.git" },
     "license": "MIT",
     "author": "Bardia Samiee",

@@ -4,7 +4,9 @@
 
 #[cfg(windows)]
 use core::task::{Context, Poll};
-use core::{fmt, mem::DropGuard, num::NonZero};
+#[cfg(panic = "abort")]
+use core::mem::DropGuard;
+use core::{fmt, num::NonZero};
 use std::{
     env,
     error::Report,
@@ -254,7 +256,7 @@ where
         _ => worker,
     };
     telemetry.run(&command, defaults, (move || OptionalWriter::from(appender.clone())).or_else(stderr), layer, |filter, level| {
-        let runtime = DropGuard::new(Runtime::new().map_err(failed(Operation::Runtime))?, Runtime::shutdown_background);
+        let runtime = Runtime::new().map_err(failed(Operation::Runtime))?;
         runtime.block_on(async {
             let signals = (try bikeshed io::Result<Signals> {
                 cfg_select! {

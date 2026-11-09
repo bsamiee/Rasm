@@ -8,6 +8,7 @@ import { Array, Effect, FileSystem, Option, Path, Record, Result, Schema } from 
 const FILES = '**/package.json';
 const SDK = '@pulumi/pulumi';
 const TECHNOLOGIES = ['pulumi'];
+const RELEASE = 'release';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -52,7 +53,7 @@ const nodes = Effect.fnUntraced(function* (workspaceRoot: string, files: readonl
                 .toSorted();
             return Array.match([...own, ...hosting], {
                 onEmpty: () => [],
-                onNonEmpty: (selected) => [[held.file, { projects: { [path.dirname(held.file)]: { targets: targets(plugin, selected, hosting.length > 0) } } }] as const],
+                onNonEmpty: (selected) => [[held.file, { projects: { [path.dirname(held.file)]: { targets: targets(plugin, selected, hosting.length > 0), ...(hosting.length > 0 ? { tags: [RELEASE] } : {}) } } }] as const],
             });
         }),
         failures: read.flatMap(([file, held]) => (Result.isFailure(held) ? [[file, new Error(held.failure.message)] satisfies [string, Error]] : [])),

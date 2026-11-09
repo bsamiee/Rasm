@@ -1,7 +1,7 @@
 {
     "name": "@rasm/cep",
     "private": true,
-    "description": "CEP extension manifest, the panel following the host skin and serving requests through its host ExtendScript, the swc lowering of ExtendScript, and the Vite builders of CEP extensions and ExtendScript engines",
+    "description": "CEP extension manifest, the panel runtime following the host skin and launching a caller link, the swc lowering of ExtendScript, and the Vite builders of CEP extensions and ExtendScript engines",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -17,7 +17,6 @@
         "@effect/platform-node": "catalog:",
         "@rasm/automation": "workspace:*",
         "@rasm/mark": "workspace:*",
-        "@rasm/search": "workspace:*",
         "@swc/wasm": "catalog:",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",

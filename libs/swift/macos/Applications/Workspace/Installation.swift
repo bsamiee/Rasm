@@ -22,6 +22,7 @@ private struct BundleInfo: Decodable {
         case build = "CFBundleVersion"
         case scriptingDefinitionFile = "OSAScriptingDefinition"
         case agent = "LSUIElement"
+        case backgroundOnly = "LSBackgroundOnly"
     }
 
     let identifier: String?
@@ -29,6 +30,15 @@ private struct BundleInfo: Decodable {
     let build: Installation.Version?
     let scriptingDefinitionFile: String?
     let agent: InfoFlag?
+    let backgroundOnly: InfoFlag?
+
+    var activationPolicy: NSApplication.ActivationPolicy {
+        switch (backgroundOnly?.value, agent?.value) {
+            case (true, _): .prohibited
+            case (_, true): .accessory
+            default: .regular
+        }
+    }
 }
 
 public struct Installation: Encodable, Hashable, Sendable {
@@ -51,23 +61,49 @@ public struct Installation: Encodable, Hashable, Sendable {
 
     private enum CodingKeys: CodingKey {
         case url
+        case executable
         case identifier
         case name
         case version
         case build
         case scriptable
         case scriptingDefinitionFile
-        case agent
+        case activationPolicy
     }
 
     public let url: URL
+    public let executable: URL?
     public let identifier: String
     public let name: String
     public let version: Version?
     public let build: Version?
     public let scriptable: Bool
     public let scriptingDefinitionFile: String?
-    public let agent: Bool
+    public let activationPolicy: NSApplication.ActivationPolicy
+
+    public func encode(to encoder: any Encoder) throws {
+        var fields: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        try fields.encode(url, forKey: .url)
+        try fields.encodeIfPresent(executable, forKey: .executable)
+        try fields.encode(identifier, forKey: .identifier)
+        try fields.encode(name, forKey: .name)
+        try fields.encodeIfPresent(version, forKey: .version)
+        try fields.encodeIfPresent(build, forKey: .build)
+        try fields.encode(scriptable, forKey: .scriptable)
+        try fields.encodeIfPresent(scriptingDefinitionFile, forKey: .scriptingDefinitionFile)
+        try fields.encode(activationPolicy.name, forKey: .activationPolicy)
+    }
+}
+
+extension NSApplication.ActivationPolicy {
+    public var name: String {
+        switch self {
+            case .regular: "regular"
+            case .accessory: "accessory"
+            case .prohibited: "prohibited"
+            @unknown default: String(rawValue)
+        }
+    }
 }
 
 extension Installation {
@@ -86,13 +122,14 @@ extension Installation {
         guard let identifier: String = info?.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
         self.init(
             url: bundle,
+            executable: Bundle(url: bundle)?.executableURL,
             identifier: identifier,
             name: FileManager.default.displayName(atPath: path),
             version: info?.version,
             build: info?.build,
             scriptable: values.applicationIsScriptable == true,
             scriptingDefinitionFile: info?.scriptingDefinitionFile,
-            agent: info?.agent?.value == true,
+            activationPolicy: info?.activationPolicy ?? .regular,
         )
     }
 

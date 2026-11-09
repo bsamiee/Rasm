@@ -3,7 +3,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesResultArray, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Result, Schema } from 'effect';
-import { Described, MANIFEST, type Package, packageEdges, packageParts, scratched, sources } from '#/plugins/swift-package';
+import { Described, MANIFEST, type Package, packageEdges, packageParts, sources } from '#/plugins/swift-package';
 import { AppleError, core, type Part, spawned, tokened } from '#/plugins/targets';
 import { Analyzed, evaluated, Host, Request, xcodeParts } from '#/plugins/xcode-project';
 
@@ -13,7 +13,7 @@ type Options = typeof Options.Type;
 interface Graph {
     readonly nodes: CreateNodesResultArray;
     readonly edges: readonly RawProjectGraphDependency[];
-    readonly references: Readonly<Record<string, readonly string[]>>;
+    readonly buildFiles: Readonly<Record<string, readonly string[]>>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -21,10 +21,11 @@ interface Graph {
 const READ = [MANIFEST, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcworkspace/contents.xcworkspacedata', '*.xcscheme', '*.xcconfig'];
 const FILES = `**/{${[...READ, '*.xcodeproj/project.pbxproj', '*.xctestplan', '*.entitlements', '*.plist'].join(',')}}`;
 const VERBS = ['build', 'check', 'fix', 'upgrade'];
+const RELEASE = 'release';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ trustPackages: Schema.optionalKey(Schema.Boolean), outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'Plugin options from the nx.json row' });
+const Options = Schema.Struct({ trustPackages: Schema.optionalKey(Schema.Boolean) }).annotate({ description: 'Plugin options from the nx.json row' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -41,11 +42,9 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     const containers = files.filter((file) => path.basename(file) === 'project.xcproj' || (path.basename(file) === 'contents.xcworkspacedata' && path.extname(path.dirname(path.dirname(file))) !== '.xcodeproj'));
     const unsupported = files.filter((file) => path.basename(file) === 'project.pbxproj' && !files.includes(path.join(path.dirname(file), 'project.xcproj')));
     const marker = (container: string) => containers.find((file) => path.dirname(file) === container) ?? container;
-    const describedResults = yield* Effect.forEach(
-        manifests,
-        (file) => Effect.result(Effect.flatMap(spawned('swift', ['package', '--package-path', path.dirname(file), ...scratched(path, options, path.dirname(file)), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json'], { cwd: workspaceRoot }), Schema.decodeEffect(Described))),
-        { concurrency: 'unbounded' },
-    );
+    const describedResults = yield* Effect.forEach(manifests, (file) => Effect.result(Effect.flatMap(spawned('swift', ['package', '--package-path', path.dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json'], { cwd: workspaceRoot }), Schema.decodeEffect(Described))), {
+        concurrency: 'unbounded',
+    });
     const packages = Array.zip(manifests, describedResults).flatMap(([file, held]): readonly Package[] => (Result.isSuccess(held) ? [{ file, root: path.dirname(file), held: held.success }] : []));
     const described = new Map(packages.map((found) => [path.resolve(workspaceRoot, found.root), found] as const));
     const local = (at: string) => Option.fromUndefinedOr(described.get(path.resolve(workspaceRoot, at)));
@@ -68,7 +67,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     yield* Effect.forEach(nested, ({ owner, inner }) => Effect.logWarning(`${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`));
     const linked = (container: (typeof xcode)[number]['container']) => container.projects.flatMap((at) => Option.toArray(local(at))).flatMap((found) => sources(path, found, described));
     const parts: readonly Part[] = [
-        ...packages.flatMap((found) => packageParts(path, options, plugin.name, found, described)),
+        ...packages.flatMap((found) => packageParts(path, plugin.name, found, described)),
         ...xcode.map(({ container, inputs }) => xcodeParts(path, options, plugin.name, marker(container.path), container, Array.dedupe([...inputs.flatMap((at) => tokened(path, at)), ...linked(container).filter((input) => !input.endsWith('Package.resolved'))]), built(container.path), destinations, packaged)),
     ];
     const grouped = Array.groupBy(parts, (part) => part.root);
@@ -83,16 +82,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         }),
     );
     const roots = new Map(merged.map((part) => [part.name, part.root] as const));
-    const byRoot = new Map(merged.map((part) => [part.root, part.name] as const));
-    const modules = (product: string, folders: readonly string[]) => folders.flatMap((folder) => Option.toArray(local(folder))).flatMap((found) => found.held.products.filter((owned) => owned.name === product).flatMap((owned) => owned.targets));
-    const edges = [
-        ...packages.flatMap((found) => packageEdges(found.held, described)),
-        ...xcode.flatMap(({ container }) =>
-            [...Record.collect(container.members, modules).flat(), ...container.projects.flatMap((at) => Option.toArray(Option.fromUndefinedOr(byRoot.get(packaged(at) ? path.normalize(at) : path.dirname(at)))))].map(
-                (module): RawProjectGraphDependency => ({ source: path.basename(container.path, path.extname(container.path)), target: module, type: DependencyType.implicit }),
-            ),
-        ),
-    ].flatMap((edge) => Option.toArray(Option.all([Option.fromUndefinedOr(roots.get(edge.source)), Option.fromUndefinedOr(roots.get(edge.target))])).flatMap(([source, sink]) => (source === sink ? [] : [{ ...edge, source, target: sink }])));
+    const edges = packages.flatMap((found) => packageEdges(found.held, described)).flatMap((edge) => Option.toArray(Option.all([Option.fromUndefinedOr(roots.get(edge.source)), Option.fromUndefinedOr(roots.get(edge.target))])).flatMap(([source, sink]) => (source === sink ? [] : [{ ...edge, source, target: sink }])));
     const aggregates = (part: Part) =>
         Record.fromIterableWith(
             VERBS.filter((verb) => Record.keys(part.targets).some((owned) => owned.startsWith(`${verb}--`))),
@@ -100,7 +90,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
                 verb,
                 {
                     executor: 'nx:noop',
-                    dependsOn: [{ target: `${verb}--*`, params: 'forward' }],
+                    dependsOn: [`${verb}--*`],
                     inputs: [
                         '...',
                         ...Array.dedupe(
@@ -126,14 +116,14 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
                                     name: part.name,
                                     metadata: { technologies: [...part.technologies] },
                                     targets: { ...part.targets, ...aggregates(part) },
-                                    ...(part.release === undefined ? {} : { release: part.release }),
+                                    ...(part.release === undefined ? {} : { tags: [RELEASE], release: part.release }),
                                 } satisfies Omit<ProjectConfiguration, 'root'>,
                             },
                         },
                     ] as const,
             ),
             edges: Array.dedupeWith(edges, (left, right) => left.source === right.source && left.target === right.target),
-            references: Record.fromIterableWith(xcode, ({ container }) => [path.dirname(container.path), container.references]),
+            buildFiles: Record.fromIterableWith(xcode, ({ container }) => [path.dirname(container.path), container.buildFiles]),
         } satisfies Graph,
         failures: [
             ...Array.zip(manifests, describedResults).flatMap(([file, held]) => (Result.isFailure(held) ? [[file, held.failure] as const] : [])),
@@ -216,8 +206,8 @@ const createDependencies: CreateDependencies<typeof Options.Encoded> = (options,
         ).flat(),
     ).flat();
     const outputs = declared.flatMap(({ producer, project, target, selected }) => getOutputsForTargetAndConfiguration({ project: producer, target, ...selected }, {}, { name: producer, type: 'lib', data: project }).flatMap((output) => (output.startsWith('!') ? [] : [{ root: project.root, output }])));
-    const references = Record.collect(report?.references ?? {}, (root, held) => held.map((at) => ({ root, at }))).flat();
-    const produced = Array.cartesian(references, outputs)
+    const buildFiles = Record.collect(report?.buildFiles ?? {}, (root, held) => held.map((at) => ({ root, at }))).flat();
+    const produced = Array.cartesian(buildFiles, outputs)
         .filter(([{ root, at }, { root: producer, output }]) => root !== producer && (matchesGlob(at, output) || matchesGlob(at, join(output, '**')) || !relative(at, output).startsWith('..')))
         .map(([{ root }, { root: producer }]): RawProjectGraphDependency => ({ source: root, target: producer, type: DependencyType.implicit }));
     return Array.dedupeWith([...(report?.edges ?? []), ...produced], (left, right) => left.source === right.source && left.target === right.target).flatMap((edge) =>

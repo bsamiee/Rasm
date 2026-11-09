@@ -1,0 +1,19 @@
+{
+    "name": "@rasm/atelier-extendscript",
+    "private": true,
+    "description": "ExtendScript side of Atelier's CEP wire: the reply encoder the server inlines into unlinked scripts and the request dispatcher each CEP plugin's host script serves",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./host": "./host.ts"
+    },
+    "devDependencies": {
+        "@rasm/atelier-protocol": "workspace:*",
+        "@rasm/automation": "workspace:*",
+        "types-for-adobe": "catalog:"
+    }
+}

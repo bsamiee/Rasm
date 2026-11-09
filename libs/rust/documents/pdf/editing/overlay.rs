@@ -81,7 +81,7 @@ pub fn overlay(earlier: &Document, later: &Document, pairs: impl IntoIterator<It
         surface.finish();
         sheet.finish();
     }
-    Document::from_plain_bytes(canvas.finish()?)
+    Document::new(canvas.finish()?, None)
 }
 
 fn recolored<I>(document: &Document, pages: I, color: OpaqueColor<Srgb>) -> Result<PdfDocument, PdfError>

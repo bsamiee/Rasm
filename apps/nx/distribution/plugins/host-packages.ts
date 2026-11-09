@@ -18,6 +18,12 @@ interface Fields {
 interface Package extends Fields {
     readonly host: Host;
     readonly file: string;
+    readonly root: string;
+}
+
+interface Publish {
+    readonly dryRun: boolean;
+    readonly registry: Option.Option<string>;
 }
 
 interface Host {
@@ -27,16 +33,15 @@ interface Host {
     readonly platforms: Partial<Record<NodeJS.Platform, string>>;
     readonly read: (text: string, file: string) => Effect.Effect<Option.Option<Fields>>;
     readonly install: { readonly command: string; readonly run: (held: Package) => Effect.Effect<void, DistributionError, ChildProcessSpawner.ChildProcessSpawner> };
-    readonly publish?: {
-        readonly command: string;
-        readonly run: (held: Package, options: { readonly dryRun: boolean; readonly registry: Option.Option<string> }) => Effect.Effect<void, DistributionError, Path.Path | ChildProcessSpawner.ChildProcessSpawner>;
-    };
+    readonly publish?: { readonly command: string; readonly run: (held: Package, options: Publish) => Effect.Effect<void, DistributionError, Path.Path | ChildProcessSpawner.ChildProcessSpawner> };
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const RELEASE = 'release';
 const UPIA = '/Library/Application Support/Adobe/Adobe Desktop Common/RemoteComponents/UPI/UnifiedPluginInstallerAgent/UnifiedPluginInstallerAgent.app/Contents/MacOS/UnifiedPluginInstallerAgent';
 const YAK = 'https://yak.rhino3d.com';
+const YAK_EXECUTABLE = '_YakExecutable';
 const REMOVED = /^(?:Removal Successful.*|.*status = -406)$/mu;
 const INSTALLED = /^Installation Successful.*$/mu;
 const PUBLISHED = /^Successfully published.*$/mu;
@@ -44,6 +49,8 @@ const REPOSITORY = /^Repository: /mu;
 const REPOSITORY_ID = /\(id=(?<id>[^)]+)\)/u;
 const DISTRIBUTION = /-(?<platform>\w+)\.yak$/u;
 const UPSTREAM = /^\^/u;
+const TOKEN = /\{(?<token>[^}]+)\}/gu;
+const ASSETS = 'query($owner: String!, $name: String!, $tag: String!) { repository(owner: $owner, name: $name) { release(tagName: $tag) { releaseAssets(first: 100) { nodes { name } } } } }';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -58,6 +65,7 @@ const Yak = Schema.Struct({ name: Schema.String, version: Schema.String, authors
 const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String }));
 const Cep = Schema.Struct({ ExtensionBundleId: Schema.String, ExtensionBundleName: Schema.String, ExtensionBundleVersion: Schema.String });
 const Pushed = Schema.Struct({ distributions: Schema.Array(Schema.Struct({ filename: Schema.String })) });
+const Release = Schema.fromJsonString(Schema.Struct({ data: Schema.Struct({ repository: Schema.Struct({ release: Schema.NullOr(Schema.Struct({ releaseAssets: Schema.Struct({ nodes: Schema.Array(Schema.Struct({ name: Schema.String })) }) })) }) }) }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -69,10 +77,10 @@ class DistributionError extends Schema.TaggedError<DistributionError, { readonly
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const spawned = (command: string, args: readonly string[]) =>
+const spawned = (command: string, args: readonly string[], cwd?: string) =>
     Effect.scoped(
         Effect.gen(function* () {
-            const handle = yield* ChildProcess.make(command, args, { extendEnv: true, stdin: 'ignore' });
+            const handle = yield* ChildProcess.make(command, args, { extendEnv: true, stdin: 'ignore', ...(cwd === undefined ? {} : { cwd }) });
             const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
             return code === 0 ? stdout : yield* DistributionError.make({ subject: [command, ...args].join(' '), detail: `exited ${code}: ${[stdout, stderr].join('\n').trim()}` });
         }),
@@ -88,6 +96,17 @@ const reported = (command: string, args: readonly string[], signal: RegExp) =>
 
 const upia = (held: Package) => Effect.andThen(reported(UPIA, ['--remove', held.name], REMOVED), reported(UPIA, ['--install', held.file], INSTALLED));
 
+const yak = (held: Package) =>
+    Effect.flatMap(spawned('dotnet', ['msbuild', `-getProperty:${YAK_EXECUTABLE}`], held.root), (stdout) =>
+        Option.match(
+            Option.liftPredicate(stdout.trim(), (found) => found.length > 0),
+            {
+                onSome: Effect.succeed,
+                onNone: () => DistributionError.make({ subject: held.root, detail: `evaluates no ${YAK_EXECUTABLE}, which MSBuild sets from the Rhino install it resolves; install Rhino or set RhinoInstallPath` }),
+            },
+        ),
+    );
+
 const entry = (file: string, name: string) =>
     Effect.flatMap(FileSystem.FileSystem, (fs) =>
         fs.stream(file).pipe(
@@ -99,12 +118,16 @@ const entry = (file: string, name: string) =>
         ),
     );
 
-const built = Effect.fnUntraced(function* (context: ExecutorContext) {
+const built = Effect.fnUntraced(function* (context: ExecutorContext, configuration: Option.Option<string>) {
     const path = yield* Path.Path;
     const project = yield* Effect.fromNullishOr(context.projectName);
     const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
     const targets = node.data.targets ?? {};
-    const tasks = Record.values(context.taskGraph?.tasks ?? {}).filter(({ target }) => target.project === project);
+    const running = Record.fromEntries(
+        Record.values(context.taskGraph?.tasks ?? {})
+            .filter(({ target }) => target.project === project)
+            .map(({ target }) => [target.target, target.configuration] as const),
+    );
     const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
         const next = new Set([
             ...names,
@@ -119,8 +142,8 @@ const built = Effect.fnUntraced(function* (context: ExecutorContext) {
     const selected = [...reached(new Set(['build']))].filter((target) => target in targets);
     const declared = selected.filter((target) => targets[target]?.outputs !== undefined);
     const outputs = declared.flatMap((target) => {
-        const configuration = tasks.find((task) => task.target.target === target)?.target.configuration ?? targets[target]?.defaultConfiguration;
-        return getOutputsForTargetAndConfiguration({ project, target, ...(configuration === undefined ? {} : { configuration }) }, {}, node);
+        const chosen = Option.getOrUndefined(Option.orElse(configuration, () => Option.fromUndefinedOr(running[target] ?? targets[target]?.defaultConfiguration)));
+        return getOutputsForTargetAndConfiguration({ project, target, ...(chosen === undefined ? {} : { configuration: chosen }) }, {}, node);
     });
     const written = yield* Stream.runCollect(
         Stream.fromAsyncIterable(
@@ -144,13 +167,46 @@ const built = Effect.fnUntraced(function* (context: ExecutorContext) {
         Effect.fnUntraced(function* ({ file, host }) {
             const text = yield* entry(file, host.manifest);
             const fields = Option.isSome(text) ? yield* host.read(text.value, file) : Option.none<Fields>();
-            return Option.map(fields, (held): Package => ({ ...held, host, file }));
+            return Option.map(fields, (held): Package => ({ ...held, host, file, root: path.join(context.root, node.data.root) }));
         }),
     );
     return { project, outputs, configurations: Array.dedupe(selected.flatMap((target) => Record.keys(targets[target]?.configurations ?? {}))), packages: Array.getSomes(packages) };
 });
 
 const installable = (held: Package) => held.platforms.length === 0 || Option.exists(Option.fromUndefinedOr(held.host.platforms[process.platform]), (os) => held.platforms.some((platform) => platform === os || platform === `${os}-${process.arch}`));
+
+const tagged = (context: ExecutorContext, project: string, version: string) =>
+    Effect.flatMap(Effect.fromNullishOr(context.nxJsonConfiguration.release?.releaseTag?.pattern).pipe(Effect.mapError(() => DistributionError.make({ subject: 'nx.json', detail: 'states no release.releaseTag.pattern, which names the GitHub release each package attaches to' }))), (pattern) => {
+        const values: Readonly<Record<string, string>> = { projectName: project, version };
+        return Array.match(
+            [...pattern.matchAll(TOKEN)].flatMap(({ groups }) => Option.toArray(Option.filter(Option.fromUndefinedOr(groups?.token), (token) => !(token in values)))),
+            {
+                onEmpty: () => Effect.succeed(pattern.replaceAll(TOKEN, (_, token: string) => values[token] ?? token)),
+                onNonEmpty: (tokens) => DistributionError.make({ subject: 'nx.json', detail: `release.releaseTag.pattern ${pattern} names ${tokens.join(', ')}, which an independent project release does not fill` }),
+            },
+        );
+    });
+
+const attached = Effect.fnUntraced(function* (held: Package, tag: string, workspace: string, options: Publish) {
+    const path = yield* Path.Path;
+    const asset = path.basename(held.file);
+    const { data } = yield* Effect.flatMap(spawned('gh', ['api', 'graphql', '-F', 'owner={owner}', '-F', 'name={repo}', '-f', `tag=${tag}`, '-f', `query=${ASSETS}`], workspace), (stdout) =>
+        Schema.decodeEffect(Release)(stdout).pipe(Effect.mapError((error) => DistributionError.make({ subject: `gh api graphql release ${tag}`, detail: error.message }))),
+    );
+    const release = Option.fromNullishOr(data.repository.release);
+    return yield* Match.value({ held: Option.exists(release, ({ releaseAssets }) => releaseAssets.nodes.some(({ name }) => name === asset)), dry: options.dryRun, open: Option.isSome(release) }).pipe(
+        Match.when({ held: true }, () => Effect.logInfo(`Skipped ${asset}, GitHub release ${tag} already holds it`)),
+        Match.when({ dry: true }, ({ open }) => Effect.logInfo(`Would run gh release upload ${tag} ${held.file}; GitHub release ${tag} ${open ? 'exists' : 'is created by nx release before publishing'}`)),
+        Match.when({ open: false }, () => DistributionError.make({ subject: tag, detail: `has no GitHub release to attach ${asset} to; nx release creates it when a changelog sets createRelease` })),
+        Match.orElse(() => Effect.andThen(spawned('gh', ['release', 'upload', tag, held.file], workspace), Effect.logInfo(`Attached ${asset} to GitHub release ${tag}`))),
+    );
+});
+
+const released = Effect.fnUntraced(function* (context: ExecutorContext, held: Package, options: Publish) {
+    const project = yield* Effect.fromNullishOr(context.projectName);
+    yield* attached(held, yield* tagged(context, project, held.version), context.root, options);
+    yield* Option.match(Option.fromUndefinedOr(held.host.publish), { onNone: () => Effect.void, onSome: (channel) => channel.run(held, options) });
+});
 
 // --- [HOSTS] ---------------------------------------------------------------------------
 
@@ -200,7 +256,7 @@ const HOSTS: Readonly<Record<'blender' | 'yak' | 'uxp' | 'cep', Host>> = {
                     platforms: Array.filter(Option.toArray(Option.fromUndefinedOr(DISTRIBUTION.exec(file)?.groups?.platform)), (platform) => platform !== 'any'),
                 })),
             ),
-        install: { command: 'yak install', run: (held) => reported('yak', ['install', held.file], new RegExp(`^Successfully installed ${RegExp.escape(held.name)}`, 'mu')) },
+        install: { command: 'yak install', run: (held) => Effect.flatMap(yak(held), (executable) => reported(executable, ['install', held.file], new RegExp(`^Successfully installed ${RegExp.escape(held.name)}`, 'mu'))) },
         publish: {
             command: 'yak push',
             run: (held, options) =>
@@ -218,7 +274,7 @@ const HOSTS: Readonly<Record<'blender' | 'yak' | 'uxp' | 'cep', Host>> = {
                     return yield* Match.value({ held: pushed.includes(path.basename(held.file)), dry: options.dryRun }).pipe(
                         Match.when({ held: true }, () => Effect.logInfo(`Skipped ${path.basename(held.file)}, ${registry} already holds it`)),
                         Match.when({ dry: true }, () => Effect.logInfo(`Would run yak ${args.join(' ')}; ${registry} holds ${pushed.join(', ') || 'no distribution'} of ${held.name} ${held.version}`)),
-                        Match.orElse(() => reported('yak', args, PUBLISHED)),
+                        Match.orElse(() => Effect.flatMap(yak(held), (executable) => reported(executable, args, PUBLISHED))),
                     );
                 }).pipe(
                     Effect.catchTags({
@@ -257,4 +313,4 @@ const HOSTS: Readonly<Record<'blender' | 'yak' | 'uxp' | 'cep', Host>> = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { built, DistributionError, HOSTS, type Host, installable, type Package };
+export { built, DistributionError, HOSTS, type Host, installable, type Package, RELEASE, released };

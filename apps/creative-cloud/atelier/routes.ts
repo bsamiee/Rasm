@@ -1,5 +1,5 @@
 import { Installation, Pid, type RunningInstance } from '@rasm/applications';
-import { Peer } from '@rasm/automation/peer';
+import { Peer } from '@rasm/atelier-protocol/peer';
 import { Route, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Array, Context, Effect, Function, flow, Match, Option, Predicate, Schema, Struct, SubscriptionRef } from 'effect';

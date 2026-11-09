@@ -10,7 +10,7 @@ use std::{
 use hayro::hayro_interpret::TransformExt as _;
 use hayro_syntax::{
     DecryptionError, LoadPdfError, Pdf,
-    object::dict::keys::{KIDS, LAST_MODIFIED, PIECE_INFO, PRIVATE, USER_UNIT},
+    object::dict::keys::{ID, KIDS, LAST_MODIFIED, PIECE_INFO, PRIVATE, USER_UNIT},
     page::Page,
 };
 use jiff::Zoned;
@@ -22,7 +22,7 @@ use krilla::{
     pdf,
 };
 use kurbo::{Affine, Rect, Size};
-use lopdf::{Dictionary, LoadOptions, Object, ObjectId, decode_text_string, dictionary, text_string};
+use lopdf::{Dictionary, IncrementalDocument, LoadOptions, Object, ObjectId, decode_text_string, dictionary, text_string};
 use moxcms::{CmsError, ColorProfile, DataColorSpace, ProfileClass};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use pdf_oxide::{
@@ -59,24 +59,18 @@ const PART: &str = "part";
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Clone, derive_more::Debug, derive_more::Deref)]
-#[deref(forward)]
-pub struct Document(#[debug(skip)] Arc<Pdf>);
+pub struct Document {
+    #[deref(forward)]
+    #[debug(skip)]
+    pdf: Arc<Pdf>,
+    #[debug(skip)]
+    password: Option<SecretString>,
+}
 
 impl Document {
     pub fn new(bytes: Vec<u8>, password: Option<&SecretString>) -> Result<Self, PdfError> {
-        let plain = if lopdf::Document::load_metadata_mem(&bytes)?.encrypted {
-            let mut decrypted = Vec::new();
-            lopdf::Document::load_mem_with_options(&bytes, LoadOptions { password: password.map(|secret| secret.expose_secret().to_owned()), ..LoadOptions::default() })?
-                .save_to(&mut decrypted)
-                .map_err(lopdf::Error::from)?;
-            decrypted
-        } else {
-            bytes
-        };
-        Self::from_plain_bytes(plain)
+        Pdf::new_with_password(bytes, password.map_or("", |secret| secret.expose_secret())).map(|pdf| Self { pdf: Arc::new(pdf), password: password.cloned() }).map_err(PdfError::Load)
     }
-
-    fn from_plain_bytes(bytes: Vec<u8>) -> Result<Self, PdfError> { Pdf::new(bytes).map(|pdf| Self(Arc::new(pdf))).map_err(PdfError::Load) }
 }
 
 #[nutype::nutype(validate(predicate = |density: &LinearNumberDensity| density.is_normal() && density.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq, Deref))]
@@ -241,6 +235,14 @@ pub enum PdfError {
     Imprint,
     #[error("raster of {width} by {height} pixels exceeds addressable memory")]
     Raster { width: u64, height: u64 },
+    #[error("document is encrypted, and the signer appends its signature dictionary unencrypted")]
+    Encrypted,
+    #[error("validator refused the claim{}", fmt::from_fn(|formatter| match .0 {
+        Verdict::Archival(result) => result.errors.iter().try_for_each(|error| write!(formatter, "\n{error}")),
+        Verdict::Accessibility(result) => result.errors.iter().try_for_each(|error| write!(formatter, "\n{error}")),
+        Verdict::Press(result) => result.errors.iter().try_for_each(|error| write!(formatter, "\n{error}")),
+    }))]
+    Nonconforming(Verdict),
     #[error("refused{}", fmt::from_fn(|formatter| .0.iter().try_for_each(|(subject, error)| write!(formatter, "\n{subject}: {}", Report::new(error)))))]
     Refused(NEVec<(Subject, Self)>),
 }
@@ -249,14 +251,14 @@ pub enum PdfError {
 
 pub fn save(document: &Document, options: SaveOptions) -> Result<Vec<u8>, PdfError> {
     match options {
-        SaveOptions { incremental: true, compress: _, linearize: false, garbage_collect: _, encryption: None } => Ok(document.data().as_ref().to_vec()),
+        SaveOptions { incremental: true, compress: false, linearize: false, garbage_collect: false, encryption: None } => Ok(document.data().as_ref().to_vec()),
         rewrite => editor(document).and_then(|mut editor| editor.save_to_bytes_with_options(rewrite).map_err(PdfError::from)),
     }
 }
 
-pub fn fields(document: &Document) -> Result<Vec<Fields>, PdfError> {
+pub fn fields(document: &Document, application: &str) -> Result<Vec<Fields>, PdfError> {
     let structure = structure(document)?;
-    let path = [PIECE_INFO, env!("CARGO_PKG_NAME").as_bytes(), PRIVATE];
+    let path = [PIECE_INFO, application.as_bytes(), PRIVATE];
     let entry = |(key, value): (&Vec<u8>, &Object)| {
         Validated::from(str::from_utf8(key).map(Arc::from).map_err(PdfError::from))
             .map2(Validated::from(resolved(&structure, value).and_then(decode_text_string).map(Arc::from).map_err(PdfError::from)), |key, value| (key, value))
@@ -276,39 +278,80 @@ pub fn fields(document: &Document) -> Result<Vec<Fields>, PdfError> {
         .map_err(PdfError::Refused)
 }
 
-pub fn set_fields<I, F>(document: &Document, pages: I, modified: &Zoned) -> Result<Document, PdfError>
+pub fn set_fields<I, F>(document: &Document, application: &str, pages: I, modified: &Zoned) -> Result<Document, PdfError>
 where
     I: IntoIterator<Item = (usize, F)>,
     F: Borrow<Fields>,
 {
-    let mut structure = structure(document)?;
-    let sheets = structure.page_iter().collect::<Vec<_>>();
-    let placed = pages
-        .into_iter()
-        .map(|(index, fields)| sheets.get(index).map(|&sheet| (sheet, fields)).ok_or((Subject::Page(index), PdfError::Page { index, count: sheets.len() })))
-        .collect::<Validated<Vec<_>, _>>()
-        .ok()
-        .map_err(PdfError::Refused)?;
-    placed.iter().try_for_each(|(sheet, fields)| write_fields(&mut structure, *sheet, fields.borrow(), modified))?;
-    saved(structure)
+    revised(document, |structure| {
+        let sheets = structure.page_iter().collect::<Vec<_>>();
+        let placed = pages
+            .into_iter()
+            .map(|(index, fields)| sheets.get(index).map(|&sheet| (sheet, fields)).ok_or((Subject::Page(index), PdfError::Page { index, count: sheets.len() })))
+            .collect::<Validated<Vec<_>, _>>()
+            .ok()
+            .map_err(PdfError::Refused)?;
+        placed.iter().try_for_each(|(sheet, fields)| write_fields(structure, application, *sheet, fields.borrow(), modified)).map_err(PdfError::from)
+    })
 }
 
-fn structure(document: &Document) -> Result<lopdf::Document, PdfError> { lopdf::Document::load_mem(document.data().as_ref()).map_err(PdfError::from) }
+fn structure(document: &Document) -> Result<lopdf::Document, PdfError> {
+    lopdf::Document::load_mem_with_options(document.data().as_ref(), LoadOptions { password: document.password.as_ref().map(|secret| secret.expose_secret().to_owned()), ..LoadOptions::default() })
+        .map_err(PdfError::from)
+}
 
-fn engine(document: &Document) -> Result<PdfDocument, PdfError> { PdfDocument::from_bytes(document.data().as_ref().to_vec()).map_err(PdfError::from) }
+fn plain(document: &Document) -> Result<Vec<u8>, PdfError> {
+    if lopdf::Document::load_metadata_mem(document.data().as_ref())?.encrypted {
+        let mut bytes = Vec::new();
+        structure(document)?.save_to(&mut bytes).map_err(lopdf::Error::from)?;
+        Ok(bytes)
+    } else {
+        Ok(document.data().as_ref().to_vec())
+    }
+}
 
-fn editor(document: &Document) -> Result<DocumentEditor, PdfError> { DocumentEditor::from_bytes(document.data().as_ref().to_vec()).map_err(PdfError::from) }
+fn engine(document: &Document) -> Result<PdfDocument, PdfError> { PdfDocument::from_bytes(plain(document)?).map_err(PdfError::from) }
+
+fn editor(document: &Document) -> Result<DocumentEditor, PdfError> { DocumentEditor::from_bytes(plain(document)?).map_err(PdfError::from) }
 
 fn saved(mut structure: lopdf::Document) -> Result<Document, PdfError> {
     let mut bytes = Vec::new();
     structure.save_to(&mut bytes).map_err(lopdf::Error::from)?;
-    Document::from_plain_bytes(bytes)
+    Document::new(bytes, None)
+}
+
+fn revised(document: &Document, edit: impl FnOnce(&mut lopdf::Document) -> Result<(), PdfError>) -> Result<Document, PdfError> {
+    let prior = structure(document)?;
+    let mut edited = prior.clone();
+    edit(&mut edited)?;
+    let changed = edited.objects.into_iter().filter(|(id, object)| prior.objects.get(id) != Some(object)).collect::<Vec<_>>();
+    let mut update = IncrementalDocument::create_from(document.data().as_ref().to_vec(), prior);
+    update.new_document.objects.extend(changed);
+    update.new_document.max_id = edited.max_id;
+    let mut bytes = Vec::new();
+    update.save_to(&mut bytes).map_err(lopdf::Error::from)?;
+    Document::new(bytes, document.password.as_ref())
+}
+
+fn sealed(document: &Document, bytes: Vec<u8>) -> Result<Document, PdfError> {
+    let source = structure(document)?;
+    let Some(state) = source.encryption_state else {
+        return Document::new(bytes, None);
+    };
+    let mut rewritten = lopdf::Document::load_mem(&bytes)?;
+    if let Some(identifier) = source.trailer.as_hashmap().get(ID) {
+        rewritten.trailer.set(ID, identifier.clone());
+    }
+    rewritten.encrypt(&state)?;
+    let mut encrypted = Vec::new();
+    rewritten.save_to(&mut encrypted).map_err(lopdf::Error::from)?;
+    Document::new(encrypted, document.password.as_ref())
 }
 
 fn extent(size: Size) -> Result<geom::Size, PdfError> { geom::Size::from_wh(size.width.cast::<f32>(), size.height.cast::<f32>()).ok_or(PdfError::Area(size.to_rect())) }
 
 fn embedded(document: &Document) -> Result<pdf::PdfDocument, PdfError> {
-    pdf::Pdf::new(Arc::new(document.data().clone())).ok().map(|source| pdf::PdfDocument::new(Arc::new(source))).ok_or(PdfError::Load(LoadPdfError::Invalid))
+    pdf::Pdf::new(Arc::new(plain(document)?)).ok().map(|source| pdf::PdfDocument::new(Arc::new(source))).ok_or(PdfError::Load(LoadPdfError::Invalid))
 }
 
 fn page(document: &Document, index: usize) -> Result<&Page<'_>, PdfError> {
@@ -374,8 +417,8 @@ where F: Fn(&Object) -> Result<K, lopdf::Error> {
     Ok(found)
 }
 
-fn write_fields(structure: &mut lopdf::Document, page: ObjectId, fields: &Fields, modified: &Zoned) -> Result<(), lopdf::Error> {
-    let application = env!("CARGO_PKG_NAME").as_bytes();
+fn write_fields(structure: &mut lopdf::Document, application: &str, page: ObjectId, fields: &Fields, modified: &Zoned) -> Result<(), lopdf::Error> {
+    let application = application.as_bytes();
     let stamp = || Object::from(modified.clone());
     let mut pieces = nested(structure, structure.get_dictionary(page)?, &[PIECE_INFO])?.cloned().unwrap_or_default();
     let written = (!fields.is_empty()).then(|| dictionary! { LAST_MODIFIED => stamp(), PRIVATE => fields.iter().map(|(key, value)| (key.as_bytes(), text_string(value))).collect::<Dictionary>() });

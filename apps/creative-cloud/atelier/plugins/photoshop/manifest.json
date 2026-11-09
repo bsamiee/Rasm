@@ -4,8 +4,8 @@
     "name": "Atelier Photoshop",
     "version": "1.0.0",
     "main": "main.js",
-    "host": { "app": "PS", "minVersion": "27.11.0", "data": { "loadEvent": "startup" } },
+    "host": { "app": "PS", "minVersion": "24.2.0", "data": { "loadEvent": "startup" } },
     "icons": [ { "width": 24, "height": 24, "path": "icons/plugin-light.svg", "scale": [ 1 ], "theme": [ "lightest", "light" ], "species": [ "pluginList" ] }, { "width": 24, "height": 24, "path": "icons/plugin-dark.svg", "scale": [ 1 ], "theme": [ "medium", "dark", "darkest" ], "species": [ "pluginList" ] } ],
     "entrypoints": [],
-    "requiredPermissions": { "localFileSystem": "fullAccess", "network": { "domains": [ "ws://localhost:7490" ] }, "allowCodeGenerationFromStrings": true }
+    "requiredPermissions": { "localFileSystem": "fullAccess", "allowCodeGenerationFromStrings": true }
 }

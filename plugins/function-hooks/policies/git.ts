@@ -1,9 +1,9 @@
 import { Array, Effect, Option, Predicate } from 'effect';
-import type { Host } from '#/host.ts';
-import { removed } from '#/policies/files.ts';
-import { all, type Call, type Fix, folderOf, has, holds, inserted, type Policy, perSubcommand, redirected, refusal, refuse, respell, subject, unresolved, when, whole } from '#/policies/fix.ts';
-import type { Word } from '#/shell/script.ts';
-import type { Site } from '#/shell/site.ts';
+import type { Host } from '#/host';
+import { removed } from '#/policies/files';
+import { all, type Call, type Fix, folderOf, has, holds, inserted, type Policy, perSubcommand, redirected, refusal, refuse, respell, subject, unresolved, when } from '#/policies/fix';
+import type { Word } from '#/shell/script';
+import type { Site } from '#/shell/site';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -55,13 +55,16 @@ const inRepository =
               );
     };
 
+const uncommitted = (host: typeof Host.Service, site: Site, words: readonly Word[]) =>
+    words.every(({ known }) => known) ? Effect.map(host.output(['git', '-C', Option.getOrElse(folderOf(host, site, '-C'), () => host.root), 'status', '--porcelain', '--', ...words.map(({ text }) => text)]), (listed) => listed.trim() !== '') : Effect.succeed(true);
+
 const checkoutPaths: Fix = Effect.fnUntraced(function* (site, { host }) {
     const [first, ...more] = site.operands;
     if (first === undefined || site.has('--detach')) {
         return [];
     }
     const paths = site.tail.length > 0 || more.length > 0 || first.text === '.' || first.text.startsWith(':') || (first.text !== '-' && (yield* present(host, site, first.text)));
-    return paths ? refusal(`${subject(site)} ${first.text} ${OVERWRITES.join(', ')}`) : [];
+    return paths && (yield* uncommitted(host, site, site.operands)) ? refusal(`${subject(site)} ${first.text} ${OVERWRITES.join(', ')}`) : [];
 });
 
 const resetTarget: Fix = Effect.fnUntraced(function* (site, { host }) {
@@ -78,7 +81,7 @@ const overwrites = ({ text, known }: Word, { command: { cwd } }: Site, { host }:
     if (place === undefined) {
         return Effect.succeed(false);
     }
-    return known ? Effect.zipWith(host.exists(place), host.run(['git', 'check-ignore', '-q', '--', place]), (held, { code }) => held && code !== 0) : Effect.succeed(true);
+    return known ? Effect.map(host.output(['git', 'status', '--porcelain', '--', place]), (listed) => listed.trim() !== '') : Effect.succeed(true);
 };
 
 const overwrittenByShow: Fix = (site, call) =>
@@ -86,15 +89,6 @@ const overwrittenByShow: Fix = (site, call) =>
         Effect.filter(Array.getSomes(redirected(site, '>').map(({ target }) => target)), (word) => overwrites(word, site, call)),
         ([file]) => (file === undefined ? [] : refusal(`${subject(site)} > ${file.text} ${OVERWRITES.join(', ')}`)),
     );
-
-const untrackedMove: Fix = Effect.fnUntraced(function* (site, { host }) {
-    const [source] = site.operands;
-    if (source === undefined || !source.known || site.names.difference(new Set(['-C'])).size > 0) {
-        return [];
-    }
-    const { code } = yield* host.run(['git', '-C', Option.getOrElse(folderOf(host, site, '-C'), () => host.root), 'ls-files', '--error-unmatch', '--', source.text]);
-    return code === 0 ? [] : whole(site, ['mv', ...site.operands.map(({ raw }) => raw)].join(' '), 'git mv');
-});
 
 // --- [TABLES] --------------------------------------------------------------------------
 
@@ -119,7 +113,6 @@ const GIT: Policy = {
                         clean: [when(Predicate.not(has('--dry-run')), refuse('deletes untracked files', 'rm each by name'))],
                         config: [when(writesAlias, refuse(...ALIASES))],
                         push: [UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune'), when(holds(HISTORY), refuse(...REMOTE))],
-                        mv: [untrackedMove],
                         rebase: [when(Predicate.not(has(...UNWINDS)), refuse('rewrites shared commits', 'merge or commit forward'))],
                         reflog: [when(subcommand('delete', 'drop', 'expire'), refuse('deletes entries', 'leave the reflog intact'))],
                         reset: [refuse(...OVERWRITES, ...RESET_DISCARDS), when(Predicate.not(has(...RESET_DISCARDS)), resetTarget)],

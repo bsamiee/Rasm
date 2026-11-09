@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="7.0" ExtensionBundleId="app.rasm.atelier.illustrator" ExtensionBundleVersion="1.0.0" ExtensionBundleName="Atelier Illustrator">
     <ExtensionList>
-        <Extension Id="app.rasm.atelier.illustrator" Version="1.0.0"/>
+        <Extension Id="app.rasm.atelier.illustrator"/>
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>
-            <Host Name="ILST" Version="31.1"/>
+            <Host Name="ILST" Version="29.5.1"/>
         </HostList>
         <LocaleList>
             <Locale Code="All"/>

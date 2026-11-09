@@ -10,11 +10,11 @@ use ironcalc::{
 };
 use umya_spreadsheet::{CellErrorType, CellRawValue, Workbook, writer};
 
-use crate::WorkbooksError;
+use crate::{Uncached, WorkbooksError};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn recalculate(book: &mut Workbook, locale: &str, timezone: &str) -> Result<(), WorkbooksError> {
+pub fn recalculate(book: &mut Workbook, locale: &str, timezone: &str) -> Result<Vec<Uncached>, WorkbooksError> {
     let result = |cell: &Cell| match cell {
         Cell::CellFormula { v: FormulaValue::Unevaluated, .. } | Cell::ArrayFormula { v: FormulaValue::Unevaluated, .. } => Some(Ok(CellRawValue::Empty)),
         Cell::CellFormula { v: FormulaValue::Boolean(boolean), .. } | Cell::ArrayFormula { v: FormulaValue::Boolean(boolean), .. } | Cell::SpillCell { v: SpillValue::Boolean(boolean), .. } =>
@@ -43,31 +43,29 @@ pub fn recalculate(book: &mut Workbook, locale: &str, timezone: &str) -> Result<
     let mut model = Model::from_workbook(import::load_from_xlsx_bytes(&bytes, book.properties().title(), locale, timezone)?, "en").map_err(WorkbooksError::Model)?;
     drop(bytes);
     model.evaluate();
-    let results = iter::zip(&model.workbook.worksheets, 0_u32..)
-        .map(|(worksheet, sheet)| {
-            worksheet
-                .sheet_data
-                .cells()
-                .filter_map(|(row, column, cell)| {
-                    let at = (row.cast_unsigned(), column.cast_unsigned());
-                    result(&cell).map(|outcome| outcome.map(|raw| (at, raw)).map_err(|kind| WorkbooksError::Cached { sheet, cell: at, kind }))
-                })
-                .try_collect::<Vec<_>>()
-        })
-        .try_collect::<Vec<_>>()?;
+    let results = model
+        .workbook
+        .worksheets
+        .iter()
+        .map(|worksheet| worksheet.sheet_data.cells().filter_map(|(row, column, cell)| result(&cell).map(|outcome| ((row.cast_unsigned(), column.cast_unsigned()), outcome))).collect::<Vec<_>>())
+        .collect::<Vec<_>>();
     drop(model);
-    for (worksheet, cells) in iter::zip(book.sheet_collection_mut(), results) {
-        for ((row, column), raw) in cells {
-            let cell = worksheet.cell_mut((column, row));
-            match raw {
-                CellRawValue::String(text) | CellRawValue::Lazy(text) => cell.set_formula_result_string(text),
-                CellRawValue::RichText(text) => cell.set_formula_result_string(text.text()),
-                CellRawValue::Numeric(number) => cell.set_formula_result_number(number),
-                CellRawValue::Bool(boolean) => cell.set_formula_result_bool(boolean),
-                CellRawValue::Error(error) => cell.set_formula_result_error(error),
-                CellRawValue::Empty => cell.set_formula_result_blank(),
-            };
-        }
-    }
-    Ok(())
+    Ok(iter::zip(book.sheet_collection_mut(), iter::zip(results, 0_u32..))
+        .flat_map(|(worksheet, (cells, sheet))| {
+            cells.into_iter().filter_map(move |((row, column), outcome)| {
+                let cell = worksheet.cell_mut((column, row));
+                let uncached = outcome.as_ref().err().map(|kind| Uncached { sheet, cell: (row, column), kind: kind.clone() });
+                match outcome {
+                    Ok(CellRawValue::String(text) | CellRawValue::Lazy(text)) => cell.set_formula_result_string(text),
+                    Ok(CellRawValue::RichText(text)) => cell.set_formula_result_string(text.text()),
+                    Ok(CellRawValue::Numeric(number)) => cell.set_formula_result_number(number),
+                    Ok(CellRawValue::Bool(boolean)) => cell.set_formula_result_bool(boolean),
+                    Ok(CellRawValue::Error(error)) => cell.set_formula_result_error(error),
+                    Ok(CellRawValue::Empty) | Err(Error::ERROR | Error::NIMPL | Error::SPILL | Error::CALC | Error::CIRC | Error::REF | Error::NAME | Error::VALUE | Error::DIV | Error::NA | Error::NUM | Error::NULL) =>
+                        cell.set_formula_result_blank(),
+                };
+                uncached
+            })
+        })
+        .collect())
 }

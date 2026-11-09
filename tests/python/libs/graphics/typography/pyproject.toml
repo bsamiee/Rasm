@@ -6,8 +6,3 @@ version         = "0.0.0"
 requires-python = ">=3.15"
 
 dependencies = ["cyclopts", "expression", "msgspec", "pytest", "rasm-records", "rasm-testing", "rasm-typography", "sysexits"]
-
-# --- [FAWLTYDEPS] -----------------------------------------------------------------------
-
-[tool.fawltydeps]
-ignore_unused = ["rasm-testing"] # Test toolchain, its pytest plugins loaded by entry point

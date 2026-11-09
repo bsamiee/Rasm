@@ -12,9 +12,7 @@ dependencies    = []
 dev                   = [
     # --- [CHECKERS]
 
-    "fawltydeps",                                                                 # Native AST import-to-requirement checker for modern packages
-    "pydantic",                                                                   # `pydantic.mypy` plugin the root mypy configuration loads
-    "mypy",                                                                       # Type checker of facts only mypy plugins check
+    "mypy",                                                                       # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
     "rasm-refurb",                                                                # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
     "refurb",                                                                     # FURB checks Ruff lacks, over a mypy build
     "ruff",                                                                       # Linter and formatter of every project
@@ -419,75 +417,75 @@ WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 cache-dir   = ".cache/ruff"
 preview     = true
 line-length = 200
-src         = ["libs/python/*/*", "tools/refurb", "tests/python/support"]
+src         = ["libs/python/*/*", "tools/refurb"]
 format      = { exclude = ["*.md"], line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
 select                    = ["ALL"]
 ignore                    = [
-    "missing-trailing-comma",                                                                                                                                                                                        # `skip-magic-trailing-comma` removes commas COM812 adds
-    "too-many-public-methods",                                                                                                                                                                                       # Member counts push one-caller helper extraction
-    "too-many-arguments",                                                                                                                                                                                            # Argument counts push one-caller parameter records and wrappers
-    "too-many-positional-arguments",                                                                                                                                                                                 # Positional counts do not establish a domain record or keyword contract
-    "too-many-return-statements",                                                                                                                                                                                    # Return counts push one-caller helper extraction, `match` arms return per case
+    "missing-trailing-comma",                                                                                                                                                                    # `skip-magic-trailing-comma` removes commas COM812 adds
+    "too-many-public-methods",                                                                                                                                                                   # Member counts push one-caller helper extraction
+    "too-many-arguments",                                                                                                                                                                        # Argument counts push one-caller parameter records and wrappers
+    "too-many-positional-arguments",                                                                                                                                                             # Positional counts do not establish a domain record or keyword contract
+    "too-many-return-statements",                                                                                                                                                                # Return counts push one-caller helper extraction, `match` arms return per case
     "too-many-branches",                                                                                                                                                                                             # Branch counts push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
-    "too-many-locals",                                                                                                                                                                                               # Local counts push one-caller helper extraction
-    "too-many-statements",                                                                                                                                                                                           # Statement counts push one-caller helper extraction
-    "too-many-statements-in-try-clause",                                                                                                                                                                             # Statement counts do not establish exception scope for native effects and typed refusals
+    "too-many-locals",                                                                                                                                                                           # Local counts push one-caller helper extraction
+    "too-many-statements",                                                                                                                                                                       # Statement counts push one-caller helper extraction
+    "too-many-statements-in-try-clause",                                                                                                                                                         # Statement counts do not establish exception scope for native effects and typed refusals
     "complex-structure",                                                                                                                                                                                             # Complexity scores push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
-    "raw-string-in-exception",                                                                                                                                                                                       # Moves message into a local only the raise reads
-    "f-string-in-exception",                                                                                                                                                                                         # Moves message into a local only the raise reads
-    "raise-vanilla-args",                                                                                                                                                                                            # Pushes an exception class per message, raises stay for defects
-    "typing-only-first-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
-    "typing-only-third-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
-    "typing-only-standard-library-import",                                                                                                                                                                           # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
-    "suspicious-subprocess-import",                                                                                                                                                                                  # Reports every `subprocess` import, process boundaries call it
-    "missing-copyright-notice",                                                                                                                                                                                      # Files hold no license header
-    "commented-out-code",                                                                                                                                                                                            # Reads `# --- [<LABEL>]` section and subsection dividers as code
-    "float-equality-comparison",                                                                                                                                                                                     # Authored controls compare against exact identity values (`0.0`, `1.0`)
-    "zip-without-explicit-strict",                                                                                                                                                                                   # `strict=True` asserts lengths the code constructs
-    "batched-without-explicit-strict",                                                                                                                                                                               # `strict=True` asserts lengths the code constructs
-    "subprocess-without-shell-equals-true",                                                                                                                                                                          # Reports every argument-vector `subprocess` call
-    "start-process-with-partial-path",                                                                                                                                                                               # Commands name tools mise places on `PATH`
-    "os-path-abspath",                                                                                                                                                                                               # `os.path.abspath` drops `..` without following symlinks, a combination no `pathlib` member has
-    "function-uses-loop-variable",                                                                                                                                                                                   # Reports closures `Result` and `Option` combinators call before the loop advances
-    "logging-string-format",                                                                                                                                                                                         # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
-    "logging-percent-format",                                                                                                                                                                                        # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
-    "logging-string-concat",                                                                                                                                                                                         # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
-    "logging-f-string",                                                                                                                                                                                              # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
-    "reimplemented-operator",                                                                                                                                                                                        # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
-    "lambda-assignment",                                                                                                                                                                                             # Pushes a `def` statement for a callback each `match` arm binds
-    "compare-with-tuple",                                                                                                                                                                                            # PLR1714 reports the form as a set membership PLR6201 accepts
-    "blocking-http-call-in-async-function",                                                                                                                                                                          # `banned-api` rejects every client it names
-    "blocking-http-call-httpx-in-async-function",                                                                                                                                                                    # `banned-api` rejects `httpx`
-    "blocking-sleep-in-async-function",                                                                                                                                                                              # `banned-api` rejects `time.sleep`
-    "request-without-timeout",                                                                                                                                                                                       # `banned-api` rejects every client it names
-    "no-explicit-stacklevel",                                                                                                                                                                                        # `banned-api` rejects `warnings.warn`
-    "multiple-starts-ends-with",                                                                                                                                                                                     # refurb FURB102 preserves receiver evaluation and prefix independence
-    "repeated-append",                                                                                                                                                                                               # Nominal receiver types do not prove exact builtin list mutation
-    "len-test",                                                                                                                                                                                                      # refurb FURB115 checks exact materialized builtin size tests
-    "for-loop-writes",                                                                                                                                                                                               # refurb FURB122 checks exact StringIO/BytesIO receivers and independent primitive writes
-    "readlines-in-for",                                                                                                                                                                                              # refurb FURB129 checks exact StringIO/BytesIO receivers
-    "delete-full-slice",                                                                                                                                                                                             # refurb FURB131 covers attribute receivers
-    "check-and-remove-from-set",                                                                                                                                                                                     # Nominal receiver types do not prove exact builtin mutation, hashing, or equality
-    "for-loop-set-mutations",                                                                                                                                                                                        # Nominal receiver types do not prove exact builtin set mutation
-    "slice-copy",                                                                                                                                                                                                    # refurb FURB145 checks exact list and bytearray source forms
-    "unnecessary-enumerate",                                                                                                                                                                                         # refurb FURB148 covers comprehensions
-    "true-false-comparison",                                                                                                                                                                                         # refurb FURB149 reports `is` and `==` on bool-typed operands alone
-    "hashlib-digest-hex",                                                                                                                                                                                            # refurb FURB181 covers attribute receivers
-    "undefined-name",                                                                                                                                                                                                # ty `unresolved-reference` owns undefined names
-    "any-type",                                                                                                                                                                                                      # mypy `disallow_any_explicit` owns explicit `Any` in every position
+    "raw-string-in-exception",                                                                                                                                                                   # Moves message into a local only the raise reads
+    "f-string-in-exception",                                                                                                                                                                     # Moves message into a local only the raise reads
+    "raise-vanilla-args",                                                                                                                                                                        # Pushes an exception class per message, raises stay for defects
+    "typing-only-first-party-import",                                                                                                                                                            # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+    "typing-only-third-party-import",                                                                                                                                                            # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+    "typing-only-standard-library-import",                                                                                                                                                       # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+    "suspicious-subprocess-import",                                                                                                                                                              # Reports every `subprocess` import, process boundaries call it
+    "missing-copyright-notice",                                                                                                                                                                  # Files hold no license header
+    "commented-out-code",                                                                                                                                                                        # Reads `# --- [<LABEL>]` section and subsection dividers as code
+    "float-equality-comparison",                                                                                                                                                                 # Authored controls compare against exact identity values (`0.0`, `1.0`)
+    "zip-without-explicit-strict",                                                                                                                                                               # `strict=True` asserts lengths the code constructs
+    "batched-without-explicit-strict",                                                                                                                                                           # `strict=True` asserts lengths the code constructs
+    "subprocess-without-shell-equals-true",                                                                                                                                                      # Reports every argument-vector `subprocess` call
+    "start-process-with-partial-path",                                                                                                                                                           # Commands name tools mise places on `PATH`
+    "os-path-abspath",                                                                                                                                                                           # `os.path.abspath` drops `..` without following symlinks, a combination no `pathlib` member has
+    "function-uses-loop-variable",                                                                                                                                                               # Reports closures `Result` and `Option` combinators call before the loop advances
+    "logging-string-format",                                                                                                                                                                     # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "logging-percent-format",                                                                                                                                                                    # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "logging-string-concat",                                                                                                                                                                     # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "logging-f-string",                                                                                                                                                                          # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "reimplemented-operator",                                                                                                                                                                    # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
+    "lambda-assignment",                                                                                                                                                                         # Pushes a `def` statement for a callback each `match` arm binds
+    "compare-with-tuple",                                                                                                                                                                        # PLR1714 reports the form as a set membership PLR6201 accepts
+    "blocking-http-call-in-async-function",                                                                                                                                                      # `banned-api` rejects every client it names
+    "blocking-http-call-httpx-in-async-function",                                                                                                                                                # `banned-api` rejects `httpx`
+    "blocking-sleep-in-async-function",                                                                                                                                                          # `banned-api` rejects `time.sleep`
+    "request-without-timeout",                                                                                                                                                                   # `banned-api` rejects every client it names
+    "no-explicit-stacklevel",                                                                                                                                                                    # `banned-api` rejects `warnings.warn`
+    "multiple-starts-ends-with",                                                                                                                                                                 # refurb FURB102 preserves receiver evaluation and prefix independence
+    "repeated-append",                                                                                                                                                                           # Nominal receiver types do not prove exact builtin list mutation
+    "len-test",                                                                                                                                                                                  # refurb FURB115 checks exact materialized builtin size tests
+    "for-loop-writes",                                                                                                                                                                           # refurb FURB122 checks exact StringIO/BytesIO receivers and independent primitive writes
+    "readlines-in-for",                                                                                                                                                                          # refurb FURB129 checks exact StringIO/BytesIO receivers
+    "delete-full-slice",                                                                                                                                                                         # refurb FURB131 covers attribute receivers
+    "check-and-remove-from-set",                                                                                                                                                                 # Nominal receiver types do not prove exact builtin mutation, hashing, or equality
+    "for-loop-set-mutations",                                                                                                                                                                    # Nominal receiver types do not prove exact builtin set mutation
+    "slice-copy",                                                                                                                                                                                # refurb FURB145 checks exact list and bytearray source forms
+    "unnecessary-enumerate",                                                                                                                                                                     # refurb FURB148 covers comprehensions
+    "true-false-comparison",                                                                                                                                                                     # refurb FURB149 reports `is` and `==` on bool-typed operands alone
+    "hashlib-digest-hex",                                                                                                                                                                        # refurb FURB181 covers attribute receivers
+    "undefined-name",                                                                                                                                                                            # ty `unresolved-reference` owns undefined names
+    "any-type",                                                                                                                                                                                  # mypy `disallow_any_explicit` owns explicit `Any` in every position
 ]
 flake8-bandit             = { check-typed-exception = true }
 flake8-boolean-trap       = { extend-allowed-calls = ["expression.Result.Ok", "expression.Some"] }
 flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", datetime = "datetime", scipy = "sp", sympy = "sym", xarray = "xr" }, banned-from = ["builtins"] }
-flake8-pytest-style       = { parametrize-names-type = "csv", raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError", "pydantic.ValidationError"] }
+flake8-pytest-style       = { parametrize-names-type = "csv", raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError"] }
 flake8-type-checking      = { runtime-evaluated-base-classes = ["msgspec.Struct"] }
 isort                     = { combine-as-imports = true, force-sort-within-sections = true, order-by-type = false, split-on-trailing-comma = false }
 pycodestyle               = { max-line-length = 300 }
 pydocstyle                = { convention = "google" }
 pydoclint                 = { ignore-one-line-docstrings = true }
-pylint                    = { allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_json_schema__", "__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }           # Protocol properties type module attributes, which ty matches to a property alone
+pylint                    = { allow-dunder-method-names = ["__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }                                                       # Protocol properties type module attributes, which ty matches to a property alone
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["assert"]
@@ -612,10 +610,9 @@ warn_unreachable        = true
 exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
-plugins                 = ["pydantic.mypy"]
 enable_error_code       = ["exhaustive-match", "redundant-self"]
 disable_error_code      = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type"] # ty owns each defect these codes report, ruff PGH003 owns suppressions without a code
-overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sysexits", "ttfautohint.*", "ufo2ft.*", "youseedee.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }]
+overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sysexits", "ttfautohint.*", "ufo2ft.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }]
 
 # --- [REFURB] ---------------------------------------------------------------------------
 
@@ -682,7 +679,7 @@ disable    = [
     "FURB173",    # Merged literal `{...} | d` infers its own value type, mypy rejects it at target parameter type
     "FURB176",    # Ruff DTZ003 and DTZ004 report the form
     "FURB177",    # Ruff runs FURB177
-    "FURB179",    # `chain.from_iterable` rewrite joins heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` and `no-chain-flattening` report hand flattening
+    "FURB179",    # `chain.from_iterable` rewrite joins heterogeneous tuple elements to `object`
     "FURB180",    # Ruff runs FURB180
     "FURB183",    # `str(value)` calls `__str__`, formatting calls `__format__`
     "FURB184",    # Matches names with no type or binding check, chaining drops annotations and reused bindings
@@ -703,11 +700,17 @@ testpaths                = ["tests/python"]
 collect_imported_tests   = false
 empty_parameter_set_mark = "fail_at_collect"
 addopts                  = [
+    "--disable-plugin-autoload",                                                   # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
     "-p",
-    "no:zarr",
+    "hypothesispytest",
     "-p",
-    "no:pointblank",
-    "-x",
+    "pytest_cov",
+    "-p",
+    "randomly",
+    "-p",
+    "socket",
+    "-p",
+    "timeout",
     "--tb=short",
     "--import-mode=importlib",
     "-m",
@@ -717,14 +720,6 @@ addopts                  = [
 ]
 filterwarnings           = ["error"]
 timeout                  = "30"
-required_plugins         = [
-    "hypothesis",
-    "pytest-cov",
-    "pytest-randomly",
-    "pytest-reportlog",
-    "pytest-socket",
-    "pytest-timeout",
-]
 markers                  = [
     "integration: needs a host, service, or network resource outside the process",
 ]
@@ -755,3 +750,7 @@ enabled = false
 [tool.tombi.schema.format.rules]
 table-keys-order.enabled   = false
 array-values-order.enabled = false
+
+[[tool.tombi.schemas]]
+path    = "https://www.schemastore.org/cargo.json" # Bundled copy lacks the artifact dependency fields SchemaStore holds
+include = ["**/Cargo.toml"]

@@ -1,0 +1,41 @@
+{
+    "name": "@rasm/atelier-protocol",
+    "private": true,
+    "description": "Atelier's request contracts, the link its plugins dial, the CEP wire to their ExtendScript, the CEP panel serving that link, and the Vite plugin compiling the link into a plugin build",
+    "sideEffects": [ "./panel.ts" ],
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./indesign": "./indesign.ts",
+        "./panel": "./panel.ts",
+        "./peer": "./peer.ts",
+        "./vite": "./vite.ts"
+    },
+    "dependencies": {
+        "@noble/hashes": "catalog:",
+        "@rasm/applications": "workspace:*",
+        "@rasm/automation": "workspace:*",
+        "@rasm/cep": "workspace:*",
+        "@rasm/indesign": "workspace:*",
+        "@rasm/search": "workspace:*",
+        "@rasm/typography": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:",
+        "jsonc-parser": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "vite": "catalog:"
+    },
+    "peerDependencies": {
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "vite": {
+            "optional": true
+        }
+    }
+}

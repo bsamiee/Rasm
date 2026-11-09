@@ -1,8 +1,8 @@
-import { Kerns, type Runs, Typeset } from '@rasm/indesign';
+import { Kerns, type Runs, Typeset } from '@rasm/atelier-protocol/indesign';
 import { Route, Server } from '@rasm/mcp';
+import { Quran } from '@rasm/quran';
 import { Unmatched } from '@rasm/search';
 import { Settings } from '@rasm/typography';
-import { Quran } from '@rasm/typography/quran';
 import { Face, Kerning, Symbols, Word } from '@rasm/typography/shaping';
 import { Array, Cause, Effect, Equal, FileSystem, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';

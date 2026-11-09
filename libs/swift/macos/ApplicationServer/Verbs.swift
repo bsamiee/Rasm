@@ -11,6 +11,7 @@ import UniformTypeIdentifiers
 
 public struct Launched: Encodable, Sendable {
     public let pid: pid_t
+    public let identifier: String
     public let created: Bool
 }
 
@@ -83,7 +84,7 @@ extension NSWorkspace {
                         newInstance: newInstance,
                     )
                     prompting.cancel()
-                    output.yield(.launched(Launched(pid: instance.processIdentifier, created: created)))
+                    output.yield(.launched(Launched(pid: instance.processIdentifier, identifier: installation.identifier, created: created)))
                     for await state: InstanceState in instance.states(clock: clock) {
                         if let running: RunningInstance = RunningInstance(instance, state: state) { output.yield(.state(running)) }
                         switch state {

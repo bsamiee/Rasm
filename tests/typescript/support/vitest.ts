@@ -16,12 +16,16 @@ const CI = Effect.runSync(Config.withDefault(Config.Boolean('CI'), false));
 const located = (configFile: string) => {
     const { dir, name } = parse(configFile);
     const root = searchForWorkspaceRoot(dir);
-    const project = relative(root, dir);
-    return { dir, root, project, results: join(root, '.artifacts', 'vitest', project, name) };
+    const manifest: { readonly name: string; readonly devDependencies?: Record.ReadonlyRecord<string, string> } = createRequire(configFile)('./package.json');
+    return { dir, root, manifest, results: join(root, '.artifacts', 'vitest', manifest.name, name) };
 };
 const rootDefaults = (configFile: string) => {
-    const { dir, root, results } = located(configFile);
-    const { devDependencies = {} }: { readonly devDependencies?: Record.ReadonlyRecord<string, string> } = createRequire(configFile)('./package.json');
+    const {
+        dir,
+        root,
+        results,
+        manifest: { devDependencies = {} },
+    } = located(configFile);
     const subjects = Record.keys(Record.filter(devDependencies, String.startsWith('workspace:')))
         .map((dependency) => realpathSync(join(dir, 'node_modules', dependency)))
         .filter((folder) => folder !== import.meta.dirname);
@@ -45,15 +49,19 @@ const rootDefaults = (configFile: string) => {
     });
 };
 const defaults = (configFile: string) => {
-    const { root, project, results } = located(configFile);
+    const {
+        root,
+        manifest: { name },
+        results,
+    } = located(configFile);
     return mergeConfig(
         rootDefaults(configFile),
         defineProject({
-            cacheDir: join(root, '.cache', 'vite', project),
+            cacheDir: join(root, '.cache', 'vite', name),
             test: {
                 browser: { provider: playwright(), headless: true, instances: [{ browser: 'chromium' }], locators: { errorFormat: 'aria' }, trace: { mode: 'retain-on-failure', tracesDir: join(results, 'traces') } },
                 chaiConfig: { includeStack: true, truncateThreshold: 0 },
-                fsModuleCachePath: join(root, '.cache', 'vitest', project, 'modules'),
+                fsModuleCachePath: join(root, '.cache', 'vitest', name, 'modules'),
                 hideSkippedTests: CI,
                 maxWorkers: '50%',
                 pool: 'threads',

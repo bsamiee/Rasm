@@ -75,7 +75,7 @@ url                         = "https://code.claude.com/docs/mcp"
 
 [mcp_servers.illustrator]
 url                 = "http://localhost:18412/v1/mcp"
-http_headers_helper = '''app=$(ps -o comm= -p "$(pgrep -x 'Adobe Illustrator')" | sed 's#/Contents/MacOS/.*##') && prefs=$(jq -r --arg version "$(defaults read "$app/Contents/Info" CFBundleShortVersionString)" 'select(has($version)) | input_filename | sub("\\.runConfig$"; "Adobe Illustrator Prefs")' "$HOME"/Library/Preferences/Adobe\ Illustrator*Settings/*/.runConfig) && rg -o '/AuthToken \[ [0-9]+[[:space:]]+([0-9a-f[:space:]]+)\]' -r '$1' "$prefs" | tr -d ' \t\n' | xxd -r -p | jq -R '{Authorization: "Bearer \(.)"}' '''
+http_headers_helper = '''prefs=$(jq -r --arg version "$(watch-apps find com.adobe.illustratorBeta | jq -r 'first(.[][]).version')" 'select(has($version)) | input_filename | sub("\\.runConfig$"; "Adobe Illustrator Prefs")' "$HOME"/Library/Preferences/Adobe\ Illustrator*Settings/*/.runConfig) && rg -o '/AuthToken \[ [0-9]+[[:space:]]+([0-9a-f[:space:]]+)\]' -r '$1' "$prefs" | tr -d ' \t\n' | xxd -r -p | jq -R '{Authorization: "Bearer \(.)"}' '''
 
 [mcp_servers.arena]
 url     = "https://mcp.are.na/mcp"

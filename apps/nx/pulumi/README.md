@@ -11,7 +11,7 @@
 - The plugin takes no options: package manifests state every fact it reads
 - A program package declares `@pulumi/pulumi` in `dependencies` and exports `stacks` from its entry
 - A project is hosted by a program package when it declares that package in `dependencies`, `devDependencies`, or `optionalDependencies`
-- Releases select hosted projects through `release.projects` or `release.groups` in `nx.json`
+- Hosted projects carry the `release` tag, so `"release": { "projects": ["tag:release"] }` in `nx.json` selects them with no list of names
 
 ```ts
 import type { Stacks } from '@rasm/nx-pulumi/stacks';
@@ -37,7 +37,7 @@ export { stacks };
 | [INDEX] | [SOURCE]                                        | [GIVES]                                               |
 | :-----: | :---------------------------------------------- | :---------------------------------------------------- |
 |  [01]   | `package.json` with `@pulumi/pulumi` dependency | Program package, `deploy` on its own project          |
-|  [02]   | `package.json` depending on a program package   | Hosted project: `install`, `deploy`, `nx-release-publish` |
+|  [02]   | `package.json` depending on a program package   | Hosted project: `install`, `deploy`, `nx-release-publish`, tag `release` |
 
 - Nx's own package graph adds the edge from each hosted project to its program package, so `^install` reaches the program package's `install`
 - A manifest that does not parse fails by name and keeps every other project
@@ -59,7 +59,9 @@ export { stacks };
 
 ## [04]-[LAYOUT]
 
-| [INDEX] | [PATH]                     | [HOLDS]                                                        |
-| :-----: | :------------------------- | :------------------------------------------------------------- |
-|  [01]   | `plugins/project-graph.ts` | Package entry: manifest decoder and `createNodes`              |
-|  [02]   | `executors/stacks/`        | `install`, `deploy`, `release-publish` executors, request types, schemas |
+| [INDEX] | [PATH]                       | [HOLDS]                                                       |
+| :-----: | :--------------------------- | :------------------------------------------------------------ |
+|  [01]   | `plugins/project-graph.ts`   | Package entry: manifest decoder and `createNodes`             |
+|  [02]   | `executors/deploy/`          | `deploy` executor, the stack runner, `StackRequest`, `Stacks` |
+|  [03]   | `executors/install/`         | `install` executor over the runner                            |
+|  [04]   | `executors/release-publish/` | `nx-release-publish` executor over the runner                 |

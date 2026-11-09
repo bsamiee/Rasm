@@ -15,13 +15,13 @@ type Targets = Readonly<Record<string, TargetConfiguration>>;
 const CHECKERS = {
     ty: {
         verb: 'check',
-        environment: { TY_UV: '1' },
+        variables: ['TY_UV'],
         files: [['ty.toml'], ['pyproject.toml', 'tool', 'ty']],
         sources: ['{projectRoot}/**/*.py', '{projectRoot}/**/*.pyi'],
         matches: ['*.py', '*.pyi'],
         folder: (workspace: string) => workspace,
         command: (at: string) => ['ty', 'check', at],
-        description: 'Type-checks the member with ty, imports of undeclared dependencies included',
+        description: 'Type-checks the member with ty',
         help: ['ty', 'check', '--help'],
         example: ['--output-format', 'concise'],
     },
@@ -62,6 +62,7 @@ const CHECKERS = {
 const CONFIGS = Array.dedupe(Record.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)));
 const SEPARATOR = /\s+/u;
 const BUILD = 'build--uv';
+const RELEASE = 'release';
 const VERBS = ['build', 'check', 'fix', 'upgrade'];
 const TECHNOLOGIES = ['python'];
 
@@ -112,12 +113,12 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
     const distributions = outputPath === undefined ? path.join(member.workspace, 'dist', member.name) : path.join(outputPath, 'uv', member.name);
     const archives = Option.map(Option.fromUndefinedOr(member.extension), ({ id, version, platforms }) => {
         const folder = outputPath === undefined ? member.root : path.join(outputPath, 'blender', id);
-        return (platforms.length === 0 ? [`${id}-${version}.zip`] : platforms.map((platform) => `${id}-${version}-${platform.replaceAll('-', '_')}.zip`)).map((file) => path.join('{workspaceRoot}', folder, file));
+        return { folder, files: platforms.length === 0 ? [`${id}-${version}.zip`] : platforms.map((platform) => `${id}-${version}-${platform.replaceAll('-', '_')}.zip`) };
     });
     const built = [
         `!${path.join('{workspaceRoot}', distributions, '**', '*')}`,
         ...Option.getOrElse(
-            Option.map(archives, (files) => files.map((file) => `!${file}`)),
+            Option.map(archives, ({ folder, files }) => [folder, path.join(folder, RELEASE)].flatMap((written) => files.map((file) => `!${path.join('{workspaceRoot}', written, file)}`))),
             () => [],
         ),
     ];
@@ -133,10 +134,18 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
                                 options: {
                                     command: line(['uv', 'run', '--locked', '--package', member.name, ...(checked.group === undefined ? [] : ['--group', checked.group]), ...row.command(at, path.relative(member.root, checked.config))]),
                                     cwd: row.folder(member.workspace, member.root),
-                                    ...('environment' in row ? { env: { ...row.environment } } : {}),
                                 },
                                 cache: true,
-                                inputs: [...row.sources, ...built, ...checked.inputs, path.join('{workspaceRoot}', member.workspace, '.python-version'), dependencies, ...(checked.projects.length === 0 ? [] : [{ input: 'default', projects: [...checked.projects] }]), { externalDependencies: [...checked.externals] }],
+                                inputs: [
+                                    ...row.sources,
+                                    ...built,
+                                    ...checked.inputs,
+                                    ...('variables' in row ? row.variables.map((env) => ({ env })) : []),
+                                    path.join('{workspaceRoot}', member.workspace, '.python-version'),
+                                    dependencies,
+                                    ...(checked.projects.length === 0 ? [] : [{ input: 'default', projects: [...checked.projects] }]),
+                                    { externalDependencies: [...checked.externals] },
+                                ],
                                 metadata: { technologies: TECHNOLOGIES, description: row.description, help: { command: line(['uv', 'run', ...row.help]), example: { args: [...row.example] } } },
                             } satisfies TargetConfiguration,
                         ] as const,
@@ -145,14 +154,14 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
         ),
         ...(root
             ? {
-                  ['check--uv']: {
+                  'check--uv': {
                       executor: 'nx:run-commands',
                       options: { command: line(['uv', 'lock', '--check']), cwd: member.workspace },
                       cache: true,
                       inputs: [...member.manifests.map((pyproject) => path.join('{workspaceRoot}', pyproject)), '{projectRoot}/uv.lock', '{projectRoot}/uv.toml', '{projectRoot}/.python-version', { externalDependencies: [] }],
                       metadata: { technologies: TECHNOLOGIES, description: 'Fails when uv.lock no longer matches the workspace manifests', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
                   },
-                  ['upgrade--uv']: {
+                  'upgrade--uv': {
                       executor: 'nx:run-commands',
                       options: { command: line(['uv', 'lock', '--upgrade']), cwd: member.workspace },
                       outputs: ['{projectRoot}/uv.lock'],
@@ -170,6 +179,10 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
                       outputs: [path.join('{workspaceRoot}', distributions)],
                       metadata: { technologies: TECHNOLOGIES, description: 'Builds the member sdist and wheel with uv', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
                   },
+              }
+            : {}),
+        ...(member.published
+            ? {
                   'nx-release-publish': {
                       executor: `${plugin}:release-publish`,
                       dependsOn: ['build', '^nx-release-publish'],
@@ -179,13 +192,14 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
             : {}),
         ...Option.match(archives, {
             onNone: () => ({}),
-            onSome: (files) => ({
-                ['build--blender']: {
+            onSome: ({ folder, files }) => ({
+                'build--blender': {
                     executor: `${plugin}:extension-build`,
-                    configurations: { release: { bundle: true } },
+                    options: { outputPath: folder },
+                    configurations: { [RELEASE]: { bundle: true, outputPath: path.join(folder, RELEASE) } },
                     cache: true,
                     inputs: ['{projectRoot}/**/*', ...built, dependencies, { externalDependencies: [] }],
-                    outputs: files,
+                    outputs: files.map((file) => path.join('{options.outputPath}', file)),
                     metadata: {
                         technologies: [...TECHNOLOGIES, 'blender'],
                         description: 'Builds the Blender extension archives its manifest declares, bundling locked wheels for this Blender in the release configuration',
@@ -208,7 +222,7 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
                     verb,
                     {
                         executor: 'nx:noop',
-                        dependsOn: [{ target: `${verb}--*`, params: 'forward' }],
+                        dependsOn: [`${verb}--*`],
                         inputs: ['...', ...Array.dedupe(inputs)],
                         metadata: { technologies: TECHNOLOGIES, description: `Runs every ${verb}--* target` },
                     },

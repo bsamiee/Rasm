@@ -1,6 +1,6 @@
 import { findPackageJSON } from 'node:module';
 import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
-import { Effect, FileSystem, Path, Schema, Stream } from 'effect';
+import { Effect, FileSystem, Formatter, Path, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 import type { Run } from '#/executors/run/executor';
 
@@ -18,12 +18,10 @@ interface Part {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TOOLCHAIN: NonNullable<TargetConfiguration['inputs']> = [{ env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, { externalDependencies: [] }];
-const ANALYZER = 'nx-apple-analyzer';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String }));
-const Editor = Schema.fromJsonString(Schema.Struct({ swiftPM: Schema.Struct({ scratchPath: Schema.String }) }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -38,10 +36,9 @@ class AppleError extends Schema.TaggedError<AppleError, { readonly brand: unique
 const core = Effect.gen(function* () {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
-    const folder = path.dirname(located);
     const { name, version } = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
-    const analyzer = Effect.map(Effect.flatMap(fs.readFileString(path.join(folder, '.sourcekit-lsp', 'config.json')), Schema.decodeEffect(Editor)), (editor) => path.resolve(folder, editor.swiftPM.scratchPath, 'release', ANALYZER));
-    return { name, version, folder, analyzer };
+    const analyzer = Effect.flatMap(Effect.try({ try: () => new URL(import.meta.resolve('#analyzer')), catch: (cause) => AppleError.make({ subject: '#analyzer', detail: Formatter.format(cause) }) }), path.fromFileUrl);
+    return { name, version, folder: path.dirname(located), analyzer };
 });
 
 const spawned = (command: string, args: readonly string[], options: { readonly cwd: string; readonly input?: string }) =>

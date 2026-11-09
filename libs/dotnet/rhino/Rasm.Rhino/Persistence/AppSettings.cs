@@ -109,22 +109,12 @@ public static class AppSettings {
 
     // --- [NUDGES]
 
-    public static IO<Unit> NudgeFollowsActiveDocument(Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
-        (from post in Mailboxes.Idle<Unit, Unit>(_ => IO.lift(static () => Optional(RhinoDoc.ActiveDoc)).Bind(active => active.Match(Some: doc => Nudge(doc, steps), None: static () => IO.pure(unit))))
-         from attached in Subscriptions.Merged(
-                 Documents.Arrived.Choose(static _ => Some(unit)),
-                 Subscriptions.On<DocumentEventArgs>(static h => RhinoDoc.ActiveDocumentChanged += h, static h => RhinoDoc.ActiveDocumentChanged -= h).Documents().Choose(static _ => Some(unit)),
-                 Documents.PropertiesChanged.Documents().Choose(static _ => Some(unit)))
-             .Attach(_ => post(unit, unit))
-         select attached).Scoped();
-
-    private static IO<Unit> Nudge(RhinoDoc doc, Func<Length, Length, Length, (Length Nudge, Length Ctrl, Length Shift)> steps) =>
-        from grid in IO.lift(doc.GetGridDefaults)
-        let modelUnit = doc.ModelUnits
-        let wanted = steps(Quantities.Resolution(doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision, modelUnit), Quantities.From(grid.SnapSpacing, modelUnit), Quantities.From(grid.GridSpacing, modelUnit))
-        from written in IO.lift(() => {
-            (ModelAidSettings.NudgeKeyStep, ModelAidSettings.CtrlNudgeKeyStep, ModelAidSettings.ShiftNudgeKeyStep) =
-                (Quantities.As(wanted.Nudge, modelUnit), Quantities.As(wanted.Ctrl, modelUnit), Quantities.As(wanted.Shift, modelUnit));
-        })
-        select written;
+    public static Preference<(Length Nudge, Length Ctrl, Length Shift)> NudgeSteps(RhinoDoc doc) =>
+        Preferences.Of(
+            IO.lift(() => (Nudge: Quantities.From(ModelAidSettings.NudgeKeyStep, doc.ModelUnits), Ctrl: Quantities.From(ModelAidSettings.CtrlNudgeKeyStep, doc.ModelUnits), Shift: Quantities.From(ModelAidSettings.ShiftNudgeKeyStep, doc.ModelUnits))),
+            steps => IO.lift(() => {
+                (ModelAidSettings.NudgeKeyStep, ModelAidSettings.CtrlNudgeKeyStep, ModelAidSettings.ShiftNudgeKeyStep) =
+                    (Quantities.As(steps.Nudge, doc.ModelUnits), Quantities.As(steps.Ctrl, doc.ModelUnits), Quantities.As(steps.Shift, doc.ModelUnits));
+            }),
+            Some(Preferences.AppSettingsChanged));
 }

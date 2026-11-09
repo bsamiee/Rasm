@@ -31,7 +31,7 @@
 |  [01]   | `check--compose` | `docker compose --profile '*' config --quiet`     | Every project             |   Yes   |
 |  [02]   | `check--buildx` | `docker buildx bake --call check`                  | A service with `build`    |   Yes   |
 |  [03]   | `build--compose` | `docker compose build`                            | A service with `build`    |   No    |
-|  [04]   | `check`, `build` | `nx:noop` over `<verb>--*` forwarding arguments, inputs `...` and the union of theirs | A `<verb>--*` target exists | No |
+|  [04]   | `check`, `build` | `nx:noop` over `<verb>--*`, inputs `...` and the union of theirs | A `<verb>--*` target exists | No |
 |  [05]   | `install`       | `docker compose up --detach --wait --remove-orphans` | Every project           |   No    |
 
 - `build--compose` and `install` take one configuration per profile the file declares, adding `--profile <name>`

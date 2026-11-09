@@ -4,15 +4,25 @@
 name            = "rasm-records"
 version         = "0.0.0"
 description     = "Fault records and results, record field domains, record files and stores, and keyed record trees"
+readme          = "README.md"
+license         = "MIT"
+license-files   = ["LICENSE"]
+authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
+classifiers     = ["Intended Audience :: Developers", "Operating System :: OS Independent", "Topic :: Software Development :: Libraries", "Typing :: Typed"]
 requires-python = ">=3.13"
 
 dependencies = [
-    "cbor2",             # Canonical binary content hashing with unbounded integers
-    "expression",        # Results, options, and collections over records
-    "msgspec[toml]",     # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
-    "numpy",             # Content hashes of array buffers
-    "typing-extensions", # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
+    "cbor2>=6.0.0",              # Canonical binary content hashing through `dumps(encoders=)`
+    "expression>=5.2.0",         # Results, options, and collections over records, `Result.or_else_with` from 5.2.0
+    "msgspec[toml]>=0.19.0",     # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs, Python 3.13 from 0.19.0
+    "numpy>=2.1.0",              # Content hashes of array buffers, Python 3.13 from 2.1.0
+    "typing-extensions>=4.13.0", # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
 ]
+
+[project.urls]
+Homepage = "https://github.com/bsamiee/Rasm/tree/main/libs/python/data/records"
+Source   = "https://github.com/bsamiee/Rasm"
+Issues   = "https://github.com/bsamiee/Rasm/issues"
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
 

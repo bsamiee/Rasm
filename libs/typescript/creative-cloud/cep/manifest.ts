@@ -1,4 +1,3 @@
-import { Version } from '@rasm/automation';
 import { Schema, SchemaGetter } from 'effect';
 import Builder from 'fast-xml-builder';
 import { XMLParser } from 'fast-xml-parser';
@@ -15,6 +14,7 @@ const FILLS = { light: { color: '#000000', opacity: FILL_OPACITY }, dark: { colo
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Version = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,2}$/u)).annotate({ description: 'major[.minor[.patch]]' });
 const Range = Schema.Union([Schema.TemplateLiteralParser(['[', Version, ',', Version, ']']), Version]).annotate({ description: 'Host version attribute, a floor or a bracketed range' });
 const Document = Schema.Struct({
     ExtensionManifest: Schema.Struct({
@@ -66,10 +66,10 @@ class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand
         }),
     );
 
-    debug(base: number): string {
+    get debug(): string {
         return BUILDER.build({
             '?xml': PROLOG,
-            ExtensionList: { Extension: { '@_Id': this.id, HostList: { Host: { '@_Name': this.host.app, '@_Port': base + HOSTS.indexOf(this.host.app) } } } },
+            ExtensionList: { Extension: { '@_Id': this.id, HostList: { Host: { '@_Name': this.host.app, '@_Port': ExtensionManifest.debugPort + HOSTS.indexOf(this.host.app) } } } },
         });
     }
 }

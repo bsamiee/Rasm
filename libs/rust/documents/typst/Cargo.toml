@@ -16,6 +16,7 @@ bench   = false
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
+papaya                             = { workspace = true }
 rayon                              = { workspace = true }
 thiserror                          = { workspace = true }
 validated                          = { workspace = true }

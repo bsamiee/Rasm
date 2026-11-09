@@ -54,8 +54,3 @@ extend = "../pyproject.toml"
 
 [tool.ruff.lint.flake8-self]
 extend-ignore-names = ["_PropertyDeferred"] # Blender names deferred `bpy.props` definitions by this class alone
-
-# --- [FAWLTYDEPS] -----------------------------------------------------------------------
-
-[tool.fawltydeps]
-ignore_unused = ["tzdata"] # zoneinfo reads tzdata data files

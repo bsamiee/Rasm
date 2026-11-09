@@ -4,7 +4,9 @@
     "title": "Extension build",
     "description": "Builds the Blender extension archives the member's blender_manifest.toml declares, from its folder or from a staged copy bundling its locked dependencies as wheels",
     "type": "object",
+    "required": [ "outputPath" ],
     "properties": {
+        "outputPath": { "type": "string", "description": "Workspace-relative folder the archives are written to, one per configuration so a release build never overwrites the default one" },
         "bundle": { "type": "boolean", "description": "Stages the extension with its locked third-party wheels for the running Blender's platform, minus what that Blender bundles, and its workspace dependencies built as wheels" }
     }
 }

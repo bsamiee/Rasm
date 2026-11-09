@@ -255,13 +255,14 @@ private final class Run: Sendable {
         WatchApps.exit(withError: status)
     }
 
-    static func execute(serving: Bool = false, waiting: Bool = false, _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void) async {
-        let run: Run = Run(output: serving ? nil : .standardOutput, waiting: waiting)
+    static func execute(output: FileDescriptor? = .standardOutput, accessibility: Bool = true, waiting: Bool = false, _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void) async
+    {
+        let run: Run = Run(output: output, waiting: waiting)
         let endings: AsyncMerge2Sequence<AsyncStream<Int32?>, AsyncStream<Int32?>> = merge(processEndings(), run.closed.stream)
         await withTaskGroup(of: Int32??.self) { group in
             group.addTask {
                 do throws(ApplicationFailure) {
-                    if !serving { try checkAccessibilityTrust() }
+                    if accessibility { try checkAccessibilityTrust() }
                     try await work(run)
                 } catch {
                     run.fail(program, error)
@@ -312,7 +313,7 @@ private func act(_ action: ElementAction, key: String) async {
 struct WatchApps: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         abstract: "Observes and drives installed applications in background. Commands fail after a fail line",
-        subcommands: [Watch.self, Launch.self, Read.self, Capture.self, Perform.self, SetValue.self, Key.self, Quit.self, Log.self, Serve.self],
+        subcommands: [Find.self, Watch.self, Launch.self, Read.self, Capture.self, Perform.self, SetValue.self, Key.self, Quit.self, Log.self, Serve.self],
     )
 
     static func main() async {
@@ -350,10 +351,23 @@ private struct Running: ParsableArguments {
     }
 }
 
+private struct Find: AsyncParsableCommand {
+    static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Prints each name's installations, best match first, with no launch")
+
+    @Argument(help: "Installed application paths, bundle identifiers, display names, or process IDs of running instances. Names ignore case and diacritics")
+    var names: [String]
+
+    func run() async {
+        await Run.execute(accessibility: false) { run in
+            for (name, installations): (String, [Installation]) in await installed(names, run) { run.emit(name, installations) }
+        }
+    }
+}
+
 private struct Watch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Prints one outline line per changed instance, system prompts naming it, and system pressure off normal")
 
-    @Argument(help: "Installed application paths, bundle identifiers, or display names. Names ignore case and diacritics")
+    @Argument(help: "Installed application paths, bundle identifiers, display names, or process IDs of running instances. Names ignore case and diacritics")
     var names: [String]
 
     func run() async {
@@ -390,7 +404,7 @@ private struct Launch: AsyncParsableCommand {
         abstract: "Opens applications or documents without activation, reusing a running instance. Prints until settled, asking, or exit with --wait"
     )
 
-    @Argument(help: "Installed application paths, bundle identifiers, or display names. Names ignore case and diacritics")
+    @Argument(help: "Installed application paths, bundle identifiers, display names, or process IDs of running instances. Names ignore case and diacritics")
     var names: [String] = []
 
     @Flag(help: "Opens another instance when one runs, for applications that support several")
@@ -623,7 +637,7 @@ private struct Serve: AsyncParsableCommand {
         let definitions: ScriptingDefinitions = ScriptingDefinitions()
         let calls: DispatchQueue = DispatchQueue(label: "\(program).calls", attributes: .concurrent)
         let output: DispatchSerialQueue = DispatchSerialQueue(label: "\(program).output")
-        await Run.execute(serving: true) { run throws(ApplicationFailure) in
+        await Run.execute(output: nil, accessibility: false) { run throws(ApplicationFailure) in
             do throws(JSONRPCFailure) {
                 try await serve(
                     reading: FileHandle.standardInput.bytes.jsonLines,

@@ -1,7 +1,7 @@
 import { Array, Effect, Option, Result, Schema, String } from 'effect';
-import { HookError, Host } from '#/host.ts';
-import type { Program } from '#/shell/programs.ts';
-import type { Word } from '#/shell/script.ts';
+import { HookError, Host } from '#/host';
+import type { Program } from '#/shell/programs';
+import type { Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -118,6 +118,9 @@ const dumpedGrammar = (node: Dumped): Grammar => ({
 const grammarOf = Effect.fnUntraced(function* (program: string, row: Program, primary: string) {
     const host = yield* Host;
     if (row.dump === true) {
+        if (!(yield* host.installed(program))) {
+            return NO_GRAMMAR;
+        }
         const { stdout } = yield* host.run([program, '--experimental-dump-help']);
         return dumpedGrammar((yield* Effect.mapError(Schema.decodeEffect(Dump)(stdout), HookError.of(program))).command);
     }

@@ -47,8 +47,6 @@
         { "path": "<PRODUCTS>/Atelier.app", "id": "DF819D1F3089FBAF00B8A072", "type": "wrapper.application", "index": false },
       ],
     },
-    { "path": "../../../../.artifacts/uxp/apps/creative-cloud/atelier/plugins/indesign/app.rasm.atelier.indesign_ID.ccx", "target-membership": [ "Atelier/copy/Embed Plugins" ] },
-    { "path": "../../../../.artifacts/uxp/apps/creative-cloud/atelier/plugins/photoshop/app.rasm.atelier.photoshop_PS.ccx", "target-membership": [ "Atelier/copy/Embed Plugins" ] },
   ],
   "targets": [
     {
@@ -70,11 +68,6 @@
           "name": "Embed Server Agent",
           "bundle-base-path": "contents-directory",
           "relative-path": "Library",
-        }, {
-          "kind": "copy",
-          "name": "Embed Plugins",
-          "bundle-base-path": "resources-directory",
-          "relative-path": "Plugins",
         },
       ],
       "package-product-members": [

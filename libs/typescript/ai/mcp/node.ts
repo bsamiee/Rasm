@@ -11,10 +11,15 @@ import { Server } from '#/server';
 
 const teardown: Runtime.Teardown = (exit, onExit) => (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause) ? onExit(0) : Runtime.defaultTeardown(exit, onExit));
 const serve = Object.assign(
-    Effect.fnUntraced(function* <E, R>(manifest: { readonly name: string; readonly version: string; readonly description: string }, { retention, instructions }: { readonly retention: Duration.Duration; readonly instructions: readonly string[] }, app: Layer.Layer<never, E, R>) {
+    Effect.fnUntraced(function* <E, R>(
+        manifest: { readonly name: string; readonly version: string; readonly description: string },
+        { retention, instructions, listen }: { readonly retention: Duration.Duration; readonly instructions: readonly string[]; readonly listen?: NetAddress.InetAddress },
+        app: Layer.Layer<never, E, R>,
+    ) {
         const name = yield* Schema.decodeEffect(Server.Scheme)(manifest.name);
+        const listened = Flag.String('listen').pipe(Flag.withSchema(Schema.InetAddressFromString), Flag.withDescription('Endpoint address as host:port or [IPv6]:port'));
         const settings = {
-            listen: Flag.String('listen').pipe(Flag.withFallbackConfig(Config.String('MCP_LISTEN')), Flag.withSchema(Schema.InetAddressFromString), Flag.withDescription('Endpoint address as host:port or [IPv6]:port')),
+            listen: listen === undefined ? listened : Flag.withDefault(listened, listen),
             hosts: Flag.String('allowed-host').pipe(Flag.atLeast(1), Flag.withFallbackConfig(Config.Array(Schema.String, 'MCP_ALLOWED_HOSTS')), Flag.withDefault([]), Flag.withDescription('Accepted Host header beyond loopback and bound address')),
         };
         return yield* Command.make(name, settings, ({ listen: address, hosts }) =>

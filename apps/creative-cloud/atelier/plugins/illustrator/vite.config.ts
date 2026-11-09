@@ -1,7 +1,6 @@
-import { atelierBuild } from '@rasm/atelier/plugin.config';
+import { linked } from '@rasm/atelier-protocol/vite';
 import { cep } from '@rasm/cep/vite';
-import { Illustrator } from '@rasm/illustrator';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default cep(import.meta.dirname, { ...Illustrator, ...atelierBuild });
+export default cep(import.meta.dirname, { script: './extendscript.ts', panel: '@rasm/atelier-protocol/panel', config: { plugins: [linked()] } });

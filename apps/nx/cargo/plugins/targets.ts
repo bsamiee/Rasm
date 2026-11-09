@@ -9,13 +9,20 @@ import { ancestors, MANIFEST, nearest, type Workspace } from '#/plugins/workspac
 type Input = NonNullable<TargetConfiguration['inputs']>[number];
 type Targets = Readonly<Record<string, TargetConfiguration>>;
 type Crate = Workspace['metadata']['packages'][number];
+type Target = Crate['targets'][number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CHECKS = ['advisories', 'bans', 'licenses', 'sources'];
-const SELECTED = ['--lib', '--bins', '--tests', '--benches'];
+const SELECTIONS: Readonly<Record<string, (target: Target) => boolean>> = {
+    '--lib': ({ kind, crate_types }) => kind.join() === crate_types.join() && !kind.includes('bin'),
+    '--bins': ({ kind }) => kind.includes('bin'),
+    '--tests': ({ test }) => test,
+    '--benches': ({ kind }) => kind.includes('bench'),
+};
 const VERBS = ['build', 'check', 'fix', 'upgrade'];
 const TECHNOLOGIES = ['rust'];
+const RELEASE = 'release';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -39,7 +46,7 @@ const aggregated = (targets: Targets): Targets => ({
                 verb,
                 {
                     executor: 'nx:noop',
-                    dependsOn: [{ target: `${verb}--*`, params: 'forward' }],
+                    dependsOn: [`${verb}--*`],
                     inputs: [
                         '...',
                         ...Array.dedupe(
@@ -71,6 +78,7 @@ const crateTargets = (plugin: string, path: Path.Path, found: Workspace, files: 
     const nextest = Option.liftPredicate(path.join(found.root, '.config/nextest.toml'), (file) => files.has(file));
     const tested = crate.targets.some(({ test }) => test);
     const documented = crate.targets.some(({ doctest }) => doctest);
+    const filters = Record.keys(Record.filter(SELECTIONS, (selects) => crate.targets.some(selects)));
     const products = crate.targets.filter(({ kind, crate_types }) => kind.join() === crate_types.join());
     const profiles = ['release', ...found.profiles];
     const configured = nearest(path, files, root, ['.clippy.toml', 'clippy.toml']);
@@ -84,7 +92,7 @@ const crateTargets = (plugin: string, path: Path.Path, found: Workspace, files: 
                 found.strategies.map((profile) => ['--profile', profile]),
                 [],
             ),
-            (profile): Command => ({ ...placed([...SELECTED, ...profile, '--keep-going', ...locked()]), report: 'messages' }),
+            (profile): Command => ({ ...placed([...filters, ...profile, '--keep-going', ...locked()]), report: 'messages' }),
         );
     const tests: readonly Command[] = Option.match(nextest, {
         onNone: () => (tested || documented ? [{ args: ['test', ...locked()], report: 'status' }] : []),
@@ -107,7 +115,7 @@ const crateTargets = (plugin: string, path: Path.Path, found: Workspace, files: 
             onNonEmpty: (commands) => ({ test: target(plugin, Option.isSome(nextest) ? 'nextest run' : 'test', `Tests ${crate.name}`, { ...selected, commands }, { cache: true, inputs: [...shared, ...Option.toArray(Option.map(nextest, (file) => tokened(path, file)))] }) }),
         }),
         [`check--${compiler.tool}`]: target(plugin, compiler.check.join(' '), `Reports ${compiler.tool} findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: [...compiler.check, ...selection] })) }, { cache: true, inputs: [...shared, ...compiler.inputs] }),
-        [`fix--${compiler.tool}`]: target(plugin, compiler.check.join(' '), `Applies ${compiler.tool} suggestions to ${crate.name}`, { ...selected, commands: [{ args: [...compiler.fix, '--allow-dirty', ...SELECTED, '--keep-going'], report: 'messages' }] }, { cache: false }),
+        [`fix--${compiler.tool}`]: target(plugin, compiler.check.join(' '), `Applies ${compiler.tool} suggestions to ${crate.name}`, { ...selected, commands: [{ args: [...compiler.fix, '--allow-dirty', ...filters, '--keep-going'], report: 'messages' }] }, { cache: false }),
         ...(libraries.length === 0
             ? {}
             : {
@@ -154,10 +162,11 @@ const workspaceTargets = (plugin: string, path: Path.Path, found: Workspace): Ta
     };
 };
 
-const released = (plugin: string, crate: Crate, cwd: string): Pick<ProjectConfiguration, 'release'> & { readonly targets: Targets } =>
+const released = (plugin: string, crate: Crate, cwd: string): Pick<ProjectConfiguration, 'release' | 'tags'> & { readonly targets: Targets } =>
     crate.publish?.length === 0
         ? { targets: {} }
         : {
+              tags: [RELEASE],
               release: { version: { versionActions: `${plugin}/release/version-actions` } },
               targets: {
                   'nx-release-publish': {

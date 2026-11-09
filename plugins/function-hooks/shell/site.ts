@@ -1,8 +1,8 @@
 import { Array, Cache, Context, Duration, Effect, Exit, Layer, Option, Result } from 'effect';
-import { type HookError, Host } from '#/host.ts';
-import { type Grammar, grammarOf, NO_GRAMMAR, type Parsed, parseArguments } from '#/shell/grammar.ts';
-import type { Program } from '#/shell/programs.ts';
-import { type Beginning, type Command, merged, type Script, scripted, tree, type Word } from '#/shell/script.ts';
+import { type HookError, Host } from '#/host';
+import { type Grammar, grammarOf, NO_GRAMMAR, type Parsed, parseArguments } from '#/shell/grammar';
+import type { Program } from '#/shell/programs';
+import { type Beginning, type Command, merged, type Script, scripted, tree, type Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

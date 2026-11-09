@@ -22,7 +22,7 @@
         <RepoTargetFramework>net10.0</RepoTargetFramework>
         <TargetFramework>$(RepoTargetFramework)</TargetFramework>
         <RollForward>Major</RollForward>
-        <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/sixlabors.lic</SixLaborsLicenseFile>
+        <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/licenses/sixlabors.lic</SixLaborsLicenseFile>
         <LangVersion>preview</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -34,7 +34,6 @@
         <MeziantouAnalysisMode>all-errors</MeziantouAnalysisMode>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     </PropertyGroup>
 

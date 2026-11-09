@@ -11,6 +11,7 @@ lazy from collections import Counter
 lazy from collections.abc import Callable
 lazy from functools import partial
 lazy import hashlib
+lazy from importlib import metadata
 lazy from io import BytesIO
 lazy import time
 
@@ -24,19 +25,20 @@ lazy from fontTools.otlLib.optimize.gpos import COMPRESSION_LEVEL
 lazy from fontTools.ttLib import TTFont
 lazy from fontTools.ttLib.woff2 import compress
 lazy from fontTools.varLib.instancer.names import ELIDABLE_AXIS_VALUE_NAME
+lazy from packaging.requirements import Requirement
+lazy from packaging.utils import canonicalize_name
 lazy from pathops import PathOpsError
 lazy from ttfautohint import TAError, ttfautohint
 lazy from ufo2ft import compileTTF
 lazy from ufo2ft.constants import OPENTYPE_CATEGORIES_KEY, OPENTYPE_META_KEY, TRUETYPE_INSTRUCTIONS_KEY
 lazy import ufoLib2.objects
 lazy from ufoLib2.objects.info import GaspBehavior, GaspRangeRecord
-lazy from youseedee import database, parsed_unicode_file
 
 from rasm_typography._faces.declaration import _Declared, _declared, _PROFILE, Face, Faces
 from rasm_typography._shaping.corpus import _Corpus
 from rasm_typography._verification.requirements import _approved, _Check, _covering, _Finding, _inspected, _ran, _requirements, _verified, Expectations
 lazy from rasm_records import accumulated, committed, Error, Fault, Ok, Outcome, paired, read, Reason, RecordFile
-lazy from rasm_typography._faces.glyphs import _Source
+lazy from rasm_typography._faces.glyphs import _ARABIC_SHAPING_SHA256, _fetched, _Source
 lazy from rasm_typography._faces.importing import _imported
 lazy from rasm_typography._rules.emission import _emitted, _FeatureWriter
 lazy from rasm_typography._rules.measures import Rule
@@ -119,8 +121,8 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
     # --- [INPUTS]
 
     @classmethod
-    def opened(cls, declaration: _Declared, texts: _Corpus, closure: bytes, /) -> Self:
-        """Hashes the corpus, locked closure, interpreter, Unicode tables, and package sources once, sorting modules a build reads apart from check-only ones."""
+    def opened(cls, declaration: _Declared, texts: _Corpus, closure: frozendict[str, str], /) -> Self:
+        """Hashes the corpus, installed closure, interpreter, pinned Unicode table, and package sources once, sorting modules a build reads apart from check-only ones."""
         package = Path(__file__).parent
         modules = {".".join((package.name, *path.relative_to(package).with_suffix("").parts)): hashlib.sha256(path.read_bytes()).digest() for path in sorted(package.rglob("*.py"))}
         rules, checks = Rule.__module__.rpartition(".")[0], _verified.__module__.rpartition(".")[0]
@@ -128,7 +130,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         return cls(
             declaration=declaration,
             texts=texts,
-            shared=b"".join((*map(_digest, (texts, closure, sys.version_info)), *(_digest((name, parsed_unicode_file(name))) for name in database))),
+            shared=b"".join(map(_digest, (texts, closure, sys.version_info, _ARABIC_SHAPING_SHA256))),
             modules=frozendict(modules),
             common=frozenset({name for name in modules if name.rpartition(".")[0] != rules and name not in checked} | {owner.__module__ for owner in (Rule, _planned, _emitted)}),
             checking=b"".join((_PROFILE.read_bytes(), *(modules[name] for name in sorted(checked)))),
@@ -338,14 +340,31 @@ def _digest(value: object, /) -> bytes:
     return hashlib.sha256(msgspec.json.encode(msgspec.to_builtins(value, str_keys=True, order="deterministic"))).digest()
 
 
-def _closure() -> Outcome[bytes]:
-    """Reads the package's locked dependency closure, uv discovering the lock from the folder holding the package.
+def _closure() -> Outcome[frozendict[str, str]]:
+    """Reads the installed version of every distribution the package requires, transitively, each requirement taken where its marker holds for the extras requesting it.
 
     Returns:
-        Ok(tree) as `uv tree` prints it, `FAILED` for a failed launch or a refused lock.
+        Ok(versions) by canonical name, `UNREADABLE` for a required distribution the environment lacks.
     """
-    package = Path(__file__).parent
-    return _ran("uv", "tree", "--frozen", "--package", package.name, cwd=package.parent)
+    type Requested = frozenset[tuple[str, frozenset[str]]]
+    package = Path(__file__).parent.name
+
+    def reached(pending: Requested, held: Requested, /) -> Requested:
+        following = (
+            frozenset(
+                (canonicalize_name(requirement.name), frozenset(requirement.extras))
+                for name, extras in pending
+                for requirement in map(Requirement, metadata.requires(name) or ())
+                if requirement.marker is None or any(requirement.marker.evaluate({"extra": extra}) for extra in extras or {""})
+            )
+            - held
+        )
+        return reached(following, held | following) if following else held
+
+    root = frozenset({(canonicalize_name(package), frozenset[str]())})
+    return catch(lambda: frozendict({name: metadata.version(name) for name, _ in reached(root, root)}), exception=metadata.PackageNotFoundError)().map_error(
+        partial(Fault.of, Reason.UNREADABLE, f"{package} dependency closure")
+    )
 
 
 # --- [SOURCES]
@@ -494,15 +513,19 @@ async def performed(action: Action, declaration: Path, /, name: str = "", destin
     Returns:
         One report per face in declaration order, or every face's faults: `UNREADABLE` and `INVALID` for the declaration or corpus, `UNMET` for a build missing a requirement,
         which stops a publication whole, `ABSENT` for an unknown name, a missing current build, a publication without destination, a face a rule cannot measure, or an approval
-        no requirement of the face reads, `FAILED` for failed hinting, a failed `uv` or fontspector run, or an outline operation the native boolean refuses, `UNWRITABLE` for an output.
+        no requirement of the face reads, `FAILED` for failed hinting, a failed fontspector run or Unicode download, or an outline operation the native boolean refuses, `UNWRITABLE` for an output.
     """
-    selected = _declared(declaration, output).bind(
-        lambda found: paired(
-            paired(RecordFile(path=found.corpus, form=_Corpus).read(), _closure()).map(lambda inputs: _Builds.opened(found, *inputs)),
-            Ok(tuple(face for face in found.set.faces if name in {"", found.set.name, face.family, face.typographic, face.stem})).filter_with(
-                bool, lambda _: Fault.of(Reason.ABSENT, found.set.name, member=f"family or face {name}")
-            ),
+    selected = (
+        _declared(declaration, output)
+        .bind(
+            lambda found: paired(
+                paired(RecordFile(path=found.corpus, form=_Corpus).read(), _closure()).map(lambda inputs: _Builds.opened(found, *inputs)),
+                Ok(tuple(face for face in found.set.faces if name in {"", found.set.name, face.family, face.typographic, face.stem})).filter_with(
+                    bool, lambda _: Fault.of(Reason.ABSENT, found.set.name, member=f"family or face {name}")
+                ),
+            )
         )
+        .bind(lambda held: _fetched().map(lambda _: held))
     )
     match selected:
         case Result(tag="ok", ok=(builds, faces)):

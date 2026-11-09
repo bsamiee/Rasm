@@ -71,7 +71,7 @@ func workspace(_ container: FilePath, identifiers: [String: Set<String>]) throws
     let listed: [FilePath] = try document(container.appending("contents.xcworkspacedata")).rootElement().map { element in members(of: element, group: root, root: root) } ?? []
     let declared: [(scheme: Scheme, references: [Reference])] = try schemes(in: container, identifiers: identifiers)
     return try checked(
-        Container(path: container.string, schemes: declared.map(\.scheme), configurations: [], inputs: [], members: [:], projects: Set(listed.map(\.string)).sorted(), references: []),
+        Container(path: container.string, schemes: declared.map(\.scheme), configurations: [], inputs: [], projects: Set(listed.map(\.string)).sorted(), buildFiles: []),
         declared.flatMap(\.references) + listed.map { member in Reference(owner: "workspace", setting: "FileRef", path: member) },
     )
 }

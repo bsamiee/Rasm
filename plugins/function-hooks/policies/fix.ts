@@ -1,10 +1,10 @@
 import { Array, Cache, Effect, Option, type Predicate, type Record, Result, String } from 'effect';
-import { type Request, Verdict } from '#/decision.ts';
-import type { HookError, Host } from '#/host.ts';
-import type { Item } from '#/shell/grammar.ts';
-import type { Program } from '#/shell/programs.ts';
-import type { Span, Word } from '#/shell/script.ts';
-import { type Analysis, Shell, type Site } from '#/shell/site.ts';
+import { type Request, Verdict } from '#/decision';
+import type { HookError, Host } from '#/host';
+import type { Item } from '#/shell/grammar';
+import type { Program } from '#/shell/programs';
+import type { Span, Word } from '#/shell/script';
+import { type Analysis, Shell, type Site } from '#/shell/site';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

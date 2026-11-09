@@ -2,7 +2,6 @@
 
 use core::{any::Any, error::Error, fmt, iter, num::NonZero, ops::Deref};
 use std::{
-    borrow::Cow,
     collections::{HashMap, HashSet},
     error::Report,
     io::{self, Read},
@@ -28,7 +27,7 @@ use tracing::{
 };
 use typst::{
     Features, Library, LibraryExt as _, World, WorldExt as _,
-    comemo::{self, Track as _},
+    comemo::Track as _,
     diag::{At as _, FileError, FileResult, PackageError, Severity, SourceDiagnostic, Warned},
     ecow::{EcoString, EcoVec, eco_format},
     engine::Sink,
@@ -167,23 +166,36 @@ fn failure(span: &Span, error: io::Error) -> io::Error {
 
 // --- [FILES]
 
+#[derive(Debug)]
+pub struct Root {
+    pub path: FsRoot,
+    pub directory: Dir,
+}
+
 #[derive(Debug, Default)]
 pub struct Files {
-    pub root: Option<FsRoot>,
+    pub root: Option<Root>,
     pub overlay: HashMap<FileId, Bytes>,
     pub diagrams: HashMap<FileId, Bytes>,
     pub packages: Option<SystemPackages>,
+    pub package_roots: papaya::HashMap<PackageSpec, Root>,
     pub locked: Option<HashSet<PackageSpec>>,
 }
 
 impl Files {
     fn memory(&self, id: FileId) -> Option<&Bytes> { self.overlay.get(&id).or_else(|| self.diagrams.get(&id)) }
 
-    fn root(&self, id: FileId) -> FileResult<Cow<'_, FsRoot>> {
+    fn rooted<T>(&self, id: FileId, within: impl FnOnce(&Root) -> FileResult<T>) -> FileResult<T> {
         match (id.root(), &self.root, &self.packages) {
-            (VirtualRoot::Project, Some(root), _) => Ok(Cow::Borrowed(root)),
+            (VirtualRoot::Project, Some(root), _) => within(root),
             (VirtualRoot::Project, None, _) => Err(FileError::NotFound(PathBuf::from(id.vpath().get_without_slash()))),
-            (VirtualRoot::Package(spec), _, Some(packages)) if self.locked.as_ref().is_none_or(|locked| locked.contains(spec)) => Ok(Cow::Owned(packages.obtain(spec)?)),
+            (VirtualRoot::Package(spec), _, Some(packages)) if self.locked.as_ref().is_none_or(|locked| locked.contains(spec)) => {
+                let roots = self.package_roots.pin();
+                within(match roots.get(spec) {
+                    Some(root) => root,
+                    None => roots.get_or_insert(spec.clone(), opened(packages.obtain(spec)?)?),
+                })
+            }
             (VirtualRoot::Package(spec), _, _) => Err(FileError::Package(PackageError::NotFound(spec.clone()))),
         }
     }
@@ -192,9 +204,10 @@ impl Files {
         if self.memory(id).is_some() {
             return Ok(None);
         }
-        let root = self.root(id)?;
-        let path = root.resolve(id.vpath())?;
-        directory(&root)?.canonicalize(id.vpath().get_without_slash()).map(|real| Some(root.path().join(real))).map_err(|error| FileError::from_io(error, &path))
+        self.rooted(id, |root| {
+            let path = root.path.resolve(id.vpath())?;
+            root.directory.canonicalize(id.vpath().get_without_slash()).map(|real| Some(root.path.path().join(real))).map_err(|error| FileError::from_io(error, &path))
+        })
     }
 }
 
@@ -202,16 +215,19 @@ impl FileLoader for Files {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
         match self.memory(id) {
             Some(bytes) => Ok(bytes.clone()),
-            None => self.root(id).and_then(|root| read(&root, id.vpath())),
+            None => self.rooted(id, |root| read(root, id.vpath())),
         }
     }
 }
 
-fn directory(root: &FsRoot) -> FileResult<Dir> { Dir::open_ambient_dir(root.path(), ambient_authority()).map_err(|error| FileError::from_io(error, root.path())) }
+fn opened(path: FsRoot) -> FileResult<Root> {
+    let directory = Dir::open_ambient_dir(path.path(), ambient_authority()).map_err(|error| FileError::from_io(error, path.path()))?;
+    Ok(Root { path, directory })
+}
 
-fn read(root: &FsRoot, path: &VirtualPath) -> FileResult<Bytes> {
-    let real = root.resolve(path)?;
-    directory(root)?.read(path.get_without_slash()).map(Bytes::new).map_err(|error| match error.kind() {
+fn read(root: &Root, path: &VirtualPath) -> FileResult<Bytes> {
+    let real = root.path.resolve(path)?;
+    root.directory.read(path.get_without_slash()).map(Bytes::new).map_err(|error| match error.kind() {
         io::ErrorKind::IsADirectory => FileError::IsDirectory,
         _ => FileError::from_io(error, &real),
     })
@@ -337,32 +353,7 @@ where I: Serialize + ?Sized {
 
 // --- [COMPILATION]
 
-pub fn compile<T>(world: &dyn DiagnosticWorld, max_age: usize) -> Result<Warned<T>, TypesetError>
-where T: Output {
-    let compiled = compiled::<T>(world);
-    comemo::evict(max_age);
-    compiled
-}
-
-pub fn compile_records<T, I, F, L>(project: &Project<F>, records: I, max_age: usize) -> Vec<Result<Warned<T>, TypesetError>>
-where
-    T: Output + Send,
-    I: IntoParallelIterator<Item: Serialize>,
-    F: Deref<Target = FileStore<L>> + Send + Sync,
-    L: FileLoader + Sync,
-{
-    let compiled = records
-        .into_par_iter()
-        .map_init(Vec::new, |encoded, record| {
-            library(&record, project.library.features.clone(), encoded)
-                .and_then(|library| compiled::<T>(&Project { library, fonts: Arc::clone(&project.fonts), files: &*project.files, main: project.main, now: project.now.clone() }))
-        })
-        .collect();
-    comemo::evict(max_age);
-    compiled
-}
-
-fn compiled<T>(world: &dyn DiagnosticWorld) -> Result<Warned<T>, TypesetError>
+pub fn compile<T>(world: &dyn DiagnosticWorld) -> Result<Warned<T>, TypesetError>
 where T: Output {
     let span = tracing::info_span!(
         "compile",
@@ -380,6 +371,22 @@ where T: Output {
             span.record(OTEL_STATUS_CODE, "error").record(EXCEPTION_MESSAGE, field::display(Report::new(error)));
         })
         .map(|output| Warned { output, warnings })
+}
+
+pub fn compile_records<T, I, F, L>(project: &Project<F>, records: I) -> Vec<Result<Warned<T>, TypesetError>>
+where
+    T: Output + Send,
+    I: IntoParallelIterator<Item: Serialize>,
+    F: Deref<Target = FileStore<L>> + Send + Sync,
+    L: FileLoader + Sync,
+{
+    records
+        .into_par_iter()
+        .map_init(Vec::new, |encoded, record| {
+            library(&record, project.library.features.clone(), encoded)
+                .and_then(|library| compile::<T>(&Project { library, fonts: Arc::clone(&project.fonts), files: &*project.files, main: project.main, now: project.now.clone() }))
+        })
+        .collect()
 }
 
 pub fn selector(world: &dyn DiagnosticWorld, text: &str) -> Result<Selector, TypesetError> {
@@ -513,13 +520,13 @@ pub fn template(packages: &SystemPackages, spec: &PackageSpec) -> Result<(HashMa
     }
     let project = |path| RootedPath::new(VirtualRoot::Project, path).intern();
     let instantiated = try bikeshed FileResult<_> {
-        let root = packages.obtain(spec)?;
+        let root = opened(packages.obtain(spec)?)?;
         let manifest = toml::from_slice::<PackageManifest>(&read(&root, &VirtualPath::new("typst.toml").map_err(other)?)?).map_err(other)?;
         manifest.validate(spec).map_err(|message| PackageError::Other(Some(message)))?;
         let template = manifest.template.ok_or_else(|| PackageError::Other(Some(eco_format!("{spec} holds no template"))))?;
         let path = VirtualPath::new(&template.path).map_err(other)?;
-        let real = root.resolve(&path)?;
-        let entries = directory(&root)?.open_dir(path.get_without_slash()).and_then(|walked| files(&walked, &real)).map_err(|error| FileError::from_io(error, &real))?;
+        let real = root.path.resolve(&path)?;
+        let entries = root.directory.open_dir(path.get_without_slash()).and_then(|walked| files(&walked, &real)).map_err(|error| FileError::from_io(error, &real))?;
         (entries, project(VirtualPath::new(&template.entrypoint).map_err(other)?))
     };
     instantiated.map_err(|source| TypesetError::Template { spec: spec.clone(), source })

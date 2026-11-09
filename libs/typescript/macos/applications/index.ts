@@ -177,15 +177,18 @@ const Launch = Schema.Struct({
     new: defaulted(Schema.Boolean, false).annotate({ description: 'Beside running instances' }),
 });
 const Pressure = Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical']) }).annotate({ description: 'Kernel memory pressure level and thermal state' });
+const Identifier = Schema.String.annotate({ description: 'Bundle identifier' });
+const ActivationPolicy = Schema.Literals(['regular', 'accessory', 'prohibited']).annotate({ description: 'Regular in Dock, accessory for menu bar or helper process, prohibited for background only' });
 const Launched = Schema.Struct({
     pid: Pid,
+    identifier: Identifier,
     created: Schema.Boolean.annotate({ description: 'Launch started the instance, false when it reused a running one' }),
 });
 class RunningInstance extends Schema.Class<RunningInstance, { readonly brand: unique symbol }>('RunningInstance')({
     pid: Pid,
-    identifier: Schema.String.annotate({ description: 'Bundle identifier' }),
+    identifier: Identifier,
     url: Schema.URL.annotate({ description: 'Bundle' }),
-    activationPolicy: Schema.Literals(['regular', 'accessory', 'prohibited']).annotate({ description: 'Regular in Dock, accessory for menu bar or helper process' }),
+    activationPolicy: ActivationPolicy,
     state: State,
 }) {}
 const Launching = Schema.Union([Schema.Struct({ launched: Launched }), Schema.Struct({ state: RunningInstance }), Schema.Struct({ prompts: Schema.Array(RunningInstance) }), Schema.Struct({ failed: Failed })]).annotate({
@@ -193,13 +196,14 @@ const Launching = Schema.Union([Schema.Struct({ launched: Launched }), Schema.St
 });
 class Installation extends Schema.Class<Installation, { readonly brand: unique symbol }>('Installation')({
     url: Schema.URL,
-    identifier: Schema.String,
+    executable: Schema.OptionFromOptionalKey(Schema.URL.annotate({ description: 'Main executable of the bundle' })),
+    identifier: Identifier,
     name: Schema.String,
     version: Schema.OptionFromOptionalKey(Schema.String),
     build: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'CFBundleVersion' })),
     scriptable: Schema.Boolean,
     scriptingDefinitionFile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'OSAScriptingDefinition file in bundle Resources' })),
-    agent: Schema.Boolean.annotate({ description: 'LSUIElement, runs without Dock icon' }),
+    activationPolicy: ActivationPolicy.annotate({ description: 'From LSBackgroundOnly and LSUIElement' }),
 }) {
     static readonly runs = (installation: Installation) => (instance: RunningInstance) => instance.url.href === installation.url.href && !Predicate.hasProperty(instance.state, 'exited');
 }

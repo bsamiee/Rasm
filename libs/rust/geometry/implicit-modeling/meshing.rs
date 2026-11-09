@@ -31,13 +31,13 @@ pub struct Surface {
 pub fn mesh(shape: &Shape, evaluation: &Evaluation<'_>, size: f64, boundary: Boundary, domain: Domain) -> Result<Option<Surface>, ImplicitError> {
     let extent = domain.half.max();
     let depth = depth(extent, size)?;
-    let half = match boundary {
-        Boundary::Open => None,
-        Boundary::Capped => Some(domain.half),
+    let (half, octree) = match boundary {
+        Boundary::Open => (None, domain.half),
+        Boundary::Capped => (Some(domain.half), Vector3::repeat(extent)),
     };
     let vars = bind(shape, evaluation, domain.center, half);
-    singular(shape, &vars, evaluation.cancel.as_ref(), domain.center, depth, centered(Vector3::repeat(extent)))?;
-    let settings = Settings { depth, world_to_model: Matrix4::new_scaling(extent), threads: evaluation.threads, cancel: evaluation.cancel.clone().unwrap_or_default() };
+    singular(shape, &vars, evaluation.cancel.as_ref(), domain.center, depth, centered(octree))?;
+    let settings = Settings { depth, world_to_model: Matrix4::new_nonuniform_scaling(&octree), threads: evaluation.threads, cancel: evaluation.cancel.clone().unwrap_or_default() };
     let Mesh { triangles, vertices } = Octree::build(&BoundShape::new(shape.jit.clone(), &vars).map_err(ShapeBulkEvalError::from)?, &settings).ok_or(ImplicitError::Cancelled)?.walk_dual();
     let indices = triangles
         .into_iter()

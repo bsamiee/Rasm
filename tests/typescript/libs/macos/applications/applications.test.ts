@@ -12,8 +12,8 @@ const LINE = `{"running":{"active":false,"process":"sleeping","status":"unrespon
 const INSTANCE = `{"pid":${PID},"identifier":"com.adobe.InDesign","url":"file:///Applications/Adobe%20InDesign.app/","activationPolicy":"regular","state":${LINE}}`;
 const FAILURE = `{"reason":"noProcess","subject":"${PID}","message":"Process ${PID} exited","error":${AX_ERROR}}`;
 const EXITED = `{"exited":{"signal":6,"detail":["memory"],"reporting":true,"report":{"url":"file:///report.ips","pid":${PID},"exception":"EXC_CRASH"}}}`;
-const LAUNCHING = [`{"launched":{"pid":${PID},"created":true}}`, `{"state":${INSTANCE}}`, `{"prompts":[${INSTANCE}]}`, `{"failed":${FAILURE}}`];
-const LISTING = `{"_tag":"Success","success":[{"url":"${MAIL}","identifier":"com.apple.mail","name":"Mail","version":"16.0","build":"3826","scriptable":true,"agent":false}]}`;
+const LAUNCHING = [`{"launched":{"pid":${PID},"identifier":"com.adobe.InDesign","created":true}}`, `{"state":${INSTANCE}}`, `{"prompts":[${INSTANCE}]}`, `{"failed":${FAILURE}}`];
+const LISTING = `{"_tag":"Success","success":[{"url":"${MAIL}","identifier":"com.apple.mail","name":"Mail","version":"16.0","build":"3826","scriptable":true,"activationPolicy":"regular"}]}`;
 const SHOTS = `{"${BLOCKING}":{"_tag":"Success","success":"file:///tmp/${BLOCKING}.png"},"20900":{"_tag":"Failure","failure":{"name":"ApplicationFailure","message":"Window closed"}}}`;
 const ACTIONS = `{"actions":[{"perform":{"element":"AQID","action":"AXPress"}},{"set":{"element":"AQID","value":"A"}},{"key":{"process":${PID},"code":36}}]}`;
 

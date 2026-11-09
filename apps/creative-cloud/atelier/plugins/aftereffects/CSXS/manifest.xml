@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="7.0" ExtensionBundleId="app.rasm.atelier.aftereffects" ExtensionBundleVersion="1.0.0" ExtensionBundleName="Atelier After Effects">
     <ExtensionList>
-        <Extension Id="app.rasm.atelier.aftereffects" Version="1.0.0"/>
+        <Extension Id="app.rasm.atelier.aftereffects"/>
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>
-            <Host Name="AEFT" Version="27.1"/>
+            <Host Name="AEFT" Version="25.0"/>
         </HostList>
         <LocaleList>
             <Locale Code="All"/>

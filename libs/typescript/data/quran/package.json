@@ -1,0 +1,23 @@
+{
+    "name": "@rasm/quran",
+    "private": true,
+    "description": "Quran text from CSV or a mushaf, selected by surah or division a riwayah counts, ayah marks set against a face",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        ".": "./index.ts"
+    },
+    "dependencies": {
+        "@quran.ws/text": "catalog:",
+        "@rasm/search": "workspace:*",
+        "@rasm/typography": "workspace:*",
+        "quran-meta": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    }
+}

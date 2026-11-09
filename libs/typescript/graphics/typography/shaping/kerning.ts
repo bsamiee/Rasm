@@ -46,8 +46,8 @@ class Kerning extends Schema.Class<Kerning, { readonly brand: unique symbol }>('
         const { ascender, descender } = face.metrics.extents.horizontal;
         const [outlines, profiles] = [new Map<number, ReturnType<typeof Profile.outline>>(), new Map<string, Profile>()];
         const outline = (glyph: number) => outlines.getOrInsertComputed(glyph, () => Profile.outline(face.font.glyphToJson(glyph)));
-        const direction = Option.orElse(settings.direction, () => Word.direction(text));
-        const profile = (span: string) => profiles.getOrInsertComputed(span, () => Profile.of(ShapedText.of(face, ShapedText.Run.make({ text: span, direction: LONE_PUNCTUATION.test(span) ? direction : Option.none() }), settings), unitsPerEm, outline));
+        const direction = Option.getOrElse(settings.direction, () => Word.direction(text));
+        const profile = (span: string) => profiles.getOrInsertComputed(span, () => Profile.of(ShapedText.of(face, ShapedText.Run.make({ text: span, direction: LONE_PUNCTUATION.test(span) ? Option.some(direction) : Option.none() }), settings), unitsPerEm, outline));
         const spans = Word.of(text).flatMap(({ start, end, joins }) =>
             Array.window([start, ...joins.flatMap((join) => [join.start, join.end]), end], 2)
                 .map(([from, to]) => ({ span: Word.Span.make({ start: from, end: to }), rest: Word.Span.make({ start: from, end }) }))

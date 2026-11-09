@@ -2,7 +2,6 @@ using System.Drawing;
 using System.Globalization;
 using System.Numerics;
 using MathNet.Numerics.RootFinding;
-using GeoTimeZone;
 using Rasm.Rhino.Document;
 using Rhino.DocObjects;
 using Rhino.Render;
@@ -50,17 +49,19 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset St
             .Apply((place, standard, saving) => new SunSite(place, Angle.FromDegrees(Quantities.Exact(sun.North)), standard, saving))
             .As();
 
-    public static Fin<SunSite> Placed(GeoCoordinate place, Angle north, LocalDateTime moment) =>
-        from zone in Conversions.Required(DateTimeZoneProviders.Tzdb.GetZoneOrNull(TimeZoneLookup.GetTimeZone(place.Latitude.Degrees.ToDouble(), place.Longitude.Degrees.ToDouble()).Result))
-        let interval = zone.MapLocal(moment).EarlyInterval
-        let savings = Some(interval.Savings).Filter(static offset => offset > Offset.Zero)
-        from standard in StandardOffset.Validated(interval.WallOffset - savings.IfNone(Offset.Zero))
-        from saving in savings.Traverse(static offset => DaylightSaving.Validated(Duration.FromSeconds(offset.Seconds))).As()
-        select new SunSite(place, north, standard, saving);
+    public static Fin<SunSite> Placed(GeoCoordinate place, Angle north, ZonedDateTime moment) =>
+        moment.GetZoneInterval() switch {
+            var interval => (StandardOffset.Validated(interval.StandardOffset),
+                             Some(interval.Savings).Filter(static offset => offset > Offset.Zero).Traverse(static offset => DaylightSaving.Validated(Duration.FromSeconds(offset.Seconds))).As())
+                .Apply((standard, saving) => new SunSite(place, north, standard, saving))
+                .As(),
+        };
 
     public static IO<SunSite> Here(Angle north, LocalDateTime moment) =>
-        Products.Accepted(static () => (Sun.Here(out double latitude, out double longitude), (Latitude: latitude, Longitude: longitude)))
-            .Bind(located => IO.lift(GeoCoordinate.From(located.Latitude, located.Longitude).Bind(place => Placed(place, north, moment))));
+        from located in Products.Accepted(static () => (Sun.Here(out double latitude, out double longitude), (Latitude: latitude, Longitude: longitude)))
+        from zone in IO.lift(DateTimeZoneProviders.Tzdb.GetSystemDefault)
+        from site in IO.lift(GeoCoordinate.From(located.Latitude, located.Longitude).Bind(place => Placed(place, north, moment.InZoneLeniently(zone))))
+        select site;
 
     // --- [DOCUMENTS]
 

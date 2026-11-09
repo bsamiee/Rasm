@@ -20,8 +20,8 @@ const PACKAGES = {
         manifest: 'manifest.json',
         archive: '.ccx',
         variables: [],
-        description: 'Packs the built UXP plugin into <id>_<host>.ccx, a zip with manifest.json at its root',
-        named: (text: string) => Effect.succeed(Option.map(Schema.decodeOption(Uxp)(text), ({ id, host }) => `${id}_${host.app}.ccx`)),
+        description: 'Packs the built UXP plugin into <project>.ccx, a zip with manifest.json at its root',
+        accepts: (text: string) => Effect.succeed(Option.isSome(Schema.decodeOption(Uxp)(text))),
         pack: Effect.fnUntraced(function* (folder: string, file: string) {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const names = yield* Effect.filter((yield* fs.readDirectory(folder, { recursive: true })).toSorted(), (name) => Effect.map(fs.stat(path.join(folder, name)), ({ type }) => type === 'File'));
@@ -37,19 +37,21 @@ const PACKAGES = {
         manifest: 'CSXS/manifest.xml',
         archive: '.zxp',
         variables: SIGNING,
-        description: 'Signs the built CEP extension into <ExtensionBundleId>.zxp with ZXPSignCmd, in the release configuration',
-        named: (text: string) =>
+        description: 'Signs a copy of the built CEP extension into <project>.zxp with ZXPSignCmd, in the release configuration',
+        accepts: (text: string) =>
             Stream.make(text).pipe(
                 Stream.pipeThroughChannel(Xml.decodeString()),
                 Stream.pipeThroughChannel(Xml.elements(['ExtensionManifest'])),
                 Stream.runHead,
-                Effect.map(Option.flatMap(({ attributes }) => Option.map(Schema.decodeUnknownOption(Cep)(attributes), ({ ExtensionBundleId }) => `${ExtensionBundleId}.zxp`))),
-                Effect.orElseSucceed(Option.none<string>),
+                Effect.map(Option.exists(({ attributes }) => Schema.is(Cep)(attributes))),
+                Effect.orElseSucceed(() => false),
             ),
         pack: Effect.fnUntraced(function* (folder: string, file: string, timestampAuthority?: string) {
-            const [certificate, password] = yield* Effect.all([Config.Redacted(SIGNING[0]), Config.Redacted(SIGNING[1])]);
+            const [fs, path, certificate, password] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.Redacted(SIGNING[0]), Config.Redacted(SIGNING[1])]);
             const p12 = yield* Effect.fromResult(Base64.decode(Redacted.value(certificate)));
-            const handle = yield* ChildProcess.make('ZXPSignCmd', ['-sign', folder, file, '/dev/fd/3', Redacted.value(password), ...Array.flatMap(Option.toArray(Option.fromUndefinedOr(timestampAuthority)), (url) => ['-tsa', url])], {
+            const signed = path.join(yield* fs.makeTempDirectoryScoped(), path.basename(folder));
+            yield* fs.copy(folder, signed);
+            const handle = yield* ChildProcess.make('ZXPSignCmd', ['-sign', signed, file, '/dev/fd/3', Redacted.value(password), ...Array.flatMap(Option.toArray(Option.fromUndefinedOr(timestampAuthority)), (url) => ['-tsa', url])], {
                 extendEnv: true,
                 stdin: 'ignore',
                 stdout: 'inherit',

@@ -5,7 +5,7 @@ import { Cause, Effect, FileSystem, Path, Schema } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Manifest = Schema.fromJsonString(Schema.Struct({ repository: Schema.String }));
+const Manifest = Schema.fromJsonString(Schema.Struct({ description: Schema.String, repository: Schema.Struct({ url: Schema.String }) }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -14,17 +14,16 @@ const repositoryStack = (context: ExecutorContext) => ({
     stackName: 'rasm',
     program: Effect.gen(function* () {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const [{ repository: url }, readme] = yield* Effect.all([Effect.flatMap(fs.readFileString(path.join(context.root, 'package.json')), Schema.decodeEffect(Manifest)), fs.readFileString(path.join(context.root, 'README.md'))], { concurrency: 'unbounded' });
-        const [pattern, paragraph] = yield* Effect.all([
+        const [{ description, repository: origin }, pattern] = yield* Effect.all([
+            Effect.flatMap(fs.readFileString(path.join(context.root, 'package.json')), Schema.decodeEffect(Manifest)),
             Effect.fromNullishOr(context.nxJsonConfiguration.release?.releaseTag?.pattern).pipe(Effect.mapError(() => new Cause.NoSuchElementError('nx.json states no release.releaseTag.pattern for the release tag ruleset'))),
-            Effect.fromNullishOr(readme.split('\n\n').find((block) => !block.startsWith('#'))).pipe(Effect.mapError(() => new Cause.NoSuchElementError('README.md holds no paragraph for the repository description'))),
         ]);
-        const name = path.basename(url, '.git');
+        const name = path.basename(origin.url, '.git');
         const { name: repository, fullName } = new Repository(
             name,
             {
                 name,
-                description: paragraph.replaceAll('\n', ' ').trim(),
+                description,
                 visibility: 'public',
                 hasIssues: true,
                 allowMergeCommit: false,
@@ -59,7 +58,7 @@ const repositoryStack = (context: ExecutorContext) => ({
                 name: 'release tags',
                 target: 'tag',
                 enforcement: 'active',
-                conditions: { refName: { includes: [`refs/tags/${pattern.replaceAll(/\{\w+\}/gu, '*')}`], excludes: [] } },
+                conditions: { refName: { includes: [`refs/tags/${pattern.replaceAll(/\{\w+\}/gu, '**')}`], excludes: [] } },
                 rules: { update: true, deletion: true, nonFastForward: true },
             }).rulesetId,
         };

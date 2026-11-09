@@ -14,6 +14,7 @@ Run commands from a terminal or harness with Accessibility access, each prints t
 4. While a call outside `watch-apps` runs (Atelier script), run `watch` on the app and its dialog helpers in a Monitor
 
 ```bash
+watch-apps find <app-or-pid>...
 watch-apps launch [<app>...] [--new] [--wait] [--document <path>...] [--environment NAME=VALUE...] [--arguments <argument>...]
 watch-apps quit <app-or-pid>... [--force]
 ```
@@ -25,7 +26,9 @@ Monitor {"command": "watch-apps watch <app> [<helper>]...",
 
 - Monitors watch Adobe apps with `com.adobe.crashreporter`, restart with their command on an expiry notice, and stop with TaskStop when work ends
 - Codex sessions run `read` on the app after such a call in place of a Monitor
-- `watch` and `launch` resolve names as a path when starting with `/`, then by bundle id, Spotlight name or id, and containment, ignoring case and diacritics
+- `find`, `watch`, and `launch` resolve names as a path when starting with `/`, a running instance's process ID, then by bundle id, Spotlight name or id, and containment, ignoring case and diacritics
+- `find` prints `{"<name>": [<installation>...]}` per name, best match first, launching nothing and needing no Accessibility grant
+- Installations hold `url`, `executable`, `identifier`, `name`, `version`, `build`, `scriptable`, `scriptingDefinitionFile`, and `activationPolicy` (`prohibited` for `LSBackgroundOnly`, `accessory` for `LSUIElement`, else `regular`)
 - Unmatched names print a `fail` line, `watch` follows every installation a name matches and exits when no name resolves
 - `quit`, `read`, and `capture` resolve each selector as a line's process ID, else by running apps' bundle id, display name, or bundle path, then display name containment
 - `quit`, `read`, and `capture` act on every instance a name matches, and print `{"<name>": {}}` when none runs

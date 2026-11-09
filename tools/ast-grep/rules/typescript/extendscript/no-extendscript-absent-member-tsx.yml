@@ -39,4 +39,4 @@ rule:
                 - has: {field: body, has: {kind: method_definition, not: {has: {field: name, regex: '^constructor$'}}}}
     inside: {kind: program, stopBy: end, matches: extendscript-file}
 message: '`$MEMBER` compiles to a member ExtendScript lacks'
-note: 'Use ES3 loops, own-key `for...in`, `charAt`, `slice`, and functions, or `ownKeys` and `assignProperties` from `@rasm/extendscript/host`'
+note: 'Use ES3 loops, own-key `for...in`, `charAt`, `slice`, and functions, or `ownKeys` and `assignProperties` from `@rasm/atelier-extendscript/host`'

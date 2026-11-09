@@ -15,7 +15,9 @@ Options take `@nx/dotnet`'s per-target form: a key names an inferred target, `fa
 ```
 
 - Facts MSBuild's own files state are read back, never options: `ArtifactsPath` in `Directory.Build.props` places every output, `global.json` selects the SDK and the test runner, `NuGet.config` the package sources, `.editorconfig` the style rules
-- Releases select .NET projects through `release.projects` or `release.groups` in `nx.json`, since `nx release` selects npm libraries alone by default
+- Every packable or publishable project carries the `release` tag, so `nx.json` selects .NET releases with `tag:release` in `release.projects`, since `nx release` selects npm libraries alone by default
+- Version actions write `<Version>` through MSBuild's own project writer (`MsbuildAnalyzer version <version>`, the project text on stdin, `ProjectRootElement` with formatting preserved), into the last unconditioned `<Version>` or the first unconditioned `<PropertyGroup>`; the registry version is the highest SemVer `dotnet package search` lists across every source
+- Version actions write no dependency rows: a `<ProjectReference>` carries no version, `dotnet pack` writes the referenced project's `<Version>` as the floor, and `nx release` raises every dependent on a `static` edge by a patch when a dependency moves (`updateDependents: "always"`)
 - In the workspace, `#analyzer` names the analyzer project, which inference builds in Release on a graph cache miss (`dotnet build analyzer --configuration Release -getTargetResult:Build`) so its output lands where `ArtifactsPath` puts it; the published package names `dist/lib/MsbuildAnalyzer.dll` through `publishConfig.imports`
 
 ## [02]-[INFERENCE]
@@ -28,7 +30,7 @@ Options take `@nx/dotnet`'s per-target form: a key names an inferred target, `fa
 |  [04]   | Imports, linked items, and the `Directory.*`, `global.json`, `NuGet.config`, `.editorconfig` walk | Inputs outside the project folder                          |
 |  [05]   | `OutputPath`, `IntermediateOutputPath`, and `PublishDir` where `IsPublishable` | Outputs of every mode, under `ArtifactsPath` where `Directory.Build.props` sets it |
 |  [06]   | `IsTestProject`, `IsTestingPlatformApplication`, `global.json` `test.runner` | `test` in the runner's own command form                                |
-|  [07]   | `IsPackable`                                          | `nx-release-publish` and version actions writing `<Version>`                                |
+|  [07]   | `IsPackable`, `IsPublishable`                         | Version actions writing `<Version>` and the `release` tag on either; `nx-release-publish` on `IsPackable` alone, since a publish folder ships through its host channel (a Rhino plug-in's Yak reads `<Version>`) |
 |  [08]   | Each evaluation's `NuGetLockFilePath`, read through NuGet's `PackagesLockFileFormat` | `nuget:<id>@<version>` external nodes with the lock's content hash, `implicit` edges to direct packages, `static` edges between packages |
 
 - The analyzer runs on the SDK `global.json` selects from the workspace root, evaluates projects in one process, and reports a project it cannot evaluate by name while keeping every other one
@@ -51,4 +53,4 @@ Options take `@nx/dotnet`'s per-target form: a key names an inferred target, `fa
 - `check` forces `CoreCompile` through MSBuild's `NonExistentFile` input, because MSBuild prints a warning once until the file recompiles; unlike `--no-incremental` it deletes nothing and keeps the reference assembly, so a dependent building beside it reads intact outputs and recompiles nothing afterwards; it depends on `build--dotnet`, so one project's two writers never run at once
 - Batched tasks run in dependency waves, each group of one command once over a solution written to a temporary folder outside the workspace, so no solution file sits in the tree; whitespace belongs to hk's `dotnet format whitespace --folder`
 - A publishable project publishes in `Release`, since its distributable is the publish folder, and its project references build inside that run: a Rhino plug-in references its libraries under its own global properties, a build no other task produces
-- Arguments after `--` reach the `dotnet` command for one run, a binlog included (`nx build <project> -- -bl`: every aggregate forwards its arguments to its members)
+- Arguments after `--` reach the `dotnet` command when given to the tool-named target (`nx run <project>:build--dotnet -- -bl`); aggregates forward none, since Nx would pass them to every dependency's members too

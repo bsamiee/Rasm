@@ -2,6 +2,7 @@
     <PropertyGroup>
         <Description>Color-managed image processing in scene-linear light</Description>
         <IsPackable>true</IsPackable>
+        <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 

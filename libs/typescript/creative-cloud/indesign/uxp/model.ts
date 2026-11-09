@@ -31,10 +31,10 @@ import { HostError, type ObjectModel, Reference } from '@rasm/automation';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import { Array, Cache, Cause, Context, Deferred, Duration, Effect, Equal, Equivalence, Exit, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaAST, Struct, Tuple } from 'effect';
-import { type FindChange, Inspect } from '#/index';
-import { readDeclaration, unavailableReason } from '#/internal/dictionary';
-import { Specifier } from '#/internal/specifier';
-import { Value } from '#/internal/value';
+import { Extent, type Search } from '#/index';
+import { Specifier } from '#/specifier';
+import { readDeclaration, unavailableReason } from '#/uxp/dictionary';
+import { Value } from '#/value';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -68,7 +68,7 @@ type Owned = {
     readonly postscriptName: Font;
     readonly aggregatedResults: PreflightProcess;
 } & {
-    readonly [K in `change${FindChange['mode']}`]: InDesignDOMObject<unknown> & Pick<Document, `${'find' | 'change'}${FindChange['mode']}`>;
+    readonly [K in `change${typeof Search.Type}`]: InDesignDOMObject<unknown> & Pick<Document, `${'find' | 'change'}${typeof Search.Type}`>;
 };
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -433,7 +433,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 const corners: ReadonlyArray<readonly [number, number]> = Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]) =>
                     each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES),
                 );
-                return Inspect.Extent.make(Struct.makeReducer<typeof Inspect.Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x }))));
+                return Extent.make(Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x }))));
             },
             catch: HostError.refused(`extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`),
         });

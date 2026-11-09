@@ -1,4 +1,7 @@
 using System.Text.Json;
+using System.Xml;
+using Microsoft.Build.Construction;
+using Microsoft.Build.Evaluation;
 using Microsoft.Build.Locator;
 
 namespace MsbuildAnalyzer;
@@ -10,20 +13,32 @@ internal static class Program {
 
     public static int Main(string[] args) =>
         args switch {
-            [var root] => Run(Path.GetFullPath(root)),
-            _ => Refuse("Usage: MsbuildAnalyzer <workspace-root>, with workspace-relative files on stdin, one per line"),
+            ["version", var version] => Registered(Environment.CurrentDirectory, () => Versioned(version)),
+            [var root] => Registered(Path.GetFullPath(root), () => Write(Path.GetFullPath(root))),
+            _ => Refuse("Usage: MsbuildAnalyzer <workspace-root>, with workspace-relative files on stdin, one per line; or MsbuildAnalyzer version <version>, with a project file on stdin"),
         };
 
-    private static int Run(string root) =>
+    private static int Registered(string root, Func<int> run) =>
         toSeq(MSBuildLocator.QueryVisualStudioInstances(new VisualStudioInstanceQueryOptions { DiscoveryTypes = DiscoveryType.DotNetSdk, WorkingDirectory = root }))
             .Head
             .Match(
-                Some: sdk => Write(root, sdk),
+                Some: sdk => {
+                    MSBuildLocator.RegisterInstance(sdk);
+                    return run();
+                },
                 None: () => Refuse($"No .NET SDK resolves from {root}"));
 
-    private static int Write(string root, VisualStudioInstance sdk) {
-        MSBuildLocator.RegisterInstance(sdk);
+    private static int Write(string root) {
         Console.Out.Write(JsonSerializer.Serialize(Workspace.Analyze(root, toSeq(Console.In.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))), Json));
+        return 0;
+    }
+
+    private static int Versioned(string version) {
+        using ProjectCollection collection = new();
+        using XmlReader reader = XmlReader.Create(Console.In);
+        ProjectRootElement project = ProjectRootElement.Create(reader, collection, preserveFormatting: true);
+        _ = project.AddProperty("Version", version);
+        project.Save(Console.Out);
         return 0;
     }
 

@@ -93,7 +93,7 @@ where
     })
 }
 
-pub fn compile<T, F>(project: &mut Project<F>, renderer: &Renderer, request: &SvgRequest, control: &OperationControl, max_age: usize) -> Compilation<T>
+pub fn compile<T, F>(project: &mut Project<F>, renderer: &Renderer, request: &SvgRequest, control: &OperationControl) -> Compilation<T>
 where
     T: Output,
     F: DerefMut<Target = FileStore<Files>> + Send + Sync,
@@ -148,7 +148,7 @@ where
         );
         files.diagrams.insert(module, Bytes::from_string(text));
         project.files.reset();
-        let compiled = crate::compile::<T>(&*project, max_age);
+        let compiled = crate::compile::<T>(&*project);
         current = present(accessed(&mut project.files), &project.files);
         if current.keys().all(|&id| settled(project.files.loader(), &failures, id)) {
             return Compilation { output: compiled, evidence, errors: failures.into_iter().map(|(id, source)| TypesetError::Diagram { path: id.vpath().clone(), source }).collect() };

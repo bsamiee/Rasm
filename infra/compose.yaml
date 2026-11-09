@@ -104,10 +104,11 @@ services:
     app:
         <<: *app
         build:
+            additional_contexts: {node: "docker-image://dhi.io/node:${NODE_VERSION}"}
             dockerfile_inline: |
                 # check=error=true
-                ARG NODE
-                FROM dhi.io/node:$${NODE}
+                FROM scratch AS assets
+                FROM node
                 ARG ASSETS
                 WORKDIR /app
                 COPY --from=assets . $${ASSETS}

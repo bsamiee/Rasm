@@ -1,4 +1,5 @@
 {
-    "files": [],
-    "references": [ { "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" } ]
+    "extends": "../../../.config/tsconfig.web.json",
+    "files": [ ".cloudflare/types/index.d.ts" ],
+    "include": [ "**/*", ".storybook/*" ]
 }

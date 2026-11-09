@@ -36,19 +36,12 @@ enum Atelier {
         let definitions: ScriptingDefinitions = ScriptingDefinitions()
         let calls: DispatchQueue = DispatchQueue(label: "Atelier.calls", attributes: .concurrent)
         let output: DispatchSerialQueue = DispatchSerialQueue(label: "Atelier.output")
-        let managed: Bool = ProcessInfo.processInfo.environment["MCP_LISTEN"] != nil
         do {
             try disclaimResponsibility()
-            do {
-                try checkAccessibilityTrust(prompting: managed)
-            } catch {
-                guard managed else { throw error }
-                logger.notice("Started without Accessibility trust, \(error, privacy: .public)")
-            }
-            let captureGranted: Bool = managed ? CGRequestScreenCaptureAccess() : CGPreflightScreenCaptureAccess()
-            if !captureGranted { logger.notice("Started without Screen Recording grant") }
+            do { try checkAccessibilityTrust(prompting: true) } catch { logger.notice("Started without Accessibility trust, \(error, privacy: .public)") }
+            if !CGRequestScreenCaptureAccess() { logger.notice("Started without Screen Recording grant") }
             let updaterDelegate: UpdaterDelegate = UpdaterDelegate()
-            let updater: SPUStandardUpdaterController? = managed ? SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil) : nil
+            let updater: SPUStandardUpdaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
             defer { extendLifetime((updater, updaterDelegate)) }
             try await serve(
                 reading: FileHandle.standardInput.bytes.jsonLines,
