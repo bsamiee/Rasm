@@ -3,9 +3,9 @@ import { SqliteClient } from '@effect/sql-sqlite-node';
 import { Catalog } from '@rasm/database';
 import { s3Storage, serveNode } from '@rasm/hosting/node';
 import { Layer } from 'effect';
-import config from '#/cloudflare.config.ts';
-import { app } from '#/server/app.ts';
-import { catalog } from '#/server/catalog.ts';
+import config from '#/cloudflare.config';
+import { app } from '#/server/app';
+import { catalog } from '#/server/catalog';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -1,0 +1,45 @@
+{
+    "name": "@rasm/nx-typescript",
+    "version": "0.0.0",
+    "description": "Nx plugin inferring TypeScript type checks and emits, Vite builds, Playwright suites, Storybook builds, Cloudflare Worker types, and Adobe plugin packages from each tool's own configuration",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm",
+        "directory": "apps/nx/typescript"
+    },
+    "license": "MIT",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./plugins/project-graph.ts",
+        "./package.json": "./package.json",
+        "./executors.json": "./executors.json"
+    },
+    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "typescript": "catalog:"
+    },
+    "peerDependencies": {
+        "typescript": "catalog:peers"
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/plugins/project-graph.js",
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
+    },
+    "executors": "./executors.json"
+}

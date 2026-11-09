@@ -21,7 +21,7 @@ from rasm_records import accumulated, Error, Fault, Name, Nothing, Ok, Outcome, 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_NAME_PROPERTY: Final[bpy.types.StringProperty] = bpy.types.SceneCompositorEffect.bl_rna.properties["name"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_NAME_PROPERTY: Final[bpy.types.StringProperty] = bpy.types.SceneCompositorEffect.bl_rna.properties["name"]  # ty: ignore[invalid-assignment]
 _NAME: Final = Descriptor(root=bpy.types.SceneCompositorEffect, prop=_NAME_PROPERTY)
 
 # --- [MODELS] ---------------------------------------------------------------------------

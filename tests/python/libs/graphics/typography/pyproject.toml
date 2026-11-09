@@ -10,4 +10,4 @@ dependencies = ["cyclopts", "expression", "msgspec", "pytest", "rasm-records", "
 # --- [FAWLTYDEPS] -----------------------------------------------------------------------
 
 [tool.fawltydeps]
-ignore_unused = ["rasm-testing"] # pytest loads it through its `pytest11` entry point
+ignore_unused = ["rasm-testing"] # Test toolchain, its pytest plugins loaded by entry point

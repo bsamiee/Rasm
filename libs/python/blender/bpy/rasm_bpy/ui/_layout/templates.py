@@ -83,7 +83,7 @@ class Gallery(Property, frozen=True, kw_only=True):
 class _Pick(bpy.types.PropertyGroup):
     """Preset a gallery shows by its stem, each gallery declaring the enum of its own presets in a subclass."""
 
-    picked: bpy.props.StringProperty(name="Picked", description="Stem of the preset the gallery shows", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    picked: bpy.props.StringProperty(name="Picked", description="Stem of the preset the gallery shows", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
     preset: str
 
 

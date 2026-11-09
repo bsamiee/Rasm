@@ -47,7 +47,7 @@ from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_SCENE_WHITE: Final = InterfacePanel.of(
+_SCENE_WHITE: Final[InterfacePanel] = InterfacePanel.of(
     "scene_white",
     Interface(inputs=(Socket(key="stops", kind=bpy.types.NodeSocketFloat, min_value=EXPOSURE.hard_min, max_value=EXPOSURE.hard_max),)),
     description="Manual white in stops from 1.0, read from frame when off",
@@ -372,7 +372,7 @@ def reinhard_extended(level: Expr, scene_white_stops: Expr | float = 0.0) -> Exp
 def formed(config: PyOpenColorIO.Config) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Lattice]]:
     """Returns the transform from linear Rec.709 through the merged colorspace to display-linear, and the table of its grid size over its logarithmic allocation."""
     space: PyOpenColorIO.ColorSpace = config.getColorSpace(TONY)
-    stated: PyOpenColorIO.GroupTransform = space.getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    stated: PyOpenColorIO.GroupTransform = space.getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)  # ty: ignore[invalid-assignment]
     stages = tuple(inner for outer in stated for inner in (outer if isinstance(outer, PyOpenColorIO.GroupTransform) else (outer,)))
     low, high = next(stage.getVars() for stage in stages if isinstance(stage, PyOpenColorIO.AllocationTransform))
     encoding = next(stage.getDst() for stage in stages if isinstance(stage, PyOpenColorIO.ColorSpaceTransform))

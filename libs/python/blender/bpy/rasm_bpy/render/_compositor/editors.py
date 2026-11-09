@@ -66,12 +66,12 @@ class _Field(msgspec.Struct, frozen=True, kw_only=True):
 class FieldEdit(Named):
     """Record field of a named entry and the value a pick, a number, a text, or a file writes it to."""
 
-    kind: bpy.props.StringProperty(name="Effect", description="Record key of the entry's effect", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    field: bpy.props.StringProperty(name="Field", description="Item key of the record field the edit writes, as the effect's interface keys it", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    choices: bpy.props.StringProperty(name="Choices", description="Choice labels for the field picker", default="{}", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    choice: bpy.props.EnumProperty(name="Value", description="Value the field takes", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    number: bpy.props.FloatProperty(name="Value", description="Number the field takes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    text: bpy.props.StringProperty(name="Value", description="Text the field takes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    kind: bpy.props.StringProperty(name="Effect", description="Record key of the entry's effect", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
+    field: bpy.props.StringProperty(name="Field", description="Item key of the record field the edit writes, as the effect's interface keys it", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
+    choices: bpy.props.StringProperty(name="Choices", description="Choice labels for the field picker", default="{}", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
+    choice: bpy.props.EnumProperty(name="Value", description="Value the field takes", items=())  # ty: ignore[invalid-type-form]
+    number: bpy.props.FloatProperty(name="Value", description="Number the field takes")  # ty: ignore[invalid-type-form]
+    text: bpy.props.StringProperty(name="Value", description="Text the field takes")  # ty: ignore[invalid-type-form]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------

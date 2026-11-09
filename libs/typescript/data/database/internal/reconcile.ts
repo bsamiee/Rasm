@@ -1,10 +1,10 @@
 import { Array, Effect, Equal, Filter, Function, Graph, HashSet, Match, Option, Order, Result, Schema, String, Struct } from 'effect';
 import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
-import type { Catalog } from '#/catalog.ts';
-import { Column } from '#/column.ts';
-import { ReconcileError } from '#/error.ts';
-import type { Engine } from '#/internal/engine.ts';
-import type { Relation } from '#/relation.ts';
+import type { Catalog } from '#/catalog';
+import { Column } from '#/column';
+import { ReconcileError } from '#/error';
+import type { Engine } from '#/internal/engine';
+import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

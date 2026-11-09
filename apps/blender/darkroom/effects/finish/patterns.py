@@ -38,7 +38,7 @@ from rasm_records import Ok, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_DISTANCE: Final = Descriptor[bpy.types.EnumProperty](root=bpy.types.ShaderNodeTexVoronoi, prop=bpy.types.ShaderNodeTexVoronoi.bl_rna.properties["distance"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+_DISTANCE: Final = Descriptor[bpy.types.EnumProperty](root=bpy.types.ShaderNodeTexVoronoi, prop=bpy.types.ShaderNodeTexVoronoi.bl_rna.properties["distance"])  # ty: ignore[invalid-argument-type]
 _CLOCK: Final = InterfacePanel.of(CLOCK.key, Clock(speed=0.0))
 _BLOCK: Final = Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Block side over greater frame side", min_value=1e-6, default_value=0.005)
 _MOSAIC: Final = InterfacePanel.of("mosaic", Interface(inputs=(_BLOCK,)), description="Replaces frame with square blocks")

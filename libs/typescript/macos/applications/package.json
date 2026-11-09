@@ -1,0 +1,33 @@
+{
+    "name": "@rasm/applications",
+    "private": true,
+    "description": "Mac application server wire contract, the Node client of that server, and the build of a Node helper a Mac application embeds",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./node": "./node.ts",
+        "./vite": "./vite.ts"
+    },
+    "dependencies": {
+        "@rasm/search": "workspace:*",
+        "plist": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers",
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "vite": {
+            "optional": true
+        }
+    }
+}

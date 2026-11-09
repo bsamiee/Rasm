@@ -43,11 +43,11 @@ type Stops = Annotated[float, msgspec.Meta(ge=-float(np.finfo(np.float32).maxexp
 
 GRAY: Final = 0.18
 REC709_SCENE: Final = "lin_rec709_scene"
-HUE_CURVE: Final[Callable[..., HueCurve]] = PyOpenColorIO.GradingHueCurve  # type: ignore[attr-defined, explicit-any]  # ty: ignore[unresolved-attribute]
-HUE_CURVE_TRANSFORM: Final[Callable[..., PyOpenColorIO.Transform]] = PyOpenColorIO.GradingHueCurveTransform  # type: ignore[attr-defined, explicit-any]  # ty: ignore[unresolved-attribute]
-GET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], object]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-SET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, object], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-RGB_TO_HSY: Final[PyOpenColorIO.FixedFunctionStyle] = PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+HUE_CURVE: Final[Callable[..., HueCurve]] = PyOpenColorIO.GradingHueCurve  # type: ignore[explicit-any]  # ty: ignore[unresolved-attribute]
+HUE_CURVE_TRANSFORM: Final[Callable[..., PyOpenColorIO.Transform]] = PyOpenColorIO.GradingHueCurveTransform  # type: ignore[explicit-any]  # ty: ignore[unresolved-attribute]
+GET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], object]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # ty: ignore[unresolved-attribute, unsound-assignment]
+SET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, object], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # ty: ignore[unresolved-attribute, unsound-assignment]
+RGB_TO_HSY: Final[PyOpenColorIO.FixedFunctionStyle] = PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN  # ty: ignore[unresolved-attribute, unsound-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

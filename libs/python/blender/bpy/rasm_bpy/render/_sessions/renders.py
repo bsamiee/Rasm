@@ -80,21 +80,21 @@ class RenderCall(msgspec.Struct, frozen=True, kw_only=True):
 class Launch(bpy.types.PropertyGroup):
     """Render options and destination slot."""
 
-    animation: bpy.props.BoolProperty(name="Animation")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    write_still: bpy.props.BoolProperty(name="Write Still")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    slot: bpy.props.EnumProperty(name="Slot", items=enum_choices(TargetSlot))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_layer: bpy.props.BoolProperty(name="View Layer", description="Render one view layer alone")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    layer: bpy.props.StringProperty(name="Layer", search=lambda _owner, context, _edit: tuple(layer.name for scene in Option.of_optional(context.scene).to_list() for layer in scene.view_layers))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    animation: bpy.props.BoolProperty(name="Animation")  # ty: ignore[invalid-type-form]
+    write_still: bpy.props.BoolProperty(name="Write Still")  # ty: ignore[invalid-type-form]
+    slot: bpy.props.EnumProperty(name="Slot", items=enum_choices(TargetSlot))  # ty: ignore[invalid-type-form]
+    use_layer: bpy.props.BoolProperty(name="View Layer", description="Render one view layer alone")  # ty: ignore[invalid-type-form]
+    layer: bpy.props.StringProperty(name="Layer", search=lambda _owner, context, _edit: tuple(layer.name for scene in Option.of_optional(context.scene).to_list() for layer in scene.view_layers))  # ty: ignore[invalid-type-form]
 
 
 class RenderOverride(bpy.types.PropertyGroup):
     """Overrides applied for one render."""
 
-    use_preset: bpy.props.BoolProperty(name="Value Set", description="Apply a scene value preset for the render")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    preset: bpy.props.StringProperty(name="Preset", description="Scene value preset applied for the render")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_isolation: bpy.props.BoolProperty(name="Isolate Selection", description="Isolate selected objects for the render")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    isolation: bpy.props.EnumProperty(name="Others", items=enum_choices(Isolation))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    catcher: bpy.props.BoolProperty(name="Shadow Catcher")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    use_preset: bpy.props.BoolProperty(name="Value Set", description="Apply a scene value preset for the render")  # ty: ignore[invalid-type-form]
+    preset: bpy.props.StringProperty(name="Preset", description="Scene value preset applied for the render")  # ty: ignore[invalid-type-form]
+    use_isolation: bpy.props.BoolProperty(name="Isolate Selection", description="Isolate selected objects for the render")  # ty: ignore[invalid-type-form]
+    isolation: bpy.props.EnumProperty(name="Others", items=enum_choices(Isolation))  # ty: ignore[invalid-type-form]
+    catcher: bpy.props.BoolProperty(name="Shadow Catcher")  # ty: ignore[invalid-type-form]
 
 
 class RenderBinding(msgspec.Struct, frozen=True):

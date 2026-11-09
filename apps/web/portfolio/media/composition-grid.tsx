@@ -2,7 +2,7 @@ import { CustomProperties } from '@rasm/ui';
 import { Array, Number } from 'effect';
 import type { ComponentProps } from 'react';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import { type Composition, Placement } from '#/model/placement.ts';
+import { type Composition, Placement } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

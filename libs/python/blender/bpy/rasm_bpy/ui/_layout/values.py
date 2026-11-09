@@ -83,25 +83,25 @@ _NAME: Final = AddPresetBase.__annotations__["name"]
 class _Offset(bpy.types.PropertyGroup):
     """Signed step a restore, forget, or preset step button names."""
 
-    offset: bpy.props.IntProperty(name="Offset", description="Signed step count", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    offset: bpy.props.IntProperty(name="Offset", description="Signed step count", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
 
 
 class _Named(bpy.types.PropertyGroup):
     """Preset an apply, delete, export, replace, or rename button names."""
 
-    stem: bpy.props.StringProperty(name="Preset", description="Preset file stem", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    stem: bpy.props.StringProperty(name="Preset", description="Preset file stem", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
 
 
 class _Renamed(_Named):
     """Saved preset and its new name."""
 
-    name: _NAME  # type: ignore[valid-type]
+    name: _NAME
 
 
 class _Saved(bpy.types.PropertyGroup):
     """Name entered in the save-preset dialog."""
 
-    name: _NAME  # type: ignore[valid-type]
+    name: _NAME
 
 
 class _Lock(bpy.types.PropertyGroup):

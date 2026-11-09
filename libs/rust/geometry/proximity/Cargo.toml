@@ -8,8 +8,10 @@ description       = "Proximity queries over placed shapes: clashes, separations,
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path = "lib.rs"
-test = false
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

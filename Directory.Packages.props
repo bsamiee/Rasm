@@ -32,6 +32,7 @@
 
     <ItemGroup Label="Build Engine">
         <PackageVersion Include="Microsoft.Build"                                         Version="18.11.0" />                           <!-- MSBuild evaluation, project instance, and project graph APIs -->
+        <PackageVersion Include="Microsoft.Build.Framework"                               Version="18.11.0" />                           <!-- MSBuild task, logger, and event interfaces -->
         <PackageVersion Include="Microsoft.Build.Locator"                                 Version="1.11.2" />                            <!-- Registers the MSBuild of the SDK global.json selects before MSBuild types load -->
     </ItemGroup>
 
@@ -827,7 +828,6 @@
         <PackageVersion Include="MathNet.Symbolics"                                       Version="0.25.0" />                            <!-- Symbolic algebra over F# expressions, required by OPTANO.Modeling -->
         <PackageVersion Include="MicroCom.Runtime"                                        Version="0.11.7" />                            <!-- Runtime for IDL-generated cross-platform COM interop -->
         <PackageVersion Include="Microsoft.Bcl.Memory"                                    Version="11.0.0-rc.3.26522.148" />             <!-- Base64Url, Index, and Range types for .NET Framework and .NET Standard targets -->
-        <PackageVersion Include="Microsoft.Build.Framework"                               Version="18.11.0" />                           <!-- MSBuild task, logger, and event interfaces -->
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Scripting"                 Version="5.9.0" />                             <!-- C# script execution over Roslyn, UVtools.Core dependency -->
         <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild"               Version="5.9.0" />                             <!-- MSBuild project and solution loading into Roslyn workspaces -->
         <PackageVersion Include="Microsoft.Data.Analysis"                                 Version="0.24.0-preview.26513.4" />            <!-- DataFrame structures for tabular data exploration -->

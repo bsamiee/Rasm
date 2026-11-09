@@ -1,0 +1,34 @@
+{
+    "name": "@rasm/infra",
+    "private": true,
+    "description": "IaC programs for repository and app hosting resources",
+    "type": "module",
+    "imports": {
+        "#/package.json": "./package.json",
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./stacks.ts"
+    },
+    "dependencies": {
+        "@cloudflare/build-output-utils": "catalog:",
+        "@cloudflare/config": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@pulumi/docker": "catalog:",
+        "@pulumi/docker-build": "catalog:",
+        "@pulumi/github": "catalog:",
+        "@pulumi/minio": "catalog:",
+        "@pulumi/postgresql": "catalog:",
+        "@pulumi/pulumi": "catalog:",
+        "@pulumi/random": "catalog:",
+        "@pulumi/tls": "catalog:",
+        "@rasm/hosting": "workspace:*",
+        "effect": "catalog:",
+        "vite": "catalog:"
+    },
+    "devDependencies": {
+        "@nx/devkit": "catalog:",
+        "@rasm/nx-pulumi": "workspace:*",
+        "@types/node": "catalog:"
+    }
+}

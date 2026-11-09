@@ -370,7 +370,7 @@ def test_newline_rewrites_preserve_unicode_whitespace(value: str, chars: str | N
         proposed: list[Error] = []
         no_multiline_lstrip.check(node, proposed)
         visitor = RewriteVisitor(defaultdict(list), Settings())
-        visitor.run_check(node, no_multiline_lstrip.check)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        visitor.run_check(node, no_multiline_lstrip.check)  # ty: ignore[invalid-argument-type]
         leading = strip is not str.rstrip and value.startswith("\n") and len(value) > 1 and not value[1].isspace()
         trailing = strip is not str.lstrip and value.endswith("\n") and len(value) > 1 and not value[-2].isspace()
         replacement = value[int(leading) : len(value) - int(trailing)]

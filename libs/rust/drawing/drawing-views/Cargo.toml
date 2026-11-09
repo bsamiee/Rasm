@@ -8,8 +8,10 @@ description       = "Hidden-line drawing views of solids: parallel and perspecti
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path = "lib.rs"
-test = false
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

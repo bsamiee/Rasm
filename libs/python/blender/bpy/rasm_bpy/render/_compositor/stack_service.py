@@ -503,7 +503,7 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
         with ExitStack() as rollback:
 
             def copied() -> Outcome[bpy.types.CompositorNodeTree]:
-                copy: bpy.types.CompositorNodeTree = tree.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                copy: bpy.types.CompositorNodeTree = tree.copy()  # ty: ignore[invalid-assignment]
                 return _OWNERSHIP.owned(self.identity, copy, of=Some(scene), scope=Some(rollback))
 
             def placed(group: bpy.types.NodeTree) -> Outcome[None]:

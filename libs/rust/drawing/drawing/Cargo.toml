@@ -8,8 +8,10 @@ description       = "Drawing model PDF, DWG, drafting, and view output reads: co
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path = "lib.rs"
-test = false
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

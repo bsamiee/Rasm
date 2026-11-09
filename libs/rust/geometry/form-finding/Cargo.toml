@@ -8,8 +8,10 @@ description       = "Form finding of tension and compression nets: force density
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path = "lib.rs"
-test = false
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

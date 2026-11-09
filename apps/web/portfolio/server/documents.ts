@@ -3,10 +3,10 @@ import { HostingError } from '@rasm/hosting';
 import { Array, Effect, Function, Match, Schema, SchemaGetter } from 'effect';
 import { HttpApiBuilder, HttpApiSchema } from 'effect/http-api';
 import { SqlClient, SqlSchema } from 'effect/sql';
-import { Api, PlacementConflict, PreconditionFailed } from '#/model/api.ts';
-import { AssetId, type ImageAsset } from '#/model/asset.ts';
-import { Portfolio, PortfolioData, type StoredPortfolio } from '#/model/portfolio.ts';
-import { documents, projectedPaths, references } from '#/server/catalog.ts';
+import { Api, PlacementConflict, PreconditionFailed } from '#/model/api';
+import { AssetId, type ImageAsset } from '#/model/asset';
+import { Portfolio, PortfolioData, type StoredPortfolio } from '#/model/portfolio';
+import { documents, projectedPaths, references } from '#/server/catalog';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -1,0 +1,59 @@
+{
+    "name": "@rasm/portfolio",
+    "private": true,
+    "description": "Architectural portfolio website",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts",
+        "#/*.css": "./*.css",
+        "#/*.tsx": "./*.tsx"
+    },
+    "dependencies": {
+        "@effect/atom-react": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@effect/sql-d1": "catalog:",
+        "@effect/sql-sqlite-node": "catalog:",
+        "@rasm/database": "workspace:*",
+        "@rasm/hosting": "workspace:*",
+        "@rasm/media": "workspace:*",
+        "@rasm/ui": "workspace:*",
+        "@uppy/core": "catalog:",
+        "@uppy/dashboard": "catalog:",
+        "@uppy/react": "catalog:",
+        "@uppy/xhr-upload": "catalog:",
+        "effect": "catalog:",
+        "embla-carousel-react": "catalog:",
+        "lucide-react": "catalog:",
+        "motion": "catalog:",
+        "pdfjs-dist": "catalog:",
+        "react": "catalog:",
+        "react-aria-components": "catalog:",
+        "react-dom": "catalog:",
+        "react-error-boundary": "catalog:",
+        "react-zoom-pan-pinch": "catalog:",
+        "tailwindcss": "catalog:",
+        "tailwindcss-react-aria-components": "catalog:",
+        "validator": "catalog:"
+    },
+    "devDependencies": {
+        "@openai/sites-vite-plugin": "catalog:",
+        "@rasm/infra": "workspace:*",
+        "@rasm/test-support": "workspace:*",
+        "@storybook/addon-vitest": "catalog:",
+        "@storybook/react-vite": "catalog:",
+        "@tailwindcss/vite": "catalog:",
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@types/validator": "catalog:",
+        "cf": "catalog:",
+        "storybook": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build--vite": { "outputs": [ "...", "{projectRoot}/.cloudflare/output" ] }
+        }
+    }
+}

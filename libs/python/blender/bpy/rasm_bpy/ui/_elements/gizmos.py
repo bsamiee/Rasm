@@ -64,7 +64,7 @@ class TargetHandler[V, S = bpy.types.Context](msgspec.Struct, frozen=True, kw_on
             gizmo.target_set_handler(
                 key,
                 get=partial(self.get, state),
-                set=lambda value: write(bpy.context, value).to_optional(),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                set=lambda value: write(bpy.context, value).to_optional(),  # ty: ignore[invalid-argument-type]
                 range=self.range.map(lambda extent: partial(extent, state)).to_optional(),
             )
 
@@ -105,16 +105,16 @@ class Shape(msgspec.Struct, frozen=True, kw_only=True):
 
             @override
             def modal(self, context: bpy.types.Context, event: bpy.types.Event, tweak: set[Literal["PRECISE", "SNAP"]] | None) -> set["rna_enums.OperatorReturnItems"]:
-                tweaks: set[Literal["PRECISE", "SNAP"]] = tweak  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                tweaks: set[Literal["PRECISE", "SNAP"]] = tweak  # ty: ignore[invalid-assignment]
                 for drag in drags.to_list():
                     reports.faulted(drag(self, context, self.initial, self.press.travel(event, snapped="SNAP" in tweaks, precise="PRECISE" in tweaks)))
                 return {"RUNNING_MODAL"}
 
             @override
             def exit(self, context: bpy.types.Context, cancel: bool | None) -> None:
-                cancelled: bool = cancel  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                cancelled: bool = cancel  # ty: ignore[invalid-assignment]
                 for target, value in self.initial if cancelled else ():
-                    self.target_set_value(target, value)  # type: ignore[call-arg]  # ty: ignore[too-many-positional-arguments]
+                    self.target_set_value(target, value)  # ty: ignore[too-many-positional-arguments]
 
         base = Dragged if drags.is_some() else Shaped
         declared = tuple({"id": target, "type": "FLOAT", "array_length": length} for target, length in targets.items())
@@ -191,7 +191,7 @@ class GizmoGroup[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=Tru
     @contextmanager
     def ensured(self, identity: Identity) -> Generator[Outcome[None]]:
         """Links a group without `PERSISTENT` into every region of its type for the scope, refused for a persistent or unregistered group."""
-        manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
         name = identity.name(bpy.types.GizmoGroup, self.key)
         with ExitStack() as stack:
             yield (
@@ -236,7 +236,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
         )
 
     def draw_prepare(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
-        preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
         ui = preferences.themes[0].user_interface
         if (state := reports.settled(group.read(context)).default_value(Nothing)).is_none():
             for gizmo in owner.gizmos:

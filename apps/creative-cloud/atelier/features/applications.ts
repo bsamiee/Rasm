@@ -5,9 +5,9 @@ import { Content, Resource, Route, Server } from '@rasm/mcp';
 import { Context, Effect, FileSystem, Path, Record, Result, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { imageSize } from 'image-size';
-import { Adobe } from '#/adobe.ts';
-import type { routes } from '#/routes.ts';
-import type { status } from '#/status.ts';
+import { Adobe } from '#/adobe';
+import type { routes } from '#/routes';
+import type { status } from '#/status';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

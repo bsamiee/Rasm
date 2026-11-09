@@ -8,8 +8,10 @@ description       = "Numerical analysis: interpolation, splines, roots, quadratu
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path = "lib.rs"
-test = false
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

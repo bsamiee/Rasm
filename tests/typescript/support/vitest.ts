@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, parse, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { playwright } from '@vitest/browser-playwright';
 import { Array, Config, Effect, Record, String } from 'effect';
 import { searchForWorkspaceRoot } from 'vite';
@@ -16,7 +17,7 @@ const located = (configFile: string) => {
     const { dir, name } = parse(configFile);
     const root = searchForWorkspaceRoot(dir);
     const project = relative(root, dir);
-    return { dir, root, project, results: join(root, '.artifacts', 'typescript', 'vitest', project, name) };
+    return { dir, root, project, results: join(root, '.artifacts', 'vitest', project, name) };
 };
 const rootDefaults = (configFile: string) => {
     const { dir, root, results } = located(configFile);
@@ -31,13 +32,13 @@ const rootDefaults = (configFile: string) => {
                 allowExternal: true,
                 exclude: ['**/*.d.ts', '**/*.config.ts', '**/tests/**', '**/.storybook/**'],
                 ...(dir === root ? {} : { include: (Array.isArrayNonEmpty(subjects) ? subjects : [dir]).map((folder) => join(relative(dir, folder), '**/*.{ts,tsx}')) }),
-                reporter: ['text', 'html'],
+                reporter: ['text', ['html', { subdir: 'coverage' }]],
                 reportOnFailure: true,
-                reportsDirectory: join(results, 'coverage'),
+                reportsDirectory: results,
                 skipFull: true,
             },
             outputFile: { junit: join(results, 'junit.xml') },
-            reporters: [...configDefaults.reporters, 'junit', ['html', { outputDir: join(results, 'html') }]],
+            reporters: [...configDefaults.reporters, 'junit', [fileURLToPath(import.meta.resolve('@vitest/ui/reporter')), { outputDir: join(results, 'html') }]],
             silent: 'passed-only',
             slowTestThreshold: 5000,
         },
@@ -48,6 +49,7 @@ const defaults = (configFile: string) => {
     return mergeConfig(
         rootDefaults(configFile),
         defineProject({
+            cacheDir: join(root, '.cache', 'vite', project),
             test: {
                 browser: { provider: playwright(), headless: true, instances: [{ browser: 'chromium' }], locators: { errorFormat: 'aria' }, trace: { mode: 'retain-on-failure', tracesDir: join(results, 'traces') } },
                 chaiConfig: { includeStack: true, truncateThreshold: 0 },

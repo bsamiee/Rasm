@@ -23,11 +23,11 @@ VECTOR_PASS: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLay
 class TemporalDenoise(FollowUpSettings):
     """Scene setting of the job blending motion-warped neighboring frames by color similarity after each render."""
 
-    hue: bpy.props.FloatProperty(name="Hue Threshold", description="Hue distance zeroing neighbor weight", min=0.0, default=0.1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    saturation: bpy.props.FloatProperty(name="Saturation Threshold", description="Chroma distance zeroing neighbor weight", min=0.0, default=0.05)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    value: bpy.props.FloatProperty(name="Value Threshold", description="Value distance zeroing neighbor weight", min=0.0, default=0.05)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    max_weight: bpy.props.FloatProperty(name="Max Weight", description="Largest share per neighbor frame", min=0.0, max=1 / 3, default=0.3)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    tolerance: bpy.props.FloatProperty(name="Motion Tolerance", description="Allowed reverse-motion error in pixels", min=0.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    hue: bpy.props.FloatProperty(name="Hue Threshold", description="Hue distance zeroing neighbor weight", min=0.0, default=0.1)  # ty: ignore[invalid-type-form]
+    saturation: bpy.props.FloatProperty(name="Saturation Threshold", description="Chroma distance zeroing neighbor weight", min=0.0, default=0.05)  # ty: ignore[invalid-type-form]
+    value: bpy.props.FloatProperty(name="Value Threshold", description="Value distance zeroing neighbor weight", min=0.0, default=0.05)  # ty: ignore[invalid-type-form]
+    max_weight: bpy.props.FloatProperty(name="Max Weight", description="Largest share per neighbor frame", min=0.0, max=1 / 3, default=0.3)  # ty: ignore[invalid-type-form]
+    tolerance: bpy.props.FloatProperty(name="Motion Tolerance", description="Allowed reverse-motion error in pixels", min=0.0, default=1.0)  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

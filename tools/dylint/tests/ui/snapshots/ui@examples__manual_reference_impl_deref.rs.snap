@@ -1,0 +1,5 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/manual_reference_impl_deref.rs
+---
+

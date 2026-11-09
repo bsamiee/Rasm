@@ -1,112 +1,100 @@
+import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, Task, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { Array, Effect, HashSet, Option, Path, Record, Result, Schema, Stream } from 'effect';
+import { Array, Effect, HashSet, Match, Option, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const FORMAT = 'json-diagnostic-rendered-ansi';
+const REPORTS = {
+    messages: { flags: ['--message-format', FORMAT], env: {} },
+    tests: { flags: ['--cargo-message-format', FORMAT, '--message-format', 'libtest-json-plus', '--message-format-version', '0.1'], env: { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' } },
+    status: { flags: [], env: {} },
+} as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Command = Schema.Struct({ args: Schema.NonEmptyArray(Schema.String), trailing: Schema.optionalKey(Schema.Array(Schema.String)) });
-const Cargo = Schema.Struct({
-    cwd: Schema.String,
-    commands: Schema.NonEmptyArray(Command),
-    package: Schema.optionalKey(Schema.String),
-    warnings: Schema.optionalKey(Schema.Literals(['allow', 'warn', 'deny'])),
-    args: Schema.optionalKey(Schema.Array(Schema.String)),
-});
-const Diagnostic = Schema.Struct({
-    reason: Schema.Literal('compiler-message'),
-    manifest_path: Schema.String,
-    message: Schema.Struct({ level: Schema.String, rendered: Schema.NullOr(Schema.String), code: Schema.NullOr(Schema.Struct({ code: Schema.String })) }),
-});
-const Message = Schema.fromJsonString(Schema.Union([Diagnostic, Schema.Struct({ reason: Schema.String })]));
+const Command = Schema.Struct({ args: Schema.NonEmptyArray(Schema.String), trailing: Schema.optionalKey(Schema.Array(Schema.String)), report: Schema.Literals(['messages', 'tests', 'status']) });
+const Cargo = Schema.Struct({ cwd: Schema.String, commands: Schema.NonEmptyArray(Command), package: Schema.optionalKey(Schema.String), args: Schema.optionalKey(Schema.Array(Schema.String)) });
+const Diagnostic = Schema.Struct({ reason: Schema.Literal('compiler-message'), manifest_path: Schema.String, message: Schema.Struct({ level: Schema.String, rendered: Schema.NullOr(Schema.String) }) });
+const Artifact = Schema.Struct({ reason: Schema.Literal('compiler-artifact'), manifest_path: Schema.String, target: Schema.Struct({ kind: Schema.Array(Schema.String) }) });
+const Suite = Schema.Struct({ type: Schema.Literal('suite'), event: Schema.Literals(['ok', 'failed']), nextest: Schema.Struct({ crate: Schema.String }) });
+const Failed = Schema.Struct({ type: Schema.Literal('test'), event: Schema.Literal('failed'), name: Schema.String, stdout: Schema.optionalKey(Schema.String) });
+const Message = Schema.fromJsonString(Schema.Union([Diagnostic, Artifact, Suite, Failed, Schema.Record(Schema.String, Schema.Unknown)]));
 
 type Command = typeof Command.Type;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const ran = (cwd: string, args: readonly string[], warnings?: typeof Cargo.Type.warnings) =>
+const ran = (cwd: string, args: readonly string[], env: Readonly<Record<string, string>> = {}) =>
     Effect.scoped(
         Effect.gen(function* () {
-            const path = yield* Path.Path;
-            const handle = yield* ChildProcess.make('cargo', args, { cwd, extendEnv: true, stdin: 'inherit', ...(warnings === undefined ? {} : { env: { CARGO_BUILD_WARNINGS: warnings } }) });
-            const [lines, stderr, code] = yield* Effect.all(
+            const handle = yield* ChildProcess.make('cargo', args, { cwd, extendEnv: true, stdin: 'inherit', env });
+            const [lines, diagnosed, code] = yield* Effect.all(
                 [
                     Stream.splitLines(Stream.decodeText(handle.stdout)).pipe(
                         Stream.mapAccum(HashSet.empty<string>, (seen, line) => {
                             const message = Schema.decodeOption(Message)(line);
-                            const diagnostic = Option.map(Option.filter(message, Schema.is(Diagnostic)), (held) => ({ ...held, root: path.dirname(held.manifest_path) }));
-                            const shown = Option.match(diagnostic, { onNone: () => (Option.isSome(message) ? '' : `${line}\n`), onSome: ({ message: { rendered } }) => rendered ?? '' });
-                            return [HashSet.add(seen, shown), [{ text: HashSet.has(seen, shown) ? '' : shown, diagnostic }]];
+                            const shown = Option.match(message, { onNone: () => `${line}\n`, onSome: (held) => (Schema.is(Diagnostic)(held) ? (held.message.rendered ?? '') : '') });
+                            return [HashSet.add(seen, shown), [{ text: HashSet.has(seen, shown) ? '' : shown, message }]];
                         }),
-                        Stream.tap(({ text }) => Effect.sync(() => process.stdout.write(text))),
+                        Stream.tap(({ text }) => Effect.sync(() => stdout.write(text))),
                         Stream.runCollect,
                     ),
-                    Stream.mkString(Stream.tap(Stream.decodeText(handle.stderr), (chunk) => Effect.sync(() => process.stderr.write(chunk)))),
+                    Stream.mkString(Stream.tap(Stream.decodeText(handle.stderr), (chunk) => Effect.sync(() => stderr.write(chunk)))),
                     handle.exitCode,
                 ],
                 { concurrency: 'unbounded' },
             );
-            const diagnostics = lines.flatMap(({ diagnostic, text }) => Option.toArray(Option.map(diagnostic, (held) => ({ ...held, text }))));
-            return {
-                code,
-                log: [...lines.map(({ text }) => text), stderr].join(''),
-                rendered: Record.map(Array.groupBy(diagnostics, ({ root }) => root), (held) => held.map(({ text }) => text).join('')),
-                errored: new Set(diagnostics.filter(({ message: { level } }) => level.startsWith('error')).map(({ root }) => root)),
-                failing: new Set(diagnostics.filter(({ message: { level, code: lint } }) => level.startsWith('error') || (warnings === 'deny' && level === 'warning' && lint !== null)).map(({ root }) => root)),
-            };
+            return { code, log: [...lines.map(({ text }) => text), diagnosed].join(''), messages: lines.flatMap(({ message }) => Option.toArray(message)) };
         }),
     );
 
-const decided = (
-    context: ExecutorContext,
-    inputs: Readonly<Record<string, typeof Cargo.Type>>,
-    command: Command,
-    tasks: Array.NonEmptyReadonlyArray<Pick<Task, 'id' | 'target'>>,
-): Effect.Effect<Record<string, TaskResult>, never, Path.Path | ChildProcessSpawner.ChildProcessSpawner> =>
+const decided = (context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, command: Command, tasks: Array.NonEmptyReadonlyArray<Pick<Task, 'id' | 'target'>>): Effect.Effect<Record<string, TaskResult>, never, Path.Path | ChildProcessSpawner.ChildProcessSpawner> =>
     Effect.gen(function* () {
         const path = yield* Path.Path;
         const { nodes, dependencies } = context.projectGraph;
         const root = (project: string) => path.resolve(context.root, nodes[project]?.data.root ?? '.');
         const options = inputs[tasks[0].id];
+        const { flags, env } = REPORTS[command.report];
         const run = yield* Effect.orDie(
             ran(
                 path.resolve(context.root, options?.cwd ?? '.'),
                 [
                     ...command.args,
                     ...tasks.flatMap(({ id, target: { project } }) => Option.toArray(Option.fromUndefinedOr(inputs[id]?.package)).flatMap((name) => ['--package', `${pathToFileURL(root(project)).href}#${name}`])),
-                    ...(command.trailing === undefined ? [] : ['--', ...command.trailing]),
+                    ...(command.trailing === undefined ? flags : ['--', ...command.trailing, ...flags]),
                     ...(options?.args ?? []),
                 ],
-                options?.warnings,
+                env,
             ),
         );
-        const broken = new Set(Record.keys(Record.filter(nodes, (_, project) => run.errored.has(root(project)))));
-        const reaches = (project: string, seen: ReadonlySet<string>): boolean =>
-            (dependencies[project] ?? []).some(({ target }) => !seen.has(target) && (broken.has(target) || reaches(target, new Set([...seen, target]))));
-        const [settled, rest] = Array.partition(tasks, (task) =>
-            run.failing.has(root(task.target.project))
-                ? Result.succeed([task.id, { success: false, terminalOutput: run.rendered[root(task.target.project)] ?? '' }] as const)
-                : reaches(task.target.project, new Set([task.target.project]))
-                  ? Result.succeed([task.id, { success: false, status: 'skipped', terminalOutput: '' }] as const)
-                  : Result.fail(task),
-        );
-        const remaining = Array.match(rest, {
-            onEmpty: () => Effect.succeed(Record.empty<string, TaskResult>()),
-            onNonEmpty: (held) => {
-                const [left, right] = Array.splitAtNonEmpty(held, Math.ceil(held.length / 2));
-                return run.code === 0
-                    ? Effect.succeed(Record.fromIterableWith(held, (task): readonly [string, TaskResult] => [task.id, { success: true, terminalOutput: run.rendered[root(task.target.project)] ?? '' }]))
-                    : settled.length > 0
-                      ? decided(context, inputs, command, held)
-                      : Array.match(right, {
-                            onEmpty: () => Effect.succeed({ [held[0].id]: { success: false, terminalOutput: run.log } }),
-                            onNonEmpty: (other) => Effect.map(Effect.all([decided(context, inputs, command, left), decided(context, inputs, command, other)]), ([first, second]) => ({ ...first, ...second })),
-                        });
-            },
+        const diagnostics = run.messages.filter(Schema.is(Diagnostic)).map((held) => ({ ...held, root: path.dirname(held.manifest_path) }));
+        const errored = new Set(diagnostics.filter(({ message: { level } }) => level.startsWith('error')).map(({ root: at }) => at));
+        const built = new Set(run.messages.filter(Schema.is(Artifact)).flatMap(({ manifest_path, target: { kind } }) => (kind.includes('custom-build') ? [] : [path.dirname(manifest_path)])));
+        const suites = Array.groupBy(run.messages.filter(Schema.is(Suite)), ({ nextest }) => nextest.crate);
+        const output = (at: string, name: string) => [...diagnostics.filter(({ root: held }) => held === at).map(({ message: { rendered } }) => rendered ?? ''), ...run.messages.filter(Schema.is(Failed)).flatMap((held) => (held.name.startsWith(`${name}::`) ? [`${held.name}\n${held.stdout ?? ''}`] : []))].join('');
+        const broken = new Set(Record.keys(Record.filter(nodes, (_, project) => errored.has(root(project)))));
+        const reaches = (project: string, seen: ReadonlySet<string>): boolean => (dependencies[project] ?? []).some(({ target }) => !seen.has(target) && (broken.has(target) || reaches(target, new Set([...seen, target]))));
+        const results = tasks.map(({ id, target: { project } }) => {
+            const [at, name] = [root(project), inputs[id]?.package ?? ''];
+            const reported = suites[name] ?? [];
+            const proven = { messages: built.has(at), tests: reported.length > 0, status: false }[command.report];
+            return { id, own: errored.has(at) || reported.some(({ event }) => event === 'failed'), blocked: reaches(project, new Set([project])), proven, terminalOutput: output(at, name) };
         });
-        return { ...Record.fromEntries(settled), ...(yield* remaining) };
+        const attributed = results.some(({ own }) => own);
+        return Record.fromIterableWith(results, ({ id, own, blocked, proven, terminalOutput }): readonly [string, TaskResult] => [
+            id,
+            Match.value({ passed: run.code === 0 || (proven && !(own || blocked)), own, held: blocked || attributed }).pipe(
+                Match.when({ passed: true }, (): TaskResult => ({ success: true, terminalOutput })),
+                Match.when({ own: true }, (): TaskResult => ({ success: false, terminalOutput })),
+                Match.when({ held: true }, (): TaskResult => ({ success: false, status: 'skipped', terminalOutput: '' })),
+                Match.orElse((): TaskResult => ({ success: false, terminalOutput: run.log })),
+            ),
+        ]);
     });
 
 const decoded = (inputs: Readonly<Record<string, unknown>>) =>
@@ -117,14 +105,20 @@ const decoded = (inputs: Readonly<Record<string, unknown>>) =>
 
 const scheduled = (context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, tasks: readonly Pick<Task, 'id' | 'target'>[]) =>
     Effect.reduce(
-        Record.values(Array.groupBy(tasks, ({ id }) => JSON.stringify([inputs[id]?.cwd, inputs[id]?.commands, inputs[id]?.warnings, inputs[id]?.args]))),
+        Record.values(Array.groupBy(tasks, ({ id }) => JSON.stringify([inputs[id]?.cwd, inputs[id]?.commands, inputs[id]?.args]))),
         () => Record.empty<string, TaskResult>(),
         (done, group) =>
-            Effect.reduce(inputs[group[0].id]?.commands ?? [], () => done, (held, command) =>
-                Array.match(group.filter(({ id }) => held[id]?.success !== false), {
-                    onEmpty: () => Effect.succeed(held),
-                    onNonEmpty: (ready) => Effect.map(decided(context, inputs, command, ready), (results) => ({ ...held, ...results })),
-                }),
+            Effect.reduce(
+                inputs[group[0].id]?.commands ?? [],
+                () => done,
+                (held, command) =>
+                    Array.match(
+                        group.filter(({ id }) => held[id]?.success !== false),
+                        {
+                            onEmpty: () => Effect.succeed(held),
+                            onNonEmpty: (ready) => Effect.map(decided(context, inputs, command, ready), (results) => ({ ...held, ...results })),
+                        },
+                    ),
             ),
     ).pipe(Effect.provide(layer));
 
@@ -132,15 +126,10 @@ const scheduled = (context: ExecutorContext, inputs: Readonly<Record<string, typ
 
 const execute = (options: unknown, context: ExecutorContext) => {
     const id = `${context.projectName}:${context.targetName}`;
-    return Effect.runPromise(
-        Effect.flatMap(decoded({ [id]: options }), (inputs) => scheduled(context, inputs, [{ id, target: { project: context.projectName ?? '', target: context.targetName ?? '' } }])).pipe(
-            Effect.map((results) => ({ success: Record.values(results).every(({ success }) => success) })),
-        ),
-    );
+    return Effect.runPromise(Effect.flatMap(decoded({ [id]: options }), (inputs) => scheduled(context, inputs, [{ id, target: { project: context.projectName ?? '', target: context.targetName ?? '' } }])).pipe(Effect.map((results) => ({ success: Record.values(results).every(({ success }) => success) }))));
 };
 
-const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) =>
-    Effect.runPromise(Effect.flatMap(decoded(inputs), (held) => scheduled(context, held, Record.values(taskGraph.tasks))));
+const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) => Effect.runPromise(Effect.flatMap(decoded(inputs), (held) => scheduled(context, held, Record.values(taskGraph.tasks))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

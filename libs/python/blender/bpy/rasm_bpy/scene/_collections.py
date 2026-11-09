@@ -130,7 +130,7 @@ def _linked(collection: bpy.types.Collection, member: _Member, *, linked: bool) 
 
 def active_editable(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Collection]:
     """Returns active collection or nearest editable included ancestor."""
-    active: bpy.types.LayerCollection = view_layer.active_layer_collection  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    active: bpy.types.LayerCollection = view_layer.active_layer_collection  # ty: ignore[invalid-assignment]
     path = next((*ancestors, node) for node, ancestors in _walked(view_layer.layer_collection) if node == active)
     return Option.of_optional(next((layer.collection for layer in reversed(tuple(takewhile(lambda layer: not layer.exclude, path))) if _editable(layer.collection)), None)).to_result_with(
         lambda: Fault.of(Reason.ABSENT, repr(view_layer), member="active_layer_collection")
@@ -233,7 +233,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                         answers.append(
                             changed.bind(
                                 lambda change: accumulated(
-                                    catch(held.__setitem__, exception=ReferenceError)(name, replacement).map_error(partial(Fault.of, Reason.REFUSED, f"{held!r}[{name!r}]"))  # type: ignore[index]  # ty: ignore[unresolved-attribute]
+                                    catch(held.__setitem__, exception=ReferenceError)(name, replacement).map_error(partial(Fault.of, Reason.REFUSED, f"{held!r}[{name!r}]"))  # ty: ignore[unresolved-attribute]
                                     for replacement in change.to_list()
                                 ).map(lambda _: None)
                             )

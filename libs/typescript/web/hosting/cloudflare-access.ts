@@ -2,9 +2,9 @@ import { Config, Effect, Layer, Option, Schema } from 'effect';
 import { SecureRandom, Signature } from 'effect/crypto';
 import { FetchHttpClient, Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Jwks, Jwt } from 'effect/jose';
-import type { accessBinding } from '#/cloudflare.ts';
-import { HostingError } from '#/error.ts';
-import { User } from '#/user.ts';
+import type { accessBinding } from '#/cloudflare';
+import { HostingError } from '#/error';
+import { User } from '#/user';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

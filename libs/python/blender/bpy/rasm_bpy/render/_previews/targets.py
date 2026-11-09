@@ -75,24 +75,24 @@ _LIGHTING: Final = PreviewLighting()
 class NodePreviews(bpy.types.PropertyGroup):
     """Node preview settings of extension preferences, the previews rendering under their lighting and drawing by their thumbnail members."""
 
-    enabled: bpy.props.BoolProperty(name="Show Previews", description="Thumbnails over node editor nodes", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    automatic: bpy.props.BoolProperty(name="Auto Update", description="Changed nodes render again", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    scope: bpy.props.EnumProperty(name="Scope", description="Nodes that take a thumbnail", items=enum_choices(PreviewScope))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    every: bpy.props.BoolProperty(name="All Linked Outputs", description="Every linked output side by side")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    frames: bpy.props.BoolProperty(name="Follow Frame", description="Render again on frame change and during playback")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    fields: bpy.props.BoolProperty(name="Field Nodes", description="Shader nodes of geometry trees as swatches", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    surface: bpy.props.EnumProperty(name="Surface", description="Shader preview surface", items=SURFACES, default=_LIGHTING.surface.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    ambient: bpy.props.EnumProperty(name="Ambient", description="Shader preview ambient light", items=case_choices(Ambient), default=Studio.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    world: bpy.props.StringProperty(name="World", description="Studio light environment", default=Studio().name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    strength: bpy.props.FloatProperty(name="World Light", description="Ambient light strength", min=0.0, max=10.0, default=_LIGHTING.strength)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    key: bpy.props.FloatProperty(name="Key Light", description="Key sun strength", min=0.0, max=20.0, default=_LIGHTING.key)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    scale: bpy.props.FloatProperty(name="Thumbnail Size", description="Share of node width", subtype="FACTOR", min=0.25, max=3.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    position: bpy.props.EnumProperty(name="Position", description="Node side holding thumbnail", items=enum_choices(Position))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_enlarge: bpy.props.BoolProperty(name="Enlarge Active Node", description="Active node thumbnail larger on top")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    enlarge: bpy.props.FloatProperty(name="Enlarge", description="Active node scale while enlarged", min=1.25, max=6.0, default=2.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    checker: bpy.props.BoolProperty(name="Checkerboard", description="Theme checker behind thumbnails")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    values: bpy.props.BoolProperty(name="Show Values", description="Number on uniform swatches", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    limit: bpy.props.IntProperty(name="Cached Thumbnails", description="Thumbnails kept in GPU memory and on disk", min=16, max=4096, default=256)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    enabled: bpy.props.BoolProperty(name="Show Previews", description="Thumbnails over node editor nodes", default=True)  # ty: ignore[invalid-type-form]
+    automatic: bpy.props.BoolProperty(name="Auto Update", description="Changed nodes render again", default=True)  # ty: ignore[invalid-type-form]
+    scope: bpy.props.EnumProperty(name="Scope", description="Nodes that take a thumbnail", items=enum_choices(PreviewScope))  # ty: ignore[invalid-type-form]
+    every: bpy.props.BoolProperty(name="All Linked Outputs", description="Every linked output side by side")  # ty: ignore[invalid-type-form]
+    frames: bpy.props.BoolProperty(name="Follow Frame", description="Render again on frame change and during playback")  # ty: ignore[invalid-type-form]
+    fields: bpy.props.BoolProperty(name="Field Nodes", description="Shader nodes of geometry trees as swatches", default=True)  # ty: ignore[invalid-type-form]
+    surface: bpy.props.EnumProperty(name="Surface", description="Shader preview surface", items=SURFACES, default=_LIGHTING.surface.name)  # ty: ignore[invalid-type-form]
+    ambient: bpy.props.EnumProperty(name="Ambient", description="Shader preview ambient light", items=case_choices(Ambient), default=Studio.__name__)  # ty: ignore[invalid-type-form]
+    world: bpy.props.StringProperty(name="World", description="Studio light environment", default=Studio().name)  # ty: ignore[invalid-type-form]
+    strength: bpy.props.FloatProperty(name="World Light", description="Ambient light strength", min=0.0, max=10.0, default=_LIGHTING.strength)  # ty: ignore[invalid-type-form]
+    key: bpy.props.FloatProperty(name="Key Light", description="Key sun strength", min=0.0, max=20.0, default=_LIGHTING.key)  # ty: ignore[invalid-type-form]
+    scale: bpy.props.FloatProperty(name="Thumbnail Size", description="Share of node width", subtype="FACTOR", min=0.25, max=3.0, default=1.0)  # ty: ignore[invalid-type-form]
+    position: bpy.props.EnumProperty(name="Position", description="Node side holding thumbnail", items=enum_choices(Position))  # ty: ignore[invalid-type-form]
+    use_enlarge: bpy.props.BoolProperty(name="Enlarge Active Node", description="Active node thumbnail larger on top")  # ty: ignore[invalid-type-form]
+    enlarge: bpy.props.FloatProperty(name="Enlarge", description="Active node scale while enlarged", min=1.25, max=6.0, default=2.5)  # ty: ignore[invalid-type-form]
+    checker: bpy.props.BoolProperty(name="Checkerboard", description="Theme checker behind thumbnails")  # ty: ignore[invalid-type-form]
+    values: bpy.props.BoolProperty(name="Show Values", description="Number on uniform swatches", default=True)  # ty: ignore[invalid-type-form]
+    limit: bpy.props.IntProperty(name="Cached Thumbnails", description="Thumbnails kept in GPU memory and on disk", min=16, max=4096, default=256)  # ty: ignore[invalid-type-form]
 
     @property
     def lighting(self) -> PreviewLighting:
@@ -104,8 +104,8 @@ class NodePreviews(bpy.types.PropertyGroup):
 class NodeSetting(bpy.types.PropertyGroup):
     """Node thumbnail settings."""
 
-    use_output: bpy.props.BoolProperty(name="Pick Output", description="Show the named output, first linked when off")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    output: bpy.props.StringProperty(name="Output", description="Name of the shown output")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    use_output: bpy.props.BoolProperty(name="Pick Output", description="Show the named output, first linked when off")  # ty: ignore[invalid-type-form]
+    output: bpy.props.StringProperty(name="Output", description="Name of the shown output")  # ty: ignore[invalid-type-form]
 
 
 class Editor(msgspec.Struct, frozen=True, kw_only=True):
@@ -321,7 +321,7 @@ def _rendered(identity: Identity, preview: PreviewScene, target: PreviewTarget, 
 
     def swatched() -> Outcome[bpy.types.Material]:
         def defaulted(socket: bpy.types.NodeSocket) -> Option[Value]:
-            definition: bpy.types.Struct = socket.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            definition: bpy.types.Struct = socket.bl_rna  # ty: ignore[invalid-assignment]
             try:
                 prop = definition.properties["default_value"]
             except KeyError:

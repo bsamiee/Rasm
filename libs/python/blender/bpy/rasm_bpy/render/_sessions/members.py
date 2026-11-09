@@ -47,20 +47,20 @@ _OWNERSHIP: Final = Ownership(kind=bpy.types.Scene, key="render_set", saved=Save
 class Sets(bpy.types.PropertyGroup):
     """File render set settings."""
 
-    form: bpy.props.EnumProperty(name="Render Sets", description="Copied scenes or view layers of one scene", items=enum_choices(Form), default=Form.LAYERS.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    across: bpy.props.BoolProperty(name="Edit Across", description="Copy category edits to unlocked members")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    form: bpy.props.EnumProperty(name="Render Sets", description="Copied scenes or view layers of one scene", items=enum_choices(Form), default=Form.LAYERS.name)  # ty: ignore[invalid-type-form]
+    across: bpy.props.BoolProperty(name="Edit Across", description="Copy category edits to unlocked members")  # ty: ignore[invalid-type-form]
 
 
 class Membership(bpy.types.PropertyGroup):
     """Sync lock of a member view layer, the host's `use` its render inclusion."""
 
-    locked: bpy.props.BoolProperty(name="Locked")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    locked: bpy.props.BoolProperty(name="Locked")  # ty: ignore[invalid-type-form]
 
 
 class SceneMembership(Membership):
     """Sync lock and render inclusion of a member scene."""
 
-    rendered: bpy.props.BoolProperty(name="Render", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    rendered: bpy.props.BoolProperty(name="Render", default=True)  # ty: ignore[invalid-type-form]
 
 
 class Category(msgspec.Struct, frozen=True, kw_only=True):
@@ -228,7 +228,7 @@ def _added(members: Members, source: bpy.types.Scene, name: str) -> Outcome[bpy.
     """Copies source as retained member under name, the host suffixing a taken name."""
 
     def copied() -> Outcome[bpy.types.Scene]:
-        scene: bpy.types.Scene = source.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        scene: bpy.types.Scene = source.copy()  # ty: ignore[invalid-assignment]
         return Ok(scene)
 
     return _OWNERSHIP.made(members.identity, copied, of=Some(source)).bind(lambda scene: assigned(scene, {("name",): name}).map(lambda _: scene))

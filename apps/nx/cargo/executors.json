@@ -3,13 +3,13 @@
         "cargo": {
             "implementation": "./dist/executors/cargo/executor#execute",
             "batchImplementation": "./dist/executors/cargo/executor#batch",
-            "schema": "./dist/executors/cargo/schema.json",
+            "schema": "./executors/cargo/schema.json",
             "preferBatch": true,
-            "description": "Runs cargo commands, merging every task of one command into one cargo process and deciding each task from its package's diagnostics"
+            "description": "Runs cargo commands, merging every task of one command into one cargo process and deciding each task from its package's report"
         },
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
-            "schema": "./dist/executors/release-publish/schema.json",
+            "schema": "./executors/release-publish/schema.json",
             "description": "Publishes a crate with cargo publish, skipping a version the registry already holds"
         }
     }

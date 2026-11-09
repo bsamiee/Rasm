@@ -4,7 +4,7 @@ import { Field } from '@rasm/ui';
 import { Optic } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { PlacementFields } from '#/editor/placement-fields.tsx';
-import { draft, hero, portfolio } from '#/editor/state.ts';
+import { draft, hero, portfolio } from '#/editor/state';
 import { MediaFigure } from '#/media/media-figure.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -14,7 +14,7 @@ from threading import Event
 from types import MappingProxyType
 from typing import Final, NoReturn, Protocol, runtime_checkable
 
-import _bpy  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]  # ruff: ignore[import-private-name]
+import _bpy  # ty: ignore[import-not-found]  # ruff: ignore[import-private-name]
 import bpy
 from expression import Option, Result, Some
 from expression.collections import Block
@@ -167,7 +167,7 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
 
         def subscribed() -> Outcome[None]:
             """Subscribes the key under owner."""
-            bpy.msgbus.subscribe_rna(key=(self.owner, self.setting.identifier), owner=owner, args=(), notify=notified)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            bpy.msgbus.subscribe_rna(key=(self.owner, self.setting.identifier), owner=owner, args=(), notify=notified)  # ty: ignore[invalid-argument-type]
             return Ok(None)
 
         with ExitStack() as stack:
@@ -339,7 +339,7 @@ class Registration:
         """Yields the acquired identity or registration faults, releasing acquisitions at scope exit."""
 
         def merged() -> None:
-            manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
             manager.keyconfigs.update(keep_properties=True)
 
         def registered(stack: ExitStack, identity: Identity) -> Outcome[None]:

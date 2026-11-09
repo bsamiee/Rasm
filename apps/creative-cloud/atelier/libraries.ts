@@ -5,7 +5,7 @@ import { Illustrator } from '@rasm/illustrator';
 import { InDesign } from '@rasm/indesign';
 import { Photoshop } from '@rasm/photoshop';
 import { Array, Layer } from 'effect';
-import { atelierLink } from '#/atelier-link.ts';
+import { atelierLink } from '#/atelier-link';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -4,6 +4,24 @@ import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtin
 // --- [STEPS] ----------------------------------------------------------------------------
 
 steps {
+    ["biome"] = (Builtins.biome) {
+        glob = "**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,grit}"
+        check { command { argv = List("biome", "check", "--error-on-warnings", "--no-errors-on-unmatched", "{{files}}") } }
+        fix { command { argv = List("biome", "check", "--write", "--error-on-warnings", "--no-errors-on-unmatched", "{{files}}") } }
+    }
+    ["dotnet-format"] {
+        glob = "**/*.cs"
+        check = new CommandSpec { command = new Command { argv = List("dotnet", "format", "whitespace", "--folder", "--verify-no-changes", "--include", "{{files}}") }; effect = "read" }
+        fix = new CommandSpec { command = new Command { argv = List("dotnet", "format", "whitespace", "--folder", "--include", "{{files}}") }; effect = "write" }
+    }
+    ["hk"] {
+        glob = ".config/hk.pkl"
+        check = new CommandSpec { command = new Command { argv = List("hk", "validate", "--deny-warnings") }; effect = "read" }
+    }
+    ["plutil"] {
+        glob = "**/*.{plist,entitlements}"
+        check = new CommandSpec { command = new Command { argv = List("plutil", "-lint", "-s", "{{files}}") }; effect = "read" }
+    }
     ["ruff"] = Builtins.ruff
     ["ruff-format"] = (Builtins.ruff_format) { depends = "ruff" }
     ["rustfmt"] = (Builtins.rustfmt) {
@@ -17,11 +35,12 @@ steps {
     ["swiftlint"] = (Builtins.swiftlint) {
         check { command { argv = List("swiftlint", "lint", "--quiet", "{{files}}") } }
         fix { command { argv = List("swiftlint", "lint", "--fix", "--quiet", "{{files}}") } }
+        diagnostic_format = "gcc-paren"
     }
     ["swift-format"] {
         glob = "**/*.swift"
         depends = "swiftlint"
-        check =new CommandSpec { command = new Command { argv = List("swift", "format", "lint", "--strict", "--parallel", "{{files}}") }; effect = "read" }
+        check = new CommandSpec { command = new Command { argv = List("swift", "format", "lint", "--strict", "--parallel", "{{files}}") }; effect = "read" }
         fix = new CommandSpec { command = new Command { argv = List("swift", "format", "format", "--in-place", "--parallel", "{{files}}") }; effect = "write" }
         diagnostic_format = "gcc"
     }
@@ -30,6 +49,11 @@ steps {
     ["xcprojformatter"] {
         glob = "**/project.xcproj"
         check_diff = new CommandSpec { command = new Command { argv = List("hk", "util", "format-diff", "{{files}}", "--", "xcrun", "xcprojformatter") }; effect = "read" }
+    }
+    ["yamllint"] = (Builtins.yamllint) {
+        batch = true
+        check { command { argv = List("yamllint", "--format", "parsable", "{{files}}") } }
+        diagnostic_format = "gcc-paren"
     }
 }
 

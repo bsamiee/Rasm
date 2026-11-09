@@ -117,7 +117,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         return paired(_pixels(image), Snapshot.capture(image, Some(members))).map(lambda pair: Some(content_hash(bpy.types.Image, pair[1], settings, arrays=(pair[0], *packed))))
 
     def graph(owner: bpy.types.NodeTree | bpy.types.Node) -> Prepared:
-        tree: bpy.types.NodeTree = owner if isinstance(owner, bpy.types.NodeTree) else owner.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        tree: bpy.types.NodeTree = owner if isinstance(owner, bpy.types.NodeTree) else owner.id_data  # ty: ignore[invalid-assignment]
         nodes = tuple(sorted(tree.nodes, key=lambda item: item.name)) if isinstance(owner, bpy.types.NodeTree) else _upstream(owner)
         reached = frozenset(nodes)
         settings = Descriptor.saved(tree, lambda prop: not isinstance(prop, bpy.types.CollectionProperty))

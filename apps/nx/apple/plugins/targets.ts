@@ -1,25 +1,29 @@
-import type { TargetConfiguration } from '@nx/devkit';
-import { Effect, type Path, Schema, Stream } from 'effect';
+import { findPackageJSON } from 'node:module';
+import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
+import { Effect, FileSystem, Path, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
-import type { Run } from '../executors/run/executor.ts';
-import manifest from '../package.json' with { type: 'json' };
+import type { Run } from '#/executors/run/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Options {
-    readonly trustPackages?: boolean;
-}
 interface Part {
     readonly root: string;
     readonly name: string;
     readonly file: string;
     readonly technologies: readonly string[];
     readonly targets: Readonly<Record<string, TargetConfiguration>>;
+    readonly release?: NonNullable<ProjectConfiguration['release']>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TOOLCHAIN: NonNullable<TargetConfiguration['inputs']> = [{ env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, { externalDependencies: [] }];
+const ANALYZER = 'nx-apple-analyzer';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String }));
+const Editor = Schema.fromJsonString(Schema.Struct({ swiftPM: Schema.Struct({ scratchPath: Schema.String }) }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -30,6 +34,15 @@ class AppleError extends Schema.TaggedError<AppleError, { readonly brand: unique
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const core = Effect.gen(function* () {
+    const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
+    const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
+    const folder = path.dirname(located);
+    const { name, version } = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
+    const analyzer = Effect.map(Effect.flatMap(fs.readFileString(path.join(folder, '.sourcekit-lsp', 'config.json')), Schema.decodeEffect(Editor)), (editor) => path.resolve(folder, editor.swiftPM.scratchPath, 'release', ANALYZER));
+    return { name, version, folder, analyzer };
+});
 
 const spawned = (command: string, args: readonly string[], options: { readonly cwd: string; readonly input?: string }) =>
     Effect.scoped(
@@ -46,8 +59,8 @@ const spawned = (command: string, args: readonly string[], options: { readonly c
 
 const tokened = (path: Path.Path, at: string) => (path.isAbsolute(at) || at.startsWith('..') ? [] : [path.join('{workspaceRoot}', at)]);
 
-const target = (runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, extra: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
-    executor: `${manifest.name}:run`,
+const target = (plugin: string, runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, extra: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
+    executor: `${plugin}:run`,
     options: { runs },
     metadata,
     ...extra,
@@ -55,4 +68,4 @@ const target = (runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetCon
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AppleError, type Options, type Part, spawned, TOOLCHAIN, target, tokened };
+export { AppleError, core, type Part, spawned, TOOLCHAIN, target, tokened };

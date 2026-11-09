@@ -1,6 +1,6 @@
 import { Array, Effect, Schema, Struct } from 'effect';
-import { Settings } from '#/settings.ts';
-import { Justification } from '#/shaping/justification.ts';
+import { Settings } from '#/settings';
+import { Justification } from '#/shaping/justification';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

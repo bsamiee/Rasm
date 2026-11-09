@@ -3,8 +3,8 @@ import { Automation } from '@rasm/applications/node';
 import { Content, Resource, Route } from '@rasm/mcp';
 import { Array, Effect, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
-import { Adobe } from '#/adobe.ts';
-import type { routes } from '#/routes.ts';
+import { Adobe } from '#/adobe';
+import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -210,7 +210,7 @@ pub fn compose_partial(layers: NEVec<Layer>) -> (Model, Vec<IfcError>) {
     };
     let holders = nodes.iter().flat_map(|holder| holder.children.iter().map(move |(name, child)| (child.path.clone(), (name.clone(), Arc::clone(holder))))).into_group_map();
     let holding = nodes.iter().flat_map(|node| node.attributes.keys().map(move |id| (id, node))).fold(HashMap::<Box<str>, Vec<_>>::new(), |mut held, (id, node)| {
-        held.entry_ref(id).or_default().push(Arc::clone(node));
+        held.entry_ref(&**id).or_default().push(Arc::clone(node));
         held
     });
     (Model { schemas, heads, roots, nodes, holders, holding }, failures)

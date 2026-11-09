@@ -279,20 +279,20 @@ class TermFiltering(msgspec.Struct, frozen=True, kw_only=True):
 class Switched(bpy.types.PropertyGroup):
     """Owned stack selected by node group name, its items the extension's stacks."""
 
-    stack: bpy.props.EnumProperty(name="Stack", description="Owned layer stack", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    stack: bpy.props.EnumProperty(name="Stack", description="Owned layer stack", items=())  # ty: ignore[invalid-type-form]
 
 
 class Copied(bpy.types.PropertyGroup):
     """One layer of another stack, its items the extension's stacks and the chosen stack's layer rows."""
 
-    stack: bpy.props.EnumProperty(name="Stack", description="Owned layer stack", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    layer: bpy.props.EnumProperty(name="Layer", description="Layer of the chosen stack", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    stack: bpy.props.EnumProperty(name="Stack", description="Owned layer stack", items=())  # ty: ignore[invalid-type-form]
+    layer: bpy.props.EnumProperty(name="Layer", description="Layer of the chosen stack", items=())  # ty: ignore[invalid-type-form]
 
 
 class NodeKind(bpy.types.PropertyGroup):
     """Source node class to create."""
 
-    node: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    node: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
         name="Node Type",
         description="Compositor node class of the source",
         items=choices(
@@ -307,60 +307,60 @@ class NodeKind(bpy.types.PropertyGroup):
 class LayerEdit(bpy.types.PropertyGroup):
     """Edit of the layer, effect, or mask a target case names by its indices."""
 
-    action: bpy.props.EnumProperty(name="Edit", items=enum_choices(Edit))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    kind: bpy.props.EnumProperty(name="Target", description="Layer, effect, or mask edited", items=case_choices(StackTarget))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    layer: bpy.props.IntProperty(name="Layer", description="Bottom-first layer index", min=0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    entry: bpy.props.IntProperty(name="Effect", description="Effect index within the layer", min=0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    mask: bpy.props.IntProperty(name="Mask", description="Mask index within the blend", min=0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    action: bpy.props.EnumProperty(name="Edit", items=enum_choices(Edit))  # ty: ignore[invalid-type-form]
+    kind: bpy.props.EnumProperty(name="Target", description="Layer, effect, or mask edited", items=case_choices(StackTarget))  # ty: ignore[invalid-type-form]
+    layer: bpy.props.IntProperty(name="Layer", description="Bottom-first layer index", min=0)  # ty: ignore[invalid-type-form]
+    entry: bpy.props.IntProperty(name="Effect", description="Effect index within the layer", min=0)  # ty: ignore[invalid-type-form]
+    mask: bpy.props.IntProperty(name="Mask", description="Mask index within the blend", min=0)  # ty: ignore[invalid-type-form]
 
 
 class OutputChoice(bpy.types.PropertyGroup):
     """Enabled source output chosen for one layer."""
 
-    layer: bpy.props.IntProperty(name="Layer", description="Bottom-first layer index", min=0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    output: bpy.props.StringProperty(name="Output", description="Source output name")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    layer: bpy.props.IntProperty(name="Layer", description="Bottom-first layer index", min=0)  # ty: ignore[invalid-type-form]
+    output: bpy.props.StringProperty(name="Output", description="Source output name")  # ty: ignore[invalid-type-form]
 
 
 class PassSourced(bpy.types.PropertyGroup):
     """View layer output a render pass layer reads."""
 
-    layer: bpy.props.EnumProperty(name="View Layer", description="Source view layer", items=_views)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    output: bpy.props.StringProperty(name="Pass", description="Render Layers output name", default=_IMAGE)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    layer: bpy.props.EnumProperty(name="View Layer", description="Source view layer", items=_views)  # ty: ignore[invalid-type-form]
+    output: bpy.props.StringProperty(name="Pass", description="Render Layers output name", default=_IMAGE)  # ty: ignore[invalid-type-form]
 
 
 class RecombinedSourced(bpy.types.PropertyGroup):
     """View layer and the terms a recombined layer sums."""
 
-    layer: bpy.props.EnumProperty(name="View Layer", description="Source view layer", items=_views)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    recombination: bpy.props.EnumProperty(name="Sum", description="Light passes or light groups summed into beauty", items=case_choices(Recombination))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    layer: bpy.props.EnumProperty(name="View Layer", description="Source view layer", items=_views)  # ty: ignore[invalid-type-form]
+    recombination: bpy.props.EnumProperty(name="Sum", description="Light passes or light groups summed into beauty", items=case_choices(Recombination))  # ty: ignore[invalid-type-form]
 
 
 class LayerRow(bpy.types.PropertyGroup):
     """List row of one layer under the layer's name, its order and flags the stack composites by."""
 
-    key: bpy.props.StringProperty(name="Key", description="Layer key its inputs and nodes sit under", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    visible: bpy.props.BoolProperty(name="Visible", description="Composite layer", default=True, options=set())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    solo: bpy.props.BoolProperty(name="Solo", description="Composite soloed layers alone", options=set())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    matte: bpy.props.BoolProperty(name="Matte", description="Track the layer beneath as this layer's matte", options=set())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    key: bpy.props.StringProperty(name="Key", description="Layer key its inputs and nodes sit under", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
+    visible: bpy.props.BoolProperty(name="Visible", description="Composite layer", default=True, options=set())  # ty: ignore[invalid-type-form]
+    solo: bpy.props.BoolProperty(name="Solo", description="Composite soloed layers alone", options=set())  # ty: ignore[invalid-type-form]
+    matte: bpy.props.BoolProperty(name="Matte", description="Track the layer beneath as this layer's matte", options=set())  # ty: ignore[invalid-type-form]
 
 
 class LayerRows(bpy.types.PropertyGroup):
     """Layer rows of one stack, bottom first."""
 
-    layers: bpy.props.CollectionProperty(type=LayerRow, name="Layers", description="Layers bottom first")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    layers: bpy.props.CollectionProperty(type=LayerRow, name="Layers", description="Layers bottom first")  # ty: ignore[invalid-type-form]
 
 
 class StackView(bpy.types.PropertyGroup):
     """Screen's active layer index, bottom-first layer order."""
 
-    active: bpy.props.IntProperty(name="Active Layer", description="Bottom-first index of the edited layer", min=0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    active: bpy.props.IntProperty(name="Active Layer", description="Bottom-first index of the edited layer", min=0)  # ty: ignore[invalid-type-form]
 
 
 class StackLook(bpy.types.PropertyGroup):
     """Stack preset the scene's head stack takes, its effects mixed by Strength, its items the stack presets."""
 
-    look: bpy.props.EnumProperty(name="Stack Look", description="Stack preset the head stack takes", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    strength: bpy.props.IntProperty(name="Strength", description="Share each preset effect mixes over its input, in percent", subtype="PERCENTAGE", min=0, max=200, default=100)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    look: bpy.props.EnumProperty(name="Stack Look", description="Stack preset the head stack takes", items=())  # ty: ignore[invalid-type-form]
+    strength: bpy.props.IntProperty(name="Strength", description="Share each preset effect mixes over its input, in percent", subtype="PERCENTAGE", min=0, max=200, default=100)  # ty: ignore[invalid-type-form]
 
 
 # --- [LENSES] ---------------------------------------------------------------------------

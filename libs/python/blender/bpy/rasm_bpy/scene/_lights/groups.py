@@ -77,7 +77,7 @@ class Ungrouped(Case, frozen=True, kw_only=True):
 class Split(bpy.types.PropertyGroup):
     """Ray kinds split light reaches through children."""
 
-    lobes: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    lobes: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
         name="Lobes",
         description="Ray kinds with one split child each",
         items=tuple((lobe.value, lobe.label, bpy.types.Object.bl_rna.properties[lobe.value].description) for lobe in _Lobe),
@@ -121,12 +121,12 @@ _GROUPINGS: Final = case_choices(Grouping)
 class Assignment(bpy.types.PropertyGroup):
     """Light group rule per emitter kind and world with the owners it writes to."""
 
-    lights: bpy.props.EnumProperty(name="Lights", description="Group of each light object", items=_GROUPINGS, default=PerEmitter.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    emissive: bpy.props.EnumProperty(name="Emissive", description="Group of each emissive object", items=_GROUPINGS, default=Shared.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    world: bpy.props.EnumProperty(name="World", description="World light group", items=_GROUPINGS, default=PerEmitter.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    shared: bpy.props.StringProperty(name="Shared Group", description="Group every holder of a shared rule joins", default=Shared().name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    scope: scope_choice(Scenes)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    lights: bpy.props.EnumProperty(name="Lights", description="Group of each light object", items=_GROUPINGS, default=PerEmitter.__name__)  # ty: ignore[invalid-type-form]
+    emissive: bpy.props.EnumProperty(name="Emissive", description="Group of each emissive object", items=_GROUPINGS, default=Shared.__name__)  # ty: ignore[invalid-type-form]
+    world: bpy.props.EnumProperty(name="World", description="World light group", items=_GROUPINGS, default=PerEmitter.__name__)  # ty: ignore[invalid-type-form]
+    shared: bpy.props.StringProperty(name="Shared Group", description="Group every holder of a shared rule joins", default=Shared().name)  # ty: ignore[invalid-type-form]
+    scope: scope_choice(Scenes)  # ty: ignore[invalid-type-form]
+    collection: SCOPE_COLLECTION  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

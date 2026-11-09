@@ -21,31 +21,221 @@ catalog:
 
     # --- [PARSING]
 
+    plist: 5.0.0 # Property-list parser and builder
+    yaml: 3.0.0-2
     '@decimalturn/toml-patch': 3.3.2 # TOML edits keeping layout and comments
+    acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
+    acorn-walk: 8.3.5 # ESTree syntax tree walker
+
+    # --- [MARKUP]
+
+    fast-xml-builder: 1.3.1
+    fast-xml-parser: 5.11.2
+    cheerio: 1.2.0 # HTML parser for Acrobat accessibility report rows and server-rendered page templates
+
+    # --- [TEXT]
+
+    validator: 13.15.35
+    '@types/validator': 13.15.10
+
+    # --- [SEARCH]
+
+    '@leeoniya/ufuzzy': 1.0.19 # Typo-tolerant ranking of MCP completion values and missed-name candidates
+
+    # --- [FILES]
+
+    '@parcel/watcher': 2.6.0
+    minimatch: 11.0.3
+
+    # --- [REMOTE_PROCEDURE_CALLS]
+
+    vscode-languageserver-protocol: 3.18.5 # Typed LSP requests and stdio connection for argus MCP server
+
+    # --- [TRANSFER]
+
+    '@aws-sdk/client-s3': 3.1161.0
+    partial-content: 5.0.0
+    '@uppy/core': 6.3.1
+    '@uppy/dashboard': 6.0.2
+    '@uppy/react': 6.1.0
+    '@uppy/xhr-upload': 6.0.1
+
+    # --- [USER_INTERFACE]
+
+    embla-carousel-react: 9.0.0-rc04
+    react-zoom-pan-pinch: 4.2.0
+    react: 19.3.0
+    react-dom: 19.3.0
+    '@types/react': 19.3.0
+    '@types/react-dom': 19.3.0
+    react-aria-components: 3.0.0-nightly-99e610236-261006
+    react-error-boundary: 6.1.6
+    scheduler: 0.28.0
+    '@effect/atom-react': 4.1.2
+    '@use-gesture/react': 10.3.1
+
+    # --- [STYLING]
+
+    tailwindcss: 4.3.3
+    tailwindcss-react-aria-components: 3.0.0-nightly-99e610236-261006
 
     # --- [ICONS]
 
+    lucide-react: 1.66.0
     bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
+
+    # --- [ANIMATION]
+
+    motion: 14.9.0
+
+    # --- [DATA_STORAGE]
+
+    '@effect/sql-pg': 4.1.2
+    '@effect/sql-sqlite-node': 4.1.2
+    '@effect/sql-d1': 4.1.2
+    '@pgsql/traverse': 18.8.3
+    '@pgsql/types': 18.0.0
+    pgsql-parser: 18.3.3
+
+    # --- [COLOR]
+
+    culori: 4.0.2 # Deficiency filters, monotone splines, nearest color
+    '@types/culori': 4.0.1
+
+    # --- [IMAGING]
+
+    image-size: 2.0.4 # Image width and height read from encoded bytes
+
+    # --- [TYPOGRAPHY]
+
+    icu: 2.4.0 # ICU4X Unicode properties, joining types, and scripts compiled to WebAssembly
+    harfbuzzjs: 1.6.4 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
+    fontkit: 2.0.4
+    '@types/fontkit': 2.0.9
+    quran-meta: 7.0.0 # Quran divisions per riwayah
+    '@quran.ws/text': 0.1.0 # Mushaf text, marks, pages, lines, and words
+
+    # --- [DOCUMENTS]
+
+    pdfjs-dist: 6.4.299
+
+    # --- [ADOBE_HOSTS]
+
+    types-for-adobe: 7.2.6
+    '@adobe-uxp-types/uxp': 0.1.4
+    '@adobe-uxp-types/photoshop': 0.1.8
+    indesign-uxp-types: 1.0.0
+    '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
+
+    # --- [INFRASTRUCTURE]
+
+    '@pulumi/pulumi': "3.274.0-alpha.x95dc869"
+    '@pulumi/postgresql': "3.19.0-alpha.1793376798"
+    '@pulumi/tls': "5.7.0-alpha.1793431378"
+    '@pulumi/random': "4.22.0-alpha.1792650729"
+    '@pulumi/docker': "5.3.0-alpha.1793426566"
+    '@pulumi/docker-build': "0.1.0-alpha.1793426269"
+    '@pulumi/minio': "1.0.0-alpha.1789107308"
+    '@pulumi/github': "6.16.0-alpha.1793373074"
 
     # --- [COMPILERS]
 
     '@effect/tsgo': 0.67.5 # Effect diagnostics for native TypeScript compiler and language server
     typescript: 7.1.0-dev.20261106.1 # Native TypeScript release `@effect/tsgo` supports
+    '@swc/wasm': 1.16.21
     '@types/node': 26.6.6
 
     # --- [BUILD]
 
+    '@cloudflare/vite-plugin': 2.0.0-beta.v.12
+    '@openai/sites-vite-plugin': 0.2.0
+    '@cloudflare/build-output-utils': 0.9.10 # Build Output tree reader for hosting programs
+    '@cloudflare/config': 0.30.2 # `cloudflare.config.ts` uncached loader and parser for hosting programs
+    cf: 1.0.0-beta.28 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
     nx: 24.0.5
     '@nx/devkit': 24.0.5
+    '@nx/js': 24.0.5
+    '@nx/playwright': 24.0.5
+    '@nx/vitest': 24.0.5
+    vite-plugin-static-copy: 4.1.1
+    vite: 8.3.6
+    '@vitejs/plugin-react': 6.2.1
+    oxc-transform-react: 0.156.0
+    '@tailwindcss/vite': 4.3.3
+    '@rolldown/plugin-babel': 0.3.0
+    postcss: 8.5.32
+    '@vite-pwa/assets-generator': 2.0.0 # Favicon, Apple touch icon and head links from one painted master
+    '@types/web-app-manifest': 1.0.9
+    '@vitejs/devtools': 0.8.0
+
+    # --- [LINTING]
+
+    '@biomejs/biome': 2.6.6
 
     # --- [VERSIONING]
 
     '@renovatebot/pep440': 6.0.0 # PEP 440 version comparison
 
+    # --- [TESTING]
+
+    vitest: 5.1.0
+    '@effect/vitest': 4.1.2
+    '@vitest/browser-playwright': 5.1.0
+    '@vitest/ui': 5.1.0
+    vitest-browser-react: 2.3.0
+    '@playwright/test': 1.66.0-alpha-2026-11-07
+    '@axe-core/playwright': 4.14.1-b609be2.0.sha-b609be2
+    storybook: 11.0.0-beta.0
+    '@storybook/react-vite': 11.0.0-beta.0
+    '@storybook/addon-vitest': 11.0.0-beta.0
+    '@storybook/addon-a11y': 11.0.0-beta.0
+    '@storybook/addon-docs': 11.0.0-beta.0
+    '@cloudflare/vitest-plugin': 1.6.0
+    testcontainers: 12.2.1
+    '@testcontainers/postgresql': 12.2.1
+
+catalogs:
+
+    # --- [PEERS]
+
+    peers:
+        vite: ^8.0.0
+        react: ^19.0.0
+        react-dom: ^19.0.0
+        effect: ^4.0.0
+        '@uppy/core': ^6.0.0
+        react-aria-components: ^3.0.0-0
+        '@effect/atom-react': ^4.0.0
+        '@effect/sql-pg': ^4.0.0
+        '@effect/sql-d1': ^4.0.0
+        pdfjs-dist: ^6.0.0
+        typescript: '>=7.1.0-0'
+        '@pulumi/pulumi': ^3.274.0-0
+
+# --- [OVERRIDES] ------------------------------------------------------------------------
+
+overrides:
+    '@pulumi/pulumi': 'catalog:'
+    '@use-gesture/react>react': 'catalog:'
+    '@effect/atom-react>scheduler': 'catalog:'
+    vite>yaml: 'catalog:'
+    vite>@vitejs/devtools: 'catalog:'
+    '@vitejs/plugin-react>oxc-transform-react': 'catalog:'
+    '@vitejs/plugin-react>@rolldown/plugin-babel': 'catalog:'
+
 # --- [BUILDS] ---------------------------------------------------------------------------
 
 allowBuilds:
+    '@launchql/protobufjs': false
+    '@parcel/watcher': true
+    '@pulumi/docker': false
+    '@pulumi/docker-build': false
+    cpu-features: false
+    esbuild: true
     nx: true
+    protobufjs: true
+    ssh2: false
+    workerd: true
 
 # --- [SKILLS] ---------------------------------------------------------------------------
 

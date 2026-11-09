@@ -1,0 +1,41 @@
+{
+    "name": "@rasm/media",
+    "private": true,
+    "description": "Media inspection, Uppy upload preprocessing, and pdf.js document viewing in the browser, with the Vite copy of pdf.js assets",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./pdf-document": "./pdf-document.ts",
+        "./pdf-viewer": "./pdf-viewer.tsx",
+        "./vite": "./vite.ts"
+    },
+    "dependencies": {
+        "@use-gesture/react": "catalog:",
+        "vite-plugin-static-copy": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "@uppy/core": "catalog:",
+        "effect": "catalog:",
+        "pdfjs-dist": "catalog:",
+        "react": "catalog:",
+        "vite": "catalog:"
+    },
+    "peerDependencies": {
+        "@uppy/core": "catalog:peers",
+        "effect": "catalog:peers",
+        "pdfjs-dist": "catalog:peers",
+        "react": "catalog:peers",
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "vite": {
+            "optional": true
+        }
+    }
+}

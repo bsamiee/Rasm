@@ -28,7 +28,7 @@ class Update(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, item: bpy.types.DepsgraphUpdate) -> Self:
         """Copies native update during handler call."""
-        block: bpy.types.ID = item.id  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        block: bpy.types.ID = item.id  # ty: ignore[invalid-assignment]
         return cls(handle=Handle.of(block), changes=Change.of(item))
 
 
@@ -68,10 +68,10 @@ def instances(depsgraph: bpy.types.Depsgraph) -> tuple[_Instance, ...]:
     """Copies object instances in iterator order, sources and instancers as their originals."""
 
     def copied(item: bpy.types.DepsgraphObjectInstance) -> _Instance:
-        source: bpy.types.Object = item.object.original  # type: ignore[union-attr, assignment]  # ty: ignore[unresolved-attribute, invalid-assignment]
+        source: bpy.types.Object = item.object.original  # ty: ignore[unresolved-attribute, invalid-assignment]
 
         def instancing(parent: bpy.types.Object) -> _Instancing:
-            instancer: bpy.types.Object = parent.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            instancer: bpy.types.Object = parent.original  # ty: ignore[invalid-assignment]
             return _Instancing(
                 instancer=instancer,
                 persistent_id=tuple(np.asarray(item.persistent_id).tolist()),

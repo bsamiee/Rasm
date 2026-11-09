@@ -96,7 +96,7 @@ class _Arranger(msgspec.Struct, frozen=True, kw_only=True):
 
 def _measured(node: bpy.types.Node, /) -> tuple[float, float]:
     """Returns drawn node width and height in node space, `Node.dimensions` over `PreferencesSystem.ui_scale`."""
-    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
     size, scale = node.dimensions, preferences.system.ui_scale
     return size.x / scale, size.y / scale
 

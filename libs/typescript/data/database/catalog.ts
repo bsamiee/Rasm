@@ -1,12 +1,12 @@
 import { D1Client } from '@effect/sql-d1';
 import { Array, Data, type Duration, Effect, Layer, Option, String, Struct } from 'effect';
 import { SqlClient, type Statement } from 'effect/sql';
-import { atomic } from '#/atomic.ts';
-import { Column } from '#/column.ts';
-import { ReconcileError } from '#/error.ts';
-import { Engine } from '#/internal/engine.ts';
-import { refusals } from '#/internal/reconcile.ts';
-import type { Relation } from '#/relation.ts';
+import { atomic } from '#/atomic';
+import { Column } from '#/column';
+import { ReconcileError } from '#/error';
+import { Engine } from '#/internal/engine';
+import { refusals } from '#/internal/reconcile';
+import type { Relation } from '#/relation';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -36,26 +36,26 @@ type LightData = bpy.types.PointLight | bpy.types.SpotLight | bpy.types.AreaLigh
 class Solo(bpy.types.PropertyGroup):
     """Emitter visibility before solo, held while solo hides the emitter."""
 
-    hidden: bpy.props.BoolProperty(name="Hidden", description="Solo hides the emitter")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    render: bpy.props.BoolProperty(name="Render", description="Shown in renders before solo", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    viewport: bpy.props.BoolProperty(name="Viewport", description="Shown in viewports before solo", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    hidden: bpy.props.BoolProperty(name="Hidden", description="Solo hides the emitter")  # ty: ignore[invalid-type-form]
+    render: bpy.props.BoolProperty(name="Render", description="Shown in renders before solo", default=True)  # ty: ignore[invalid-type-form]
+    viewport: bpy.props.BoolProperty(name="Viewport", description="Shown in viewports before solo", default=True)  # ty: ignore[invalid-type-form]
 
 
 class Bulk(bpy.types.PropertyGroup):
     """Multiplier on power and emission of emitters in scope, with a blackbody color for every light."""
 
-    scope: scope_choice(Scenes)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    factor: bpy.props.FloatProperty(name="Factor", description="Power and emission strength multiplier", min=0.0, soft_min=0.1, soft_max=10.0, precision=3, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_temperature: bpy.props.BoolProperty(name="Write Temperature", description="Write a blackbody color to every light")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    temperature: _redeclared(_TEMPERATURE.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    scope: scope_choice(Scenes)  # ty: ignore[invalid-type-form]
+    collection: SCOPE_COLLECTION  # ty: ignore[invalid-type-form]
+    factor: bpy.props.FloatProperty(name="Factor", description="Power and emission strength multiplier", min=0.0, soft_min=0.1, soft_max=10.0, precision=3, default=1.0)  # ty: ignore[invalid-type-form]
+    use_temperature: bpy.props.BoolProperty(name="Write Temperature", description="Write a blackbody color to every light")  # ty: ignore[invalid-type-form]
+    temperature: _redeclared(_TEMPERATURE.prop)  # ty: ignore[invalid-type-form]
 
 
 class Emissives(bpy.types.PropertyGroup):
     """Scope of emissive objects to select."""
 
-    scope: scope_choice(Scenes)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    scope: scope_choice(Scenes)  # ty: ignore[invalid-type-form]
+    collection: SCOPE_COLLECTION  # ty: ignore[invalid-type-form]
 
 
 class _LightList(msgspec.Struct, frozen=True, kw_only=True):

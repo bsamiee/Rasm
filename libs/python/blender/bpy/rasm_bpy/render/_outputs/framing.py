@@ -35,8 +35,8 @@ type Extents = Whole | RenderRegion
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_PIXELS: Final[bpy.types.IntProperty] = bpy.types.RenderSettings.bl_rna.properties["resolution_x"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-_SELECTED: Final[bpy.types.CollectionProperty] = bpy.types.LayerObjects.bl_rna.properties["selected"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_PIXELS: Final[bpy.types.IntProperty] = bpy.types.RenderSettings.bl_rna.properties["resolution_x"]  # ty: ignore[invalid-assignment]
+_SELECTED: Final[bpy.types.CollectionProperty] = bpy.types.LayerObjects.bl_rna.properties["selected"]  # ty: ignore[invalid-assignment]
 _RESOLUTION: Final = Descriptor(root=bpy.types.RenderSettings, prop=_PIXELS)
 _EDGES: Final = (("left", "border_min_x"), ("bottom", "border_min_y"), ("right", "border_max_x"), ("top", "border_max_y"))
 _CAMERA_VIEW: Final = Setting(descriptor=Descriptor(root=bpy.types.RegionView3D, prop=bpy.types.RegionView3D.bl_rna.properties["view_perspective"]), accepted=("CAMERA",))
@@ -194,7 +194,7 @@ class Grown(msgspec.Struct, frozen=True, kw_only=True):
 class Overscan(bpy.types.PropertyGroup):
     """Overscan a whole-frame render grows by."""
 
-    overscan: bpy.props.FloatProperty(name="Overscan", description="Share of frame side added past each edge, camera widened to keep view", min=0.0, soft_max=0.25, precision=3)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    overscan: bpy.props.FloatProperty(name="Overscan", description="Share of frame side added past each edge, camera widened to keep view", min=0.0, soft_max=0.25, precision=3)  # ty: ignore[invalid-type-form]
 
 
 class Framed(msgspec.Struct, frozen=True, kw_only=True):

@@ -37,7 +37,7 @@ from rasm_records import accumulated, Fault, Nothing, Outcome, paired, Reason, R
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_TEMPERATURE: Final = Descriptor[bpy.types.FloatProperty](root=bpy.types.Light, prop=bpy.types.Light.bl_rna.properties["temperature"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+_TEMPERATURE: Final = Descriptor[bpy.types.FloatProperty](root=bpy.types.Light, prop=bpy.types.Light.bl_rna.properties["temperature"])  # ty: ignore[invalid-argument-type]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -45,14 +45,14 @@ _TEMPERATURE: Final = Descriptor[bpy.types.FloatProperty](root=bpy.types.Light, 
 class MeshLight(bpy.types.PropertyGroup):
     """Emissive square a person edits as one light."""
 
-    size: bpy.props.FloatProperty(name="Size", description="Square edge length", subtype="DISTANCE", min=0.0, soft_min=0.0254, soft_max=3.048, default=0.9144)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    strength: bpy.props.FloatProperty(name="Strength", description="Emission strength", min=0.0, soft_max=100.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    color: bpy.props.FloatVectorProperty(name="Color", description="Emission filter", subtype="COLOR", size=3, default=(1.0, 1.0, 1.0))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_temperature: bpy.props.BoolProperty(name="Blackbody", description="Filter a blackbody color", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    temperature: _redeclared(_TEMPERATURE.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    single_sided: bpy.props.BoolProperty(name="Single Sided", description="Front face alone emits", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    constant: bpy.props.BoolProperty(name="Constant Falloff", description="Strength equal at every distance")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    camera: bpy.props.BoolProperty(name="Camera", description="Visible to camera")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    size: bpy.props.FloatProperty(name="Size", description="Square edge length", subtype="DISTANCE", min=0.0, soft_min=0.0254, soft_max=3.048, default=0.9144)  # ty: ignore[invalid-type-form]
+    strength: bpy.props.FloatProperty(name="Strength", description="Emission strength", min=0.0, soft_max=100.0, default=1.0)  # ty: ignore[invalid-type-form]
+    color: bpy.props.FloatVectorProperty(name="Color", description="Emission filter", subtype="COLOR", size=3, default=(1.0, 1.0, 1.0))  # ty: ignore[invalid-type-form]
+    use_temperature: bpy.props.BoolProperty(name="Blackbody", description="Filter a blackbody color", default=True)  # ty: ignore[invalid-type-form]
+    temperature: _redeclared(_TEMPERATURE.prop)  # ty: ignore[invalid-type-form]
+    single_sided: bpy.props.BoolProperty(name="Single Sided", description="Front face alone emits", default=True)  # ty: ignore[invalid-type-form]
+    constant: bpy.props.BoolProperty(name="Constant Falloff", description="Strength equal at every distance")  # ty: ignore[invalid-type-form]
+    camera: bpy.props.BoolProperty(name="Camera", description="Visible to camera")  # ty: ignore[invalid-type-form]
 
 
 class _MeshLights(msgspec.Struct, frozen=True, kw_only=True):

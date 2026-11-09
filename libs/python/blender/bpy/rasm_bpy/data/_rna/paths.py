@@ -55,7 +55,7 @@ def _parsed(text: str) -> Outcome[RnaPath]:
 
 def _definition(struct: Native | type[Struct]) -> bpy.types.Struct:
     """Returns the RNA definition of a live struct, a collection holding its own definition, or a struct type."""
-    held: bpy.types.Struct = struct.bl_rna  # type: ignore[assignment, union-attr]  # ty: ignore[invalid-assignment, unresolved-attribute]
+    held: bpy.types.Struct = struct.bl_rna  # ty: ignore[invalid-assignment, unresolved-attribute]
     return held
 
 
@@ -185,7 +185,7 @@ def _preferred[T](preferences: bpy.types.Preferences, package: str, write: Calla
 
 def root_in[K: Native](root: type[K], context: bpy.types.Context) -> Option[K]:
     """Returns the root of type the context holds: the context, add-on preferences by `bl_idname`, else the first `Context` pointer typed to hold it."""
-    preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
     candidates: Iterable[object]
     if root is bpy.types.Context:
         candidates = (context,)

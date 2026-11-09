@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Release publish",
+    "description": "Publishes each host package the project's build wrote to its host's package server, skipping distributions the server holds and a project nx release left unversioned",
+    "type": "object",
+    "properties": {
+        "registry": { "type": "string", "description": "Package server URL nx release publish passes as --registry, in place of the host's default server" },
+        "dryRun": { "type": "boolean", "description": "Reads the packages and the server and prints each upload without sending it" },
+        "nxReleaseVersionData": { "type": "object", "description": "Versions nx release resolved per project" }
+    }
+}

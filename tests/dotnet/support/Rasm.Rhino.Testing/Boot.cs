@@ -13,8 +13,7 @@ var arguments = JsonSerializer.Deserialize<string[]>(Environment.GetEnvironmentV
 var tests = new Suite(path, AssemblyLoadContext.GetLoadContext(typeof(RhinoApp).Assembly)).LoadFromAssemblyPath(path);
 typeof(Assembly).GetMethod("SetEntryAssembly", [typeof(Assembly)]).Invoke(null, [tests]);
 new Thread(() => {
-    try { if (tests.EntryPoint.Invoke(null, new object[] { arguments }) is Task task) task.GetAwaiter().GetResult(); }
-    finally { RhinoApp.InvokeOnUiThread(new Action(() => RhinoApp.Exit(false))); }
+    try { if (tests.EntryPoint.Invoke(null, new object[] { arguments }) is Task task) task.GetAwaiter().GetResult(); } finally { RhinoApp.InvokeOnUiThread(new Action(() => RhinoApp.Exit(false))); }
 }) { IsBackground = true }.Start();
 
 // --- [SERVICES] ------------------------------------------------------------------------

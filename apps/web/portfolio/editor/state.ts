@@ -1,9 +1,9 @@
 import { Array, Effect, Optic, Record, Schema, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { AsyncResult, Atom, AtomHttpApi } from 'effect/reactivity';
-import { Api, type Recovery } from '#/model/api.ts';
-import type { AssetId } from '#/model/asset.ts';
-import { type Entry, type EntryId, Portfolio } from '#/model/portfolio.ts';
+import { Api, type Recovery } from '#/model/api';
+import type { AssetId } from '#/model/asset';
+import { type Entry, type EntryId, Portfolio } from '#/model/portfolio';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

@@ -2,19 +2,42 @@
     "name": "@rasm/nx-cargo",
     "version": "0.0.0",
     "description": "Nx plugin inferring Cargo workspaces, crates, checks, and releases from cargo's own output",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm",
+        "directory": "apps/nx/cargo"
+    },
     "license": "MIT",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
         ".": "./plugins/project-graph.ts",
         "./release/version-actions": "./version-actions.ts",
         "./executors.json": "./executors.json",
         "./package.json": "./package.json"
     },
-    "executors": "./executors.json",
+    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "effect": "catalog:"
-    }
+    },
+    "peerDependencies": {
+        "nx": "catalog:"
+    },
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/plugins/project-graph.js",
+            "./release/version-actions": "./dist/version-actions.js",
+            "./executors.json": "./executors.json",
+            "./package.json": "./package.json"
+        },
+        "imports": {
+                "#/*": "./dist/*.js"
+        }
+    },
+    "executors": "./executors.json"
 }

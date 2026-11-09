@@ -437,7 +437,7 @@ def _constructed(source: _Source, rule: Metrics, texts: _Corpus, /) -> Outcome[t
     buildStatTable(font, [upright, *(({"tag": "ital", "name": "Italic", "values": [{"value": 1, "name": "Italic"}]},) if font["post"].italicAngle else ())], macNames=False)
     font["head"].modified = font["head"].created
     font.recalcTimestamp = False
-    return Ok((msgspec.structs.replace(source, metrics=vertical), ufo, font))  # ty: ignore[unsound-return-statement]
+    return Ok((msgspec.structs.replace(source, metrics=vertical), ufo, font))
 
 
 def _serialized(font: TTFont, /) -> bytes:
@@ -461,7 +461,7 @@ def _compiled(source: _Source, font: TTFont, /) -> Outcome[bytes]:
         epoch=round(source.info.created.timestamp()),
         **({"default_script": unicodedata.script(chr(source.face.genre.script.stem)).lower()} if isinstance(source.face, Face) else {}),
     )
-    return Ok(_serialized(font)).bind(lambda data: catch(exception=TAError)(hinting)(in_buffer=data).map_error(failed) if hinted else Ok(data))  # ty: ignore[unsound-return-statement]
+    return Ok(_serialized(font)).bind(lambda data: catch(exception=TAError)(hinting)(in_buffer=data).map_error(failed) if hinted else Ok(data))
 
 
 # --- [BUILD]

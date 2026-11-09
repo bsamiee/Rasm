@@ -1,0 +1,34 @@
+{
+    "name": "@rasm/nx-docker",
+    "version": "0.0.0",
+    "description": "Nx plugin inferring Compose projects, their checks, image builds, and service starts from docker compose's own output",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm",
+        "directory": "apps/nx/docker"
+    },
+    "license": "MIT",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./plugins/project-graph.ts",
+        "./package.json": "./package.json"
+    },
+    "files": [ "dist" ],
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "effect": "catalog:"
+    },
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/plugins/project-graph.js",
+            "./package.json": "./package.json"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
+    }
+}

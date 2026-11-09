@@ -3,16 +3,16 @@ import { Unmatched } from '@rasm/search';
 import { Array, Effect, Equal, Function, flow, Match, Number, Option, Order, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Variation } from 'harfbuzzjs';
-import { TypographyError } from '#/error.ts';
-import { Settings } from '#/settings.ts';
-import { Color } from '#/shaping/internal/color.ts';
-import { Layout } from '#/shaping/internal/layout.ts';
-import { Member } from '#/shaping/internal/member.ts';
-import { Metrics } from '#/shaping/internal/metrics.ts';
-import { Names } from '#/shaping/internal/names.ts';
-import { Profile } from '#/shaping/internal/profile.ts';
-import { Tables } from '#/shaping/internal/tables.ts';
-import type { Source } from '#/source.ts';
+import { TypographyError } from '#/error';
+import { Settings } from '#/settings';
+import { Color } from '#/shaping/internal/color';
+import { Layout } from '#/shaping/internal/layout';
+import { Member } from '#/shaping/internal/member';
+import { Metrics } from '#/shaping/internal/metrics';
+import { Names } from '#/shaping/internal/names';
+import { Profile } from '#/shaping/internal/profile';
+import { Tables } from '#/shaping/internal/tables';
+import type { Source } from '#/source';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

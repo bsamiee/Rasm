@@ -57,15 +57,15 @@ _CHANNELS: Final = ("RED", "GREEN", "BLUE", "ALPHA")
 class Compare(bpy.types.PropertyGroup):
     """Screen compare: the before frame's layout, split, and side."""
 
-    mode: bpy.props.EnumProperty(name="Compare", description="Before frame layout over the shown image", items=_MODES)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    split: bpy.props.FloatProperty(name="Split", description="Wipe position across the frame", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    swapped: bpy.props.BoolProperty(name="Swap", description="Draw the before frame right of or below the split")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    mode: bpy.props.EnumProperty(name="Compare", description="Before frame layout over the shown image", items=_MODES)  # ty: ignore[invalid-type-form]
+    split: bpy.props.FloatProperty(name="Split", description="Wipe position across the frame", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # ty: ignore[invalid-type-form]
+    swapped: bpy.props.BoolProperty(name="Swap", description="Draw the before frame right of or below the split")  # ty: ignore[invalid-type-form]
 
 
 class Showing(bpy.types.PropertyGroup):
     """Layout a show command toggles."""
 
-    mode: bpy.props.EnumProperty(name="Compare", description="Layout to show, hiding the before frame while it shows in this layout", items=_MODES)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    mode: bpy.props.EnumProperty(name="Compare", description="Layout to show, hiding the before frame while it shows in this layout", items=_MODES)  # ty: ignore[invalid-type-form]
 
 
 class _CompareLayout(msgspec.Struct, frozen=True, kw_only=True):
@@ -142,7 +142,7 @@ class _CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
 
         match canvas.space:
             case bpy.types.SpaceImageEditor(display_channels=channels) as space:
-                zoom: Iterable[float] = space.zoom  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+                zoom: Iterable[float] = space.zoom  # ty: ignore[unsound-assignment]
                 across, up = zoom
                 for compare in self.compare(bpy.context).to_list():
                     laid = _CompareLayout.of(compare, _framed(canvas.region), canvas.extent, (texture.width * across, texture.height * up), names, metrics, metrics.font(style))

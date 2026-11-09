@@ -50,7 +50,7 @@ class _Timing(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_SPLINE_POINT: Final[bpy.types.FloatProperty] = bpy.types.SplinePoint.bl_rna.properties["co"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_SPLINE_POINT: Final[bpy.types.FloatProperty] = bpy.types.SplinePoint.bl_rna.properties["co"]  # ty: ignore[invalid-assignment]
 _IRRADIANCE: Final = Descriptor(root=bpy.types.SunLight, prop=bpy.types.SunLight.bl_rna.properties["energy"])
 _CAMERA_ALONE: Final[Mapping[RnaPath, Value]] = MappingProxyType(dict[RnaPath, Value]({(name,): False for name in (*(lobe.value for lobe in _Lobe), "visible_shadow")}))
 _ZONES: Final = tuple(sorted(zoneinfo.available_timezones()))
@@ -61,33 +61,33 @@ _ZONES: Final = tuple(sorted(zoneinfo.available_timezones()))
 class SunSetup(bpy.types.PropertyGroup):
     """Scene sun setup: observer site, local timing, refraction, distance, and path objects."""
 
-    latitude: bpy.props.FloatProperty(name="Latitude", description="Angle north of equator", subtype="ANGLE", min=-math.pi / 2.0, max=math.pi / 2.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    longitude: bpy.props.FloatProperty(name="Longitude", description="Angle east of Greenwich", subtype="ANGLE", min=-math.pi, max=math.pi)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    north: bpy.props.FloatProperty(name="North", description="True north counterclockwise from +Y", subtype="ANGLE", min=-math.pi, max=math.pi)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    zone: bpy.props.StringProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    latitude: bpy.props.FloatProperty(name="Latitude", description="Angle north of equator", subtype="ANGLE", min=-math.pi / 2.0, max=math.pi / 2.0)  # ty: ignore[invalid-type-form]
+    longitude: bpy.props.FloatProperty(name="Longitude", description="Angle east of Greenwich", subtype="ANGLE", min=-math.pi, max=math.pi)  # ty: ignore[invalid-type-form]
+    north: bpy.props.FloatProperty(name="North", description="True north counterclockwise from +Y", subtype="ANGLE", min=-math.pi, max=math.pi)  # ty: ignore[invalid-type-form]
+    zone: bpy.props.StringProperty(  # ty: ignore[invalid-type-form]
         name="Time Zone",
         description="IANA time zone of site clock",
         default="UTC",
         search=lambda _setup, _context, text: tuple(zone for zone in _ZONES if text.casefold() in zone.casefold()),
         search_options={"SORT"},
     )
-    timing: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    timing: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
         name="Timing", description="Moment, or study keying one moment per frame", items=choices((timing.name, *timing.value) for timing in _Timing), default=_Timing.MOMENT.name
     )
-    year: bpy.props.IntProperty(name="Year", min=datetime.MINYEAR, max=datetime.MAXYEAR, default=2000)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    month: bpy.props.IntProperty(name="Month", min=1, max=12, default=1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    day: bpy.props.IntProperty(name="Day", description="Day of month, rolling into next month", min=1, max=31, default=1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    hour: bpy.props.IntProperty(name="Hour", description="Hour on site clock of the moment or first frame", min=0, max=23, default=12)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    minute: bpy.props.IntProperty(name="Minute", min=0, max=59)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    minutes: bpy.props.IntProperty(name="Minutes", description="Minutes between frames of a day study", min=1, max=1440, default=30)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    days: bpy.props.IntProperty(name="Days", description="Days between frames of a season study", min=1, max=366, default=30)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    frames: bpy.props.IntProperty(name="Frames", description="Frames a study keys", min=1, default=25)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    refraction: bpy.props.BoolProperty(name="Refraction", description="Apparent elevation", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    distance: bpy.props.FloatProperty(name="Distance", description="Sun and path distance from origin", subtype="DISTANCE", min=0.0, soft_max=304.8, default=15.24)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_paths: bpy.props.BoolProperty(name="Paths", description="Path objects visible to camera alone")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    sky_band: bpy.props.BoolProperty(name="Sky Band", description="Yearly sky band of sun", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    analemmas: bpy.props.BoolProperty(name="Analemmas", description="Hourly sun positions over year", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    bevel: bpy.props.FloatProperty(name="Bevel", description="Analemma tube radius", subtype="DISTANCE", min=0.0, soft_min=0.00635, soft_max=0.3048, default=0.0254)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    year: bpy.props.IntProperty(name="Year", min=datetime.MINYEAR, max=datetime.MAXYEAR, default=2000)  # ty: ignore[invalid-type-form]
+    month: bpy.props.IntProperty(name="Month", min=1, max=12, default=1)  # ty: ignore[invalid-type-form]
+    day: bpy.props.IntProperty(name="Day", description="Day of month, rolling into next month", min=1, max=31, default=1)  # ty: ignore[invalid-type-form]
+    hour: bpy.props.IntProperty(name="Hour", description="Hour on site clock of the moment or first frame", min=0, max=23, default=12)  # ty: ignore[invalid-type-form]
+    minute: bpy.props.IntProperty(name="Minute", min=0, max=59)  # ty: ignore[invalid-type-form]
+    minutes: bpy.props.IntProperty(name="Minutes", description="Minutes between frames of a day study", min=1, max=1440, default=30)  # ty: ignore[invalid-type-form]
+    days: bpy.props.IntProperty(name="Days", description="Days between frames of a season study", min=1, max=366, default=30)  # ty: ignore[invalid-type-form]
+    frames: bpy.props.IntProperty(name="Frames", description="Frames a study keys", min=1, default=25)  # ty: ignore[invalid-type-form]
+    refraction: bpy.props.BoolProperty(name="Refraction", description="Apparent elevation", default=True)  # ty: ignore[invalid-type-form]
+    distance: bpy.props.FloatProperty(name="Distance", description="Sun and path distance from origin", subtype="DISTANCE", min=0.0, soft_max=304.8, default=15.24)  # ty: ignore[invalid-type-form]
+    use_paths: bpy.props.BoolProperty(name="Paths", description="Path objects visible to camera alone")  # ty: ignore[invalid-type-form]
+    sky_band: bpy.props.BoolProperty(name="Sky Band", description="Yearly sky band of sun", default=True)  # ty: ignore[invalid-type-form]
+    analemmas: bpy.props.BoolProperty(name="Analemmas", description="Hourly sun positions over year", default=True)  # ty: ignore[invalid-type-form]
+    bevel: bpy.props.FloatProperty(name="Bevel", description="Analemma tube radius", subtype="DISTANCE", min=0.0, soft_min=0.00635, soft_max=0.3048, default=0.0254)  # ty: ignore[invalid-type-form]
 
 
 class _SolarCaption(ConditionalRow, frozen=True, kw_only=True):

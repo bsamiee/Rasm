@@ -1,8 +1,8 @@
 import { Array, Effect, Function, Number, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Buffer, BufferFlag, ClusterLevel, Direction, Feature, GlyphClass, GlyphFlag, otTagToLanguage, otTagToScript, shape } from 'harfbuzzjs';
-import { Settings } from '#/settings.ts';
-import type { Face } from '#/shaping/face.ts';
-import { Word } from '#/shaping/word.ts';
+import { Settings } from '#/settings';
+import type { Face } from '#/shaping/face';
+import { Word } from '#/shaping/word';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

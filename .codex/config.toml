@@ -39,7 +39,7 @@ url                         = "http://127.0.0.1:7404/"
 [mcp_servers.github]
 default_tools_approval_mode = "approve"
 url                         = "https://api.githubcopilot.com/mcp/"
-http_headers_helper         = "doppler secrets get GH_PROJECTS_TOKEN --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
+bearer_token_env_var        = "GH_PROJECTS_TOKEN"
 
 [mcp_servers.github.http_headers]
 X-MCP-Toolsets      = "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search"
@@ -49,21 +49,21 @@ X-MCP-Features      = "file_blame,issue_dependencies"
 [mcp_servers.exa]
 default_tools_approval_mode = "approve"
 url                         = "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run"
-http_headers_helper         = "doppler secrets get EXA_API_KEY --plain --project agent-runtime --config dev | jq -R '{\"x-api-key\": .}'"
+env_http_headers            = { x-api-key = "EXA_API_KEY" }
 
 [mcp_servers.context7]
 default_tools_approval_mode = "approve"
 url                         = "https://mcp.context7.com/mcp"
-http_headers_helper         = "doppler secrets get CONTEXT7_API_KEY --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
+bearer_token_env_var        = "CONTEXT7_API_KEY"
 
 [mcp_servers.deepwiki]
 default_tools_approval_mode = "approve"
 url                         = "https://mcp.deepwiki.com/mcp"
 
 [mcp_servers.greptile]
-url                 = "https://api.greptile.com/mcp"
-http_headers_helper = "doppler secrets get GREPTILE_API_KEY --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
-enabled             = false
+url                  = "https://api.greptile.com/mcp"
+bearer_token_env_var = "GREPTILE_API_KEY"
+enabled              = false
 
 [mcp_servers.openaiDeveloperDocs]
 default_tools_approval_mode = "approve"
@@ -75,7 +75,7 @@ url                         = "https://code.claude.com/docs/mcp"
 
 [mcp_servers.illustrator]
 url                 = "http://localhost:18412/v1/mcp"
-http_headers_helper = "eng/scripts/illustrator-token.sh"
+http_headers_helper = '''app=$(ps -o comm= -p "$(pgrep -x 'Adobe Illustrator')" | sed 's#/Contents/MacOS/.*##') && prefs=$(jq -r --arg version "$(defaults read "$app/Contents/Info" CFBundleShortVersionString)" 'select(has($version)) | input_filename | sub("\\.runConfig$"; "Adobe Illustrator Prefs")' "$HOME"/Library/Preferences/Adobe\ Illustrator*Settings/*/.runConfig) && rg -o '/AuthToken \[ [0-9]+[[:space:]]+([0-9a-f[:space:]]+)\]' -r '$1' "$prefs" | tr -d ' \t\n' | xxd -r -p | jq -R '{Authorization: "Bearer \(.)"}' '''
 
 [mcp_servers.arena]
 url     = "https://mcp.are.na/mcp"

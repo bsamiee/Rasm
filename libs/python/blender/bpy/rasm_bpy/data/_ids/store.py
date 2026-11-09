@@ -61,7 +61,7 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, block: T) -> Self:
         """Returns handle of block's original, an embedded tree naming its holder."""
-        held: T = block.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        held: T = block.original  # ty: ignore[invalid-assignment]
         return cls(kind=type(block), uid=holder(held).default_value(held).session_uid, embedded=held.is_embedded_data)
 
     def resolve(self: "Handle[T]") -> Outcome[T]:

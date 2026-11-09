@@ -86,7 +86,7 @@ def _pixels(image: bpy.types.Image) -> Outcome[npt.NDArray[np.float32]]:
 
 def aspect(image: bpy.types.Image) -> Outcome[float]:
     """Returns the default image buffer's displayed width to height, absent fault without a buffer."""
-    size: Iterable[int] = image.size  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+    size: Iterable[int] = image.size  # ty: ignore[unsound-assignment]
     (width, height), display = size, image.display_aspect
     return Ok(width * display.x / (height * display.y)) if width and height else Error(Fault.of(Reason.ABSENT, repr(image), member=image.filepath))
 
@@ -111,7 +111,7 @@ def normalized(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[
     """
     if image.source == "VIEWER" or image.type == "MULTILAYER":
         return Error(Fault.of(Reason.REQUIRED, repr(image), member="render encoding colorspace"))
-    settings: bpy.types.ColorManagedInputColorspaceSettings = image.colorspace_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    settings: bpy.types.ColorManagedInputColorspaceSettings = image.colorspace_settings  # ty: ignore[invalid-assignment]
     if settings.is_data:
         return _read(image, settings.name)
     refused = partial(Fault.of, Reason.REFUSED, repr(image))
@@ -128,8 +128,8 @@ def normalized(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[
                     output.file_format = "OPEN_EXR"
                     output.color_depth = "32"
                     output.color_mode = "RGBA"
-                    linear: bpy.types.ColorManagedInputColorspaceSettings = output.linear_colorspace_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                    linear.name = space  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                    linear: bpy.types.ColorManagedInputColorspaceSettings = output.linear_colorspace_settings  # ty: ignore[invalid-assignment]
+                    linear.name = space  # ty: ignore[invalid-assignment]
                     image.save_render(str(path), scene=scene)
                 except (RuntimeError, ValueError, TypeError) as error:
                     return Error(refused(error))
@@ -163,7 +163,7 @@ def _filled(image: bpy.types.Image, plane: npt.NDArray[np.float32]) -> Outcome[N
 
 def _straight(image: bpy.types.Image) -> bool:
     """Whether the image's byte buffer stores straight color under an alpha the host reads, which float buffers and data images never do."""
-    settings: bpy.types.ColorManagedInputColorspaceSettings = image.colorspace_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    settings: bpy.types.ColorManagedInputColorspaceSettings = image.colorspace_settings  # ty: ignore[invalid-assignment]
     return not image.is_float and image.channels == 4 and not settings.is_data and image.alpha_mode in {"STRAIGHT", "PREMUL"}
 
 

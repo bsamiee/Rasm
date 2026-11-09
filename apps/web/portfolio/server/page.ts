@@ -2,8 +2,8 @@ import { HostingError } from '@rasm/hosting';
 import { Template } from '@rasm/hosting/template';
 import { Effect, Struct } from 'effect';
 import { HttpRouter } from 'effect/http';
-import { readDocument } from '#/server/documents.ts';
-import { OwnerAccount } from '#/server/owner.ts';
+import { readDocument } from '#/server/documents';
+import { OwnerAccount } from '#/server/owner';
 import { shell } from '#/site/shell.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -8,8 +8,10 @@ description       = "BCF 2.1 and 3.0 issue archives over IFC5 models: topics, co
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
-path = "lib.rs"
-test = false
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

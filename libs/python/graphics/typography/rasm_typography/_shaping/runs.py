@@ -15,7 +15,7 @@ import msgspec
 lazy from fontTools.misc.transform import Offset
 lazy from fontTools.ttLib import getTableClass, TTFont
 lazy from fontTools.ttLib.ttFont import GlyphOrder
-lazy from uharfbuzz import Buffer, Face, Font, OTLayoutGlyphClass, shape  # type: ignore[import-untyped]  # ty: ignore[unresolved-import]
+lazy from uharfbuzz import Buffer, Face, Font, OTLayoutGlyphClass, shape  # ty: ignore[import-not-found]
 
 lazy from rasm_records import Fault, Ok, Outcome, read, Reason
 lazy from rasm_typography._faces.glyphs import _Outline, _traced
@@ -137,7 +137,7 @@ class _Binary[T: bytes | TTFont = bytes]:
     @cached_property
     def order(self) -> tuple[str, ...]:
         """Glyph names in the native face's glyph order."""
-        return tuple(map(self._font.glyph_to_string, range(self.face.glyph_count)))  # ty: ignore[unsound-return-statement]
+        return tuple(map(self._font.glyph_to_string, range(self.face.glyph_count)))
 
     @cached_property
     def tables(self) -> TTFont:

@@ -3,22 +3,19 @@ import { PgClient } from '@effect/sql-pg';
 import { assert, inject, it } from '@effect/vitest';
 import { Catalog, type Column, Relation } from '@rasm/database';
 import { pgClient } from '@rasm/database/pg-client';
-import { runCommand } from '@rasm/eng';
 import { nodeBundle } from '@rasm/hosting';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { Context, Effect, FileSystem, Layer, Option, Path, Redacted, Schema, String, Struct } from 'effect';
 import { Reactivity } from 'effect/reactivity';
 import { SqlClient, type SqlError } from 'effect/sql';
 import { PullPolicy } from 'testcontainers';
-import { afterAll } from 'vitest';
-import { cases } from '#/cases.ts';
+import { cases } from '#/cases';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 declare module 'vitest' {
     interface ProvidedContext {
         readonly artifacts: string;
-        readonly squawkConfig: string;
     }
 }
 
@@ -54,7 +51,6 @@ it.layer(
     ).pipe(Layer.provideMerge(layer)),
     { concurrent: false, timeout: '5 minutes' },
 )('container', (methods) => {
-    afterAll(() => Path.Path.use((path) => runCommand('squawk', ['--config', inject('squawkConfig'), '--no-error-on-unmatched-pattern', path.join(...plans, '*.sql')])).pipe(Effect.asVoid, Effect.provide(layer), Effect.runPromise));
     cases(methods, Container.client, {
         postgres: true,
         record: Effect.fnUntraced(function* (title, { preamble, statements, concurrent }) {

@@ -1,4 +1,4 @@
-import preview from '#/.storybook/preview.ts';
+import preview from '#/.storybook/preview';
 import { CustomProperties } from '#/custom-properties.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

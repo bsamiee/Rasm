@@ -4,10 +4,10 @@ import { motion } from 'motion/react';
 import { type ComponentProps, lazy, Suspense, useId, useRef } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal, Text } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import { descriptionLabel, format, placementTitle } from '#/media/labels.ts';
+import { descriptionLabel, format, placementTitle } from '#/media/labels';
 import { MediaElement } from '#/media/media-element.tsx';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
-import { Placement } from '#/model/placement.ts';
+import { Placement } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

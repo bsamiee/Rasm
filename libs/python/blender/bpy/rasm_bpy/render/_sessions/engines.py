@@ -117,7 +117,7 @@ class _Engine(msgspec.Struct, frozen=True, kw_only=True):
 
         def render(engine: bpy.types.RenderEngine, depsgraph: bpy.types.Depsgraph) -> None:
             """Writes body tiles into the render depsgraph's view layer, reporting each fault at ERROR level."""
-            layer: bpy.types.ViewLayer = depsgraph.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            layer: bpy.types.ViewLayer = depsgraph.view_layer  # ty: ignore[invalid-assignment]
             for _, text in _written(engine, layer.name, self.render(engine, depsgraph)).swap().map(_rendered).default_value(()):
                 engine.report({"ERROR"}, text)
 
@@ -165,8 +165,8 @@ class _Engine(msgspec.Struct, frozen=True, kw_only=True):
             return tuple({held.name: held for tile in tiles(scene, layer) for held, _ in tile.planes if held.name != cls.combined.name}.values())
 
         def render(_engine: bpy.types.RenderEngine, depsgraph: bpy.types.Depsgraph) -> Iterable[Outcome[_Tile]]:
-            scene: bpy.types.Scene = depsgraph.scene  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            layer: bpy.types.ViewLayer = depsgraph.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            scene: bpy.types.Scene = depsgraph.scene  # ty: ignore[invalid-assignment]
+            layer: bpy.types.ViewLayer = depsgraph.view_layer  # ty: ignore[invalid-assignment]
             return map(Ok, tiles(scene, layer))
 
         replay = cls(key=key, render=render, pass_builder=Some(passes)).built(identity)
@@ -179,7 +179,7 @@ class _Engine(msgspec.Struct, frozen=True, kw_only=True):
         with ExitStack() as scope:
             for panel in bpy.types.Panel.__subclasses__() if self.compat_engines else ():
                 try:
-                    engines: set[str] = panel.COMPAT_ENGINES  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+                    engines: set[str] = panel.COMPAT_ENGINES  # ty: ignore[unresolved-attribute, unsound-assignment]
                 except AttributeError:  # ruff: ignore[try-except-continue]
                     continue
                 if self.compat_engines.intersection(engines) and name not in engines:
@@ -198,7 +198,7 @@ class _Engine(msgspec.Struct, frozen=True, kw_only=True):
 
 def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome[_Tile]]) -> Outcome[int]:
     """Writes tiles into a view layer's results until cancellation or first fault, returning written count."""
-    final: bpy.types.RenderResult = engine.get_result()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    final: bpy.types.RenderResult = engine.get_result()  # ty: ignore[invalid-assignment]
     count, area = 0, 0
     for answer in tiles:
         if engine.test_break():
@@ -231,7 +231,7 @@ def _filled(result: bpy.types.RenderResult, view: str, pass_: _EnginePass, plane
 
     @catch(exception=TypeError)
     def filled(found: bpy.types.RenderPass) -> None:
-        found.rect.foreach_set(plane[::-1].ravel())  # type: ignore[arg-type]
+        found.rect.foreach_set(plane[::-1].ravel())
 
     return (
         Option

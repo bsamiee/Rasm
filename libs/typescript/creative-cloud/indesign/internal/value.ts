@@ -1,5 +1,5 @@
 import { Predicate, type Record, Schema } from 'effect';
-import { Specifier } from '#/internal/specifier.ts';
+import { Specifier } from '#/internal/specifier';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

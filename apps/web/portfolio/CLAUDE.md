@@ -122,7 +122,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `hosting` takes `favicon.svg` and `site/theme.css` tokens, `siteHead` emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and the `color-scheme` the tokens hold
 - Requests without a user id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks read and compare user ids alone
-- `hostedWorker` modes `production`, `cloudflare`, and `disposable` declare `OWNER_EMAIL` a secret, `cloudflare` and `disposable` also declare the `CloudflareAccess.binding` JSON secret, every other mode binds `OWNER_EMAIL` to the `sites()` local sign-in address
+- `cloudflare.config.ts` states the owner address as `hostedWorker`'s `owner`, the commit author address and no secret, modes `production`, `cloudflare`, and `disposable` bind it to `OWNER_EMAIL` as text, every other mode binds the `sites()` local sign-in address, `cloudflare` and `disposable` also declare the `CloudflareAccess.binding` JSON secret
 - `site/shell.tsx` states the page's content security sources beside the policy `Template.render` holds
 
 [STORAGE]: `server/catalog.ts` declares document, asset, and owner tables as `Relation` values, with statements over them beside their handlers in `server/<aggregate>.ts`:

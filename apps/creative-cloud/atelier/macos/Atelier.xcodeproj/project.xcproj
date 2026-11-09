@@ -23,8 +23,8 @@
     },
   ],
   "files": [
-    { "path": "../../../../.artifacts/apps/creative-cloud/atelier/atelier", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
-    { "path": "../../../../.artifacts/apps/creative-cloud/atelier/LaunchAgents", "target-membership": [ "Atelier/copy/Embed Server Agent" ] },
+    { "path": "../../../../.artifacts/vite/@rasm/atelier/atelier", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
+    { "path": "../../../../.artifacts/vite/@rasm/atelier/LaunchAgents", "target-membership": [ "Atelier/copy/Embed Server Agent" ] },
     { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
     {
       "kind": "folder",
@@ -47,8 +47,8 @@
         { "path": "<PRODUCTS>/Atelier.app", "id": "DF819D1F3089FBAF00B8A072", "type": "wrapper.application", "index": false },
       ],
     },
-    { "path": "../../../../.artifacts/apps/creative-cloud/atelier/plugins/indesign.ccx", "target-membership": [ "Atelier/copy/Embed Plugins" ] },
-    { "path": "../../../../.artifacts/apps/creative-cloud/atelier/plugins/photoshop.ccx", "target-membership": [ "Atelier/copy/Embed Plugins" ] },
+    { "path": "../../../../.artifacts/uxp/apps/creative-cloud/atelier/plugins/indesign/app.rasm.atelier.indesign_ID.ccx", "target-membership": [ "Atelier/copy/Embed Plugins" ] },
+    { "path": "../../../../.artifacts/uxp/apps/creative-cloud/atelier/plugins/photoshop/app.rasm.atelier.photoshop_PS.ccx", "target-membership": [ "Atelier/copy/Embed Plugins" ] },
   ],
   "targets": [
     {
@@ -122,6 +122,10 @@
       },
     },
   ],
+  "build-settings": {
+    "CURRENT_PROJECT_VERSION": "0",
+    "MARKETING_VERSION": "0.0.0",
+  },
   "last-upgrade": "27.2",
   "last-swift-update": "27.2",
 }

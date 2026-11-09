@@ -4,6 +4,7 @@
         <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
         <Verify_SponsorshipExemptionUntil>2027-10</Verify_SponsorshipExemptionUntil>
         <SolutionDir>$([MSBuild]::EnsureTrailingSlash($([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'global.json'))))</SolutionDir>
+        <SolutionName>$([System.IO.Path]::GetFileName($(SolutionDir.TrimEnd('/'))))</SolutionName>
     </PropertyGroup>
 
     <ItemGroup Label="Compiler Fixtures">

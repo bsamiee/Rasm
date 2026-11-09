@@ -226,7 +226,7 @@ def _layer_of(scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.ViewLayer]
 
 def _soloed(layer: bpy.types.ViewLayer) -> bool:
     """Turns `use` on for the given layer alone, answering whether any layer's `use` changed."""
-    scene: bpy.types.Scene = layer.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    scene: bpy.types.Scene = layer.id_data  # ty: ignore[invalid-assignment]
     changed = tuple(held for held in scene.view_layers if held.use != (held == layer))
     for held in changed:
         held.use = held == layer
@@ -307,14 +307,14 @@ def _synced(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
                 case _:
                     return dict[str, str]()
 
-        tree: bpy.types.NodeTree = material.node_tree  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        tree: bpy.types.NodeTree = material.node_tree  # ty: ignore[invalid-assignment]
         return stored(identity).read(tree).map(kinds)
 
     @functools.cache
     def wanted(material: bpy.types.Material | None, world: bpy.types.World | None) -> Outcome[Mapping[str, str]]:
         override = Option.of_optional(material)
         materials = override.map(lambda material: (material,)).default_with(lambda: tuple(slot.material for item in scene.objects for slot in item.material_slots if slot.material))
-        trees: tuple[bpy.types.NodeTree, ...] = tuple(held.node_tree for held in materials) + tuple(held.node_tree for held in Option.of_optional(world).to_list())  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        trees: tuple[bpy.types.NodeTree, ...] = tuple(held.node_tree for held in materials) + tuple(held.node_tree for held in Option.of_optional(world).to_list())  # ty: ignore[invalid-assignment]
         return override.filter(lambda material: Utility.ownership.marked(identity, material).is_some()).map(setup).default_with(lambda: scanned(trees))
 
     def aovs(layer: bpy.types.ViewLayer, names: Mapping[str, str]) -> Outcome[None]:

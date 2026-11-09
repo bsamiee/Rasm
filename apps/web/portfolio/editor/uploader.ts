@@ -6,11 +6,11 @@ import { SecureRandom } from 'effect/crypto';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { HttpApiClient } from 'effect/http-api';
 import { Atom } from 'effect/reactivity';
-import { assets, draft, hero, recoveryRequest, updateEntry } from '#/editor/state.ts';
-import { Api, UploadRefused, uploadField } from '#/model/api.ts';
-import { Asset, PdfAsset, uploadLimit, VideoAsset } from '#/model/asset.ts';
-import { Composition, CompositionId, Placement } from '#/model/placement.ts';
-import type { EntryId } from '#/model/portfolio.ts';
+import { assets, draft, hero, recoveryRequest, updateEntry } from '#/editor/state';
+import { Api, UploadRefused, uploadField } from '#/model/api';
+import { Asset, PdfAsset, uploadLimit, VideoAsset } from '#/model/asset';
+import { Composition, CompositionId, Placement } from '#/model/placement';
+import type { EntryId } from '#/model/portfolio';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -98,7 +98,7 @@ const unreadableMessage = Match.type<string>().pipe(
 );
 const prepare = Effect.fnUntraced(
     function* ({ meta: { destination }, name, type }: UppyFile<UploadMeta, Body>, data: Blob) {
-        const { inspectFile } = yield* Effect.tryPromise(() => import('#/editor/inspect-file.ts'));
+        const { inspectFile } = yield* Effect.tryPromise(() => import('#/editor/inspect-file'));
         const random = yield* SecureRandom.SecureRandom;
         const { asset, renditions } = yield* inspectFile(new File([data], name, { type }), yield* random.uuidV7());
         const placements = Destination.$is('Entry')(destination) && !Asset.guards.pdf(asset) ? Placement.fromAsset(asset) : [];

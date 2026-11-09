@@ -1,4 +1,4 @@
-import preview from '#/.storybook/preview.ts';
+import preview from '#/.storybook/preview';
 import { Field } from '#/field.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -1,45 +1,55 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
-import { Array, Effect, FileSystem, Order, Path, Record, Schema } from 'effect';
+import { Array, Effect, FileSystem, Path, Record, Schema, type Scope } from 'effect';
 import { ChildProcess } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Group = Array.NonEmptyReadonlyArray<readonly [string, typeof Command.Type]>;
+type Held = readonly [string, typeof Command.Type];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Command = Schema.Struct({ command: Schema.NonEmptyArray(Schema.String), project: Schema.String, args: Schema.optionalKey(Schema.Array(Schema.String)) });
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const ENTITIES = { '&': '&amp;', '<': '&lt;', '"': '&quot;' } as const;
+const Command = Schema.Struct({ commands: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.String)), project: Schema.String, args: Schema.optionalKey(Schema.Array(Schema.String)) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const dotnet = (args: readonly string[], cwd: string) =>
-    Effect.scoped(Effect.flatMap(ChildProcess.make('dotnet', args, { cwd, extendEnv: true, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }), (handle) => handle.exitCode)).pipe(Effect.map((code) => code === 0));
+const dotnet = (args: readonly string[], cwd: string) => Effect.scoped(Effect.flatMap(ChildProcess.make('dotnet', args, { cwd, extendEnv: true, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }), (handle) => handle.exitCode)).pipe(Effect.map((code) => code === 0));
 
-const solution = (projects: readonly string[]) =>
-    ['<Solution>', ...projects.map((project) => `    <Project Path="${project.replace(/[&<"]/g, (character) => ENTITIES[character as keyof typeof ENTITIES])}" />`), '</Solution>', ''].join('\n');
+const ran = (held: typeof Command.Type, target: string, cwd: string) =>
+    Effect.map(
+        Effect.forEach(held.commands, (command) => dotnet([...command, target, ...(held.args ?? [])], cwd)),
+        (outcomes) => outcomes.every(Boolean),
+    );
 
-const grouped = Effect.fnUntraced(function* (root: string, group: Group) {
+const solution = (projects: readonly string[]) => ['<Solution>', ...projects.map((project) => `    <Project Path="${project.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;')}" />`), '</Solution>', ''].join('\n');
+
+const grouped = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Held>) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const [[, first], ...rest] = group;
-    const target =
-        rest.length === 0
-            ? first.project
-            : yield* Effect.flatMap(fs.makeTempDirectoryScoped(), (folder) =>
-                  Effect.as(fs.writeFileString(path.join(folder, 'batch.slnx'), solution(group.map(([, options]) => path.resolve(root, options.project)))), path.join(folder, 'batch.slnx')),
-              );
-    return yield* dotnet([...first.command, target, ...(first.args ?? [])], root);
+    const target = rest.length === 0 ? first.project : yield* Effect.flatMap(fs.makeTempDirectoryScoped(), (folder) => Effect.as(fs.writeFileString(path.join(folder, 'batch.slnx'), solution(group.map(([, held]) => path.resolve(root, held.project)))), path.join(folder, 'batch.slnx')));
+    return yield* ran(first, target, root);
 });
+
+const waves = (graph: TaskGraph, root: string, pending: readonly Held[], decided: Readonly<Record<string, boolean>>): Effect.Effect<Readonly<Record<string, boolean>>, Effect.Error<ReturnType<typeof grouped>>, Exclude<Effect.Services<ReturnType<typeof grouped>>, Scope.Scope>> => {
+    const waiting = ([task]: Held) => (graph.dependencies[task] ?? []).some(({ id }) => pending.some(([other]) => other === id));
+    const clear = ([task]: Held) => (graph.dependencies[task] ?? []).every(({ id }) => decided[id] !== false);
+    const ready = pending.filter((held) => !waiting(held));
+    const later = pending.filter(waiting);
+    const runnable = ready.filter(clear);
+    const blocked = ready.filter((held) => !clear(held));
+    return Array.isReadonlyArrayNonEmpty(ready)
+        ? Effect.flatMap(
+              Effect.forEach(Record.values(Array.groupBy(runnable, ([, held]) => JSON.stringify([held.commands, held.args ?? []]))), (group) => Effect.map(Effect.scoped(grouped(root, group)), (success) => group.map(([task]) => [task, success] as const))),
+              (outcomes) => waves(graph, root, later, { ...decided, ...Record.fromEntries([...outcomes.flat(), ...blocked.map(([task]) => [task, false] as const)]) }),
+          )
+        : Effect.succeed(decided);
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = (options: unknown, context: ExecutorContext) =>
     Effect.runPromise(
-        Effect.flatMap(Schema.decodeUnknownEffect(Command)(options), (held) => dotnet([...held.command, held.project, ...(held.args ?? [])], context.root)).pipe(
+        Effect.flatMap(Schema.decodeUnknownEffect(Command)(options), (held) => ran(held, held.project, context.root)).pipe(
             Effect.map((success) => ({ success })),
             Effect.provide(layer),
         ),
@@ -47,22 +57,12 @@ const execute = (options: unknown, context: ExecutorContext) =>
 
 const batch = (graph: TaskGraph, inputs: Readonly<Record<string, unknown>>, _: unknown, context: ExecutorContext) =>
     Effect.runPromise(
-        Effect.gen(function* () {
-            const decoded = yield* Effect.forEach(Record.toEntries(inputs), ([task, options]) => Effect.map(Schema.decodeUnknownEffect(Command)(options), (held) => [task, held] as const));
-            const groups = Record.values(Array.groupBy(decoded, ([, held]) => JSON.stringify([held.command, held.args ?? []])));
-            const after = (one: Group, other: Group) => one.some(([task]) => (graph.dependencies[task] ?? []).some((dependency) => other.some(([id]) => id === dependency.id)));
-            const ordered = Array.sort(groups, Order.make<Group>((left, right) => (after(left, right) ? 1 : after(right, left) ? -1 : 0)));
-            const results = yield* Effect.reduce(ordered, () => Record.empty<string, boolean>(), (held, group) =>
-                Effect.map(
-                    group.every(([task]) => (graph.dependencies[task] ?? []).every((dependency) => held[dependency.id] !== false)) ? Effect.scoped(grouped(context.root, group)) : Effect.succeed(false),
-                    (success) => ({ ...held, ...Record.fromEntries(group.map(([task]) => [task, success] as const)) }),
-                ),
-            );
-            return Record.map(results, (success) => ({ success, terminalOutput: '' }));
-        }).pipe(Effect.provide(layer)),
+        Effect.flatMap(
+            Effect.forEach(Record.toEntries(inputs), ([task, options]) => Effect.map(Schema.decodeUnknownEffect(Command)(options), (held): Held => [task, held])),
+            (decoded) => Effect.map(waves(graph, context.root, decoded, {}), (decided) => Record.map(decided, (success) => ({ success, terminalOutput: '' }))),
+        ).pipe(Effect.provide(layer)),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { batch };
-export default execute;
+export { batch, execute };

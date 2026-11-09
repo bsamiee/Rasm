@@ -3,7 +3,7 @@ import { Resource } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Array, Effect, Option, Struct, SubscriptionRef } from 'effect';
 import { McpSchema } from 'effect/ai';
-import { Adobe } from '#/adobe.ts';
+import { Adobe } from '#/adobe';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

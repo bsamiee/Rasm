@@ -5,10 +5,10 @@ import { SecureRandom } from 'effect/crypto';
 import { Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
 import { SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
-import { Api, Recovery, UploadRefused, uploadField } from '#/model/api.ts';
-import { Asset, type AssetId } from '#/model/asset.ts';
-import { assets, projectedPaths, references, UploadAttempt } from '#/server/catalog.ts';
-import { OwnerAccount } from '#/server/owner.ts';
+import { Api, Recovery, UploadRefused, uploadField } from '#/model/api';
+import { Asset, type AssetId } from '#/model/asset';
+import { assets, projectedPaths, references, UploadAttempt } from '#/server/catalog';
+import { OwnerAccount } from '#/server/owner';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -1,5 +1,6 @@
 """Native diagnostics for selected rules over a source sample."""
 
+import sys
 lazy from collections.abc import Mapping
 lazy from dataclasses import replace
 
@@ -12,7 +13,7 @@ lazy from rasm_refurb import checked, Findings
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-@pytest.fixture(scope="session", params=["3.15"])
+@pytest.fixture(scope="session", params=[".".join(map(str, sys.version_info[:2]))])
 def findings(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Findings:
     """Runs selected Refurb rules over one typed build and reports compiler failures directly."""
     directory = tmp_path_factory.mktemp("refurb")

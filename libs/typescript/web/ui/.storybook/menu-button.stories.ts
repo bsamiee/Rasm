@@ -1,5 +1,5 @@
 import { fn } from 'storybook/test';
-import preview from '#/.storybook/preview.ts';
+import preview from '#/.storybook/preview';
 import { MenuButton } from '#/menu-button.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

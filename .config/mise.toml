@@ -24,8 +24,6 @@ _.path                       = ["./node_modules/.bin"]
 CARGO_LLVM_COV_DENY_WARNINGS = "1"
 CF_QUIET                     = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH = "{{config_root}}/.cache/cloudflare/registry"
-DOPPLER_CONFIG               = "dev"
-DOPPLER_PROJECT              = "agent-runtime"
 DOTNET_NOLOGO                = "1"
 DOTNET_ROLL_FORWARD          = "Major"
 GHIDRA_INSTALL_DIR           = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
@@ -45,6 +43,7 @@ RUSTUP_AUTO_INSTALL          = "0"
 RUSTUP_TOOLCHAIN             = false
 STORYBOOK_DISABLE_TELEMETRY  = "1"
 TOMBI_CACHE_HOME             = "{{config_root}}/.cache/tombi"
+TY_UV                        = "1"
 WATCH_APPS_LOG               = "{{config_root}}/.artifacts/logs/watch-apps.log"
 
 # --- [TOOLS] ----------------------------------------------------------------------------
@@ -60,6 +59,7 @@ cargo-insta                                                                  = "
 cmake                                                                        = "latest"
 colima                                                                       = { os = ["macos"], postinstall = 'mkdir -p "$COLIMA_HOME"', version = "latest" }
 difftastic                                                                   = "latest"
+docker-compose                                                               = { os = ["macos", "linux"], postinstall = 'plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins" && mkdir -p "$plugins" && ln -sf "$MISE_TOOL_INSTALL_PATH/docker-compose" "$plugins/docker-compose"', version = "latest" }
 doppler                                                                      = "latest"
 "dotnet:ilspycmd"                                                            = "latest"
 "dotnet:Microsoft.AITools.BinlogMcp"                                         = "latest"
@@ -69,6 +69,7 @@ duckdb                                                                       = "
 fd                                                                           = "latest"
 gh                                                                           = "latest"
 git-lfs                                                                      = "latest"
+"github:docker/buildx"                                                       = { bin = "docker-buildx", os = ["macos", "linux"], postinstall = 'plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins" && mkdir -p "$plugins" && ln -sf "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$plugins/docker-buildx"', version = "latest" }
 "github:fonttools/fontspector"                                               = { version = "latest", version_prefix = "fontspector-v" }
 "github:hostinger/api-cli"                                                   = "latest"
 "github:linebender/resvg"                                                    = { matching = "usvg", version = "latest" }
@@ -207,7 +208,7 @@ port       = 7408
 proxy      = false
 ready_http = { status = [406], timeout = "5m", url = "http://127.0.0.1:7408/" }
 retry      = true
-run        = "exec doppler run --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 --forward-signals=false -- rasm-mcp-proxy -- mcp-for-blender"
+run        = "exec rasm-mcp-proxy -- mcp-for-blender"
 
 [daemons.nuget]
 boot_start = true

@@ -1,0 +1,14 @@
+{
+    "executors": {
+        "install": {
+            "implementation": "./dist/executors/install/executor#execute",
+            "schema": "./executors/install/schema.json",
+            "description": "Installs the host packages a project's build wrote into their hosts through each host's own installer"
+        },
+        "release-publish": {
+            "implementation": "./dist/executors/release-publish/executor#execute",
+            "schema": "./executors/release-publish/schema.json",
+            "description": "Publishes the host packages a project's build wrote to each host's package server, skipping versions the server already holds"
+        }
+    }
+}

@@ -1,22 +1,24 @@
-import { readCachedProjectGraph, workspaceRoot } from '@nx/devkit';
-import { findMatchingProjects, readNxJsonFromDisk } from '@nx/devkit/internal';
-import { ActionsRepositoryPermissions, ActionsSecret, IssueLabels, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryDeployKey, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
-import { secret } from '@pulumi/pulumi';
+import type { ExecutorContext } from '@nx/devkit';
+import { ActionsRepositoryPermissions, ActionsSecret, IssueLabels, Repository, RepositoryDependabotSecurityUpdates, RepositoryDeployKey, RepositoryEnvironment, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { PrivateKey } from '@pulumi/tls';
-import { Package } from '@rasm/eng';
-import { Config, Effect, FileSystem, Path, Record, Redacted } from 'effect';
+import { Cause, Effect, FileSystem, Path, Schema } from 'effect';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Manifest = Schema.fromJsonString(Schema.Struct({ repository: Schema.String }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const repositoryStack = {
+const repositoryStack = (context: ExecutorContext) => ({
     projectName: 'rasm-infra',
     stackName: 'rasm',
     program: Effect.gen(function* () {
-        const secretName = 'SIXLABORSLICENSEKEY';
-        const [fs, path, license] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.Redacted(secretName)]);
-        const [manifest, readme, graph, nx] = yield* Effect.all([Package.read(workspaceRoot), fs.readFileString(path.join(workspaceRoot, 'README.md')), Effect.try(readCachedProjectGraph), Effect.try(readNxJsonFromDisk)], { concurrency: 'unbounded' });
-        const [url, pattern, paragraph] = yield* Effect.all([Effect.fromNullishOr(manifest.repository), Effect.fromNullishOr(nx.release?.releaseTag?.pattern), Effect.fromNullishOr(readme.split('\n\n').find((block) => !block.startsWith('#')))]);
-        const feeds = findMatchingProjects(['tag:output:extension'], graph.nodes);
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const [{ repository: url }, readme] = yield* Effect.all([Effect.flatMap(fs.readFileString(path.join(context.root, 'package.json')), Schema.decodeEffect(Manifest)), fs.readFileString(path.join(context.root, 'README.md'))], { concurrency: 'unbounded' });
+        const [pattern, paragraph] = yield* Effect.all([
+            Effect.fromNullishOr(context.nxJsonConfiguration.release?.releaseTag?.pattern).pipe(Effect.mapError(() => new Cause.NoSuchElementError('nx.json states no release.releaseTag.pattern for the release tag ruleset'))),
+            Effect.fromNullishOr(readme.split('\n\n').find((block) => !block.startsWith('#'))).pipe(Effect.mapError(() => new Cause.NoSuchElementError('README.md holds no paragraph for the repository description'))),
+        ]);
         const name = path.basename(url, '.git');
         const { name: repository, fullName } = new Repository(
             name,
@@ -44,6 +46,7 @@ const repositoryStack = {
             securityUpdates: new RepositoryDependabotSecurityUpdates(`${name}-security-updates`, { repository: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository }).repository, enabled: false }).enabled,
             allowedActions: new ActionsRepositoryPermissions(`${name}-actions-permissions`, { repository, allowedActions: 'all' }).allowedActions,
             workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'read' }).defaultWorkflowPermissions,
+            environments: ['release', 'deploy'].map((environment) => new RepositoryEnvironment(`${name}-${environment}`, { repository, environment }).environment),
             labels: new IssueLabels(`${name}-labels`, {
                 repository,
                 labels: [
@@ -59,11 +62,9 @@ const repositoryStack = {
                 conditions: { refName: { includes: [`refs/tags/${pattern.replaceAll(/\{\w+\}/gu, '*')}`], excludes: [] } },
                 rules: { update: true, deletion: true, nonFastForward: true },
             }).rulesetId,
-            license: new ActionsSecret(`${name}-sixlabors-license`, { repository, secretName, value: secret(Redacted.value(license)) }).secretName,
-            updates: Record.fromIterableWith(feeds, (feed) => [feed, new Release(`${name}-${feed}-updates`, { repository, tagName: `${feed}-updates`, name: `${feed} updates`, draft: false }, { protect: true }).htmlUrl]),
         };
     }),
-};
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

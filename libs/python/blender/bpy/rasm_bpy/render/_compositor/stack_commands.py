@@ -73,7 +73,7 @@ def duplicate_stack(stacking: LayerStackService, call: Call[Empty]) -> Outcome[A
 
     def copied(scene: bpy.types.Scene, held: tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree]) -> Outcome[Answer]:
         with ExitStack() as rollback:
-            copy: bpy.types.CompositorNodeTree = held[1].copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            copy: bpy.types.CompositorNodeTree = held[1].copy()  # ty: ignore[invalid-assignment]
             return _retained(
                 _OWNERSHIP.owned(stacking.identity, copy, of=Some(scene), scope=Some(rollback)).bind(lambda owned: stacking.switched(scene, owned, call.context)).map(lambda _: Done()), rollback
             )

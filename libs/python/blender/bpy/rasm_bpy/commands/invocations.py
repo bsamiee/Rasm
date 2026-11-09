@@ -50,7 +50,7 @@ class Popup[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
         names = _parameters(self.call.func)
 
         def painted(popup: bpy.types.UIPopupMenu | bpy.types.UIPieMenu | bpy.types.UIPopover, context: bpy.types.Context) -> None:
-            layout: bpy.types.UILayout = popup.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            layout: bpy.types.UILayout = popup.layout  # ty: ignore[invalid-assignment]
             for draw in self.draw.to_list():
                 draw(layout, context, body.identity)
 
@@ -87,8 +87,8 @@ class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_o
             return body.identity.preferences(bpy.types.AddonPreferences).filter(lambda held: flag in _definition(held).properties)
 
         def cleared(operator: bpy.types.Operator, context: bpy.types.Context) -> Outcome[None]:
-            suppressed: bool = operator.suppress  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-            preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            suppressed: bool = operator.suppress  # ty: ignore[unresolved-attribute, unsound-assignment]
+            preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
             return _preferred(preferences, body.identity.package, lambda held: written(held, (flag,), value=False)).map(lambda _: None) if suppressed else Ok(None)
 
         def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> Returns:
@@ -100,7 +100,7 @@ class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_o
                     layout.prop(properties, prop.identifier)
 
         def draw(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
-            layout: bpy.types.UILayout = operator.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            layout: bpy.types.UILayout = operator.layout  # ty: ignore[invalid-assignment]
             message = self.message(context, body.properties(operator))
             layout.use_property_split = True
             for text in body.identity.reports.settled(message).to_list():
@@ -131,9 +131,9 @@ class Open[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
         """Derives the `ImportHelper` class running the body over the chosen files."""
 
         def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> Returns:
-            directory: str = operator.directory  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-            files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] = operator.files  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-            filepath: str = operator.filepath  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+            directory: str = operator.directory  # ty: ignore[unresolved-attribute, unsound-assignment]
+            files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] = operator.files  # ty: ignore[unresolved-attribute, unsound-assignment]
+            filepath: str = operator.filepath  # ty: ignore[unresolved-attribute, unsound-assignment]
             return body.chose(operator, context, tuple(Path(directory, item.name) for item in files if item.name) or tuple(Path(path) for path in (filepath,) if path))
 
         return (
@@ -147,7 +147,7 @@ class Open[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
                     },
                     "check": _checking(ImportHelper, body),
                     "execute": execute,
-                    "invoke": body.invoking(lambda operator, context, _event: Ok(ImportHelper.invoke_popup(operator, context, confirm_text=self.confirm_text))),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    "invoke": body.invoking(lambda operator, context, _event: Ok(ImportHelper.invoke_popup(operator, context, confirm_text=self.confirm_text))),  # ty: ignore[invalid-argument-type]
                 },
                 ImportHelper,
             ),
@@ -164,7 +164,7 @@ class Folder(msgspec.Struct, frozen=True):
         """Derives the class filtering the browser to folders and running the body over the accepted directory."""
 
         def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> Returns:
-            directory: str = operator.directory  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+            directory: str = operator.directory  # ty: ignore[unresolved-attribute, unsound-assignment]
             return body.chose(operator, context, tuple(Path(path) for path in (directory,) if path))
 
         def opened(operator: bpy.types.Operator, _context: bpy.types.Context, _event: bpy.types.Event) -> Outcome[Returns]:
@@ -194,16 +194,16 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
         """Derives the `ExportHelper` class, confirming replacement of existing destinations before the body runs."""
 
         def located(operator: bpy.types.Operator) -> tuple[Path, ...]:
-            filepath: str = operator.filepath  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+            filepath: str = operator.filepath  # ty: ignore[unresolved-attribute, unsound-assignment]
             return self.destinations.map(lambda project: project(Path(filepath), body.properties(operator))).default_value((Path(filepath),))
 
         def replaced(operator: bpy.types.Operator, found: tuple[Path, ...]) -> Returns:
-            operator.replacing = True  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            operator.replacing = True  # ty: ignore[unresolved-attribute]
             iface = bpy.app.translations.pgettext_iface
             return bpy.types.WindowManager.invoke_confirm(operator, None, title=iface("Replace existing files?"), message="\n".join(map(str, found)), confirm_text=iface("Replace"), translate=False)
 
         def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> Returns:
-            confirming: bool = self.destinations.is_some() and operator.options.is_invoke and not operator.options.is_repeat and not operator.replacing  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            confirming: bool = self.destinations.is_some() and operator.options.is_invoke and not operator.options.is_repeat and not operator.replacing  # ty: ignore[unresolved-attribute]
             paths = located(operator)
             return (
                 (_present(paths).map_error(partial(Fault.of, Reason.UNREADABLE, repr(paths))) if confirming else Ok(()))
@@ -223,7 +223,7 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
                     "filename_ext": property(extension),
                     "check": _checking(ExportHelper, body),
                     "execute": execute,
-                    "invoke": body.invoking(lambda operator, context, event: Ok(ExportHelper.invoke(operator, context, event))),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    "invoke": body.invoking(lambda operator, context, event: Ok(ExportHelper.invoke(operator, context, event))),  # ty: ignore[invalid-argument-type]
                 },
                 ExportHelper,
             ),
@@ -261,7 +261,7 @@ def _parameters(function: Callable[..., object], /) -> tuple[str, ...]:  # type:
 
 def _checking[T: bpy.types.PropertyGroup](helper: type[ImportHelper | ExportHelper], body: Body[T], /) -> Callable[[bpy.types.Operator, bpy.types.Context], bool]:
     """Class `check` running the file helper's check and the command's, redrawing when either changed a property."""
-    return lambda operator, context: any((helper.check(operator, context), *body.command.check.map(lambda callback: callback(operator, context)).to_list()))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    return lambda operator, context: any((helper.check(operator, context), *body.command.check.map(lambda callback: callback(operator, context)).to_list()))  # ty: ignore[invalid-argument-type]
 
 
 def _globbed[T: bpy.types.PropertyGroup](extensions: Callable[[T], tuple[str, ...]], /) -> bpy.props._PropertyDeferred:

@@ -39,7 +39,7 @@ class Join(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_WAVE_PROFILE: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeTexWave.bl_rna.properties["wave_profile"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_WAVE_PROFILE: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeTexWave.bl_rna.properties["wave_profile"]  # ty: ignore[invalid-assignment]
 _PROFILE: Final = Socket(
     key="profile",
     kind=bpy.types.NodeSocketMenu,

@@ -4,7 +4,7 @@ import { serve } from '@rasm/mcp/node';
 import { Duration, Effect, Layer } from 'effect';
 import servers from '#/.lsp.json' with { type: 'json' };
 import manifest from '#/package.json' with { type: 'json' };
-import { registerLanguageServerTools } from '#/tools.ts';
+import { registerLanguageServerTools } from '#/tools';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

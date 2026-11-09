@@ -304,7 +304,7 @@ def _invoked(operator: object) -> bool:
 def _button(layout: bpy.types.UILayout, function: bpy.types.Function, operator: tuple[str, Pairs], keywords: Keywords, *, invoked: bool) -> Outcome[None]:
     """Draws the button under the invoking counterpart of an `EXEC_*` operator context, then fills the properties the function answers."""
     prior = layout.operator_context
-    with operator_context(layout, prior.replace("EXEC", "INVOKE", 1) if invoked else prior):  # type: ignore[attr-defined, func-returns-value]  # ty: ignore[invalid-context-manager]
+    with operator_context(layout, prior.replace("EXEC", "INVOKE", 1) if invoked else prior):  # type: ignore[func-returns-value]  # ty: ignore[invalid-context-manager]
         properties = getattr(layout, function.identifier)(operator[0], **keywords)
     return filled(operator, properties) if properties is not None or operator[1] else Ok(None)
 
@@ -346,7 +346,7 @@ def _layout_method(draw: RowDraw) -> Callable[[_LayoutOwner, bpy.types.Context],
     """Returns a host draw method drawing over the context as holder in the owner's layout, a function as the host's class check requires."""
 
     def method(owner: _LayoutOwner, context: bpy.types.Context) -> None:
-        layout: bpy.types.UILayout = owner.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        layout: bpy.types.UILayout = owner.layout  # ty: ignore[invalid-assignment]
         draw(layout, context, context)
 
     return method

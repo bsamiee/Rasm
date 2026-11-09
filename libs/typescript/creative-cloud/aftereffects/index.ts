@@ -3,7 +3,7 @@ import { ExtensionManifest } from '@rasm/cep';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const AfterEffects = { identifier: 'com.adobe.AfterEffects', Contract: Requests, host: { app: 'AEFT', minVersion: '26.0' }, script: '@rasm/aftereffects/extendscript', target: ExtensionManifest.target } as const;
+const AfterEffects = { identifier: 'com.adobe.AfterEffects', Contract: Requests, script: '@rasm/aftereffects/extendscript', target: ExtensionManifest.target } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

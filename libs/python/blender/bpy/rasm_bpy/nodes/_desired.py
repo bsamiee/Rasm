@@ -113,8 +113,8 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
     @staticmethod
     def _bound(live: bpy.types.GeometryNodeMenuSwitch, identity: Identity) -> tuple[Mapping[str, Mapping[str, str]], dict[str, bpy.types.NodeEnumItem], bpy.types.NodeInputs, bpy.types.NodeOutputs]:
         bindings: Mapping[str, Mapping[str, str]] = live.get(identity.identifier(MenuItems._key), {})  # ty: ignore[unsound-assignment]
-        inputs: bpy.types.NodeInputs = live.inputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        outputs: bpy.types.NodeOutputs = live.outputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        inputs: bpy.types.NodeInputs = live.inputs  # ty: ignore[invalid-assignment]
+        outputs: bpy.types.NodeOutputs = live.outputs  # ty: ignore[invalid-assignment]
         return bindings, {socket.identifier: item for item, socket in zip(live.enum_items, islice(outputs, 1, None))}, inputs, outputs
 
     @classmethod

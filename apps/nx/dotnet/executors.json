@@ -1,14 +1,14 @@
 {
     "executors": {
         "dotnet": {
-            "implementation": "./dist/executors/dotnet/executor",
+            "implementation": "./dist/executors/dotnet/executor#execute",
             "batchImplementation": "./dist/executors/dotnet/executor#batch",
             "schema": "./executors/dotnet/schema.json",
             "preferBatch": true,
             "description": "Runs one dotnet command per project, or once over every batched project through a solution written outside the workspace"
         },
         "release-publish": {
-            "implementation": "./dist/executors/release-publish/executor",
+            "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
             "description": "Packs a project in Release and pushes its package with dotnet nuget push, skipping a project nx release left unversioned"
         }

@@ -11,6 +11,7 @@ from typing import ClassVar, Final, Generic, overload, TypeVar
 import bpy
 from expression import Option, Some
 from expression.collections import Block
+from expression.extra.result import catch
 import msgspec
 import OpenImageIO
 import PyOpenColorIO
@@ -70,7 +71,7 @@ _ENTRY: Final[Key] = "entry"
 class Named(bpy.types.PropertyGroup):
     """Compositor entry selected by name."""
 
-    name: bpy.props.StringProperty(name="Entry", description="Compositor entry name")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    name: bpy.props.StringProperty(name="Entry", description="Compositor entry name")  # ty: ignore[invalid-type-form]
 
 
 class Stage(msgspec.Struct, frozen=True, kw_only=True):
@@ -260,8 +261,12 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
 
     def named(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Finds named entry among the effect's owned groups."""
-        found: bpy.types.SceneCompositorEffect | None = scene.compositor_effects.get(name)  # ty: ignore[unsound-assignment]
-        return Option.of_optional(found).filter(lambda entry: entry in self.entries(identity, scene)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))
+        return (
+            catch(lambda: scene.compositor_effects[name], exception=KeyError)()
+            .to_option()
+            .filter(lambda entry: entry in self.entries(identity, scene))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))
+        )
 
     def appended(
         self,
@@ -497,7 +502,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
             if Mark.read(identity, live).filter(lambda mark: mark.key == own.key and mark.of == owner).is_some():
                 return refreshed(group, live, InterfaceKeys.of(live, identity).sockets)
             with ExitStack() as rollback:
-                copied: bpy.types.NodeTree = live.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                copied: bpy.types.NodeTree = live.copy()  # ty: ignore[invalid-assignment]
                 return _retained(own.owned(identity, copied, of=owner, scope=Some(rollback)).bind(lambda copy: refreshed(group, copy, InterfaceKeys.of(copy, identity).sockets)), rollback)
 
         return self.built(identity, scene, record, config, preview, met, camera=rasters.map(lambda held: held[1])).bind(

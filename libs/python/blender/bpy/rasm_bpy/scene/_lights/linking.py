@@ -24,9 +24,9 @@ from rasm_records import accumulated, Nothing, Ok, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_LINK_STATE: Final = Descriptor[bpy.types.EnumProperty](root=bpy.types.CollectionLightLinking, prop=bpy.types.CollectionLightLinking.bl_rna.properties["link_state"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-_RECEIVERS: Final = Descriptor[bpy.types.PointerProperty](root=bpy.types.ObjectLightLinking, prop=bpy.types.ObjectLightLinking.bl_rna.properties["receiver_collection"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-_BLOCKERS: Final = Descriptor[bpy.types.PointerProperty](root=bpy.types.ObjectLightLinking, prop=bpy.types.ObjectLightLinking.bl_rna.properties["blocker_collection"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+_LINK_STATE: Final = Descriptor[bpy.types.EnumProperty](root=bpy.types.CollectionLightLinking, prop=bpy.types.CollectionLightLinking.bl_rna.properties["link_state"])  # ty: ignore[invalid-argument-type]
+_RECEIVERS: Final = Descriptor[bpy.types.PointerProperty](root=bpy.types.ObjectLightLinking, prop=bpy.types.ObjectLightLinking.bl_rna.properties["receiver_collection"])  # ty: ignore[invalid-argument-type]
+_BLOCKERS: Final = Descriptor[bpy.types.PointerProperty](root=bpy.types.ObjectLightLinking, prop=bpy.types.ObjectLightLinking.bl_rna.properties["blocker_collection"])  # ty: ignore[invalid-argument-type]
 _LINKERS: Final[Mapping[Descriptor[bpy.types.PointerProperty], Operation]] = MappingProxyType({
     _RECEIVERS: bpy.ops.object.light_linking_receivers_link,
     _BLOCKERS: bpy.ops.object.light_linking_blockers_link,
@@ -39,7 +39,7 @@ _NAMED: Final = MappingProxyType({link.prop.identifier: link for link in _LINKER
 class Unlinking(bpy.types.PropertyGroup):
     """Linking set the selected objects leave."""
 
-    collection: bpy.props.EnumProperty(name="Set", description="Light or shadow linking set", items=choices((link.prop.identifier, link.prop.name, link.prop.description) for link in _LINKERS))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    collection: bpy.props.EnumProperty(name="Set", description="Light or shadow linking set", items=choices((link.prop.identifier, link.prop.name, link.prop.description) for link in _LINKERS))  # ty: ignore[invalid-type-form]
 
 
 class _LightLinks(msgspec.Struct, frozen=True, kw_only=True):

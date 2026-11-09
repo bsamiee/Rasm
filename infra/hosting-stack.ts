@@ -1,20 +1,17 @@
 import { join } from 'node:path';
 import process from 'node:process';
-import { BUILD_OUTPUT_ROOT, type BuildOutput, readBuildOutput } from '@cloudflare/build-output-utils';
+import { type BuildOutput, readBuildOutput } from '@cloudflare/build-output-utils';
 import { loadAndParseConfig } from '@cloudflare/config';
-import { getZeroTrustOrganizationOutput, Worker, ZeroTrustAccessApplication, ZeroTrustAccessIdentityProvider, ZeroTrustAccessPolicy } from '@pulumi/cloudflare';
-import { local } from '@pulumi/command';
 import { Container, type ContainerArgs, getRegistryImageOutput, Network, RemoteImage, Volume } from '@pulumi/docker';
 import { Image } from '@pulumi/docker-build';
 import { getIamPolicyDocumentOutput, IamServiceAccount, Provider, S3Bucket } from '@pulumi/minio';
-import { asset, type Input, interpolate, jsonStringify, secret } from '@pulumi/pulumi';
+import { type Input, interpolate, jsonStringify, secret } from '@pulumi/pulumi';
 import { RandomPassword } from '@pulumi/random';
-import { CloudflareAccess, nodeBundle, User } from '@rasm/hosting';
+import { nodeBundle, User } from '@rasm/hosting';
 import { disposableName, hostingMode, ownerBinding } from '@rasm/hosting/cloudflare';
 import { Array, Cause, Config, Effect, Function, Match, Option, Path, Predicate, Record, Redacted, String, Struct } from 'effect';
-import { quote } from 'shell-quote';
 import type { ResolvedConfig } from 'vite';
-import { postgresRoles } from '#/postgres-roles.ts';
+import { postgresRoles } from '#/postgres-roles';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,7 +19,6 @@ interface Stack {
     readonly name: string;
     readonly hostnames: readonly string[];
     readonly production: boolean;
-    readonly tag: Option.Option<string>;
     readonly resolved: ResolvedConfig;
 }
 
@@ -30,64 +26,17 @@ interface Stack {
 
 const refuse = (subject: string) => Effect.fail(new Cause.IllegalArgumentError(`${subject} has no hosting form`));
 const provisioned = (name: string, variable: string) => `${name}-${String.snakeToKebab(variable.toLowerCase())}`;
-const cloudflare = function* ({ root, rootConfig, workers }: BuildOutput, { name, hostnames, production, tag }: Stack) {
-    const { workersDev, previewUrls, env = {} } = workers.default.config;
-    const accountId = yield* rootConfig.accountId === undefined ? Config.String('CLOUDFLARE_ACCOUNT_ID') : Config.succeed(rootConfig.accountId);
-    const declared = Record.toEntries(Record.remove(env, CloudflareAccess.binding));
-    const secrets = yield* Effect.forEach(
-        declared.filter(([, { type }]) => type === 'secret'),
-        ([variable]) => Effect.map(Config.Redacted(variable), (value) => [variable, Redacted.value(value)] as const),
-    );
-    const automatic = production
-        ? []
-        : declared.filter(([, binding]) => (binding.type === 'd1' && binding.id === undefined && binding.name === undefined) || (binding.type === 'r2' && binding.name === undefined) || (binding.type === 'kv' && binding.id === undefined) || (binding.type === 'queue' && binding.name === undefined));
-    const discarded = yield* Effect.forEach(automatic, ([variable, { type }]) => {
-        const resource = quote([provisioned(name, variable)]);
-        return Match.value(type).pipe(
-            Match.when('d1', () => Effect.succeed([`uuid=$(cf d1 list --name ${resource} | jq -r --arg name ${resource} '[.[] | select(.name == $name) | .uuid] | if length <= 1 then .[0] // "" else error("multiple databases with that name") end'); if [[ -n "$uuid" ]]; then cf d1 delete "$uuid" --force; fi`])),
-            Match.when('r2', () => Effect.succeed([`while true; do keys=$(cf r2 objects list --bucket-name ${resource} --per-page 1000 | jq -c 'map(.key)'); [[ "$keys" != '[]' ]] || break; cf r2 objects bulk-delete --bucket-name ${resource} --body "$keys" --force; done`, `cf r2 buckets delete ${resource} --force`])),
-            Match.orElse((unsupported) => refuse(`disposable binding ${variable} of type ${unsupported}`)),
-        );
-    });
-    const worker = new Worker(name, { accountId, name, subdomain: { enabled: workersDev ?? true, previewsEnabled: previewUrls } });
-    const pin = new ZeroTrustAccessIdentityProvider(name, { accountId, name, type: 'onetimepin', config: {} });
-    const access = new ZeroTrustAccessApplication(name, {
-        accountId,
-        name,
-        type: 'self_hosted',
-        destinations: worker.subdomain.apply(({ enabled, url }) => [...hostnames, ...(enabled ? [new URL(url).host] : [])].map((host) => ({ type: 'public', uri: `${host}${User.sites.paths.signin}` }))),
-        allowedIdps: [pin.id],
-        autoRedirectToIdentity: true,
-        policies: [{ id: new ZeroTrustAccessPolicy(name, { accountId, name, decision: 'allow', includes: [{ everyone: {} }] }).id, precedence: 1 }],
-    });
-    const issuer = interpolate`https://${getZeroTrustOrganizationOutput({ accountId }).authDomain}`;
-    const deploy = quote(['cf', 'deploy', '--prebuilt', '--secrets-file', '/dev/stdin', ...Option.toArray(tag).flatMap((value) => ['--tag', value])]);
-    const deletes = discarded.flat();
-    const deployment = new local.Command(
-        name,
-        {
-            dir: root,
-            create: deploy,
-            update: deploy,
-            delete: deletes.length === 0 ? undefined : ['set -euo pipefail', ...deletes].join('\n'),
-            interpreter: ['bash', '-c'],
-            environment: { CLOUDFLARE_ACCOUNT_ID: accountId },
-            stdin: secret(
-                jsonStringify({
-                    ...Object.fromEntries(secrets),
-                    [CloudflareAccess.binding]: jsonStringify({ issuer, audience: access.aud, jwks: interpolate`${issuer}/cdn-cgi/access/certs`, logout: '/cdn-cgi/access/logout' } satisfies Record<keyof typeof CloudflareAccess.Encoded, Input<string>>),
-                }),
-            ),
-            triggers: [new asset.FileArchive(join(root, BUILD_OUTPUT_ROOT))],
-        },
-        { dependsOn: [worker, access] },
-    );
-    return { url: worker.subdomain.url, deployment: deployment.stdout };
-};
 const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, production, resolved }: Stack) {
-    const [path, assets, email] = yield* Effect.all([Path.Path, Effect.fromNullishOr(workers.default.assetsDir).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`worker ${name} has no assets for the Node server`))), Config.String(ownerBinding)]);
-    const { build } = yield* Effect.fromNullishOr(resolved.environments[nodeBundle.layout.environment]).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`Vite configuration at ${root} has no ${nodeBundle.layout.environment} environment`)));
     const env = workers.default.config.env ?? {};
+    const [path, assets, email] = yield* Effect.all([
+        Path.Path,
+        Effect.fromNullishOr(workers.default.assetsDir).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`worker ${name} has no assets for the Node server`))),
+        Match.value(env[ownerBinding]).pipe(
+            Match.when({ type: 'text' }, ({ value }) => Effect.succeed(value)),
+            Match.orElse(() => Effect.fail(new Cause.NoSuchElementError(`worker ${name} binds no ${ownerBinding} text`))),
+        ),
+    ]);
+    const { build } = yield* Effect.fromNullishOr(resolved.environments[nodeBundle.layout.environment]).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`Vite configuration at ${root} has no ${nodeBundle.layout.environment} environment`)));
     const port = 8080;
     const loopback = '127.0.0.1';
     const password = (resource: string) => new RandomPassword(resource, { length: 40, special: false });
@@ -248,18 +197,17 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const hostingTargets = { cloudflare: { modes: { production: hostingMode.edge, disposable: hostingMode.disposable }, program: Effect.fnUntraced(cloudflare) }, docker: { modes: { production: hostingMode.server, disposable: hostingMode.server }, program: Effect.fnUntraced(docker) } };
-const hostingStack = Effect.fn('hostingStack')(function* (directory: string, target: keyof typeof hostingTargets, tag: Option.Option<string>) {
-    const disposable = Option.isNone(tag);
-    const { modes, program } = hostingTargets[target];
-    const mode = disposable ? modes.disposable : modes.production;
+const hostingValues = { local: { modes: { production: hostingMode.server, disposable: hostingMode.server }, program: Effect.fnUntraced(docker) } };
+const hostingStack = Effect.fn('hostingStack')(function* (directory: string, value: keyof typeof hostingValues, production: boolean) {
+    const { modes, program } = hostingValues[value];
+    const mode = production ? modes.production : modes.disposable;
     const file = join(directory, 'cloudflare.config.ts');
     const { result } = yield* Effect.tryPromise({ try: () => loadAndParseConfig(file, { isPreview: false, mode }), catch: (cause) => new Cause.UnknownError(cause, `Cannot read ${file}`) });
     if (!result.success) {
         return yield* Effect.fail(result.error);
     }
     const configured = yield* Effect.fromNullishOr(result.data.worker).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`${file} declares no Worker`)));
-    const name = disposable && mode === modes.production ? disposableName(configured.name) : configured.name;
+    const name = !production && mode === modes.production ? disposableName(configured.name) : configured.name;
     const compiled = yield* Effect.cached(
         Effect.gen(function* () {
             const { createBuilder } = yield* Effect.tryPromise(() => import('vite'));
@@ -271,7 +219,7 @@ const hostingStack = Effect.fn('hostingStack')(function* (directory: string, tar
     );
     return {
         projectName: 'rasm-hosting',
-        stackName: `${name}.${target}`,
+        stackName: `${name}.${value}`,
         program: Effect.gen(function* () {
             const { build, resolved } = yield* compiled;
             const { domains = [] } = build.workers.default.config;
@@ -284,11 +232,11 @@ const hostingStack = Effect.fn('hostingStack')(function* (directory: string, tar
                     Match.result,
                 ),
             );
-            return yield* program(build, { name, hostnames, production: !disposable, tag, resolved });
+            return yield* program(build, { name, hostnames, production, resolved });
         }),
     };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { hostingStack, hostingTargets };
+export { hostingStack, hostingValues };

@@ -1,6 +1,6 @@
 import uFuzzy from '@leeoniya/ufuzzy';
 import { Array, Effect, Equivalence, Function, flow, Option, Predicate, pipe, Schema } from 'effect';
-import { Digits } from '#/digits.ts';
+import { Digits } from '#/digits';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

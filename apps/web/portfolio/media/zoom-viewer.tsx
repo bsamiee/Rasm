@@ -3,8 +3,8 @@ import { Button } from 'react-aria-components';
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch';
 import { MediaElement } from '#/media/media-element.tsx';
 import { ZoomControls } from '#/media/zoom-controls.tsx';
-import { assetUrl } from '#/model/api.ts';
-import type { Placement } from '#/model/placement.ts';
+import { assetUrl } from '#/model/api';
+import type { Placement } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -319,7 +319,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
     @staticmethod
     def properties(operator: bpy.types.Operator, /) -> T:
         """Returns operator properties typed as the form group."""
-        properties: T = operator.properties  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        properties: T = operator.properties  # ty: ignore[invalid-assignment]
         return properties
 
     def derived(self, base: type[bpy.types.Operator], namespace: Mapping[str, object], /, *mixins: type) -> type[bpy.types.Operator]:
@@ -382,7 +382,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
         """Class `draw` laying out the command's draw over the operator properties."""
 
         def draw(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
-            layout: bpy.types.UILayout = operator.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            layout: bpy.types.UILayout = operator.layout  # ty: ignore[invalid-assignment]
             for drawn in self.command.draw.to_list():
                 drawn(layout, context, self.properties(operator), self.identity)
 
@@ -445,7 +445,7 @@ def idname(identity: Identity, target: Command | Operation | PopupTarget, /) -> 
         case PopupTarget(target=str(key), kind=kind):
             return identity.name(kind.base, key)
         case PopupTarget(target=opened):
-            declared: type[Struct] = opened  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            declared: type[Struct] = opened  # ty: ignore[invalid-assignment]
             return _definition(declared).identifier
         case Command() as command:
             return identity.name(bpy.types.Operator, command.key)
@@ -505,13 +505,13 @@ def called(
 
 def rna_type(operator: Operation, /) -> bpy.types.Struct:
     """Returns the RNA type definition of a `bpy.ops` operator, which the stubs type as a plain function."""
-    found: bpy.types.Struct = operator.get_rna_type()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+    found: bpy.types.Struct = operator.get_rna_type()  # ty: ignore[unresolved-attribute, unsound-assignment]
     return found
 
 
 def _dotted(operator: Operation, /) -> str:
     """Returns the `bpy.ops` path of an operator, which the stubs type as a plain function."""
-    identifier: str = operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+    identifier: str = operator.idname_py()  # ty: ignore[unresolved-attribute, unsound-assignment]
     return identifier
 
 

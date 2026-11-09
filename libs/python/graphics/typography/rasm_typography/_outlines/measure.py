@@ -92,7 +92,7 @@ def _flattened(outline: _Outline, /) -> tuple[tuple[tuple[float, float], ...], t
 
 def _strung(edges: tuple[tuple[tuple[float, float], tuple[float, float]], ...], /) -> MultiLineString:
     """Edges as one geometry through the array constructors, an empty one for none."""
-    return multilinestrings(linestrings(edges)) if edges else MultiLineString()  # type: ignore[return-value] # ty: ignore[invalid-return-type]
+    return multilinestrings(linestrings(edges)) if edges else MultiLineString()  # ty: ignore[invalid-return-type]
 
 
 def _inradius(outline: _Outline, /) -> float:

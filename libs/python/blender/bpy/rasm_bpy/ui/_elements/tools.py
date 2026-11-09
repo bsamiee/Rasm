@@ -148,7 +148,7 @@ def _registered[S](tools: Tools[S], identity: Identity, pointers: tuple[Option[D
 
         def placed(classes: tuple[type[bpy.types.WorkSpaceTool], ...], result: Outcome[None], order: int) -> Outcome[None]:
             cls, first = classes[order], order == 0
-            after = (set(tools.after) or None) if first else {classes[order - 1].bl_idname}  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            after = (set(tools.after) or None) if first else {classes[order - 1].bl_idname}  # ty: ignore[unresolved-attribute]
             return result.bind(
                 lambda _: (
                     catch(bpy.utils.register_tool, exception=Exception)(cls, after=after, separator=tools.separator and first, group=tools.group and first)

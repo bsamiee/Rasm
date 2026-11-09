@@ -62,10 +62,10 @@ type _Plot = Callable[[Metrics, PyOpenColorIO.Config, npt.NDArray[np.float32], D
 class Charted(bpy.types.PropertyGroup):
     """Render Result chart switches of one screen: the last render's outlines and the written file's clipping tints."""
 
-    outline: bpy.props.BoolProperty(name="Outline", description="Last render's scene-linear luminance outline", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    chromaticity: bpy.props.BoolProperty(name="Chromaticity", description="Last render's chromaticity with working and display gamuts")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    low: bpy.props.BoolProperty(name="Low Clip", description="Tint pixels at the written file's lowest code")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    high: bpy.props.BoolProperty(name="High Clip", description="Tint pixels at the written file's highest code")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    outline: bpy.props.BoolProperty(name="Outline", description="Last render's scene-linear luminance outline", default=True)  # ty: ignore[invalid-type-form]
+    chromaticity: bpy.props.BoolProperty(name="Chromaticity", description="Last render's chromaticity with working and display gamuts")  # ty: ignore[invalid-type-form]
+    low: bpy.props.BoolProperty(name="Low Clip", description="Tint pixels at the written file's lowest code")  # ty: ignore[invalid-type-form]
+    high: bpy.props.BoolProperty(name="High Clip", description="Tint pixels at the written file's highest code")  # ty: ignore[invalid-type-form]
 
 
 class Frames(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True):

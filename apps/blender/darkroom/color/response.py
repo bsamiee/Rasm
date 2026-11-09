@@ -36,7 +36,7 @@ _VIEWER: Final = image_type(("COMPOSITING",))
 class ResponseChart(bpy.types.PropertyGroup):
     """Screen switch charting the tone response over the Viewer image."""
 
-    shown: bpy.props.BoolProperty(name="Tone Response", description="Chart the tone and formation response over the Viewer image")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    shown: bpy.props.BoolProperty(name="Tone Response", description="Chart the tone and formation response over the Viewer image")  # ty: ignore[invalid-type-form]
 
 
 class _Request(msgspec.Struct, frozen=True, kw_only=True):
@@ -94,7 +94,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
         """Returns sampling per actual scene and plot size demanded by chart-enabled windows, equal requests keeping their responses."""
         latest, columns, config = _LATEST[identity], _COLUMNS[identity], PyOpenColorIO.GetCurrentConfig()
         config_id = config.getCacheID()
-        manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        manager: bpy.types.WindowManager = context.window_manager  # ty: ignore[invalid-assignment]
         visible = tuple(dict.fromkeys(at.window for at in AreaQuery(space=bpy.types.SpaceImageEditor, ui_type=Some("IMAGE_EDITOR"), shows=Some(_VIEWER)).located(manager.windows)))
 
         def queued(request: _Request) -> Outcome[tuple[Job, ...]]:

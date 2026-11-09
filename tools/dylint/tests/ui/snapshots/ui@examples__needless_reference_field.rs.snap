@@ -1,0 +1,82 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/needless_reference_field.rs
+---
+warning: `Walker` holds `cx` by reference only to copy `cx.tcx`
+   --> tools/dylint/examples/needless_reference_field.rs:25:5
+    |
+ 25 |     cx: &'cx Context<'tcx>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: `cx.tcx` copied here
+   --> tools/dylint/examples/needless_reference_field.rs:130:55
+    |
+130 |     const fn interner(&self) -> Interner<'tcx> { self.cx.tcx }
+    |                                                       ^^^^^^
+    = help: store the `Interner<'tcx>` of `cx.tcx` in place of `cx` and remove `'cx`
+    = note: `#[warn(needless_reference_field)]` on by default
+
+warning: `Shared` holds `settings` by reference only to copy `settings.port`
+   --> tools/dylint/examples/needless_reference_field.rs:29:5
+    |
+ 29 |     settings: &'settings Settings,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: `settings.port` copied here
+   --> tools/dylint/examples/needless_reference_field.rs:134:40
+    |
+134 |     const fn port(&self) -> u16 { self.settings.port }
+    |                                        ^^^^^^^^^^^^^
+    = help: store the `u16` of `settings.port` in place of `settings`
+
+warning: `Exposed` holds `settings` by reference only to copy `settings.port`
+   --> tools/dylint/examples/needless_reference_field.rs:39:5
+    |
+ 39 |     pub settings: &'settings Settings,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: `settings.port` copied here
+   --> tools/dylint/examples/needless_reference_field.rs:144:40
+    |
+144 |     const fn port(&self) -> u16 { self.settings.port }
+    |                                        ^^^^^^^^^^^^^
+    = help: store the `u16` of `settings.port` in place of `settings` and remove `'settings`
+
+warning: `Derived` holds `settings` by reference only to copy `settings.port`
+   --> tools/dylint/examples/needless_reference_field.rs:68:5
+    |
+ 68 |     settings: &'settings Settings,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: `settings.port` copied here
+   --> tools/dylint/examples/needless_reference_field.rs:177:40
+    |
+177 |     const fn port(&self) -> u16 { self.settings.port }
+    |                                        ^^^^^^^^^^^^^
+    = help: store the `u16` of `settings.port` in place of `settings` and remove `'settings`
+
+warning: `Tagged` holds `0` by reference only to copy `0.retries`
+   --> tools/dylint/examples/needless_reference_field.rs:88:26
+    |
+ 88 | struct Tagged<'settings>(&'settings Settings);
+    |                          ^^^^^^^^^^^^^^^^^^^
+    |
+note: `0.retries` copied here
+   --> tools/dylint/examples/needless_reference_field.rs:193:42
+    |
+193 |     const fn retries(&self) -> u8 { self.0.retries }
+    |                                          ^^^^^^^^^
+    = help: store the `u8` of `0.retries` in place of `0` and remove `'settings`
+
+warning: `Scoped` holds `source` by reference only to copy `source.value`
+   --> tools/dylint/examples/needless_reference_field.rs:111:5
+    |
+111 |     source: &'value Projected<T>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: `source.value` copied here
+   --> tools/dylint/examples/needless_reference_field.rs:208:40
+    |
+208 |     fn value(&self) -> T::Value { self.source.value }
+    |                                        ^^^^^^^^^^^^
+    = help: store the `<T as Width>::Value` of `source.value` in place of `source` and remove `'value`

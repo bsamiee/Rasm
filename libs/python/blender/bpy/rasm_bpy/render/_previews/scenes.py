@@ -118,7 +118,7 @@ _CAMERAS: Final[Mapping[tuple[CameraPose, str | None], tuple[Mapping[RnaPath, Va
     (CameraPose.PANORAMA, None): ({("type",): "PERSP", ("lens",): 12.0}, {("location",): (0.0, 0.0, 0.0), ("rotation_euler",): (1.3, 0.0, 0.0)}),
     (CameraPose.FRONT, None): ({("type",): "PERSP", ("lens",): 45.0}, {("location",): (0.0, -4.0, 0.0), ("rotation_euler",): (math.pi / 2.0, 0.0, 0.0)}),
 })
-_SURFACE_TYPE: Final[bpy.types.EnumProperty] = bpy.types.Material.bl_rna.properties["preview_render_type"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_SURFACE_TYPE: Final[bpy.types.EnumProperty] = bpy.types.Material.bl_rna.properties["preview_render_type"]  # ty: ignore[invalid-assignment]
 SURFACES: Final = choices(item for item in _SURFACE_TYPE.enum_items if item.identifier in PreviewMesh.__members__)
 _FIXED: Final[Mapping[RnaPath, Value]] = MappingProxyType({("location",): (0.0, 0.0, 0.0), ("rotation_euler",): (0.0, 0.0, 0.0), ("scale",): (1.0, 1.0, 1.0), ("hide_render",): False})
 
@@ -154,7 +154,7 @@ class PreviewLighting(msgspec.Struct, frozen=True, kw_only=True):
             case White():
                 return graphed((1.0, 1.0, 1.0, 1.0), ())
             case Studio(name=name):
-                preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
                 return (
                     _studio(name, preferences)
                     .bind(lambda path: _loaded(path, Tag()))
@@ -384,8 +384,8 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             match staging.viewpoint:
                 case CameraPose() as pose:
                     lens, transform = _CAMERAS.get((pose, staging.source.render.engine), _CAMERAS[pose, None])
-                    start: bpy.types.FloatProperty = bpy.types.Camera.bl_rna.properties["clip_start"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                    end: bpy.types.FloatProperty = bpy.types.Camera.bl_rna.properties["clip_end"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                    start: bpy.types.FloatProperty = bpy.types.Camera.bl_rna.properties["clip_start"]  # ty: ignore[invalid-assignment]
+                    end: bpy.types.FloatProperty = bpy.types.Camera.bl_rna.properties["clip_end"]  # ty: ignore[invalid-assignment]
                     return paired(assigned(data, {("clip_start",): start.default, ("clip_end",): end.default, **lens}), assigned(camera, transform)).map(lambda _: None)
                 case bpy.types.Object() as subject:
                     rotation = Vector((-0.55, 0.8, -0.5)).to_track_quat("-Z", "Y").to_euler()

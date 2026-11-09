@@ -9,7 +9,7 @@ from typing import Annotated, Final, Protocol, Self, TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid5
 
 from _bpy_internal.assets.remote_library.blender_asset_library_openapi import AssetLibraryMeta, CatalogV1, Contact  # ruff: ignore[import-private-name]
-from _bpy_internal.assets.remote_library.listing_asset_catalogs import _parse_catalog, write  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]  # ruff: ignore[import-private-name]
+from _bpy_internal.assets.remote_library.listing_asset_catalogs import _parse_catalog, write  # ty: ignore[import-not-found]  # ruff: ignore[import-private-name]
 import bpy
 from expression import Option, Result, Some, try_downcast
 from expression.collections import Block
@@ -153,7 +153,7 @@ class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
                 )
                 return _tracked(lifetime, rows.remove, found)
 
-            preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
             yield (
                 folder_made(self.located(identity))
                 .bind(lambda folder: held(folder, preferences.filepaths.asset_libraries).map(lambda row: (folder, row)))
@@ -204,7 +204,7 @@ def _read(catalogs: Path) -> tuple[tuple[_Catalog, ...], frozenset[tuple[str, ..
 
 def _simple_name(path: str) -> str:
     """Returns the simple name Blender derives for a catalog path, a name past the host field keeping its tail on a character boundary."""
-    field: bpy.types.StringProperty = bpy.types.AssetMetaData.bl_rna.properties["catalog_simple_name"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    field: bpy.types.StringProperty = bpy.types.AssetMetaData.bl_rna.properties["catalog_simple_name"]  # ty: ignore[invalid-assignment]
     name, elided = path.replace("/", "-"), "..."
     encoded = name.encode()
     return name if len(encoded) < field.length_max - 1 else elided + encoded[len(elided) + 1 - field.length_max :].decode(errors="ignore")
@@ -231,10 +231,10 @@ def _published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple
         held = {row.path.as_posix(): row.uuid for row in reversed(rows)}
         added = {path: str(uuid5(NAMESPACE_URL, f"{identity.manifest.id}/{path}")) for path in sorted({mark.catalog for _, mark in entries} - held.keys())}
         merged = [
-            *(CatalogV1(path=row.path.as_posix(), uuids=[row.uuid], simple_name=row.simple_name) for row in rows),  # type: ignore[call-arg]  # ty: ignore[unknown-argument]
-            *(CatalogV1(path=path, uuids=[uid], simple_name=_simple_name(path)) for path, uid in added.items()),  # type: ignore[call-arg]  # ty: ignore[unknown-argument]
+            *(CatalogV1(path=row.path.as_posix(), uuids=[row.uuid], simple_name=row.simple_name) for row in rows),  # ty: ignore[unknown-argument]
+            *(CatalogV1(path=path, uuids=[uid], simple_name=_simple_name(path)) for path, uid in added.items()),  # ty: ignore[unknown-argument]
         ]
-        meta = AssetLibraryMeta(api_versions={}, name=folder.name, contact=Contact(name=identity.manifest.name))  # type: ignore[call-arg]  # ty: ignore[unknown-argument]
+        meta = AssetLibraryMeta(api_versions={}, name=folder.name, contact=Contact(name=identity.manifest.name))  # ty: ignore[unknown-argument]
 
         def staged(stage: Path) -> Outcome[object]:
             return (
@@ -266,7 +266,7 @@ def _loading(method: _ImportMethod, *, relative: bool) -> Mapping[str, bool]:
 
 def _essential() -> _ImportMethod:
     """Returns Essentials import method for packing preference."""
-    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
     return "APPEND_REUSE" if preferences.experimental.no_data_block_packing else "PACK"
 
 
@@ -322,7 +322,7 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
     Returns:
         Imported block, absent fault for missing name.
     """
-    folder: str = bpy.utils.system_resource("DATAFILES", path="assets")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+    folder: str = bpy.utils.system_resource("DATAFILES", path="assets")  # ty: ignore[unresolved-attribute, unsound-assignment]
     root = Path(folder)
     return (
         _blends(root)

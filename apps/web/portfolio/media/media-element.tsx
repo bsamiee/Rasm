@@ -2,11 +2,11 @@ import { Match } from 'effect';
 import { useInView } from 'motion/react';
 import { lazy, type RefObject, Suspense, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { placementAlt } from '#/media/labels.ts';
+import { placementAlt } from '#/media/labels';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
-import { assetUrl } from '#/model/api.ts';
-import type { ImageAsset } from '#/model/asset.ts';
-import type { Placement } from '#/model/placement.ts';
+import { assetUrl } from '#/model/api';
+import type { ImageAsset } from '#/model/asset';
+import type { Placement } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

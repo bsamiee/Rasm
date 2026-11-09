@@ -64,7 +64,7 @@ class Layer(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             case _:
                 shader, bind = "POLYLINE_FLAT_COLOR", partial(Canvas.lines, width=width, shader="POLYLINE_FLAT_COLOR")
         colors = np.ascontiguousarray(np.broadcast_to(np.asarray(color, np.float32), (len(positions), 4)))
-        batch = batch_for_shader(gpu.shader.from_builtin(shader), primitive, {"pos": np.ascontiguousarray(positions, np.float32), "color": colors}, indices=indices.to_optional())  # type: ignore[arg-type, dict-item]  # ty: ignore[invalid-argument-type]
+        batch = batch_for_shader(gpu.shader.from_builtin(shader), primitive, {"pos": np.ascontiguousarray(positions, np.float32), "color": colors}, indices=indices.to_optional())  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
         return cls(batch=batch, bind=bind, blend=blend)
 
     def drawn(self, canvas: Canvas) -> None:

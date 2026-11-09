@@ -1,0 +1,48 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/manual_reference_impl.rs
+---
+warning: `impl AsRef<String> for Title` returns the wrapped `String` by hand
+  --> tools/dylint/examples/manual_reference_impl.rs:86:1
+   |
+86 | / impl AsRef<String> for Title {
+87 | |     fn as_ref(&self) -> &String { &self.0 }
+88 | | }
+   | |_^
+   |
+   = help: derive `derive_more::AsRef` on `Title` with `#[as_ref(String)]` and delete the impl
+   = note: `#[warn(manual_reference_impl)]` on by default
+
+warning: `impl AsRef<str> for Title` returns the wrapped `String` by hand
+  --> tools/dylint/examples/manual_reference_impl.rs:90:1
+   |
+90 | / impl AsRef<str> for Title {
+91 | |     fn as_ref(&self) -> &str { self.0.as_ref() }
+92 | | }
+   | |_^
+   |
+   = help: derive `derive_more::AsRef` on `Title` with `#[as_ref(str)]` and delete the impl
+
+warning: `impl AsMut<String> for Title` returns the wrapped `String` by hand
+  --> tools/dylint/examples/manual_reference_impl.rs:94:1
+   |
+94 | / impl AsMut<String> for Title {
+95 | |     fn as_mut(&mut self) -> &mut String { &mut self.0 }
+96 | | }
+   | |_^
+   |
+   = help: derive `derive_more::AsMut` on `Title` with `#[as_mut(String)]` and delete the impl
+
+warning: `AsRef` impls for `Title` and `Conditional` have the same `as_ref` body
+   --> tools/dylint/examples/manual_reference_impl.rs:91:5
+    |
+ 91 |     fn as_ref(&self) -> &str { self.0.as_ref() }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: repeated here
+   --> tools/dylint/examples/manual_reference_impl.rs:207:5
+    |
+207 |     fn as_ref(&self) -> &str { self.0.as_ref() }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: generate the `AsRef` impls from one `macro_rules!` over the implementing type
+    = note: `#[warn(duplicate_body)]` on by default

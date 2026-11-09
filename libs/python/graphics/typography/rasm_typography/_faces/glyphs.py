@@ -244,7 +244,7 @@ class _Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def scripts(self) -> tuple[str, ...]:
         """Supported ISO 15924 scripts from mapped code points, excluding common, inherited, and unknown classes."""
-        return tuple(sorted({held for code in self.encoded if (held := script(chr(code))) not in {"Zyyy", "Zinh", "Zzzz"}}))  # ty: ignore[unsound-return-statement]
+        return tuple(sorted({held for code in self.encoded if (held := script(chr(code))) not in {"Zyyy", "Zinh", "Zzzz"}}))
 
     @cached_property
     def drawn(self) -> Callable[[str], _Glyph]:

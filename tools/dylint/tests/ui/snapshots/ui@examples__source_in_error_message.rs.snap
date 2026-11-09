@@ -1,0 +1,96 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/source_in_error_message.rs
+---
+warning: `Read` message prints its source field `source`
+ --> tools/dylint/examples/source_in_error_message.rs:8:5
+  |
+8 |     #[error("cannot read {path}: {source}")]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: delete field `source` from the message
+  = note: `#[warn(source_in_error_message)]` on by default
+
+warning: `Parse` message prints its source field `0`
+  --> tools/dylint/examples/source_in_error_message.rs:10:5
+   |
+10 |     #[error("cannot parse the port: {0}")]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete field `0` from the message
+
+warning: `Wrapped` message prints its source field `0`
+  --> tools/dylint/examples/source_in_error_message.rs:12:5
+   |
+12 |     #[error("{0}")]
+   |     ^^^^^^^^^^^^^^^
+   |
+   = help: state the failure in the message in place of field `0`
+
+warning: `Write` message prints its source field `cause`
+  --> tools/dylint/examples/source_in_error_message.rs:20:5
+   |
+20 |     #[error("cannot write {cause:?}")]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete field `cause` from the message
+
+warning: `Sync` message prints its source field `source`
+  --> tools/dylint/examples/source_in_error_message.rs:25:5
+   |
+25 |     #[error("cannot sync {}: {}", .path, .source)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete field `source` from the message
+
+warning: `Flush` message prints its source field `0`
+  --> tools/dylint/examples/source_in_error_message.rs:27:5
+   |
+27 |     #[error("cannot flush {reason}", reason = .0)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete field `0` from the message
+
+warning: `Receive` message prints its source field `source`
+  --> tools/dylint/examples/source_in_error_message.rs:33:5
+   |
+33 |     #[error(r"cannot receive: {source}")]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete field `source` from the message
+
+warning: `Accept` message prints its source field `source`
+  --> tools/dylint/examples/source_in_error_message.rs:35:5
+   |
+35 |     #[error("cannot accept: \u{7b}source\u{7d}")]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete field `source` from the message
+
+warning: `LoadError` message prints its source field `source`
+  --> tools/dylint/examples/source_in_error_message.rs:40:1
+   |
+40 | #[error("cannot load the settings: {source}")]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete field `source` from the message
+
+warning: error variants `Accept`, `Close` and `Receive` of `Failure` repeat the same fields
+  --> tools/dylint/examples/source_in_error_message.rs:7:1
+   |
+ 7 | enum Failure {
+   | ^^^^^^^^^^^^
+   |
+note: repeated here
+  --> tools/dylint/examples/source_in_error_message.rs:32:5
+   |
+32 |     Close { source: io::Error },
+   |     ^^^^^
+33 |     #[error(r"cannot receive: {source}")]
+34 |     Receive { source: io::Error },
+   |     ^^^^^^^
+35 |     #[error("cannot accept: \u{7b}source\u{7d}")]
+36 |     Accept { source: io::Error },
+   |     ^^^^^^
+   = help: replace `Accept`, `Close` and `Receive` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
+   = note: `#[warn(duplicate_type)]` on by default

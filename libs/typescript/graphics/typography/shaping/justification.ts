@@ -1,10 +1,10 @@
 import { Array, Function, flow, Match, Number, Option, Order, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { Feature, type Font } from 'harfbuzzjs';
 import { type JoiningGroup, Script } from 'icu';
-import { Settings } from '#/settings.ts';
-import { Face } from '#/shaping/face.ts';
-import { ShapedText } from '#/shaping/shaped-text.ts';
-import { Word } from '#/shaping/word.ts';
+import { Settings } from '#/settings';
+import { Face } from '#/shaping/face';
+import { ShapedText } from '#/shaping/shaped-text';
+import { Word } from '#/shaping/word';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

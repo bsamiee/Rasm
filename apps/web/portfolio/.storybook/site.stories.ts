@@ -1,5 +1,5 @@
-import preview from '#/.storybook/preview.ts';
-import { Entry, EntryId, Portfolio } from '#/model/portfolio.ts';
+import preview from '#/.storybook/preview';
+import { Entry, EntryId, Portfolio } from '#/model/portfolio';
 import { shell } from '#/site/shell.tsx';
 import { Site } from '#/site/site.tsx';
 

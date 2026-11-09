@@ -1,0 +1,35 @@
+{
+    "name": "@rasm/database",
+    "private": true,
+    "description": "Databases reconciled to their declared schemas",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./pg-client": "./pg-client.ts"
+    },
+    "dependencies": {
+        "@pgsql/traverse": "catalog:",
+        "@pgsql/types": "catalog:",
+        "pgsql-parser": "catalog:"
+    },
+    "devDependencies": {
+        "@effect/sql-d1": "catalog:",
+        "@effect/sql-pg": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "@effect/sql-d1": "catalog:peers",
+        "@effect/sql-pg": "catalog:peers",
+        "effect": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "@effect/sql-pg": {
+            "optional": true
+        }
+    }
+}

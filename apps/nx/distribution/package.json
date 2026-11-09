@@ -1,0 +1,40 @@
+{
+    "name": "@rasm/nx-distribution",
+    "version": "0.0.0",
+    "description": "Nx plugin installing and publishing host packages (Blender extensions, Yak packages, Adobe UXP and CEP plug-ins) through each host's own channel",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm",
+        "directory": "apps/nx/distribution"
+    },
+    "license": "MIT",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./plugins/project-graph.ts",
+        "./package.json": "./package.json",
+        "./executors.json": "./executors.json"
+    },
+    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "nx": "catalog:"
+    },
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/plugins/project-graph.js",
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
+    },
+    "executors": "./executors.json"
+}

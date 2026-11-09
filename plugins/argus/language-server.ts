@@ -45,7 +45,7 @@ import {
     WatchKind,
     WorkDoneProgressCreateRequest,
 } from 'vscode-languageserver-protocol/node';
-import { Exited } from '#/exited.ts';
+import { Exited } from '#/exited';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

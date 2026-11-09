@@ -1,7 +1,7 @@
 import { Array, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { type Font, MetricsTag } from 'harfbuzzjs';
-import type { Tables } from '#/shaping/internal/tables.ts';
-import type { ShapedText } from '#/shaping/shaped-text.ts';
+import type { Tables } from '#/shaping/internal/tables';
+import type { ShapedText } from '#/shaping/shaped-text';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

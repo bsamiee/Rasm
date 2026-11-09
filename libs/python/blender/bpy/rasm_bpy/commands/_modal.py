@@ -146,9 +146,8 @@ class _Modal[S](msgspec.Struct, frozen=True, kw_only=True):
 
         def modal_map(context: bpy.types.Context, name: str, /) -> Option[bpy.types.KeyMap]:
             """Returns a modal keymap of the user keyconfig, which Python operators read and cannot replace."""
-            user: bpy.types.KeyConfig = context.window_manager.keyconfigs.user  # type: ignore[union-attr, assignment]  # ty: ignore[unresolved-attribute, invalid-assignment]
-            held: bpy.types.KeyMap | None = user.keymaps.get(name)  # ty: ignore[unsound-assignment]
-            return Option.of_optional(held)
+            user: bpy.types.KeyConfig = context.window_manager.keyconfigs.user  # ty: ignore[unresolved-attribute, invalid-assignment]
+            return catch(lambda: user.keymaps[name], exception=KeyError)().to_option()
 
         def active(context: bpy.types.Context, name: str, /) -> Block[bpy.types.KeyMapItem]:
             """Returns the active items of a user modal keymap in keymap order."""
@@ -162,7 +161,7 @@ class _Modal[S](msgspec.Struct, frozen=True, kw_only=True):
         def hinted(operator: bpy.types.Operator, header: bpy.types.Header, context: bpy.types.Context) -> None:
             """Draws the status bar of a live run: user chords in action order, the user precision chord on a grabbed drag, and run state."""
             run = runs[operator]
-            layout: bpy.types.UILayout = header.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            layout: bpy.types.UILayout = header.layout  # ty: ignore[invalid-assignment]
             items = (
                 *(
                     item
@@ -209,7 +208,7 @@ class _Modal[S](msgspec.Struct, frozen=True, kw_only=True):
 
             match context:
                 case bpy.types.Context(window_manager=bpy.types.WindowManager() as manager, window=bpy.types.Window(workspace=workspace) as window):
-                    preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                    preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
                     inputs, system = preferences.inputs, preferences.system
                     threshold = (inputs.drag_threshold_tablet if event.is_tablet else inputs.drag_threshold_mouse) if event.type in _BUTTONS else inputs.drag_threshold
                     x, y = (event.mouse_prev_press_x, event.mouse_prev_press_y) if event.value == "CLICK_DRAG" else (event.mouse_x, event.mouse_y)
@@ -275,7 +274,7 @@ class _Modal[S](msgspec.Struct, frozen=True, kw_only=True):
             run.workspace.status_text_set(partial(hinted, operator))
             for handle in self.event.to_list():
                 return handle(context, run.state, event).map(following)
-            preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
             action = active(context, _STANDARD).filter(lambda item: _matched(item, event, held, inverted=preferences.inputs.invert_zoom_wheel)).try_head().map(proposed)
             match action.to_optional(), event.type:
                 case "CANCEL", _:

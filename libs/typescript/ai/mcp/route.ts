@@ -1,7 +1,7 @@
 import { Array, Cause, Context, Effect, Exit, flow, Option, pipe, Record, Schema, Sink, Stream, Struct, Tuple } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
-import type { Resource } from '#/resource.ts';
-import { Server } from '#/server.ts';
+import type { Resource } from '#/resource';
+import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

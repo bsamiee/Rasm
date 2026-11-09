@@ -10,7 +10,7 @@ import { Array, Cause, Duration, Effect, FileSystem, Function, Match, Option, Re
 import { type ChildNode, list, parse } from 'postcss';
 import { type DevEnvironment, type HtmlTagDescriptor, normalizePath, type Plugin, type ResolvedConfig, type Rolldown } from 'vite';
 import type { WebAppManifest } from 'web-app-manifest';
-import { HostingError } from '#/error.ts';
+import { HostingError } from '#/error';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

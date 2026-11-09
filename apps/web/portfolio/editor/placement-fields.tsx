@@ -1,9 +1,9 @@
 import { Choice, Field, MenuButton } from '@rasm/ui';
 import { Match, Record, Struct } from 'effect';
 import type { ReactNode } from 'react';
-import { choiceLayout, descriptionLabel, joinDetails, sheetLabel } from '#/media/labels.ts';
-import { Asset, type Assets } from '#/model/asset.ts';
-import { Placement } from '#/model/placement.ts';
+import { choiceLayout, descriptionLabel, joinDetails, sheetLabel } from '#/media/labels';
+import { Asset, type Assets } from '#/model/asset';
+import { Placement } from '#/model/placement';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -1,0 +1,11 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Install",
+    "description": "Applies the stacks each program package states for the project's local install",
+    "type": "object",
+    "properties": {
+        "programs": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Packages whose entry exports the stacks function, resolved from the project folder" }
+    },
+    "required": [ "programs" ]
+}

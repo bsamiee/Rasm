@@ -218,7 +218,7 @@ def _drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Ca
         case Voronoi(texture=cells):
             raw = textures.evolving(cells, point + offset, time, linked=linked(Voronoi.texture))
         case Wave(texture=wave):
-            phase: MemberDescriptorType = textures.Wave.phase_offset  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            phase: MemberDescriptorType = textures.Wave.phase_offset  # ty: ignore[invalid-assignment]
             travel = math("MULTIPLY_ADD", time, -tau, operand(wave.phase_offset, Wave.texture, phase))
             raw = wave.node(point + vector("MULTIPLY", offset, (0.0, 0.0, 1.0)), linked=Some(lambda field: Some(travel) if field is phase else linked(Wave.texture).bind(lambda reader: reader(field))))
         case Gabor(texture=oscillations):

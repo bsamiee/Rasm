@@ -27,7 +27,7 @@ type _Curves = bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_CO: Final[bpy.types.FloatProperty] = bpy.types.Keyframe.bl_rna.properties["co"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_CO: Final[bpy.types.FloatProperty] = bpy.types.Keyframe.bl_rna.properties["co"]  # ty: ignore[invalid-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -157,7 +157,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def driver(_data: bpy.types.AnimData, struct: Struct, descriptor: Descriptor) -> Outcome[bpy.types.FCurve]:
-            return catch(struct.driver_add, exception=TypeError)(descriptor.prop.identifier, descriptor.index.default_value(-1)).map_error(refused)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+            return catch(struct.driver_add, exception=TypeError)(descriptor.prop.identifier, descriptor.index.default_value(-1)).map_error(refused)  # ty: ignore[invalid-return-type]
 
         content: Outcome[Callable[[bpy.types.FCurve], Outcome[bool]]]
         curve_of: Callable[[bpy.types.AnimData, Struct, Descriptor], Outcome[bpy.types.FCurve]]

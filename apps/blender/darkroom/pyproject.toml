@@ -30,6 +30,9 @@ dependencies = [
 [dependency-groups]
 dev = [
     "fake-bpy-module-latest", # Stubs for bpy, bmesh, mathutils, and gpu
+    "mypy",                   # Type checker of facts only mypy plugins check
+    "pydantic",               # `pydantic.mypy` plugin the root mypy configuration loads
+    "ruff",                   # Linter and formatter hk runs from this root's environment
     "scipy-stubs",
     "ty",                     # Type checker of every member
     "types-networkx",
@@ -39,6 +42,7 @@ dev = [
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
+python-preference       = "only-managed"
 environments            = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
@@ -83,6 +87,12 @@ extend = "../../../pyproject.toml"
 
 [tool.ruff.lint]
 ignore = ["relative-imports"] # Blender loads an extension as `bl_ext.<repository>.<id>`, its own modules import each other relatively
+
+# --- [TY] -------------------------------------------------------------------------------
+
+[tool.ty]
+environment = { python-platform = "all", root = [".."] }               # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own; `..` holds the `darkroom` package its relative imports climb
+rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
 
 # --- [FAWLTYDEPS] -----------------------------------------------------------------------
 

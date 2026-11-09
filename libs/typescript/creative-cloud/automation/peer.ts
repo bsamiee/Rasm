@@ -6,7 +6,7 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse, Url } from 'effect/h
 import { NetAddress } from 'effect/net';
 import { type Rpc, RpcClient, type RpcClientError, type RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
 import { Socket, SocketServer } from 'effect/socket';
-import { HostUrl } from '#/requests.ts';
+import { HostUrl } from '#/requests';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -44,7 +44,7 @@ from rasm_rendering import Field, Fields, NumberField, NumberKey, Output, Output
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _NATIVE: Final = MappingProxyType({TextKey.SCENE: "scene_name", TextKey.CAMERA: "camera_name", TextKey.FILE: "blend_name"})
-_FILEPATH: Final[bpy.types.StringProperty] = bpy.types.RenderSettings.bl_rna.properties["filepath"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_FILEPATH: Final[bpy.types.StringProperty] = bpy.types.RenderSettings.bl_rna.properties["filepath"]  # ty: ignore[invalid-assignment]
 _EDITED: Final = Setting(
     descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]), accepted=(bpy.types.CompositorNodeTree.__name__,)
 ) & Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner=("edit_tree",), prop=bpy.types.ID.bl_rna.properties["is_editable"]))
@@ -58,26 +58,26 @@ _FILE_OUTPUT: Final = Setting(
 class Outputs(bpy.types.PropertyGroup):
     """Scene output template, source-file grammar, take, and project-variable root."""
 
-    template: bpy.props.StringProperty(name="Template", description="Written file path under output folder", default="{file}/v{version:3}/{layer}/{pass}/{frame:4}")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    stem: bpy.props.StringProperty(name="File Name Grammar", description="Project, shot, and take grammar of blend file name", default="{project}_{shot}")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    version: bpy.props.IntProperty(name="Version", description="Take when file name holds none", min=1, default=1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_variable: bpy.props.BoolProperty(name="Project Variable", description="Root outputs under a project path variable, preferences output folder when off")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    variable: bpy.props.StringProperty(name="Variable", description="Project path variable", default="renders")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    template: bpy.props.StringProperty(name="Template", description="Written file path under output folder", default="{file}/v{version:3}/{layer}/{pass}/{frame:4}")  # ty: ignore[invalid-type-form]
+    stem: bpy.props.StringProperty(name="File Name Grammar", description="Project, shot, and take grammar of blend file name", default="{project}_{shot}")  # ty: ignore[invalid-type-form]
+    version: bpy.props.IntProperty(name="Version", description="Take when file name holds none", min=1, default=1)  # ty: ignore[invalid-type-form]
+    use_variable: bpy.props.BoolProperty(name="Project Variable", description="Root outputs under a project path variable, preferences output folder when off")  # ty: ignore[invalid-type-form]
+    variable: bpy.props.StringProperty(name="Variable", description="Project path variable", default="renders")  # ty: ignore[invalid-type-form]
 
 
 class Replace(bpy.types.PropertyGroup):
     """Pattern, replacement text, regex mode, and case sensitivity."""
 
-    find: bpy.props.StringProperty(name="Find", description="Text to find in selected paths, labels, and item names")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    replace: bpy.props.StringProperty(name="Replace", description=r"Replacement, regex groups as \1 or \g<name>")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    regex: bpy.props.BoolProperty(name="Regular Expression", description="Read Find as a Python regular expression")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    case: bpy.props.BoolProperty(name="Match Case", description="Match upper and lower case as written")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    find: bpy.props.StringProperty(name="Find", description="Text to find in selected paths, labels, and item names")  # ty: ignore[invalid-type-form]
+    replace: bpy.props.StringProperty(name="Replace", description=r"Replacement, regex groups as \1 or \g<name>")  # ty: ignore[invalid-type-form]
+    regex: bpy.props.BoolProperty(name="Regular Expression", description="Read Find as a Python regular expression")  # ty: ignore[invalid-type-form]
+    case: bpy.props.BoolProperty(name="Match Case", description="Match upper and lower case as written")  # ty: ignore[invalid-type-form]
 
 
 class Bump(bpy.types.PropertyGroup):
     """Version-token offset."""
 
-    offset: bpy.props.IntProperty(name="Offset", description="Versions each token moves by", default=1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    offset: bpy.props.IntProperty(name="Offset", description="Versions each token moves by", default=1)  # ty: ignore[invalid-type-form]
 
 
 class _Rename(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -211,7 +211,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
             return Ok((native, base)) if base.is_absolute() else Error(Fault.of(Reason.REQUIRED, f"saved file or absolute output folder, {folder} resolving against the working directory"))
 
         def root(outputs: Outputs) -> Outcome[tuple[str, Path]]:
-            preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
             folder = preferences.filepaths.render_output_directory
             return (
                 Option
@@ -415,7 +415,7 @@ def _image_path(scene: bpy.types.Scene, base: str, extension: str, view: Option[
         accepted = {".jpg", ".jpeg"} if extension == ".jpg" else {".tif", ".tiff"} if extension == ".tif" else {extension}
         if use_extension and previous.lower() not in accepted:
             stem, previous = ntpath.splitext(text)
-            replaced = previous.lower() in bpy.path.extensions_image  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            replaced = previous.lower() in bpy.path.extensions_image  # ty: ignore[unresolved-attribute]
             target = stem if replaced else text.rstrip(".")
             text = f"{target}{extension}" if len(target.encode(errors="surrogateescape")) + len(extension.encode()) < capacity else text if replaced else target
         return text

@@ -1,0 +1,9 @@
+{
+    "executors": {
+        "package": {
+            "implementation": "./dist/executors/package/executor#execute",
+            "schema": "./executors/package/schema.json",
+            "description": "Packs a built Adobe UXP plugin into a .ccx and signs a built CEP extension into a .zxp"
+        }
+    }
+}

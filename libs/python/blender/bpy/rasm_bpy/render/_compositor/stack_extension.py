@@ -85,7 +85,7 @@ _ADD_LAYER: Final[Key] = "add_layer"
 _ADD_EFFECT: Final[Key] = "layer_effect_add"
 _SPECIALS: Final[Key] = f"{_OWNERSHIP.key}_specials"
 _UNPICKED: Final = "NONE"
-_MEDIA: Final = (*sorted(bpy.path.extensions_image), *sorted(bpy.path.extensions_movie))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_MEDIA: Final = (*sorted(bpy.path.extensions_image), *sorted(bpy.path.extensions_movie))  # ty: ignore[unresolved-attribute]
 _WATCHED: Final = tuple(
     (owner, owner.bl_rna.properties[name])
     for owner, name in ((bpy.types.RenderSettings, "film_transparent"), (bpy.types.ViewLayer, "name"), (bpy.types.ViewLayer, "use"), (bpy.types.Object, "lightgroup"), (bpy.types.World, "lightgroup"))
@@ -142,7 +142,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def _preset[S: msgspec.Struct](self, key: Key, structure: type[S], stock: Mapping[str, Valued[S]] = MappingProxyType({})) -> Preset[Valued[S]]:
         """Presets of one generic structure over the offered records, with its input values."""
-        return Preset(key=key, form=GenericAlias(Valued, (GenericAlias(structure, (self.rows.form,)),)), stock=stock)  # type: ignore[arg-type]  # ty: ignore[invalid-type-form]
+        return Preset(key=key, form=GenericAlias(Valued, (GenericAlias(structure, (self.rows.form,)),)), stock=stock)  # ty: ignore[invalid-type-form]
 
     @cached_property
     def accepted(self) -> tuple[CompositorEffect, ...]:
@@ -276,7 +276,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 self.command(stack_commands.add_recombined_layer, RecombinedSourced, Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog)))),
                 self.command(stack_commands.add_node_layer, NodeKind, Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup)))),
                 self.command(stack_commands.add_nested_stack, switched, Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup)))),
-                self.command(stack_commands.add_media, Empty, Some(Open(extensions=lambda _: _MEDIA))),
+                self.command(stack_commands.add_media, Empty, Some(Open[Empty](extensions=lambda _: _MEDIA))),
                 self.command(stack_commands.select_output, OutputChoice),
                 self.command(stack_commands.add_mask, LayerEdit),
                 self.command(stack_commands.edit_layer, LayerEdit),

@@ -1,0 +1,146 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/absurd_nonzero_comparison.rs
+---
+warning: `count.get() == 0` is always `false`, `std::num::NonZero<u32>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:22:41
+   |
+22 | fn empty(count: NonZero<u32>) -> bool { count.get() == 0 }
+   |                                         ^^^^^^^^^^^^^^^^ help: replace the comparison with `false`: `false`
+   |
+   = note: `#[warn(absurd_nonzero_comparison)]` on by default
+applicability MachineApplicable: replace the comparison with `false`
+
+warning: `count.get() != 0` is always `true`, `std::num::NonZero<u32>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:24:43
+   |
+24 | fn present(count: NonZero<u32>) -> bool { count.get() != 0 }
+   |                                           ^^^^^^^^^^^^^^^^ help: replace the comparison with `true`: `true`
+applicability MachineApplicable: replace the comparison with `true`
+
+warning: `count.get() > 0` is always `true`, `std::num::NonZero<u64>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:26:44
+   |
+26 | fn positive(count: NonZero<u64>) -> bool { count.get() > 0 }
+   |                                            ^^^^^^^^^^^^^^^ help: replace the comparison with `true`: `true`
+applicability MachineApplicable: replace the comparison with `true`
+
+warning: `1 <= count.get()` is always `true`, `std::num::NonZero<usize>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:28:43
+   |
+28 | fn least(count: NonZero<usize>) -> bool { 1 <= count.get() }
+   |                                           ^^^^^^^^^^^^^^^^ help: replace the comparison with `true`: `true`
+applicability MachineApplicable: replace the comparison with `true`
+
+warning: `count.get() < 1` is always `false`, `std::num::NonZero<u8>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:30:40
+   |
+30 | fn below(count: NonZero<u8>) -> bool { count.get() < 1 }
+   |                                        ^^^^^^^^^^^^^^^ help: replace the comparison with `false`: `false`
+applicability MachineApplicable: replace the comparison with `false`
+
+warning: `count.get() <= 0` is always `false`, `std::num::NonZero<u8>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:32:39
+   |
+32 | fn most(count: NonZero<u8>) -> bool { count.get() <= 0 }
+   |                                       ^^^^^^^^^^^^^^^^ help: replace the comparison with `false`: `false`
+applicability MachineApplicable: replace the comparison with `false`
+
+warning: `NonZero::<u32>::MIN.get() == 0` is always `false`, `std::num::NonZero<u32>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:34:24
+   |
+34 | fn minimum() -> bool { NonZero::<u32>::MIN.get() == 0 }
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace the comparison with `false`: `false`
+applicability MachineApplicable: replace the comparison with `false`
+
+warning: `0 < limits.retries.get()` is always `true`, `std::num::NonZero<u32>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:36:39
+   |
+36 | fn retried(limits: &Limits) -> bool { 0 < limits.retries.get() }
+   |                                       ^^^^^^^^^^^^^^^^^^^^^^^^ help: replace the comparison with `true`: `true`
+applicability MachineApplicable: replace the comparison with `true`
+
+warning: `NonZero::get(count) == 0` is always `false`, `std::num::NonZero<u16>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:38:42
+   |
+38 | fn called(count: NonZero<u16>) -> bool { NonZero::get(count) == 0 }
+   |                                          ^^^^^^^^^^^^^^^^^^^^^^^^ help: replace the comparison with `false`: `false`
+applicability MachineApplicable: replace the comparison with `false`
+
+warning: `delta.get() != 0` is always `true`, `std::num::NonZero<i32>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:42:47
+   |
+42 | fn signed_zero(delta: NonZero<i32>) -> bool { delta.get() != 0 }
+   |                                               ^^^^^^^^^^^^^^^^ help: replace the comparison with `true`: `true`
+applicability MachineApplicable: replace the comparison with `true`
+
+warning: `u32::from(count) == 0` is always `false`, `std::num::NonZero<u32>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:48:45
+   |
+48 | fn converted(count: NonZero<u32>) -> bool { u32::from(count) == 0 }
+   |                                             ^^^^^^^^^^^^^^^^^^^^^ help: replace the comparison with `false`: `false`
+applicability MachineApplicable: replace the comparison with `false`
+
+warning: `0 < Into::<u64>::into(count)` is always `true`, `std::num::NonZero<u64>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:50:50
+   |
+50 | fn converted_into(count: NonZero<u64>) -> bool { 0 < Into::<u64>::into(count) }
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: replace the comparison with `true`: `true`
+applicability MachineApplicable: replace the comparison with `true`
+
+warning: `count.get() == NONE` is always `false`, `std::num::NonZero<u32>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:54:47
+   |
+54 | fn named_bound(count: NonZero<u32>) -> bool { count.get() == NONE }
+   |                                               ^^^^^^^^^^^^^^^^^^^ help: replace the comparison with `false`: `false`
+applicability MachineApplicable: replace the comparison with `false`
+
+warning: `$count.get() == 0` is always `false`, `std::num::NonZero<u32>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:58:9
+   |
+56 | macro_rules! empty_count {
+57 |     ($count:expr) => {
+58 |         $count.get() == 0
+   |         ^^^^^^^^^^^^^^^^^
+...
+62 | fn expanded(count: NonZero<u32>) -> bool { empty_count!(count) }
+   |                                            ------------------- in this macro invocation
+   |
+help: replace the comparison with `false`
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:58:9
+   |
+58 |         $count.get() == 0
+   |         ^^^^^^^^^^^^^^^^^
+...
+62 | fn expanded(count: NonZero<u32>) -> bool { empty_count!(count) }
+   |                                            ------------------- in this macro invocation
+
+warning: `values[index()].get() != 0` is always `true`, `std::num::NonZero<u32>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:66:74
+   |
+66 | fn indexed(values: &[NonZero<u32>], index: impl Fn() -> usize) -> bool { values[index()].get() != 0 }
+   |                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: retain operand evaluation and replace comparison with `true`
+
+warning: `value.retries.get() > 0` is always `true`, `std::num::NonZero<u32>` holds no zero
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:68:46
+   |
+68 | fn projected(value: &Dereferenced) -> bool { value.retries.get() > 0 }
+   |                                              ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: retain operand evaluation and replace comparison with `true`
+
+warning: `NONE` has one reader, `named_bound`
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:52:1
+   |
+52 | const NONE: u32 = 0;
+   | ^^^^^^^^^^^^^^^
+   |
+note: read here
+  --> tools/dylint/examples/absurd_nonzero_comparison.rs:54:62
+   |
+54 | fn named_bound(count: NonZero<u32>) -> bool { count.get() == NONE }
+   |                                                              ^^^^
+   = help: move `NONE` into `named_bound` as a nested item
+   = note: `#[warn(single_reader)]` on by default

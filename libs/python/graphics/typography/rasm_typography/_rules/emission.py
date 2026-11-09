@@ -145,7 +145,7 @@ def _lookups(lookup: Lookups, name: str, /) -> tuple[ast.LookupBlock, ...]:
 def _systems(source: _Source, /) -> tuple[tuple[str, str], ...]:
     """Native language registrations from encoded scripts and every explicit source association."""
     tags = sorted({*ot_tags_from_script(held) for held in source.scripts})
-    return tuple(dict.fromkeys((("DFLT", "dflt"), *((tag, "dflt") for tag in tags), *sorted({*held for lookup in source.lookups for held in lookup.features.values()}))))  # ty: ignore[unsound-return-statement]
+    return tuple(dict.fromkeys((("DFLT", "dflt"), *((tag, "dflt") for tag in tags), *sorted({*held for lookup in source.lookups for held in lookup.features.values()}))))
 
 
 def _statements(entries: Iterable[tuple[int, Lookups]], systems: tuple[tuple[str, str], ...], inherited: Mapping[str, tuple[ast.LookupReferenceStatement, ...]], /) -> list[ast.Statement]:

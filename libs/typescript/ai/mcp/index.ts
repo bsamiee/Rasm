@@ -1,7 +1,7 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Content } from '#/content.ts';
-export { registerRpcGroup } from '#/register-rpc-group.ts';
-export { Resource } from '#/resource.ts';
-export { Route } from '#/route.ts';
-export { Server } from '#/server.ts';
+export { Content } from '#/content';
+export { registerRpcGroup } from '#/register-rpc-group';
+export { Resource } from '#/resource';
+export { Route } from '#/route';
+export { Server } from '#/server';

@@ -128,19 +128,19 @@ def _applied(identity: Identity, freestyle: _Freestyle, layer: bpy.types.ViewLay
         return accumulated(map(removed, tuple(held)[count:])).bind(lambda _: accumulated(map(added, desired[count:]))).map(lambda _: None)
 
     def built(row: _LineSet) -> Outcome[Applied]:
-        held: bpy.types.FreestyleLineSet | None = linesets.get(row.name)  # ty: ignore[unsound-assignment]
-        if held is None:
-            held = linesets.new(row.name)
-            created = held.linestyle
-            created.name = f"{layer.name} {row.name}"
-            style = ownership.owned(identity, created)
-        else:
-            current = held.linestyle
-            style = (
-                Ok(current)
-                if current.is_editable and ownership.marked(identity, current).is_some() and current.users == 1
-                else ownership.created(identity, bpy.data.linestyles.new, f"{layer.name} {row.name}")
-            )
+        match catch(lambda: linesets[row.name], exception=KeyError)():
+            case Result(tag="ok", ok=held):
+                current = held.linestyle
+                style = (
+                    Ok(current)
+                    if current.is_editable and ownership.marked(identity, current).is_some() and current.users == 1
+                    else ownership.created(identity, bpy.data.linestyles.new, f"{layer.name} {row.name}")
+                )
+            case _:
+                held = linesets.new(row.name)
+                created = held.linestyle
+                created.name = f"{layer.name} {row.name}"
+                style = ownership.owned(identity, created)
 
         def written(owned: bpy.types.FreestyleLineStyle) -> Outcome[Applied]:
             def finished() -> Outcome[Applied]:

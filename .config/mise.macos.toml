@@ -2,7 +2,6 @@
 
 [env]
 ATELIER_PATH                          = "/Applications/Atelier.app/Contents/MacOS/Atelier"
-BLENDER_PATH                          = """{% if env.BLENDER_PATH | default(value="") %}{{ env.BLENDER_PATH }}{% else %}{{ exec(command=`mdfind "kMDItemCFBundleIdentifier == 'org.blenderfoundation.blender'" | sed -n '1s|$|/Contents/MacOS/Blender|p'`, cache_key="blender-bundle", cache_duration="1d") }}{% endif %}"""
 COLIMA_HOME                           = "{{ xdg_data_home }}/rasm/colima"
 DOCKER_CONFIG                         = "{{ xdg_data_home }}/rasm/docker"
 DOCKER_HOST                           = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
@@ -10,6 +9,11 @@ PITCHFORK_SUPERVISOR_AUTO_START       = "false"
 RHINO_MCP_URL                         = "http://127.0.0.1:{{ env.RHINO_MCP_PLATFORM_PORT }}/"
 RHINO_TEST_PROFILE                    = "{{ env.HOME }}/Library/Application Support/Rasm/Rhino Tests"
 TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = "/var/run/docker.sock"
+
+# --- [HOOKS] ----------------------------------------------------------------------------
+
+[hooks]
+postinstall = "eng/xcode-locations.sh"
 
 # --- [DAEMONS] --------------------------------------------------------------------------
 

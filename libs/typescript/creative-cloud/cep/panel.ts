@@ -4,8 +4,8 @@ import { fillColor } from '@rasm/mark';
 import { wcagContrast } from 'culori';
 import { Effect, FiberSet, Function, flow, Layer, Logger, Predicate, Queue, Record, Schema, type Scope, Stream, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
-import { Completion, Envelope } from '#/contract.ts';
-import { ExtensionManifest } from '#/manifest.ts';
+import { Completion, Envelope } from '#/contract';
+import { ExtensionManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

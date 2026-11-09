@@ -11,7 +11,7 @@ const ownerBinding = 'OWNER_EMAIL';
 
 const disposableName = (name: string) => `${name}-disposable`;
 const hostedWorker =
-    <const E extends NonNullable<WorkerConfig['env']>>({ name, assets, env, ...worker }: Omit<WorkerConfig, 'compatibilityDate' | 'env'> & { readonly env: E }) =>
+    <const E extends NonNullable<WorkerConfig['env']>>({ name, owner, assets, env, ...worker }: Omit<WorkerConfig, 'compatibilityDate' | 'env'> & { readonly env: E; readonly owner: string }) =>
     ({ mode }: ConfigContext) => {
         const disposable = mode === hostingMode.disposable;
         const edge = disposable || mode === hostingMode.edge;
@@ -25,7 +25,7 @@ const hostedWorker =
             env: {
                 ASSETS: bindings.assets(),
                 ...env,
-                [ownerBinding]: edge || mode === hostingMode.server ? bindings.secret() : bindings.text('seedy@sites.test'),
+                [ownerBinding]: bindings.text(edge || mode === hostingMode.server ? owner : 'seedy@sites.test'),
                 ...(edge && { [accessBinding]: bindings.secret() }),
             },
         };

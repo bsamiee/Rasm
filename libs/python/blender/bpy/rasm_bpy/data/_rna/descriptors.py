@@ -57,7 +57,7 @@ _GATED = (
     ),
 )
 _PATHS: Final = frozenset({"FILE_PATH", "DIR_PATH", "FILE_NAME"})
-_SCRIPTS: Final[Path] = Path(bpy.utils.system_resource("SCRIPTS"))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_SCRIPTS: Final[Path] = Path(bpy.utils.system_resource("SCRIPTS"))  # ty: ignore[unresolved-attribute]
 _DTYPES: Final[Mapping[type[bpy.types.Property], type[np.bool | np.int32 | np.float32]]] = MappingProxyType({
     bpy.types.BoolProperty: np.bool,
     bpy.types.IntProperty: np.int32,
@@ -270,8 +270,8 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
 
     def shape(self, owner: Struct) -> tuple[int, ...]:
         """Returns live array dimensions, outer length read from the owner's uncoerced array, a flat `MATRIX` array keeping its flat length."""
-        array: bpy.types.bpy_prop_array = owner.path_resolve(self.prop.identifier, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # ruff: ignore[boolean-positional-value-in-call]
-        return (len(array), *self.dimensions(_definition(owner).properties[self.prop.identifier])[1:])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        array: bpy.types.bpy_prop_array = owner.path_resolve(self.prop.identifier, False)  # ty: ignore[invalid-assignment]  # ruff: ignore[boolean-positional-value-in-call]
+        return (len(array), *self.dimensions(_definition(owner).properties[self.prop.identifier])[1:])  # ty: ignore[invalid-argument-type]
 
     def read(self, owner: Native) -> Value:
         """Returns scalar, flat array, element, enum identifiers, `IdName`, struct identifier, or None."""
@@ -285,12 +285,12 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
             case bpy.types.PointerProperty(), _:
                 return Option.of_optional(getattr(owner, name)).map(lambda struct: _definition(struct).identifier).to_optional()
             case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), bpy.types.bpy_struct() if self.coordinates:
-                scalar: Scalar = owner.path_resolve(_rna((name, *self.coordinates)))  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                scalar: Scalar = owner.path_resolve(_rna((name, *self.coordinates)))  # ty: ignore[invalid-assignment]
                 return scalar
             case bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True) as prop, bpy.types.bpy_struct():
                 shape = self.shape(owner)
                 buffer: np.ndarray[tuple[int], np.dtype[np.bool | np.int32 | np.float32]] = np.empty(math.prod(shape), _DTYPES[type(prop)])
-                array: bpy.types.bpy_prop_array = owner.path_resolve(name, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # ruff: ignore[boolean-positional-value-in-call]
+                array: bpy.types.bpy_prop_array = owner.path_resolve(name, False)  # ty: ignore[invalid-assignment]  # ruff: ignore[boolean-positional-value-in-call]
                 array.foreach_get(buffer)
                 return tuple[bool | int | float, ...](buffer.tolist())
             case bpy.types.BoolProperty(is_array=True), _:
@@ -331,7 +331,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
 
         def published(_: object) -> Option[Value | Struct]:
             if self.prop.is_runtime and isinstance(owner, bpy.types.bpy_struct):
-                bpy.msgbus.publish_rna(key=owner.path_resolve(name, False))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # ruff: ignore[boolean-positional-value-in-call]
+                bpy.msgbus.publish_rna(key=owner.path_resolve(name, False))  # ty: ignore[invalid-argument-type]  # ruff: ignore[boolean-positional-value-in-call]
             return Some(prior)
 
         def stored() -> Outcome[object]:
@@ -361,11 +361,11 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
             try:
                 match self.prop, owner:
                     case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), bpy.types.bpy_struct():
-                        array: bpy.types.bpy_prop_array = owner.path_resolve(name, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # ruff: ignore[boolean-positional-value-in-call]
+                        array: bpy.types.bpy_prop_array = owner.path_resolve(name, False)  # ty: ignore[invalid-assignment]  # ruff: ignore[boolean-positional-value-in-call]
                         if self.coordinates:
-                            operator.setitem(reduce(operator.getitem, self.coordinates[:-1], array), self.coordinates[-1], native)  # type: ignore[call-overload, arg-type]  # ty: ignore[invalid-argument-type]
+                            operator.setitem(reduce(operator.getitem, self.coordinates[:-1], array), self.coordinates[-1], native)  # ty: ignore[invalid-argument-type]
                         else:
-                            array[:] = np.asarray(native).reshape(self.shape(owner)).tolist()  # type: ignore[index]  # ty: ignore[invalid-assignment]
+                            array[:] = np.asarray(native).reshape(self.shape(owner)).tolist()  # ty: ignore[invalid-assignment]
                     case _:
                         setattr(owner, name, native)
                 return Ok(None)

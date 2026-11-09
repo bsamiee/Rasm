@@ -3,9 +3,9 @@ import { Settings, Source } from '@rasm/typography';
 import { UxpManifest } from '@rasm/uxp';
 import { Effect, Option, Record, Schema, SchemaTransformation, Struct } from 'effect';
 import { RpcGroup, RpcMiddleware } from 'effect/rpc';
-import { Slice } from '#/internal/slice.ts';
-import { Specifier } from '#/internal/specifier.ts';
-import { Value } from '#/internal/value.ts';
+import { Slice } from '#/internal/slice';
+import { Specifier } from '#/internal/specifier';
+import { Value } from '#/internal/value';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -391,7 +391,6 @@ const InDesign = {
     identifier: 'com.adobe.InDesign',
     Contract: Requests.add(request('inspect', Inspect), request('change', Change), request('call', Call), request('find_change', FindChange), request('font', FontFile), request('menu', Menu), request('invoke', Invoke), request('preflight', Preflight)).merge(Typesetting).middleware(ScriptPreferences),
     ScriptPreferences,
-    manifest: { host: { app: 'ID', minVersion: '18.5.0' }, requiredPermissions: { localFileSystem: 'fullAccess', allowCodeGenerationFromStrings: true } },
     target: UxpManifest.target,
 } as const;
 

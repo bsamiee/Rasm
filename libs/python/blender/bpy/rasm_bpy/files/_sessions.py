@@ -212,13 +212,13 @@ class _FarmTransfer(FileTransferProtocol):
         hasher = get_hasher()
 
         def placement(info: FileInfo) -> PackedFile:
-            relative: PurePath = info.relpath_in_pack  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            relative: PurePath = info.relpath_in_pack  # ty: ignore[invalid-assignment]
             return PackedFile(source=str(info.path_to_pack), path=relative.as_posix(), digest=bytes.fromhex(hasher(info.path_to_pack)))
 
         infos = tuple((info, info.path_to_pack.exists()) for info in batpacker.all_files_to_copy().values())
         for info, present in infos:
             if not present:
-                batpacker.reporter.on_missing_file(info.path_to_pack, info.relpath_in_pack)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                batpacker.reporter.on_missing_file(info.path_to_pack, info.relpath_in_pack)  # ty: ignore[invalid-argument-type]
         self._placed = (placement(batpacker.source_file_info()), tuple(placement(info) for info, present in infos if present))
 
     @override

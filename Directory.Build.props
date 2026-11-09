@@ -8,8 +8,9 @@
         <Authors>Bardia Samiee</Authors>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <PackageProjectUrl>https://github.com/bsamiee/Rasm</PackageProjectUrl>
-        <RepositoryUrl>$(PackageProjectUrl)</RepositoryUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <IsPackable>false</IsPackable>
+        <IsPublishable>false</IsPublishable>
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Plug-In Library Copies" Condition="'$(RhinoPlugIn)' != ''">
@@ -20,6 +21,8 @@
     <PropertyGroup Label="Build Defaults">
         <RepoTargetFramework>net10.0</RepoTargetFramework>
         <TargetFramework>$(RepoTargetFramework)</TargetFramework>
+        <RollForward>Major</RollForward>
+        <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/sixlabors.lic</SixLaborsLicenseFile>
         <LangVersion>preview</LangVersion>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -27,9 +30,11 @@
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
         <CreateHardLinksForCopyLocalIfPossible>true</CreateHardLinksForCopyLocalIfPossible>
         <AnalysisLevel>latest-all</AnalysisLevel>
-        <MeziantouAnalysisMode>all-warnings</MeziantouAnalysisMode>
+        <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+        <MeziantouAnalysisMode>all-errors</MeziantouAnalysisMode>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     </PropertyGroup>
 
@@ -47,8 +52,4 @@
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
         <RestoreLockedMode>true</RestoreLockedMode>
     </PropertyGroup>
-
-    <ItemGroup Label="Analyzer Configuration">
-        <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory).config/analyzers.globalconfig" />
-    </ItemGroup>
 </Project>

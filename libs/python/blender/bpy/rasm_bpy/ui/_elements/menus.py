@@ -295,7 +295,7 @@ def _shown(append: Append, draw: RowDraw, pointed: Option[_Pointed], extended: _
     """Draws the content while the condition holds and a context menu's hovered button passes its test."""
     if not (pointed.map(lambda test: test(context)).default_value(value=True) and satisfied(append.condition, context)):
         return
-    layout: bpy.types.UILayout = extended.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    layout: bpy.types.UILayout = extended.layout  # ty: ignore[invalid-assignment]
     match extended, append.prepend:
         case bpy.types.Menu(), False:
             layout.separator()

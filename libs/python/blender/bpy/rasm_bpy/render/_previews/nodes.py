@@ -63,8 +63,8 @@ _SUFFIXES: Final[tuple[str, *tuple[str, ...]]] = (_SUFFIX, *(suffix for row in F
 class ThumbnailExport(bpy.types.PropertyGroup):
     """Exported thumbnail size and image load after write."""
 
-    size: bpy.props.IntProperty(name="Size", description="Image side in pixels", subtype="PIXEL", min=256, max=2048, default=512)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    opened: bpy.props.BoolProperty(name="Open Image", description="Load written image", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    size: bpy.props.IntProperty(name="Size", description="Image side in pixels", subtype="PIXEL", min=256, max=2048, default=512)  # ty: ignore[invalid-type-form]
+    opened: bpy.props.BoolProperty(name="Open Image", description="Load written image", default=True)  # ty: ignore[invalid-type-form]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -205,7 +205,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Writes editor cells and returns a job per target key neither cache nor folder holds."""
         state, metrics = _NODE_STATES[identity], Metrics.read()
         inventory = cache(lambda: _thumbnails(identity).map(frozenset))
-        manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        manager: bpy.types.WindowManager = context.window_manager  # ty: ignore[invalid-assignment]
         views: dict[Editor, tuple[bpy.types.Scene, bpy.types.SpaceNodeEditor, bpy.types.NodeTree, list[Located]]] = {}
 
         def located(found: Located) -> Outcome[None]:

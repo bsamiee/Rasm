@@ -16,7 +16,7 @@ Options take `@nx/dotnet`'s per-target form: a key names an inferred target, `fa
 
 - Facts MSBuild's own files state are read back, never options: `ArtifactsPath` in `Directory.Build.props` places every output, `global.json` selects the SDK and the test runner, `NuGet.config` the package sources, `.editorconfig` the style rules
 - Releases select .NET projects through `release.projects` or `release.groups` in `nx.json`, since `nx release` selects npm libraries alone by default
-- In the workspace, `#analyzer` names the analyzer project, which inference builds in Release once per graph computation (`dotnet build analyzer --configuration Release -getTargetResult:Build`, about 0.5 s up to date) so its output lands where `ArtifactsPath` puts it; the published package names `dist/lib/MsbuildAnalyzer.dll` through `publishConfig.imports`
+- In the workspace, `#analyzer` names the analyzer project, which inference builds in Release on a graph cache miss (`dotnet build analyzer --configuration Release -getTargetResult:Build`) so its output lands where `ArtifactsPath` puts it; the published package names `dist/lib/MsbuildAnalyzer.dll` through `publishConfig.imports`
 
 ## [02]-[INFERENCE]
 
@@ -26,9 +26,10 @@ Options take `@nx/dotnet`'s per-target form: a key names an inferred target, `fa
 |  [02]   | Every configuration, runtime, and framework the project states | `configurations` named like MSBuild's artifacts pivots (`debug`, `release_win-x64`) |
 |  [03]   | `ProjectReference` items of every evaluation          | `static` edges from the project file, `implicit` edges where a shared file declares them    |
 |  [04]   | Imports, linked items, and the `Directory.*`, `global.json`, `NuGet.config`, `.editorconfig` walk | Inputs outside the project folder                          |
-|  [05]   | `OutputPath`, `IntermediateOutputPath`                | Outputs of every mode, under `ArtifactsPath` where `Directory.Build.props` sets it          |
+|  [05]   | `OutputPath`, `IntermediateOutputPath`, and `PublishDir` where `IsPublishable` | Outputs of every mode, under `ArtifactsPath` where `Directory.Build.props` sets it |
 |  [06]   | `IsTestProject`, `IsTestingPlatformApplication`, `global.json` `test.runner` | `test` in the runner's own command form                                |
 |  [07]   | `IsPackable`                                          | `nx-release-publish` and version actions writing `<Version>`                                |
+|  [08]   | Each evaluation's `NuGetLockFilePath`, read through NuGet's `PackagesLockFileFormat` | `nuget:<id>@<version>` external nodes with the lock's content hash, `implicit` edges to direct packages, `static` edges between packages |
 
 - The analyzer runs on the SDK `global.json` selects from the workspace root, evaluates projects in one process, and reports a project it cannot evaluate by name while keeping every other one
 - Inference caches by every matched file, the plugin source, and the analyzer build; a cached graph also stays valid only while the files evaluation imported and each project's restore-written `nuget.g.props` are unchanged
@@ -38,14 +39,16 @@ Options take `@nx/dotnet`'s per-target form: a key names an inferred target, `fa
 | [INDEX] | [TARGET]              | [COMMAND]                                                                                  | [WHEN]                    | [CACHE] |
 | :-----: | :-------------------- | :----------------------------------------------------------------------------------------- | :------------------------ | :-----: |
 |  [01]   | `restore`             | `dotnet restore <project> --no-dependencies`, batched into one run over the selection      | Every project             |   No    |
-|  [02]   | `build`               | `dotnet build <project> --no-restore --no-dependencies`                                    | Every project             |   No    |
-|  [03]   | `check--dotnet-build` | `dotnet build <project> --no-restore --no-dependencies -p:NonExistentFile=… -warnaserror`  | Every project             |   Yes   |
-|  [04]   | `test`                | `dotnet test --project <project> --no-build`, or the VSTest positional form                | Test projects             |   Yes   |
-|  [05]   | `fix--dotnet-format`  | `dotnet format <project> --no-restore`, batched into one run over the selection            | An `.editorconfig` applies |   No    |
-|  [06]   | `check`, `fix`        | `nx:noop` over every `check--*` and `fix--*` target                                        | Every project             |   Yes   |
-|  [07]   | `nx-release-publish`  | `dotnet pack <project> --configuration Release`, then `dotnet nuget push --skip-duplicate`  | Packable projects         |   No    |
+|  [02]   | `build--dotnet`       | `dotnet build --no-restore --no-dependencies` in the project folder; `dotnet publish --no-restore` in the `Release` modes, the configuration `dotnet publish` selects | Every project; `publish` where `IsPublishable` |   No    |
+|  [03]   | `check--dotnet-build` | `dotnet build --no-restore --no-dependencies -p:NonExistentFile=… -warnaserror`            | Every project             |   Yes   |
+|  [04]   | `test`                | `dotnet test --no-build` in the project folder, the form both test runners accept          | Test projects             |   Yes   |
+|  [05]   | `check--dotnet-format` | `dotnet format style --no-restore --verify-no-changes`, batched into one run over the selection, the IDE rules no build runs included | An `.editorconfig` applies |   Yes   |
+|  [06]   | `fix--dotnet-format`  | `dotnet format style`, then `dotnet format analyzers`, batched into one run each over the selection | An `.editorconfig` applies |   No    |
+|  [07]   | `build`, `check`, `fix` | `nx:noop` over every `<verb>--*` target, inputs `...` and the union of theirs           | A `<verb>--*` target exists | No |
+|  [08]   | `nx-release-publish`  | `dotnet pack <project> --configuration Release`, then `dotnet nuget push --skip-duplicate`  | Packable projects         |   No    |
 
-- `build` stays uncached: MSBuild keeps incremental state the editor and direct builds share
-- `check` forces `CoreCompile` through MSBuild's `NonExistentFile` input, because MSBuild prints a warning once until the file recompiles; unlike `--no-incremental` it deletes nothing and keeps the reference assembly, so a dependent building beside it reads intact outputs and recompiles nothing afterwards; it depends on `build`, so one project's two writers never run at once
-- Batched tasks of one command run once over a solution written to a temporary folder outside the workspace, so no solution file sits in the tree
-- Arguments after `--` reach the `dotnet` command for one run, a binlog included (`nx build <project> -- -bl`)
+- `build--dotnet` stays uncached: MSBuild keeps incremental state the editor and direct builds share
+- `check` forces `CoreCompile` through MSBuild's `NonExistentFile` input, because MSBuild prints a warning once until the file recompiles; unlike `--no-incremental` it deletes nothing and keeps the reference assembly, so a dependent building beside it reads intact outputs and recompiles nothing afterwards; it depends on `build--dotnet`, so one project's two writers never run at once
+- Batched tasks run in dependency waves, each group of one command once over a solution written to a temporary folder outside the workspace, so no solution file sits in the tree; whitespace belongs to hk's `dotnet format whitespace --folder`
+- A publishable project publishes in `Release`, since its distributable is the publish folder, and its project references build inside that run: a Rhino plug-in references its libraries under its own global properties, a build no other task produces
+- Arguments after `--` reach the `dotnet` command for one run, a binlog included (`nx build <project> -- -bl`: every aggregate forwards its arguments to its members)

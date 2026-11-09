@@ -67,7 +67,7 @@ if TYPE_CHECKING:
 class Converting(bpy.types.PropertyGroup):
     """Target form of render set conversion."""
 
-    form: bpy.props.EnumProperty(name="Render Sets", items=enum_choices(Form), default=Form.COPIES.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    form: bpy.props.EnumProperty(name="Render Sets", items=enum_choices(Form), default=Form.COPIES.name)  # ty: ignore[invalid-type-form]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------

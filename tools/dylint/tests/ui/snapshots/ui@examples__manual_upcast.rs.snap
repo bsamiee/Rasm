@@ -1,0 +1,135 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/manual_upcast.rs
+---
+warning: `as_display` returns `self` as `dyn Display`, which trait upcasting converts from `dyn Shape`
+  --> tools/dylint/examples/manual_upcast.rs:11:29
+   |
+11 |     fn as_display(&self) -> &dyn Display;
+   |                             ^^^^^^^^^^^^
+   |
+   = help: delete the method and coerce `dyn Shape` to `dyn Display` at each call site
+   = note: `#[warn(manual_upcast)]` on by default
+
+warning: `shared` returns `self` as `dyn Display`, which trait upcasting converts from `dyn Shape`
+  --> tools/dylint/examples/manual_upcast.rs:13:25
+   |
+13 |     fn shared(&self) -> &(dyn Display + Send)
+   |                         ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the method and coerce `dyn Shape` to `dyn Display` at each call site
+
+warning: `retained` returns `self` as `dyn Display`, which trait upcasting converts from `dyn Shape`
+  --> tools/dylint/examples/manual_upcast.rs:16:27
+   |
+16 |     fn retained(&self) -> &(dyn Display + 'static)
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the method and coerce `dyn Shape` to `dyn Display` at each call site
+
+warning: `as_named_display` returns `self` as `dyn Display`, which trait upcasting converts from `dyn Named`
+  --> tools/dylint/examples/manual_upcast.rs:23:39
+   |
+23 |     fn as_named_display(&mut self) -> &mut dyn Display;
+   |                                       ^^^^^^^^^^^^^^^^
+   |
+   = help: delete the method and coerce `dyn Named` to `dyn Display` at each call site
+
+warning: `into_static` returns `self` as `dyn Display`, which trait upcasting converts from `dyn Boxed`
+  --> tools/dylint/examples/manual_upcast.rs:32:40
+   |
+32 |     fn into_static(self: Box<Self>) -> Box<dyn Display>
+   |                                        ^^^^^^^^^^^^^^^^
+   |
+   = help: delete the method and coerce `dyn Boxed` to `dyn Display` at each call site
+
+warning: `as_shown` returns `self` as `dyn Display`, which an unsizing coercion converts
+  --> tools/dylint/examples/manual_upcast.rs:54:27
+   |
+54 |     fn as_shown(&self) -> &dyn Display
+   |                           ^^^^^^^^^^^^
+   |
+   = help: delete the method and coerce the receiver to `dyn Display` at each call site
+
+warning: `sized_any` returns `self` as `dyn Any`, which an unsizing coercion converts
+  --> tools/dylint/examples/manual_upcast.rs:59:28
+   |
+59 |     fn sized_any(&self) -> &dyn Any
+   |                            ^^^^^^^^
+   |
+   = help: delete the method and coerce the receiver to `dyn Any` at each call site
+
+warning: `narrow` returns `self` as `dyn Tagged`, which trait upcasting converts from `dyn TypedView`
+  --> tools/dylint/examples/manual_upcast.rs:68:25
+   |
+68 |     fn narrow(&self) -> &dyn Tagged<&'a u8>;
+   |                         ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the method and coerce `dyn TypedView` to `dyn Tagged` at each call site
+
+warning: `configured` returns `self` as `dyn Configured`, which trait upcasting converts from `dyn ConfiguredView`
+  --> tools/dylint/examples/manual_upcast.rs:78:29
+   |
+78 |     fn configured(&self) -> &dyn Configured<Item = Self::Item>;
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the method and coerce `dyn ConfiguredView` to `dyn Configured` at each call site
+
+warning: `display` returns `self` as `dyn Display`, which trait upcasting converts from `dyn Threaded`
+  --> tools/dylint/examples/manual_upcast.rs:86:26
+   |
+86 |     fn display(&self) -> &(dyn Display + Send);
+   |                          ^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the method and coerce `dyn Threaded` to `dyn Display` at each call site
+
+warning: `reflected` returns `self` as `dyn Any`, which trait upcasting converts from `dyn Threaded`
+  --> tools/dylint/examples/manual_upcast.rs:87:28
+   |
+87 |     fn reflected(&self) -> &dyn Any;
+   |                            ^^^^^^^^
+   |
+   = help: delete the method and coerce `dyn Threaded` to `dyn Any` at each call site
+
+warning: `projected` returns `self` as `dyn Display`, which trait upcasting converts from `dyn Projected`
+  --> tools/dylint/examples/manual_upcast.rs:95:28
+   |
+95 |     fn projected(&self) -> &dyn Display;
+   |                            ^^^^^^^^^^^^
+   |
+   = help: delete the method and coerce `dyn Projected` to `dyn Display` at each call site
+
+warning: trait `View` is implemented only for `Borrowed<'_>`
+  --> tools/dylint/examples/manual_upcast.rs:48:1
+   |
+48 | trait View {
+   | ^^^^^^^^^^
+   |
+   = help: replace `View` with an inherent `impl Borrowed<'_>` block
+   = note: `#[warn(single_impl_trait)]` on by default
+
+warning: trait `FixedView` is implemented only for `Square`
+   --> tools/dylint/examples/manual_upcast.rs:81:1
+    |
+ 81 | trait FixedView: Configured {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: `dyn FixedView` always holds `Square`
+   --> tools/dylint/examples/manual_upcast.rs:315:17
+    |
+315 |     let fixed: &dyn FixedView<Item = u8> = &square;
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: replace `FixedView` with an inherent `impl Square` block
+
+warning: trait `Projected` is implemented only for `Square`
+   --> tools/dylint/examples/manual_upcast.rs:94:1
+    |
+ 94 | trait Projected<T: Witness<Value = Self>>: Display {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: `dyn Projected` always holds `Square`
+   --> tools/dylint/examples/manual_upcast.rs:313:21
+    |
+313 |     let projected: &dyn Projected<()> = &square;
+    |                     ^^^^^^^^^^^^^^^^^
+    = help: replace `Projected` with an inherent `impl Square` block

@@ -1535,6 +1535,47 @@ checksum_source = "mise-versions"
 url = "https://github.com/Wilfred/difftastic/releases/download/0.72.0/difft-0.72.0-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/Wilfred/difftastic/releases/assets/689923028"
 
+[[tools.docker-compose]]
+version = "5.7.0"
+backend = "github:docker/compose"
+specifiers = ["latest"]
+
+[tools.docker-compose."platforms.linux-arm64"]
+checksum = "sha256:15861535d14e26555736b49376c95e14bfd94285366c8446bfac7156a972e76f"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/compose/releases/download/v5.7.0/docker-compose-linux-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/702117345"
+
+[tools.docker-compose."platforms.linux-arm64-musl"]
+checksum = "sha256:15861535d14e26555736b49376c95e14bfd94285366c8446bfac7156a972e76f"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/compose/releases/download/v5.7.0/docker-compose-linux-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/702117345"
+
+[tools.docker-compose."platforms.linux-x64"]
+checksum = "sha256:7758048ad38e580f22559603312874fec8bb638d021a9e64182385fc17cc12a2"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/compose/releases/download/v5.7.0/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/702117317"
+
+[tools.docker-compose."platforms.linux-x64-musl"]
+checksum = "sha256:7758048ad38e580f22559603312874fec8bb638d021a9e64182385fc17cc12a2"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/compose/releases/download/v5.7.0/docker-compose-linux-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/702117317"
+
+[tools.docker-compose."platforms.macos-arm64"]
+checksum = "sha256:54495ff81dd8cae11861455f0308a293a530149beba8f1d90ff3f295b11cf035"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/compose/releases/download/v5.7.0/docker-compose-darwin-aarch64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/702117350"
+
+[tools.docker-compose."platforms.macos-x64"]
+checksum = "sha256:f57fad1fc3a942309b76da99e0a1c49dc97f7c56d4a03593d71bb01577aeeb29"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/compose/releases/download/v5.7.0/docker-compose-darwin-x86_64"
+url_api = "https://api.github.com/repos/docker/compose/releases/assets/702117335"
+
 [[tools.doppler]]
 version = "3.77.1"
 backend = "github:DopplerHQ/cli"
@@ -1895,6 +1936,47 @@ checksum = "sha256:1f13c46d61dbe0bf618521b679c3d240abfc0aad1738010ecf26d714a1cc9
 checksum_source = "mise-versions"
 url = "https://github.com/apple/pkl-vscode/releases/download/0.23.1/pkl-vscode-0.23.1.vsix"
 url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/552343422"
+
+[[tools."github:docker/buildx"]]
+version = "0.38.2"
+backend = "github:docker/buildx"
+specifiers = ["latest"]
+
+[tools."github:docker/buildx"."platforms.linux-arm64"]
+checksum = "sha256:46c0f334772de3cb0b341cc415caf7339fb5cfc8b8438ebcb5a10e7f23800d36"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/buildx/releases/download/v0.38.2/buildx-v0.38.2.linux-arm64"
+url_api = "https://api.github.com/repos/docker/buildx/releases/assets/705977257"
+
+[tools."github:docker/buildx"."platforms.linux-arm64-musl"]
+checksum = "sha256:46c0f334772de3cb0b341cc415caf7339fb5cfc8b8438ebcb5a10e7f23800d36"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/buildx/releases/download/v0.38.2/buildx-v0.38.2.linux-arm64"
+url_api = "https://api.github.com/repos/docker/buildx/releases/assets/705977257"
+
+[tools."github:docker/buildx"."platforms.linux-x64"]
+checksum = "sha256:7992ec09413b80ff57ba4e081f56fc833d7bac1d5e71143c6c809e7e6065f6d6"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/buildx/releases/download/v0.38.2/buildx-v0.38.2.linux-amd64"
+url_api = "https://api.github.com/repos/docker/buildx/releases/assets/705977275"
+
+[tools."github:docker/buildx"."platforms.linux-x64-musl"]
+checksum = "sha256:7992ec09413b80ff57ba4e081f56fc833d7bac1d5e71143c6c809e7e6065f6d6"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/buildx/releases/download/v0.38.2/buildx-v0.38.2.linux-amd64"
+url_api = "https://api.github.com/repos/docker/buildx/releases/assets/705977275"
+
+[tools."github:docker/buildx"."platforms.macos-arm64"]
+checksum = "sha256:81702e18713cfd495bfe594943fa57f470eda16c0653ae3de15cd411df273c41"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/buildx/releases/download/v0.38.2/buildx-v0.38.2.darwin-arm64"
+url_api = "https://api.github.com/repos/docker/buildx/releases/assets/706014790"
+
+[tools."github:docker/buildx"."platforms.macos-x64"]
+checksum = "sha256:ad2418546e6d168a3e3b59fdf2a24997bc84263abeb4a5d9d0422cfe782743fc"
+checksum_source = "mise-versions"
+url = "https://github.com/docker/buildx/releases/download/v0.38.2/buildx-v0.38.2.darwin-amd64"
+url_api = "https://api.github.com/repos/docker/buildx/releases/assets/706014795"
 
 [[tools."github:docker/docker-credential-helpers"]]
 version = "0.9.12"

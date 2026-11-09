@@ -66,7 +66,7 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             Ok(record), `UNREADABLE` fault for a missing or unreadable file, `INVALID` for a refused decode.
         """
         decode = msgspec.toml.decode if self.path.suffix == ".toml" else msgspec.json.decode
-        return read(self.path).bind(lambda data: catch(lambda: decode(data, type=self.form), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, str(self.path))))  # ty: ignore[unsound-return-statement]
+        return read(self.path).bind(lambda data: catch(lambda: decode(data, type=self.form), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, str(self.path))))
 
     def found(self) -> Outcome[Option[T]]:
         """Decodes and validates the record a present file holds.

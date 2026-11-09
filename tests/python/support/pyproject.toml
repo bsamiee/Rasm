@@ -3,7 +3,7 @@
 [project]
 name            = "rasm-testing"
 version         = "0.0.0"
-description     = "Test toolchain and shared fixtures of every Python suite, loaded as a pytest plugin"
+description     = "Test toolchain of every Python suite"
 requires-python = ">=3.13"
 
 dependencies = [
@@ -16,9 +16,6 @@ dependencies = [
     "pytest-timeout",   # Per-test deadline
 ]
 
-[project.entry-points.pytest11]
-rasm_testing = "rasm_testing"
-
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
 
 [build-system]
@@ -26,12 +23,8 @@ requires      = ["uv_build>=0.13.7,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
+module-name = [] # Dependencies alone, no module
 module-root = ""
-
-# --- [RUFF] -----------------------------------------------------------------------------
-
-[tool.ruff]
-extend = "../../../pyproject.toml" # Ruff reads this manifest's `requires-python` through its own table
 
 # --- [FAWLTYDEPS] -----------------------------------------------------------------------
 

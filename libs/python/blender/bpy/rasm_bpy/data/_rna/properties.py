@@ -188,7 +188,7 @@ def _redeclared(prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.type
                 **({"unit": prop.unit, "precision": prop.precision} if isinstance(prop, bpy.types.FloatProperty) else {}),
             )
         case bpy.types.StringProperty():
-            text: PropertySubtypeStringItems = prop.subtype if prop.subtype in _TEXTUAL else "NONE"  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            text: PropertySubtypeStringItems = prop.subtype if prop.subtype in _TEXTUAL else "NONE"  # ty: ignore[invalid-assignment]
             return bpy.props.StringProperty(name=prop.name, description=prop.description, translation_context=prop.translation_context, subtype=text, default=prop.default, maxlen=prop.length_max)
         case bpy.types.EnumProperty():
             definition = partial(bpy.props.EnumProperty, name=prop.name, description=prop.description, translation_context=prop.translation_context, items=choices(prop.enum_items))
@@ -332,7 +332,7 @@ def _hosting(form: type, /) -> Generator[None]:
 def _pointed(owner: type[Struct], name: str, definition: bpy.props._PropertyDeferred) -> Generator[Outcome[None]]:
     """Registers property under a free name for scope duration, the host refusing a name past its byte limit."""
     request = f"{owner.__name__}.{name}"
-    rna: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    rna: bpy.types.Struct = owner.bl_rna  # ty: ignore[invalid-assignment]
     with ExitStack() as stack:
         yield (
             Result[None, Faults](ok=None)

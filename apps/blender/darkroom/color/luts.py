@@ -28,9 +28,9 @@ from ..effects.formation.display import formation
 class ToneView(LatticeFields):
     """Tone entry sampled into a named installed view, over the sampled lattice."""
 
-    entry: bpy.props.EnumProperty(name="Effect", description="Tone entry to sample, the first in stack order by default", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    view: bpy.props.StringProperty(name="View", description="Name of the installed view")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    description: bpy.props.StringProperty(name="Description", description="Description of the installed view")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    entry: bpy.props.EnumProperty(name="Effect", description="Tone entry to sample, the first in stack order by default", items=())  # ty: ignore[invalid-type-form]
+    view: bpy.props.StringProperty(name="View", description="Name of the installed view")  # ty: ignore[invalid-type-form]
+    description: bpy.props.StringProperty(name="Description", description="Description of the installed view")  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

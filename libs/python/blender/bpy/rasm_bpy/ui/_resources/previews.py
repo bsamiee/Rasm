@@ -182,9 +182,9 @@ class _Textures[M]:
 
 def _filled(preview: bpy.types.ImagePreview, pixels: npt.NDArray[np.float32], size: tuple[int, int] | bpy.types.bpy_prop_array) -> None:
     """Writes flat RGBA into a preview's image and icon buffers at one size."""
-    preview.image_size = preview.icon_size = size  # type: ignore[assignment]
-    preview.image_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
-    preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
+    preview.image_size = preview.icon_size = size
+    preview.image_pixels_float.foreach_set(pixels)
+    preview.icon_pixels_float.foreach_set(pixels)
 
 
 def _uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
@@ -194,7 +194,7 @@ def _uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
         catch(gpu.init, exception=SystemError)()
         .map_error(partial(Fault.of, Reason.REFUSED, "gpu.init"))
         .bind(
-            lambda _: catch(gpu.types.GPUTexture, exception=RuntimeError)((pixels.shape[1], pixels.shape[0]), format=_FORMAT, data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)).map_error(  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            lambda _: catch(gpu.types.GPUTexture, exception=RuntimeError)((pixels.shape[1], pixels.shape[0]), format=_FORMAT, data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)).map_error(  # ty: ignore[invalid-argument-type]
                 partial(Fault.of, Reason.REFUSED, "gpu.types.GPUTexture")
             )
         )

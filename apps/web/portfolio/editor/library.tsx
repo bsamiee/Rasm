@@ -5,12 +5,12 @@ import { FileText, Film } from 'lucide-react';
 import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
-import { deleteRequest, draft, hero } from '#/editor/state.ts';
-import { entryTitle, format, joinDetails } from '#/media/labels.ts';
+import { deleteRequest, draft, hero } from '#/editor/state';
+import { entryTitle, format, joinDetails } from '#/media/labels';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import { Asset, type AssetId, type Assets } from '#/model/asset.ts';
-import { Placement } from '#/model/placement.ts';
-import { type EntryId, Portfolio } from '#/model/portfolio.ts';
+import { Asset, type AssetId, type Assets } from '#/model/asset';
+import { Placement } from '#/model/placement';
+import { type EntryId, Portfolio } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

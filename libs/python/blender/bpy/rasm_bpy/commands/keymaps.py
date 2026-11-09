@@ -116,8 +116,8 @@ class Keymap:
 
         @contextmanager
         def held(locations: tuple[Location, ...], rows: tuple[Row, ...]) -> Generator[Outcome[None]]:
-            manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            addon: bpy.types.KeyConfig = manager.keyconfigs.addon  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
+            addon: bpy.types.KeyConfig = manager.keyconfigs.addon  # ty: ignore[invalid-assignment]
 
             def forgotten() -> None:
                 self._items = ()
@@ -125,7 +125,7 @@ class Keymap:
             def added(
                 stack: ExitStack, keymap: bpy.types.KeyMap, operator: str, event: Chord, properties: dict[str, list[tuple[str, Setting]]]
             ) -> tuple[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem], Outcome[None]]:
-                item = keymap.keymap_items.new(operator, **event)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                item = keymap.keymap_items.new(operator, **event)  # ty: ignore[invalid-argument-type]
                 stack.callback(keymap.keymap_items.remove, item)
                 return (keymap, item), filled((operator, tuple(properties["properties"])), item.properties)
 
@@ -142,9 +142,9 @@ class Keymap:
 
     def counterparts(self, context: bpy.types.Context, /) -> tuple[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem], ...]:
         """Updates native keyconfigs and returns the user keymap and item matching each owned item."""
-        manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        manager: bpy.types.WindowManager = context.window_manager  # ty: ignore[invalid-assignment]
         manager.keyconfigs.update(keep_properties=True)
-        user: bpy.types.KeyConfig = manager.keyconfigs.user  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        user: bpy.types.KeyConfig = manager.keyconfigs.user  # ty: ignore[invalid-assignment]
         return tuple(
             (keymap, item)
             for added, mine in self._items
@@ -156,7 +156,7 @@ class Keymap:
 
     def drawn(self, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws user shortcut editors, each under its user keymap as the `keymap` its restore and remove buttons read."""
-        manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        manager: bpy.types.WindowManager = context.window_manager  # ty: ignore[invalid-assignment]
         for keymap, item in self.counterparts(context):
             column = layout.column()
             column.context_pointer_set("keymap", keymap)
@@ -175,18 +175,18 @@ def nesting(name: str, /) -> Outcome[tuple[Location, ...]]:
                 yield label, space, region
             yield from walked(children)
 
-    found = tuple(dict.fromkeys(walked(keymap_hierarchy.generate())))  # type: ignore[func-returns-value, arg-type]  # ty: ignore[invalid-argument-type]
+    found = tuple(dict.fromkeys(walked(keymap_hierarchy.generate())))  # type: ignore[func-returns-value]  # ty: ignore[invalid-argument-type]
     return Ok(found).filter_with(bool, lambda _: Fault.of(Reason.ABSENT, "bl_keymap_utils.keymap_hierarchy", member=name))
 
 
 def parameters(context: bpy.types.Context, /) -> Outcome[Parameters]:
     """Returns the default keymap's `Params` as the default keyconfig preset builds them over the active keyconfig's preferences, absent fault for a default keyconfig with no preset."""
-    manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    inputs: bpy.types.PreferencesInput = context.preferences.inputs  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-    default: bpy.types.KeyConfig = manager.keyconfigs.default  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    manager: bpy.types.WindowManager = context.window_manager  # ty: ignore[invalid-assignment]
+    inputs: bpy.types.PreferencesInput = context.preferences.inputs  # ty: ignore[unresolved-attribute]
+    default: bpy.types.KeyConfig = manager.keyconfigs.default  # ty: ignore[invalid-assignment]
 
     def built(preset: str) -> Parameters:
-        module: ModuleType = bpy.utils.execfile(str(Path(preset).parent / "keymap_data" / "blender_default.py"))  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
+        module: ModuleType = bpy.utils.execfile(str(Path(preset).parent / "keymap_data" / "blender_default.py"))  # type: ignore[func-returns-value]  # ty: ignore[invalid-assignment]
         accepted = inspect.signature(module.Params).parameters
         stated: dict[str, object] = (
             Option
@@ -219,7 +219,7 @@ def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ..
 
     def doubled(rows: tuple[Row, ...]) -> tuple[Row, ...]:
         data: KeyconfigData = [("", {}, {"items": list(rows)})]
-        darwin: KeyconfigData = platform_helpers.keyconfig_data_oskey_from_ctrl_for_macos(data) if sys.platform == "darwin" else data  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
+        darwin: KeyconfigData = platform_helpers.keyconfig_data_oskey_from_ctrl_for_macos(data) if sys.platform == "darwin" else data  # type: ignore[func-returns-value]  # ty: ignore[invalid-assignment]
         return tuple(item for _, _, block in darwin for item in block["items"])
 
     return parameters(bpy.context).map(lambda held: doubled(tuple(row(held, chord, placement, placement.resolved(identity)) for chord, placement in bindings)))

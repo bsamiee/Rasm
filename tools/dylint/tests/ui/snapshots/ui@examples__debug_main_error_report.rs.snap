@@ -1,0 +1,5 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/debug_main_error_report.rs
+---
+

@@ -314,7 +314,7 @@ def fielded(record: msgspec.Struct, /) -> Interface:
     """Builds the interface of a record's fields keyed by field name: a `Socketed` record's stated sockets, else a socket at its value for each field `Socket.of` takes and a panel of its fields for each field holding a record other than node content."""
     interfaces: dict[tuple[str, ...], Interface] = {}
     for owner, path, fields in _records(record, lambda held: not isinstance(held, _Socketed)):
-        sockets = owner.sockets if isinstance(owner, _Socketed) else tuple(socket for field, value in fields for socket in Socket.of(field.name, field.type, value).to_list())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        sockets = owner.sockets if isinstance(owner, _Socketed) else tuple(socket for field, value in fields for socket in Socket.of(field.name, field.type, value).to_list())  # ty: ignore[invalid-argument-type]
         interfaces[path] = Interface(
             inputs=tuple(msgspec.structs.replace(socket, key=item_key(*path, socket.key), name=socket.title) for socket in sockets) if path else sockets,
             panels=tuple(

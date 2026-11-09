@@ -3,32 +3,22 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { HostError } from '@rasm/automation';
-import { bundle, dialed, type Link, release } from '@rasm/automation/vite';
-import { paint } from '@rasm/mark';
+import { bundle, dialed, type Link } from '@rasm/automation/vite';
 import type { JscTarget } from '@swc/wasm';
 import { load } from 'cheerio';
-import { Array, Effect, FileSystem, flow, Record, Schema } from 'effect';
+import { Array, Effect, FileSystem, flow, Schema } from 'effect';
 import { build, type ConfigEnv, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { ExtensionManifest } from '#/manifest.ts';
-import { lower } from '#/node.ts';
+import { ExtensionManifest } from '#/manifest';
+import { lower } from '#/node';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 interface Extension {
-    readonly host: ExtensionManifest['host'];
     readonly script?: string;
-    readonly parameters?: ExtensionManifest['parameters'];
+    readonly panel?: string;
     readonly config?: UserConfig;
     readonly link?: Link;
-    readonly face?: Omit<NonNullable<ExtensionManifest['face']>, 'icons'>;
 }
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const SCALES = [
-    { factor: 1, suffix: '' },
-    { factor: 2, suffix: '@2X' },
-] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -58,61 +48,36 @@ const script = Effect.fn('script')(function* (entry: string, { name, target }: {
     }).pipe(Effect.flatMap(flow(Schema.decodeUnknownEffect(Built), Effect.mapError(refused))));
     return Array.headNonEmpty(built.output).code;
 });
-const faceIcons = Effect.fnUntraced(function* (glyph: string) {
-    const folder = 'icons';
-    const size = 23;
-    const files = yield* Effect.forEach(
-        Array.cartesian(Record.toEntries(ExtensionManifest.fills), SCALES),
-        Effect.fnUntraced(function* ([[name, fill], { factor, suffix }]) {
-            return { fileName: `${folder}/${name}${suffix}.png`, source: yield* paint(glyph, fill, size * factor) };
-        }),
-        { concurrency: 'unbounded' },
-    );
-    return { icons: Record.map(ExtensionManifest.states, (name) => `${folder}/${name}.png`), files };
-});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const cep = (directory: string, { host, script: hostScript, parameters, config = {}, link, face }: Extension & ({ readonly link: Link } | { readonly face: NonNullable<Extension['face']> })): UserConfigFnPromise =>
+const cep = (directory: string, { script: hostScript, panel = fileURLToPath(new URL('invisible.ts', import.meta.url)), config = {}, link }: Extension): UserConfigFnPromise =>
     flow(
         Effect.fnUntraced(function* ({ mode }: ConfigEnv) {
-            const fs = yield* FileSystem.FileSystem;
-            const entry = 'main';
-            const glyph = join(directory, `${entry}.svg`);
-            const rendered = face !== undefined && (yield* fs.exists(glyph)) ? yield* faceIcons(glyph) : undefined;
-            const manifest = ExtensionManifest.make({
-                host,
-                ...(yield* release(directory)),
-                ...(face === undefined ? {} : { face: { ...face, ...(rendered === undefined ? {} : { icons: rendered.icons }) } }),
-                ...(parameters === undefined ? {} : { parameters }),
-                ...(hostScript === undefined ? {} : { scripted: true }),
-                ...(link === undefined ? {} : { atLaunch: true }),
-            });
+            const source = yield* FileSystem.FileSystem.use((fs) => fs.readFileString(join(directory, ExtensionManifest.file)));
+            const manifest = yield* Schema.decodeEffect(ExtensionManifest.fromXml)(source);
             const required = createRequire(join(directory, 'package.json'));
-            const panel = {
+            const page = {
                 name: 'panel',
                 generateBundle(this: Rolldown.PluginContext, _options, output): void {
-                    const page = load('<!doctype html><meta charset="utf-8">');
-                    page('body').append(
+                    const document = load('<!doctype html><meta charset="utf-8">');
+                    document('body').append(
                         ...Object.values(output)
                             .filter((file) => file.type === 'chunk' && file.isEntry)
-                            .map((file) => page('<script>').attr('src', file.fileName)),
+                            .map((file) => document('<script>').attr('src', file.fileName)),
                     );
-                    this.emitFile({ type: 'asset', fileName: ExtensionManifest.panel, source: page.html() });
-                    this.emitFile({ type: 'asset', fileName: ExtensionManifest.file, source: manifest.xml });
-                    (rendered?.files ?? []).forEach((file) => this.emitFile({ type: 'asset', ...file }));
-                    if (mode === 'development') {
-                        this.emitFile({ type: 'asset', fileName: ExtensionManifest.debugFile, source: manifest.debug(link === undefined ? ExtensionManifest.debugPort : link.listen.port + 1) });
-                    }
+                    [{ fileName: ExtensionManifest.panel, source: document.html() }, { fileName: ExtensionManifest.file, source }, ...(mode === 'development' ? [{ fileName: ExtensionManifest.debugFile, source: manifest.debug(link === undefined ? ExtensionManifest.debugPort : link.listen.port + 1) }] : [])].forEach(
+                        (file) => this.emitFile({ type: 'asset', ...file }),
+                    );
                 },
             } satisfies Rolldown.Plugin;
             return mergeConfig(
                 bundle(directory, {
                     builder: { sharedConfigBuild: true },
-                    define: link === undefined ? {} : (yield* dialed(link)).define,
+                    define: link === undefined ? {} : yield* dialed(link),
                     build: { rolldownOptions: { preserveEntrySignatures: 'exports-only', output: { format: 'iife' } } },
                     environments: {
-                        client: { build: { target: ExtensionManifest.chromium, emptyOutDir: true, rolldownOptions: { input: face === undefined ? fileURLToPath(new URL('invisible.ts', import.meta.url)) : join(directory, `${entry}.ts`), output: { entryFileNames: '[name].js', plugins: panel } } } },
+                        client: { build: { target: ExtensionManifest.chromium, emptyOutDir: true, rolldownOptions: { input: panel, output: { entryFileNames: '[name].js', plugins: page } } } },
                         ...(hostScript === undefined
                             ? {}
                             : {

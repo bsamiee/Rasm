@@ -51,8 +51,8 @@ class Blocks(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-interop: Final[Callable[[PyOpenColorIO.ColorSpace], str]] = PyOpenColorIO.ColorSpace.getInteropID  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-_interchange: Final[Callable[[PyOpenColorIO.ColorSpace, str], str]] = PyOpenColorIO.ColorSpace.getInterchangeAttribute  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+interop: Final[Callable[[PyOpenColorIO.ColorSpace], str]] = PyOpenColorIO.ColorSpace.getInteropID  # ty: ignore[unresolved-attribute, unsound-assignment]
+_interchange: Final[Callable[[PyOpenColorIO.ColorSpace, str], str]] = PyOpenColorIO.ColorSpace.getInterchangeAttribute  # ty: ignore[unresolved-attribute, unsound-assignment]
 UNTAGGED: Final = ("default_byte", "default_float")
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -367,7 +367,7 @@ def read_codes(path: pathlib.Path) -> Outcome[Option[npt.NDArray[np.uint8 | np.u
         spec = image.spec()
         formats = spec.get_channelformats()
         match formats:
-            case (kind, *_) if kind.basetype in {OpenImageIO.UINT8, OpenImageIO.UINT16} and OpenImageIO.TypeDesc.all_types_equal(formats):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            case (kind, *_) if kind.basetype in {OpenImageIO.UINT8, OpenImageIO.UINT16} and OpenImageIO.TypeDesc.all_types_equal(formats):  # ty: ignore[invalid-argument-type]
                 codes: npt.NDArray[np.uint8 | np.uint16] | None = image.read_image(0, 0, 0, spec.nchannels, kind)
                 return Option.of_optional(codes).to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(path), image.geterror())).map(Some)
             case _:

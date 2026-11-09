@@ -107,18 +107,18 @@ _FLAGS: Final = choices((member.prop.identifier, member.prop.name, member.prop.d
 class CollectionState(bpy.types.PropertyGroup):
     """Restriction value of a collection in one view layer."""
 
-    layer: bpy.props.StringProperty(name="View Layer", description="View layer the edit writes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    collection: bpy.props.IntProperty(name="Collection", description="Session identifier of the collection the edit writes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    flag: bpy.props.EnumProperty(name="Restriction", description="Restriction the edit writes", items=_FLAGS)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    value: bpy.props.BoolProperty(name="Value", description="Restriction value written")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    extent: bpy.props.EnumProperty(name="Extent", description="Collections the edit reaches", items=enum_choices(_Extent))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    layer: bpy.props.StringProperty(name="View Layer", description="View layer the edit writes")  # ty: ignore[invalid-type-form]
+    collection: bpy.props.IntProperty(name="Collection", description="Session identifier of the collection the edit writes")  # ty: ignore[invalid-type-form]
+    flag: bpy.props.EnumProperty(name="Restriction", description="Restriction the edit writes", items=_FLAGS)  # ty: ignore[invalid-type-form]
+    value: bpy.props.BoolProperty(name="Value", description="Restriction value written")  # ty: ignore[invalid-type-form]
+    extent: bpy.props.EnumProperty(name="Extent", description="Collections the edit reaches", items=enum_choices(_Extent))  # ty: ignore[invalid-type-form]
 
 
 class LayerTag(bpy.types.PropertyGroup):
     """Purpose and tag of a view layer."""
 
-    role: bpy.props.EnumProperty(name="Role", description="Beauty layers form image, data layers hold data passes and mattes", items=enum_choices(Role))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    color: bpy.props.FloatVectorProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    role: bpy.props.EnumProperty(name="Role", description="Beauty layers form image, data layers hold data passes and mattes", items=enum_choices(Role))  # ty: ignore[invalid-type-form]
+    color: bpy.props.FloatVectorProperty(  # ty: ignore[invalid-type-form]
         name="Tag", description="Layer color in lists and on its nodes", subtype="COLOR", min=0.0, max=1.0, default=mathutils.Color((_VALUE,) * 3).from_srgb_to_scene_linear()[:]
     )
 
@@ -126,35 +126,35 @@ class LayerTag(bpy.types.PropertyGroup):
 class Renaming(bpy.types.PropertyGroup):
     """Rename of every layer by its list position."""
 
-    template: bpy.props.StringProperty(name="Names", description="Layer name grammar holding {order:<width>} and {layer}", default="{order:2}_{layer}")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    scope: bpy.props.EnumProperty(name="Scenes", description="Scenes rename reaches", items=enum_choices(_RenameScope))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    template: bpy.props.StringProperty(name="Names", description="Layer name grammar holding {order:<width>} and {layer}", default="{order:2}_{layer}")  # ty: ignore[invalid-type-form]
+    scope: bpy.props.EnumProperty(name="Scenes", description="Scenes rename reaches", items=enum_choices(_RenameScope))  # ty: ignore[invalid-type-form]
 
 
 class Tinting(bpy.types.PropertyGroup):
     """Tag colors written from a palette."""
 
-    palette: bpy.props.EnumProperty(name="Palette", description="Palette tags take in list order", items=enum_choices(_Palette))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    saturation: bpy.props.FloatProperty(name="Saturation", description="Saturation of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=_SATURATION)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    value: bpy.props.FloatProperty(name="Value", description="Brightness of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=_VALUE)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    palette: bpy.props.EnumProperty(name="Palette", description="Palette tags take in list order", items=enum_choices(_Palette))  # ty: ignore[invalid-type-form]
+    saturation: bpy.props.FloatProperty(name="Saturation", description="Saturation of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=_SATURATION)  # ty: ignore[invalid-type-form]
+    value: bpy.props.FloatProperty(name="Value", description="Brightness of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=_VALUE)  # ty: ignore[invalid-type-form]
 
 
 class Splitting(bpy.types.PropertyGroup):
     """Split of top-level collections into layers."""
 
-    others: bpy.props.EnumProperty(name="Others", description="Restriction other top-level collections take in a new layer", items=_FLAGS, default="indirect_only")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    others: bpy.props.EnumProperty(name="Others", description="Restriction other top-level collections take in a new layer", items=_FLAGS, default="indirect_only")  # ty: ignore[invalid-type-form]
 
 
 class Overriding(bpy.types.PropertyGroup):
     """Setup material override toggled on the active layer."""
 
-    setup: bpy.props.EnumProperty(name="Setup", description="Owned surface setup the override applies", items=enum_choices(_Setup))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    setup: bpy.props.EnumProperty(name="Setup", description="Owned surface setup the override applies", items=enum_choices(_Setup))  # ty: ignore[invalid-type-form]
 
 
 class Clipboard(bpy.types.PropertyGroup):
     """Settings copied off the active layer and the layers a paste reaches."""
 
-    part: bpy.props.EnumProperty(name="Part", description="View layer settings or collection states the copy takes", items=enum_choices(_Part))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    scope: bpy.props.EnumProperty(name="Layers", description="View layers the paste writes", items=enum_choices(_PasteScope))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    part: bpy.props.EnumProperty(name="Part", description="View layer settings or collection states the copy takes", items=enum_choices(_Part))  # ty: ignore[invalid-type-form]
+    scope: bpy.props.EnumProperty(name="Layers", description="View layers the paste writes", items=enum_choices(_PasteScope))  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

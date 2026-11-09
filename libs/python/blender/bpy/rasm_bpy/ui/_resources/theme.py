@@ -60,7 +60,7 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def read(cls) -> Self:
         """Reads metrics from running preferences, the view scale while no window gives the display scale, which then reads 0."""
-        preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
         display = preferences.system.ui_scale
         return cls(scale=display if display > 0.0 else preferences.view.ui_scale, pixel_size=int(preferences.system.pixel_size), preferences=preferences)
 

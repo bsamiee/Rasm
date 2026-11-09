@@ -10,10 +10,10 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import type { Bootstrap } from '#/model/api.ts';
-import type { PortfolioData } from '#/model/portfolio.ts';
+import type { Bootstrap } from '#/model/api';
+import type { PortfolioData } from '#/model/portfolio';
 import { Chapter } from '#/site/chapter.tsx';
-import { UrlFragment, useNavigation } from '#/site/navigation.ts';
+import { UrlFragment, useNavigation } from '#/site/navigation';
 import { StickyBar, WorkIndex } from '#/site/work-index.tsx';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

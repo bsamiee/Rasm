@@ -45,8 +45,8 @@ type Feed = Callable[[Identity, bpy.types.Context], Outcome[tuple[Job, ...]]]
 class Budget(bpy.types.PropertyGroup):
     """Preview renders one queue step starts and the seconds within which it starts more than one."""
 
-    count: bpy.props.IntProperty(name="Renders per Step", description="Previews one queue step renders at most", min=1, soft_max=8, default=2)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    span: bpy.props.FloatProperty(name="Step Time", description="Seconds within which a queue step starts another render", subtype="TIME_ABSOLUTE", min=0.0, soft_max=1.0, default=0.25)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    count: bpy.props.IntProperty(name="Renders per Step", description="Previews one queue step renders at most", min=1, soft_max=8, default=2)  # ty: ignore[invalid-type-form]
+    span: bpy.props.FloatProperty(name="Step Time", description="Seconds within which a queue step starts another render", subtype="TIME_ABSOLUTE", min=0.0, soft_max=1.0, default=0.25)  # ty: ignore[invalid-type-form]
 
 
 class Job(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -103,7 +103,7 @@ class Backlog:
     def pending(self, *, playing: bool) -> Option[Request]:
         """Earliest pending request of the lowest rank, playback requests alone while playing."""
         return Option.of_optional(
-            min((request for request in self.requests.values() if request.state is Phase.PENDING and (request.job.playback or not playing)), key=lambda queued: queued.job.rank, default=None)  # ty: ignore[unresolved-attribute]
+            min((request for request in self.requests.values() if request.state is Phase.PENDING and (request.job.playback or not playing)), key=lambda queued: queued.job.rank, default=None)
         )
 
     def merged(self, reads: tuple[tuple[Feed, tuple[Job, ...]], ...]) -> None:

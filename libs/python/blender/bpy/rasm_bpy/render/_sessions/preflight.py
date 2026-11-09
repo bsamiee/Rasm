@@ -64,7 +64,7 @@ class _Measure(msgspec.Struct, frozen=True, kw_only=True):
 class Shader(bpy.types.PropertyGroup):
     """Shader node class to list material users of."""
 
-    kind: bpy.props.EnumProperty(name="Shader", description="Shader node class to find", items=lambda _owner, _context: shader_rows(shader_kinds()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    kind: bpy.props.EnumProperty(name="Shader", description="Shader node class to find", items=lambda _owner, _context: shader_rows(shader_kinds()))  # ty: ignore[invalid-type-form]
 
 
 class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -75,7 +75,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     condition: ClassVar[conditions.AllOf] = (
         Pathed.unsaved
         & conditions.Count(
-            collection=Descriptor[bpy.types.CollectionProperty](root=bpy.types.Scene, prop=bpy.types.Scene.bl_rna.properties["view_layers"]),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            collection=Descriptor[bpy.types.CollectionProperty](root=bpy.types.Scene, prop=bpy.types.Scene.bl_rna.properties["view_layers"]),  # ty: ignore[invalid-argument-type]
             where=Some(conditions.Setting(descriptor=Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use"]))),
         )
         & _Folder()
@@ -214,7 +214,7 @@ def _measured(view_layer: bpy.types.ViewLayer) -> Outcome[_Measure]:
 
     def counted(depsgraph: bpy.types.Depsgraph) -> _Measure:
         """Counts instance meshes and images of depsgraph."""
-        data = tuple(instance.object.data for instance in depsgraph.object_instances)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        data = tuple(instance.object.data for instance in depsgraph.object_instances)  # ty: ignore[unresolved-attribute]
         meshes = tuple(mesh for mesh in data if isinstance(mesh, bpy.types.Mesh))
         images = tuple(image for block in depsgraph.ids for image in (block.original,) if isinstance(image, bpy.types.Image))
         return _Measure(
@@ -223,7 +223,7 @@ def _measured(view_layer: bpy.types.ViewLayer) -> Outcome[_Measure]:
             faces=sum(len(mesh.polygons) for mesh in meshes),
             triangles=sum(len(mesh.loop_triangles) for mesh in meshes),
             images=len(images),
-            image_bytes=sum(prod(image.size) * image.channels * (4 if image.is_float else 1) for image in images),  # type: ignore[call-overload]
+            image_bytes=sum(prod(image.size) * image.channels * (4 if image.is_float else 1) for image in images),
         )
 
     return _evaluated(view_layer).map(counted)

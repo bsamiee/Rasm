@@ -387,7 +387,7 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
     service, intermediates = _RenderOrigins(), _INTERMEDIATES[identity]
 
     def supported() -> bool:
-        manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
         return current_thread() is main_thread() or manager.is_interface_locked
 
     def opened(scene: bpy.types.Scene) -> Outcome[None]:
@@ -419,7 +419,7 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
         settings = render.image_settings
         match scene.camera:
             case bpy.types.Object(data=bpy.types.Camera(type="PERSP") as camera):
-                dof: bpy.types.CameraDOFSettings = camera.dof  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                dof: bpy.types.CameraDOFSettings = camera.dof  # ty: ignore[invalid-assignment]
                 optics: tuple[float, float] | None = camera.lens, dof.aperture_fstop
             case _:
                 optics = None

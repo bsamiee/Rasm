@@ -33,21 +33,21 @@ from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reaso
 class FollowUpSettings(bpy.types.PropertyGroup):
     """Scene setting queueing a follow-up job after each render, a follow-up's own settings extending it."""
 
-    enabled: bpy.props.BoolProperty(name="Enabled", description="Queue the follow-up job after each render")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    enabled: bpy.props.BoolProperty(name="Enabled", description="Queue the follow-up job after each render")  # ty: ignore[invalid-type-form]
 
 
 class WrittenPass(bpy.types.PropertyGroup):
     """Sequence file of one written pass, named after the pass, relative to the output root, with the image output holding the pass."""
 
-    path: bpy.props.StringProperty(name="Path", description="Sequence file of the first frame")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    output: bpy.props.StringProperty(name="Output", description="Image output holding the pass")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    path: bpy.props.StringProperty(name="Path", description="Sequence file of the first frame")  # ty: ignore[invalid-type-form]
+    output: bpy.props.StringProperty(name="Output", description="Image output holding the pass")  # ty: ignore[invalid-type-form]
 
 
 class FollowedRender(bpy.types.PropertyGroup):
     """Frame range of the render a follow-up job reads, each follow-up's record holding one written pass member per pass it follows, empty outside the job's file."""
 
-    first: bpy.props.IntProperty(name="First", description="First rendered frame", default=1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    last: bpy.props.IntProperty(name="Last", description="Last rendered frame", default=1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    first: bpy.props.IntProperty(name="First", description="First rendered frame", default=1)  # ty: ignore[invalid-type-form]
+    last: bpy.props.IntProperty(name="Last", description="Last rendered frame", default=1)  # ty: ignore[invalid-type-form]
 
     def written(self, name: str, /) -> Outcome[WrittenPass]:
         """Returns the written pass of a pass name, absent fault for a pass the record follows none of or the render wrote none of."""

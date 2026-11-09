@@ -31,10 +31,10 @@ import { HostError, type ObjectModel, Reference } from '@rasm/automation';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import { Array, Cache, Cause, Context, Deferred, Duration, Effect, Equal, Equivalence, Exit, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaAST, Struct, Tuple } from 'effect';
-import { type FindChange, Inspect } from '#/index.ts';
-import { readDeclaration, unavailableReason } from '#/internal/dictionary.ts';
-import { Specifier } from '#/internal/specifier.ts';
-import { Value } from '#/internal/value.ts';
+import { type FindChange, Inspect } from '#/index';
+import { readDeclaration, unavailableReason } from '#/internal/dictionary';
+import { Specifier } from '#/internal/specifier';
+import { Value } from '#/internal/value';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -87,7 +87,7 @@ class EffectSetup(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  #
 class LockRequest(bpy.types.PropertyGroup):
     """Lock key a lock button toggles on the holder it drew, as the text the host button shows."""
 
-    key: bpy.props.StringProperty(name="Key", description="Lock key the button toggles")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    key: bpy.props.StringProperty(name="Key", description="Lock key the button toggles")  # ty: ignore[invalid-type-form]
 
 
 class _Locks[K](msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
@@ -195,11 +195,11 @@ class EntryLocks(ConditionalRow, frozen=True, kw_only=True):
         """Draws one line per lockable key of the entry, inputs named under their panel."""
 
         def named(item: bpy.types.NodeTreeInterfaceSocket) -> str:
-            parent: bpy.types.NodeTreeInterfacePanel = item.parent  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            parent: bpy.types.NodeTreeInterfacePanel = item.parent  # ty: ignore[invalid-assignment]
             return f"{parent.name} > {item.name}" if parent.name else item.name
 
         def listed(entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree, sockets: Mapping[Key, str]) -> None:
-            interface: bpy.types.NodeTreeInterface = group.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            interface: bpy.types.NodeTreeInterface = group.interface  # ty: ignore[invalid-assignment]
             live = {item.identifier: item for item in interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"}
             lockable = (
                 *((enabled.descriptor.prop.name, enabled.value) for enabled in Enabled),
@@ -279,7 +279,7 @@ class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def form(self) -> TypeForm[EffectSetup]:
         """Setup record over the offered effect records."""
-        return GenericAlias(EffectSetup, (self.effects.form,))  # type: ignore[return-value]  # ty: ignore[invalid-type-form, unsound-return-statement]
+        return GenericAlias(EffectSetup, (self.effects.form,))  # ty: ignore[invalid-type-form, unsound-return-statement]
 
     def captured(self, members: Members, scene: bpy.types.Scene, /) -> Outcome[EffectSetup]:
         """Captures category settings and owned entries."""

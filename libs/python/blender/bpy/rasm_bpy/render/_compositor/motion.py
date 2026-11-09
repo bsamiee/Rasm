@@ -23,8 +23,8 @@ from rasm_records import accumulated, Count, Fault, NonNegative, Ok, Outcome, pa
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FPS: Final[bpy.types.IntProperty] = bpy.types.RenderSettings.bl_rna.properties["fps"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-_FPS_BASE: Final[bpy.types.FloatProperty] = bpy.types.RenderSettings.bl_rna.properties["fps_base"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_FPS: Final[bpy.types.IntProperty] = bpy.types.RenderSettings.bl_rna.properties["fps"]  # ty: ignore[invalid-assignment]
+_FPS_BASE: Final[bpy.types.FloatProperty] = bpy.types.RenderSettings.bl_rna.properties["fps_base"]  # ty: ignore[invalid-assignment]
 RATE: Final = Socket(key="frame_rate", kind=bpy.types.NodeSocketFloat, description="Scene frames per second", hide_in_modifier=True, default_value=_FPS.default / _FPS_BASE.default)
 SEED: Final = Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting the pattern", min_value=0, max_value=SEED_BOUND)
 LENGTH: Final = Socket(key="length", kind=bpy.types.NodeSocketFloat, description="Shutter length in frames", hide_in_modifier=True)

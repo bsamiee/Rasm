@@ -24,7 +24,7 @@ def _projection(context: bpy.types.Context, image: bpy.types.Image, config: PyOp
     """
 
     def selected(scene: bpy.types.Scene, space: bpy.types.SpaceImageEditor) -> DisplayView:
-        shown: bpy.types.ColorManagedDisplaySettings = scene.display_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        shown: bpy.types.ColorManagedDisplaySettings = scene.display_settings  # ty: ignore[invalid-assignment]
         return (
             viewed(scene)
             if space.display_channels not in {"ALPHA", "Z_BUFFER"} and image.source != "GENERATED" and image.use_view_as_render

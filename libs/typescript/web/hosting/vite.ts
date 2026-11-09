@@ -1,31 +1,38 @@
-import { join, relative } from 'node:path';
+import { createRequire } from 'node:module';
+import { join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { Config, Effect, flow, Option } from 'effect';
 import { type ConfigEnv, type Plugin, searchForWorkspaceRoot } from 'vite';
-import { HostingError } from '#/error.ts';
-import type { Head } from '#/head.ts';
-import { nodeBundle } from '#/node-bundle.ts';
+import { HostingError } from '#/error';
+import type { Head } from '#/head';
+import { nodeBundle } from '#/node-bundle';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const hosting = flow(
     Effect.fnUntraced(
         function* ({ head, nodeEntry, mode }: { readonly head: Head; readonly nodeEntry: string; readonly mode: ConfigEnv['mode'] }) {
-            const [{ siteHead }, { cloudflare }, analyze, context] = yield* Effect.all([Effect.promise(() => import('#/head.ts')), Effect.promise(() => import('@cloudflare/vite-plugin')), Config.withDefault(Config.Boolean('ANALYZE'), false), Effect.context<never>()], { concurrency: 'unbounded' });
+            const [{ siteHead }, { cloudflare }, analyze, context] = yield* Effect.all([Effect.promise(() => import('#/head')), Effect.promise(() => import('@cloudflare/vite-plugin')), Config.withDefault(Config.Boolean('ANALYZE'), false), Effect.context<never>()], { concurrency: 'unbounded' });
             const workspace = searchForWorkspaceRoot(process.cwd());
             const project = relative(workspace, process.cwd());
             const bundle: Plugin = {
                 name: '@rasm/hosting',
-                config: (_, { command }) => ({
-                    environments: {
-                        [nodeBundle.layout.environment]: {
-                            consumer: 'server',
-                            resolve: { noExternal: true },
-                            build: { outDir: join(workspace, '.artifacts', project), assetsDir: 'chunks', emptyOutDir: true, copyPublicDir: false, rolldownOptions: { input: { [nodeBundle.layout.entry]: nodeEntry }, platform: 'node' } },
+                config: ({ root = process.cwd() }, { command }) => {
+                    const folder = resolve(root);
+                    const workspaceRoot = searchForWorkspaceRoot(folder);
+                    const { name }: { readonly name: string } = createRequire(join(folder, 'package.json'))('./package.json');
+                    return {
+                        cacheDir: join(workspaceRoot, '.cache', 'vite', relative(workspaceRoot, folder)),
+                        environments: {
+                            [nodeBundle.layout.environment]: {
+                                consumer: 'server',
+                                resolve: { noExternal: true },
+                                build: { outDir: join(workspaceRoot, '.artifacts', 'vite', name), assetsDir: 'chunks', emptyOutDir: true, copyPublicDir: false, rolldownOptions: { input: { [nodeBundle.layout.entry]: nodeEntry }, platform: 'node' } },
+                            },
                         },
-                    },
-                    ...(analyze && command === 'build' ? { build: { rolldownOptions: { devtools: { mode: 'report' } } } } : {}),
-                }),
+                        ...(analyze && command === 'build' ? { build: { rolldownOptions: { devtools: { mode: 'report' } } } } : {}),
+                    };
+                },
                 buildApp: {
                     order: 'post',
                     handler: (builder) =>

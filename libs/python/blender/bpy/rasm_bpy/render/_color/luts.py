@@ -43,20 +43,20 @@ _LATTICE: Final = OutputFormat(media_type="IMAGE", file_format="OPEN_EXR", color
 class LatticeFields(bpy.types.PropertyGroup):
     """Lattice size and node spacing of bake and view install forms."""
 
-    size: bpy.props.IntProperty(name="Size", description="Nodes along each axis", min=LATTICE_SIZES.start, max=LATTICE_SIZES[-1], default=Lattice().size)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=case_choices(Spacing), default=type(Lattice().spacing).__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    size: bpy.props.IntProperty(name="Size", description="Nodes along each axis", min=LATTICE_SIZES.start, max=LATTICE_SIZES[-1], default=Lattice().size)  # ty: ignore[invalid-type-form]
+    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=case_choices(Spacing), default=type(Lattice().spacing).__name__)  # ty: ignore[invalid-type-form]
 
 
 class Baking(LatticeFields):
     """Native bake format and its sampled lattice."""
 
-    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.bakeable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.bakeable()))  # ty: ignore[invalid-type-form]
 
 
 class Writing(bpy.types.PropertyGroup):
     """Exact transform output in a native matrix-capable format."""
 
-    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # ty: ignore[invalid-type-form]
 
 
 class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -68,7 +68,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     modifiers: ClassVar[Descriptor[bpy.types.CollectionProperty]] = Descriptor[bpy.types.CollectionProperty](
         root=bpy.types.WorkSpace,
         owner=("sequencer_scene", "sequence_editor", "active_strip"),
-        prop=bpy.types.Strip.bl_rna.properties["modifiers"],  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        prop=bpy.types.Strip.bl_rna.properties["modifiers"],  # ty: ignore[invalid-argument-type]
     )
 
     # --- [COMMANDS]

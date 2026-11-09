@@ -1,0 +1,59 @@
+{
+    "name": "@rasm/hosting",
+    "private": true,
+    "description": "One web app served the same on edge and server runtimes",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./browser": "./browser.ts",
+        "./cloudflare": "./cloudflare.ts",
+        "./node": "./node.ts",
+        "./template": "./template.ts",
+        "./vite": "./vite.ts",
+        "./worker": "./worker.ts"
+    },
+    "dependencies": {
+        "@aws-sdk/client-s3": "catalog:",
+        "@cloudflare/vite-plugin": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@rasm/mark": "workspace:*",
+        "@vite-pwa/assets-generator": "catalog:",
+        "cf": "catalog:",
+        "cheerio": "catalog:",
+        "culori": "catalog:",
+        "partial-content": "catalog:",
+        "postcss": "catalog:"
+    },
+    "devDependencies": {
+        "@types/culori": "catalog:",
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@types/web-app-manifest": "catalog:",
+        "effect": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "vite": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers",
+        "react": "catalog:peers",
+        "react-dom": "catalog:peers",
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "react": {
+            "optional": true
+        },
+        "react-dom": {
+            "optional": true
+        },
+        "vite": {
+            "optional": true
+        }
+    }
+}

@@ -81,14 +81,14 @@ class CDL(CompositorRecord, frozen=True, kw_only=True):
 class Imported(Named):
     """ASC correction chosen in the file browser."""
 
-    correction: bpy.props.EnumProperty(name="Correction", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    correction: bpy.props.EnumProperty(name="Correction", items=())  # ty: ignore[invalid-type-form]
 
 
 class Exported(Named):
     """Correction written in an exact transform format, alone or resolved between scene-linear conversions."""
 
-    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    source: bpy.props.EnumProperty(name="Source", items=enum_choices(_Source))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # ty: ignore[invalid-type-form]
+    source: bpy.props.EnumProperty(name="Source", items=enum_choices(_Source))  # ty: ignore[invalid-type-form]
 
 
 class Lookup(CompositorRecord, frozen=True, kw_only=True):
@@ -154,7 +154,7 @@ def _correction(values: Mapping[Key, Value]) -> Outcome[PyOpenColorIO.CDLTransfo
 
 def _named(identity: Identity, operator: Imported, _context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
     """ASC correction rows in file order, each value fixed to its file position."""
-    path: str = operator.filepath  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+    path: str = operator.filepath  # ty: ignore[unresolved-attribute, unsound-assignment]
     found = reloaded(identity, path, PyOpenColorIO.GetCurrentConfig()).bind(lambda resolved: corrections(Path(resolved)))
     return choices((str(position), name.default_value(str(position + 1)), "", "NONE", position) for rows in found.to_option().to_list() for position, (name, _) in enumerate(rows))
 

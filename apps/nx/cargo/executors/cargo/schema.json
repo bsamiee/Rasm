@@ -2,12 +2,11 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "version": 2,
     "title": "Cargo",
-    "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by its own package's diagnostics",
+    "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by its own package's report",
     "type": "object",
     "properties": {
         "cwd": { "type": "string", "description": "Cargo workspace root, relative to the Nx workspace root" },
         "package": { "type": "string", "description": "Package the task selects, passed to cargo as a package ID spec" },
-        "warnings": { "enum": ["allow", "warn", "deny"], "description": "Cargo `build.warnings` for the run; `deny` fails a task on any lint warning of its package" },
         "commands": {
             "type": "array",
             "minItems": 1,
@@ -16,12 +15,16 @@
                 "type": "object",
                 "properties": {
                     "args": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Arguments before the package selection" },
-                    "trailing": { "type": "array", "items": { "type": "string" }, "description": "Arguments after --, passed on to the compiler run" }
+                    "trailing": { "type": "array", "items": { "type": "string" }, "description": "Arguments after --, passed on to the compiler run" },
+                    "report": {
+                        "enum": [ "messages", "tests", "status" ],
+                        "description": "What decides each task: cargo's JSON messages (`messages`), nextest's per-suite results (`tests`), or the exit status alone (`status`)"
+                    }
                 },
-                "required": ["args"]
+                "required": [ "args", "report" ]
             }
         },
         "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to every command" }
     },
-    "required": ["cwd", "commands"]
+    "required": [ "cwd", "commands" ]
 }

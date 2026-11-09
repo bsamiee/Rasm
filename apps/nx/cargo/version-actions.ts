@@ -5,12 +5,13 @@ import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Effect, Option, Path, Record, Schema } from 'effect';
 import { FetchHttpClient, type HttpClient } from 'effect/http';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { releases } from './executors/release-publish/executor.ts';
-import { CargoError, MANIFEST, spawned } from './plugins/workspace.ts';
+import { releases } from '#/executors/release-publish/executor';
+import { CargoError, MANIFEST, spawned } from '#/plugins/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TABLES = ['dependencies', 'dev-dependencies', 'build-dependencies'];
+const OPERATOR = /^[\^=~<>]+/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -35,26 +36,25 @@ const read = Effect.fnUntraced(function* (tree: Tree, file: string) {
     return { text, raw, manifest: yield* Schema.decodeEffect(Manifest)(raw) };
 });
 
-const located = (tree: Tree, manifest: string) =>
-    Effect.map(Effect.all([Path.Path, Effect.flatMap(spawned('cargo', ['locate-project', '--workspace', '--manifest-path', manifest], tree.root), Schema.decodeEffect(Located))]), ([path, { root }]) => path.relative(tree.root, root));
+const located = (tree: Tree, manifest: string) => Effect.map(Effect.all([Path.Path, Effect.flatMap(spawned('cargo', ['locate-project', '--workspace', '--manifest-path', manifest], tree.root), Schema.decodeEffect(Located))]), ([path, { root }]) => path.relative(tree.root, root));
 
-const assigned = (value: Record<string, unknown>, [key, ...rest]: readonly string[], next: unknown): Record<string, unknown> =>
-    key === undefined ? value : { ...value, [key]: rest.length === 0 ? next : assigned(table(value[key]), rest, next) };
+const assigned = (value: Record<string, unknown>, [key, ...rest]: readonly string[], next: unknown): Record<string, unknown> => (key === undefined ? value : { ...value, [key]: rest.length === 0 ? next : assigned(table(value[key]), rest, next) });
 
-const bumped = (requirement: string, version: string) => `${/^[\^=~<>]+/u.exec(requirement)?.[0] ?? ''}${version}`;
+const bumped = (requirement: string, version: string) => `${OPERATOR.exec(requirement)?.[0] ?? ''}${version}`;
 
-const requirements = (raw: Record<string, unknown>, name: string) =>
-    [...TABLES.map((held) => [held]), ...Record.keys(table(raw['target'])).flatMap((platform) => TABLES.map((held) => ['target', platform, held])), ['workspace', 'dependencies']].flatMap((at) =>
-        Record.collect(Option.getOrElse(Schema.decodeUnknownOption(Dependencies)(at.reduce<unknown>((value, key) => table(value)[key], raw)), () => ({})), (key, requirement) => ({ key, at: [...at, key], requirement })).filter(
-            ({ key, requirement }) => (typeof requirement === 'string' ? key : (requirement.package ?? key)) === name,
-        ),
+const requirements = (raw: Readonly<Record<string, unknown>>, crates: ReadonlySet<string>) =>
+    [...TABLES.map((held) => [held]), ...Record.keys(table(raw.target)).flatMap((platform) => TABLES.map((held) => ['target', platform, held])), ['workspace', 'dependencies']].flatMap((at) =>
+        Record.collect(
+            Option.getOrElse(Schema.decodeUnknownOption(Dependencies)(at.reduce<unknown>((value, key) => table(value)[key], raw)), () => ({})),
+            (key, requirement) => (typeof requirement === 'string' ? { crate: key, at, field: [...at, key], current: requirement, inherited: false } : { crate: requirement.package ?? key, at, field: [...at, key, 'version'], current: requirement.version, inherited: requirement.workspace === true }),
+        ).filter(({ crate }) => crates.has(crate)),
     );
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class CargoVersionActions extends VersionActions {
-    override validManifestFilenames = [MANIFEST];
-    override excludeManifestsFromFormatting = true;
+    override readonly validManifestFilenames = [MANIFEST];
+    override readonly excludeManifestsFromFormatting = true;
 
     override readDependencies(_tree: Tree, projectGraph: ProjectGraph) {
         return Promise.resolve((projectGraph.dependencies[this.projectGraphNode.name] ?? []).filter(({ target }) => target in projectGraph.nodes));
@@ -84,12 +84,12 @@ class CargoVersionActions extends VersionActions {
         const dependency = projectGraph.nodes[dependencyProjectName]?.name ?? dependencyProjectName;
         return run(
             Effect.gen(function* () {
-                const found = Array.head(requirements((yield* read(tree, manifest)).raw, dependency));
-                const inherited = Option.isSome(Option.filter(found, ({ requirement }) => typeof requirement !== 'string' && requirement.workspace === true));
-                const source = inherited ? Array.head(requirements((yield* read(tree, yield* located(tree, manifest))).raw, dependency)) : found;
+                const crates = new Set([dependency]);
+                const found = Array.head(requirements((yield* read(tree, manifest)).raw, crates));
+                const source = Option.exists(found, ({ inherited }) => inherited) ? Array.head(requirements((yield* read(tree, yield* located(tree, manifest))).raw, crates)) : found;
                 return {
-                    currentVersion: Option.getOrNull(Option.flatMap(source, ({ requirement }) => Option.fromUndefinedOr(typeof requirement === 'string' ? requirement : requirement.version))),
-                    dependencyCollection: Option.getOrNull(Option.map(found, ({ at }) => at.slice(0, -1).join('.'))),
+                    currentVersion: Option.getOrNull(Option.flatMap(source, ({ current }) => Option.fromUndefinedOr(current))),
+                    dependencyCollection: Option.getOrNull(Option.map(found, ({ at }) => at.join('.'))),
                 };
             }),
         );
@@ -111,19 +111,29 @@ class CargoVersionActions extends VersionActions {
 
     updateProjectDependencies(tree: Tree, projectGraph: ProjectGraph, dependenciesToUpdate: Record<string, string>) {
         const manifest = `${this.projectGraphNode.data.root}/${MANIFEST}`;
+        const versions = new Map(Record.collect(dependenciesToUpdate, (project, version) => [projectGraph.nodes[project]?.name ?? project, version] as const));
         return run(
             Effect.gen(function* () {
-                const written = yield* Effect.forEach(Array.dedupe([manifest, yield* located(tree, manifest)]), (file) =>
-                    Effect.map(read(tree, file), (held) => {
-                        const edits = Record.collect(dependenciesToUpdate, (project, version) => requirements(held.raw, projectGraph.nodes[project]?.name ?? project).map((found) => ({ ...found, version })))
-                            .flat()
-                            .flatMap(({ at, requirement, version }) =>
-                                typeof requirement === 'string' ? [{ at, value: bumped(requirement, version) }] : Option.toArray(Option.map(Option.fromUndefinedOr(requirement.version), (current) => ({ at: [...at, 'version'], value: bumped(current, version) }))),
-                            );
-                        return edits.length === 0 ? [] : (tree.write(file, patch(held.text, edits.reduce((value, edit) => assigned(value, edit.at, edit.value), held.raw))), [`Updated ${edits.length} requirements in ${file}`]);
+                const held = yield* Effect.forEach(Array.dedupe([manifest, yield* located(tree, manifest)]), (file) => Effect.map(read(tree, file), (found) => ({ file, ...found })));
+                const edits = held.flatMap(({ file, text, raw }) =>
+                    requirements(raw, new Set(versions.keys())).flatMap(({ crate, field, current }) => {
+                        const version = versions.get(crate);
+                        return current === undefined || version === undefined ? [] : [{ file, text, raw, field, value: bumped(current, version) }];
                     }),
                 );
-                return written.flat();
+                return Record.collect(
+                    Array.groupBy(edits, ({ file }) => file),
+                    (file, [first, ...rest]) => {
+                        tree.write(
+                            file,
+                            patch(
+                                first.text,
+                                [first, ...rest].reduce((value, edit) => assigned(value, edit.field, edit.value), first.raw),
+                            ),
+                        );
+                        return `Updated ${rest.length + 1} requirements in ${file}`;
+                    },
+                );
             }),
         );
     }

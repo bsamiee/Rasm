@@ -63,9 +63,9 @@ class PlacedChart(msgspec.Struct, frozen=True, kw_only=True):
 class ChartImage(bpy.types.PropertyGroup):
     """Chart over an image: whether it draws, the chart a placement positions, and its patch fill opacity, its placement and samples stored on the group."""
 
-    shown: bpy.props.BoolProperty(name="Show Chart", description="Draw chart and handles over image", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    chart: bpy.props.EnumProperty(name="Chart", description="Chart a placement positions", items=enum_choices(PublishedChart))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    opacity: bpy.props.FloatProperty(name="Opacity", description="Patch fill opacity", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    shown: bpy.props.BoolProperty(name="Show Chart", description="Draw chart and handles over image", default=True)  # ty: ignore[invalid-type-form]
+    chart: bpy.props.EnumProperty(name="Chart", description="Chart a placement positions", items=enum_choices(PublishedChart))  # ty: ignore[invalid-type-form]
+    opacity: bpy.props.FloatProperty(name="Opacity", description="Patch fill opacity", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # ty: ignore[invalid-type-form]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------

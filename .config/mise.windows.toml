@@ -1,8 +1,3 @@
-# --- [ENV] ------------------------------------------------------------------------------
-
-[env]
-BLENDER_PATH = """{% if env.BLENDER_PATH | default(value="") %}{{ env.BLENDER_PATH }}{% else %}{{ exec(command=`cmd /d /c "where.exe blender 2>NUL & exit /b 0"`, cache_key="blender-path", cache_duration="1d") | split(pat="\\n") | first | trim }}{% endif %}"""
-
 # --- [DAEMONS] --------------------------------------------------------------------------
 
 [daemons.docker]

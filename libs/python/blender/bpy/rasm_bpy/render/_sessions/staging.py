@@ -111,7 +111,7 @@ class _Job:
         )
         copies: dict[bpy.types.CompositorNodeTree, bpy.types.CompositorNodeTree] = {}
         for tree in _nested(tree for _, tree in entries):
-            copied: bpy.types.CompositorNodeTree = tree.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            copied: bpy.types.CompositorNodeTree = tree.copy()  # ty: ignore[invalid-assignment]
             copies[tree] = copied
             scope.callback(bpy.data.node_groups.remove, copied)
         for live in (live for tree in copies.values() for live in tree.nodes if isinstance(live, bpy.types.CompositorNodeGroup)):
@@ -157,7 +157,7 @@ class _Job:
                 f"{node.layer}.{_Engine.combined.name if socket.identifier == 'Image' else socket.identifier}": socket
                 for node in tree.nodes
                 if isinstance(node, bpy.types.CompositorNodeRLayers) and node.scene == source
-                for socket in node.outputs  # type: ignore[union-attr]  # ty: ignore[not-iterable]
+                for socket in node.outputs  # ty: ignore[not-iterable]
                 if socket.enabled and not socket.is_unavailable and socket.identifier != "Alpha"
             }
 
@@ -173,7 +173,7 @@ class _Job:
 
             def wrote(content: _FileItems, output: bpy.types.CompositorNodeOutputFile) -> Outcome[None]:
                 path = self.pass_path(source)
-                inputs: bpy.types.NodeInputs = output.inputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                inputs: bpy.types.NodeInputs = output.inputs  # ty: ignore[invalid-assignment]
                 output_format = msgspec.structs.replace(self.format, media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", use_exr_interleave=False)
                 return (
                     content
@@ -197,7 +197,7 @@ class _Job:
         minimum, maximum = (
             tuple(Expr(kind=bpy.types.CompositorNodeLevels, inputs=(("Image", space.point), ("Channel", channel)), socket=socket) for channel in ("Red", "Green")) for socket in ("Minimum", "Maximum")
         )
-        terms = {
+        terms: Mapping[Key, Expr] = {
             "carrier": Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", (2, 1)),), socket="Image", socket_type=bpy.types.NodeSocketColor),
             "bounds": rgba(
                 minimum[0] + (location["X"] - 0.5) * pitch["X"],
@@ -508,7 +508,7 @@ class _Job:
                     owner = owners[-1]
 
                     def copied(tree: bpy.types.NodeTree) -> Outcome[None]:
-                        copy: bpy.types.CompositorNodeTree = tree.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                        copy: bpy.types.CompositorNodeTree = tree.copy()  # ty: ignore[invalid-assignment]
                         capture.callback(bpy.data.node_groups.remove, copy)
                         if isinstance(owner, bpy.types.SceneCompositorEffect):
                             return _Authored.of(owner).bind(lambda before: msgspec.structs.replace(before, group=copy).assigned()).bind(lambda _: attached(copy))
@@ -677,8 +677,8 @@ class StagedRender(msgspec.Struct, frozen=True, kw_only=True):
 
 def _captured_input(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, space: str, source: bpy.types.NodeSocket) -> Outcome[ImageFile]:
     """Renders the prepared native socket through isolated groups into an owned EXR in its captured encoding."""
-    original: bpy.types.CompositorNodeTree = source.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    node: bpy.types.Node = source.node  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    original: bpy.types.CompositorNodeTree = source.id_data  # ty: ignore[invalid-assignment]
+    node: bpy.types.Node = source.node  # ty: ignore[invalid-assignment]
     name, identifier = node.name, source.identifier
     with ExitStack() as selected, TemporaryDirectory() as directory, bpy.context.temp_override(scene=scene):
         entries = tuple(scene.compositor_effects)
@@ -700,7 +700,7 @@ def _captured_input(identity: Identity, scene: bpy.types.Scene, entry: bpy.types
             content = _FileItems(items={path.stem: _FileItem(name=path.stem, socket_type="RGBA")})
 
             def output(prepared: bpy.types.NodeSocket, target: bpy.types.CompositorNodeOutputFile) -> Outcome[None]:
-                inputs: bpy.types.NodeInputs = target.inputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                inputs: bpy.types.NodeInputs = target.inputs  # ty: ignore[invalid-assignment]
                 return (
                     content
                     .write(target, identity)

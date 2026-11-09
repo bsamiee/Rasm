@@ -139,13 +139,13 @@ def _ordered_items(live: Iterable[str], desired: Iterable[str], moved: Callable[
 
 def _links_of(socket: bpy.types.NodeSocket) -> tuple[bpy.types.NodeLink, ...]:
     """Returns the links of one socket, an input's links top first, each read one scan of the tree's links."""
-    links: tuple[bpy.types.NodeLink, ...] = socket.links  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    links: tuple[bpy.types.NodeLink, ...] = socket.links  # ty: ignore[invalid-assignment]
     return links
 
 
 def _interface_of(tree: bpy.types.NodeTree, /) -> bpy.types.NodeTreeInterface:
     """Returns tree interface, a member the stubs type optional."""
-    interface: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    interface: bpy.types.NodeTreeInterface = tree.interface  # ty: ignore[invalid-assignment]
     return interface
 
 
@@ -156,7 +156,7 @@ def _new_group[T: bpy.types.NodeTree](kind: type[T], name: str, /) -> Outcome[T]
     """Creates empty node group of a tree class, `refused` fault for a class the host refuses."""
 
     def added() -> T:
-        tree: T = bpy.data.node_groups.new(name, _definition(kind).identifier)  # type: ignore[arg-type, assignment]  # ty: ignore[invalid-argument-type, invalid-assignment]
+        tree: T = bpy.data.node_groups.new(name, _definition(kind).identifier)  # ty: ignore[invalid-argument-type, invalid-assignment]
         return tree
 
     return catch(added, exception=TypeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(bpy.data.node_groups)))
@@ -218,7 +218,7 @@ def _created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Outc
 
 def _group_set(node: bpy.types.Node, group: bpy.types.NodeTree) -> Outcome[None]:
     """Points group node at group, `refused` fault for group containing node's tree."""
-    host: bpy.types.NodeTree = node.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    host: bpy.types.NodeTree = node.id_data  # ty: ignore[invalid-assignment]
     return (
         Error(Fault.of(Reason.REFUSED, f"{node!r}.node_tree", ValueError(f"{group.name} contains {host.name}")))
         if group.contains_tree(host)
@@ -280,7 +280,7 @@ def _ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ..
 
 def _endpoints(link: bpy.types.NodeLink, /) -> tuple[bpy.types.Node, bpy.types.NodeSocket, bpy.types.Node, bpy.types.NodeSocket]:
     """Returns the nodes and sockets at both ends of a link, source node and socket first."""
-    return link.from_node, link.from_socket, link.to_node, link.to_socket  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
+    return link.from_node, link.from_socket, link.to_node, link.to_socket  # ty: ignore[invalid-return-type]
 
 
 def group_tree(node: bpy.types.Node, /) -> Option[bpy.types.NodeTree]:
@@ -312,7 +312,7 @@ def _nested[T: bpy.types.NodeTree](roots: Iterable[T], *, muted: bool = True) ->
 
 def _upstream(node: bpy.types.Node, /) -> tuple[bpy.types.Node, ...]:
     """Returns node and every node its input links reach, sorted by name."""
-    tree: bpy.types.NodeTree = node.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    tree: bpy.types.NodeTree = node.id_data  # ty: ignore[invalid-assignment]
     feeding: dict[bpy.types.Node, list[bpy.types.Node]] = {}
     for source, _, target, _ in map(_endpoints, tree.links):
         feeding.setdefault(target, []).append(source)

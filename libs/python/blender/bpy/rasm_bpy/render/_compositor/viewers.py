@@ -8,6 +8,7 @@ from typing import ClassVar, Final, Protocol, TYPE_CHECKING
 import bpy
 from expression import Option, Some, try_downcast
 from expression.collections import Block
+from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
 
@@ -61,8 +62,8 @@ class _Measure(Protocol):
 class ViewTarget(Named):
     """Entry and group output to inspect."""
 
-    node: bpy.props.StringProperty(name="Node", description="Group node key holding the output", default=INPUTS)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    socket: bpy.props.StringProperty(name="Socket", description="Output socket key", default=COLOR_INPUT.key)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    node: bpy.props.StringProperty(name="Node", description="Group node key holding the output", default=INPUTS)  # ty: ignore[invalid-type-form]
+    socket: bpy.props.StringProperty(name="Socket", description="Output socket key", default=COLOR_INPUT.key)  # ty: ignore[invalid-type-form]
 
 
 class _PendingRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -182,10 +183,9 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def entry(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[tuple[bpy.types.SceneCompositorEffect, Option[CompositorEffect]]]:
         """Finds named offered or pinned entry with its offered effect, skipping user groups."""
         keys = frozenset((*self.rows.keyed, *(row.ownership.key for row in self.rows.pinned)))
-        found: bpy.types.SceneCompositorEffect | None = scene.compositor_effects.get(name)  # ty: ignore[unsound-assignment]
         return (
-            Option
-            .of_optional(found)
+            catch(lambda: scene.compositor_effects[name], exception=KeyError)()
+            .to_option()
             .bind(lambda entry: Option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in keys).map(lambda mark: (entry, mark)))
             .map(lambda pair: (pair[0], Option.of_optional(self.rows.keyed.get(pair[1].key))))
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))

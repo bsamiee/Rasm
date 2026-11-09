@@ -179,8 +179,8 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
 class RetentionSettings(bpy.types.PropertyGroup):
     """History capacity and merge interval of extension preferences, read as the retention record."""
 
-    capacity: bpy.props.IntProperty(name="Capacity", description="Entries kept, newest first", min=1, max=100, default=Retention().capacity)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    interval: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    capacity: bpy.props.IntProperty(name="Capacity", description="Entries kept, newest first", min=1, max=100, default=Retention().capacity)  # ty: ignore[invalid-type-form]
+    interval: bpy.props.FloatProperty(  # ty: ignore[invalid-type-form]
         name="Merge Interval", description="Seconds within which next entry replaces newest", unit="TIME_ABSOLUTE", min=0.0, max=600.0, default=Retention().interval.total_seconds()
     )
 

@@ -10,5 +10,5 @@
         "dryRun": { "type": "boolean", "description": "Packs without pushing" },
         "nxReleaseVersionData": { "type": "object", "description": "Versions nx release resolved per project" }
     },
-    "required": ["project"]
+    "required": [ "project" ]
 }

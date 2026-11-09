@@ -3,10 +3,10 @@ import type { Node } from '@pgsql/types';
 import { Array, Duration, Effect, Equal, Equivalence, Exit, Filter, Function, flow, HashSet, Match, Option, Record, Result, Schema, Struct } from 'effect';
 import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
-import type { Catalog } from '#/catalog.ts';
-import type { Kind } from '#/column.ts';
-import type { Engine } from '#/internal/engine.ts';
-import { constant, diff, type Identity, identifier, literal, methods, type referentialActions, render, unsupported } from '#/internal/reconcile.ts';
+import type { Catalog } from '#/catalog';
+import type { Kind } from '#/column';
+import type { Engine } from '#/internal/engine';
+import { constant, diff, type Identity, identifier, literal, methods, type referentialActions, render, unsupported } from '#/internal/reconcile';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

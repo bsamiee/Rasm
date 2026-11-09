@@ -33,7 +33,7 @@ _T_co = TypeVar("_T_co", bound=bpy.types.PropertyGroup, covariant=True, default=
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_DEFAULT_CONTEXT: Final[str] = bpy.app.translations.contexts.default  # type: ignore[attr-defined]  # ty: ignore[unsound-assignment]
+_DEFAULT_CONTEXT: Final[str] = bpy.app.translations.contexts.default  # ty: ignore[unsound-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

@@ -124,7 +124,7 @@ def _job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem
         camera = (scope.camera.camera,) if isinstance(scope.camera, FixedCamera) else ()
         name = " ".join(bpy.path.clean_name(held) for held in (scope.scene, *Option.of_optional(scope.layer).to_list(), *camera))
         file = path.base / "snapshots" / stem / f"{part}_{name}.blend"
-        active: bpy.types.ViewLayer = bpy.context.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        active: bpy.types.ViewLayer = bpy.context.view_layer  # ty: ignore[invalid-assignment]
         layer = Option.of_optional(scope.layer).default_value(active.name)
         outputs = accumulated(path.text(layer, output) for output in Output).map(lambda texts: dict(zip(Output, (posixpath.join(path.root, text) for text in texts))))
         passes = tuple(

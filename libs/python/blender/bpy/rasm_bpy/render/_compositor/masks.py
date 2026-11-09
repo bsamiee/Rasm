@@ -127,7 +127,7 @@ _RUNNING: Final = Socket(key="running", kind=bpy.types.NodeSocketFloat)
 
 BLEND: Final[Key] = "blend"
 _MASKS: Final[Key] = "masks"
-FORMULAS: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeMix.bl_rna.properties["blend_type"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+FORMULAS: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeMix.bl_rna.properties["blend_type"]  # ty: ignore[invalid-assignment]
 MODES: Final = MenuItems.of(FORMULAS)
 MODE: Final = Socket(key="mode", name="Blend", kind=bpy.types.NodeSocketMenu, description="Mix node formula mixing result with base", default_value=FORMULAS.enum_items["MIX"].name, items=MODES.items)
 OPACITY: Final = Socket(key="opacity", kind=bpy.types.NodeSocketFloatFactor, description="Share of result mixed over base", default_value=1.0)
@@ -366,7 +366,7 @@ def mixback() -> Outcome[NodeGroup]:
     """Returns the shared HDR blend group: straight colors mixed per formula, re-covered by result alpha, mixed over base by coverage, the plain formula passing the associated result."""
     base, result = read(_MIX_BASE), read(_MIX_RESULT)
     background, foreground = straight(base), straight(result)
-    pure = menu(read(MODE), {item: mixed(1.0, background, foreground, blend=formula.identifier) for formula, item in zip(FORMULAS.enum_items, MODES.items, strict=True)})  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    pure = menu(read(MODE), {item: mixed(1.0, background, foreground, blend=formula.identifier) for formula, item in zip(FORMULAS.enum_items, MODES.items, strict=True)})  # ty: ignore[invalid-argument-type]
     covered = with_alpha(with_alpha(mixed(base["Alpha"], foreground, pure), 1.0), result["Alpha"], masked=True)
     blended = switched(pure.at(FORMULAS.enum_items["MIX"].name), covered, result)
     interface = Interface(inputs=(_MIX_BASE, _MIX_RESULT, MODE, _MIX_WEIGHT), outputs=(COLOR_INPUT,))

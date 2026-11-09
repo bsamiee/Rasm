@@ -34,7 +34,7 @@ from rasm_records import Case, Error, Fault, Nothing, Ok, Outcome, paired, Reaso
 
 _IDLE: Final = Job(kind="RENDER")
 _DEPTHS: Final = choices((depth.name, depth.name, "") for depth in Depth)
-_SOURCES: Final = choices(item for item in bpy.types.Image.bl_rna.properties["type"].enum_items if item.identifier in get_args(_ResultKind.__value__))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_SOURCES: Final = choices(item for item in bpy.types.Image.bl_rna.properties["type"].enum_items if item.identifier in get_args(_ResultKind.__value__))  # ty: ignore[unresolved-attribute]
 _WRITERS: Final = MappingProxyType({row.name: row for row in Format.writable()})
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -43,8 +43,8 @@ _WRITERS: Final = MappingProxyType({row.name: row for row in Format.writable()})
 class CameraView(bpy.types.PropertyGroup):
     """Optional camera-view selection for a saved multilayer render."""
 
-    use_camera_view: bpy.props.BoolProperty(name="Camera View", description="Select one camera view from a multi-view render")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    camera_view: bpy.props.StringProperty(name="View", description="Camera view name in saved render")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    use_camera_view: bpy.props.BoolProperty(name="Camera View", description="Select one camera view from a multi-view render")  # ty: ignore[invalid-type-form]
+    camera_view: bpy.props.StringProperty(name="View", description="Camera view name in saved render")  # ty: ignore[invalid-type-form]
 
     @property
     def selected_view(self) -> Option[str]:
@@ -58,21 +58,21 @@ class CameraView(bpy.types.PropertyGroup):
 class Still(CameraView):
     """Source, writer, stored depth, display encoding, and formation policy."""
 
-    source: bpy.props.EnumProperty(name="Source", description="Image the still writes", items=_SOURCES)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    format: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    source: bpy.props.EnumProperty(name="Source", description="Image the still writes", items=_SOURCES)  # ty: ignore[invalid-type-form]
+    format: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
         name="Format", description="File format the still writes", items=choices((row.name, f"{row.name} (.{row.extensions[0]})", "") for row in _WRITERS.values()), default="png"
     )
-    depth: bpy.props.EnumProperty(name="Depth", description="Storage of each channel", items=_DEPTHS)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    display: bpy.props.StringProperty(name="Display", description="Display encoding at selected depth", search=lambda _owner, _context, _edit: PyOpenColorIO.GetCurrentConfig().getDisplays())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    save_as_render: bpy.props.BoolProperty(name="Save as Render", description="Apply view, exposure, and gamma to unformed source", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_compression: bpy.props.BoolProperty(name="Use Compression", description="Write the chosen compression, writer default when off")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    compression: bpy.props.EnumProperty(name="Compression", description="Writer compression at its defaults", items=case_choices(Compression))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    depth: bpy.props.EnumProperty(name="Depth", description="Storage of each channel", items=_DEPTHS)  # ty: ignore[invalid-type-form]
+    display: bpy.props.StringProperty(name="Display", description="Display encoding at selected depth", search=lambda _owner, _context, _edit: PyOpenColorIO.GetCurrentConfig().getDisplays())  # ty: ignore[invalid-type-form]
+    save_as_render: bpy.props.BoolProperty(name="Save as Render", description="Apply view, exposure, and gamma to unformed source", default=True)  # ty: ignore[invalid-type-form]
+    use_compression: bpy.props.BoolProperty(name="Use Compression", description="Write the chosen compression, writer default when off")  # ty: ignore[invalid-type-form]
+    compression: bpy.props.EnumProperty(name="Compression", description="Writer compression at its defaults", items=case_choices(Compression))  # ty: ignore[invalid-type-form]
 
 
 class Sheet(bpy.types.PropertyGroup):
     """Channel storage selected for a layered TIFF export."""
 
-    depth: bpy.props.EnumProperty(name="Depth", description="Storage of each layer channel", items=_DEPTHS, default=Depth.UINT16.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    depth: bpy.props.EnumProperty(name="Depth", description="Storage of each layer channel", items=_DEPTHS, default=Depth.UINT16.name)  # ty: ignore[invalid-type-form]
 
 
 class Layering(msgspec.Struct, frozen=True, kw_only=True):

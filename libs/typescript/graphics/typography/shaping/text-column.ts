@@ -1,6 +1,6 @@
 import { Array, Option, Schema, Struct } from 'effect';
-import type { Settings } from '#/settings.ts';
-import type { ShapedText } from '#/shaping/shaped-text.ts';
+import type { Settings } from '#/settings';
+import type { ShapedText } from '#/shaping/shaped-text';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

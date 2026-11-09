@@ -5,8 +5,8 @@ import { CloudflareAccess } from '@rasm/hosting';
 import { Template } from '@rasm/hosting/template';
 import { r2Storage, serveWorker } from '@rasm/hosting/worker';
 import { Layer } from 'effect';
-import { app } from '#/server/app.ts';
-import { catalog } from '#/server/catalog.ts';
+import { app } from '#/server/app';
+import { catalog } from '#/server/catalog';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

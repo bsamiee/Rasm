@@ -1,0 +1,35 @@
+{
+    "name": "@rasm/atelier",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Background agent control of Adobe applications",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts",
+        "#/*.json": "./*.json"
+    },
+    "exports": {
+        "./plugin.config": "./plugin.config.ts"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@rasm/aftereffects": "workspace:*",
+        "@rasm/applications": "workspace:*",
+        "@rasm/automation": "workspace:*",
+        "@rasm/cep": "workspace:*",
+        "@rasm/illustrator": "workspace:*",
+        "@rasm/indesign": "workspace:*",
+        "@rasm/mcp": "workspace:*",
+        "@rasm/photoshop": "workspace:*",
+        "@rasm/search": "workspace:*",
+        "@rasm/typography": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:",
+        "image-size": "catalog:"
+    },
+    "devDependencies": {
+        "@rasm/extendscript": "workspace:*",
+        "@types/node": "catalog:",
+        "vite": "catalog:"
+    }
+}

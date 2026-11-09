@@ -4,12 +4,12 @@ import { Array, Function, Option, Record, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { useState } from 'react';
 import { CheckboxGroup } from 'react-aria-components';
-import { draft, updateEntry } from '#/editor/state.ts';
-import { format, joinDetails, sheetLabel } from '#/media/labels.ts';
+import { draft, updateEntry } from '#/editor/state';
+import { format, joinDetails, sheetLabel } from '#/media/labels';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import type { AssetId, Assets } from '#/model/asset.ts';
-import { Composition, CompositionId, Placement } from '#/model/placement.ts';
-import type { EntryId } from '#/model/portfolio.ts';
+import type { AssetId, Assets } from '#/model/asset';
+import { Composition, CompositionId, Placement } from '#/model/placement';
+import type { EntryId } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

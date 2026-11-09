@@ -1,0 +1,13 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Release publish",
+    "description": "Applies the stacks each program package states for the version nx release resolved, skipping a project it left unversioned",
+    "type": "object",
+    "properties": {
+        "programs": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Packages whose entry exports the stacks function, resolved from the project folder" },
+        "dryRun": { "type": "boolean", "description": "Previews the stacks without applying them" },
+        "nxReleaseVersionData": { "type": "object", "description": "Versions nx release resolved per project" }
+    },
+    "required": [ "programs" ]
+}

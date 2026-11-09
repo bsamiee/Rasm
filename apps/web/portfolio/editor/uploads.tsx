@@ -6,10 +6,10 @@ import { Array, Option, Predicate, Result, String, Struct } from 'effect';
 import { useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
-import { Destination, nextDestination, pendingUploads, preprocessing, queue, uppy } from '#/editor/uploader.ts';
-import { choiceLayout, entryTitle, format, joinDetails } from '#/media/labels.ts';
-import { Asset, type AssetId, type Assets, uploadLimit } from '#/model/asset.ts';
-import type { Entry, EntryId } from '#/model/portfolio.ts';
+import { Destination, nextDestination, pendingUploads, preprocessing, queue, uppy } from '#/editor/uploader';
+import { choiceLayout, entryTitle, format, joinDetails } from '#/media/labels';
+import { Asset, type AssetId, type Assets, uploadLimit } from '#/model/asset';
+import type { Entry, EntryId } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

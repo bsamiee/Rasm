@@ -4,7 +4,7 @@ import { HostError } from '@rasm/automation';
 import { Unmatched } from '@rasm/search';
 import { Cause, Context, Effect, Fiber, Layer, Match, Result, Schema, Sink, Stream, SubscriptionRef } from 'effect';
 import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
-import { AvailableFace } from '#/available-face.ts';
+import { AvailableFace } from '#/available-face';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

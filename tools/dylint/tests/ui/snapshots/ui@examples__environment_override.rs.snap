@@ -1,0 +1,68 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/environment_override.rs
+---
+warning: `with_protocol` overrides `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`, `OTEL_EXPORTER_OTLP_PROTOCOL`, which `opentelemetry_otlp` reads
+  --> tools/dylint/examples/environment_override.rs:13:99
+   |
+13 | ...ldError> { SpanExporter::builder().with_http().with_protocol(Protocol::HttpBinary).build() }
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the call and set `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` for traces or `OTEL_EXPORTER_OTLP_PROTOCOL` for every signal
+   = note: `#[warn(environment_override)]` on by default
+
+warning: `with_compression` overrides `OTEL_EXPORTER_OTLP_LOGS_COMPRESSION`, `OTEL_EXPORTER_OTLP_COMPRESSION`, which `opentelemetry_otlp` reads
+  --> tools/dylint/examples/environment_override.rs:15:62
+   |
+15 | ...ldError> { opentelemetry_otlp::WithHttpConfig::with_compression(LogExporter::builder().with_http(), Compression::Gzip).build() }
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the call and set `OTEL_EXPORTER_OTLP_LOGS_COMPRESSION` for logs or `OTEL_EXPORTER_OTLP_COMPRESSION` for every signal
+
+warning: `with_temporality` overrides `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE`, which `opentelemetry_otlp` reads
+  --> tools/dylint/examples/environment_override.rs:21:89
+   |
+21 | fn temporal() -> Result<MetricExporter, ExporterBuildError> { MetricExporter::builder().with_temporality(Temporality::Delta).build() }
+   |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the call and set `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` in the process environment
+
+warning: `with_max_links_per_span` overrides `OTEL_SPAN_LINK_COUNT_LIMIT`, which `opentelemetry_sdk` reads
+  --> tools/dylint/examples/environment_override.rs:27:127
+   |
+27 | ...ttributes_per_span(9).with_max_events_per_span(16).with_max_links_per_span(8).build() }
+   |                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the call and set `OTEL_SPAN_LINK_COUNT_LIMIT` in the process environment
+
+warning: `with_max_events_per_span` overrides `OTEL_SPAN_EVENT_COUNT_LIMIT`, which `opentelemetry_sdk` reads
+  --> tools/dylint/examples/environment_override.rs:27:98
+   |
+27 | fn limited() -> SdkTracerProvider { SdkTracerProvider::builder().with_max_attributes_per_span(9).with_max_events_per_span(16).with_m...
+   |                                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the call and set `OTEL_SPAN_EVENT_COUNT_LIMIT` in the process environment
+
+warning: `with_max_attributes_per_span` overrides `OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT`, which `opentelemetry_sdk` reads
+  --> tools/dylint/examples/environment_override.rs:27:66
+   |
+27 | fn limited() -> SdkTracerProvider { SdkTracerProvider::builder().with_max_attributes_per_span(9).with_max_events_per_span(16).with_m...
+   |                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the call and set `OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT` in the process environment
+
+warning: `with_max_export_batch_size` overrides `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE`, which `opentelemetry_sdk` reads
+  --> tools/dylint/examples/environment_override.rs:32:70
+   |
+32 | ...   logs::BatchConfigBuilder::default().with_max_queue_size(512).with_max_export_batch_size(64).with_scheduled_delay(Duration::fro...
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the call and set `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE` in the process environment
+
+warning: `with_max_queue_size` overrides `OTEL_BLRP_MAX_QUEUE_SIZE`, which `opentelemetry_sdk` reads
+  --> tools/dylint/examples/environment_override.rs:32:45
+   |
+32 | ...   logs::BatchConfigBuilder::default().with_max_queue_size(512).with_max_export_batch_size(64).with_scheduled_delay(Duration::fro...
+   |                                           ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: delete the call and set `OTEL_BLRP_MAX_QUEUE_SIZE` in the process environment

@@ -1,0 +1,5 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/manual_upcast_exported.rs
+---
+

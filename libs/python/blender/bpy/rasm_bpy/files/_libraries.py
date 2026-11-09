@@ -101,7 +101,7 @@ class OverrideResync(msgspec.Struct, frozen=True, kw_only=True):
 @catch(exception=ValueError)
 def _opened(data: bpy.types.BlendData, path: Path, load: Mapping[str, bool]) -> AbstractContextManager[tuple[object, object]]:
     """Opens a library load, the host refusing the open session file, its entry refusing an unreadable one."""
-    opened: AbstractContextManager[tuple[object, object]] = data.libraries.load(str(path), **load)  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
+    opened: AbstractContextManager[tuple[object, object]] = data.libraries.load(str(path), **load)  # type: ignore[func-returns-value]  # ty: ignore[invalid-assignment]
     return opened
 
 
@@ -142,7 +142,7 @@ def inspected(path: Path) -> Generator[Outcome[bpy.types.BlendData]]:
     """Yields temporary BlendData of another file until scope exit, libraries and workspaces left unlinked."""
     stores = frozenset(identifier for kind, identifier in _STORES.items() if not issubclass(kind, bpy.types.Library | bpy.types.WorkSpace))
     with bpy.data.temp_data(filepath="") as data:  # type: ignore[var-annotated]
-        yield _sourced(data, path, lambda source: (None, {name: getattr(source, name) for name in dir(source) if name in stores}), link=True).map(lambda _: data)  # ty: ignore[unsound-yield]
+        yield _sourced(data, path, lambda source: (None, {name: getattr(source, name) for name in dir(source) if name in stores}), link=True).map(lambda _: data)
 
 
 def _listing(source: object, kind: type[bpy.types.ID], path: Path) -> Outcome[tuple[str, Sequence[str]]]:

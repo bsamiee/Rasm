@@ -3,8 +3,8 @@ import { Array, Option, Predicate } from 'effect';
 import { Grid2x2, X } from 'lucide-react';
 import { Button, Dialog, DialogTrigger, GridLayout, GridList, GridListItem, Heading, Modal, Size, Virtualizer } from 'react-aria-components';
 import { CompositionGrid } from '#/media/composition-grid.tsx';
-import { compositionLabel, format } from '#/media/labels.ts';
-import type { Composition } from '#/model/placement.ts';
+import { compositionLabel, format } from '#/media/labels';
+import type { Composition } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

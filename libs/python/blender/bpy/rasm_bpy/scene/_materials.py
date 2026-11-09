@@ -78,10 +78,10 @@ class _DataPass(IntEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ACTIVE: Final = Descriptor[bpy.types.PointerProperty](root=bpy.types.ViewLayer, owner=("objects",), prop=bpy.types.LayerObjects.bl_rna.properties["active"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+_ACTIVE: Final = Descriptor[bpy.types.PointerProperty](root=bpy.types.ViewLayer, owner=("objects",), prop=bpy.types.LayerObjects.bl_rna.properties["active"])  # ty: ignore[invalid-argument-type]
 _ACTIVE_MATERIAL: Final = Descriptor(root=bpy.types.Object, prop=bpy.types.Object.bl_rna.properties["active_material"])
-_DISPLACEMENT_METHOD: Final = Descriptor[bpy.types.EnumProperty](root=bpy.types.Material, prop=bpy.types.Material.bl_rna.properties["displacement_method"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-_IMAGES: Final[tuple[str, ...]] = tuple(sorted(bpy.path.extensions_image))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+_DISPLACEMENT_METHOD: Final = Descriptor[bpy.types.EnumProperty](root=bpy.types.Material, prop=bpy.types.Material.bl_rna.properties["displacement_method"])  # ty: ignore[invalid-argument-type]
+_IMAGES: Final[tuple[str, ...]] = tuple(sorted(bpy.path.extensions_image))  # ty: ignore[unresolved-attribute]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -307,7 +307,7 @@ def _color_matrix(color: ColorExpr, red: VectorExpr, green: VectorExpr, blue: Ve
     return vector("SCALE", xyz(*(vector("DOT_PRODUCT", color, row) for row in (red, green, blue))), gain)
 
 
-@Operator.of(Empty, condition=Some(Present(descriptor=_ACTIVE)), invoke=Some(Open(extensions=lambda _: _IMAGES)))
+@Operator.of(Empty, condition=Some(Present(descriptor=_ACTIVE)), invoke=Some(Open[Empty](extensions=lambda _: _IMAGES)))
 def texture_setup(call: Call[Empty]) -> Outcome[Answer]:
     """Builds texture set material from chosen files into active object's active slot, noting unmatched files."""
     paths = tuple(map(str, call.paths))

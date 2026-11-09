@@ -1,6 +1,6 @@
 import { Array, Effect, Predicate, Record, Schema, SchemaTransformation, Stream, Tuple } from 'effect';
 import { Csv } from 'effect/encoding';
-import type { Face } from '#/shaping/face.ts';
+import type { Face } from '#/shaping/face';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

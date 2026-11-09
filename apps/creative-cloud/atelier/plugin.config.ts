@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { atelierLink } from '#/atelier-link.ts';
+import { atelierLink } from '#/atelier-link';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

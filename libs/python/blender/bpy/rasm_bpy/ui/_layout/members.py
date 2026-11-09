@@ -117,7 +117,7 @@ class Member(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  # ruff
 def _owner_key(struct: Native) -> str:
     """Identifier per native owner: ID `session_uid`, pointer identity for other structs."""
     if isinstance(struct, bpy.types.bpy_prop_collection):
-        return _owner_key(struct.data)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        return _owner_key(struct.data)  # ty: ignore[invalid-argument-type]
     return str(struct.session_uid if isinstance(struct, bpy.types.ID) else struct.as_pointer())
 
 

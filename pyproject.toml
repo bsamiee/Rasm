@@ -21,18 +21,6 @@ dev                   = [
     "ty",                                                                         # Type checker of every project
     "yamllint",                                                                   # YAML linter of every YAML file
 
-    # --- [SCRIPTS]
-
-    "anyio",                                                                      # Worker processes and `git` runs of the prose checker
-    "cyclopts",                                                                   # CLI parser from typed signatures
-    "editorconfig",                                                               # EditorConfig property resolution per file path
-    "markdown-it-py",                                                             # CommonMark tokens with source line ranges and GFM tables
-    "mdit-py-plugins",                                                            # Front-matter and extension rules for markdown-it-py
-    "msgspec",                                                                    # Records of prose edits and source lines
-    "pygments",                                                                   # Lexer aliases and filename patterns
-    "regex",                                                                      # DEFINE groups and Unicode property classes `re` lacks
-    "wcwidth",                                                                    # Display width of text with wide, combining, and emoji characters
-
     # --- [STUBS]
 
     "brotli-stubs",
@@ -43,9 +31,7 @@ dev                   = [
     "types-openpyxl",
     "types-protobuf",
     "types-psutil",
-    "types-pygments",
     "types-pyphen",
-    "types-regex",
     "types-reportlab",
     "types-shapely",
 ]
@@ -354,6 +340,7 @@ identification        = [
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
+python-preference        = "only-managed"
 default-groups           = "all"
 environments             = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
@@ -488,6 +475,8 @@ ignore                    = [
     "unnecessary-enumerate",                                                                                                                                                                                         # refurb FURB148 covers comprehensions
     "true-false-comparison",                                                                                                                                                                                         # refurb FURB149 reports `is` and `==` on bool-typed operands alone
     "hashlib-digest-hex",                                                                                                                                                                                            # refurb FURB181 covers attribute receivers
+    "undefined-name",                                                                                                                                                                                                # ty `unresolved-reference` owns undefined names
+    "any-type",                                                                                                                                                                                                      # mypy `disallow_any_explicit` owns explicit `Any` in every position
 ]
 flake8-bandit             = { check-typed-exception = true }
 flake8-boolean-trap       = { extend-allowed-calls = ["expression.Result.Ok", "expression.Some"] }
@@ -609,12 +598,14 @@ require-lazy         = [
 
 [tool.ty]
 environment = { python-platform = "all" }
-rules       = { all = "error" }
+src         = { exclude = ["libs/python/blender", "apps/blender"] }    # 3.13 uv roots, each checked through its own `[tool.ty]`
+rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
 [tool.mypy]
-files                   = [".", ".claude"]
+files                   = ["."]
+exclude                 = ["^libs/python/blender/", "^apps/blender/"]
 cache_dir               = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
 strict                  = true
 warn_unreachable        = true
@@ -622,7 +613,8 @@ exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
 plugins                 = ["pydantic.mypy"]
-enable_error_code       = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
+enable_error_code       = ["exhaustive-match", "redundant-self"]
+disable_error_code      = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type"] # ty owns each defect these codes report, ruff PGH003 owns suppressions without a code
 overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sysexits", "ttfautohint.*", "ufo2ft.*", "youseedee.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }]
 
 # --- [REFURB] ---------------------------------------------------------------------------
@@ -726,7 +718,6 @@ addopts                  = [
 filterwarnings           = ["error"]
 timeout                  = "30"
 required_plugins         = [
-    "rasm-testing",
     "hypothesis",
     "pytest-cov",
     "pytest-randomly",
@@ -741,7 +732,7 @@ markers                  = [
 # --- [COVERAGE] -------------------------------------------------------------------------
 
 [tool.coverage]
-run    = { branch = true, relative_files = true, data_file = ".artifacts/python/coverage/data/.coverage" }
+run    = { branch = true, parallel = true, relative_files = true, data_file = ".artifacts/coverage/.coverage" }
 report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\("] }
 
 # --- [TOMBI] ----------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { TypographyError } from '#/error.ts';
-export { Settings } from '#/settings.ts';
-export { Source } from '#/source.ts';
+export { TypographyError } from '#/error';
+export { Settings } from '#/settings';
+export { Source } from '#/source';

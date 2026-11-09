@@ -3,7 +3,7 @@ import { Array, Context, Duration, Effect, Function, identity, Layer, Record, Sc
 import type { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
-import { Execute, Installation, Launch, Launching, Perform, Pid, Pressure, RunningInstance, Screenshot, State, Terms, WindowID } from '#/index.ts';
+import { Execute, Installation, Launch, Launching, Perform, Pid, Pressure, RunningInstance, Screenshot, State, Terms, WindowID } from '#/index';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

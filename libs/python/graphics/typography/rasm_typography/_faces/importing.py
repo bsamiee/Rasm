@@ -15,7 +15,7 @@ lazy from fontTools.otlLib.builder import LOOKUP_FLAG_USE_MARK_FILTERING_SET
 lazy from fontTools.pens.filterPen import DecomposingFilterPen
 lazy from fontTools.ttLib import TTFont, TTLibError
 lazy from fontTools.ttLib.tables.otBase import BaseTable
-lazy from fontTools.ttLib.tables.otTables import Coverage, ExtensionPos, ExtensionSubst, LigatureSubst, SingleSubst  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
+lazy from fontTools.ttLib.tables.otTables import Coverage, ExtensionPos, ExtensionSubst, LigatureSubst, SingleSubst  # ty: ignore[import-not-found]
 lazy from fontTools.unicodedata import script_extension
 
 lazy from rasm_records import Error, Fault, Ok, Outcome, Reason
@@ -224,7 +224,7 @@ def _source(font: TTFont, face: Faces, /) -> _Source:
     )
     return _Source(
         face=face,
-        upm=head.unitsPerEm,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        upm=head.unitsPerEm,  # ty: ignore[unresolved-attribute]
         glyphs=tuple(
             _Glyph(
                 name=name,
@@ -237,20 +237,20 @@ def _source(font: TTFont, face: Faces, /) -> _Source:
             for glyph, name in named.items()
         ),
         info=_Info(
-            created=datetime.fromtimestamp(head.created + epoch_diff, UTC),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            version=divmod(round(head.fontRevision * 1000), 1000),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            created=datetime.fromtimestamp(head.created + epoch_diff, UTC),  # ty: ignore[unresolved-attribute]
+            version=divmod(round(head.fontRevision * 1000), 1000),  # ty: ignore[unresolved-attribute]
             copyright=(font["name"].getDebugName(0) or "").strip(),
             designer=(font["name"].getDebugName(9) or "").strip(),
-            vendor=os2.achVendID.strip(),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            vendor=os2.achVendID.strip(),  # ty: ignore[unresolved-attribute]
         ),
         metrics=_Metrics(
             ascender=hhea.ascent,
             descender=hhea.descent,
-            win_ascent=os2.usWinAscent,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            win_descent=os2.usWinDescent,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            caret_offset=hhea.caretOffset,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            italic_angle=post.italicAngle,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-            lowest_ppem=head.lowestRecPPEM,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            win_ascent=os2.usWinAscent,  # ty: ignore[unresolved-attribute]
+            win_descent=os2.usWinDescent,  # ty: ignore[unresolved-attribute]
+            caret_offset=hhea.caretOffset,  # ty: ignore[unresolved-attribute]
+            italic_angle=post.italicAngle,  # ty: ignore[unresolved-attribute]
+            lowest_ppem=head.lowestRecPPEM,  # ty: ignore[unresolved-attribute]
         ),
         lookups=tuple(sorted(lookups, key=lambda lookup: lookup.order)),
     )

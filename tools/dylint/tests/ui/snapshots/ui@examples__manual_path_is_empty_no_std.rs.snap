@@ -1,0 +1,59 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/manual_path_is_empty_no_std.rs
+---
+warning: `recent` drops front elements by hand to keep its last `1`
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:12:5
+   |
+12 | /     while recent.len() > 1 {
+13 | |         recent.pop_front();
+14 | |     }
+   | |_____^
+   |
+   = help: call `VecDeque::retain_back`
+   = note: `#[warn(manual_retain_back)]` on by default
+
+warning: `(0..count).map(..).collect()` builds a `Vec` from each index
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:17:41
+   |
+17 | fn values(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(2)).collect() }
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Vec::from_fn`
+   = note: `#[warn(manual_vec_from_fn)]` on by default
+
+warning: path emptiness is tested through `OsStr`
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:24:16
+   |
+24 |     black_box((Path::new("").as_os_str().is_empty(), recent, values(2)));
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Path::is_empty`
+   = note: `#[warn(manual_path_is_empty)]` on by default
+
+warning: `trim` has one reader, `main`
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:11:1
+   |
+11 | fn trim(recent: &mut VecDeque<u8>) {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: read here
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:23:5
+   |
+23 |     trim(&mut recent);
+   |     ^^^^
+   = help: move `trim` into `main` as a closure
+   = note: `#[warn(single_reader)]` on by default
+
+warning: `values` has one reader, `main`
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:17:1
+   |
+17 | fn values(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(2)).collect() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: read here
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:24:62
+   |
+24 |     black_box((Path::new("").as_os_str().is_empty(), recent, values(2)));
+   |                                                              ^^^^^^
+   = help: move `values` into `main` as a closure

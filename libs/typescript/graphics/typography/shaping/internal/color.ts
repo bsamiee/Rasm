@@ -1,6 +1,6 @@
 import { Record, Schema, Struct } from 'effect';
 import { ColorPaletteFlags, type Face } from 'harfbuzzjs';
-import type { Names } from '#/shaping/internal/names.ts';
+import type { Names } from '#/shaping/internal/names';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

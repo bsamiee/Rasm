@@ -5,14 +5,12 @@ description: "Use when a command, build, or agent reads a secret or credential, 
 
 # [SECRETS]
 
-1Password and Doppler each hold every secret at its current value. Code and repository files name Doppler alone. 1Password serves the owner and local agents through `op` and the desktop app. Use `README.md` for how a running program reads a Doppler secret.
+Each value lives in one store. 1Password holds machine and personal credentials, which Parametric Forge exports into every shell and GUI session from `Tokens`. Doppler holds job values alone, one project per repository and one config per job kind, synced into GitHub Actions; its topology is code in Parametric Forge `services/topology.ts`.
 
 ## [01]-[DOPPLER_SCOPES]
 
 Doppler reads each option from a flag, then a `DOPPLER_*` environment variable:
-- `.config/mise.toml` `[env]` states `DOPPLER_PROJECT` and `DOPPLER_CONFIG`, repository directory scope holds a CLI token alone, a call outside mise names `--project` and `--config`
-- Nx targets running a secret-reading tool hold its `doppler run` prefix, a call of that tool outside every target takes the same prefix
-- Builds read a secret when package build targets of a compiled project read one, MSBuild reads each injected variable as a property
+- Calls name `--project` and `--config`
 - Scope JSON names project and config `enclave.project` and `enclave.config`
 
 | [INDEX] | [TASK]                   | [COMMAND]                                                                     |
@@ -26,19 +24,14 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable:
 |  [07]   | Secrets in a process env | `doppler run --project <p> --config <c> -- <cmd>`                             |
 |  [08]   | Shell operators          | `doppler run --project <p> --config <c> --command '<cmd> && <cmd>'`           |
 
-## [02]-[INFRA_PREFIXES]
+## [02]-[JOB_VALUES]
 
-Repository programs read owner-issued values from shared project `agent-runtime` config `dev` in workplace `Parametric_Arsenal`, each through its target's `doppler run` prefix:
-- Targets hand their command the whole config, a program's typed `Config` read names a missing value when a target needs it
-- Daemon `mcp-for-blender` names its keys with `--only-secrets`, a third-party server receives no repository credential
-- Variables the prefix leaves unset pass through from the calling environment, a local run sets one on the command
-- Add a hosting secret through `doppler secrets set <NAME> --project agent-runtime --config dev`, a `bindings.secret()` row in `cloudflare.config.ts` names it to the program
-- CI holds no Doppler token, `rasm:infra` writes every CI credential as a repository Actions secret, a Doppler value or a key the stack generates
-- CI job steps write `SIXLABORSLICENSEKEY` to the `.lic` file `SixLaborsLicenseFile` names, a `LicenseKey` value appearing in the binlogs CI uploads
-- Values a program generates (store keys, owner passwords) stay Pulumi stack secrets, `pulumi stack output <name> --show-secrets` reads them
-- Pulumi reads its backend credential from the `pulumi login` saved under `PULUMI_HOME`
+- CI steps read synced Actions secrets, each named in the step `env`
+- Local `nx deploy` reads the machine environment, with no prefix
+- Values a stack generates stay in Pulumi state, `pulumi stack output <name> --show-secrets` reads them
+- Pulumi reads its backend login from `pulumi login`
+- New job values go in through `doppler secrets set <NAME> --project <repository> --config <job>`, new projects and syncs are Forge rows
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config
-- Use `Skill(manage-repo)` for infra programs
 
 ## [03]-[OP_SIGNIN]
 
@@ -110,9 +103,9 @@ Desktop app's SSH agent serves key `Forge SSH Key` (ED25519) to SSH hosts and Gi
 
 ## [07]-[RULES]
 
-- Each secret keeps one name as `Tokens` item title, Doppler secret, and environment variable a consumer reads
+- Each secret keeps one name as its store's title and the environment variable a consumer reads
 - Configuration files hold no secret value
-- Remote MCP server headers come from a header helper, `headersHelper` in Claude Code and `http_headers_helper` in Codex, printing `doppler secrets get <NAME> --plain` as a JSON header object
+- Remote MCP headers name environment variables (`${VAR}` in `.mcp.json` `headers`, `bearer_token_env_var` or `env_http_headers` in Codex), a header helper computes only an app-generated value
 - Values reach a consumer as injected environment, a command substitution, a mount, or a mode-600 file outside every repository tree
 - Files holding values go when the consumer exits
 - Agent output holds secret names alone

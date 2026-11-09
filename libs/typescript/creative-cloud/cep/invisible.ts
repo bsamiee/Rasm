@@ -1,4 +1,4 @@
-import { servePanel } from '#/panel.ts';
+import { servePanel } from '#/panel';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

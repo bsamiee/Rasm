@@ -1,8 +1,8 @@
 import { Array, Data, Effect, Number, Option, Order, Record, Schema, SchemaGetter } from 'effect';
 import { Digest } from 'effect/crypto';
 import type { Face, NameEntry } from 'harfbuzzjs';
-import { Settings } from '#/settings.ts';
-import type { Tables } from '#/shaping/internal/tables.ts';
+import { Settings } from '#/settings';
+import type { Tables } from '#/shaping/internal/tables';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

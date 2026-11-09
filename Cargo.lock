@@ -9844,7 +9844,7 @@ dependencies = [
  "fs-err",
  "futures",
  "gauss-quad",
- "hashbrown 0.17.1",
+ "hashbrown 0.16.1",
  "indexmap 2.14.2",
  "itertools 0.15.0",
  "jiff",
@@ -9885,30 +9885,14 @@ dependencies = [
 name = "rasm-lints"
 version = "0.0.0"
 dependencies = [
- "camino",
- "clippy_utils",
- "dunce",
- "dylint_linting",
- "fs-err",
- "itertools 0.15.0",
- "strum 0.28.0",
-]
-
-[[package]]
-name = "rasm-lints-auxiliary"
-version = "0.0.0"
-dependencies = [
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "rasm-lints-tests"
-version = "0.0.0"
-dependencies = [
  "anyhow",
+ "camino",
  "cargo_metadata",
  "clap",
+ "clippy_utils",
  "derive_more",
+ "dunce",
+ "dylint_linting",
  "fs-err",
  "futures",
  "indexmap 2.14.2",
@@ -9919,7 +9903,6 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
- "rasm-lints",
  "rasm-lints-auxiliary",
  "rayon",
  "rmcp",
@@ -9934,6 +9917,13 @@ dependencies = [
  "tracing",
  "uuid",
  "validated",
+]
+
+[[package]]
+name = "rasm-lints-auxiliary"
+version = "0.0.0"
+dependencies = [
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -10010,7 +10000,7 @@ name = "rasm-network-analysis"
 version = "0.0.0"
 dependencies = [
  "derive_more",
- "hashbrown 0.17.1",
+ "hashbrown 0.16.1",
  "indexmap 2.14.2",
  "itertools 0.15.0",
  "leiden-rs",

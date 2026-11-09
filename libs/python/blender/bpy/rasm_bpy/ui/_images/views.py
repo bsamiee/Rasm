@@ -65,7 +65,7 @@ class RenderView(msgspec.Struct, frozen=True, kw_only=True):
             case Sidebar(category=tab):
                 category = Some(tab)
             case Beside(panel=panel):
-                declared: type[bpy.types.Panel] = panel  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                declared: type[bpy.types.Panel] = panel  # ty: ignore[invalid-assignment]
                 category = catch(lambda: declared.bl_category, exception=AttributeError)().to_option()
         tabbed = category.map(lambda tab: _EditorState.of(bpy.types.Region, {("active_panel_category",): tab}, Some("UI")).map(lambda state: (state,))).default_value(Ok(()))
 
@@ -82,9 +82,9 @@ class RenderView(msgspec.Struct, frozen=True, kw_only=True):
 class Picked(bpy.types.PropertyGroup):
     """Pick point and sampled square half side."""
 
-    x: bpy.props.IntProperty(name="X", description="Pick column in region pixels", options={"HIDDEN", "SKIP_SAVE"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    y: bpy.props.IntProperty(name="Y", description="Pick row in region pixels", options={"HIDDEN", "SKIP_SAVE"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    radius: bpy.props.IntProperty(name="Sample Radius", description="Pixels sampled each side of pick", min=0, max=3)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    x: bpy.props.IntProperty(name="X", description="Pick column in region pixels", options={"HIDDEN", "SKIP_SAVE"})  # ty: ignore[invalid-type-form]
+    y: bpy.props.IntProperty(name="Y", description="Pick row in region pixels", options={"HIDDEN", "SKIP_SAVE"})  # ty: ignore[invalid-type-form]
+    radius: bpy.props.IntProperty(name="Sample Radius", description="Pixels sampled each side of pick", min=0, max=3)  # ty: ignore[invalid-type-form]
 
 
 # --- [OVERLAYS]
@@ -100,7 +100,7 @@ class Masks(msgspec.Struct, frozen=True, kw_only=True):
     def drawn(state: tuple[Texture[Color], ...], canvas: Canvas, /) -> None:
         """Draws each coverage over the unit frame in its tint associated with its alpha, nearest filtering past full zoom."""
         if isinstance(space := canvas.space, bpy.types.SpaceImageEditor):
-            zoom: Iterable[float] = space.zoom  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+            zoom: Iterable[float] = space.zoom  # ty: ignore[unsound-assignment]
             filtered = min(zoom) < 1.0
             for texture, (red, green, blue, alpha) in state:
                 texture.filter_mode(filtered)
@@ -185,8 +185,8 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def caging(state: _Frame) -> tuple[float, ...]:
         """Returns the cage frame in the native target's column order."""
-        columns: Iterable[Vector] = _frame(_pixels(*state)).col  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        return tuple(value for column in columns for value in column)  # type: ignore[attr-defined]
+        columns: Iterable[Vector] = _frame(_pixels(*state)).col  # ty: ignore[invalid-assignment]
+        return tuple(value for column in columns for value in column)
 
     @staticmethod
     def corner(index: int, state: _Frame) -> tuple[float, ...]:
@@ -277,8 +277,8 @@ def _framed(region: bpy.types.Region) -> Rect:
         Frame rectangle in region pixels.
     """
     view = region.view2d
-    origin: tuple[float, float] = view.region_to_view(0.0, 0.0)  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
-    unit: tuple[float, float] = view.region_to_view(1.0, 1.0)  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+    origin: tuple[float, float] = view.region_to_view(0.0, 0.0)  # ty: ignore[unsound-assignment]
+    unit: tuple[float, float] = view.region_to_view(1.0, 1.0)  # ty: ignore[unsound-assignment]
     left, bottom = origin[0], origin[1]
     across, up = unit[0] - left, unit[1] - bottom
     return Rect(x=-left / across, y=-bottom / up, width=1.0 / across, height=1.0 / up)
@@ -383,11 +383,11 @@ def picking[P: Picked](cursor: "rna_enums.WindowCursorItems", form: type[P], tak
 def _regioned(record: Picked, located: tuple[bpy.types.SpaceImageEditor, bpy.types.Region]) -> Outcome[Region]:
     """Returns the frame region of the square around the picked image pixel, absent fault for a pick outside the image."""
     space, region = located
-    zoom: Iterable[float] = space.zoom  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+    zoom: Iterable[float] = space.zoom  # ty: ignore[unsound-assignment]
     zoom_x, zoom_y = zoom
     frame = _framed(region)
     width, height = round(frame.width / zoom_x), round(frame.height / zoom_y)
-    point: tuple[float, float] = region.view2d.region_to_view(record.x, record.y)  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+    point: tuple[float, float] = region.view2d.region_to_view(record.x, record.y)  # ty: ignore[unsound-assignment]
     column, row = math.floor(point[0] * width), math.floor(point[1] * height)
     reach = np.array(((-record.radius, -record.radius), (record.radius + 1, record.radius + 1)))
     return (

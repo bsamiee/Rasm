@@ -53,13 +53,13 @@ class Mirror(Enum):
 class ChartFraming(bpy.types.PropertyGroup):
     """Share of the view width a framed chart spans."""
 
-    share: bpy.props.FloatProperty(name="Share", description="View width chart spans", subtype="FACTOR", min=0.01, max=1.0, default=0.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    share: bpy.props.FloatProperty(name="Share", description="View width chart spans", subtype="FACTOR", min=0.01, max=1.0, default=0.5)  # ty: ignore[invalid-type-form]
 
 
 class Flipping(bpy.types.PropertyGroup):
     """Flip axis."""
 
-    mirror: bpy.props.EnumProperty(name="Mirror", description="Patch order mirror axis", items=enum_choices(Mirror))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    mirror: bpy.props.EnumProperty(name="Mirror", description="Patch order mirror axis", items=enum_choices(Mirror))  # ty: ignore[invalid-type-form]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------

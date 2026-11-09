@@ -78,7 +78,7 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
 
         def refreshed() -> Outcome[None]:
             """Redraws matching areas."""
-            manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
             for located in self.area.located(manager.windows):
                 located.area.tag_redraw()
             return Ok(None)

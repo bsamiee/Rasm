@@ -65,24 +65,24 @@ _COMPOSITED: Final = Setting(descriptor=_COMPOSITOR, accepted=("ALWAYS",)) | (
 class Follow(bpy.types.PropertyGroup):
     """Viewport response speed, dead band, and agreement between readings."""
 
-    speed: bpy.props.FloatProperty(name="Speed", description="Share of remaining step per update", subtype="FACTOR", min=0.02, max=1.0, default=0.5)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    band: bpy.props.FloatProperty(name="Dead Band", description="Stops of gain change ignored", min=0.0, max=2.0, soft_max=1.0, step=1, precision=2, default=0.1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    tolerance: bpy.props.FloatProperty(name="Tolerance", description="Stops between agreeing readings", min=0.0, max=2.0, soft_max=1.0, step=1, precision=2, default=0.1)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    speed: bpy.props.FloatProperty(name="Speed", description="Share of remaining step per update", subtype="FACTOR", min=0.02, max=1.0, default=0.5)  # ty: ignore[invalid-type-form]
+    band: bpy.props.FloatProperty(name="Dead Band", description="Stops of gain change ignored", min=0.0, max=2.0, soft_max=1.0, step=1, precision=2, default=0.1)  # ty: ignore[invalid-type-form]
+    tolerance: bpy.props.FloatProperty(name="Tolerance", description="Stops between agreeing readings", min=0.0, max=2.0, soft_max=1.0, step=1, precision=2, default=0.1)  # ty: ignore[invalid-type-form]
 
 
 class Metering(bpy.types.PropertyGroup):
     """One scene's meter shared by rendered-frame and viewport exposure."""
 
-    low: bpy.props.FloatProperty(name="Low", description="Percentile trimmed below", subtype="PERCENTAGE", min=0.0, max=100.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    high: bpy.props.FloatProperty(name="High", description="Percentile trimmed above", subtype="PERCENTAGE", min=0.0, max=100.0, default=100.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    center: bpy.props.FloatProperty(name="Center", description="Weight taken from samples outside the center", subtype="FACTOR", min=0.0, max=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_region: bpy.props.BoolProperty(name="Region", description="Meter the region alone, the whole frame while off")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    region: bpy.props.FloatVectorProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    low: bpy.props.FloatProperty(name="Low", description="Percentile trimmed below", subtype="PERCENTAGE", min=0.0, max=100.0)  # ty: ignore[invalid-type-form]
+    high: bpy.props.FloatProperty(name="High", description="Percentile trimmed above", subtype="PERCENTAGE", min=0.0, max=100.0, default=100.0)  # ty: ignore[invalid-type-form]
+    center: bpy.props.FloatProperty(name="Center", description="Weight taken from samples outside the center", subtype="FACTOR", min=0.0, max=1.0)  # ty: ignore[invalid-type-form]
+    use_region: bpy.props.BoolProperty(name="Region", description="Meter the region alone, the whole frame while off")  # ty: ignore[invalid-type-form]
+    region: bpy.props.FloatVectorProperty(  # ty: ignore[invalid-type-form]
         name="Bounds", description="Metered frame share from bottom left as left, bottom, right, and top", size=4, min=0.0, max=1.0, default=(0.0, 0.0, 1.0, 1.0)
     )
-    bias: bpy.props.FloatProperty(name="EV Bias", description="Stops added to each reading", min=-3.0, max=3.0, soft_min=-2.0, soft_max=2.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_follow: bpy.props.BoolProperty(name="Follow Viewport", description="Step the chain gain toward viewport readings")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    follow: bpy.props.PointerProperty(type=Follow, name="Viewport Response")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    bias: bpy.props.FloatProperty(name="EV Bias", description="Stops added to each reading", min=-3.0, max=3.0, soft_min=-2.0, soft_max=2.0)  # ty: ignore[invalid-type-form]
+    use_follow: bpy.props.BoolProperty(name="Follow Viewport", description="Step the chain gain toward viewport readings")  # ty: ignore[invalid-type-form]
+    follow: bpy.props.PointerProperty(type=Follow, name="Viewport Response")  # ty: ignore[invalid-type-form]
 
     @property
     def meter(self) -> Meter:
@@ -292,7 +292,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
     def jobs(identity: Identity, context: bpy.types.Context) -> Outcome[tuple[queue.Job, ...]]:
         """Returns lattice sampling per followed window scene whose formation inverse is absent."""
         held, config = _INVERSES[identity], PyOpenColorIO.GetCurrentConfig()
-        manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        manager: bpy.types.WindowManager = context.window_manager  # ty: ignore[invalid-assignment]
 
         def queued(request: _Formation) -> tuple[queue.Job, ...]:
             _, token, value = held.wanting(request.scene.uid, request, same=lambda prior, wanted: prior == wanted and all(key.is_some() for key in wanted.content))
@@ -324,7 +324,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def ticked(identity: Identity) -> Outcome[Option[float]]:
         """Redraws the viewports of followed window scenes each interval."""
-        manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
 
         def redrawn(located: tuple[Located, ...]) -> Option[float]:
             for at in located:

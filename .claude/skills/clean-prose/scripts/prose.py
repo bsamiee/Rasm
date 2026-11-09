@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.15"
+# dependencies = ["anyio", "cyclopts", "markdown-it-py", "mdit-py-plugins", "msgspec", "pygments", "regex", "wcwidth"]
+# ///
 """Checks and fixes Markdown and source comments."""
 
 from functools import cache, partial, reduce

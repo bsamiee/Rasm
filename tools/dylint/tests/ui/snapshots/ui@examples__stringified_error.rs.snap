@@ -1,0 +1,409 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/stringified_error.rs
+---
+warning: text of error `std::num::ParseIntError` is stored
+  --> tools/dylint/examples/stringified_error.rs:64:96
+   |
+64 | fn field(text: &str) -> Result<u16, Failure> { parsed(text).map_err(|error| Failure { message: error.to_string() }) }
+   |                                                                                                ^^^^^^^^^^^^^^^^^
+   |
+   = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+   = note: `#[warn(stringified_error)]` on by default
+
+warning: text of error `std::num::ParseIntError` is stored
+  --> tools/dylint/examples/stringified_error.rs:66:87
+   |
+66 | fn wrapped(text: &str) -> Result<u16, Wrapped> { parsed(text).map_err(|error| Wrapped(format!("port: {error}"))) }
+   |                                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is stored
+  --> tools/dylint/examples/stringified_error.rs:68:102
+   |
+68 | fn converted(text: &str) -> Result<u16, Wrapped> { parsed(text).map_err(|error| Wrapped(String::from(error.to_string().as_str()))) }
+   |                                                                                                      ^^^^^^^^^^^^^^^^^
+   |
+   = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is stored
+  --> tools/dylint/examples/stringified_error.rs:70:59
+   |
+70 | fn rerendered(error: &ParseIntError) -> Wrapped { Wrapped(error.to_string().to_string()) }
+   |                                                           ^^^^^^^^^^^^^^^^^
+   |
+   = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is stored
+  --> tools/dylint/examples/stringified_error.rs:72:60
+   |
+72 | fn transferred(error: &ParseIntError) -> Wrapped { Wrapped(error.to_string().into()) }
+   |                                                            ^^^^^^^^^^^^^^^^^
+   |
+   = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is stored
+  --> tools/dylint/examples/stringified_error.rs:74:97
+   |
+74 | fn constructed(text: &str) -> Result<u16, Failure> { parsed(text).map_err(|error| Failure::new(&error.to_string())) }
+   |                                                                                                 ^^^^^^^^^^^^^^^^^
+   |
+   = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: error `String` is text callers cannot match
+  --> tools/dylint/examples/stringified_error.rs:77:37
+   |
+77 |     let port = parsed(text).map_err(|error| error.to_string())?;
+   |                                     ^^^^^^^
+   |
+   = help: return the concrete source error, or add a domain error for context or distinct failures
+   = note: `#[warn(untyped_error)]` on by default
+
+warning: text of error `std::num::ParseIntError` is stored
+  --> tools/dylint/examples/stringified_error.rs:83:25
+   |
+83 |         attempt.label = error.to_string();
+   |                         ^^^^^^^^^^^^^^^^^
+   |
+   = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is stored
+  --> tools/dylint/examples/stringified_error.rs:90:23
+   |
+90 |         let message = format!("{error:?}");
+   |                       ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is stored
+  --> tools/dylint/examples/stringified_error.rs:95:78
+   |
+95 | fn listed(error: &ParseIntError, messages: &mut Vec<String>) { messages.push(error.to_string()); }
+   |                                                                              ^^^^^^^^^^^^^^^^^
+   |
+   = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: error `String` is text callers cannot match
+  --> tools/dylint/examples/stringified_error.rs:97:65
+   |
+97 | fn closure(text: &str) -> Option<String> { parsed(text).map_err(|error| error.to_string()).err() }
+   |                                                                 ^^^^^^^
+   |
+   = help: return the concrete source error, or add a domain error for context or distinct failures
+
+warning: error `String` is text callers cannot match
+  --> tools/dylint/examples/stringified_error.rs:99:38
+   |
+99 | fn errored(error: &ParseIntError) -> Result<u16, String> { Err(error.to_string()) }
+   |                                      ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return the concrete source error, or add a domain error for context or distinct failures
+
+warning: text of error `std::num::ParseIntError` is returned
+   --> tools/dylint/examples/stringified_error.rs:101:129
+    |
+101 | ...::ExactlyOneError<Box<dyn Iterator<Item = u16>>>> { Ok(error.to_string()) }
+    |                                                           ^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: error `String` is text callers cannot match
+   --> tools/dylint/examples/stringified_error.rs:103:41
+    |
+103 | const fn error_text(message: String) -> Result<u16, String> { Err(message) }
+    |                                         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: return the concrete source error, or add a domain error for context or distinct failures
+
+warning: error `String` is text callers cannot match
+   --> tools/dylint/examples/stringified_error.rs:105:46
+    |
+105 | fn factory_errored(error: &ParseIntError) -> Result<u16, String> { error_text(error.to_string()) }
+    |                                              ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: return the concrete source error, or add a domain error for context or distinct failures
+
+warning: text of error `std::num::ParseIntError` is returned
+   --> tools/dylint/examples/stringified_error.rs:115:75
+    |
+115 | fn collected(errors: &[ParseIntError]) -> Vec<String> { errors.iter().map(ToString::to_string).collect() }
+    |                                                                           ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is returned
+   --> tools/dylint/examples/stringified_error.rs:117:49
+    |
+117 | fn described(error: &ParseIntError) -> String { error.to_string() }
+    |                                                 ^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is returned
+   --> tools/dylint/examples/stringified_error.rs:122:19
+    |
+122 |         message = error.to_string();
+    |                   ^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is compared
+   --> tools/dylint/examples/stringified_error.rs:127:43
+    |
+127 | fn equal(error: &ParseIntError) -> bool { error.to_string() == "invalid digit found in string" }
+    |                                           ^^^^^^^^^^^^^^^^^
+    |
+    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+
+warning: text of error `std::io::Error` is compared
+   --> tools/dylint/examples/stringified_error.rs:129:43
+    |
+129 | fn contained(error: &io::Error) -> bool { ToString::to_string(error).contains("denied") }
+    |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+
+warning: text of error `std::num::ParseIntError` is compared
+   --> tools/dylint/examples/stringified_error.rs:132:11
+    |
+132 |     match format!("{error}") {
+    |           ^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+
+warning: text of error `std::num::ParseIntError` is compared
+   --> tools/dylint/examples/stringified_error.rs:138:77
+    |
+138 | fn tested(error: &ParseIntError) -> usize { if let Some(("cannot", rest)) = error.to_string().split_once(' ') { rest.len() } else {...
+    |                                                                             ^^^^^^^^^^^^^^^^^
+    |
+    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+
+warning: text of error `std::num::ParseIntError` is compared
+   --> tools/dylint/examples/stringified_error.rs:141:19
+    |
+141 |     let message = error.to_string();
+    |                   ^^^^^^^^^^^^^^^^^
+    |
+    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+
+warning: text of error `std::num::ParseIntError` is compared
+   --> tools/dylint/examples/stringified_error.rs:145:84
+    |
+145 | fn seen(error: &ParseIntError, known: &BTreeSet<String>) -> bool { known.contains(&error.to_string()) }
+    |                                                                                    ^^^^^^^^^^^^^^^^^
+    |
+    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+
+warning: text of error `std::num::ParseIntError` is returned
+   --> tools/dylint/examples/stringified_error.rs:166:72
+    |
+166 | fn joined_text(errors: &[ParseIntError]) -> String { errors.iter().map(ToString::to_string).collect::<Vec<_>>().join(", ") }
+    |                                                                        ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: `format!` wraps one `Display` value without formatting options
+   --> tools/dylint/examples/stringified_error.rs:188:40
+    |
+188 | fn kind(error: &io::Error) -> String { format!("{}", error.kind()) }
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: call the `ToString::to_string` trait method on the formatted value
+    = note: `#[warn(display_format)]` on by default
+
+warning: text of `Mode` is compared
+   --> tools/dylint/examples/stringified_error.rs:199:31
+    |
+199 | fn fast(mode: Mode) -> bool { mode.to_string() == "fast" }
+    |                               ^^^^^^^^^^^^^^^^
+    |
+    = help: compare or match `Mode` in place of its text
+
+warning: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/stringified_error.rs:205:62
+    |
+205 | fn rejected(error: &ParseIntError) -> RefusedError { refused(error.to_string()) }
+    |                                                              ^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/stringified_error.rs:209:67
+    |
+209 | fn owned_io(error: ParseIntError) -> io::Error { io::Error::other(error.to_string()) }
+    |                                                                   ^^^^^^^^^^^^^^^^^
+    |
+    = help: preserve `std::num::ParseIntError` as the constructor's typed source
+
+warning: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/stringified_error.rs:211:96
+    |
+211 | fn formatted_io(kind: io::ErrorKind, error: ParseIntError) -> io::Error { io::Error::new(kind, format!("port: {error}")) }
+    |                                                                                                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: preserve `std::num::ParseIntError` as the constructor's typed source
+
+warning: text of error `E` is stored
+   --> tools/dylint/examples/stringified_error.rs:213:104
+    |
+213 | fn bounded_io<E: core::error::Error + Send + Sync + 'static>(error: E) -> io::Error { io::Error::other(error.to_string()) }
+    |                                                                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: preserve `E` as the constructor's typed source
+
+warning: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/stringified_error.rs:219:86
+    |
+219 | fn reused_io(error: ParseIntError) -> (io::Error, ParseIntError) { (io::Error::other(error.to_string()), error) }
+    |                                                                                      ^^^^^^^^^^^^^^^^^
+    |
+    = help: preserve `std::num::ParseIntError` as the constructor's typed source
+
+warning: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/stringified_error.rs:221:101
+    |
+221 | fn closure_io(text: &str) -> Result<u16, io::Error> { parsed(text).map_err(|error| io::Error::other(error.to_string())) }
+    |                                                                                                     ^^^^^^^^^^^^^^^^^
+    |
+    = help: preserve `std::num::ParseIntError` as the constructor's typed source
+
+warning: text of error `std::num::ParseIntError` is compared
+   --> tools/dylint/examples/stringified_error.rs:230:17
+    |
+230 |     let first = error.to_string();
+    |                 ^^^^^^^^^^^^^^^^^
+    |
+    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+
+warning: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/stringified_error.rs:246:18
+    |
+246 |     let render = ToString::to_string;
+    |                  ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of `Mode` is compared
+   --> tools/dylint/examples/stringified_error.rs:251:17
+    |
+251 |     let first = mode.to_string();
+    |                 ^^^^^^^^^^^^^^^^
+    |
+    = help: compare or match `Mode` in place of its text
+
+warning: text of error `std::num::ParseIntError` is compared
+   --> tools/dylint/examples/stringified_error.rs:259:17
+    |
+259 |     let first = error.to_string();
+    |                 ^^^^^^^^^^^^^^^^^
+    |
+    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+
+warning: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/stringified_error.rs:269:21
+    |
+269 |     let render = || error.to_string();
+    |                     ^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/stringified_error.rs:280:26
+    |
+280 |     let render = || Some(error.to_string());
+    |                          ^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/stringified_error.rs:323:30
+    |
+323 |     let factory = || move || error.to_string();
+    |                              ^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: text of error `std::num::ParseIntError` is returned
+   --> tools/dylint/examples/stringified_error.rs:328:19
+    |
+328 |     let message = error.to_string();
+    |                   ^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+warning: `unwrap_or_default` replaces `ParseIntError` with a fallback value
+   --> tools/dylint/examples/stringified_error.rs:343:44
+    |
+343 |     let mut attempt = counted(parsed(text).unwrap_or_default());
+    |                                            ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+    = note: `#[warn(discarded_error)]` on by default
+
+warning: `error_text` has one reader, `factory_errored`
+   --> tools/dylint/examples/stringified_error.rs:103:1
+    |
+103 | const fn error_text(message: String) -> Result<u16, String> { Err(message) }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: read here
+   --> tools/dylint/examples/stringified_error.rs:105:68
+    |
+105 | fn factory_errored(error: &ParseIntError) -> Result<u16, String> { error_text(error.to_string()) }
+    |                                                                    ^^^^^^^^^^
+    = help: move `error_text` into `factory_errored` as a nested `fn`
+    = note: `#[warn(single_reader)]` on by default
+
+warning: `success_text` has one reader, `factory_view`
+   --> tools/dylint/examples/stringified_error.rs:107:1
+    |
+107 | const fn success_text(message: String) -> Result<String, ParseIntError> { Ok(message) }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: read here
+   --> tools/dylint/examples/stringified_error.rs:109:77
+    |
+109 | fn factory_view(error: &ParseIntError) -> Result<usize, ParseIntError> { Ok(success_text(error.to_string())?.len()) }
+    |                                                                             ^^^^^^^^^^^^
+    = help: move `success_text` into `factory_view` as a nested `fn`
+
+warning: `replaced` has one reader, `unrelated`
+   --> tools/dylint/examples/stringified_error.rs:173:1
+    |
+173 | fn replaced(message: String) -> String {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: read here
+   --> tools/dylint/examples/stringified_error.rs:180:47
+    |
+180 | fn unrelated(error: &ParseIntError) -> bool { replaced(error.to_string()) == "unrelated" }
+    |                                               ^^^^^^^^
+    = help: move `replaced` into `unrelated` as a closure
+
+warning: `viewed` has one reader, `inspected`
+   --> tools/dylint/examples/stringified_error.rs:168:1
+    |
+168 | fn viewed(message: String) -> PhantomData<String> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: read here
+   --> tools/dylint/examples/stringified_error.rs:182:62
+    |
+182 | fn inspected(error: &ParseIntError) -> PhantomData<String> { viewed(error.to_string()) }
+    |                                                              ^^^^^^
+    = help: move `viewed` into `inspected` as a closure
+
+warning: `returned_formatter` has one reader, `viewed_formatters`
+   --> tools/dylint/examples/stringified_error.rs:238:1
+    |
+238 | fn returned_formatter() -> fn(&ParseIntError) -> String { ToString::to_string }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: read here
+   --> tools/dylint/examples/stringified_error.rs:242:43
+    |
+242 |     (log(&(renderer.format)(error)), log(&returned_formatter()(error)))
+    |                                           ^^^^^^^^^^^^^^^^^^
+    = help: move `returned_formatter` into `viewed_formatters` as a closure

@@ -3,8 +3,8 @@ import { HostingError, User } from '@rasm/hosting';
 import { Array, Context, Effect, Layer, Option, Struct } from 'effect';
 import { HttpMethod, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
-import { Owner } from '#/model/api.ts';
-import { owner } from '#/server/catalog.ts';
+import { Owner } from '#/model/api';
+import { owner } from '#/server/catalog';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

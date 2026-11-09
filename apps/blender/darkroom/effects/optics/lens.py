@@ -211,7 +211,7 @@ def match_camera_iris(call: Call[Named]) -> Outcome[Answer]:
 
     def copied(camera: tuple[str, bpy.types.Camera], entry: bpy.types.SceneCompositorEffect) -> Outcome[Answer]:
         name, source = camera
-        dof: bpy.types.CameraDOFSettings = source.dof  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        dof: bpy.types.CameraDOFSettings = source.dof  # ty: ignore[invalid-assignment]
         stop, blades = dof.aperture_fstop, dof.aperture_blades
         common: dict[Key, Value] = {_FOCUS.key: _DEPTH_OF_FIELD.title, path_key(_DEPTH_OF_FIELD, _F_STOP): stop, iris(Aperture.rotation): dof.aperture_rotation}
         outline: dict[Key, Value] = {iris(Aperture.roundness): 1.0} if blades == 0 else {iris(Aperture.blades): blades, iris(Aperture.roundness): 0.0}
@@ -272,7 +272,7 @@ distortion: Final = CompositorEffect(
     record=Distortion,
     interface=Interface(inputs=(_DISTORTION, _FIT, _DIRECTION, _EXTENSION)),
     mix=Mix.RESULT,
-    registers=(Operator(form=Named, run=export_st_map, invoke=Some(Save(extensions=lambda _: (".exr",))), options=frozenset()),),
+    registers=(Operator(form=Named, run=export_st_map, invoke=Some(Save[Named](extensions=lambda _: (".exr",))), options=frozenset()),),
 )
 aberration: Final = CompositorEffect(record=Aberration, interface=Interface(inputs=(_DISPERSION, _AXIAL, _SPECTRAL_EXTENSION), panels=(lenses.IRIS,)), mix=Mix.RESULT)
 vignette: Final = CompositorEffect(record=Vignette, interface=Interface(inputs=(_FALLOFF,), panels=(_SHAPED,)))

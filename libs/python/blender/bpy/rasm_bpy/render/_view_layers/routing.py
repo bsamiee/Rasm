@@ -243,12 +243,12 @@ class RoutingRow(ConditionalRow, frozen=True):
 
             def targeted() -> tuple[tuple[bpy.types.ImageFormatSettings, Option[bpy.types.NodeCompositorFileOutputItem], Map[str, str]], ...]:
                 stored = _FileItems.held(live, identity)
-                settings: bpy.types.ImageFormatSettings = live.format  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                settings: bpy.types.ImageFormatSettings = live.format  # ty: ignore[invalid-assignment]
                 if settings.file_format == "OPEN_EXR_MULTILAYER":
                     return ((settings, Nothing, Map.of_seq((item.name, source.name) for source in file_output.sources for item in Option.of_optional(stored.get(source.key)).to_list())),)
 
                 def formatted(item: bpy.types.NodeCompositorFileOutputItem) -> bpy.types.ImageFormatSettings:
-                    held: bpy.types.ImageFormatSettings = item.format if item.override_node_format else settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                    held: bpy.types.ImageFormatSettings = item.format if item.override_node_format else settings  # ty: ignore[invalid-assignment]
                     return held
 
                 return tuple((formatted(item), Some(item), Map.of_seq((("", source.name),))) for source in file_output.sources for item in Option.of_optional(stored.get(source.key)).to_list())

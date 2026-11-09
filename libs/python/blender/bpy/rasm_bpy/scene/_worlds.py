@@ -66,8 +66,8 @@ class _RaySlot(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_SKY_TYPE: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeTexSky.bl_rna.properties["sky_type"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-_PROJECTION: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeTexEnvironment.bl_rna.properties["projection"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_SKY_TYPE: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeTexSky.bl_rna.properties["sky_type"]  # ty: ignore[invalid-assignment]
+_PROJECTION: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeTexEnvironment.bl_rna.properties["projection"]  # ty: ignore[invalid-assignment]
 _SKY: Final = tuple(
     prop
     for prop in bpy.types.ShaderNodeTexSky.bl_rna.properties
@@ -89,28 +89,28 @@ class Sky(bpy.types.PropertyGroup):
 class Backdrop(bpy.types.PropertyGroup):
     """Ray slot source, strength, and tint, the source's sky, image, color, and gradient members."""
 
-    source: bpy.props.EnumProperty(name="Source", description="World source of the slot", items=_MODES, default=_BackdropSource.COLOR.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    strength: bpy.props.FloatProperty(name="Strength", description="Background strength", min=0.0, soft_max=10.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    tint: bpy.props.FloatVectorProperty(name="Tint", description="Color the source multiplies", subtype="COLOR", size=3, default=(1.0, 1.0, 1.0))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    color: bpy.props.FloatVectorProperty(name="Color", description="Scene-linear world color", subtype="COLOR", size=3, default=(0.0508761, 0.0508761, 0.0508761))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    top: bpy.props.FloatVectorProperty(name="Top", description="Gradient color at frame top", subtype="COLOR", size=3, default=(0.2, 0.2, 0.2))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    bottom: bpy.props.FloatVectorProperty(name="Bottom", description="Gradient color at frame bottom", subtype="COLOR", size=3, default=(0.02, 0.02, 0.02))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    path: bpy.props.StringProperty(name="Image", description="Image file", subtype="FILE_PATH")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    projection: _redeclared(_PROJECTION)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    rotation: bpy.props.FloatProperty(name="Rotation", description="Fixed image rotation", subtype="ANGLE")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    heading: bpy.props.FloatProperty(name="Sun Heading", description="Heading of the image sun turned onto scene sun", subtype="ANGLE")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_sun: bpy.props.BoolProperty(name="Follow Sun", description="Sky sun and image rotation follow the scene sun light")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    sky: bpy.props.PointerProperty(type=Sky, name="Sky")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    source: bpy.props.EnumProperty(name="Source", description="World source of the slot", items=_MODES, default=_BackdropSource.COLOR.name)  # ty: ignore[invalid-type-form]
+    strength: bpy.props.FloatProperty(name="Strength", description="Background strength", min=0.0, soft_max=10.0, default=1.0)  # ty: ignore[invalid-type-form]
+    tint: bpy.props.FloatVectorProperty(name="Tint", description="Color the source multiplies", subtype="COLOR", size=3, default=(1.0, 1.0, 1.0))  # ty: ignore[invalid-type-form]
+    color: bpy.props.FloatVectorProperty(name="Color", description="Scene-linear world color", subtype="COLOR", size=3, default=(0.0508761, 0.0508761, 0.0508761))  # ty: ignore[invalid-type-form]
+    top: bpy.props.FloatVectorProperty(name="Top", description="Gradient color at frame top", subtype="COLOR", size=3, default=(0.2, 0.2, 0.2))  # ty: ignore[invalid-type-form]
+    bottom: bpy.props.FloatVectorProperty(name="Bottom", description="Gradient color at frame bottom", subtype="COLOR", size=3, default=(0.02, 0.02, 0.02))  # ty: ignore[invalid-type-form]
+    path: bpy.props.StringProperty(name="Image", description="Image file", subtype="FILE_PATH")  # ty: ignore[invalid-type-form]
+    projection: _redeclared(_PROJECTION)  # ty: ignore[invalid-type-form]
+    rotation: bpy.props.FloatProperty(name="Rotation", description="Fixed image rotation", subtype="ANGLE")  # ty: ignore[invalid-type-form]
+    heading: bpy.props.FloatProperty(name="Sun Heading", description="Heading of the image sun turned onto scene sun", subtype="ANGLE")  # ty: ignore[invalid-type-form]
+    use_sun: bpy.props.BoolProperty(name="Follow Sun", description="Sky sun and image rotation follow the scene sun light")  # ty: ignore[invalid-type-form]
+    sky: bpy.props.PointerProperty(type=Sky, name="Sky")  # ty: ignore[invalid-type-form]
 
 
 class Environment(bpy.types.PropertyGroup):
     """World lighting with switched background and reflection overrides."""
 
-    lighting: bpy.props.PointerProperty(type=Backdrop, name="Lighting")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_camera: bpy.props.BoolProperty(name="Background", description="Show another source to the camera")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    camera: bpy.props.PointerProperty(type=Backdrop, name="Background")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_glossy: bpy.props.BoolProperty(name="Reflection", description="Show another source in glossy reflections")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    glossy: bpy.props.PointerProperty(type=Backdrop, name="Reflection")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    lighting: bpy.props.PointerProperty(type=Backdrop, name="Lighting")  # ty: ignore[invalid-type-form]
+    use_camera: bpy.props.BoolProperty(name="Background", description="Show another source to the camera")  # ty: ignore[invalid-type-form]
+    camera: bpy.props.PointerProperty(type=Backdrop, name="Background")  # ty: ignore[invalid-type-form]
+    use_glossy: bpy.props.BoolProperty(name="Reflection", description="Show another source in glossy reflections")  # ty: ignore[invalid-type-form]
+    glossy: bpy.props.PointerProperty(type=Backdrop, name="Reflection")  # ty: ignore[invalid-type-form]
 
 
 class _WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):

@@ -64,7 +64,7 @@ class Move(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_TREE_TYPE: Final[bpy.types.EnumProperty] = bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_TREE_TYPE: Final[bpy.types.EnumProperty] = bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]  # ty: ignore[invalid-assignment]
 _TREE_ICON: Final = _TREE_TYPE.enum_items[_definition(bpy.types.CompositorNodeTree).identifier].icon
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -73,13 +73,13 @@ _TREE_ICON: Final = _TREE_TYPE.enum_items[_definition(bpy.types.CompositorNodeTr
 class Choice(bpy.types.PropertyGroup):
     """Offered effect a command adds, its items the offering rows."""
 
-    kind: bpy.props.EnumProperty(name="Effect", description="Offered effect", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    kind: bpy.props.EnumProperty(name="Effect", description="Offered effect", items=())  # ty: ignore[invalid-type-form]
 
 
 class Shift(Named):
     """Named entry and requested move."""
 
-    toward: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    toward: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
         name="Toward", items=choices((move.name, bpy.path.display_name(move.name.lower()), move.description) for move in Move), default=Move.PROCESSING_ORDER.name
     )
 
@@ -154,7 +154,7 @@ class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def form(self) -> TypeForm[CompositorRecord]:
         """Union of offered record types."""
-        return reduce(or_, (row.record for row in self.rows))  # ty: ignore[unsound-return-statement]
+        return reduce(or_, (row.record for row in self.rows))
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
@@ -307,7 +307,7 @@ class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def separated(entry: bpy.types.SceneCompositorEffect, owner: Ownership[bpy.types.NodeTree], group: bpy.types.NodeTree) -> Outcome[bool]:
             with ExitStack() as rollback:
-                copied: bpy.types.NodeTree = group.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                copied: bpy.types.NodeTree = group.copy()  # ty: ignore[invalid-assignment]
                 return _retained(owner.owned(identity, copied, of=Some(scene), scope=Some(rollback)).bind(lambda owned: written(entry, ("node_group",), owned)).map(lambda _: True), rollback)
 
         def placed(pinned: Pinned, group: bpy.types.CompositorNodeTree) -> Outcome[bool]:

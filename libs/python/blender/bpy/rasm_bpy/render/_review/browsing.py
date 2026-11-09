@@ -58,16 +58,16 @@ class Baseline(Enum):
 class Browsing(bpy.types.PropertyGroup):
     """History browser of one window manager: the before frame source, the stored render drawn as before frame by its key and its gallery, and the difference tint."""
 
-    baseline: bpy.props.EnumProperty(name="Before Frame", description="Stored render, or the shown render's view layer ahead of scene effects", items=enum_choices(Baseline))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    picked: bpy.props.StringProperty(name="Stored Render", description="Key of the stored render drawn as before frame", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    shown: bpy.props.EnumProperty(name="Before", description="Stored render drawn as before frame", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    difference: bpy.props.BoolProperty(name="Difference", description="Tint pixels by perceived difference from the before frame")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    baseline: bpy.props.EnumProperty(name="Before Frame", description="Stored render, or the shown render's view layer ahead of scene effects", items=enum_choices(Baseline))  # ty: ignore[invalid-type-form]
+    picked: bpy.props.StringProperty(name="Stored Render", description="Key of the stored render drawn as before frame", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
+    shown: bpy.props.EnumProperty(name="Before", description="Stored render drawn as before frame", items=())  # ty: ignore[invalid-type-form]
+    difference: bpy.props.BoolProperty(name="Difference", description="Tint pixels by perceived difference from the before frame")  # ty: ignore[invalid-type-form]
 
 
 class Noting(bpy.types.PropertyGroup):
     """Note on a stored render."""
 
-    note: bpy.props.StringProperty(name="Note", description="Stored render note")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    note: bpy.props.StringProperty(name="Note", description="Stored render note")  # ty: ignore[invalid-type-form]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------

@@ -5,9 +5,9 @@ import { Unmatched } from '@rasm/search';
 import { Array, Context, Effect, Function, flow, Match, Option, Predicate, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import type { RpcGroup } from 'effect/rpc';
-import { Adobe } from '#/adobe.ts';
-import { type Libraries, library, type listening } from '#/libraries.ts';
-import type { status } from '#/status.ts';
+import { Adobe } from '#/adobe';
+import { type Libraries, library, type listening } from '#/libraries';
+import type { status } from '#/status';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

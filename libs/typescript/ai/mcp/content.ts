@@ -1,6 +1,6 @@
 import { Effect, Option, Schema, SchemaGetter, String } from 'effect';
 import { McpSchema } from 'effect/ai';
-import { Server } from '#/server.ts';
+import { Server } from '#/server';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

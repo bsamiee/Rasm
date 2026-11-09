@@ -9,7 +9,7 @@ lazy import unicodedata
 
 lazy from expression.extra.result import catch
 lazy from fontTools.misc.transform import Offset
-lazy from fontTools.ttLib.tables.otTables import ExtensionSubst, LigatureSubst  # type: ignore[attr-defined] # ty: ignore[unresolved-import]
+lazy from fontTools.ttLib.tables.otTables import ExtensionSubst, LigatureSubst  # ty: ignore[import-not-found]
 lazy from pathops import PathOp
 
 lazy from rasm_typography._faces.glyphs import _Joining, _Outline, _Side
@@ -256,7 +256,7 @@ def _seam(binary: _Binary, corpus: _Corpus, band: tuple[float, float], sizes: tu
 def _pitch(binary: _Binary, /) -> float:
     """Line pitch in em the `hhea` ascender, descender, and line gap state."""
     hhea = binary.tables["hhea"]
-    return (hhea.ascent - hhea.descent + hhea.lineGap) / binary.face.upem  # type: ignore[attr-defined, no-any-return] # ty: ignore[unresolved-attribute, unsound-return-statement]
+    return (hhea.ascent - hhea.descent + hhea.lineGap) / binary.face.upem  # type: ignore[no-any-return] # ty: ignore[unresolved-attribute, unsound-return-statement]
 
 
 def _metrics(binary: _Binary, original: _Binary, corpus: _Corpus, pitch: tuple[float, float] | None, /) -> tuple[_Breach, ...]:
@@ -287,8 +287,8 @@ def _metrics(binary: _Binary, original: _Binary, corpus: _Corpus, pitch: tuple[f
     top, bottom = max(extents, key=lambda extent: extent[1].ymax, default=None), min(extents, key=lambda extent: extent[1].ymin, default=None)
     return (  # ty: ignore[unsound-return-statement]
         *((("line pitch", line, low if line < low else high),) if not low <= line <= high else ()),
-        *(((f"win ascent at {top[0]}", top[1].ymax / upm, os2.usWinAscent / upm),) if top and top[1].ymax > os2.usWinAscent else ()),  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
-        *(((f"win descent at {bottom[0]}", -bottom[1].ymin / upm, os2.usWinDescent / upm),) if bottom and -bottom[1].ymin > os2.usWinDescent else ()),  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
+        *(((f"win ascent at {top[0]}", top[1].ymax / upm, os2.usWinAscent / upm),) if top and top[1].ymax > os2.usWinAscent else ()),  # ty: ignore[unresolved-attribute]
+        *(((f"win descent at {bottom[0]}", -bottom[1].ymin / upm, os2.usWinDescent / upm),) if bottom and -bottom[1].ymin > os2.usWinDescent else ()),  # ty: ignore[unresolved-attribute]
     )
 
 

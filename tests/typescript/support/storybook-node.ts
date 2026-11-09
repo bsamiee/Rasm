@@ -9,7 +9,8 @@ const located = (name: string) => dirname(fileURLToPath(import.meta.resolve(`${n
 
 const framework = located('@storybook/react-vite');
 const addons = ['@storybook/addon-vitest', '@storybook/addon-a11y', '@storybook/addon-docs'].map(located);
+const core = { disableTelemetry: true } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { addons, framework };
+export { addons, core, framework };

@@ -6,11 +6,11 @@ import { Quran } from '@rasm/typography/quran';
 import { Face, Kerning, Symbols, Word } from '@rasm/typography/shaping';
 import { Array, Cause, Effect, Equal, FileSystem, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
-import { AbsolutePath } from '#/absolute-path.ts';
-import { Adobe } from '#/adobe.ts';
-import { AvailableFace } from '#/available-face.ts';
-import { applicationFont } from '#/features/fonts.ts';
-import type { routes } from '#/routes.ts';
+import { AbsolutePath } from '#/absolute-path';
+import { Adobe } from '#/adobe';
+import { AvailableFace } from '#/available-face';
+import { applicationFont } from '#/features/fonts';
+import type { routes } from '#/routes';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

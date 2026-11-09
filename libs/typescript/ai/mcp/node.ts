@@ -5,7 +5,7 @@ import { Command, Flag } from 'effect/cli';
 import { FetchHttpClient, HttpRouter } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { Otlp, OtlpSerialization } from 'effect/observability';
-import { Server } from '#/server.ts';
+import { Server } from '#/server';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -6,8 +6,8 @@ import { Unmatched } from '@rasm/search';
 import { Array, Cause, type Duration, Effect, Equal, flow, Iterable, Option, Order, pipe, RcMap, Record, Result, Schema, SchemaTransformation, Scope, Stream, String, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/ai';
 import { type Definition, type DefinitionLink, DefinitionRequest, type Diagnostic, DiagnosticSeverity, type Hover, HoverRequest, type Location, LocationLink, type Range, ReferencesRequest, RequestType, type TextDocumentIdentifier, type TextDocumentItem } from 'vscode-languageserver-protocol/node';
-import { LanguageServer } from '#/language-server.ts';
-import { watchWorkspace } from '#/watch-workspace.ts';
+import { LanguageServer } from '#/language-server';
+import { watchWorkspace } from '#/watch-workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

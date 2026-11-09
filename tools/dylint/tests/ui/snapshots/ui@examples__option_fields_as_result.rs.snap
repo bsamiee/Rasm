@@ -1,0 +1,69 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/option_fields_as_result.rs
+---
+warning: `map_or` replaces `&ParseIntError` with a fallback value
+  --> tools/dylint/examples/option_fields_as_result.rs:68:64
+   |
+68 | fn outcome(outcome: &Outcome) -> u16 { outcome.result.as_ref().map_or(0, |port| *port) }
+   |                                                                ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+   = note: `#[warn(discarded_error)]` on by default
+
+warning: text of error `std::num::ParseIntError` is stored
+  --> tools/dylint/examples/option_fields_as_result.rs:90:59
+   |
+90 |         Err(error) => Exchange { value: None, error: Some(error.to_string()) },
+   |                                                           ^^^^^^^^^^^^^^^^^
+   |
+   = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+   = note: `#[warn(stringified_error)]` on by default
+
+warning: `unwrap_or_default` replaces `ReadError` with a fallback value
+   --> tools/dylint/examples/option_fields_as_result.rs:107:56
+    |
+107 |         read(Path::new("port")).map(|text| text.len()).unwrap_or_default(),
+    |                                                        ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+
+warning: every construction of `Parsed` sets exactly one of success `port` and failure `failure`
+  --> tools/dylint/examples/option_fields_as_result.rs:35:5
+   |
+35 |     failure: Option<ParseIntError>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: `port` declared here
+  --> tools/dylint/examples/option_fields_as_result.rs:34:5
+   |
+34 |     port: Option<u16>,
+   |     ^^^^^^^^^^^^^^^^^
+   = help: replace `port` and `failure` with one `Result<u16, ParseIntError>` field
+   = note: `#[warn(option_fields_as_result)]` on by default
+
+warning: every construction of `Reply` sets exactly one of success `value` and failure `refusal`
+  --> tools/dylint/examples/option_fields_as_result.rs:41:5
+   |
+41 |     refusal: Option<Closed>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: `value` declared here
+  --> tools/dylint/examples/option_fields_as_result.rs:40:5
+   |
+40 |     value: Option<u16>,
+   |     ^^^^^^^^^^^^^^^^^^
+   = help: replace `value` and `refusal` with one `Result<u16, Closed>` field
+
+warning: every construction of `Exchange` sets exactly one of success `value` and failure `error`
+  --> tools/dylint/examples/option_fields_as_result.rs:84:5
+   |
+84 |     pub error: Option<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: `value` declared here
+  --> tools/dylint/examples/option_fields_as_result.rs:83:5
+   |
+83 |     pub value: Option<u32>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   = help: replace `value` and `error` with one `Result<u32, String>` field

@@ -5,9 +5,9 @@ name            = "rasm-refurb-tests"
 version         = "0.0.0"
 requires-python = ">=3.15"
 
-dependencies = ["fastapi", "hypothesis", "msgspec[toml]", "mypy", "pytest", "rasm-refurb", "rasm-testing", "refurb", "structlog"]
+dependencies = ["fake-bpy-module-latest", "fastapi", "hypothesis", "msgspec[toml]", "mypy", "pytest", "rasm-refurb", "rasm-testing", "refurb", "structlog"]
 
 # --- [FAWLTYDEPS] -----------------------------------------------------------------------
 
 [tool.fawltydeps]
-ignore_unused = ["fastapi", "pytest", "rasm-testing", "refurb"] # Driver sample sources import FastAPI, pytest loads `rasm-testing` by entry point, and isort reads this folder's name as a first-party `refurb`
+ignore_unused = ["fake-bpy-module-latest", "fastapi", "pytest", "rasm-testing", "refurb"] # Driver sample sources import bpy and FastAPI, `rasm-testing` brings the pytest plugins it loads by entry point, and isort reads this folder's name as a first-party `refurb`

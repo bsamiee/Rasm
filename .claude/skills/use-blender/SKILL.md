@@ -5,7 +5,7 @@ description: "Use when driving Blender or reading bpy members from the installed
 
 # [USE_BLENDER]
 
-Covers MCP-driven GUI sessions, background runs, extension installs, logs, and evaluation runs of Blender at `BLENDER_PATH`, with workflows installed extensions serve. Use `blender-coding` for code a session or run executes.
+Covers MCP-driven GUI sessions, background runs, extension installs, logs, and evaluation runs of the `blender` executable on `PATH` (on macOS, `/Applications/Blender.app/Contents/MacOS`), with workflows installed extensions serve. Use `blender-coding` for code a session or run executes.
 
 [REFERENCES]:
 - [01]-[GIS_SITE](references/gis-site.md): Georeferenced scenes, terrain, imagery, OSM, point clouds, and sun placement
@@ -111,11 +111,11 @@ Window reads name what Blender shows before a call that depends on it:
 Arguments apply left to right, `--python-exit-code` and the `.blend` before `--python`, and `-o`, `-F`, `-E` before `-f`:
 
 ```bash
-"$BLENDER_PATH" --python-use-system-env --background <file.blend> -o <absolute path> -E <engine> --python-exit-code 1 --python <absolute script.py> -- <args>
+blender --python-use-system-env --background <file.blend> -o <absolute path> -E <engine> --python-exit-code 1 --python <absolute script.py> -- <args>
 ```
 
 Background runs follow host rules:
-- Runs using installed extensions start `"$BLENDER_PATH"` on the user's profile, every other run passes arguments to `rasm-eng run <name> --`
+- Runs using installed extensions start `blender` on the user's profile, every other run passes arguments to `rasm-eng run <name> --`
 - Tracebacks exit 0 without `--python-exit-code`, and `sys.exit(<n>)` exits `<n>`
 - Background runs hold no event loop, and `bpy.app.timers` and msgbus callbacks never run
 - Modal operators return `RUNNING_MODAL` without stepping, and invoke-only operators return `PASS_THROUGH`
@@ -127,26 +127,26 @@ Background runs follow host rules:
 
 Background renders use named files saved in place, untitled and scratch scenes render in GUI without saving:
 1. `bpy.ops.wm.save_mainfile()` in the GUI
-2. `"$BLENDER_PATH" --background <file.blend> -o <absolute dir>/<stem>_#### -f <frame>` with `run_in_background: true` logs `Saved: '<path>'`
+2. `blender --background <file.blend> -o <absolute dir>/<stem>_#### -f <frame>` with `run_in_background: true` logs `Saved: '<path>'`
 
 ## [06]-[MEMBERS]
 
-Member, signature, enum, and operator property facts come from the installed build, each printed by `rasm-eng run members -- --background --python-expr "import bpy; print(<expr>)"`, extension members by `"$BLENDER_PATH"` with the same arguments:
+Member, signature, enum, and operator property facts come from the installed build, each printed by `rasm-eng run members -- --background --python-expr "import bpy; print(<expr>)"`, extension members by `blender` with the same arguments:
 - `<Type>.bl_rna.properties["<name>"]` reads `type`, `fixed_type`, `is_readonly`, `enum_items`, and `array_dimensions`
 - `<Type>.bl_rna.functions["<name>"].parameters` lists a method's parameters, `bpy.ops.<module>.<op>.get_rna_type().properties` an operator's
 - `<function>.__doc__` prints the signature of a Python-level function (`bpy.app.timers.register`, `bpy.utils.*`)
 
 Searches find code using a member:
-- `rg <member> "${BLENDER_PATH%/MacOS/Blender}/Resources/<version>/scripts"` finds stock code
+- `rg <member> <scripts>` finds stock code, `bpy.utils.system_resource("SCRIPTS")` printing `<scripts>`
 - `rg` over `~/Library/Application Support/Blender/<version>/extensions` and `scripts/addons` finds extension code
 
 ## [07]-[EXTENSIONS]
 
-Use `manage-repo` for extension projects and their `pack` and `install` targets.
+`nx build <project>` writes an extension project's archives under `.artifacts/blender/<id>`, and `nx install <project>` installs the one for this platform through `install-file`.
 
 Repository `user_default` holds extensions installed from a file, remote repositories the rest:
 - `install-file` over an installed extension replaces its folder and modules whatever the archive version
-- `"$BLENDER_PATH" --command extension remove user_default.<id>` uninstalls with no GUI running
+- `blender --command extension remove user_default.<id>` uninstalls with no GUI running
 - `install-file` exits 0 on install and on a platform or version refusal, and 1 on a failed `--enable`
 - `install-file` output's `STATUS Installed "<id>"`, `STATUS Reinstalled "<id>"`, or `ERROR <id>: <reason>` line states the result
 - `install` and `install-file` save preferences an enable or asset library changed, and `remove`, `repo-add`, and `repo-remove` always save
@@ -158,13 +158,13 @@ Repository `user_default` holds extensions installed from a file, remote reposit
 
 Each source writes its log to one place:
 
-| [INDEX] | [SOURCE]          | [OUTPUT]                                                                      |
-| :-----: | :---------------- | :---------------------------------------------------------------------------- |
-|  [01]   | Background run    | Calling shell                                                                 |
-|  [02]   | `pack`, `install` | Nx task output, native install output forwarded from the GUI                  |
-|  [03]   | Task GUI          | `execute_blender_code` answers, Info editor lines in `window_manager.reports` |
-|  [04]   | Crash, Blender    | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR` |
-|  [05]   | Extension logger  | `extension.log` under `extension_path_user`, JSON lines across sessions       |
+| [INDEX] | [SOURCE]           | [OUTPUT]                                                                      |
+| :-----: | :----------------- | :---------------------------------------------------------------------------- |
+|  [01]   | Background run     | Calling shell                                                                 |
+|  [02]   | `build`, `install` | Nx task output, native install output forwarded from the GUI                  |
+|  [03]   | Task GUI           | `execute_blender_code` answers, Info editor lines in `window_manager.reports` |
+|  [04]   | Crash, Blender     | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR` |
+|  [05]   | Extension logger   | `extension.log` under `extension_path_user`, JSON lines across sessions       |
 
 Log reads follow host rules:
 - Blender Python reads Python variables (`PYTHONUNBUFFERED`, `PYTHONPYCACHEPREFIX`) under `--python-use-system-env` alone, prints reaching the log per line and bytecode `.cache/pycache`

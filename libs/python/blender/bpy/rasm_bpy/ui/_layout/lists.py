@@ -100,7 +100,7 @@ class _ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=
         """Realizes the list with its entry buttons and side column, absent rows while no owner holds the collection."""
 
         def built(collection: ResolvedMember[bpy.types.CollectionProperty], selection: Member[type[Struct]]) -> Outcome[RowDraw]:
-            fixed: Struct = collection.descriptor.prop.fixed_type  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            fixed: Struct = collection.descriptor.prop.fixed_type  # ty: ignore[invalid-assignment]
             tip = _member(self.tip, type(fixed))
             keywords = {**self.keywords, **({"sort_lock": True} if _dragging(self.move, collection) else {})}
             tipped = tip.map(lambda held: {**keywords, **held.map(lambda bound: {"item_dyntip_propname": bound.descriptor.prop.identifier}).default_value({})})
@@ -128,7 +128,7 @@ class _ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=
         for listing, picking in product(found.to_list(), selection.at(holder, context).to_list()):
             match tuple(path for owner, key in (listing, picking) if isinstance(owner, bpy.types.bpy_struct) for path in _context_path(owner, key).to_list()):
                 case (items, index) if collection.descriptor.prop.is_runtime and self.move.is_none():
-                    column: bpy.types.UILayout = draw_ui_list(layout, context, name, unique_id=_owner_key(listing[0]), list_path=items, active_index_path=index, **keywords)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                    column: bpy.types.UILayout = draw_ui_list(layout, context, name, unique_id=_owner_key(listing[0]), list_path=items, active_index_path=index, **keywords)  # ty: ignore[invalid-argument-type]
                 case _:
                     row = layout.row()
                     getattr(row, _FUNCTIONS["template_list"].identifier)(name, _owner_key(listing[0]), *listing, *picking, **keywords)
@@ -194,7 +194,7 @@ class _ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=
         self, identity: Identity, name: str, collection: ResolvedMember[bpy.types.CollectionProperty], pointer: Option[ResolvedMember], *, dragging: bool
     ) -> Outcome[tuple[builtins.type[bpy.types.UIList], ...]]:
         """Builds the list class once its tier opens and its fields, cells, item members, and drag operator resolve."""
-        fixed: Struct = collection.descriptor.prop.fixed_type  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        fixed: Struct = collection.descriptor.prop.fixed_type  # ty: ignore[invalid-assignment]
         kind = type(fixed)
         label = Option.of_optional(_definition(fixed).name_property).map(lambda named: named.identifier)
 
@@ -249,7 +249,7 @@ class _ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=
             def filter_items(ui: bpy.types.UIList, context: bpy.types.Context, data: Struct, propname: str) -> tuple[list[int], list[int]]:
                 items: bpy.types.bpy_prop_collection[_O_contra] = getattr(data, propname)  # ty: ignore[unsound-assignment]
                 flag, held = ui.bitflag_filter_item, identity.reports.reported(_held)
-                named = label.map(lambda member: bpy.types.UI_UL_list.filter_items_by_name(ui.filter_name, flag, items, member, reverse=ui.use_filter_invert)).default_value(list[int]()) or [  # type: ignore[arg-type]
+                named = label.map(lambda member: bpy.types.UI_UL_list.filter_items_by_name(ui.filter_name, flag, items, member, reverse=ui.use_filter_invert)).default_value(list[int]()) or [
                     flag
                 ] * len(items)
                 flags = [kept if all(held(where, context, ui, item) == Some(True) for where in self.where.to_list()) else ui.bitflag_item_never_show for kept, item in zip(named, items)]
@@ -257,7 +257,7 @@ class _ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=
                     case _ if ui.use_filter_sort_lock:
                         return flags, []
                     case _, Option(tag="some", some=member) if ui.use_filter_sort_alpha:
-                        return flags, bpy.types.UI_UL_list.sort_items_by_name(items, member)  # type: ignore[arg-type]  # ty: ignore[invalid-return-type]
+                        return flags, bpy.types.UI_UL_list.sort_items_by_name(items, member)  # ty: ignore[invalid-return-type]
                     case Option(tag="some", some=bound), _:
                         ranked = partial(_ranked, bound)
                         return flags, bpy.types.UI_UL_list.sort_items_helper([(position, ranked(item)) for position, item in enumerate(items)], lambda pair: pair[1])  # type: ignore[misc]  # ty: ignore[invalid-return-type]
@@ -361,7 +361,7 @@ def _ranked(bound: ResolvedMember, item: Struct) -> tuple[bool, object]:
 
 def _menued(name: str, draw: RowDraw, menu: bpy.types.Menu, context: bpy.types.Context) -> None:
     """Draws the menu rows while the clicked list is the named list."""
-    layout: bpy.types.UILayout = menu.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    layout: bpy.types.UILayout = menu.layout  # ty: ignore[invalid-assignment]
     if Option.of_optional(context.ui_list).filter(lambda ui: ui.bl_idname == name).is_some():
         draw(layout, context, context)
 

@@ -1,7 +1,12 @@
 {
     "executors": {
+        "extension-build": {
+            "implementation": "./dist/executors/extension-build/executor#execute",
+            "schema": "./executors/extension-build/schema.json",
+            "description": "Builds a uv workspace member's Blender extension archives with blender --command extension build"
+        },
         "release-publish": {
-            "implementation": "./dist/executors/release-publish/executor",
+            "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
             "description": "Publishes a uv workspace member's built distributions with uv publish"
         }

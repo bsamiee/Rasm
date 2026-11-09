@@ -14,6 +14,7 @@
                 "name": "@effect/language-service",
                 "ignoreEffectSuggestionsInTscExitCode": false,
                 "allowedUnstableApis": [ "effect", "@effect" ],
+                "allowedExperimentalApis": [ "effect", "@effect" ],
                 "barrelImportPackages": [ "effect" ],
                 "effectFn": [ "span", "untraced" ],
                 "keyPatterns": [ { "target": "service" }, { "target": "custom" }, { "target": "error", "pattern": "identifier" }, { "target": "taggedClass", "pattern": "identifier" } ],

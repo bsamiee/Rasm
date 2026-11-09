@@ -50,7 +50,7 @@ class Beside(msgspec.Struct, frozen=True):
 
     def members(self, _identity: Identity) -> dict[str, object]:
         """Copies the stock panel's editor, region, and whichever of tab context and Sidebar category it declares."""
-        declared: type[bpy.types.Panel] = self.panel  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        declared: type[bpy.types.Panel] = self.panel  # ty: ignore[invalid-assignment]
         tabs = {"bl_context": catch(lambda: declared.bl_context, exception=AttributeError)(), "bl_category": catch(lambda: declared.bl_category, exception=AttributeError)()}
         return {"bl_space_type": declared.bl_space_type, "bl_region_type": declared.bl_region_type, **{member: tab for member, held in tabs.items() for tab in held.to_option().to_list()}}
 
@@ -62,7 +62,7 @@ class Child(msgspec.Struct, frozen=True, kw_only=True):
 
     def members(self, _identity: Identity) -> dict[str, object]:
         """Copies the parent's editor and region and names it as parent."""
-        parent: type[bpy.types.Panel] = self.parent  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        parent: type[bpy.types.Panel] = self.parent  # ty: ignore[invalid-assignment]
         return {"bl_space_type": parent.bl_space_type, "bl_region_type": parent.bl_region_type, "bl_parent_id": _definition(parent).identifier}
 
 
@@ -254,7 +254,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
         """Returns a copy's key suffix: the stock panel's identifier, or the editor with its tab or region, in lowercase snake case."""
         match at:
             case Beside(panel=stock) | Child(parent=stock):
-                declared: type[bpy.types.Panel] = stock  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                declared: type[bpy.types.Panel] = stock  # ty: ignore[invalid-assignment]
                 text = _definition(declared).identifier
             case Sidebar(space=space, category=named) | EditorRegion(space=space, region=named):
                 text = f"{space} {named}"

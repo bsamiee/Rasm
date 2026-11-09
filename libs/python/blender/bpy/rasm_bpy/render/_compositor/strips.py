@@ -44,7 +44,7 @@ class StripHolder(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ACTIVE: Final[RnaPath] = ("workspace", "sequencer_scene", "sequence_editor", "active_strip")
-_ACTIVE_PROPERTY: Final[bpy.types.PointerProperty] = bpy.types.SequenceEditor.bl_rna.properties[_ACTIVE[-1]]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_ACTIVE_PROPERTY: Final[bpy.types.PointerProperty] = bpy.types.SequenceEditor.bl_rna.properties[_ACTIVE[-1]]  # ty: ignore[invalid-assignment]
 _STRIP: Final[Key] = "strip"
 _COMPOSITOR: Final = "COMPOSITOR"
 
@@ -69,14 +69,14 @@ def _libraries(_owner: Struct, context: bpy.types.Context | None) -> tuple[EnumI
 class StripChoice(Choice):
     """Effect placement on active sequencer strip."""
 
-    placement: bpy.props.EnumProperty(name="Placement", items=choices((holder.name, bpy.path.display_name(holder.name.lower()), holder.value) for holder in StripHolder))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    placement: bpy.props.EnumProperty(name="Placement", items=choices((holder.name, bpy.path.display_name(holder.name.lower()), holder.value) for holder in StripHolder))  # ty: ignore[invalid-type-form]
 
 
 class Saving(bpy.types.PropertyGroup):
     """User asset library and catalog for active effect group."""
 
-    library: bpy.props.EnumProperty(name="Library", items=_libraries)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    catalog: bpy.props.StringProperty(name="Catalog", default="Effects")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    library: bpy.props.EnumProperty(name="Library", items=_libraries)  # ty: ignore[invalid-type-form]
+    catalog: bpy.props.StringProperty(name="Catalog", default="Effects")  # ty: ignore[invalid-type-form]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------

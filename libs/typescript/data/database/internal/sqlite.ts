@@ -1,9 +1,9 @@
 import { Array, Cause, Effect, Equal, Filter, Function, Graph, HashSet, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
-import { atomic } from '#/atomic.ts';
-import type { Catalog } from '#/catalog.ts';
-import type { Engine } from '#/internal/engine.ts';
-import { constant, diff, identifier, literal, referentialActions, render, unsupported } from '#/internal/reconcile.ts';
+import { atomic } from '#/atomic';
+import type { Catalog } from '#/catalog';
+import type { Engine } from '#/internal/engine';
+import { constant, diff, identifier, literal, referentialActions, render, unsupported } from '#/internal/reconcile';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

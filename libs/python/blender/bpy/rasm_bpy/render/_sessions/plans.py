@@ -83,7 +83,7 @@ _ONLINE: Final = Setting(descriptor=Descriptor(root=bpy.types.Preferences, owner
 class Dispatch(bpy.types.PropertyGroup):
     """Dispatch dialog options."""
 
-    scope: bpy.props.EnumProperty(name="Render", description="Scope queue renders", items=enum_choices(RenderScope))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    scope: bpy.props.EnumProperty(name="Render", description="Scope queue renders", items=enum_choices(RenderScope))  # ty: ignore[invalid-type-form]
 
 
 class JobScope(msgspec.Struct, frozen=True, kw_only=True):
@@ -127,7 +127,7 @@ class Sent(msgspec.Struct, frozen=True, kw_only=True):
 class Queued(bpy.types.PropertyGroup):
     """Key of the last dispatched plan, stored in the file text record, empty before the first dispatch."""
 
-    plan: bpy.props.StringProperty(name="Plan", description="Content key of the dispatched plan")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    plan: bpy.props.StringProperty(name="Plan", description="Content key of the dispatched plan")  # ty: ignore[invalid-type-form]
 
     @property
     def dispatched(self) -> Option[str]:
@@ -139,27 +139,27 @@ class Queued(bpy.types.PropertyGroup):
 class QueuePreferences(bpy.types.PropertyGroup):
     """Queue preferences: target, notices, power hold, heartbeat, and Flamenco scripts folder, read as the records the queue runs on."""
 
-    kind: bpy.props.EnumProperty(name="Target", description="Where queue renders", items=case_choices(Target))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    retries: bpy.props.IntProperty(name="Retries", description="Restarts of crashed render from remaining frames", min=0, default=LocalMachine().retries)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    sampled: bpy.props.BoolProperty(name="Sampled", description="Render first two frames of each ready job before others", default=LocalMachine().sampled)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    manager: bpy.props.StringProperty(name="Manager", description="Flamenco Manager address", default=Flamenco().server.url)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    priority: bpy.props.IntProperty(name="Priority", description="Order among queued jobs", default=Flamenco().priority)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    chunk: bpy.props.IntProperty(name="Chunk", description="Frames each task renders", min=1, default=Flamenco().chunk)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    paused: bpy.props.BoolProperty(name="Paused", description="Jobs wait for start from Manager", default=Flamenco().paused)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    tag: bpy.props.StringProperty(name="Worker Tag", description="Workers taking jobs, every worker when empty")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    executable: bpy.props.StringProperty(name="B-Renderon", description="B-Renderon program, queue file alone when empty", subtype="FILE_PATH")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    blender: bpy.props.StringProperty(name="B-Renderon Blender", description="B-Renderon name of rendering Blender", default=Renderon().blender)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    folder: bpy.props.StringProperty(name="Job Folder", description="Job file folder, extension folder when empty", subtype="DIR_PATH")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    command: bpy.props.StringProperty(name="Command", description="Program taking job file path, job file alone when empty", subtype="FILE_PATH")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    server: bpy.props.StringProperty(name="Notice Server", description="ntfy server", default=Listener().server.url)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    topic: bpy.props.StringProperty(name="Notice Topic", description="Topic devices subscribe to, no notices when empty")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    awake: bpy.props.BoolProperty(name="Keep Awake", description="Prevent sleep while queue renders", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    shutdown: bpy.props.BoolProperty(name="Shut Down", description="Shut down one minute after queue finishes")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    interval: bpy.props.FloatProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    kind: bpy.props.EnumProperty(name="Target", description="Where queue renders", items=case_choices(Target))  # ty: ignore[invalid-type-form]
+    retries: bpy.props.IntProperty(name="Retries", description="Restarts of crashed render from remaining frames", min=0, default=LocalMachine().retries)  # ty: ignore[invalid-type-form]
+    sampled: bpy.props.BoolProperty(name="Sampled", description="Render first two frames of each ready job before others", default=LocalMachine().sampled)  # ty: ignore[invalid-type-form]
+    manager: bpy.props.StringProperty(name="Manager", description="Flamenco Manager address", default=Flamenco().server.url)  # ty: ignore[invalid-type-form]
+    priority: bpy.props.IntProperty(name="Priority", description="Order among queued jobs", default=Flamenco().priority)  # ty: ignore[invalid-type-form]
+    chunk: bpy.props.IntProperty(name="Chunk", description="Frames each task renders", min=1, default=Flamenco().chunk)  # ty: ignore[invalid-type-form]
+    paused: bpy.props.BoolProperty(name="Paused", description="Jobs wait for start from Manager", default=Flamenco().paused)  # ty: ignore[invalid-type-form]
+    tag: bpy.props.StringProperty(name="Worker Tag", description="Workers taking jobs, every worker when empty")  # ty: ignore[invalid-type-form]
+    executable: bpy.props.StringProperty(name="B-Renderon", description="B-Renderon program, queue file alone when empty", subtype="FILE_PATH")  # ty: ignore[invalid-type-form]
+    blender: bpy.props.StringProperty(name="B-Renderon Blender", description="B-Renderon name of rendering Blender", default=Renderon().blender)  # ty: ignore[invalid-type-form]
+    folder: bpy.props.StringProperty(name="Job Folder", description="Job file folder, extension folder when empty", subtype="DIR_PATH")  # ty: ignore[invalid-type-form]
+    command: bpy.props.StringProperty(name="Command", description="Program taking job file path, job file alone when empty", subtype="FILE_PATH")  # ty: ignore[invalid-type-form]
+    server: bpy.props.StringProperty(name="Notice Server", description="ntfy server", default=Listener().server.url)  # ty: ignore[invalid-type-form]
+    topic: bpy.props.StringProperty(name="Notice Topic", description="Topic devices subscribe to, no notices when empty")  # ty: ignore[invalid-type-form]
+    awake: bpy.props.BoolProperty(name="Keep Awake", description="Prevent sleep while queue renders", default=True)  # ty: ignore[invalid-type-form]
+    shutdown: bpy.props.BoolProperty(name="Shut Down", description="Shut down one minute after queue finishes")  # ty: ignore[invalid-type-form]
+    interval: bpy.props.FloatProperty(  # ty: ignore[invalid-type-form]
         name="Heartbeat", description="Seconds between progress record touches", subtype="TIME_ABSOLUTE", min=float(np.finfo(np.float32).tiny), max=threading.TIMEOUT_MAX, default=3.0
     )
-    misses: bpy.props.IntProperty(name="Missed Heartbeats", description="Missed heartbeats before run reads as stopped", min=2, default=10)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    scripts_folder: bpy.props.StringProperty(name="Flamenco Scripts", description="Manager job type scripts folder, none when empty", subtype="DIR_PATH")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    misses: bpy.props.IntProperty(name="Missed Heartbeats", description="Missed heartbeats before run reads as stopped", min=2, default=10)  # ty: ignore[invalid-type-form]
+    scripts_folder: bpy.props.StringProperty(name="Flamenco Scripts", description="Manager job type scripts folder, none when empty", subtype="DIR_PATH")  # ty: ignore[invalid-type-form]
 
     @property
     def target(self) -> Target:

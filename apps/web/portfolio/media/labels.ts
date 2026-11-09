@@ -1,8 +1,8 @@
 import { Format } from '@rasm/ui';
 import { Array, Option, String } from 'effect';
-import type { Sheet } from '#/model/asset.ts';
-import type { Composition, Placement } from '#/model/placement.ts';
-import type { Entry } from '#/model/portfolio.ts';
+import type { Sheet } from '#/model/asset';
+import type { Composition, Placement } from '#/model/placement';
+import type { Entry } from '#/model/portfolio';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

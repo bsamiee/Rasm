@@ -1,0 +1,18 @@
+# --- [YAMLLINT] -------------------------------------------------------------------------
+
+extends: default
+
+ignore: [pnpm-lock.yaml]
+
+rules:
+    comments:
+        level: error
+        min-spaces-from-content: 1
+    comments-indentation:
+        level: error
+    document-start: disable
+    indentation: disable
+    line-length: disable
+    truthy:
+        level: error
+        check-keys: false

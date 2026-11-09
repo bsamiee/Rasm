@@ -116,13 +116,13 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, area: bpy.types.Area, region: bpy.types.Region, phase: DrawType = "POST_PIXEL", pointer: Option[tuple[int, int]] = Nothing) -> Self:
         """Reads the region's visible extent, in window pixels while a pointer is given, and the clip planes a view phase of a clipping 3D View draws under."""
-        space: bpy.types.Space = area.spaces.active  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        space: bpy.types.Space = area.spaces.active  # ty: ignore[invalid-assignment]
         x, y, width, height = _visible_bounds(area, region)
         origin_x, origin_y = pointer.map(lambda _: (region.x, region.y)).default_value((0, 0))
         match phase, space, region.data:
             case "PRE_VIEW" | "POST_VIEW", bpy.types.SpaceView3D(shading=bpy.types.View3DShading(type="WIREFRAME" | "SOLID")), bpy.types.RegionView3D(use_clip_planes=True) as view:
                 values = np.concatenate((np.identity(4, np.float32).ravel(), np.asarray(view.clip_planes, np.float32).ravel()))
-                clipping = Some(gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", values.shape, values)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                clipping = Some(gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", values.shape, values)))  # ty: ignore[invalid-argument-type]
             case _:
                 clipping = Nothing
         extent = Rect(x=float(x + origin_x), y=float(y + origin_y), width=float(width), height=float(height))
@@ -143,27 +143,27 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
             stack.callback(gpu.state.scissor_test_set, True)  # ruff: ignore[boolean-positional-value-in-call]
             _UNCLIPPED()
             gpu.state.scissor_test_set(True)  # ruff: ignore[boolean-positional-value-in-call]
-            stack.enter_context(gpu.matrix.push_pop())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            stack.enter_context(gpu.matrix.push_pop_projection())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            stack.enter_context(gpu.matrix.push_pop())  # ty: ignore[invalid-argument-type]
+            stack.enter_context(gpu.matrix.push_pop_projection())  # ty: ignore[invalid-argument-type]
             stack.enter_context(Canvas.blended("ALPHA"))
             yield self
 
     @staticmethod
     def blended(mode: Blend) -> AbstractContextManager[None]:
         """Scopes blend mode, restoring the mode it found."""
-        return _restored(gpu.state.blend_get, gpu.state.blend_set, mode)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        return _restored(gpu.state.blend_get, gpu.state.blend_set, mode)  # ty: ignore[invalid-argument-type]
 
     @staticmethod
     def depth_tested(mode: _DepthTest = "LESS_EQUAL") -> AbstractContextManager[None]:
         """Scopes the depth test, by default the test a view drawing hides behind scene geometry with, restoring the test it found."""
-        return _restored(gpu.state.depth_test_get, gpu.state.depth_test_set, mode)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        return _restored(gpu.state.depth_test_get, gpu.state.depth_test_set, mode)  # ty: ignore[invalid-argument-type]
 
     @staticmethod
     @contextmanager
     def mapped(rect: Rect) -> Generator[None]:
         """Scopes a model matrix mapping the unit square onto a rectangle."""
         with ExitStack() as stack:
-            stack.enter_context(gpu.matrix.push_pop())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            stack.enter_context(gpu.matrix.push_pop())  # ty: ignore[invalid-argument-type]
             gpu.matrix.translate((rect.x, rect.y))
             gpu.matrix.scale((rect.width, rect.height))
             yield
@@ -199,7 +199,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
                 def setup() -> None:
                     shader.uniform_block("clip_planes", planes)
-                    shader.uniform_float("ClipModelMatrix", view.view_matrix.inverted() @ gpu.matrix.get_model_view_matrix())  # type: ignore[arg-type]
+                    shader.uniform_float("ClipModelMatrix", view.view_matrix.inverted() @ gpu.matrix.get_model_view_matrix())
                     gpu.state.clip_distances_set(len(view.clip_planes))
 
                 return shader, setup
@@ -239,7 +239,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         """Draws text as given in a font style under the blend mode it found."""
         font, x, y = style.font, *at
         with ExitStack() as stack, _typeset(self.metrics, style):
-            stack.callback(gpu.state.blend_set, gpu.state.blend_get())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            stack.callback(gpu.state.blend_set, gpu.state.blend_get())  # ty: ignore[invalid-argument-type]
             reach = blf.dimensions(font, text)[0] * style.align.value
             blf.color(font, *color)
             blf.position(font, x - reach * math.cos(style.rotation), y - reach * math.sin(style.rotation), 0.0)
@@ -280,7 +280,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         tints = np.repeat(np.where(odd, np.asarray(checker.primary, np.float32), np.asarray(checker.secondary, np.float32)), 4, axis=0)
         indices = (np.arange(left.size, dtype=np.uint32)[:, None, None] * 4 + np.array(((0, 1, 2), (0, 2, 3)), np.uint32)).reshape(-1, 3)
         program = self.shader("FLAT_COLOR")
-        _draw_batch(batch_for_shader(program[0], "TRIS", {"pos": corners, "color": tints}, indices=indices), program)  # type: ignore[arg-type, dict-item]  # ty: ignore[invalid-argument-type]
+        _draw_batch(batch_for_shader(program[0], "TRIS", {"pos": corners, "color": tints}, indices=indices), program)  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
 
 
 # --- [OFFSCREENS]
@@ -310,7 +310,7 @@ class _Offscreen(msgspec.Struct, frozen=True, kw_only=True):
             with ExitStack() as stack:
                 stack.callback(gpu.state.viewport_set, *gpu.state.viewport_get())
                 stack.callback(gpu.state.scissor_set, *gpu.state.scissor_get())
-                with buffer.bind():  # type: ignore[attr-defined,func-returns-value]  # ty: ignore[invalid-context-manager]
+                with buffer.bind():  # type: ignore[func-returns-value]  # ty: ignore[invalid-context-manager]
                     buffer.viewport_set(0, 0, color.width, color.height)
                     gpu.state.scissor_set(0, 0, color.width, color.height)
                     return draw(buffer).bind(lambda _: captured(Rect(x=0.0, y=0.0, width=float(color.width), height=float(color.height))))
@@ -437,7 +437,7 @@ def viewed(
             stack.callback(setattr, overlay, "show_overlays", overlay.show_overlays)
             stack.callback(gpu.state.viewport_set, *gpu.state.viewport_get())
             stack.callback(gpu.state.scissor_set, *gpu.state.scissor_get())
-            stack.enter_context(buffer.bind())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            stack.enter_context(buffer.bind())  # ty: ignore[invalid-argument-type]
             overlay.show_overlays = False
             return (
                 catch(buffer.draw_view3d, exception=RuntimeError)(

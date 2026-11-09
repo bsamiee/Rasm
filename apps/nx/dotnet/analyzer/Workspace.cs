@@ -2,56 +2,35 @@ using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Evaluation.Context;
 using Microsoft.Build.Execution;
+using NuGet.ProjectModel;
 
 namespace MsbuildAnalyzer;
 
 // --- [MODELS] ---------------------------------------------------------------------------
 
-/// <summary>A project reference, with the file whose evaluation declared it.</summary>
-/// <param name="Root">Workspace-relative folder of the referenced project.</param>
-/// <param name="Declared">Workspace-relative file that declares the reference.</param>
 internal sealed record Reference(string Root, string Declared);
 
-/// <summary>Facts one project's evaluations state, every path workspace-relative.</summary>
-/// <param name="File">Project file.</param>
-/// <param name="Name">MSBuild project name.</param>
-/// <param name="Language">MSBuild language of the project.</param>
-/// <param name="Test">Whether the project is a test project or a testing platform application.</param>
-/// <param name="Packable">Whether the project packs to a NuGet package.</param>
-/// <param name="Frameworks">Every target framework the project builds.</param>
-/// <param name="Configurations">Configurations the project declares.</param>
-/// <param name="Runtimes">Runtime identifiers the project states.</param>
-/// <param name="References">Project references across every evaluation.</param>
-/// <param name="Inputs">Files outside the project folder that its evaluation reads.</param>
-/// <param name="Outputs">Output and intermediate folders across every configuration, runtime, and framework.</param>
-/// <param name="Bases">Base output and intermediate folders.</param>
-/// <param name="Restored">Restore-written import the evaluation reads when present.</param>
-/// <param name="Results">Test results folder under the artifacts layout, where the dotnet test command writes it.</param>
+internal sealed record Package(string Id, string Version, string Hash, bool Direct, ImmutableArray<string> Dependencies);
+
 internal sealed record Node(
     string File,
     string Name,
     string Language,
     bool Test,
     bool Packable,
-    ImmutableArray<string> Frameworks,
+    bool Publishable,
     ImmutableArray<string> Configurations,
     ImmutableArray<string> Runtimes,
     ImmutableArray<Reference> References,
     ImmutableArray<string> Inputs,
     ImmutableArray<string> Outputs,
     ImmutableArray<string> Bases,
+    ImmutableArray<Package> Packages,
     string Restored,
     string? Results);
 
-/// <summary>A project file whose evaluation failed.</summary>
-/// <param name="File">Workspace-relative project file.</param>
-/// <param name="Message">MSBuild's message for the failure.</param>
 internal sealed record Failure(string File, string Message);
 
-/// <summary>Every project of one workspace evaluation.</summary>
-/// <param name="Nodes">Projects that evaluated.</param>
-/// <param name="Failures">Projects that failed to evaluate.</param>
-/// <param name="Evaluated">Workspace-relative files any evaluation read.</param>
 internal sealed record Report(ImmutableArray<Node> Nodes, ImmutableArray<Failure> Failures, ImmutableArray<string> Evaluated);
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
@@ -63,7 +42,7 @@ internal static class Workspace {
     private static readonly FrozenSet<string> Projects = FrozenSet.Create(StringComparer.OrdinalIgnoreCase, ".csproj", ".fsproj", ".vbproj");
     private static readonly Seq<string> Linked = Seq("Compile", "AdditionalFiles", "EmbeddedResource", "Content", "GlobalAnalyzerConfigFiles");
     private static readonly Seq<string> Nearest = Seq("global.json", "Directory.Build.rsp");
-    private static readonly Seq<string> Cascading = Seq("nuget.config", ".editorconfig");
+    private static readonly Seq<string> Cascading = Seq("nuget.config", ".editorconfig", ".globalconfig");
 
     public static Report Analyze(string root, Seq<string> files) {
         EvaluationContext context = EvaluationContext.Create(EvaluationContext.SharingPolicy.Shared);
@@ -101,7 +80,7 @@ internal static class Workspace {
                 outer.GetPropertyValue("Language"),
                 instances.Exists(static instance => Flag(instance, "IsTestProject") || Flag(instance, "IsTestingPlatformApplication")),
                 Flag(outer, "IsPackable"),
-                [.. frameworks.IsEmpty ? Seq(outer.GetPropertyValue("TargetFramework")) : frameworks],
+                Flag(outer, "IsPublishable"),
                 [.. Listed(outer, "Configurations")],
                 [.. Listed(outer, "RuntimeIdentifiers")],
                 [.. instances
@@ -117,11 +96,21 @@ internal static class Workspace {
                     .Distinct()
                     .Order(StringComparer.Ordinal)],
                 [.. modes
-                    .Bind(static instance => Seq(instance.GetPropertyValue("OutputPath"), instance.GetPropertyValue("IntermediateOutputPath")))
+                    .Bind(static instance => Seq(instance.GetPropertyValue("OutputPath"), instance.GetPropertyValue("IntermediateOutputPath")) + (Flag(instance, "IsPublishable") ? Seq(instance.GetPropertyValue("PublishDir")) : Seq<string>()))
                     .Map(output => Relative(root, Path.GetFullPath(Path.Combine(folder, output))))
                     .Distinct()
                     .Order(StringComparer.Ordinal)],
                 [.. bases.Map(at => Relative(root, at)).Distinct()],
+                [.. instances
+                    .Map(instance => Path.GetFullPath(Path.Combine(folder, instance.GetPropertyValue("NuGetLockFilePath") is { Length: > 0 } named ? named : PackagesLockFileFormat.LockFileName)))
+                    .Distinct()
+                    .Filter(File.Exists)
+                    .Bind(static locked => toSeq(PackagesLockFileFormat.Read(locked).Targets))
+                    .Bind(static target => toSeq(target.Dependencies))
+                    .Filter(static dependency => dependency.Type is not PackageDependencyType.Project)
+                    .AsEnumerable()
+                    .DistinctBy(static dependency => (dependency.Id, dependency.ResolvedVersion))
+                    .Select(static dependency => new Package(dependency.Id, dependency.ResolvedVersion.ToNormalizedString(), dependency.ContentHash, dependency.Type is PackageDependencyType.Direct, [.. dependency.Dependencies.Select(static held => held.Id)]))],
                 Relative(root, Path.GetFullPath(Path.Combine(folder, outer.GetPropertyValue("MSBuildProjectExtensionsPath"), $"{outer.GetPropertyValue("MSBuildProjectFile")}.nuget.g.props"))),
                 Flag(outer, "UseArtifactsOutput") ? Relative(root, Path.Combine(outer.GetPropertyValue("ArtifactsPath"), "test", outer.GetPropertyValue("ArtifactsProjectName"))) : null),
             Seq(file.Replace('\\', '/')) + inside + walked);

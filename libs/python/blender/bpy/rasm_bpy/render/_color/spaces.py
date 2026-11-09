@@ -34,7 +34,7 @@ type _Origin = str | DisplayView
 CONFIGURED: Final = Setting(
     descriptor=Descriptor(root=bpy.types.BlendData, owner=("colorspace",), prop=bpy.types.BlendFileColorspace.bl_rna.properties["is_missing_opencolorio_config"]), accepted=(False,)
 )
-EXPOSURE: Final[bpy.types.FloatProperty] = bpy.types.ColorManagedViewSettings.bl_rna.properties["exposure"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+EXPOSURE: Final[bpy.types.FloatProperty] = bpy.types.ColorManagedViewSettings.bl_rna.properties["exposure"]  # ty: ignore[invalid-assignment]
 NO_LOOK: Final[str] = "None"
 _TINT_PER_DUV: Final = 3000.0
 
@@ -127,7 +127,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @property
     def merged(self) -> Outcome[tuple[PyOpenColorIO.Config, ConfigBuild]]:
         """Bundled base configuration, independent of a user installation, and the application build with the views' view transforms and the earlier installation's added."""
-        bundled: str = bpy.utils.system_resource("DATAFILES", path="colormanagement")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+        bundled: str = bpy.utils.system_resource("DATAFILES", path="colormanagement")  # ty: ignore[unresolved-attribute, unsound-assignment]
         base, earlier = (str(Path(folder, "config.ocio")) for folder in (bundled, self.folder))
 
         def kept(config: PyOpenColorIO.Config, rows: tuple[PyOpenColorIO.ViewTransform, ...], prior: Option[PyOpenColorIO.Config]) -> Outcome[tuple[PyOpenColorIO.Config, ConfigBuild]]:
@@ -203,8 +203,8 @@ def tint_of(white: WhitePoint) -> float:
 
 def viewed(holder: bpy.types.Scene | bpy.types.CompositorNodeConvertToDisplay | bpy.types.ImageFormatSettings) -> DisplayView:
     """Reads an owner's OCIO display, view, look, exposure, and gamma, the host's look `NO_LOOK` as disabled."""
-    view: bpy.types.ColorManagedViewSettings = holder.view_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    shown: bpy.types.ColorManagedDisplaySettings = holder.display_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    view: bpy.types.ColorManagedViewSettings = holder.view_settings  # ty: ignore[invalid-assignment]
+    shown: bpy.types.ColorManagedDisplaySettings = holder.display_settings  # ty: ignore[invalid-assignment]
     return DisplayView(display=shown.display_device, view=view.view_transform, looks_override=view.look, looks_override_enabled=view.look != NO_LOOK, exposure=view.exposure, gamma=view.gamma)
 
 
@@ -232,7 +232,7 @@ def _shown(scene: bpy.types.Scene) -> Option[DisplayView]:
 
 def _entering(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect, identifier: str) -> Option[str]:
     """Returns a native entry input's encoding, Nothing for an unknown source."""
-    scene: bpy.types.Scene = entry.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    scene: bpy.types.Scene = entry.id_data  # ty: ignore[invalid-assignment]
     source: Option[_Origin] = _linear(config)
     first = Option.of_optional(entry.node_group).map(lambda tree: next((socket.identifier for socket in _interface_sockets(tree)), None)).default_value(None)
     return (
@@ -282,7 +282,7 @@ def _traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.
         fed = linked(tree if context is None else parents[context][1])
         if not inlet.is_output:
             return (yield from agreed((outlet, context) for _, outlet in fed.get(inlet, ())))
-        node: bpy.types.Node = inlet.node  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        node: bpy.types.Node = inlet.node  # ty: ignore[invalid-assignment]
         match node:
             case _ if node.mute:
                 source = next((link.from_socket for link in node.internal_links if link.to_socket == inlet), None)
@@ -294,8 +294,8 @@ def _traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.
                 source = _socket_at(parent.inputs, inlet.identifier).to_option().to_optional()
                 return Nothing if source is None else (yield (source, enclosing))
             case bpy.types.CompositorNodeConvertToDisplay() as display:
-                inputs: bpy.types.NodeInputs = display.inputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                invert: bpy.types.NodeSocketBool = inputs["Invert"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                inputs: bpy.types.NodeInputs = display.inputs  # ty: ignore[invalid-assignment]
+                invert: bpy.types.NodeSocketBool = inputs["Invert"]  # ty: ignore[invalid-assignment]
                 return Nothing if invert in fed else linear if invert.default_value else Some(viewed(display))
             case bpy.types.CompositorNodeConvertColorSpace(to_color_space=name):
                 return Option.of_optional(config.getColorSpace(name)).map(lambda found: found.getName())

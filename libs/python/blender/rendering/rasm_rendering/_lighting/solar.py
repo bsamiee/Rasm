@@ -12,7 +12,7 @@ from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
-from pvlib import spa  # type: ignore[import-untyped]
+from pvlib import spa
 
 from rasm_records import Bearing, Count, Fault, Frozen, Inclination, Outcome, Reason
 

@@ -4,7 +4,7 @@ import { hosts, registered, replaced } from '@rasm/automation/installer';
 import { UxpManifest } from '@rasm/uxp';
 import { Array, Effect, FileSystem, Option, Path, Predicate, Result, Schema, Stream, String, SubscriptionRef } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { Adobe } from '#/adobe.ts';
+import { Adobe } from '#/adobe';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

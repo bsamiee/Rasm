@@ -35,9 +35,9 @@ type _Step = Callable[[], Outcome[None]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_LEVELS: Final = Descriptor[bpy.types.IntProperty](root=bpy.types.SubsurfModifier, prop=bpy.types.SubsurfModifier.bl_rna.properties["levels"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-_RENDER_LEVELS: Final = Descriptor[bpy.types.IntProperty](root=bpy.types.SubsurfModifier, prop=bpy.types.SubsurfModifier.bl_rna.properties["render_levels"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-_VERTEX: Final = Descriptor[bpy.types.FloatProperty](root=bpy.types.MeshVertex, prop=bpy.types.MeshVertex.bl_rna.properties["co"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+_LEVELS: Final = Descriptor[bpy.types.IntProperty](root=bpy.types.SubsurfModifier, prop=bpy.types.SubsurfModifier.bl_rna.properties["levels"])  # ty: ignore[invalid-argument-type]
+_RENDER_LEVELS: Final = Descriptor[bpy.types.IntProperty](root=bpy.types.SubsurfModifier, prop=bpy.types.SubsurfModifier.bl_rna.properties["render_levels"])  # ty: ignore[invalid-argument-type]
+_VERTEX: Final = Descriptor[bpy.types.FloatProperty](root=bpy.types.MeshVertex, prop=bpy.types.MeshVertex.bl_rna.properties["co"])  # ty: ignore[invalid-argument-type]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -88,10 +88,10 @@ class _ObjectState(msgspec.Struct, frozen=True, kw_only=True):
 class LevelEdit(bpy.types.PropertyGroup):
     """Viewport and render subdivision levels within Subsurf bounds and the objects they write."""
 
-    levels: _redeclared(_LEVELS.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    render_levels: _redeclared(_RENDER_LEVELS.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    scope: scope_choice(Selection)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    levels: _redeclared(_LEVELS.prop)  # ty: ignore[invalid-type-form]
+    render_levels: _redeclared(_RENDER_LEVELS.prop)  # ty: ignore[invalid-type-form]
+    scope: scope_choice(Selection)  # ty: ignore[invalid-type-form]
+    collection: SCOPE_COLLECTION  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

@@ -1,103 +1,138 @@
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { parse, patch } from '@decimalturn/toml-patch';
+import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { joinPathFragments, type ProjectGraph, type Tree } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { clean, explain } from '@renovatebot/pep440';
-import { Array, Effect, FileSystem, Option, Path, Schema } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, Record, Schema } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { spawned, UvError } from './plugins/workspace.ts';
+import { EXTENSION, spawned, UvError } from '#/plugins/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MANIFEST = 'pyproject.toml';
+const PYPROJECT = 'pyproject.toml';
 const PRERELEASES = { a: 'alpha', b: 'beta', rc: 'rc' } as const;
 const REGISTRY = 'https://pypi.org/pypi';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Manifest = Schema.Struct({ project: Schema.Struct({ name: Schema.String, version: Schema.String }) });
+const Table = Schema.Record(Schema.String, Schema.Unknown);
+const Versioned = Schema.Struct({ version: Schema.String });
+const Project = Schema.Struct({ project: Schema.Struct({ name: Schema.String, version: Schema.String }) });
 const Released = Schema.Struct({ info: Schema.Struct({ version: Schema.String }) });
 const Metadata = Schema.Struct({ registry: Schema.optionalKey(Schema.String) });
+const Options = Schema.Struct({ manifest: Schema.Literals([PYPROJECT, EXTENSION]) });
+const Semantic = Schema.Struct({
+    epoch: Schema.Literal(0),
+    release: Schema.Tuple([Schema.Int, Schema.optionalKey(Schema.Int), Schema.optionalKey(Schema.Int)]),
+    pre: Schema.NullOr(Schema.Tuple([Schema.Literals(Record.keys(PRERELEASES)), Schema.Int])),
+    post: Schema.Null,
+    dev: Schema.Null,
+    local: Schema.Null,
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const semver = (version: string) =>
-    Option.match(
-        Option.filter(Option.fromNullishOr(explain(version)), (held) => held.epoch === 0 && held.post === null && held.dev === null && held.local === null && held.release.length <= 3),
-        {
-            onNone: () => Effect.fail(UvError.make({ subject: version, detail: 'has an epoch, post, dev, or local part, or more than three release numbers, which SemVer cannot state' })),
-            onSome: (held) =>
-                Effect.succeed(
-                    [
-                        Array.pad(held.release, 3, 0).join('.'),
-                        ...(held.pre === null ? [] : [`${PRERELEASES[held.pre[0] as keyof typeof PRERELEASES]}.${held.pre[1]}`]),
-                    ].join('-'),
-                ),
-        },
-    );
+    Effect.mapBoth(Schema.decodeUnknownEffect(Semantic)(explain(version)), {
+        onFailure: () => UvError.make({ subject: version, detail: 'has an epoch, post, dev, or local part, or more than three release numbers, which SemVer cannot state' }),
+        onSuccess: ({ release: [major, minor = 0, micro = 0], pre }) => [`${major}.${minor}.${micro}`, ...(pre === null ? [] : [`${PRERELEASES[pre[0]]}.${pre[1]}`])].join('-'),
+    });
 
-const pep440 = (version: string) =>
-    Effect.fromOption(Option.filter(Option.fromNullishOr(clean(version)), (cleaned) => explain(cleaned)?.post === null)).pipe(
-        Effect.mapError(() => UvError.make({ subject: version, detail: 'has no PEP 440 form; use a prerelease id of alpha, beta, or rc' })),
-    );
+const pep440 = (version: string) => Effect.fromOption(Option.filter(Option.fromNullishOr(clean(version)), (cleaned) => explain(cleaned)?.post === null)).pipe(Effect.mapError(() => UvError.make({ subject: version, detail: 'has no PEP 440 form; use a prerelease id of alpha, beta, or rc' })));
 
-const manifest = (tree: Tree, root: string) =>
-    Effect.flatMap(
-        Effect.try({ try: () => parse(tree.read(joinPathFragments(root, MANIFEST), 'utf-8') ?? '') as unknown, catch: (cause) => UvError.make({ subject: joinPathFragments(root, MANIFEST), detail: String(cause) }) }),
-        Schema.decodeUnknownEffect(Manifest),
-    );
+const MANIFESTS = {
+    [PYPROJECT]: { table: Option.some('project'), read: semver, write: pep440 },
+    [EXTENSION]: { table: Option.none<string>(), read: Effect.succeed<string>, write: Effect.succeed<string> },
+} as const;
+
+const document = Effect.fnUntraced(function* (tree: Tree, at: string) {
+    const text = yield* Effect.fromNullishOr(tree.read(at, 'utf-8')).pipe(Effect.mapError(() => UvError.make({ subject: at, detail: 'is missing' })));
+    const held = yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => UvError.make({ subject: at, detail: String(cause) }) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
+    return { text, held };
+});
 
 const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | HttpClient.HttpClient>) => Effect.runPromise(effect.pipe(Effect.provide([layer, FetchHttpClient.layer])));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class UvVersionActions extends VersionActions {
-    validManifestFilenames = [MANIFEST];
-    override excludeManifestsFromFormatting = true;
+    override validManifestFilenames: string[] = [];
+    override readonly excludeManifestsFromFormatting = true;
 
-    readCurrentVersionFromSourceManifest(tree: Tree) {
-        const root = this.projectGraphNode.data.root;
-        return run(Effect.flatMap(manifest(tree, root), ({ project }) => Effect.map(semver(project.version), (currentVersion) => ({ currentVersion, manifestPath: joinPathFragments(root, MANIFEST) }))));
+    get manifest() {
+        return Effect.map(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ manifest }) => ({ manifest, at: joinPathFragments(this.projectGraphNode.data.root, manifest), ...MANIFESTS[manifest] }));
     }
 
-    readCurrentVersionFromRegistry(tree: Tree, currentVersionResolverMetadata: Record<string, unknown> | undefined) {
+    override init(tree: Tree) {
         return run(
-            Effect.gen({ self: this }, function* () {
-                const [{ project }, { registry = REGISTRY }] = yield* Effect.all([manifest(tree, this.projectGraphNode.data.root), Schema.decodeEffect(Metadata)(currentVersionResolverMetadata ?? {})]);
-                const response = yield* HttpClient.get(`${registry}/${project.name}/json`);
-                return response.status === 404
-                    ? { currentVersion: null, logText: `${project.name} has no release on ${registry}` }
-                    : yield* Effect.flatMap(Effect.flatMap(HttpClientResponse.filterStatusOk(response), HttpClientResponse.schemaBodyJson(Released)), ({ info }) =>
-                          Effect.map(semver(info.version), (currentVersion) => ({ currentVersion, logText: `${project.name} ${info.version} on ${registry}` })),
-                      );
+            Effect.flatMap(this.manifest, ({ manifest }) =>
+                Effect.promise(() => {
+                    this.validManifestFilenames = [manifest];
+                    return super.init(tree);
+                }),
+            ),
+        );
+    }
+
+    override readCurrentVersionFromSourceManifest(tree: Tree) {
+        const located = this.manifest;
+        return run(
+            Effect.gen(function* () {
+                const { at, table, read } = yield* located;
+                const { held } = yield* document(tree, at);
+                const { version } = yield* Schema.decodeUnknownEffect(Versioned)(Option.match(table, { onNone: () => held, onSome: (key) => held[key] }));
+                return { currentVersion: yield* read(version), manifestPath: at };
             }),
         );
     }
 
-    readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
+    override readCurrentVersionFromRegistry(tree: Tree, currentVersionResolverMetadata: Record<string, unknown> | undefined) {
+        const located = this.manifest;
+        return run(
+            Effect.gen(function* () {
+                const { manifest, at } = yield* located;
+                yield* manifest === EXTENSION ? UvError.make({ subject: at, detail: 'names a Blender extension, which publishes through its host channel and has no registry version; use the disk or git-tag current version resolver' }) : Effect.void;
+                const [{ project }, { registry = REGISTRY }] = yield* Effect.all([Effect.flatMap(document(tree, at), ({ held }) => Schema.decodeUnknownEffect(Project)(held)), Schema.decodeEffect(Metadata)(currentVersionResolverMetadata ?? {})]);
+                return yield* HttpClientResponse.matchStatus(yield* HttpClient.get(`${registry}/${project.name}/json`), {
+                    404: () => Effect.succeed({ currentVersion: null, logText: `${project.name} has no release on ${registry}` }),
+                    orElse: (response) =>
+                        HttpClientResponse.filterStatusOk(response).pipe(
+                            Effect.flatMap(HttpClientResponse.schemaBodyJson(Released)),
+                            Effect.flatMap(({ info }) => Effect.map(semver(info.version), (currentVersion) => ({ currentVersion, logText: `${project.name} ${info.version} on ${registry}` }))),
+                        ),
+                });
+            }),
+        );
+    }
+
+    override readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
         return run(
             Effect.gen(function* () {
                 const node = yield* Effect.fromNullishOr(projectGraph.nodes[dependencyProjectName]);
-                const { project } = yield* manifest(tree, node.data.root);
+                const { project } = yield* Effect.flatMap(document(tree, joinPathFragments(node.data.root, PYPROJECT)), ({ held }) => Schema.decodeUnknownEffect(Project)(held));
                 return { currentVersion: yield* semver(project.version), dependencyCollection: 'dependencies' };
             }),
         );
     }
 
-    updateProjectVersion(tree: Tree, newVersion: string) {
-        const at = joinPathFragments(this.projectGraphNode.data.root, MANIFEST);
+    override updateProjectVersion(tree: Tree, newVersion: string) {
+        const located = this.manifest;
         return run(
             Effect.gen(function* () {
-                const [text, version] = yield* Effect.all([Effect.fromNullishOr(tree.read(at, 'utf-8')), pep440(newVersion)]);
-                const held = parse(text) as typeof Manifest.Encoded;
-                tree.write(at, patch(text, { ...held, project: { ...held.project, version } }));
+                const { at, table, write } = yield* located;
+                const [{ text, held }, version] = yield* Effect.all([document(tree, at), write(newVersion)]);
+                const next = yield* Option.match(table, {
+                    onNone: () => Effect.succeed({ ...held, version }),
+                    onSome: (key) => Effect.map(Schema.decodeUnknownEffect(Table)(held[key]), (nested) => ({ ...held, [key]: { ...nested, version } })),
+                });
+                tree.write(at, patch(text, next));
                 return [`New version ${version} written to manifest: ${at}`];
             }),
         );
     }
 
-    updateProjectDependencies() {
+    override updateProjectDependencies() {
         return Promise.resolve([]);
     }
 }

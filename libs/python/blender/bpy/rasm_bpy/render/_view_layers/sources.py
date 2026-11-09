@@ -83,8 +83,8 @@ _NUKE_MOTION: Final = (3, 4, 1, 2)
 class PassFile(bpy.types.PropertyGroup):
     """File choice of the source the row names."""
 
-    use_output: bpy.props.BoolProperty(name="File", description="Write the pass, skipped when off", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    output: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    use_output: bpy.props.BoolProperty(name="File", description="Write the pass, skipped when off", default=True)  # ty: ignore[invalid-type-form]
+    output: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
         name="Output", description="Output class file holding pass", items=choices((member.name, bpy.path.display_name(member.name.lower()), "") for member in Output if member is not Output.PREVIEW)
     )
 
@@ -92,19 +92,19 @@ class PassFile(bpy.types.PropertyGroup):
 class Routing(bpy.types.PropertyGroup):
     """Routing of view layer passes into files."""
 
-    split: bpy.props.EnumProperty(name="Files", description="One file, a file per output class, or a file per pass", items=enum_choices(FileSplit))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    nuke: bpy.props.BoolProperty(name="Nuke", description="Write the layer names and axes Nuke reads, host names when off")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    normals: bpy.props.EnumProperty(name="Normals", description="Normal pass space", items=enum_choices(VectorSpace))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    totals: bpy.props.EnumProperty(name="Totals", description="Light families summed into one layer each", options={"ENUM_FLAG"}, items=enum_choices(Family))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    derived: bpy.props.EnumProperty(name="Derived", description="Light sums and depth layers built from passes", options={"ENUM_FLAG"}, items=enum_choices(Derived))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    ids: bpy.props.EnumProperty(name="ID Colors", description="Cryptomatte kinds drawn as one color per name", options={"ENUM_FLAG"}, items=enum_choices(CryptomatteKind))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    files: bpy.props.CollectionProperty(type=PassFile, name="Passes", description="File choice per pass")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    split: bpy.props.EnumProperty(name="Files", description="One file, a file per output class, or a file per pass", items=enum_choices(FileSplit))  # ty: ignore[invalid-type-form]
+    nuke: bpy.props.BoolProperty(name="Nuke", description="Write the layer names and axes Nuke reads, host names when off")  # ty: ignore[invalid-type-form]
+    normals: bpy.props.EnumProperty(name="Normals", description="Normal pass space", items=enum_choices(VectorSpace))  # ty: ignore[invalid-type-form]
+    totals: bpy.props.EnumProperty(name="Totals", description="Light families summed into one layer each", options={"ENUM_FLAG"}, items=enum_choices(Family))  # ty: ignore[invalid-type-form]
+    derived: bpy.props.EnumProperty(name="Derived", description="Light sums and depth layers built from passes", options={"ENUM_FLAG"}, items=enum_choices(Derived))  # ty: ignore[invalid-type-form]
+    ids: bpy.props.EnumProperty(name="ID Colors", description="Cryptomatte kinds drawn as one color per name", options={"ENUM_FLAG"}, items=enum_choices(CryptomatteKind))  # ty: ignore[invalid-type-form]
+    files: bpy.props.CollectionProperty(type=PassFile, name="Passes", description="File choice per pass")  # ty: ignore[invalid-type-form]
 
 
 class Recoloring(bpy.types.PropertyGroup):
     """Colors an ID recolor writes."""
 
-    mode: bpy.props.EnumProperty(name="Colors", description="Evenly spaced hues, or the held colors shuffled among names", items=enum_choices(Recolor))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    mode: bpy.props.EnumProperty(name="Colors", description="Evenly spaced hues, or the held colors shuffled among names", items=enum_choices(Recolor))  # ty: ignore[invalid-type-form]
 
 
 class FileSocket(msgspec.Struct, frozen=True, kw_only=True):
@@ -154,9 +154,7 @@ def _named(layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> _Named:
         case _:
             blocks = {held.name: held for held in ((layer.material_override,) if layer.material_override else (slot.material for item in shown for slot in item.material_slots if slot.material))}
     return tuple(  # ty: ignore[unsound-return-statement]
-        (name, block, (color[0], color[1], color[2]))  # type: ignore[index]
-        for name, block in sorted(blocks.items())
-        for color in (block.diffuse_color if isinstance(block, bpy.types.Material) else block.color,)
+        (name, block, (color[0], color[1], color[2])) for name, block in sorted(blocks.items()) for color in (block.diffuse_color if isinstance(block, bpy.types.Material) else block.color,)
     )
 
 
@@ -199,7 +197,7 @@ def _colors_written(layer: bpy.types.ViewLayer, entity: CryptomatteKind, chosen:
     """Writes chosen colors onto entity names, each block keeping its alpha."""
     rows, member = _named(layer, entity), entity.color
     return accumulated(
-        member.write(block, (*color, (block.diffuse_color if isinstance(block, bpy.types.Material) else block.color)[3]))  # type: ignore[index]
+        member.write(block, (*color, (block.diffuse_color if isinstance(block, bpy.types.Material) else block.color)[3]))
         for (_, block, _), color in zip(rows, chosen(tuple(color for _, _, color in rows)))
     ).map(lambda priors: sum(prior.is_some() for prior in priors))
 

@@ -60,9 +60,9 @@ _DIRECTIONS: Final = (PyOpenColorIO.TRANSFORM_DIR_FORWARD, PyOpenColorIO.TRANSFO
 class Calibrating(bpy.types.PropertyGroup):
     """Scene's calibration pairing and fit choices, its image pointers choosing images holding sampled charts."""
 
-    source: bpy.props.PointerProperty(type=bpy.types.Image, name="Source", description="Sampled source image")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    target: bpy.props.EnumProperty(name="Target", description="Colors samples map onto", items=enum_choices(Aim))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    space: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    source: bpy.props.PointerProperty(type=bpy.types.Image, name="Source", description="Sampled source image")  # ty: ignore[invalid-type-form]
+    target: bpy.props.EnumProperty(name="Target", description="Colors samples map onto", items=enum_choices(Aim))  # ty: ignore[invalid-type-form]
+    space: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
         name="Space",
         description="Reference value colorspace",
         items=lambda _owner, _context: choices(
@@ -71,15 +71,15 @@ class Calibrating(bpy.types.PropertyGroup):
         ),
         get_transform=lambda _owner, value, is_set: value if is_set else choices(((PyOpenColorIO.GetCurrentConfig().getCanonicalName(PyOpenColorIO.ROLE_SCENE_LINEAR), "", ""),))[0][4],
     )
-    image: bpy.props.PointerProperty(type=bpy.types.Image, name="Image", description="Image source samples map onto")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    direction: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    image: bpy.props.PointerProperty(type=bpy.types.Image, name="Image", description="Image source samples map onto")  # ty: ignore[invalid-type-form]
+    direction: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
         name="Direction",
         description="Source to target or back",
         items=choices((PyOpenColorIO.TransformDirectionToString(direction), bpy.path.display_name(PyOpenColorIO.TransformDirectionToString(direction)), "") for direction in _DIRECTIONS),
     )
-    gain: bpy.props.BoolProperty(name="Keep Gain", description="Fold exposure gain into transform")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    normalized: bpy.props.BoolProperty(name="Normalize", description="Keep source neutral luma, gain held as exposure", default=True)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    clamped: bpy.props.BoolProperty(name="Clamp", description="Clip exported values to [0, 1]")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    gain: bpy.props.BoolProperty(name="Keep Gain", description="Fold exposure gain into transform")  # ty: ignore[invalid-type-form]
+    normalized: bpy.props.BoolProperty(name="Normalize", description="Keep source neutral luma, gain held as exposure", default=True)  # ty: ignore[invalid-type-form]
+    clamped: bpy.props.BoolProperty(name="Clamp", description="Clip exported values to [0, 1]")  # ty: ignore[invalid-type-form]
 
 
 class Calibrated(msgspec.Struct, frozen=True, kw_only=True):

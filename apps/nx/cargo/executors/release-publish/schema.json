@@ -12,5 +12,5 @@
         "firstRelease": { "type": "boolean", "description": "Skips the registry version check" },
         "nxReleaseVersionData": { "type": "object", "description": "Version data nx release passes per project" }
     },
-    "required": ["cwd", "package"]
+    "required": [ "cwd", "package" ]
 }

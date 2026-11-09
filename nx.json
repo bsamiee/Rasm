@@ -3,10 +3,17 @@
     "cacheDirectory": ".cache/nx/cache",
     "useDaemonProcess": false,
     "analytics": false,
+    "neverConnectToCloud": true,
     "plugins": [
-        { "plugin": "@rasm/nx-apple", "options": { "trustPackages": true } },
+        { "plugin": "@rasm/nx-apple", "options": { "trustPackages": true, "outputPath": ".artifacts" } },
         "@rasm/nx-cargo",
-        "@rasm/nx-uv",
-        "@rasm/nx-dotnet"
+        { "plugin": "@rasm/nx-uv", "options": { "outputPath": ".artifacts" }, "exclude": [".config/mise/locks/**"] },
+        "@rasm/nx-dotnet",
+        "@rasm/nx-docker",
+        "@rasm/nx-pulumi",
+        { "plugin": "@rasm/nx-typescript", "options": { "outputPath": ".artifacts" } },
+        { "plugin": "@nx/vitest", "options": { "testMode": "run" } },
+        { "plugin": "@nx/playwright/plugin", "options": { "targetName": "test" } },
+        "@rasm/nx-distribution"
     ]
 }

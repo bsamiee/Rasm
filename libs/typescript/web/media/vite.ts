@@ -2,7 +2,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalizePath } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { pdfjsAssets } from '#/pdfjs-assets.ts';
+import { pdfjsAssets } from '#/pdfjs-assets';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

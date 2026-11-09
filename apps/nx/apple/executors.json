@@ -1,7 +1,7 @@
 {
     "executors": {
         "run": {
-            "implementation": "./executors/run/executor.ts#execute",
+            "implementation": "./dist/executors/run/executor#execute",
             "schema": "./executors/run/schema.json",
             "description": "Runs swift or xcodebuild invocations in order, with Nx's per-task environment removed"
         }

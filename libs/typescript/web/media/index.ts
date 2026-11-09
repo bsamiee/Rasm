@@ -1,5 +1,5 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { MediaError } from '#/error.ts';
-export { Inspection } from '#/inspection.ts';
-export { preprocessUploads, selectUploadState } from '#/uploads.ts';
+export { MediaError } from '#/error';
+export { Inspection } from '#/inspection';
+export { preprocessUploads, selectUploadState } from '#/uploads';

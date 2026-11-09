@@ -79,7 +79,7 @@ class Applied(msgspec.Struct, frozen=True, kw_only=True):
     def reported(cls, path: RnaPath, answer: Outcome[Option[Value | Struct]]) -> Self:
         """Classifies one member write as written, unchanged, or refused, each fault naming the member by its full path."""
         return answer.map(lambda prior: cls(written=(path,)) if prior.is_some() else cls(unchanged=(path,))).default_with(
-            lambda faults: cls.refused(tuple(msgspec.structs.replace(fault, subject=_rna(path)) for fault in faults))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            lambda faults: cls.refused(tuple(msgspec.structs.replace(fault, subject=_rna(path)) for fault in faults))  # ty: ignore[invalid-argument-type]
         )
 
     def then(self, step: Callable[[], Self]) -> Self:
@@ -283,7 +283,7 @@ class _Capture[W]:
         self.valued = valued.default_with(lambda: partial(Descriptor.valued, native=self.native))
         walk: tuple[Native, Option[Descriptor], _Enclosing] = nested.map(lambda held: (held[0], Some(held[1]), held[2])).default_value((owner, Nothing, frozenset[tuple[int, str]]()))
         self.source, self.expanded, self.enclosing = walk
-        self.selection = nested.map(lambda held: tuple(held[1:2])).or_else(selection)
+        self.selection = nested.map(lambda held: Some((held[1],))).default_value(selection)
         self.roots = prior.map(lambda tree: tree.roots).default_value(())
         self.owners: dict[RnaPath, Owner[W, RnaPath, RnaPath]] = prior.map(lambda tree: dict(tree.rows)).default_with(dict)
         self.seen: set[tuple[int, str]] = set(self.enclosing)

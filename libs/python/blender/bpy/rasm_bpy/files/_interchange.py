@@ -9,7 +9,7 @@ from types import MappingProxyType
 from typing import Final, Literal, TYPE_CHECKING
 
 import bpy
-from bpy_extras.io_utils import path_reference, path_reference_mode, poll_file_object_drop  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
+from bpy_extras.io_utils import path_reference, path_reference_mode, poll_file_object_drop  # ty: ignore[import-not-found]
 from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_EXPORTER_NAME: Final[bpy.types.StringProperty] = bpy.types.CollectionExport.bl_rna.properties["name"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_EXPORTER_NAME: Final[bpy.types.StringProperty] = bpy.types.CollectionExport.bl_rna.properties["name"]  # ty: ignore[invalid-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ def _dropped_in(spaces: frozenset["rna_enums.SpaceTypeItems"], context: bpy.type
 def length(scene: bpy.types.Scene, source: str) -> Outcome[float]:
     """Parses length text in the scene's unit system into scene units, a unitless number read in the scene's length unit."""
     units = scene.unit_settings
-    category: str = bpy.utils.units.categories.LENGTH  # type: ignore[attr-defined]  # ty: ignore[unsound-assignment]
+    category: str = bpy.utils.units.categories.LENGTH  # ty: ignore[unsound-assignment]
     return (
         catch(bpy.utils.units.to_value, exception=ValueError)(units.system, category, source, str_ref_unit=f"1 {units.length_unit}")
         .map(lambda meters: meters / units.scale_length)
@@ -120,7 +120,7 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, _Export
 
         def made(name: str, handler: str) -> Outcome[bpy.types.CollectionExport]:
             try:
-                item = held.new(type=handler, name=name)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                item = held.new(type=handler, name=name)  # ty: ignore[invalid-argument-type]
             except (ReferenceError, RuntimeError, TypeError) as error:
                 return Error(Fault.of(Reason.REFUSED, request, error))
             return _tracked(cleanup, held.remove, Ok(item))

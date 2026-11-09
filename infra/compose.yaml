@@ -1,0 +1,190 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+name: rasm
+
+# --- [DEFAULTS] -------------------------------------------------------------------------
+
+x-server: &server {logging: {driver: local}, oom_score_adj: -500, restart: on-failure}
+x-app: &app {logging: {driver: local}, oom_score_adj: 500, profiles: [app], restart: on-failure}
+x-probe: &probe {interval: 5m, start_interval: 1s, start_period: 5m}
+x-postgres: &postgres
+    <<: *server
+    build:
+        additional_contexts: {postgres: "docker-image://postgres:19rc1-trixie"}
+        dockerfile_inline: |
+            # check=error=true
+            FROM postgres
+            RUN apt-get update && apt-get install --yes --no-install-recommends pgbackrest pgbouncer postgresql-$${PG_MAJOR}-cron postgresql-$${PG_MAJOR}-hypopg postgresql-$${PG_MAJOR}-partman postgresql-$${PG_MAJOR}-pgaudit postgresql-$${PG_MAJOR}-pgvector postgresql-$${PG_MAJOR}-postgis-3 && rm -rf /var/lib/apt/lists/*
+            ENV PGBACKREST_PG1_PATH=$${PGDATA}
+    image: rasm-postgres
+x-backup: &backup {AWS_ACCESS_KEY_ID: "${BACKUP_ACCESS_KEY_ID:-}", AWS_ENDPOINT_URL: "${BACKUP_ENDPOINT:-}", AWS_REGION: "${BACKUP_REGION:-}", AWS_SECRET_ACCESS_KEY: "${BACKUP_SECRET_ACCESS_KEY:-}"}
+x-litestream: &litestream {<<: *app, configs: [{source: litestream, target: /etc/litestream.yml}], environment: *backup, image: "litestream/litestream:0.5.18-scratch"}
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+services:
+    # --- [STORES]
+
+    postgres:
+        <<: *postgres
+        command: [postgres, -c, "shared_preload_libraries=pg_stat_statements,auto_explain,pg_plan_advice,pgaudit,pg_cron", -c, auto_explain.log_format=json, -c, auto_explain.log_min_duration=1s, -c, temp_file_limit=10GB,
+            -c, "synchronous_commit=${POSTGRES_SYNCHRONOUS_COMMIT:-off}", -c, "archive_mode=${POSTGRES_ARCHIVE_MODE:-off}", -c, "archive_command=${POSTGRES_ARCHIVE_COMMAND:-}", -c, "pgaudit.log=${POSTGRES_AUDIT_LOG:-none}", -c, "shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}"]
+        configs: [{source: postgres-init, target: /docker-entrypoint-initdb.d/extensions.sql}]
+        environment: {PGBACKREST_ARCHIVE_PUSH_QUEUE_MAX: 4GiB, PGBACKREST_REPO1_PATH: /postgres, PGBACKREST_REPO1_RETENTION_FULL: "${BACKUP_RETENTION_DAYS:-30}", PGBACKREST_REPO1_RETENTION_FULL_TYPE: time, PGBACKREST_REPO1_S3_BUCKET: "${BACKUP_BUCKET:-}", PGBACKREST_REPO1_S3_ENDPOINT: "${BACKUP_HOST:-}",
+            PGBACKREST_REPO1_S3_KEY: "${BACKUP_ACCESS_KEY_ID:-}", PGBACKREST_REPO1_S3_KEY_SECRET: "${BACKUP_SECRET_ACCESS_KEY:-}", PGBACKREST_REPO1_S3_REGION: "${BACKUP_REGION:-}",
+            PGBACKREST_REPO1_S3_URI_STYLE: path, PGBACKREST_REPO1_TYPE: s3, PGBACKREST_STANZA: postgres, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}", POSTGRES_USER: postgres,
+            POSTGRES_INITDB_ARGS: --auth-local=scram-sha-256 --locale-provider=builtin --builtin-locale=PG_UNICODE_FAST}
+        healthcheck: {<<: *probe, test: [CMD, pg_isready, --host, /var/run/postgresql]}
+        labels: {docker-volume-backup.archive-pre: "gosu postgres sh -c 'export PGPASSWORD=\"$$POSTGRES_PASSWORD\" && pgbackrest stanza-create && pgbackrest backup --type=$$([ $$(date +%u) = 1 ] && echo full || echo incr)'"}
+        ports: [{app_protocol: postgresql, host_ip: 127.0.0.1, target: 5432}]
+        stop_grace_period: 2m
+        volumes: [postgres:/var/lib/postgresql, postgres-socket:/var/run/postgresql]
+    pgbouncer:
+        <<: *postgres
+        command: [pgbouncer, /etc/pgbouncer/pgbouncer.ini]
+        configs: [{source: pgbouncer, target: /etc/pgbouncer/pgbouncer.ini}, {source: pgbouncer-users, target: /etc/pgbouncer/userlist.txt}]
+        depends_on: {postgres: {condition: service_healthy}}
+        healthcheck: {<<: *probe, test: [CMD, pg_isready, --host, 127.0.0.1, --port, "6432"]}
+        ports: [{app_protocol: postgresql, host_ip: 127.0.0.1, target: 6432}]
+        user: postgres
+        volumes: [postgres-socket:/var/run/postgresql]
+    clickhouse:
+        <<: *server
+        configs: [{source: clickhouse, target: /etc/clickhouse-server/config.d/rasm.xml}, {source: clickhouse-users, target: /etc/clickhouse-server/users.d/rasm.xml}, {source: clickhouse-backup, target: /etc/clickhouse-backup.sh}]
+        environment: {<<: *backup, BACKUP_URL: "${BACKUP_ENDPOINT:-}/${BACKUP_BUCKET:-}/clickhouse/", CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1", CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}",
+            CLICKHOUSE_READER_MEMORY: "${CLICKHOUSE_READER_MEMORY:-0}", CLICKHOUSE_READER_PASSWORD: "${CLICKHOUSE_READER_PASSWORD:-clickhouse-reader}", CLICKHOUSE_USER: default}
+        healthcheck: {<<: *probe, test: [CMD, clickhouse, client, --query, SELECT 1]}
+        image: clickhouse/clickhouse-server:26.10.3.7
+        labels: {docker-volume-backup.archive-pre: sh /etc/clickhouse-backup.sh, traefik.enable: "true", traefik.http.routers.clickhouse.entrypoints: websecure, traefik.http.routers.clickhouse.rule: "Host(`clickhouse.${PLATFORM_DOMAIN:-rasm.localhost}`)",
+            traefik.http.services.clickhouse.loadbalancer.server.port: "8123"}
+        ports: [{host_ip: 127.0.0.1, published: "${CLICKHOUSE_PORT:-7413}", target: 9000}, {app_protocol: http, host_ip: 127.0.0.1, target: 8123}]
+        stop_grace_period: 2m
+        volumes: [clickhouse:/var/lib/clickhouse]
+    storage:
+        <<: *server
+        environment: {RUSTFS_ACCESS_KEY: "${RUSTFS_ACCESS_KEY:-rustfsadmin}", RUSTFS_CONSOLE_ENABLE: "false", RUSTFS_REGION: &region us-east-1, RUSTFS_SECRET_KEY: "${RUSTFS_SECRET_KEY:-rustfsadmin}"}
+        healthcheck: {<<: *probe, test: [CMD, curl, --fail, --silent, http://127.0.0.1:9000/health/ready]}
+        image: rustfs/rustfs:1.0.4
+        ports: [{app_protocol: http, host_ip: 127.0.0.1, target: 9000}]
+        volumes: [storage:/data]
+
+    # --- [PLATFORM]
+
+    traefik:
+        <<: *server
+        environment: {TRAEFIK_CERTIFICATESRESOLVERS_ACME_ACME_STORAGE: /var/lib/traefik/acme.json, TRAEFIK_CERTIFICATESRESOLVERS_ACME_ACME_TLSCHALLENGE: "true", TRAEFIK_ENTRYPOINTS_WEB_ADDRESS: ":80", TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS: ":443", TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS: "true", TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS_CERTRESOLVER: "${TRAEFIK_CERTRESOLVER:-}", TRAEFIK_PING: "true", TRAEFIK_PROVIDERS_DOCKER: "true", TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"}
+        healthcheck: {<<: *probe, test: [CMD, traefik, healthcheck]}
+        image: traefik:v3.8.0-rc.1
+        ports: ["80:80", "443:443"]
+        profiles: [platform]
+        volumes: [/var/run/docker.sock:/var/run/docker.sock:ro, traefik:/var/lib/traefik]
+    authelia:
+        <<: *server
+        configs: [{source: authelia, target: /config/configuration.yml}, {source: authelia-users, target: /config/users.yml}]
+        environment: [AUTHELIA_SESSION_SECRET, AUTHELIA_STORAGE_ENCRYPTION_KEY]
+        healthcheck: {<<: *probe, test: [CMD, /app/healthcheck.sh]}
+        image: authelia/authelia:4.39.28
+        labels: {traefik.enable: "true", traefik.http.routers.authelia.rule: "Host(`auth.${PLATFORM_DOMAIN:-rasm.localhost}`)", traefik.http.routers.authelia.entrypoints: websecure, traefik.http.middlewares.authelia.chain.middlewares: "authelia-strip,authelia-check",
+            traefik.http.middlewares.authelia-strip.headers.customrequestheaders.Remote-User: "", traefik.http.middlewares.authelia-strip.headers.customrequestheaders.Remote-Email: "",
+            traefik.http.middlewares.authelia-check.forwardauth.address: "http://authelia:9091/api/authz/forward-auth", traefik.http.middlewares.authelia-check.forwardauth.authResponseHeaders: "Remote-User,Remote-Email"}
+        profiles: [platform]
+        volumes: [authelia:/var/lib/authelia]
+
+    # --- [DEPLOYED]
+
+    backup:
+        <<: *server
+        environment: {AWS_ACCESS_KEY_ID: "${BACKUP_ACCESS_KEY_ID:-}", AWS_ENDPOINT: "${BACKUP_HOST:-}", AWS_S3_BUCKET_NAME: "${BACKUP_BUCKET:-}", AWS_S3_PATH: volumes, AWS_SECRET_ACCESS_KEY: "${BACKUP_SECRET_ACCESS_KEY:-}", BACKUP_PRUNING_PREFIX: backup-, BACKUP_RETENTION_DAYS: "${BACKUP_RETENTION_DAYS:-30}"}
+        image: offen/docker-volume-backup:v2.50.1
+        profiles: [deployed]
+        volumes: [/var/run/docker.sock:/var/run/docker.sock:ro, authelia:/backup/authelia:ro, storage:/backup/storage:ro]
+
+    # --- [APP]
+
+    app:
+        <<: *app
+        build:
+            dockerfile_inline: |
+                # check=error=true
+                ARG NODE
+                FROM dhi.io/node:$${NODE}
+                ARG ASSETS
+                WORKDIR /app
+                COPY --from=assets . $${ASSETS}
+                COPY . .
+        cpus: 1
+        entrypoint: [node]
+        extra_hosts: [host.docker.internal:host-gateway]
+        mem_limit: 1g
+    litestream-restore: {<<: *litestream, command: [restore, -config, /etc/litestream.yml, -if-db-not-exists, -if-replica-exists, -integrity-check, quick, /data/database.sqlite], restart: "no"}
+    litestream: {<<: *litestream, command: [replicate, -config, /etc/litestream.yml]}
+    cache:
+        <<: *app
+        command: [valkey-server, --save, "", --maxmemory-policy, allkeys-lfu]
+        healthcheck: {<<: *probe, test: [CMD, valkey-cli, ping]}
+        image: valkey/valkey:9.2.0-rc2-trixie
+        ports: [{app_protocol: redis, host_ip: 127.0.0.1, target: 6379}]
+
+    # --- [TOOLS]
+
+    verapdf: {image: "verapdf/cli:v1.30.3", network_mode: none, profiles: [tools]}
+
+# --- [CONFIGS] --------------------------------------------------------------------------
+
+configs:
+    postgres-init: {content: "CREATE ROLE store NOLOGIN CREATEROLE;\n\\connect template1\nCREATE EXTENSION pg_stat_statements;\nCREATE EXTENSION vector;\n"}
+    pgbouncer:
+        content: |
+            [databases]
+            * = host=/var/run/postgresql
+            [users]
+            postgres = pool_mode=session max_user_connections=5
+            [pgbouncer]
+            listen_addr = *
+            auth_type = scram-sha-256
+            auth_file = /etc/pgbouncer/userlist.txt
+            auth_user = postgres
+            admin_users = postgres
+            pool_mode = transaction
+            max_client_conn = 1000
+            default_pool_size = 3
+            max_user_connections = 90
+            server_idle_timeout = 10
+            autodb_idle_timeout = 60
+    pgbouncer-users: {content: "\"postgres\" \"${POSTGRES_PASSWORD:-postgres}\"\n"}
+    clickhouse:
+        content: |
+            <clickhouse>
+                <cache_size_to_ram_max_ratio>0.2</cache_size_to_ram_max_ratio>
+                <concurrent_threads_scheduler>max_min_fair</concurrent_threads_scheduler>
+                <merge_tree><default_compression_codec>ZSTD(3)</default_compression_codec></merge_tree>
+                <query_log><ttl>event_date + INTERVAL 30 DAY DELETE</ttl></query_log>
+                <part_log><ttl>event_date + INTERVAL 30 DAY DELETE</ttl></part_log>
+                <asynchronous_metric_log remove="1"/><metric_log remove="1"/><query_metric_log remove="1"/><text_log remove="1"/><trace_log remove="1"/>
+                <storage_configuration><disks><default><keep_free_space_bytes>10737418240</keep_free_space_bytes></default></disks></storage_configuration>
+                <named_collections><backup><url from_env="BACKUP_URL"/><access_key_id from_env="AWS_ACCESS_KEY_ID"/><secret_access_key from_env="AWS_SECRET_ACCESS_KEY"/></backup></named_collections>
+            </clickhouse>
+    clickhouse-users:
+        content: |
+            <clickhouse>
+                <profiles><reader><readonly>1</readonly><max_memory_usage from_env="CLICKHOUSE_READER_MEMORY"/><constraints><max_execution_time><changeable_in_readonly/></max_execution_time></constraints></reader></profiles>
+                <users>
+                    <default><named_collection_control>1</named_collection_control></default>
+                    <reader><password from_env="CLICKHOUSE_READER_PASSWORD"/><profile>reader</profile><grants><query>GRANT SELECT ON *.*</query></grants></reader>
+                </users>
+            </clickhouse>
+    clickhouse-backup: {content: "full=\"full-$$(date +%G-W%V)\" query=\"BACKUP ALL EXCEPT DATABASE system TO S3(backup\"\nclickhouse client --query \"$$query, '$$full')\" || clickhouse client --query \"$$query, '$$(date +%F)') SETTINGS base_backup = S3(backup, '$$full')\"\n"}
+    authelia:
+        content: |
+            access_control: {default_policy: one_factor}
+            authentication_backend: {file: {path: /config/users.yml}, password_reset: {disable: true}}
+            notifier: {filesystem: {filename: /var/lib/authelia/notification.txt}}
+            ntp: {disable_startup_check: true}
+            session: {cookies: [{domain: "${PLATFORM_DOMAIN:-rasm.localhost}", authelia_url: "https://auth.${PLATFORM_DOMAIN:-rasm.localhost}"}]}
+            storage: {local: {path: /var/lib/authelia/db.sqlite3}}
+    authelia-users: {content: "users: {owner: {displayname: Owner, email: \"${OWNER_EMAIL:-}\", password: \"${AUTHELIA_OWNER_PASSWORD_HASH:-}\"}}\n"}
+    litestream: {content: "dbs: [{path: /data/database.sqlite, replica: {url: \"$${LITESTREAM_REPLICA_URL}\", endpoint: \"$${AWS_ENDPOINT_URL}\"}}]\n"}
+
+# --- [VOLUMES] --------------------------------------------------------------------------
+
+volumes: {authelia: {}, clickhouse: {}, postgres: {}, postgres-socket: {}, storage: {}, traefik: {}}

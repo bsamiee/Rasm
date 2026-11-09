@@ -104,7 +104,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def preferences[T: bpy.types.AddonPreferences](self, kind: type[T], /) -> Option[T]:
         """Reads the extension's add-on preferences as kind (`bpy.types.AddonPreferences` for any), Nothing while disabled or holding another class."""
-        preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
         return _addon_preferences(preferences, self.package).bind(lambda held: Option.of_optional(try_downcast(kind, held)))
 
     @classmethod

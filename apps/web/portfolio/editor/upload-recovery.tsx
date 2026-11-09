@@ -3,10 +3,10 @@ import { Array, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { RequestAlert } from '#/editor/request-alert.tsx';
-import { discardRequest, recoveryRequest } from '#/editor/state.ts';
-import { queue } from '#/editor/uploader.ts';
-import { joinDetails } from '#/media/labels.ts';
-import type { Recovery } from '#/model/api.ts';
+import { discardRequest, recoveryRequest } from '#/editor/state';
+import { queue } from '#/editor/uploader';
+import { joinDetails } from '#/media/labels';
+import type { Recovery } from '#/model/api';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

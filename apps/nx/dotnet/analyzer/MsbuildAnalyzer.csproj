@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Evaluates every MSBuild project of a workspace in one process and reports the facts the Nx plugin derives targets from</Description>
         <TargetFramework>net11.0</TargetFramework>
@@ -11,6 +11,7 @@
         <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" />
         <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" />
         <PackageReference Include="Microsoft.Build.Locator" />
+        <PackageReference Include="NuGet.ProjectModel" ExcludeAssets="runtime" />
     </ItemGroup>
 
     <ItemGroup Label="Core">

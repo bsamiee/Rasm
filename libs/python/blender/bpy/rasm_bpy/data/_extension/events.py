@@ -34,7 +34,7 @@ class Change(Flag):
 
 def _runtime(identity: Identity, scene: bpy.types.Scene, /) -> bool:
     """Whether a scene a callback received is a runtime scene holding the extension's manifest ID as its mark."""
-    return scene.is_runtime_data and identity.manifest.id in scene  # type: ignore[operator]
+    return scene.is_runtime_data and identity.manifest.id in scene
 
 
 def _located(body: Callable[[Option[Path]], Outcome[None]], path: str, /) -> Outcome[None]:

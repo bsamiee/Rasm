@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 type ColorExpr = Annotated[Expr, bpy.types.NodeSocketColor]
 type VectorExpr = Annotated[Expr, bpy.types.NodeSocketVector]
-type _Attribute = bpy.types.FloatAttribute | bpy.types.IntAttribute | bpy.types.BoolAttribute | bpy.types.FloatVectorAttribute | bpy.types.FloatColorAttribute
+_Attribute = bpy.types.FloatAttribute | bpy.types.IntAttribute | bpy.types.BoolAttribute | bpy.types.FloatVectorAttribute | bpy.types.FloatColorAttribute
 
 
 class Body[**P](Protocol):
@@ -335,7 +335,7 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
 
         def attributed(name: str, values: npt.NDArray[np.float32]) -> Outcome[None]:
             kind, member, _ = _STORED[_COLUMNS[1 if values.ndim == 1 else values.shape[1]]]
-            attribute: _Attribute = Option.of_optional(attributes.get(name)).default_with(lambda: attributes.new(name, kind, "POINT"))  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            attribute: _Attribute = Option.of_optional(attributes.get(name)).default_with(lambda: attributes.new(name, kind, "POINT"))  # ty: ignore[invalid-assignment]
             return catch(attribute.data.foreach_set, exception=TypeError)(member, values.ravel()).map_error(partial(Fault.of, Reason.REFUSED, repr(attribute)))
 
         def column_read(points: bpy.types.PointCloud, name: str, socket_type: SocketType) -> Outcome[npt.NDArray[np.float32]]:
@@ -349,11 +349,14 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
                     .map(lambda _: values if width == 1 else values.reshape(count, width))
                 )
 
-            attribute: _Attribute | None = points.attributes.get(name)  # ty: ignore[unsound-assignment]
-            return read(attribute) if attribute is not None else Error(Fault.of(Reason.ABSENT, repr(points.attributes), member=name))
+            return (
+                catch(lambda: points.attributes[name], exception=KeyError)()
+                .map_error(partial(Fault.of, Reason.ABSENT, repr(points.attributes), member=name))
+                .bind(lambda found: read(found) if isinstance(found, _Attribute) else Error(Fault.of(Reason.REFUSED, repr(found), found.data_type)))
+            )
 
         def geometry_read(tree: bpy.types.NodeTree) -> Outcome[tuple[npt.NDArray[np.float32], ...]]:
-            modifier: bpy.types.NodesModifier = holder.modifiers.new("Field", "NODES")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            modifier: bpy.types.NodesModifier = holder.modifiers.new("Field", "NODES")  # ty: ignore[invalid-assignment]
             return (
                 written(modifier, ("node_group",), tree)
                 .bind(lambda _: _evaluated(scene.view_layers[0]))

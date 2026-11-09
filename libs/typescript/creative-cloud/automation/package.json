@@ -1,0 +1,34 @@
+{
+    "name": "@rasm/automation",
+    "private": true,
+    "description": "Request contract Adobe plugins serve, the link peer dialing it, the error they report, their manifest version, build identity, and the plug-in installer agent",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./installer": "./installer.ts",
+        "./peer": "./peer.ts",
+        "./vite": "./vite.ts"
+    },
+    "dependencies": {
+        "@rasm/applications": "workspace:*",
+        "@rasm/search": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers",
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "vite": {
+            "optional": true
+        }
+    }
+}

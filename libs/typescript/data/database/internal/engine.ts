@@ -1,12 +1,12 @@
 import { Array, Cause, Context, Effect, Layer, Option, type Schema } from 'effect';
 import { SqlClient, type SqlConnection, type SqlError, type Statement } from 'effect/sql';
-import type { Catalog } from '#/catalog.ts';
-import type { Column, Kind, Projection } from '#/column.ts';
-import type { ReconcileError } from '#/error.ts';
-import type { Pg } from '#/internal/pg.ts';
-import type { diff, Identity } from '#/internal/reconcile.ts';
-import { Sqlite } from '#/internal/sqlite.ts';
-import type { Relation } from '#/relation.ts';
+import type { Catalog } from '#/catalog';
+import type { Column, Kind, Projection } from '#/column';
+import type { ReconcileError } from '#/error';
+import type { Pg } from '#/internal/pg';
+import type { diff, Identity } from '#/internal/reconcile';
+import { Sqlite } from '#/internal/sqlite';
+import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -72,7 +72,7 @@ class Engine extends Context.Service<Engine, Dialect>()('@rasm/database/internal
             sqlite: () => Effect.succeed<Dialect>(Sqlite),
             pg: () =>
                 Effect.flatMap(
-                    Effect.promise(() => import('#/internal/pg.ts')),
+                    Effect.promise(() => import('#/internal/pg')),
                     (module) => module.Pg.forClient(sql),
                 ),
             orElse: () => Effect.fail(new Cause.IllegalArgumentError(`${sql.driver} has no engine`)),

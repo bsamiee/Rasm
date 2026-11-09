@@ -4,7 +4,7 @@
 
 [workspace]
 resolver = "3"
-members  = ["libs/rust/*/*", "tools/dylint", "tools/mcp-proxy", "tests/rust/tools/dylint"]
+members  = ["libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tools/mcp-proxy"]
 
 # --- [IDENTITY]
 
@@ -80,12 +80,12 @@ datasketches          = { version = "0.6.0", features = ["tdigest"] }           
 enum-map              = { version = "3.1.0", features = ["serde"] }               # Total maps holding one value per enum variant
 fastbloom             = "0.17.0"                                                  # Bloom filters that precheck membership
 fst                   = { version = "0.4.7", features = ["levenshtein"] }         # Finite-state sets and maps with prefix, range, and fuzzy queries
-hashbrown             = "0.17.1"                                                  # Hash maps rustworkx-core takes as keyed inputs (Katz `beta_map`)
+hashbrown             = ">=0.16.1, <0.17"                                         # Hash maps rustworkx-core takes as keyed inputs (Katz `beta_map`), at the release rustworkx-core links
 imbl                  = { version = "7.0.2", features = ["serde"] }               # Persistent vectors and maps with structural sharing across tasks
 indexmap              = { version = "2.14.2", features = ["serde"] }              # Insertion-ordered maps and sets that keep iteration and output deterministic
 itertools             = "0.15.0"                                                  # Partitioned results, grouping, windows, and merges over iterators
 roaring               = "0.12.0"                                                  # Compressed integer sets with set algebra
-rust-lapper           = "2.0.0"                                            # Interval overlap and stabbing queries
+rust-lapper           = "2.0.0"                                                   # Interval overlap and stabbing queries
 slotmap               = "1.1.1"                                                   # Generational-index arenas holding graph and scene nodes
 smallvec              = { version = "2.0.0-beta.4", features = ["std", "serde"] } # Inline small vectors that spill to heap
 
@@ -294,11 +294,11 @@ rmcp                = { version = "3.9.0", features = ["client", "elicitation", 
 
 # --- [TRANSFER]
 
-object_store = { version = "0.13.2", features = ["aws", "gcp", "azure", "http"] } # One API over S3, GCS, Azure, HTTP, and local object stores at the release DataFusion 55 and deltalake 1.1 link, `cloud` under each store feature adds reqwest 0.12 on ring and chrono
-reqwest_dav  = "0.3.3"                                                            # WebDAV transfers
-russh        = "0.65.1"                                                           # SSH clients and servers reaching remote workers
-russh-sftp   = "3.0.1"                                                            # SFTP over SSH channels
-suppaftp     = { version = "12.2.1", features = ["tokio-rustls-aws-lc-rs"] }      # FTP and FTPS transfers
+object_store = { version = ">=0.13.2, <0.14", features = ["aws", "gcp", "azure", "http"] } # One API over S3, GCS, Azure, HTTP, and local object stores at the release DataFusion 55 and deltalake 1.1 link, `cloud` under each store feature adds reqwest 0.12 on ring and chrono
+reqwest_dav  = "0.3.3"                                                                     # WebDAV transfers
+russh        = "0.65.1"                                                                    # SSH clients and servers reaching remote workers
+russh-sftp   = "3.0.1"                                                                     # SFTP over SSH channels
+suppaftp     = { version = "12.2.1", features = ["tokio-rustls-aws-lc-rs"] }               # FTP and FTPS transfers
 
 # --- [OBSERVABILITY]
 
@@ -359,11 +359,11 @@ fjall            = "3.1.13"                                                     
 influxdb3-client = "0.3.0"                                                                                                                                                                          # InfluxDB 3 writes and queries
 jiff-sqlx        = { version = "0.2.2", features = ["postgres", "sqlite"] }                                                                                                                         # jiff values as sqlx column types
 kurrentdb        = "1.2.0"                                                                                                                                                                          # KurrentDB event streams and subscriptions
-mongodb          = { version = "3.10.0", default-features = false, features = ["rustls-tls-aws-lc", "dns-resolver", "compat-3-3-0", "bson-3"] }                                                      # MongoDB documents, aggregation, and change streams, default `compat-3-0-0` adds bson 2 and `rustls-tls` adds ring
+mongodb          = { version = "3.10.0", default-features = false, features = ["rustls-tls-aws-lc", "dns-resolver", "compat-3-3-0", "bson-3"] }                                                     # MongoDB documents, aggregation, and change streams, default `compat-3-0-0` adds bson 2 and `rustls-tls` adds ring
 neo4rs           = "0.9.0-rc.11"                                                                                                                                                                    # Neo4j graph queries over Bolt
 pgvector         = { version = "0.4.2", features = ["sqlx", "halfvec", "serde"] }                                                                                                                   # pgvector column types
 redb             = "4.5.0"                                                                                                                                                                          # Embedded transactional key-value store with typed tables
-scylla           = { version = "1.10.0", features = ["rustls-023", "metrics"] }                                                                                                                      # Cassandra and ScyllaDB queries
+scylla           = { version = "1.10.0", features = ["rustls-023", "metrics"] }                                                                                                                     # Cassandra and ScyllaDB queries
 sea-query        = { version = "1.0.2", features = ["with-jiff", "with-uuid", "with-json", "postgres-vector", "postgres-array"] }                                                                   # DDL and dynamic queries built from typed table definitions
 sea-schema       = { version = "0.18.1", features = ["sqlx-postgres", "sqlx-sqlite", "sqlx-mysql", "runtime-tokio"] }                                                                               # Live schema discovery that owning types diff against
 snowflake-api    = "0.14.0"                                                                                                                                                                         # Snowflake SQL with Arrow results
@@ -408,22 +408,22 @@ tokio-serial = "5.5.0"                                                         #
 
 # --- [COLUMNAR]
 
-adbc_core                  = "0.25.0"                                                                                   # Database access through ADBC returning record batches
-adbc_driver_manager        = "0.25.0"                                                                                   # ADBC drivers loaded from shared libraries
-arrow                      = { version = "59.3.2", features = ["ipc_compression"] }                                     # Columnar record batches, casts between encodings, and IPC under ZSTD and LZ4, at the release DataFusion 55 and deltalake 1.1 link, adding num-bigint 0.5 under arrow-buffer beside nalgebra's 0.4 and zstd 0.13 under arrow-ipc beside reqwest's 0.14
-arrow-flight               = { version = "60.1.0", features = ["flight-sql", "tls-aws-lc"] }                            # Arrow Flight and Flight SQL
-arrow-schema               = { version = "59.3.2", features = ["canonical_extension_types"] }                           # Extension types and the canonical uuid type, the `extension` module the arrow facade re-exports nowhere, at arrow's release
-datafusion                 = "55.2.0"                                                                                   # SQL query engine over Arrow and object stores
-datafusion-functions-json  = "0.55.6"                                                                                   # JSON path functions registered on DataFusion sessions
-datafusion-substrait       = "55.2.0"                                                                                   # DataFusion plans converted to and from Substrait
-datafusion-table-providers = { version = "0.15.1", features = ["sqlite"] }                                              # SQLite tables read and written as Arrow with filter pushdown, common crate adds chrono, time 0.3, sea-query, and arrow `ffi`, `sqlite` adds rusqlite beside sqlx-sqlite on one libsqlite3-sys
-deltalake                  = { version = "1.1.2", features = ["datafusion", "s3", "gcs", "azure"] }                     # Delta Lake tables
-iceberg                    = "0.11.0"                                                                                   # Apache Iceberg tables
-iceberg-catalog-rest       = "0.11.0"                                                                                   # Iceberg REST catalogs
-parquet                    = { version = "59.3.2", features = ["object_store", "arrow_canonical_extension_types"] }     # Parquet files read and written as record batches over object stores, files and memory, the Parquet UUID logical type mapped to and from `arrow.uuid`, at the release DataFusion 55 and deltalake 1.1 link, its codecs adding brotli 8 and zstd 0.13 beside the 9 and 0.14 reqwest's compression takes
-polars                     = { version = "0.55.2", features = ["lazy", "parquet", "ipc", "json", "dtype-full", "sql"] } # Dataframes with lazy query engine
-serde_arrow                = { version = "0.15.1", features = ["arrow-59"] }                                            # Typed records encoded into and decoded from record batches against the schema a record states
-substrait                  = { version = "0.65.0", features = ["parse", "extensions", "serde"] }                        # Substrait plan model
+adbc_core                  = "0.25.0"                                                                                      # Database access through ADBC returning record batches
+adbc_driver_manager        = "0.25.0"                                                                                      # ADBC drivers loaded from shared libraries
+arrow                      = { version = ">=59.3.2, <60", features = ["ipc_compression"] }                                 # Columnar record batches, casts between encodings, and IPC under ZSTD and LZ4, at the release DataFusion 55 and deltalake 1.1 link, adding num-bigint 0.5 under arrow-buffer beside nalgebra's 0.4 and zstd 0.13 under arrow-ipc beside reqwest's 0.14
+arrow-flight               = { version = "60.1.0", features = ["flight-sql", "tls-aws-lc"] }                               # Arrow Flight and Flight SQL
+arrow-schema               = { version = ">=59.3.2, <60", features = ["canonical_extension_types"] }                       # Extension types and the canonical uuid type, the `extension` module the arrow facade re-exports nowhere, at arrow's release
+datafusion                 = "55.2.0"                                                                                      # SQL query engine over Arrow and object stores
+datafusion-functions-json  = "0.55.6"                                                                                      # JSON path functions registered on DataFusion sessions
+datafusion-substrait       = "55.2.0"                                                                                      # DataFusion plans converted to and from Substrait
+datafusion-table-providers = { version = "0.15.1", features = ["sqlite"] }                                                 # SQLite tables read and written as Arrow with filter pushdown, common crate adds chrono, time 0.3, sea-query, and arrow `ffi`, `sqlite` adds rusqlite beside sqlx-sqlite on one libsqlite3-sys
+deltalake                  = { version = "1.1.2", features = ["datafusion", "s3", "gcs", "azure"] }                        # Delta Lake tables
+iceberg                    = "0.11.0"                                                                                      # Apache Iceberg tables
+iceberg-catalog-rest       = "0.11.0"                                                                                      # Iceberg REST catalogs
+parquet                    = { version = ">=59.3.2, <60", features = ["object_store", "arrow_canonical_extension_types"] } # Parquet files read and written as record batches over object stores, files and memory, the Parquet UUID logical type mapped to and from `arrow.uuid`, at the release DataFusion 55 and deltalake 1.1 link, its codecs adding brotli 8 and zstd 0.13 beside the 9 and 0.14 reqwest's compression takes
+polars                     = { version = "0.55.2", features = ["lazy", "parquet", "ipc", "json", "dtype-full", "sql"] }    # Dataframes with lazy query engine
+serde_arrow                = { version = "0.15.1", features = ["arrow-59"] }                                               # Typed records encoded into and decoded from record batches against the schema a record states
+substrait                  = { version = "0.65.0", features = ["parse", "extensions", "serde"] }                           # Substrait plan model
 
 # --- [ARRAYS]
 
@@ -432,7 +432,7 @@ icechunk           = { version = "2.3.1", default-features = false, features = [
 netcdf             = { version = "0.12.1", features = ["static"] }                                                                                                                                 # netCDF fields
 zarrs              = { version = "0.23.14", features = ["async", "jiff", "pcodec", "bitround"] }                                                                                                   # Zarr chunked arrays with sharding, pcodec numeric compression, and bit rounding
 zarrs_icechunk     = { version = "0.6.0", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Icechunk sessions as zarrs async stores, default `s3` adds aws-sdk-s3 beside object_store
-zarrs_object_store = "0.6.2"                                                                                                                                                                       # Object stores as zarrs async stores at the object_store release DataFusion links
+zarrs_object_store = ">=0.6.2, <0.7"                                                                                                                                                               # Object stores as zarrs async stores at the object_store release DataFusion links
 
 # --- [MATHEMATICS]
 
@@ -534,13 +534,13 @@ gdal              = { version = "0.19.0", features = ["array"] }                
 geo               = { version = "0.33.1", features = ["serde"] }                                                                                                           # Planar predicates, booleans, line clipping, sweep intersections, ball-tree radius queries, buffers, simplification, and triangulation
 geo-traits        = "0.3.0"                                                                                                                                                # Geometry access traits GeoArrow and GeoParquet values read through
 geo-types         = { version = "0.7.20", features = ["serde"] }                                                                                                           # Geometry primitives shared by georust crates
-geoarrow-array    = "0.10.0"                                                                                                                                                # GeoArrow geometry arrays
-geoarrow-expr-geo = "0.10.0"                                                                                                                                                # georust operations on GeoArrow arrays
-geoarrow-schema   = "0.10.0"                                                                                                                                                # GeoArrow extension types
+geoarrow-array    = "0.10.0"                                                                                                                                               # GeoArrow geometry arrays
+geoarrow-expr-geo = "0.10.0"                                                                                                                                               # georust operations on GeoArrow arrays
+geoarrow-schema   = "0.10.0"                                                                                                                                               # GeoArrow extension types
 geographiclib-rs  = { version = "0.2.7", default-features = false }                                                                                                        # Ellipsoidal distance and azimuth from one inverse solve, default accurate adds polygon-area arithmetic
 geohash           = "0.13.2"                                                                                                                                               # Geohash cells
 geojson           = "1.0.0"                                                                                                                                                # GeoJSON
-geoparquet        = { version = "0.10.0", features = ["async"] }                                                                                                            # GeoParquet
+geoparquet        = { version = "0.10.0", features = ["async"] }                                                                                                           # GeoParquet
 geozero           = { version = "0.15.1", default-features = false, features = ["with-geo", "with-wkb", "with-mvt"] }                                                      # Streaming conversion between WKB, geo-types, and MVT, default `with-geojson` adds geojson 0.24 beside geojson 1
 grib              = { version = "0.20.3", default-features = false, features = ["jpeg2000-unpack-with-hayro", "png-unpack-with-png-crate", "ccsds-unpack-with-rust-aec"] } # GRIB2 fields on latitude–longitude, Gaussian, rotated and projected lattices through grib's own projections, default `jpeg2000-unpack-with-openjpeg` and `ccsds-unpack-with-libaec` build C beside hayro and rust-aec; hayro-jpeg2000 0.4 beside typst's 0.3
 h3o               = { version = "0.11.1", features = ["geo"] }                                                                                                             # H3 hexagonal cells
@@ -585,26 +585,26 @@ turbojpeg         = "1.5.1"                                                     
 
 # --- [TYPOGRAPHY]
 
-fontdb                     = { version = "0.23.0", default-features = false, features = ["std"] } # Font faces loaded from caller bytes into the database usvg reads, at the release krilla-svg and typst link, defaults `fs`, `memmap`, and `fontconfig` scan system fonts
-fontique                   = { version = "0.12.0", default-features = false, features = ["std"] } # Font collections registered from caller blobs that parley's `FontContext` holds, at the release parley links, default `system` scans system fonts
-harfrust                   = "0.15.0"                                                             # Text shaping
-linebender_resource_handle = "0.1.1"                                                              # Shared font blob with its collection index, the `FontData` parley runs hand out
-parlance                   = "0.1.1"                                                              # Font family stacks, variation settings, and tags parley styles read
-parley                     = { version = "0.12.0", default-features = false, features = ["std"] } # Rich text layout with bidi, line breaking, and fallback over caller fonts, default `system` scans system fonts
-skrifa                     = "0.49.0"                                                             # Font metrics, outlines, axes, and charmaps
-subsetter                  = "0.2.6"                                                              # Font subsetting with variable instancing
-ttf-parser                 = "0.25.1"                                                             # Font collection headers read for their face count, at the release typst links
-write-fonts                = { version = "0.55.0", features = ["read"] }                          # Font table compilation
+fontdb                     = { version = ">=0.23.0, <0.24", default-features = false, features = ["std"] } # Font faces loaded from caller bytes into the database usvg reads, at the release krilla-svg and typst link, defaults `fs`, `memmap`, and `fontconfig` scan system fonts
+fontique                   = { version = "0.12.0", default-features = false, features = ["std"] }          # Font collections registered from caller blobs that parley's `FontContext` holds, at the release parley links, default `system` scans system fonts
+harfrust                   = "0.15.0"                                                                      # Text shaping
+linebender_resource_handle = "0.1.1"                                                                       # Shared font blob with its collection index, the `FontData` parley runs hand out
+parlance                   = "0.1.1"                                                                       # Font family stacks, variation settings, and tags parley styles read
+parley                     = { version = "0.12.0", default-features = false, features = ["std"] }          # Rich text layout with bidi, line breaking, and fallback over caller fonts, default `system` scans system fonts
+skrifa                     = "0.49.0"                                                                      # Font metrics, outlines, axes, and charmaps
+subsetter                  = "0.2.6"                                                                       # Font subsetting with variable instancing
+ttf-parser                 = "0.25.1"                                                                      # Font collection headers read for their face count, at the release typst links
+write-fonts                = { version = "0.55.0", features = ["read"] }                                   # Font table compilation
 
 # --- [GRAPHICS]
 
-kurbo        = { version = "0.13.1", features = ["serde"] }                          # 2D Bezier paths, affine transforms, flattening, dashing, stroke expansion, offsets, and arc lengths
-linesweeper  = "0.5.0"                                                               # Boolean operations on curved paths
-resvg        = "0.49.0"                                                              # SVG rasterization
-tiny-skia    = "0.12.0"                                                              # CPU rasterization of paths, gradients, and patterns
-usvg         = { version = "0.47.0", default-features = false, features = ["text"] } # SVG parsing and normalization with text over caller fonts, at the release krilla-svg and typst link, defaults `system-fonts` and `memmap-fonts` scan system fonts
-vello_common = "0.3.0"                                                               # Reusable raster buffers and native premultiplied pixel conversion
-wgpu         = "30.0.1"                                                              # WebGPU compute and rendering over native backends
+kurbo        = { version = "0.13.1", features = ["serde"] }                                   # 2D Bezier paths, affine transforms, flattening, dashing, stroke expansion, offsets, and arc lengths
+linesweeper  = "0.5.0"                                                                        # Boolean operations on curved paths
+resvg        = "0.49.0"                                                                       # SVG rasterization
+tiny-skia    = "0.12.0"                                                                       # CPU rasterization of paths, gradients, and patterns
+usvg         = { version = ">=0.47.0, <0.48", default-features = false, features = ["text"] } # SVG parsing and normalization with text over caller fonts, at the release krilla-svg and typst link, defaults `system-fonts` and `memmap-fonts` scan system fonts
+vello_common = "0.3.0"                                                                        # Reusable raster buffers and native premultiplied pixel conversion
+wgpu         = "30.0.1"                                                                       # WebGPU compute and rendering over native backends
 
 # --- [VISUALIZATION]
 
@@ -640,16 +640,16 @@ umya-spreadsheet = "3.1.1"                                                      
 # --- [MEDIA]
 
 c2pa        = { version = "0.91.11", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds reqwest 0.12 and ureq on ring beside aws-lc-rs
-cpal        = "0.18.2"                                                                                       # Audio device input and output
-ffmpeg-next = "9.0.0"                                                                                        # Video and audio mux, demux, and encode
-libmpv2     = "7.0.1"                                                                                        # Media playback through mpv
-lofty       = "0.25.5"                                                                                       # Audio metadata tags
-midly       = "0.5.3"                                                                                        # MIDI files
-nokhwa      = { version = "0.10.11", features = ["input-native"] }                                           # Camera frame capture
-ogg         = "0.9.2"                                                                                        # Ogg containers
-opus        = "0.4.0"                                                                                        # Opus encoding and decoding
-subtitler   = "2.13.0"                                                                                       # Subtitle parsing, conversion, and retiming
-symphonia   = { version = "0.6.1", features = ["mp3", "aac", "isomp4"] }                                     # Audio decoding
+cpal        = "0.18.2"                                                                                        # Audio device input and output
+ffmpeg-next = "9.0.0"                                                                                         # Video and audio mux, demux, and encode
+libmpv2     = "7.0.1"                                                                                         # Media playback through mpv
+lofty       = "0.25.5"                                                                                        # Audio metadata tags
+midly       = "0.5.3"                                                                                         # MIDI files
+nokhwa      = { version = "0.10.11", features = ["input-native"] }                                            # Camera frame capture
+ogg         = "0.9.2"                                                                                         # Ogg containers
+opus        = "0.4.0"                                                                                         # Opus encoding and decoding
+subtitler   = "2.13.0"                                                                                        # Subtitle parsing, conversion, and retiming
+symphonia   = { version = "0.6.1", features = ["mp3", "aac", "isomp4"] }                                      # Audio decoding
 
 # --- [MACHINE_LEARNING]
 
@@ -732,7 +732,7 @@ rasm-weather            = { path = "libs/rust/geospatial/weather" }
 rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation" }
 rasm-form-finding       = { path = "libs/rust/geometry/form-finding" }
 rasm-lints              = { path = "tools/dylint" }
-rasm-lints-auxiliary    = { path = "tests/rust/tools/dylint/auxiliary" }
+rasm-lints-auxiliary    = { path = "tools/dylint/auxiliary" }
 rasm-mcp-proxy          = { path = "tools/mcp-proxy" }
 
 # --- [LINTS] ----------------------------------------------------------------------------
@@ -740,143 +740,143 @@ rasm-mcp-proxy          = { path = "tools/mcp-proxy" }
 # --- [RUST]
 
 [workspace.lints.rust]
-ambiguous_negative_literals   = "warn"                            # `-1.abs()` negating method result in place of literal
-closure_returning_async_block = "warn"                            # Closures returning `async` block, async closure is the direct form
-dead_code_pub_in_binary       = "warn"                            # `pub` items of binary crates nothing reads, removals delete every mention
-deprecated_in_future          = "warn"                            # Items marked deprecated from future release
-deref_into_dyn_supertrait     = "warn"                            # `Deref` impls from `dyn` subtrait to supertrait object, trait upcasting shadows each
-impl_trait_redundant_captures = "warn"                            # `use<..>` listing every in-scope parameter, edition 2024 `impl Trait` captures each by default
-let_underscore_drop           = "warn"                            # `let _ =` dropping values with destructors at once, acquisition and release pair in one resource scope
-macro_use_extern_crate        = "warn"                            # `#[macro_use] extern crate`, `use` paths import each macro from its owner
-missing_debug_implementations = "warn"                            # Public types without `Debug`, boundary tracing records values with `?`
-non_ascii_idents              = "warn"                            # Non-ASCII identifiers
-redundant_imports             = "warn"                            # Imports that prelude or earlier `use` items provide
-redundant_lifetimes           = "warn"                            # Lifetime parameters that bounds make equal to another named lifetime
-rust_2018_idioms              = { level = "warn", priority = -1 } # Hidden path lifetimes, inferable outlives bounds, and unused `extern crate` items
-single_use_lifetimes          = "warn"                            # Named lifetimes used once, `'_` states lifetime no second position shares
+ambiguous_negative_literals   = "deny"                            # `-1.abs()` negating method result in place of literal
+closure_returning_async_block = "deny"                            # Closures returning `async` block, async closure is the direct form
+dead_code_pub_in_binary       = "deny"                            # `pub` items of binary crates nothing reads, removals delete every mention
+deprecated_in_future          = "deny"                            # Items marked deprecated from future release
+deref_into_dyn_supertrait     = "deny"                            # `Deref` impls from `dyn` subtrait to supertrait object, trait upcasting shadows each
+impl_trait_redundant_captures = "deny"                            # `use<..>` listing every in-scope parameter, edition 2024 `impl Trait` captures each by default
+let_underscore_drop           = "deny"                            # `let _ =` dropping values with destructors at once, acquisition and release pair in one resource scope
+macro_use_extern_crate        = "deny"                            # `#[macro_use] extern crate`, `use` paths import each macro from its owner
+missing_debug_implementations = "deny"                            # Public types without `Debug`, boundary tracing records values with `?`
+non_ascii_idents              = "deny"                            # Non-ASCII identifiers
+redundant_imports             = "deny"                            # Imports that prelude or earlier `use` items provide
+redundant_lifetimes           = "deny"                            # Lifetime parameters that bounds make equal to another named lifetime
+rust_2018_idioms              = { level = "deny", priority = -1 } # Hidden path lifetimes, inferable outlives bounds, and unused `extern crate` items
+single_use_lifetimes          = "deny"                            # Named lifetimes used once, `'_` states lifetime no second position shares
 unconditional_panic           = "forbid"                          # Operations rustc proves will panic
-unnameable_types              = "warn"                            # Types and traits public signatures expose but consumers cannot name
-unreachable_pub               = "warn"                            # `pub` items unreachable from the crate root, visibility states the reach consumers have
+unnameable_types              = "deny"                            # Types and traits public signatures expose but consumers cannot name
+unreachable_pub               = "deny"                            # `pub` items unreachable from the crate root, visibility states the reach consumers have
 unsafe_code                   = "forbid"                          # Unsafe code and unsafe attributes with no override, unsafe operations stay inside owning crates
-unused_import_braces          = "warn"                            # `use a::{b}` braces around one import, code keeps the direct form
-unused_lifetimes              = "warn"                            # Lifetime parameters nothing reads, removals delete every mention
-unused_macro_rules            = "warn"                            # `macro_rules!` rules nothing invokes, removals delete every mention
-unused_qualifications         = "warn"                            # Qualified paths to names in scope, code calls owning APIs directly
+unused_import_braces          = "deny"                            # `use a::{b}` braces around one import, code keeps the direct form
+unused_lifetimes              = "deny"                            # Lifetime parameters nothing reads, removals delete every mention
+unused_macro_rules            = "deny"                            # `macro_rules!` rules nothing invokes, removals delete every mention
+unused_qualifications         = "deny"                            # Qualified paths to names in scope, code calls owning APIs directly
 
 # --- [GROUPS]
 
 [workspace.lints.clippy]
-cargo    = { level = "warn", priority = -1 } # Missing package metadata, negative or redundant feature names, and wildcard requirements
-nursery  = { level = "warn", priority = -1 } # Lints under development, code smells are fixed as found
-pedantic = { level = "warn", priority = -1 } # Strict lints with occasional false positives, code smells are fixed as found
+cargo    = { level = "deny", priority = -1 } # Missing package metadata, negative or redundant feature names, and wildcard requirements
+nursery  = { level = "deny", priority = -1 } # Lints under development, code smells are fixed as found
+pedantic = { level = "deny", priority = -1 } # Strict lints with occasional false positives, code smells are fixed as found
 
 # --- [PARTIALITY]
 
-exit                   = "warn"   # `process::exit` outside `main`, boundary translates results into exit codes
-expect_used            = "warn"   # `expect` on `Option` and `Result`, consumers compose without unwrapping
-infinite_loop          = "warn"   # Endless loops in functions not returning `!`, signatures state divergence
-missing_assert_message = "warn"   # Assertions without message, each failure in a test or `const` block names its broken invariant
+exit                   = "deny"   # `process::exit` outside `main`, boundary translates results into exit codes
+expect_used            = "deny"   # `expect` on `Option` and `Result`, consumers compose without unwrapping
+infinite_loop          = "deny"   # Endless loops in functions not returning `!`, signatures state divergence
+missing_assert_message = "deny"   # Assertions without message, each failure in a test or `const` block names its broken invariant
 out_of_bounds_indexing = "forbid" # Constant array indices and ranges Clippy proves exceed their bounds
-panic                  = "warn"   # `panic!` calls, expected failures use the result type
-todo                   = "warn"   # `todo!` placeholders, work runs to completion
-unimplemented          = "warn"   # `unimplemented!` placeholders, work runs to completion
-unreachable            = "warn"   # `unreachable!` calls, invalid states stay unrepresentable at construction
-unwrap_used            = "warn"   # `unwrap` on `Option` and `Result`, consumers compose without unwrapping
+panic                  = "deny"   # `panic!` calls, expected failures use the result type
+todo                   = "deny"   # `todo!` placeholders, work runs to completion
+unimplemented          = "deny"   # `unimplemented!` placeholders, work runs to completion
+unreachable            = "deny"   # `unreachable!` calls, invalid states stay unrepresentable at construction
+unwrap_used            = "deny"   # `unwrap` on `Option` and `Result`, consumers compose without unwrapping
 
 # --- [OUTPUT]
 
-dbg_macro      = "warn" # `dbg!` calls, telemetry goes through tracing at boundaries
-pointer_format = "warn" # `{:p}` and `Debug` output holding raw or function pointers, addresses vary per run and expose memory layout
-print_stderr   = "warn" # `eprint!` and `eprintln!`, domain functions write only their return value
-print_stdout   = "warn" # `print!` and `println!`, domain functions write only their return value
-use_debug      = "warn" # `{:?}` in format strings, text people read renders through `Display`
+dbg_macro      = "deny" # `dbg!` calls, telemetry goes through tracing at boundaries
+pointer_format = "deny" # `{:p}` and `Debug` output holding raw or function pointers, addresses vary per run and expose memory layout
+print_stderr   = "deny" # `eprint!` and `eprintln!`, domain functions write only their return value
+print_stdout   = "deny" # `print!` and `println!`, domain functions write only their return value
+use_debug      = "deny" # `{:?}` in format strings, text people read renders through `Display`
 
 # --- [ATTRIBUTES]
 
-allow_attributes                = "warn" # `#[allow]` on lints, `#[expect]` fails once the suppressed lint stops firing
-allow_attributes_without_reason = "warn" # `#[expect]` and `#[allow]` without `reason`, each suppression names the fact excusing it
-cfg_not_test                    = "warn" # `#[cfg(not(test))]` code, tests run what product runs
-redundant_test_prefix           = "warn" # `test_` prefixes on `#[test]` functions, each fact is stated once
+allow_attributes                = "deny" # `#[allow]` on lints, `#[expect]` fails once the suppressed lint stops firing
+allow_attributes_without_reason = "deny" # `#[expect]` and `#[allow]` without `reason`, each suppression names the fact excusing it
+cfg_not_test                    = "deny" # `#[cfg(not(test))]` code, tests run what product runs
+redundant_test_prefix           = "deny" # `test_` prefixes on `#[test]` functions, each fact is stated once
 
 # --- [RESULTS]
 
-assertions_on_result_states = "warn" # `assert!(r.is_ok())` and `assert!(r.is_err())`, failures print no `Result` contents
-let_underscore_must_use     = "warn" # `let _ =` on must-use values, control flow matches every result case
-let_underscore_untyped      = "warn" # `let _ =` without type, each discard names dropped type
-try_err                     = "warn" # `Err(x)?` in place of `return Err(x)` outside `try` blocks, `?` marks a call that can fail
-unused_result_ok            = "warn" # `.ok()` calls discarding `Result`, control flow matches every result case
+assertions_on_result_states = "deny" # `assert!(r.is_ok())` and `assert!(r.is_err())`, failures print no `Result` contents
+let_underscore_must_use     = "deny" # `let _ =` on must-use values, control flow matches every result case
+let_underscore_untyped      = "deny" # `let _ =` without type, each discard names dropped type
+try_err                     = "deny" # `Err(x)?` in place of `return Err(x)` outside `try` blocks, `?` marks a call that can fail
+unused_result_ok            = "deny" # `.ok()` calls discarding `Result`, control flow matches every result case
 
 # --- [EXPRESSIONS]
 
-deref_by_slicing                     = "warn" # `&v[..]` full-range slices, deref is the direct form
-if_then_some_else_none               = "warn" # `if` choosing `Some` or `None`, `bool::then` states it as one expression
-iter_over_hash_type                  = "warn" # `for` loops over `HashMap` or `HashSet`, result order stays deterministic
-map_with_unused_argument_over_ranges = "warn" # `(0..n).map(|_| x)`, `repeat_n` states count directly
-mixed_read_write_in_expression       = "warn" # Reads and writes of one variable ordered by operand evaluation order
-pathbuf_init_then_push               = "warn" # `PathBuf` creation followed by `push`, paths build in one expression
-redundant_type_annotations           = "warn" # Annotations restating initializer's type, inferred types stand
-semicolon_outside_block              = "warn" # `{ f(); }` block statements, `{ f() };` is the direct form
+deref_by_slicing                     = "deny" # `&v[..]` full-range slices, deref is the direct form
+if_then_some_else_none               = "deny" # `if` choosing `Some` or `None`, `bool::then` states it as one expression
+iter_over_hash_type                  = "deny" # `for` loops over `HashMap` or `HashSet`, result order stays deterministic
+map_with_unused_argument_over_ranges = "deny" # `(0..n).map(|_| x)`, `repeat_n` states count directly
+mixed_read_write_in_expression       = "deny" # Reads and writes of one variable ordered by operand evaluation order
+pathbuf_init_then_push               = "deny" # `PathBuf` creation followed by `push`, paths build in one expression
+redundant_type_annotations           = "deny" # Annotations restating initializer's type, inferred types stand
+semicolon_outside_block              = "deny" # `{ f(); }` block statements, `{ f() };` is the direct form
 
 # --- [PATTERNS]
 
-ref_patterns             = "warn" # `ref` bindings, matching on borrowed scrutinee is the direct form
-unnecessary_rest_pattern = "warn" # `..` capturing no field, patterns state exactly fields they bind
+ref_patterns             = "deny" # `ref` bindings, matching on borrowed scrutinee is the direct form
+unnecessary_rest_pattern = "deny" # `..` capturing no field, patterns state exactly fields they bind
 
 # --- [NUMERICS]
 
-arithmetic_side_effects    = "warn" # Integer `+`, `-`, `*`, `/`, and `%` that can overflow or divide by zero, `checked_*` returns absence and `strict_*` names the panic
-float_cmp_const            = "warn" # `==` and `!=` against nonzero float constants, comparisons state their tolerance
-host_endian_bytes          = "warn" # `to_ne_bytes` and `from_ne_bytes`, encodings name their endianness
-lossy_float_literal        = "warn" # Whole-number float literals their type cannot hold exactly
-modulo_arithmetic          = "warn" # `%` over signed or float operands taking dividend's sign, `rem_euclid` states sign rule
-non_zero_suggestions       = "warn" # `NonZero` values widened through plain integer, `NonZero::from` keeps invariant
-precedence_bits            = "warn" # Shifts mixed with `&`, `|`, or `^` without parentheses
-suspicious_xor_used_as_pow = "warn" # `2 ^ 8` read as power, `pow` states exponentiation
-unseparated_literal_suffix = "warn" # `1u32` suffixes, `1_u32` is the one spelling Clippy's suggestions write
+arithmetic_side_effects    = "deny" # Integer `+`, `-`, `*`, `/`, and `%` that can overflow or divide by zero, `checked_*` returns absence and `strict_*` names the panic
+float_cmp_const            = "deny" # `==` and `!=` against nonzero float constants, comparisons state their tolerance
+host_endian_bytes          = "deny" # `to_ne_bytes` and `from_ne_bytes`, encodings name their endianness
+lossy_float_literal        = "deny" # Whole-number float literals their type cannot hold exactly
+modulo_arithmetic          = "deny" # `%` over signed or float operands taking dividend's sign, `rem_euclid` states sign rule
+non_zero_suggestions       = "deny" # `NonZero` values widened through plain integer, `NonZero::from` keeps invariant
+precedence_bits            = "deny" # Shifts mixed with `&`, `|`, or `^` without parentheses
+suspicious_xor_used_as_pow = "deny" # `2 ^ 8` read as power, `pow` states exponentiation
+unseparated_literal_suffix = "deny" # `1u32` suffixes, `1_u32` is the one spelling Clippy's suggestions write
 
 # --- [STRINGS]
 
-needless_raw_strings = "warn" # `r"..."` literals with nothing to escape, code keeps the direct form
-str_to_string        = "warn" # `str::to_string` calls, `to_owned` names conversion directly
-string_add           = "warn" # `String + &str`, asymmetric `Add` that `push_str` replaces
-string_lit_chars_any = "warn" # `"abc".chars().any(..)` membership tests, `matches!` states set directly
+needless_raw_strings = "deny" # `r"..."` literals with nothing to escape, code keeps the direct form
+str_to_string        = "deny" # `str::to_string` calls, `to_owned` names conversion directly
+string_add           = "deny" # `String + &str`, asymmetric `Add` that `push_str` replaces
+string_lit_chars_any = "deny" # `"abc".chars().any(..)` membership tests, `matches!` states set directly
 
 # --- [OWNERSHIP]
 
-clone_on_ref_ptr = "warn" # `.clone()` on `Rc`, `Arc`, and `Weak`, `Arc::clone(&x)` names the shared handle it copies
-empty_drop       = "warn" # Empty `Drop` impls, removals delete every mention
-mem_forget       = "warn" # `mem::forget` on values with destructors, release runs on every path
-rc_buffer        = "warn" # `Rc` or `Arc` over growable buffers, shared values publish as immutable `str` or slices
+clone_on_ref_ptr = "deny" # `.clone()` on `Rc`, `Arc`, and `Weak`, `Arc::clone(&x)` names the shared handle it copies
+empty_drop       = "deny" # Empty `Drop` impls, removals delete every mention
+mem_forget       = "deny" # `mem::forget` on values with destructors, release runs on every path
+rc_buffer        = "deny" # `Rc` or `Arc` over growable buffers, shared values publish as immutable `str` or slices
 
 # --- [DECLARATIONS]
 
-empty_enum_variants_with_brackets = "warn" # `Variant()` and `Variant {}` with no fields, `Variant` is the direct form
-empty_structs_with_brackets       = "warn" # `struct S {}` and `struct S();`, `struct S;` is the direct form
-inline_trait_bounds               = "warn" # Bounds inside function `<..>`, every bound sits in `where` clause
-multiple_inherent_impl            = "warn" # Inherent `impl` blocks split across crate, members stay in their type's section
-same_name_method                  = "warn" # Inherent methods sharing trait method names, each call site names one member
+empty_enum_variants_with_brackets = "deny" # `Variant()` and `Variant {}` with no fields, `Variant` is the direct form
+empty_structs_with_brackets       = "deny" # `struct S {}` and `struct S();`, `struct S;` is the direct form
+inline_trait_bounds               = "deny" # Bounds inside function `<..>`, every bound sits in `where` clause
+multiple_inherent_impl            = "deny" # Inherent `impl` blocks split across crate, members stay in their type's section
+same_name_method                  = "deny" # Inherent methods sharing trait method names, each call site names one member
 
 # --- [VISIBILITY]
 
-partial_pub_fields    = "warn" # Structs mixing public and private fields, types are plain data or guard their invariant whole
-pub_without_shorthand = "warn" # `pub(in super)` visibility paths, `pub(super)` is the direct form
+partial_pub_fields    = "deny" # Structs mixing public and private fields, types are plain data or guard their invariant whole
+pub_without_shorthand = "deny" # `pub(in super)` visibility paths, `pub(super)` is the direct form
 
 # --- [MODULES]
 
-alloc_instead_of_core    = "warn" # Paths through `alloc` to items `core` owns, `core` names owner
-std_instead_of_core      = "warn" # Paths through `std` to items `core` owns, `core` names owner
-inline_modules           = "warn" # Inline `mod` blocks outside tests, each module takes its own file
-mod_module_files         = "warn" # `mod.rs` files, each module file takes its module's name
-unnecessary_self_imports = "warn" # `use m::{self}` imports, code keeps the direct form
-unused_trait_names       = "warn" # `use Trait` imported for its methods alone, `as _` states import serves method resolution
+alloc_instead_of_core    = "deny" # Paths through `alloc` to items `core` owns, `core` names owner
+std_instead_of_core      = "deny" # Paths through `std` to items `core` owns, `core` names owner
+inline_modules           = "deny" # Inline `mod` blocks outside tests, each module takes its own file
+mod_module_files         = "deny" # `mod.rs` files, each module file takes its module's name
+unnecessary_self_imports = "deny" # `use m::{self}` imports, code keeps the direct form
+unused_trait_names       = "deny" # `use Trait` imported for its methods alone, `as _` states import serves method resolution
 
 # --- [NAMING]
 
-error_impl_error           = "warn" # Error types named `Error`, each names raising package
-min_ident_chars            = "warn" # Single-character identifiers, single letters name coordinate axes, color channels, and IEC 61672-1 weightings alone
-module_name_repetitions    = "warn" # Item names repeating their module's name, paths state module once
-renamed_function_params    = "warn" # Trait impls renaming trait parameters, trait owns each parameter name
-single_char_lifetime_names = "warn" # Single-character lifetime names, each lifetime names its purpose
+error_impl_error           = "deny" # Error types named `Error`, each names raising package
+min_ident_chars            = "deny" # Single-character identifiers, single letters name coordinate axes, color channels, and IEC 61672-1 weightings alone
+module_name_repetitions    = "deny" # Item names repeating their module's name, paths state module once
+renamed_function_params    = "deny" # Trait impls renaming trait parameters, trait owns each parameter name
+single_char_lifetime_names = "deny" # Single-character lifetime names, each lifetime names its purpose
 
 # --- [ALLOWED]
 
@@ -895,9 +895,9 @@ too_many_lines              = "allow" # Caps functions at 100 lines, data depend
 # --- [CARGO]
 
 [workspace.lints.cargo]
-pedantic                      = { level = "warn", priority = -1 } # Binary names off kebab case and `readme` keys restating inferred file, each fact is stated once
-non_kebab_case_features       = "warn"                            # Feature names off kebab case, one spelling beside kebab-case package and binary names
-non_kebab_case_packages       = "warn"                            # Package names off kebab case, Nx project, package, and installed binary share one spelling
+pedantic                      = { level = "deny", priority = -1 } # Binary names off kebab case and `readme` keys restating inferred file, each fact is stated once
+non_kebab_case_features       = "deny"                            # Feature names off kebab case, one spelling beside kebab-case package and binary names
+non_kebab_case_packages       = "deny"                            # Package names off kebab case, Nx project, package, and installed binary share one spelling
 unused_workspace_dependencies = "allow"                           # Flags catalog rows held for future members, Cargo resolves inherited rows alone
 
 # --- [PROFILES] -------------------------------------------------------------------------
@@ -907,3 +907,8 @@ debug = "line-tables-only" # Backtraces show file and line with no variable or p
 
 [profile.dev.package."*"]
 debug = false # Non-member backtrace frames lack file and line
+
+[profile.dist]
+inherits        = "release" # `cargo dylint` builds lint libraries under unwinding `release`
+panic           = "abort"   # Service manager restarts process after defect panic in place of tokio catching each task panic
+overflow-checks = true      # Integer overflow panics as defect in place of wrapping to wrong value

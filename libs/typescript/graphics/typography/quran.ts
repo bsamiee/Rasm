@@ -3,9 +3,9 @@ import { Digits, Unmatched } from '@rasm/search';
 import { Array, Effect, Equivalence, Number, Option, Order, pipe, Record, Schema, Stream, Struct } from 'effect';
 import { Csv } from 'effect/encoding';
 import { findSurahAyahByAyahId, formatSurahAyah, generatePartBlocks, getListsOfRiwaya, isValidSurah, isValidSurahAyah, type PartBlock, partNames, type RiwayaData, type RiwayaName, type RiwayasNames, type SurahAyah, type SurahNames, surahNamesAr, surahNamesEn } from 'quran-meta';
-import { TypographyError } from '#/error.ts';
-import type { Settings } from '#/settings.ts';
-import type { Face } from '#/shaping/face.ts';
+import { TypographyError } from '#/error';
+import type { Settings } from '#/settings';
+import type { Face } from '#/shaping/face';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

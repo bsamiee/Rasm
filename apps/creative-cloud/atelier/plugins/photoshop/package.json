@@ -1,0 +1,18 @@
+{
+    "name": "@rasm/atelier-photoshop-plugin",
+    "private": true,
+    "description": "Atelier Photoshop",
+    "type": "module",
+    "dependencies": {
+        "@rasm/photoshop": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@adobe-uxp-types/photoshop": "catalog:",
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@rasm/atelier": "workspace:*",
+        "@types/node": "catalog:",
+        "vite": "catalog:"
+    }
+}

@@ -6,12 +6,12 @@ import { useState } from 'react';
 import { Button } from 'react-aria-components';
 import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { PlacementFields } from '#/editor/placement-fields.tsx';
-import { draft, hero, updateEntry } from '#/editor/state.ts';
+import { draft, hero, updateEntry } from '#/editor/state';
 import { CompositionGrid } from '#/media/composition-grid.tsx';
-import { choiceLayout, compositionLabel, entryTitle, format, literalOptions, placementTitle } from '#/media/labels.ts';
-import type { Assets } from '#/model/asset.ts';
-import { Alignment, type Composition, CompositionId, type Placement, Scale } from '#/model/placement.ts';
-import type { Entry } from '#/model/portfolio.ts';
+import { choiceLayout, compositionLabel, entryTitle, format, literalOptions, placementTitle } from '#/media/labels';
+import type { Assets } from '#/model/asset';
+import { Alignment, type Composition, CompositionId, type Placement, Scale } from '#/model/placement';
+import type { Entry } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

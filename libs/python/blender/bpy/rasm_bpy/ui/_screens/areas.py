@@ -339,7 +339,7 @@ def to_view(located: Located, x: float, y: float) -> Option[tuple[float, float]]
     """Returns editor coordinates of located region pixels, Nothing without a region."""
 
     def viewed(region: bpy.types.Region) -> tuple[float, float]:
-        point: tuple[float, float] = region.view2d.region_to_view(x, y)  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+        point: tuple[float, float] = region.view2d.region_to_view(x, y)  # ty: ignore[unsound-assignment]
         view_x, view_y = point
         scale = _scale(located.area)
         return view_x / scale, view_y / scale
@@ -352,7 +352,7 @@ def _to_region(located: Located, x: float, y: float) -> Option[tuple[int, int]]:
 
     def placed(region: bpy.types.Region) -> Option[tuple[int, int]]:
         scale = _scale(located.area)
-        point: tuple[int, int] = region.view2d.view_to_region(x * scale, y * scale, clip=False)  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+        point: tuple[int, int] = region.view2d.view_to_region(x * scale, y * scale, clip=False)  # ty: ignore[unsound-assignment]
         column, row = point
         return Some(point).filter(lambda _: 0 <= column < region.width and 0 <= row < region.height)
 

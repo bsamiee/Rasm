@@ -394,7 +394,7 @@ def _sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[_Bo
 
 def _exchange[T](client: httpx2.Client, method: HTTPMethod, path: str, reply: TypeForm[T], body: Option[_Body] = Nothing) -> Outcome[T]:
     """Sends request and decodes JSON reply."""
-    return _sent(client, method, path, body).bind(  # ty: ignore[unsound-return-statement]
+    return _sent(client, method, path, body).bind(
         lambda response: catch(lambda: msgspec.json.decode(response.content, type=reply), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.FAILED, str(response.request.url)))
     )
 

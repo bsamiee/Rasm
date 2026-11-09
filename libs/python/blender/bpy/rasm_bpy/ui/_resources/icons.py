@@ -11,6 +11,7 @@ from typing import Final, Self, TYPE_CHECKING
 import bpy
 import bpy.utils.previews
 from expression import Option, Some
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -33,7 +34,7 @@ type Icon = rna_enums.IconItems | Path | bpy.types.ID
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ICON: Final[bpy.types.EnumProperty] = _definition(bpy.types.UILayout).functions["prop"].parameters["icon"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_ICON: Final[bpy.types.EnumProperty] = _definition(bpy.types.UILayout).functions["prop"].parameters["icon"]  # ty: ignore[invalid-assignment]
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -138,8 +139,9 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
             case Option(some=bpy.types.ID() as block):
                 return Ok(Some(bpy.types.UILayout.icon(block)))
             case Option(some=str(name)):
-                item: bpy.types.EnumPropertyItem | None = _ICON.enum_items.get(name)  # ty: ignore[unsound-assignment]
-                return Option.of_optional(item).map(lambda item: Some(item.value)).to_result_with(partial(Fault.of, Reason.ABSENT, bpy.types.UILayout.__name__, member=name))
+                return (
+                    catch(lambda: _ICON.enum_items[name], exception=KeyError)().map(lambda item: Some(item.value)).map_error(partial(Fault.of, Reason.ABSENT, bpy.types.UILayout.__name__, member=name))
+                )
             case _:
                 return Ok(Nothing)
 

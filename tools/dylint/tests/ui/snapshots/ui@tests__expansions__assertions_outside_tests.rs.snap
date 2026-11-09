@@ -1,0 +1,90 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/tests/expansions/assertions_outside_tests.rs
+---
+warning: `assert!` asserts at run time outside a test
+  --> tools/dylint/tests/expansions/assertions_outside_tests.rs:20:5
+   |
+20 |     assert!(values.len() <= LIMIT, "too many values");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or move the check into a test or a `const` block
+   = note: `#[warn(assertions_outside_tests)]` on by default
+
+warning: `debug_assert_eq!` asserts at run time outside a test
+  --> tools/dylint/tests/expansions/assertions_outside_tests.rs:25:5
+   |
+25 |     debug_assert_eq!(left.len(), right.len());
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or move the check into a test or a `const` block
+
+warning: `iter` converts `left` into an iterator only to call `zip`
+  --> tools/dylint/tests/expansions/assertions_outside_tests.rs:26:5
+   |
+26 |     left.iter().zip(right).map(|(left, right)| left.strict_mul(*right)).sum()
+   |     ^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::zip` with `use core::iter;`: `iter::zip(left, right)`
+   |
+   = note: `#[warn(explicit_iter_chain_zip)]` on by default
+applicability MaybeIncorrect: call `iter::zip` with `use core::iter;`
+
+warning: `assert_ne!` asserts at run time outside a test
+  --> tools/dylint/tests/expansions/assertions_outside_tests.rs:30:5
+   |
+30 |     assert_ne!(left, right);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or move the check into a test or a `const` block
+
+warning: `assert_matches!` asserts at run time outside a test
+  --> tools/dylint/tests/expansions/assertions_outside_tests.rs:35:5
+   |
+35 |     core::assert_matches!(reply, Reply::Accepted(_));
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or move the check into a test or a `const` block
+
+warning: `assert_eq!` asserts at run time outside a test
+  --> tools/dylint/tests/expansions/assertions_outside_tests.rs:43:5
+   |
+43 |     assert_eq!(left, right, "lengths differ");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or move the check into a test or a `const` block
+
+warning: `debug_assert!` asserts at run time outside a test
+  --> tools/dylint/tests/expansions/assertions_outside_tests.rs:48:5
+   |
+48 |     debug_assert!(!values.is_empty(), "no values");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or move the check into a test or a `const` block
+
+warning: `debug_assert_ne!` asserts at run time outside a test
+  --> tools/dylint/tests/expansions/assertions_outside_tests.rs:49:5
+   |
+49 |     debug_assert_ne!(values.len(), LIMIT, "values fill the limit");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or move the check into a test or a `const` block
+
+warning: `debug_assert_matches!` asserts at run time outside a test
+  --> tools/dylint/tests/expansions/assertions_outside_tests.rs:54:5
+   |
+54 |     core::debug_assert_matches!(reply, Reply::Rejected);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or move the check into a test or a `const` block
+
+warning: `assert!` asserts at run time outside a test
+  --> tools/dylint/tests/expansions/assertions_outside_tests.rs:65:9
+   |
+63 | macro_rules! ensured {
+64 |     ($condition:expr) => {
+65 |         assert!($condition, "broken")
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+70 |     ensured!(count < LIMIT);
+   |     ----------------------- in this macro invocation
+   |
+   = help: return a typed error for a failure the input causes, state the invariant in the types, or move the check into a test or a `const` block

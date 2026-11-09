@@ -3,7 +3,7 @@ import { Unmatched } from '@rasm/search';
 import { Array, Cause, Context, Effect, Option, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, String, Struct } from 'effect';
 import { Url } from 'effect/http';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { HostError } from '#/error.ts';
+import { HostError } from '#/error';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

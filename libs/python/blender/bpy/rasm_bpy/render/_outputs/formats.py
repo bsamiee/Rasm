@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FORMAT: Final[bpy.types.EnumProperty] = bpy.types.ImageFormatSettings.bl_rna.properties["file_format"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_FORMAT: Final[bpy.types.EnumProperty] = bpy.types.ImageFormatSettings.bl_rna.properties["file_format"]  # ty: ignore[invalid-assignment]
 _FILE_FORMATS: Final = frozenset(item.identifier for item in _FORMAT.enum_items)
 EXR: Final = frozenset({"OPEN_EXR", "OPEN_EXR_MULTILAYER"})
 _JPEG2000: Final = MappingProxyType({"JP2": ".jp2", "J2K": ".j2c"})
@@ -164,7 +164,7 @@ class _FileItems(ItemContent, frozen=True, kw_only=True):
     @staticmethod
     def _bound(live: bpy.types.CompositorNodeOutputFile, identity: Identity) -> tuple[Mapping[Key, Mapping[str, str]], dict[str, bpy.types.NodeCompositorFileOutputItem]]:
         bindings: Mapping[Key, Mapping[str, str]] = live.get(identity.identifier(_FileItems._key), {})  # ty: ignore[unsound-assignment]
-        inputs: bpy.types.NodeInputs = live.inputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        inputs: bpy.types.NodeInputs = live.inputs  # ty: ignore[invalid-assignment]
         return bindings, {socket.identifier: item for item, socket in zip(live.file_output_items, inputs)}
 
     @staticmethod
@@ -214,7 +214,7 @@ class _FileItems(ItemContent, frozen=True, kw_only=True):
             case bpy.types.CompositorNodeOutputFile() as output:
                 bindings, inventory = self._bound(output, identity)
                 _, matched = _matched_items(inventory, {row["identifier"]: (key, row["request"]) for key, row in bindings.items()}, ((key, wanted.name) for key, wanted in self.items.items()))
-                inputs: bpy.types.NodeInputs = output.inputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                inputs: bpy.types.NodeInputs = output.inputs  # ty: ignore[invalid-assignment]
                 outputs: bpy.types.NodeOutputs = output.outputs
                 positions = (*matched, *(socket.identifier for socket in inputs if socket.identifier not in inventory and socket.enabled))
                 return {
@@ -236,7 +236,7 @@ class _FileItems(ItemContent, frozen=True, kw_only=True):
             names = {identifier: inventory[identifier].name for identifier in matched if identifier is not None}
             kept: dict[Key, dict[str, str]] = {}
             desired: list[str] = []
-            inputs: bpy.types.NodeInputs = output.inputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            inputs: bpy.types.NodeInputs = output.inputs  # ty: ignore[invalid-assignment]
             answers: list[Outcome[None]] = []
             refused = partial(Fault.of, Reason.REFUSED, repr(output))
             try:

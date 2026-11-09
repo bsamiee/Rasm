@@ -20,13 +20,13 @@ type _Texts = tuple[tuple[str, str], ...]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_CREATE: Final[Callable[[], object]] = PyOpenColorIO.ConfigMergingParameters.Create  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-_PREFER_BASE: Final[object] = PyOpenColorIO.ConfigMergingParameters.STRATEGY_PREFER_BASE  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-_SET_ROLES: Final[Callable[[object, object], None]] = PyOpenColorIO.ConfigMergingParameters.setRoles  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-_SET_COLORSPACES: Final[Callable[[object, object], None]] = PyOpenColorIO.ConfigMergingParameters.setColorspaces  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-_MERGE: Final[Callable[[object, PyOpenColorIO.Config, PyOpenColorIO.Config], PyOpenColorIO.Config]] = PyOpenColorIO.ConfigMergingHelpers.MergeConfigs  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-_ACTIVE_DISPLAY: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO.Config.addActiveDisplay  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
-_ACTIVE_VIEW: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO.Config.addActiveView  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+_CREATE: Final[Callable[[], object]] = PyOpenColorIO.ConfigMergingParameters.Create  # ty: ignore[unresolved-attribute, unsound-assignment]
+_PREFER_BASE: Final[object] = PyOpenColorIO.ConfigMergingParameters.STRATEGY_PREFER_BASE  # ty: ignore[unresolved-attribute]
+_SET_ROLES: Final[Callable[[object, object], None]] = PyOpenColorIO.ConfigMergingParameters.setRoles  # ty: ignore[unresolved-attribute, unsound-assignment]
+_SET_COLORSPACES: Final[Callable[[object, object], None]] = PyOpenColorIO.ConfigMergingParameters.setColorspaces  # ty: ignore[unresolved-attribute, unsound-assignment]
+_MERGE: Final[Callable[[object, PyOpenColorIO.Config, PyOpenColorIO.Config], PyOpenColorIO.Config]] = PyOpenColorIO.ConfigMergingHelpers.MergeConfigs  # ty: ignore[unresolved-attribute, unsound-assignment]
+_ACTIVE_DISPLAY: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO.Config.addActiveDisplay  # ty: ignore[unresolved-attribute, unsound-assignment]
+_ACTIVE_VIEW: Final[Callable[[PyOpenColorIO.Config, str], None]] = PyOpenColorIO.Config.addActiveView  # ty: ignore[unresolved-attribute, unsound-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

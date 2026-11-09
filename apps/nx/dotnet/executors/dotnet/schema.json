@@ -2,12 +2,12 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "version": 2,
     "title": "dotnet",
-    "description": "Runs a dotnet command on one project, or once over every project of a batch",
+    "description": "Runs dotnet commands in order on one project, or once each over every project of a batch",
     "type": "object",
     "properties": {
-        "command": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "dotnet subcommand and its switches, which the plugin infers" },
+        "commands": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 1 }, "minItems": 1, "description": "dotnet subcommands and their switches, run in order, which the plugin infers" },
         "project": { "type": "string", "description": "Project file the command runs on" },
         "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to the command" }
     },
-    "required": ["command", "project"]
+    "required": [ "commands", "project" ]
 }

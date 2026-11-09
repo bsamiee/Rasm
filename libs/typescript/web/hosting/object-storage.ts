@@ -5,7 +5,7 @@ import { HttpApiError } from 'effect/http-api';
 import type { ObjectStore } from 'partial-content';
 import { isUploadDestinationConflictError, isUploadOffsetConflictError, isUploadOverrunError, type PrefixedUploadStore } from 'partial-content/upload';
 import { type ServeContext, type ServeObjectOptions, serveObject } from 'partial-content/web';
-import { HostingError } from '#/error.ts';
+import { HostingError } from '#/error';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

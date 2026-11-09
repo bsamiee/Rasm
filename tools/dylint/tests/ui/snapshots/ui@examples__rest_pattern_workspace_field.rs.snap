@@ -1,0 +1,49 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/rest_pattern_workspace_field.rs
+---
+warning: `..` covers `Window` fields the pattern leaves unnamed
+  --> tools/dylint/examples/rest_pattern_workspace_field.rs:37:9
+   |
+37 |     let Window { start, .. } = window;
+   |         ^^^^^^^^^^^^^^^^--^^
+   |                         |
+   |                         help: name each field `..` covers as `field: _`: `end: _, label: _`
+   |
+   = note: `#[warn(rest_pattern_workspace_field)]` on by default
+applicability MachineApplicable: name each field `..` covers as `field: _`
+
+warning: `..` covers `Drag` fields the pattern leaves unnamed
+  --> tools/dylint/examples/rest_pattern_workspace_field.rs:48:9
+   |
+48 |         Gesture::Drag { from, .. } => from,
+   |         ^^^^^^^^^^^^^^^^^^^^^^--^^
+   |                               |
+   |                               help: name each field `..` covers as `field: _`: `to: _`
+applicability MachineApplicable: name each field `..` covers as `field: _`
+
+warning: `..` covers `Pinch` fields the pattern leaves unnamed
+  --> tools/dylint/examples/rest_pattern_workspace_field.rs:49:9
+   |
+49 |         Gesture::Pinch(first, ..) => first,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: replace `..` with `_`
+
+warning: `..` covers `Token` fields the pattern leaves unnamed
+  --> tools/dylint/examples/rest_pattern_workspace_field.rs:63:9
+   |
+63 |     let sealed::Token { id, .. } = token;
+   |         ^^^^^^^^^^^^^^^^^^^^-^^^
+   |                             |
+   |                             help: name each field `..` covers as `field: _`: `scope: _,`
+applicability MachineApplicable: name each field `..` covers as `field: _`
+
+warning: `..` covers `Fields` fields the pattern leaves unnamed
+  --> tools/dylint/examples/rest_pattern_workspace_field.rs:97:9
+   |
+97 |     let Fields { kept, .. } = fields;
+   |         ^^^^^^^^^^^^^^^--^^
+   |                        |
+   |                        help: name each field `..` covers as `field: _`: `r#type: _`
+applicability MachineApplicable: name each field `..` covers as `field: _`

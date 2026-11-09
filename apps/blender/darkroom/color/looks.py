@@ -29,7 +29,7 @@ from .luts import install_tone_view
 class FormationLook(bpy.types.PropertyGroup):
     """Look the formation's view applies, one of the OCIO looks Blender offers that view, read from the formation and written into it on each pick."""
 
-    look: bpy.props.EnumProperty(name="Look", description="Look the formation's view applies ahead of its transform", items=())  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    look: bpy.props.EnumProperty(name="Look", description="Look the formation's view applies ahead of its transform", items=())  # ty: ignore[invalid-type-form]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -43,7 +43,7 @@ def _looks(config: PyOpenColorIO.Config) -> tuple[str, ...]:
 def _viewing(identity: Identity, scene: bpy.types.Scene) -> tuple[bpy.types.ColorManagedViewSettings, DisplayView]:
     """Returns the view settings and view of the earliest formation entry's display node, else of the scene, the view a look applies to."""
     holder = next((node for _, node in displays(identity, scene)), scene)
-    settings: bpy.types.ColorManagedViewSettings = holder.view_settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    settings: bpy.types.ColorManagedViewSettings = holder.view_settings  # ty: ignore[invalid-assignment]
     return settings, viewed(holder)
 
 

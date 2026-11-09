@@ -10,8 +10,8 @@ from bl_ui.space_image import IMAGE_MT_image, IMAGE_PT_render_slots
 from bl_ui.space_node import NODE_MT_node
 from bl_ui.space_topbar import TOPBAR_MT_render
 from bl_ui.space_view3d import VIEW3D_MT_object_context_menu
-from cycles.presets import AddPresetIntegrator, AddPresetPerformance, AddPresetSampling, AddPresetViewportSampling  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
-from cycles.ui import CYCLES_RENDER_PT_bake, CYCLES_RENDER_PT_passes  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
+from cycles.presets import AddPresetIntegrator, AddPresetPerformance, AddPresetSampling, AddPresetViewportSampling  # ty: ignore[import-not-found]
+from cycles.ui import CYCLES_RENDER_PT_bake, CYCLES_RENDER_PT_passes  # ty: ignore[import-not-found]
 from expression import Some
 
 from rasm_bpy.commands import PopupKind, PopupTarget

@@ -10,6 +10,7 @@ type                = "add-on"
 tags                = ["Compositing", "Render", "Sequencer"]
 blender_version_min = "5.4.0"
 license             = ["SPDX:MIT"]
+platforms           = ["macos-arm64", "linux-x64", "windows-x64"]         # The `[tool.uv] environments` the lock resolves that Blender's manual lists
 
 # --- [PERMISSIONS] ----------------------------------------------------------------------
 

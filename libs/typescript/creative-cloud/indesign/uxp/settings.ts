@@ -2,8 +2,8 @@ import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDe
 import { Digits } from '@rasm/search';
 import { Settings } from '@rasm/typography';
 import { Array, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
-import { STYLISTIC_SETS } from '#/internal/dictionary.ts';
-import { Model } from '#/uxp/model.ts';
+import { STYLISTIC_SETS } from '#/internal/dictionary';
+import { Model } from '#/uxp/model';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

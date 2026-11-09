@@ -78,12 +78,12 @@ _TYPE: Final = Descriptor(root=bpy.types.Light, prop=bpy.types.Light.bl_rna.prop
 class RigSetup(bpy.types.PropertyGroup):
     """Focus, axes, linking, and reference of one rig empty."""
 
-    focus: bpy.props.EnumProperty(name="Focus", description="Rig center", items=choices((focus.name, *focus.value) for focus in _RigFocus), default=_RigFocus.BOUNDS.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    bone: bpy.props.StringProperty(name="Bone", description="Pose bone centering a bone focus")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    axes: bpy.props.EnumProperty(name="Axes", description="Azimuth and elevation axes", items=choices((axes.name, *axes.value) for axes in _RigAxes), default=_RigAxes.CAMERA.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    linked: bpy.props.BoolProperty(name="Target Alone", description="Lights reach target and descendants alone")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    reference: bpy.props.PointerProperty(type=bpy.types.Image, name="Reference", description="Image a matched rig reads")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    size: bpy.props.IntProperty(name="Reference Size", description="Side of the rendered reference image", min=1, default=256)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    focus: bpy.props.EnumProperty(name="Focus", description="Rig center", items=choices((focus.name, *focus.value) for focus in _RigFocus), default=_RigFocus.BOUNDS.name)  # ty: ignore[invalid-type-form]
+    bone: bpy.props.StringProperty(name="Bone", description="Pose bone centering a bone focus")  # ty: ignore[invalid-type-form]
+    axes: bpy.props.EnumProperty(name="Axes", description="Azimuth and elevation axes", items=choices((axes.name, *axes.value) for axes in _RigAxes), default=_RigAxes.CAMERA.name)  # ty: ignore[invalid-type-form]
+    linked: bpy.props.BoolProperty(name="Target Alone", description="Lights reach target and descendants alone")  # ty: ignore[invalid-type-form]
+    reference: bpy.props.PointerProperty(type=bpy.types.Image, name="Reference", description="Image a matched rig reads")  # ty: ignore[invalid-type-form]
+    size: bpy.props.IntProperty(name="Reference Size", description="Side of the rendered reference image", min=1, default=256)  # ty: ignore[invalid-type-form]
 
 
 class _RigState(msgspec.Struct, frozen=True, kw_only=True):
@@ -96,13 +96,13 @@ class _RigState(msgspec.Struct, frozen=True, kw_only=True):
 class RigPick(bpy.types.PropertyGroup):
     """Catalog rig name."""
 
-    name: bpy.props.EnumProperty(name="Rig", description="Catalog rig", items=choices((name, name, "") for name in RIGS))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    name: bpy.props.EnumProperty(name="Rig", description="Catalog rig", items=choices((name, name, "") for name in RIGS))  # ty: ignore[invalid-type-form]
 
 
 class ReferencePick(bpy.types.PropertyGroup):
     """Reference recipe name from catalog."""
 
-    name: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    name: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
         name="Reference", items=choices((name, name, bpy.path.display_name(family.name.lower())) for name, (family, _) in REFERENCES.items())
     )
 
@@ -110,14 +110,14 @@ class ReferencePick(bpy.types.PropertyGroup):
 class ReferenceDraw(bpy.types.PropertyGroup):
     """Reference seed and color distribution."""
 
-    distribution: bpy.props.EnumProperty(name="Distribution", items=enum_choices(ReferenceDistribution), default=ReferenceDistribution.BALANCED.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    seed: bpy.props.IntProperty(name="Seed", min=0, max=SEED_BOUND)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    distribution: bpy.props.EnumProperty(name="Distribution", items=enum_choices(ReferenceDistribution), default=ReferenceDistribution.BALANCED.name)  # ty: ignore[invalid-type-form]
+    seed: bpy.props.IntProperty(name="Seed", min=0, max=SEED_BOUND)  # ty: ignore[invalid-type-form]
 
 
 class GelPick(bpy.types.PropertyGroup):
     """Gel name for reference tint."""
 
-    name: bpy.props.EnumProperty(name="Gel", items=enum_choices(Gel))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    name: bpy.props.EnumProperty(name="Gel", items=enum_choices(Gel))  # ty: ignore[invalid-type-form]
 
 
 class _LightRig(msgspec.Struct, frozen=True, kw_only=True):
@@ -329,7 +329,7 @@ def _rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Con
             radius: float = msgspec.convert(reach.length, type=Positive)  # ty: ignore[unsound-assignment]
         except msgspec.ValidationError as error:
             return Error(Fault.of(Reason.OUTSIDE, f"{target!r}.bound_box {low[:]} to {high[:]}", error, member="a positive radius"))
-        return Ok((Matrix.LocRotScale(center, frame, None).freeze(), radius))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        return Ok((Matrix.LocRotScale(center, frame, None).freeze(), radius))  # ty: ignore[invalid-argument-type]
 
     return (
         _evaluated(layer)

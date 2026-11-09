@@ -52,7 +52,7 @@ class _Write(msgspec.Struct, frozen=True, kw_only=True):  # type: ignore[explici
     def advanced(self) -> Outcome[Option[Self]]:
         """Runs the scoped write, pushing its undo step through the first window of GUI sessions, a timer pass holding no screen."""
         applied = self.applied(*self.args, **self.kwargs) if self.scope.is_set() else Ok(Nothing)
-        manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
         for message, window in product(applied.default_value(Nothing).to_list(), () if bpy.app.background else tuple(manager.windows)[:1]):
             with bpy.context.temp_override(window=window):
                 bpy.ops.ed.undo_push(message=message)
@@ -81,7 +81,7 @@ class Reports(AbstractContextManager["Reports"]):
 
         def ticked() -> float | None:
             """Advances each waiting request one step outside a locked interface, the timer pass returning 0.0 while requests remain."""
-            manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
             if manager.is_interface_locked:
                 return 0.0
             with self._lock:
@@ -219,7 +219,7 @@ def _rendered(faults: tuple[Fault, ...], /) -> tuple[tuple["rna_enums.WmReportIt
 
 def _redrawn() -> Outcome[Option[str]]:
     """Tags every area of every window for redraw, pushing no undo step."""
-    manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
     for area in (area for window in manager.windows for area in window.screen.areas):
         area.tag_redraw()
     return Ok(Nothing)

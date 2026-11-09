@@ -1,46 +1,44 @@
 {
-  "name": "@rasm/nx-dotnet",
-  "version": "0.0.0",
-  "description": "Nx plugin inferring MSBuild projects, their restores, builds, checks, tests, fixes, and NuGet releases from one MSBuild evaluation of the workspace",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/bsamiee/Rasm",
-    "directory": "apps/nx/dotnet"
-  },
-  "type": "module",
-  "exports": {
-    ".": "./plugins/project-graph.ts",
-    "./release/version-actions": "./version-actions.ts",
-    "./package.json": "./package.json",
-    "./executors.json": "./executors.json"
-  },
-  "imports": {
-    "#analyzer": "./analyzer/MsbuildAnalyzer.csproj"
-  },
-  "publishConfig": {
-    "exports": {
-      ".": "./dist/plugins/project-graph.js",
-      "./release/version-actions": "./dist/version-actions.js",
-      "./package.json": "./package.json",
-      "./executors.json": "./executors.json"
+    "name": "@rasm/nx-dotnet",
+    "version": "0.0.0",
+    "description": "Nx plugin inferring MSBuild projects, their restores, builds, checks, tests, fixes, and NuGet releases from one MSBuild evaluation of the workspace",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/bsamiee/Rasm",
+        "directory": "apps/nx/dotnet"
     },
+    "license": "MIT",
+    "type": "module",
     "imports": {
-      "#analyzer": "./dist/lib/MsbuildAnalyzer.dll"
-    }
-  },
-  "files": [
-    "dist",
-    "executors.json",
-    "executors/*/schema.json"
-  ],
-  "executors": "./executors.json",
-  "scripts": {
-    "prepare": "dotnet build analyzer --configuration Release"
-  },
-  "dependencies": {
-    "@effect/platform-node": "catalog:",
-    "@nx/devkit": "catalog:",
-    "effect": "catalog:"
-  }
+        "#/*": "./*.ts",
+        "#analyzer": "./analyzer/MsbuildAnalyzer.csproj"
+    },
+    "exports": {
+        ".": "./plugins/project-graph.ts",
+        "./release/version-actions": "./version-actions.ts",
+        "./package.json": "./package.json",
+        "./executors.json": "./executors.json"
+    },
+    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "nx": "catalog:"
+    },
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/plugins/project-graph.js",
+            "./release/version-actions": "./dist/version-actions.js",
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json"
+        },
+        "imports": {
+            "#/*": "./dist/*.js",
+            "#analyzer": "./dist/lib/MsbuildAnalyzer.dll"
+        }
+    },
+    "executors": "./executors.json"
 }

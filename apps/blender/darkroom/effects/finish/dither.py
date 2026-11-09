@@ -60,7 +60,7 @@ _METHOD: Final = Socket(
 _STEP: Final = Socket(key="step", kind=bpy.types.NodeSocketFloat, description="Output code step")
 _STRAIGHT: Final = Socket(key="straight", kind=bpy.types.NodeSocketBool, description="Whether the writer rounds straight color")
 _COPY_FORMAT: Final = "png"
-_COPY_DEPTHS: Final[Mapping[str, IntegerDepth]] = MappingProxyType({f"BIT_{depth.bits}": depth for depth in get_args(IntegerDepth.__value__)})  # ty: ignore[unsound-assignment]
+_COPY_DEPTHS: Final[Mapping[str, IntegerDepth]] = MappingProxyType({f"BIT_{depth.bits}": depth for depth in get_args(IntegerDepth.__value__)})
 TILE: Final = Ownership(kind=bpy.types.Image, key="dither_tile", saved=Saved.USED)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -109,7 +109,7 @@ class Dither(CompositorRecord, frozen=True, kw_only=True):
 class DiffusedCopy(bpy.types.PropertyGroup):
     """PNG copy written beside each float frame a diffusing dither entry renders."""
 
-    depth: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    depth: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
         name="Copy Depth", description="Channel depth of diffused PNG copy", items=choices((name, bpy.path.display_name(name.lower()), "") for name in _COPY_DEPTHS), default=f"BIT_{Depth.UINT8.bits}"
     )
 

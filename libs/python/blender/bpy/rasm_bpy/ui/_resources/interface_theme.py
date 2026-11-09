@@ -208,7 +208,7 @@ def _kind(prop: bpy.types.Property, /) -> type:
 
 def _tone(value: Value, /) -> ColorAll:
     """Returns a color member's stored value as a color."""
-    *channels, alpha = _color(value)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    *channels, alpha = _color(value)  # ty: ignore[invalid-argument-type]
     return ColorAll("srgb", channels, alpha)
 
 
@@ -265,7 +265,7 @@ def _evaluated(fit: _Options, binding: _Binding, prop: bpy.types.Property, value
                 final = _stored(reduce(partial(_stepped, read, fit), binding.steps, read(str(source))), fit)
                 return Ok((*final.coords(nans=False), final.alpha(nans=False))[:length])
             case _:
-                held: Value = reduce(lambda number, step: number * step.factor + step.offset, (step for step in binding.steps if isinstance(step, Adjust)), values.get(str(source), source))  # ty: ignore[unsupported-operator]
+                held: Value = reduce(lambda number, step: number * step.factor + step.offset, (step for step in binding.steps if isinstance(step, Adjust)), values.get(str(source), source))
                 return Ok(round(held) if isinstance(prop, bpy.types.IntProperty) and isinstance(held, int | float) else held)
     except (ValueError, TypeError, KeyError, IndexError) as error:
         return Error(Fault.of(Reason.INVALID, key, error))
@@ -330,7 +330,7 @@ def _laid(context: bpy.types.Context, theme: _InterfaceTheme, /) -> Outcome[Mapp
 
 def _restored(context: bpy.types.Context, snapshots: tuple[Snapshot, ...], filepath: str, /, *, dirty: bool) -> None:
     """Writes the captured session values, file, and unsaved mark back, a refusal of what the host held a raised defect."""
-    preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
     match accumulated(snapshot.apply(root).outcome for snapshot, root in zip(snapshots, _roots(context), strict=True)):
         case Result(tag="ok"):
             preferences.themes[0].filepath, preferences.is_dirty = filepath, dirty
@@ -349,7 +349,7 @@ def _held(context: bpy.types.Context, theme: _InterfaceTheme, /) -> Generator[Ou
     Yields:
         Stored value of each bound member by host path, or fault of the capture, the base theme, and every binding.
     """
-    preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
     with ExitStack() as stack:
         filepath, dirty = preferences.themes[0].filepath, preferences.is_dirty
         yield accumulated(map(Snapshot.capture, _roots(context))).map(lambda snapshots: stack.callback(_restored, context, snapshots, filepath, dirty=dirty)).bind(lambda _: _laid(context, theme))
@@ -388,7 +388,7 @@ def installed(context: bpy.types.Context, theme: _InterfaceTheme, name: str, /) 
     Returns:
         Ok(file installed), or fault of the write or the install.
     """
-    preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
     with tempfile.TemporaryDirectory() as folder:
         answer = _written(context, theme, Path(folder) / f"{name}.xml").bind(lambda path: called(bpy.ops.preferences.theme_install, {"filepath": str(path)}))
     return answer.map(lambda _: Path(preferences.themes[0].filepath))

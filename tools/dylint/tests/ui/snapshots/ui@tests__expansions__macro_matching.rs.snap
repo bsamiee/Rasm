@@ -1,0 +1,68 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/tests/expansions/macro_matching.rs
+---
+warning: native pattern tests repeat the same stable subject
+  --> tools/dylint/tests/expansions/macro_matching.rs:42:9
+   |
+42 |         matches!(value, State::Ready(_)) || matches!(value, State::Waiting),
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: test `State::Ready(_) | State::Waiting` in one `matches!` invocation
+   = note: `#[warn(chained_matches)]` on by default
+
+warning: native pattern tests repeat the same stable subject
+  --> tools/dylint/tests/expansions/macro_matching.rs:43:9
+   |
+43 |         !matches!(value, State::Ready(_)) && !matches!(value, State::Waiting),
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: test `State::Ready(_) | State::Waiting` in one negated `matches!` invocation
+
+warning: native pattern tests repeat the same stable subject
+  --> tools/dylint/tests/expansions/macro_matching.rs:44:9
+   |
+44 |         matches!(states[index], State::Ready(_)) | matches!(states[index], State::Waiting),
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: test `State::Ready(_) | State::Waiting` in one `matches!` invocation
+
+warning: native pattern tests repeat the same stable subject
+  --> tools/dylint/tests/expansions/macro_matching.rs:45:9
+   |
+45 |         matches!(traced.state, State::Ready(1)) || matches!(traced.state, State::Ready(2)) || matches!(traced.state, State::Waiting),
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: test `State::Ready(1) | State::Ready(2) | State::Waiting` in one `matches!` invocation
+
+warning: native pattern tests repeat the same stable subject
+  --> tools/dylint/tests/expansions/macro_matching.rs:46:9
+   |
+46 |         matches!(*value, State::Ready(_)) || matches!(*value, State::Waiting),
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: test `State::Ready(_) | State::Waiting` in one `matches!` invocation
+
+warning: native pattern tests repeat the same stable subject
+  --> tools/dylint/tests/expansions/macro_matching.rs:74:9
+   |
+74 |         matches!(value, itertools::Either::Left(_part @ 1)) || matches!(value, itertools::Either::Right(_part @ 2)),
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: test `itertools::Either::Left(_part @ 1) | itertools::Either::Right(_part @ 2)` in one `matches!` invocation
+
+warning: native pattern tests repeat the same stable subject
+  --> tools/dylint/tests/expansions/macro_matching.rs:75:9
+   |
+75 |         matches!(value, itertools::Either::Left(ref _part @ 1)) || matches!(value, itertools::Either::Right(ref _part @ 2)),
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: test `itertools::Either::Left(ref _part @ 1) | itertools::Either::Right(ref _part @ 2)` in one `matches!` invocation
+
+warning: native pattern tests repeat the same stable subject
+  --> tools/dylint/tests/expansions/macro_matching.rs:80:62
+   |
+80 | ...ng, u8>) -> bool { matches!(value, itertools::Either::Left(_)) || matches!(value, itertools::Either::Right(1)) }
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: test `itertools::Either::Left(_) | itertools::Either::Right(1)` in one `matches!` invocation

@@ -10,12 +10,12 @@ import { AnnotationEditorType, AnnotationMode, type PDFDocumentProxy } from 'pdf
 import { LinkTarget, ScrollMode, SpreadMode } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import { useState } from 'react';
 import { Button, Input, SearchField, ToggleButton, Toolbar } from 'react-aria-components';
-import { format, joinDetails, sheetLabel } from '#/media/labels.ts';
+import { format, joinDetails, sheetLabel } from '#/media/labels';
 import { MediaFailure, MediaLoading } from '#/media/status.tsx';
 import { ZoomControls } from '#/media/zoom-controls.tsx';
-import { assetUrl } from '#/model/api.ts';
-import type { PdfAsset } from '#/model/asset.ts';
-import type { Placement } from '#/model/placement.ts';
+import { assetUrl } from '#/model/api';
+import type { PdfAsset } from '#/model/asset';
+import type { Placement } from '#/model/placement';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
